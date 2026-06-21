@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.skills/pd-hifi-slideclone/deck-ir.schema.json",
+  "title": "Editable Deck Intermediate Representation",
+  "type": "object",
+  "required": ["version", "slideSize", "pages"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "slideSize": {
+      "type": "object",
+      "required": ["widthPt", "heightPt"],
+      "properties": {
+        "widthPt": { "type": "number" },
+        "heightPt": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "pages": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/page" }
+    }
+  },
+  "$defs": {
+    "box": {
+      "type": "object",
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number" },
+        "h": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["pageImage", "evidenceBox"],
+      "properties": {
+        "pageImage": { "type": "string" },
+        "ocrProvider": { "type": "string" },
+        "visionProvider": { "type": "string" },
+        "confidence": { "type": "number" },
+        "evidenceBox": { "$ref": "#/$defs/box" },
+        "editable": { "type": "boolean" },
+        "nonEditableReason": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "textBox": {
+      "type": "object",
+      "required": ["id", "text", "box", "source"],
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string" },
+        "text": { "type": "string" },
+        "box": { "$ref": "#/$defs/box" },
+        "font": {
+          "type": "object",
+          "properties": {
+            "family": { "type": "string" },
+            "sizePt": { "type": "number" },
+            "weight": { "type": "string" },
+            "color": { "type": "string" },
+            "align": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "source": { "$ref": "#/$defs/source" }
+      },
+      "additionalProperties": true
+    },
+    "visualElement": {
+      "type": "object",
+      "required": ["id", "type", "box", "source"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "box": { "$ref": "#/$defs/box" },
+        "style": { "type": "object" },
+        "assetPath": { "type": "string" },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "source": { "$ref": "#/$defs/source" }
+      },
+      "additionalProperties": true
+    },
+    "page": {
+      "type": "object",
+      "required": ["pageIndex", "sourceImage", "textBoxes", "shapes", "images", "tables", "charts", "icons"],
+      "properties": {
+        "pageIndex": { "type": "integer" },
+        "sourceImage": { "type": "string" },
+        "background": { "type": "object" },
+        "textBoxes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/textBox" }
+        },
+        "shapes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/visualElement" }
+        },
+        "images": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/visualElement" }
+        },
+        "tables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/visualElement" }
+        },
+        "charts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/visualElement" }
+        },
+        "icons": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/visualElement" }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

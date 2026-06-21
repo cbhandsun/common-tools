@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.skills/pd-hifi-slideclone/slideclone.config.schema.json",
+  "title": "Slide Clone Pipeline Config",
+  "type": "object",
+  "required": ["inputDir", "outputDir", "adapters", "thresholds"],
+  "properties": {
+    "inputDir": { "type": "string" },
+    "outputDir": { "type": "string" },
+    "pagePattern": { "type": "string", "default": "*.{png,jpg,jpeg,webp,pdf,pptx}" },
+    "slide": {
+      "type": "object",
+      "properties": {
+        "widthPt": { "type": "number", "default": 960 },
+        "heightPt": { "type": "number", "default": 540 }
+      },
+      "additionalProperties": false
+    },
+    "adapters": {
+      "type": "object",
+      "required": ["ocr", "vision", "pptx", "render", "diff"],
+      "properties": {
+        "normalize": { "type": "string" },
+        "ocr": { "type": "string" },
+        "vision": { "type": "string" },
+        "pptx": { "type": "string" },
+        "render": { "type": "string" },
+        "diff": { "type": "string" },
+        "compare": { "type": "string" },
+        "polish": { "type": "string" },
+        "compress": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "regionProposal": {
+      "type": "object",
+      "properties": {
+        "includeFullPage": { "type": "boolean", "default": true },
+        "emitRegionPages": { "type": "boolean", "default": false },
+        "cropContainer": { "type": "boolean", "default": false },
+        "minConfidence": { "type": "number", "default": 0.45 },
+        "minAreaRatio": { "type": "number", "default": 0.035 },
+        "maxAreaRatio": { "type": "number", "default": 0.72 },
+        "paddingPx": { "type": "integer", "default": 4 },
+        "innerPaddingPx": { "type": "integer", "default": 4 },
+        "innerHeaderSkipRatio": { "type": "number", "default": 0.18 }
+      },
+      "additionalProperties": false
+    },
+    "normalize": {
+      "type": "object",
+      "properties": {
+        "exportWidthPx": { "type": "integer", "default": 1920, "minimum": 320 },
+        "exportHeightPx": { "type": "integer", "default": 1080, "minimum": 180 }
+      },
+      "additionalProperties": false
+    },
+    "powerPoint": {
+      "type": "object",
+      "properties": {
+        "cleanupHidden": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
+    },
+    "compress": {
+      "type": "object",
+      "properties": {
+        "jpegQuality": { "type": "integer", "default": 88, "minimum": 1, "maximum": 95 },
+        "pngCompressLevel": { "type": "integer", "default": 9, "minimum": 0, "maximum": 9 },
+        "maxImagePixels": { "type": "integer", "default": 0, "minimum": 0 },
+        "minSavingBytes": { "type": "integer", "default": 128, "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "diff": {
+      "type": "object",
+      "properties": {
+        "foregroundTolerancePx": { "type": "integer", "default": 2, "minimum": 0, "maximum": 8 },
+        "foregroundToleranceDelta": { "type": "number", "default": 54, "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "fontFit": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "candidates": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["Microsoft YaHei", "SimHei", "DengXian", "Arial"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "textOcr": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "adapter": { "type": "string" },
+        "mode": { "type": "string", "enum": ["anchored", "fullPage"], "default": "anchored" },
+        "paddingPt": { "type": "number", "default": 2, "minimum": 0 },
+        "upscale": { "type": "integer", "default": 3, "minimum": 1, "maximum": 6 },
+        "psm": { "type": ["integer", "string"], "default": 6 },
+        "preprocess": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
+    },
+    "tesseract": {
+      "type": "object",
+      "properties": {
+        "bin": { "type": "string" },
+        "lang": { "type": "string", "default": "chi_sim+eng" },
+        "tessdataPrefix": { "type": "string" },
+        "psm": { "type": ["integer", "string"], "default": 6 }
+      },
+      "additionalProperties": false
+    },
+    "umiOcr": {
+      "type": "object",
+      "properties": {
+        "paddleBin": { "type": "string" },
+        "modelsPath": { "type": "string" },
+        "initTimeoutMs": { "type": "integer", "default": 60000, "minimum": 1000 }
+      },
+      "additionalProperties": false
+    },
+    "thresholds": {
+      "type": "object",
+      "properties": {
+        "pixelDiffRatio": { "type": "number", "default": 0.08 },
+        "foregroundMissingRatio": { "type": "number", "default": 0.12 },
+        "layoutMeanIoU": { "type": "number", "default": 0.86 },
+        "textCoverage": { "type": "number", "default": 0.95 },
+        "maxCriticalOffsetPt": { "type": "number", "default": 8 },
+        "maxOutOfBoundsPt": { "type": "number", "default": 1 },
+        "maxImageAspectRatioDelta": { "type": "number", "default": 0.03 },
+        "maxRasterImageAreaRatio": { "type": "number", "default": 0.25 }
+      },
+      "additionalProperties": false
+    },
+    "maxIterations": { "type": "integer", "default": 2, "minimum": 0 },
+    "postprocess": {
+      "type": "object",
+      "properties": {
+        "compare": { "type": "boolean", "default": true },
+        "polish": { "type": "boolean", "default": true },
+        "compress": { "type": "boolean", "default": true },
+        "verifyCompressed": { "type": "boolean", "default": true },
+        "stopWhenThresholdPassed": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

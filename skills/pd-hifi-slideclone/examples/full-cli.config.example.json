@@ -1,0 +1,75 @@
+{
+  "inputDir": "./input",
+  "outputDir": "./runs/slideclone-full",
+  "pagePattern": "*.{png,jpg,jpeg,webp,pdf,ppt,pptx}",
+  "slide": {
+    "widthPt": 960,
+    "heightPt": 540
+  },
+  "adapters": {
+    "normalize": "scripts/adapters/normalize-cli.js",
+    "ocr": "scripts/adapters/ocr-tesseract-cli.js",
+    "vision": "scripts/adapters/vision-placeholder.js",
+    "pptx": "scripts/adapters/pptx-openxml-dotnet.js",
+    "render": "scripts/adapters/render-libreoffice.js",
+    "diff": "scripts/adapters/diff-pixel-png.js",
+    "compare": "scripts/adapters/compare-placeholder.js",
+    "polish": "scripts/adapters/polish-placeholder.js",
+    "compress": "scripts/adapters/compress-pptx-media.js"
+  },
+  "thresholds": {
+    "pixelDiffRatio": 0.08,
+    "layoutMeanIoU": 0.86,
+    "textCoverage": 0.95,
+    "maxCriticalOffsetPt": 8,
+    "maxOutOfBoundsPt": 1,
+    "maxImageAspectRatioDelta": 0.03,
+    "maxRasterImageAreaRatio": 0.25
+  },
+  "compress": {
+    "jpegQuality": 88,
+    "pngCompressLevel": 9,
+    "maxImagePixels": 0,
+    "minSavingBytes": 128
+  },
+  "diff": {
+    "foregroundTolerancePx": 2,
+    "foregroundToleranceDelta": 54
+  },
+  "fontFit": {
+    "enabled": false,
+    "candidates": [
+      "Microsoft YaHei",
+      "SimHei",
+      "DengXian",
+      "Arial"
+    ]
+  },
+  "textOcr": {
+    "enabled": false,
+    "adapter": "scripts/adapters/ocr-umi-paddle.js",
+    "mode": "anchored",
+    "paddingPt": 16,
+    "upscale": 1,
+    "psm": 6,
+    "preprocess": false
+  },
+  "umiOcr": {
+    "paddleBin": "C:\\Program Files\\Umi-OCR_Paddle_v2.1.5\\UmiOCR-data\\plugins\\win7_x64_PaddleOCR-json\\PaddleOCR-json.exe",
+    "initTimeoutMs": 60000
+  },
+  "tesseract": {
+    "bin": "tesseract",
+    "lang": "chi_sim+eng",
+    "tessdataPrefix": "./tools/tessdata",
+    "psm": 6
+  },
+  "maxIterations": 2,
+  "postprocess": {
+    "compare": true,
+    "polish": true,
+    "compress": true,
+    "verifyCompressed": true,
+    "stopWhenThresholdPassed": true
+  }
+}

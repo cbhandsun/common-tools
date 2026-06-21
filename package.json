@@ -1,0 +1,18 @@
+{
+  "name": "common-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reusable engineering tools and Codex skills.",
+  "type": "commonjs",
+  "scripts": {
+    "slideclone:init": "node skills/pd-hifi-slideclone/scripts/slideclone.js init",
+    "slideclone:run": "node skills/pd-hifi-slideclone/scripts/slideclone.js run",
+    "slideclone:validate": "node skills/pd-hifi-slideclone/scripts/slideclone.js validate",
+    "slideclone:demo": "node skills/pd-hifi-slideclone/scripts/slideclone.js validate --ir skills/pd-hifi-slideclone/examples/sample-deck.json",
+    "slideclone:build-openxml": "node scripts/run-local-dotnet.js build skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
+    "slideclone:detect-regions": "node skills/pd-hifi-slideclone/scripts/detect-regions.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
