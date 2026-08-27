@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPT Quality Repair"
+  short_description: "Repair slide readability and layout with minimal drift."
+  default_prompt: "Use $ppt-quality-repair to improve this deck while preserving its original message and structure."

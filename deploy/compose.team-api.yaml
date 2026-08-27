@@ -1,0 +1,308 @@
+services:
+  team-migrate:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.remote-mcp
+    image: common-tools-remote-mcp:local
+    # A Worker-only deployment needs the same schema gate as the API profile.
+    profiles: ["team-api", "team-maintenance", "team-worker-audit", "team-worker-image", "team-worker-ppt-improve", "team-worker-ppt-quality"]
+    command: ["node", "packages/remote-mcp-server/bin/common-tools-team-migrate.js"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      NODE_ENV: development
+      COMMON_TOOLS_TEAM_MODE: development
+      COMMON_TOOLS_TEAM_CAPABILITIES: ${COMMON_TOOLS_TEAM_CAPABILITIES:-image-to-editable,project-audit}
+      COMMON_TOOLS_DATABASE_URL: postgresql://postgres:5432/common_tools
+      COMMON_TOOLS_DATABASE_USER: common_tools
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-${COMMON_TOOLS_POSTGRES_PASSWORD:?set database password}}
+      COMMON_TOOLS_REDIS_URL: redis://redis:6379
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:?set Redis password}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: http://minio:9000
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: common-tools-artifacts
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: common-tools-admin
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-${COMMON_TOOLS_MINIO_PASSWORD:?set MinIO password}}
+    restart: "no"
+    cpus: "0.25"
+    mem_limit: 256m
+    pids_limit: 128
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  # Runs expiration and retention cleanup sequentially. A failure exits the
+  # container so Compose can restart it; it never continues after an unknown
+  # cleanup result. SIGTERM interrupts only the idle wait, not an active pass.
+  team-retention:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.remote-mcp
+    image: common-tools-remote-mcp:local
+    profiles: ["team-maintenance"]
+    command: ["node", "packages/remote-mcp-server/bin/common-tools-team-retention-scheduler.js"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: development
+      COMMON_TOOLS_TEAM_MODE: development
+      COMMON_TOOLS_TEAM_CAPABILITIES: ${COMMON_TOOLS_TEAM_CAPABILITIES:-image-to-editable,project-audit}
+      COMMON_TOOLS_ARTIFACT_RETENTION_DAYS: ${COMMON_TOOLS_ARTIFACT_RETENTION_DAYS:-30}
+      COMMON_TOOLS_RETENTION_BATCH_SIZE: ${COMMON_TOOLS_RETENTION_BATCH_SIZE:-100}
+      COMMON_TOOLS_RETENTION_INTERVAL_SECONDS: ${COMMON_TOOLS_RETENTION_INTERVAL_SECONDS:-86400}
+      COMMON_TOOLS_DATABASE_URL: postgresql://postgres:5432/common_tools
+      COMMON_TOOLS_DATABASE_USER: common_tools
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-${COMMON_TOOLS_POSTGRES_PASSWORD:?set database password}}
+      COMMON_TOOLS_REDIS_URL: redis://redis:6379
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:?set Redis password}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: http://minio:9000
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: common-tools-artifacts
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: common-tools-admin
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-${COMMON_TOOLS_MINIO_PASSWORD:?set MinIO password}}
+    restart: unless-stopped
+    stop_grace_period: 60s
+    cpus: "0.25"
+    mem_limit: 256m
+    pids_limit: 128
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  remote-mcp:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.remote-mcp
+    image: common-tools-remote-mcp:local
+    profiles: ["team-api"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: development
+      COMMON_TOOLS_REMOTE_BACKEND: postgres-redis-s3
+      COMMON_TOOLS_REMOTE_HOST: 0.0.0.0
+      COMMON_TOOLS_REMOTE_PORT: 3000
+      COMMON_TOOLS_REMOTE_PUBLIC_URL: ${COMMON_TOOLS_REMOTE_PUBLIC_URL:?set public MCP URL}
+      COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS: ${COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS:?set allowed origins}
+      COMMON_TOOLS_OIDC_ISSUER: ${COMMON_TOOLS_OIDC_ISSUER:?set OIDC issuer}
+      COMMON_TOOLS_OIDC_JWKS_URL: ${COMMON_TOOLS_OIDC_JWKS_URL:?set OIDC JWKS URL}
+      COMMON_TOOLS_OIDC_AUDIENCE: ${COMMON_TOOLS_OIDC_AUDIENCE:?set OIDC audience}
+      COMMON_TOOLS_OIDC_REQUEST_TIMEOUT_MS: ${COMMON_TOOLS_OIDC_REQUEST_TIMEOUT_MS:-10000}
+      # Optional: enables the bearer-protected internal /metrics endpoint.
+      COMMON_TOOLS_METRICS_TOKEN: ${COMMON_TOOLS_METRICS_TOKEN:-}
+      # Optional OTLP/HTTP trace exporter. It is disabled unless an endpoint is
+      # supplied; production accepts HTTPS only and no collector credential.
+      COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+      COMMON_TOOLS_OTEL_SERVICE_NAME: ${COMMON_TOOLS_OTEL_SERVICE_NAME:-}
+      COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS: ${COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS:-}
+      COMMON_TOOLS_TEAM_MODE: development
+      # Set one capability (for example project-audit) when only its Worker
+      # profile is deployed. The same value is passed to every service below.
+      COMMON_TOOLS_TEAM_CAPABILITIES: ${COMMON_TOOLS_TEAM_CAPABILITIES:-image-to-editable,project-audit}
+      # One-shot retention runs inherit this value through `docker compose run`.
+      # It deliberately does not delete live Job inputs or unexpired artifacts.
+      COMMON_TOOLS_ARTIFACT_RETENTION_DAYS: ${COMMON_TOOLS_ARTIFACT_RETENTION_DAYS:-30}
+      # Keep API metrics and the maintenance scheduler on the same stale-heartbeat window.
+      COMMON_TOOLS_RETENTION_INTERVAL_SECONDS: ${COMMON_TOOLS_RETENTION_INTERVAL_SECONDS:-86400}
+      COMMON_TOOLS_PROJECT_ACTIVE_JOB_LIMIT: ${COMMON_TOOLS_PROJECT_ACTIVE_JOB_LIMIT:-100}
+      COMMON_TOOLS_DATABASE_URL: postgresql://postgres:5432/common_tools
+      COMMON_TOOLS_DATABASE_USER: common_tools
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-${COMMON_TOOLS_POSTGRES_PASSWORD:?set database password}}
+      COMMON_TOOLS_REDIS_URL: redis://redis:6379
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:?set Redis password}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: http://minio:9000
+      # Optional external HTTPS origin used only when signing client upload and
+      # download URLs. Workers always keep using the Docker-internal endpoint.
+      COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT: ${COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT:-}
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: common-tools-artifacts
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: common-tools-admin
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-${COMMON_TOOLS_MINIO_PASSWORD:?set MinIO password}}
+    ports:
+      # 53000 is commonly reserved by Windows/Hyper-V. 54000 avoids that range
+      # on standard Docker Desktop installations; override if the host reserves it.
+      - "127.0.0.1:${COMMON_TOOLS_REMOTE_PORT:-54000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/readyz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    cpus: "1.0"
+    mem_limit: 768m
+    pids_limit: 256
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=64m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  project-audit-worker:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.remote-mcp
+    image: common-tools-remote-mcp:local
+    profiles: ["team-worker-audit"]
+    command: ["node", "packages/remote-mcp-server/bin/common-tools-team-worker.js"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: development
+      COMMON_TOOLS_TEAM_MODE: development
+      COMMON_TOOLS_TEAM_CAPABILITIES: ${COMMON_TOOLS_TEAM_CAPABILITIES:-image-to-editable,project-audit}
+      COMMON_TOOLS_WORKER_CAPABILITIES: project-audit
+      COMMON_TOOLS_WORKER_POLL_SECONDS: 5
+      COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+      COMMON_TOOLS_OTEL_SERVICE_NAME: ${COMMON_TOOLS_OTEL_SERVICE_NAME:-}
+      COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS: ${COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS:-}
+      COMMON_TOOLS_DATABASE_URL: postgresql://postgres:5432/common_tools
+      COMMON_TOOLS_DATABASE_USER: common_tools
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-${COMMON_TOOLS_POSTGRES_PASSWORD:?set database password}}
+      COMMON_TOOLS_REDIS_URL: redis://redis:6379
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:?set Redis password}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: http://minio:9000
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: common-tools-artifacts
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: common-tools-admin
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-${COMMON_TOOLS_MINIO_PASSWORD:?set MinIO password}}
+    restart: unless-stopped
+    stop_grace_period: 60s
+    cpus: "1.0"
+    mem_limit: 1g
+    pids_limit: 256
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=128m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  ppt-quality-worker:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.remote-mcp
+    image: common-tools-remote-mcp:local
+    profiles: ["team-worker-ppt-quality"]
+    command: ["node", "packages/remote-mcp-server/bin/common-tools-team-ppt-quality-worker.js"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: development
+      COMMON_TOOLS_TEAM_MODE: development
+      COMMON_TOOLS_TEAM_CAPABILITIES: ${COMMON_TOOLS_TEAM_CAPABILITIES:-image-to-editable,project-audit}
+      COMMON_TOOLS_WORKER_CAPABILITIES: ppt-quality
+      COMMON_TOOLS_WORKER_POLL_SECONDS: 5
+      COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+      COMMON_TOOLS_OTEL_SERVICE_NAME: ${COMMON_TOOLS_OTEL_SERVICE_NAME:-}
+      COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS: ${COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS:-}
+      COMMON_TOOLS_DATABASE_URL: postgresql://postgres:5432/common_tools
+      COMMON_TOOLS_DATABASE_USER: common_tools
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-${COMMON_TOOLS_POSTGRES_PASSWORD:?set database password}}
+      COMMON_TOOLS_REDIS_URL: redis://redis:6379
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:?set Redis password}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: http://minio:9000
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: common-tools-artifacts
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: common-tools-admin
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-${COMMON_TOOLS_MINIO_PASSWORD:?set MinIO password}}
+    restart: unless-stopped
+    stop_grace_period: 60s
+    cpus: "1.0"
+    mem_limit: 512m
+    pids_limit: 128
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=128m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  ppt-improve-worker:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.remote-mcp
+    image: common-tools-remote-mcp:local
+    profiles: ["team-worker-ppt-improve"]
+    command: ["node", "packages/remote-mcp-server/bin/common-tools-team-ppt-improve-worker.js"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: development
+      COMMON_TOOLS_TEAM_MODE: development
+      COMMON_TOOLS_TEAM_CAPABILITIES: ${COMMON_TOOLS_TEAM_CAPABILITIES:-image-to-editable,project-audit}
+      COMMON_TOOLS_WORKER_CAPABILITIES: ppt-improve
+      COMMON_TOOLS_WORKER_POLL_SECONDS: 5
+      COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+      COMMON_TOOLS_OTEL_SERVICE_NAME: ${COMMON_TOOLS_OTEL_SERVICE_NAME:-}
+      COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS: ${COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS:-}
+      COMMON_TOOLS_DATABASE_URL: postgresql://postgres:5432/common_tools
+      COMMON_TOOLS_DATABASE_USER: common_tools
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-${COMMON_TOOLS_POSTGRES_PASSWORD:?set database password}}
+      COMMON_TOOLS_REDIS_URL: redis://redis:6379
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:?set Redis password}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: http://minio:9000
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: common-tools-artifacts
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: common-tools-admin
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-${COMMON_TOOLS_MINIO_PASSWORD:?set MinIO password}}
+    restart: unless-stopped
+    stop_grace_period: 60s
+    cpus: "1.0"
+    mem_limit: 768m
+    pids_limit: 128
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=128m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  image-to-editable-worker:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.image-to-editable
+    image: common-tools-image-to-editable:local
+    profiles: ["team-worker-image"]
+    command: ["node", "packages/remote-mcp-server/bin/common-tools-team-image-worker.js"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: development
+      COMMON_TOOLS_TEAM_MODE: development
+      COMMON_TOOLS_TEAM_CAPABILITIES: ${COMMON_TOOLS_TEAM_CAPABILITIES:-image-to-editable,project-audit}
+      COMMON_TOOLS_WORKER_CAPABILITIES: image-to-editable
+      COMMON_TOOLS_WORKER_POLL_SECONDS: 5
+      COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+      COMMON_TOOLS_OTEL_SERVICE_NAME: ${COMMON_TOOLS_OTEL_SERVICE_NAME:-}
+      COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS: ${COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS:-}
+      # OpenXML generation is intentionally bounded below the fixed 9-minute
+      # process timeout, while leaving time for artifact upload and cleanup.
+      COMMON_TOOLS_WORKER_LEASE_SECONDS: 600
+      COMMON_TOOLS_PROJECT_ACTIVE_JOB_LIMIT: ${COMMON_TOOLS_PROJECT_ACTIVE_JOB_LIMIT:-100}
+      COMMON_TOOLS_DATABASE_URL: postgresql://postgres:5432/common_tools
+      COMMON_TOOLS_DATABASE_USER: common_tools
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-${COMMON_TOOLS_POSTGRES_PASSWORD:?set database password}}
+      COMMON_TOOLS_REDIS_URL: redis://redis:6379
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:?set Redis password}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: http://minio:9000
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: common-tools-artifacts
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: common-tools-admin
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-${COMMON_TOOLS_MINIO_PASSWORD:?set MinIO password}}
+      OPENXML_BUILDER_EXE: /opt/openxml/OpenXmlDeckBuilder
+    restart: unless-stopped
+    stop_grace_period: 60s
+    cpus: "2.0"
+    mem_limit: 3g
+    pids_limit: 256
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=256m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]

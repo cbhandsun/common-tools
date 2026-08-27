@@ -1,0 +1,8 @@
+# The remote MCP API uses only its package metadata and Node sources.  Keep
+# image-conversion assets and unrelated local work out of this build context.
+**
+!package.json
+!package-lock.json
+!packages/
+!packages/**
+!skills/

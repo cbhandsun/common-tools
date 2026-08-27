@@ -1,12 +1,20 @@
 "use strict";
 
-module.exports = async function polishFlowDiagramRules(input) {
+const { applyTextBoxMicroAdjustments } = require("../lib/text-box-micro-adjust");
+
+module.exports = async function polishFlowDiagramRules(input, context = {}) {
   const ir = JSON.parse(JSON.stringify(input.ir));
   const changes = [];
   const metrics = input.diff?.summary || {};
   const needsForegroundPolish = typeof metrics.foregroundMissingRatio === "number"
     && metrics.foregroundMissingRatio > (input.thresholds?.foregroundMissingRatio ?? 0.12);
-  if (!needsForegroundPolish) {
+  const textCoverageByPage = new Map((input.compare?.textCoverage?.pages || []).map((page) => [page.pageIndex, page]));
+  const needsTextMicroPolish = [...textCoverageByPage.values()].some((page) =>
+    (page.boxes || []).some((box) => box.ok === true && (
+      (typeof box.textCoverage === "number" && box.textCoverage < 0.995)
+      || (typeof box.expectedCoverage === "number" && box.expectedCoverage < 0.995)
+    )));
+  if (!needsForegroundPolish && !needsTextMicroPolish) {
     return {
       ok: true,
       data: {
@@ -19,35 +27,53 @@ module.exports = async function polishFlowDiagramRules(input) {
     };
   }
 
-  for (const page of ir.pages || []) {
-    for (const shape of page.shapes || []) {
-      if (shape.type === "rounded-rect") {
-        setStyle(shape, "radiusRatio", radiusFor(shape.id), changes, input.iteration, "Reduce PowerPoint default rounded-rectangle radius to better match source card corners.");
+  if (needsForegroundPolish) {
+    for (const page of ir.pages || []) {
+      for (const shape of page.shapes || []) {
+        if (shape.type === "rounded-rect") {
+          setStyle(shape, "radiusRatio", radiusFor(shape.id), changes, input.iteration, "Reduce PowerPoint default rounded-rectangle radius to better match source card corners.");
+        }
+        if (shape.type === "line" && shape.style?.strokeWidthPt) {
+          const width = lineWidthFor(shape.id, shape.style.strokeWidthPt);
+          setStyle(shape, "strokeWidthPt", width, changes, input.iteration, "Tune connector stroke width from diff foreground mismatch.");
+        }
       }
-      if (shape.type === "line" && shape.style?.strokeWidthPt) {
-        const width = lineWidthFor(shape.id, shape.style.strokeWidthPt);
-        setStyle(shape, "strokeWidthPt", width, changes, input.iteration, "Tune connector stroke width from diff foreground mismatch.");
-      }
-    }
 
-    for (const textBox of page.textBoxes || []) {
-      const font = textBox.font || {};
-      const factor = textScaleFor(textBox.id);
-      if (factor !== 1 && typeof font.sizePt === "number") {
-        setFont(textBox, "sizePt", round(font.sizePt * factor), changes, input.iteration, "Tune text size from foreground diff.");
+      for (const textBox of page.textBoxes || []) {
+        const font = textBox.font || {};
+        const factor = textScaleFor(textBox.id);
+        if (factor !== 1 && typeof font.sizePt === "number") {
+          setFont(textBox, "sizePt", round(font.sizePt * factor), changes, input.iteration, "Tune text size from foreground diff.");
+        }
+        const move = textMoveFor(textBox.id);
+        if (move) moveBox(textBox, move.dx, move.dy, changes, input.iteration, "Nudge text box toward source text position.");
       }
-      const move = textMoveFor(textBox.id);
-      if (move) moveBox(textBox, move.dx, move.dy, changes, input.iteration, "Nudge text box toward source text position.");
+      page.polishNotes = [
+        ...(page.polishNotes || []),
+        {
+          iteration: input.iteration,
+          provider: "polish-flow-diagram-rules",
+          note: "Applied deterministic flow-diagram polish: radius, stroke, arrow head, and typography adjustments."
+        }
+      ];
     }
+  }
 
-    page.polishNotes = [
-      ...(page.polishNotes || []),
-      {
+  const genericTextAdjust = applyTextBoxMicroAdjustments(ir, input.compare?.textCoverage, {
+    enabled: context.config?.textMicroAdjust?.enabled !== false,
+    paddingPt: context.config?.textMicroAdjust?.paddingPt ?? context.config?.textOcr?.paddingPt ?? 16,
+    minCoverage: context.config?.textMicroAdjust?.minCoverage ?? 0.995,
+    maxMovePt: context.config?.textMicroAdjust?.maxMovePt ?? 3,
+    maxHeightAdjustPt: context.config?.textMicroAdjust?.maxHeightAdjustPt ?? 2.5,
+    minDeltaPt: context.config?.textMicroAdjust?.minDeltaPt ?? 0.15
+  });
+  if (genericTextAdjust.changed) {
+    for (const changeEntry of genericTextAdjust.changes) {
+      changes.push({
         iteration: input.iteration,
-        provider: "polish-flow-diagram-rules",
-        note: "Applied deterministic flow-diagram polish: radius, stroke, arrow head, and typography adjustments."
-      }
-    ];
+        ...changeEntry
+      });
+    }
   }
 
   return {
@@ -56,7 +82,7 @@ module.exports = async function polishFlowDiagramRules(input) {
       provider: "polish-flow-diagram-rules",
       iteration: input.iteration,
       changed: changes.length > 0,
-      ir,
+      ir: genericTextAdjust.ir,
       changes
     }
   };

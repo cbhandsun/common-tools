@@ -1,0 +1,18 @@
+services:
+  worker:
+    volumes:
+      - type: bind
+        source: ../runs
+        target: /work/runs
+        read_only: false
+    # Keep both workspace metadata and the local job store on the explicitly
+    # writable bind mount; the container filesystem itself is read-only.
+    command: ["doctor", "--mode", "worker", "--workspace", "/work/runs", "--state", "/work/runs/.common-tools"]
+
+  image-to-editable-worker:
+    volumes:
+      - type: bind
+        source: ../runs
+        target: /work/runs
+        read_only: false
+    command: ["doctor", "--mode", "worker", "--capability", "image-to-editable", "--workspace", "/work/runs", "--state", "/work/runs/.common-tools"]

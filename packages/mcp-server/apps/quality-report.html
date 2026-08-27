@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Common Tools quality report</title>
+  <style>
+    :root { color-scheme: light dark; font-family: var(--font-sans, system-ui, sans-serif); color: var(--color-text-primary, CanvasText); background: var(--color-background-primary, Canvas); }
+    body { margin: 0; padding: 16px; } main { display: grid; gap: 12px; } h1 { font-size: 1.05rem; margin: 0; } .summary { color: var(--color-text-secondary, GrayText); font-size: .9rem; } .status { border-radius: 8px; font-weight: 650; padding: 7px 10px; width: fit-content; } .pass { background: color-mix(in srgb, #188038 18%, transparent); color: #137333; } .fail { background: color-mix(in srgb, #c5221f 18%, transparent); color: #a50e0e; } section { border: 1px solid var(--color-border, #c9c9c9); border-radius: 8px; padding: 10px; } h2 { font-size: .9rem; margin: 0 0 8px; } ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; } li { display: flex; justify-content: space-between; gap: 12px; font-size: .86rem; } code { font-family: var(--font-mono, ui-monospace, monospace); overflow-wrap: anywhere; } input { box-sizing: border-box; width: 100%; margin: 0 0 8px; padding: 6px 8px; } .muted { color: var(--color-text-secondary, GrayText); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Quality report</h1>
+    <p id="summary" class="summary">Waiting for the tool result.</p>
+    <div id="status" class="status muted">No report</div>
+    <section><h2>Checks</h2><ul id="checks"><li class="muted">No checks returned.</li></ul></section>
+    <section><h2>Metrics</h2><ul id="metrics"><li class="muted">No metrics returned.</li></ul></section>
+    <section><h2>Audit selection</h2><ul id="audit-selection"><li class="muted">No project-audit selection returned.</li></ul></section>
+    <section><h2>Visual comparison</h2><ul id="visual"><li class="muted">No verified visual-diff summary returned.</li></ul></section>
+    <section><h2>Per-page comparison</h2><ul id="visual-pages"><li class="muted">No verified per-page comparison returned.</li></ul></section>
+    <section><h2>PPT structure</h2><ul id="ppt-structure"><li class="muted">No verified PPT structural audit returned.</li></ul></section>
+    <section><h2>PPT improvement</h2><ul id="ppt-improvement"><li class="muted">No verified PPT improvement report returned.</li></ul></section>
+    <section><h2>Audit findings</h2><label class="muted" for="filter">Filter by rule or severity</label><input id="filter" type="search" autocomplete="off" placeholder="e.g. possible-secrets or warn"><ul id="findings"><li class="muted">No audit findings returned.</li></ul></section>
+  </main>
+  <script>
+    (() => {
+      "use strict";
+      const summary = document.getElementById("summary");
+      const status = document.getElementById("status");
+      const checks = document.getElementById("checks");
+      const metrics = document.getElementById("metrics");
+      const auditSelection = document.getElementById("audit-selection");
+      const visual = document.getElementById("visual");
+      const visualPages = document.getElementById("visual-pages");
+      const pptStructure = document.getElementById("ppt-structure");
+      const pptImprovement = document.getElementById("ppt-improvement");
+      const filter = document.getElementById("filter");
+      const findings = document.getElementById("findings");
+      const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+      const clear = (node) => { while (node.firstChild) node.removeChild(node.firstChild); };
+      const item = (left, right, passed) => { const row = document.createElement("li"); const name = document.createElement("code"); name.textContent = left; const value = document.createElement("span"); value.textContent = right; if (passed !== undefined) value.className = passed ? "pass" : "fail"; row.append(name, value); return row; };
+      const empty = (node, message) => { const row = document.createElement("li"); row.className = "muted"; row.textContent = message; node.append(row); };
+      let auditFindings = [];
+      const renderFindings = () => {
+        clear(findings);
+        const query = filter.value.trim().toLowerCase();
+        const visible = auditFindings.filter((finding) => !query || finding.id.includes(query) || finding.severity.includes(query) || (typeof finding.assessment === "string" && finding.assessment.includes(query)));
+        if (!visible.length) { empty(findings, auditFindings.length ? "No findings match the filter." : "No audit findings returned."); return; }
+        visible.forEach((finding) => {
+          const classification = typeof finding.assessment === "string" ? `${finding.severity} · ${finding.assessment}` : finding.severity;
+          const detail = finding.evidence.length ? `${classification} · ${finding.evidence.map((item) => `${item.file}:${item.line}`).join(", ")}` : Number.isSafeInteger(finding.count) ? `${classification} · count=${finding.count}` : classification;
+          findings.append(item(finding.id, detail, finding.passed));
+        });
+      };
+      const render = (result) => {
+        const value = isObject(result) && isObject(result.structuredContent) ? result.structuredContent : {};
+        const quality = isObject(value.quality) ? value.quality : null;
+        summary.textContent = [typeof value.capability === "string" ? value.capability : null, typeof value.id === "string" ? value.id : null, typeof value.status === "string" ? value.status : null].filter(Boolean).join(" · ") || "No Job metadata returned.";
+        status.textContent = quality ? (quality.passed === true ? "Quality checks passed" : "Quality checks failed") : "No quality report returned";
+        status.className = quality ? `status ${quality.passed === true ? "pass" : "fail"}` : "status muted";
+        clear(checks); clear(metrics); clear(auditSelection); clear(visual); clear(visualPages); clear(pptStructure); clear(pptImprovement);
+        if (!quality || !Array.isArray(quality.checks)) empty(checks, "No checks returned.");
+        else quality.checks.forEach((check) => { if (isObject(check) && typeof check.name === "string" && typeof check.passed === "boolean") checks.append(item(check.name, check.passed ? "passed" : "failed", check.passed)); });
+        if (!quality || !isObject(quality.metrics) || Object.keys(quality.metrics).length === 0) empty(metrics, "No metrics returned.");
+        else Object.entries(quality.metrics).forEach(([name, metric]) => { if (typeof metric === "number" && Number.isFinite(metric)) metrics.append(item(name, String(metric))); });
+        const projectAuditScope = isObject(value.audit) && isObject(value.audit.scope) ? value.audit.scope : null;
+        const safeAuditLevel = projectAuditScope && ["quick", "standard", "deep"].includes(projectAuditScope.auditLevel) ? projectAuditScope.auditLevel : null;
+        const safeAuditDomains = projectAuditScope && Array.isArray(projectAuditScope.auditDomains) && projectAuditScope.auditDomains.every((domain) => typeof domain === "string") ? projectAuditScope.auditDomains : [];
+        if (!safeAuditLevel || !safeAuditDomains.length) empty(auditSelection, "No project-audit selection returned.");
+        else {
+          auditSelection.append(item("level", safeAuditLevel));
+          auditSelection.append(item("domains", safeAuditDomains.join(", ")));
+          if (typeof projectAuditScope.coverageStrategy === "string") auditSelection.append(item("coverage", projectAuditScope.coverageStrategy));
+          if (Array.isArray(projectAuditScope.requiredExperienceScenarios)) auditSelection.append(item("required experience", projectAuditScope.requiredExperienceScenarios.length ? projectAuditScope.requiredExperienceScenarios.join(", ") : "none"));
+          if (typeof projectAuditScope.requiresRuntimeGates === "boolean") auditSelection.append(item("runtime gates required", projectAuditScope.requiresRuntimeGates ? "yes" : "no"));
+        }
+        const visualSummary = isObject(value.visual) && isObject(value.visual.pages) && isObject(value.visual.metrics) ? value.visual : null;
+        if (!visualSummary || !Number.isSafeInteger(visualSummary.pages.count) || !Number.isSafeInteger(visualSummary.pages.imageOnlyCount)) empty(visual, "No verified visual-diff summary returned.");
+        else {
+          visual.append(item("pages", `${visualSummary.pages.count} total, ${visualSummary.pages.imageOnlyCount} image-only`));
+          Object.entries(visualSummary.metrics).forEach(([name, metric]) => { if (typeof metric === "number" && Number.isFinite(metric)) visual.append(item(name, String(metric))); });
+          if (Number.isSafeInteger(visualSummary.warnings) && visualSummary.warnings > 0) visual.append(item("warnings", String(visualSummary.warnings)));
+        }
+        const perPage = visualSummary && Array.isArray(visualSummary.perPage) ? visualSummary.perPage : [];
+        const safePages = perPage.filter((page) => isObject(page) && Number.isSafeInteger(page.page) && page.page > 0 && typeof page.compared === "boolean" && Object.entries(page).every(([name, metric]) => ["page", "compared", "pixelDiffRatio", "foregroundMissingRatio", "meanAbsoluteDelta"].includes(name) && (name === "page" ? true : name === "compared" ? true : typeof metric === "number" && Number.isFinite(metric))));
+        if (!safePages.length) empty(visualPages, "No verified per-page comparison returned.");
+        else safePages.forEach((page) => {
+          const metricsText = ["pixelDiffRatio", "foregroundMissingRatio", "meanAbsoluteDelta"].filter((name) => typeof page[name] === "number").map((name) => `${name}=${page[name]}`).join(" · ");
+          visualPages.append(item(`page ${page.page}`, page.compared ? (metricsText || "compared") : "not compared", page.compared));
+        });
+        const pptAudit = isObject(value.audit) && isObject(value.audit.summary) ? value.audit : null;
+        const auditFields = ["slideCount", "emptySlideCount", "textShapeCount", "pictureCount", "tableCount", "mediaCount", "unusedMediaCount", "notesCount", "relationshipCount", "unresolvedRelationshipCount", "invalidRelationshipCount"];
+        if (!pptAudit || auditFields.some((name) => !Number.isSafeInteger(pptAudit.summary[name]) || pptAudit.summary[name] < 0)) empty(pptStructure, "No verified PPT structural audit returned.");
+        else auditFields.forEach((name) => pptStructure.append(item(name, String(pptAudit.summary[name]))));
+        const improvement = isObject(value.improvement) && isObject(value.improvement.result) ? value.improvement : null;
+        if (!improvement || typeof improvement.result.changed !== "boolean" || !Number.isSafeInteger(improvement.result.removedMediaCount) || improvement.result.removedMediaCount < 0) empty(pptImprovement, "No verified PPT improvement report returned.");
+        else {
+          pptImprovement.append(item("changed", improvement.result.changed ? "yes" : "no", improvement.result.changed));
+          pptImprovement.append(item("removedMediaCount", String(improvement.result.removedMediaCount)));
+        }
+        const audit = isObject(value.audit) && Array.isArray(value.audit.findings) ? value.audit : null;
+        auditFindings = audit ? audit.findings.map((finding) => {
+          if (!isObject(finding) || typeof finding.id !== "string" || typeof finding.severity !== "string") return null;
+          if (typeof finding.passed === "boolean" && Array.isArray(finding.evidence) && finding.evidence.every((evidence) => isObject(evidence) && typeof evidence.file === "string" && typeof evidence.line === "number")) return finding;
+          if (Number.isSafeInteger(finding.count) && finding.count >= 0) return { id: finding.id, severity: finding.severity, passed: finding.severity !== "warn", evidence: [], count: finding.count };
+          return null;
+        }).filter(Boolean) : [];
+        renderFindings();
+      };
+      let initialized = false;
+      const send = (message) => window.parent.postMessage(message, "*");
+      window.addEventListener("message", (event) => {
+        if (event.source !== window.parent) return;
+        const message = event.data;
+        if (!isObject(message)) return;
+        if (message.method === "ui/notifications/tool-result") { render(message.params); return; }
+        if (message.method === "ui/resource-teardown" && message.id !== undefined) { send({ jsonrpc: "2.0", id: message.id, result: {} }); return; }
+        if (!initialized && message.id === 1 && (isObject(message.result) || isObject(message.error))) { initialized = true; send({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} }); }
+      });
+      filter.addEventListener("input", renderFindings);
+      send({ jsonrpc: "2.0", id: 1, method: "ui/initialize", params: { appCapabilities: { availableDisplayModes: ["inline"] } } });
+    })();
+  </script>
+</body>
+</html>

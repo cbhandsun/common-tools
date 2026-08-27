@@ -1,0 +1,27 @@
+{
+  "name": "common-tools",
+  "description": "Installable local engineering capabilities powered by common-tools.",
+  "owner": { "name": "common-tools" },
+  "plugins": [
+    {
+      "name": "image-to-editable",
+      "source": "./plugins/image-to-editable",
+      "description": "Create controlled local image-to-editable jobs."
+    },
+    {
+      "name": "project-audit",
+      "source": "./plugins/project-audit",
+      "description": "Run controlled, evidence-based local project audits."
+    },
+    {
+      "name": "ppt-quality",
+      "source": "./plugins/ppt-quality",
+      "description": "Create read-only, verifiable PPTX quality reports."
+    },
+    {
+      "name": "ppt-improve",
+      "source": "./plugins/ppt-improve",
+      "description": "Apply report-bound, copy-on-write PPTX improvements."
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPT Quality Assessor"
+  short_description: "Audit slides for clarity, hierarchy, and accessibility."
+  default_prompt: "Use $ppt-quality-assessor to review this deck and produce a prioritized PPT quality report."

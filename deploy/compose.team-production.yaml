@@ -1,0 +1,142 @@
+services:
+  # This override deliberately excludes the local identity profile and host
+  # infrastructure ports. Supply managed service endpoints and images
+  # from the deployment system; do not use it as a public ingress by itself.
+  team-migrate:
+    build: !reset null
+    image: ${COMMON_TOOLS_REMOTE_IMAGE:?set immutable remote API image reference}
+    depends_on: !reset []
+    environment:
+      NODE_ENV: production
+      COMMON_TOOLS_TEAM_MODE: production
+      COMMON_TOOLS_DATABASE_URL: ${COMMON_TOOLS_DATABASE_URL:?set managed PostgreSQL URL without credentials}
+      COMMON_TOOLS_DATABASE_USER: ${COMMON_TOOLS_DATABASE_USER:-}
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-}
+      COMMON_TOOLS_REDIS_URL: ${COMMON_TOOLS_REDIS_URL:?set managed Redis URL without credentials}
+      COMMON_TOOLS_REDIS_USERNAME: ${COMMON_TOOLS_REDIS_USERNAME:-default}
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:-}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: ${COMMON_TOOLS_OBJECT_STORE_ENDPOINT:?set HTTPS object-store endpoint}
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: ${COMMON_TOOLS_OBJECT_STORE_BUCKET:?set object-store bucket}
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: ${COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID:-}
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-}
+
+  remote-mcp:
+    build: !reset null
+    image: ${COMMON_TOOLS_REMOTE_IMAGE:?set immutable remote API image reference}
+    depends_on: !override
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      COMMON_TOOLS_TEAM_MODE: production
+      COMMON_TOOLS_REQUIRE_PROJECT_RBAC: "true"
+      COMMON_TOOLS_PROJECT_ACTIVE_JOB_LIMIT: ${COMMON_TOOLS_PROJECT_ACTIVE_JOB_LIMIT:-100}
+      COMMON_TOOLS_DATABASE_URL: ${COMMON_TOOLS_DATABASE_URL:?set managed PostgreSQL URL without credentials}
+      COMMON_TOOLS_DATABASE_USER: ${COMMON_TOOLS_DATABASE_USER:-}
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-}
+      COMMON_TOOLS_REDIS_URL: ${COMMON_TOOLS_REDIS_URL:?set managed Redis URL without credentials}
+      COMMON_TOOLS_REDIS_USERNAME: ${COMMON_TOOLS_REDIS_USERNAME:-default}
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:-}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: ${COMMON_TOOLS_OBJECT_STORE_ENDPOINT:?set HTTPS object-store endpoint}
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: ${COMMON_TOOLS_OBJECT_STORE_BUCKET:?set object-store bucket}
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: ${COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID:-}
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-}
+    ports: !reset []
+
+  team-retention:
+    build: !reset null
+    image: ${COMMON_TOOLS_REMOTE_IMAGE:?set immutable remote API image reference}
+    depends_on: !override
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      COMMON_TOOLS_TEAM_MODE: production
+      COMMON_TOOLS_DATABASE_URL: ${COMMON_TOOLS_DATABASE_URL:?set managed PostgreSQL URL without credentials}
+      COMMON_TOOLS_DATABASE_USER: ${COMMON_TOOLS_DATABASE_USER:-}
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-}
+      COMMON_TOOLS_REDIS_URL: ${COMMON_TOOLS_REDIS_URL:?set managed Redis URL without credentials}
+      COMMON_TOOLS_REDIS_USERNAME: ${COMMON_TOOLS_REDIS_USERNAME:-default}
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:-}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: ${COMMON_TOOLS_OBJECT_STORE_ENDPOINT:?set HTTPS object-store endpoint}
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: ${COMMON_TOOLS_OBJECT_STORE_BUCKET:?set object-store bucket}
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: ${COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID:-}
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-}
+
+  project-audit-worker:
+    build: !reset null
+    image: ${COMMON_TOOLS_REMOTE_IMAGE:?set immutable remote API image reference}
+    depends_on: !override
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      COMMON_TOOLS_TEAM_MODE: production
+      COMMON_TOOLS_DATABASE_URL: ${COMMON_TOOLS_DATABASE_URL:?set managed PostgreSQL URL without credentials}
+      COMMON_TOOLS_DATABASE_USER: ${COMMON_TOOLS_DATABASE_USER:-}
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-}
+      COMMON_TOOLS_REDIS_URL: ${COMMON_TOOLS_REDIS_URL:?set managed Redis URL without credentials}
+      COMMON_TOOLS_REDIS_USERNAME: ${COMMON_TOOLS_REDIS_USERNAME:-default}
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:-}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: ${COMMON_TOOLS_OBJECT_STORE_ENDPOINT:?set HTTPS object-store endpoint}
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: ${COMMON_TOOLS_OBJECT_STORE_BUCKET:?set object-store bucket}
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: ${COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID:-}
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-}
+
+  ppt-quality-worker:
+    build: !reset null
+    image: ${COMMON_TOOLS_REMOTE_IMAGE:?set immutable remote API image reference}
+    depends_on: !override
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      COMMON_TOOLS_TEAM_MODE: production
+      COMMON_TOOLS_DATABASE_URL: ${COMMON_TOOLS_DATABASE_URL:?set managed PostgreSQL URL without credentials}
+      COMMON_TOOLS_DATABASE_USER: ${COMMON_TOOLS_DATABASE_USER:-}
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-}
+      COMMON_TOOLS_REDIS_URL: ${COMMON_TOOLS_REDIS_URL:?set managed Redis URL without credentials}
+      COMMON_TOOLS_REDIS_USERNAME: ${COMMON_TOOLS_REDIS_USERNAME:-default}
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:-}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: ${COMMON_TOOLS_OBJECT_STORE_ENDPOINT:?set HTTPS object-store endpoint}
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: ${COMMON_TOOLS_OBJECT_STORE_BUCKET:?set object-store bucket}
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: ${COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID:-}
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-}
+
+  ppt-improve-worker:
+    build: !reset null
+    image: ${COMMON_TOOLS_REMOTE_IMAGE:?set immutable remote API image reference}
+    depends_on: !override
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      COMMON_TOOLS_TEAM_MODE: production
+      COMMON_TOOLS_DATABASE_URL: ${COMMON_TOOLS_DATABASE_URL:?set managed PostgreSQL URL without credentials}
+      COMMON_TOOLS_DATABASE_USER: ${COMMON_TOOLS_DATABASE_USER:-}
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-}
+      COMMON_TOOLS_REDIS_URL: ${COMMON_TOOLS_REDIS_URL:?set managed Redis URL without credentials}
+      COMMON_TOOLS_REDIS_USERNAME: ${COMMON_TOOLS_REDIS_USERNAME:-default}
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:-}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: ${COMMON_TOOLS_OBJECT_STORE_ENDPOINT:?set HTTPS object-store endpoint}
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: ${COMMON_TOOLS_OBJECT_STORE_BUCKET:?set object-store bucket}
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: ${COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID:-}
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-}
+
+  image-to-editable-worker:
+    build: !reset null
+    # Compose interpolates every declared service before profile selection. Keep
+    # this optional here so a ppt-quality-only deployment does not need an
+    # unused image Worker reference; production preflight requires a digest
+    # whenever image-to-editable is actually enabled.
+    image: ${COMMON_TOOLS_IMAGE_WORKER_IMAGE:-}
+    depends_on: !override
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      COMMON_TOOLS_TEAM_MODE: production
+      COMMON_TOOLS_DATABASE_URL: ${COMMON_TOOLS_DATABASE_URL:?set managed PostgreSQL URL without credentials}
+      COMMON_TOOLS_DATABASE_USER: ${COMMON_TOOLS_DATABASE_USER:-}
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-}
+      COMMON_TOOLS_REDIS_URL: ${COMMON_TOOLS_REDIS_URL:?set managed Redis URL without credentials}
+      COMMON_TOOLS_REDIS_USERNAME: ${COMMON_TOOLS_REDIS_USERNAME:-default}
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:-}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: ${COMMON_TOOLS_OBJECT_STORE_ENDPOINT:?set HTTPS object-store endpoint}
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: ${COMMON_TOOLS_OBJECT_STORE_BUCKET:?set object-store bucket}
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: ${COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID:-}
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-}

@@ -5,14 +5,15 @@
   "type": "object",
   "required": ["inputDir", "outputDir", "adapters", "thresholds"],
   "properties": {
-    "inputDir": { "type": "string" },
-    "outputDir": { "type": "string" },
+    "inputDir": { "type": "string", "minLength": 1 },
+    "outputDir": { "type": "string", "minLength": 1 },
     "pagePattern": { "type": "string", "default": "*.{png,jpg,jpeg,webp,pdf,pptx}" },
+    "pageConcurrency": { "type": "integer", "default": 2, "minimum": 1, "maximum": 8 },
     "slide": {
       "type": "object",
       "properties": {
-        "widthPt": { "type": "number", "default": 960 },
-        "heightPt": { "type": "number", "default": 540 }
+        "widthPt": { "type": "number", "default": 960, "exclusiveMinimum": 0 },
+        "heightPt": { "type": "number", "default": 540, "exclusiveMinimum": 0 }
       },
       "additionalProperties": false
     },
@@ -51,14 +52,19 @@
       "type": "object",
       "properties": {
         "exportWidthPx": { "type": "integer", "default": 1920, "minimum": 320 },
-        "exportHeightPx": { "type": "integer", "default": 1080, "minimum": 180 }
+        "exportHeightPx": { "type": "integer", "default": 1080, "minimum": 180 },
+        "maxPages": { "type": "integer", "default": 0, "minimum": 0, "maximum": 10000 }
       },
       "additionalProperties": false
     },
     "powerPoint": {
       "type": "object",
       "properties": {
-        "cleanupHidden": { "type": "boolean", "default": true }
+        "cleanupHidden": {
+          "type": "boolean",
+          "default": false,
+          "description": "Deprecated compatibility field. SlideClone never terminates PowerPoint processes it does not own."
+        }
       },
       "additionalProperties": false
     },
@@ -101,7 +107,9 @@
         "paddingPt": { "type": "number", "default": 2, "minimum": 0 },
         "upscale": { "type": "integer", "default": 3, "minimum": 1, "maximum": 6 },
         "psm": { "type": ["integer", "string"], "default": 6 },
-        "preprocess": { "type": "boolean", "default": true }
+        "preprocess": { "type": "boolean", "default": true },
+        "microBatch": { "type": "boolean", "default": true },
+        "microBatchSize": { "type": "integer", "default": 8, "minimum": 1, "maximum": 16 }
       },
       "additionalProperties": false
     },
@@ -111,7 +119,8 @@
         "bin": { "type": "string" },
         "lang": { "type": "string", "default": "chi_sim+eng" },
         "tessdataPrefix": { "type": "string" },
-        "psm": { "type": ["integer", "string"], "default": 6 }
+        "psm": { "type": ["integer", "string"], "default": 6 },
+        "timeoutMs": { "type": "integer", "default": 120000, "minimum": 1000, "maximum": 600000 }
       },
       "additionalProperties": false
     },
@@ -120,10 +129,61 @@
       "properties": {
         "paddleBin": { "type": "string" },
         "modelsPath": { "type": "string" },
-        "initTimeoutMs": { "type": "integer", "default": 60000, "minimum": 1000 }
+        "initTimeoutMs": { "type": "integer", "default": 60000, "minimum": 1000, "maximum": 600000 },
+        "timeoutMs": { "type": "integer", "default": 120000, "minimum": 1000, "maximum": 600000 },
+        "idleTimeoutMs": { "type": "integer", "default": 30000, "minimum": 1000, "maximum": 600000 },
+        "maxOutputBytes": { "type": "integer", "default": 33554432, "minimum": 1048576, "maximum": 67108864 },
+        "cache": { "type": ["boolean", "string"] },
+        "cacheDir": { "type": "string" }
       },
       "additionalProperties": false
     },
+    "paddleOcr": {
+      "type": "object",
+      "properties": {
+        "pythonBin": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "workerScript": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "lang": { "type": "string", "default": "ch", "pattern": "^[A-Za-z0-9_-]{2,32}$" },
+        "ocrVersion": { "type": "string", "default": "PP-OCRv6", "pattern": "^PP-OCRv[3-9]$" },
+        "device": { "type": "string", "pattern": "^[A-Za-z0-9:_,-]{1,64}$" },
+        "engine": { "type": "string", "enum": ["paddle", "paddle_static", "paddle_dynamic", "transformers", "onnxruntime"] },
+        "cpuThreads": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "textDetectionModel": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,128}$" },
+        "textRecognitionModel": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,128}$" },
+        "textDetectionModelDir": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "textRecognitionModelDir": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "modelCacheDir": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "enableHpi": { "type": "boolean", "default": false },
+        "useTextlineOrientation": { "type": "boolean", "default": false },
+        "initTimeoutMs": { "type": "integer", "default": 180000, "minimum": 1000, "maximum": 600000 },
+        "timeoutMs": { "type": "integer", "default": 120000, "minimum": 1000, "maximum": 600000 },
+        "idleTimeoutMs": { "type": "integer", "default": 30000, "minimum": 1000, "maximum": 600000 },
+        "maxOutputBytes": { "type": "integer", "default": 33554432, "minimum": 1048576, "maximum": 67108864 },
+        "cache": { "type": ["boolean", "string"] },
+        "cacheDir": { "type": "string", "minLength": 1, "maxLength": 32768 }
+      },
+      "additionalProperties": false
+    },
+    "containerStyleFit": { "type": "object", "additionalProperties": true },
+    "textMicroAdjust": { "type": "object", "additionalProperties": true },
+    "openXmlBuilder": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "configuration": { "type": "string", "enum": ["Debug", "Release", "debug", "release"] },
+        "exePath": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "powerPointSafe": { "type": "boolean" },
+        "cache": { "type": ["boolean", "string"] },
+        "cacheDir": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "cacheMaxBytes": { "type": "integer", "minimum": 1048576, "maximum": 1099511627776 },
+        "batchConcurrency": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "retainBuildArtifacts": { "type": "boolean" },
+        "targetFramework": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_.-]+$" }
+      }
+    },
+    "python": { "type": "object", "additionalProperties": true },
+    "render": { "type": "object", "additionalProperties": true },
+    "searchTextOcr": { "type": "object", "additionalProperties": true },
     "thresholds": {
       "type": "object",
       "properties": {

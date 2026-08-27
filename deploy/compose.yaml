@@ -1,0 +1,40 @@
+services:
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.worker
+    image: common-tools-worker:local
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+    profiles: ["local"]
+
+  image-to-editable-worker:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.image-to-editable
+    image: common-tools-image-to-editable-worker:local
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+    profiles: ["image-to-editable"]

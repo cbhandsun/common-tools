@@ -1,0 +1,15 @@
+# Optional local/team profile overlay.  It is not included by the default
+# Compose command and therefore cannot silently enable raw image OCR.
+services:
+  image-to-editable-worker:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.image-to-editable-ocr
+      args:
+        BASE_IMAGE: ${COMMON_TOOLS_IMAGE_OCR_BASE_IMAGE:-common-tools-image-to-editable:local}
+    image: common-tools-image-to-editable-ocr:local
+    environment:
+      COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE: ${COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE:?set tesseract-tsv-v1}
+      COMMON_TOOLS_IMAGE_RAW_OCR_EXECUTABLE: ${COMMON_TOOLS_IMAGE_RAW_OCR_EXECUTABLE:-/usr/bin/tesseract}
+      COMMON_TOOLS_IMAGE_RAW_OCR_SHA256: ${COMMON_TOOLS_IMAGE_RAW_OCR_SHA256:?set Tesseract binary SHA-256}
+      COMMON_TOOLS_IMAGE_RAW_OCR_LANGUAGES: ${COMMON_TOOLS_IMAGE_RAW_OCR_LANGUAGES:-eng,chi_sim}

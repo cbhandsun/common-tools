@@ -1,0 +1,16 @@
+{
+  "name": "ppt-improve",
+  "version": "0.1.2",
+  "description": "Apply report-bound, copy-on-write PPTX improvements with common-tools.",
+  "author": { "name": "common-tools" },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PPT Improve",
+    "shortDescription": "Safely improve an audited PPTX into a new file.",
+    "longDescription": "Consumes a matching quality report and creates a separately re-audited PPTX only for safe automatic repairs.",
+    "developerName": "common-tools",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["Improve this audited PPTX safely and summarize the new report. Do not overwrite the source file."]
+  }
+}

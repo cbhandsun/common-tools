@@ -1,0 +1,67 @@
+groups:
+  - name: common-tools-runtime
+    rules:
+      - alert: CommonToolsApiUnavailable
+        expr: up{job="common-tools-api"} == 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: Common Tools API scrape is unavailable
+          runbook: docs/team-docker-deployment.md#运行与灾备演练
+      - alert: CommonToolsServerErrors
+        expr: sum(rate(common_tools_http_requests_total{route="mcp",status=~"5.."}[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Common Tools MCP server errors are elevated
+          runbook: docs/team-docker-deployment.md#运行与灾备演练
+      - alert: CommonToolsQueueBacklog
+        expr: sum by (capability) (common_tools_queue_messages{state="ready"}) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Common Tools capability queue backlog is elevated
+          runbook: docs/team-docker-deployment.md#运行与灾备演练
+      - alert: CommonToolsOldestQueuedJob
+        expr: max by (capability) (common_tools_oldest_queued_job_seconds) > 900
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Common Tools oldest queued job exceeds 15 minutes
+          runbook: docs/team-docker-deployment.md#运行与灾备演练
+      - alert: CommonToolsProcessingBacklog
+        expr: sum by (capability) (common_tools_queue_messages{state="processing"}) > 20
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Common Tools capability processing backlog is elevated
+          runbook: docs/team-docker-deployment.md#运行与灾备演练
+      - alert: CommonToolsLeaseRecovery
+        expr: sum by (capability) (common_tools_lease_recovery_events{window_seconds="900"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Common Tools worker lease recovery occurred in the last 15 minutes
+          runbook: docs/team-docker-deployment.md#运行与灾备演练
+      - alert: CommonToolsWorkerUnavailable
+        expr: max by (capability) (common_tools_worker_heartbeat_active) == 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: Common Tools capability has no active Worker heartbeat
+          runbook: docs/team-docker-deployment.md#运行与灾备演练
+      - alert: CommonToolsRetentionMaintenanceUnavailable
+        expr: common_tools_retention_maintenance_healthy == 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Common Tools retention maintenance has no recent successful pass
+          runbook: docs/team-docker-deployment.md#运行与灾备演练

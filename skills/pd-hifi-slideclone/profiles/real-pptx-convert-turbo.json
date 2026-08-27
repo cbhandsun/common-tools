@@ -1,0 +1,5 @@
+{
+  "description": "Convert the standard PPTX input directory with bounded parallelism.",
+  "script": "scripts/real-pptx-editable-batch.js",
+  "args": ["--input", "ppt文档", "--out", "ppt文档/可编辑版本", "--concurrency", "2", "--page-concurrency", "3", "--heartbeat-ms", "15000"]
+}

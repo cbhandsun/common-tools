@@ -1,0 +1,16 @@
+{
+  "name": "ppt-quality",
+  "version": "0.1.1",
+  "description": "Create read-only, verifiable PPTX quality reports with common-tools.",
+  "author": { "name": "common-tools" },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PPT Quality",
+    "shortDescription": "Audit a PPTX and generate a separate quality report.",
+    "longDescription": "Creates a read-only structural PPTX quality report without modifying the source presentation.",
+    "developerName": "common-tools",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "defaultPrompt": ["Audit this PPTX and summarize the separate quality report. Do not modify the source file."]
+  }
+}

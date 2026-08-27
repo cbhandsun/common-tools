@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "id": "officeplus-assets-real-deck-regression",
+  "description": "Compare the reproducible OfficePLUS/iSlide component-assets golden set against the accepted all-graphics baseline.",
+  "gates": {
+    "maxPixelDiffIncrease": 0.01,
+    "maxForegroundMissingIncrease": 0.02,
+    "maxActionableEditableDrop": 0.01,
+    "maxComponentTemplateStructureFitShapeRatioDrop": 0.01,
+    "minComponentTemplateMotifReadyTargetCounts": {
+      "whole-process-template": 1
+    },
+    "expectedComparedDecks": 6,
+    "expectedDeckNames": [
+      "AI_Powered_Product_Workflow_Transformation",
+      "AI_Product_Asset_OS",
+      "Digital_Product_Brain",
+      "Intelligent_R_D_Asset_Blueprint",
+      "PM_Portal_AI_Asset_Hub",
+      "PM_Portal_AI_Skills_Engine"
+    ],
+    "expectedPageCounts": {
+      "AI_Powered_Product_Workflow_Transformation": 14,
+      "AI_Product_Asset_OS": 11,
+      "Digital_Product_Brain": 13,
+      "Intelligent_R_D_Asset_Blueprint": 15,
+      "PM_Portal_AI_Asset_Hub": 11,
+      "PM_Portal_AI_Skills_Engine": 12
+    }
+  },
+  "baselineReports": [
+    "runs/current-all-graphics-ir-v2/_quality-visual-all/AI_Powered_Product_Workflow_Transformation/quality-gate-report.json",
+    "runs/current-all-graphics-ir-v2/_quality-visual-all/AI_Product_Asset_OS/quality-gate-report.json",
+    "runs/current-all-graphics-ir-v2/_quality-visual-all/Digital_Product_Brain/quality-gate-report.json",
+    "runs/current-all-graphics-ir-v2/_quality-visual-all/Intelligent_R_D_Asset_Blueprint/quality-gate-report.json",
+    "runs/current-all-graphics-ir-v2/_quality-visual-all/PM_Portal_AI_Asset_Hub/quality-gate-report.json",
+    "runs/current-all-graphics-ir-v2/_quality-visual-all/PM_Portal_AI_Skills_Engine/quality-gate-report.json"
+  ],
+  "candidateReports": [
+    "runs/component-assets-golden-v3/_quality/AI_Powered_Product_Workflow_Transformation-component-strategy-quality/quality-gate-report.json",
+    "runs/component-assets-golden-v3/_quality/AI_Product_Asset_OS-component-strategy-quality/quality-gate-report.json",
+    "runs/component-assets-golden-v3/_quality/Digital_Product_Brain-component-strategy-quality/quality-gate-report.json",
+    "runs/component-assets-golden-v3/_quality/Intelligent_R_D_Asset_Blueprint-component-strategy-quality/quality-gate-report.json",
+    "runs/component-assets-golden-v3/_quality/PM_Portal_AI_Asset_Hub-component-strategy-quality/quality-gate-report.json",
+    "runs/component-assets-golden-v3/_quality/PM_Portal_AI_Skills_Engine-component-strategy-quality/quality-gate-report.json"
+  ]
+}

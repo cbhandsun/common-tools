@@ -1,0 +1,19 @@
+services:
+  image-to-editable-worker:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.image-to-editable-paddleocr
+      args:
+        BASE_IMAGE: ${COMMON_TOOLS_IMAGE_PADDLEOCR_BASE_IMAGE:-common-tools-image-to-editable:local}
+    image: common-tools-image-to-editable-paddleocr:local
+    environment:
+      COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE: paddleocr-ppocrv6-v1
+      COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON: /opt/paddleocr/venv/bin/python
+      COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON_SHA256: ${COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON_SHA256:?set packaged Python SHA-256}
+      COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER: /opt/paddleocr/skill/scripts/adapters/ocr-paddleocr-local.js
+      COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER_SHA256: ${COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER_SHA256:?set PaddleOCR adapter SHA-256}
+      COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER: /opt/paddleocr/paddleocr_worker.py
+      COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256: ${COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256:?set PaddleOCR worker SHA-256}
+      COMMON_TOOLS_IMAGE_PADDLEOCR_MODEL_CACHE: /opt/paddleocr/models
+      COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK: /opt/paddleocr/healthcheck.png
+      COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK_SHA256: ${COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK_SHA256:?set PaddleOCR healthcheck SHA-256}

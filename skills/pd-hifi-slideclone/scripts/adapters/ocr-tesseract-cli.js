@@ -4,11 +4,14 @@ const { execFile } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { normalizeTimeoutMs, readBoundedUtf8 } = require("../lib/process-boundaries");
 
-function run(command, args, env = {}) {
+function run(command, args, env = {}, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
     execFile(command, args, {
       windowsHide: true,
+      timeout: timeoutMs,
+      killSignal: "SIGKILL",
       maxBuffer: 20 * 1024 * 1024,
       env: { ...process.env, ...env }
     }, (error, stdout, stderr) => {
@@ -86,28 +89,32 @@ module.exports = async function tesseractCli(input, context = {}) {
   const lang = process.env.TESSERACT_LANG || tesseract.lang || "chi_sim+eng";
   const psm = input.tesseractOptions?.psm || tesseract.psm || null;
   const tessdataPrefix = process.env.TESSDATA_PREFIX || tesseract.tessdataPrefix || null;
+  const timeoutMs = normalizeTimeoutMs(tesseract.timeoutMs, 120000);
   const resolvedTessdataPrefix = tessdataPrefix ? resolvePath(context, tessdataPrefix) : null;
   const env = resolvedTessdataPrefix ? { TESSDATA_PREFIX: resolvedTessdataPrefix } : {};
-  const tempBase = path.join(os.tmpdir(), `slideclone-ocr-${process.pid}-${input.pageIndex}`);
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `slideclone-ocr-${process.pid}-${input.pageIndex}-`));
+  const tempBase = path.join(tempDir, "result");
   const args = [input.sourceImage, tempBase, "-l", lang];
   if (psm) args.push("--psm", String(psm));
   args.push("-c", "tessedit_create_tsv=1");
-  await run(tesseractBin, args, env);
-  const tsvFile = `${tempBase}.tsv`;
-  const tsv = fs.readFileSync(tsvFile, "utf8");
-  fs.rmSync(tsvFile, { force: true });
-  const scale = getScale(input);
-  return {
-    ok: true,
-    provider: "tesseract-cli",
-    data: {
-      ...parseTsv(tsv, input.sourceImage, input.pageIndex, scale),
-      tesseractBin,
-      lang,
-      psm,
-      tessdataPrefix: resolvedTessdataPrefix
-    }
-  };
+  try {
+    await run(tesseractBin, args, env, timeoutMs);
+    const tsv = readBoundedUtf8(`${tempBase}.tsv`);
+    const scale = getScale(input);
+    return {
+      ok: true,
+      provider: "tesseract-cli",
+      data: {
+        ...parseTsv(tsv, input.sourceImage, input.pageIndex, scale),
+        tesseractBin,
+        lang,
+        psm,
+        tessdataPrefix: resolvedTessdataPrefix
+      }
+    };
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 };
 
 function resolvePath(context, value) {
@@ -133,3 +140,5 @@ function getScale(input) {
   }
   return { x: 1, y: 1 };
 }
+
+module.exports.maxConcurrency = 2;

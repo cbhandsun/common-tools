@@ -1,0 +1,879 @@
+{
+  "version": "1.0",
+  "suites": {
+    "complex-strict": [
+      "complex-hierarchy-real",
+      "complex-closed-loop-real",
+      "complex-radial-network-real",
+      "complex-semantic-hub-spoke-real",
+      "complex-text-anchored-process-network-real",
+      "complex-asset-hub-cycle-real",
+      "complex-asset-hub-wms-three-column-real",
+      "complex-product-brain-asset-funnel-real",
+      "complex-quadrant-cycle-real",
+      "complex-product-manager-friction-network-real",
+      "complex-system-map-hybrid-real",
+      "complex-system-map-fidelity-real",
+      "complex-fragmented-risk-convergence-real",
+      "complex-visual-operation-sync-real",
+      "complex-paradigm-shift-matrix-real",
+      "complex-embedded-expert-screenshot-real",
+      "complex-product-brain-core-value-real",
+      "complex-asset-hub-ocr-grid-real",
+      "complex-decision-flow-real",
+      "complex-stage-timeline-real",
+      "complex-entropy-illustration-real",
+      "hybrid-workflow-challenge-triad-real",
+      "complex-workflow-chaos-hybrid-real",
+      "ui-screenshot-segmented-real",
+      "complex-answer-workflow-matrix-real",
+      "complex-demand-convergence-real",
+      "complex-review-risk-gate-real",
+      "complex-triangle-topology-real",
+      "complex-value-quadrant-real",
+      "complex-asset-hub-four-layer-real",
+      "complex-cli-scaffold-generator-real",
+      "complex-runtime-engine-hybrid-real",
+      "complex-value-transformation-table-real",
+      "complex-wms-route-hybrid-real",
+      "complex-four-stage-roadmap-real",
+      "complex-organization-knowledge-network-real",
+      "complex-asset-hub-minimum-unit-real",
+      "complex-asset-hub-source-purification-real",
+      "complex-collaboration-challenge-protected-real",
+      "complex-wms-quality-gate-hybrid-real",
+      "native-skills-cover-engine-core-real",
+      "native-skills-ai-comparison-table-real",
+      "hybrid-skills-asset-landing-triad-real",
+      "native-rd-portal-platform-real",
+      "native-rd-collaboration-breakdown-real",
+      "native-rd-portal-four-layer-real",
+      "hybrid-rd-skills-capability-matrix-real",
+      "hybrid-rd-demand-intake-funnel-real",
+      "native-rd-prd-auto-generation-real",
+      "hybrid-rd-smart-review-branch-gate-real",
+      "hybrid-rd-skill-chain-orchestration-real",
+      "hybrid-skills-chain-folded-components-real",
+      "hybrid-prototype-validation-screenshot-flow-real",
+      "chart-native-render-golden"
+    ]
+  },
+  "cases": [
+    {
+      "id": "chart-native-render-golden",
+      "pageType": "native-chart-render",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/chart-native-render-golden-smoke.js", "--out", "runs/golden-set/chart-native-render-golden"]
+    },
+    {
+      "id": "flow-baseline",
+      "pageType": "flow",
+      "mode": "delivery",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/flow-e2e-smoke.js",
+        "--out",
+        "runs/golden-set/flow-baseline"
+      ]
+    },
+    {
+      "id": "flow-hifi",
+      "pageType": "flow",
+      "mode": "delivery",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/flow-e2e-smoke.js",
+        "--profile",
+        "balanced",
+        "--font-fit",
+        "--container-style-fit",
+        "--out",
+        "runs/golden-set/flow-hifi"
+      ]
+    },
+    {
+      "id": "flow-fast-batch-3page",
+      "pageType": "flow-multipage",
+      "mode": "delivery",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/flow-e2e-smoke.js",
+        "--profile",
+        "fast-batch",
+        "--font-fit",
+        "--pages",
+        "3",
+        "--out",
+        "runs/golden-set/flow-fast-batch-3page"
+      ]
+    },
+    {
+      "id": "flow-fast-batch-5page",
+      "pageType": "flow-multipage",
+      "mode": "delivery",
+      "timeoutMs": 360000,
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/flow-e2e-smoke.js",
+        "--profile",
+        "fast-batch",
+        "--font-fit",
+        "--pages",
+        "5",
+        "--out",
+        "runs/golden-set/flow-fast-batch-5page"
+      ]
+    },
+    {
+      "id": "sample-deck-table",
+      "pageType": "table",
+      "mode": "delivery",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/ir-delivery-smoke.js",
+        "--ir",
+        "skills/pd-hifi-slideclone/examples/sample-deck.json",
+        "--out",
+        "runs/golden-set/sample-deck-table"
+      ]
+    },
+    {
+      "id": "real-pptx-normalize-2page",
+      "pageType": "real-pptx",
+      "mode": "delivery",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/real-pptx-normalize-smoke.js",
+        "--pptx",
+        "ppt文档/PM_Portal_AI_Skills_Engine.pptx",
+        "--max-pages",
+        "2",
+        "--out",
+        "runs/golden-set/real-pptx-normalize-2page"
+      ]
+    },
+    {
+      "id": "sample-deck-hifi-progress",
+      "pageType": "table-hifi",
+      "mode": "score-improves",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/ir-delivery-smoke.js",
+        "--ir",
+        "skills/pd-hifi-slideclone/examples/sample-deck.json",
+        "--font-fit",
+        "true",
+        "--font-fit-only-roles",
+        "title,table",
+        "--font-candidates",
+        "Microsoft YaHei,Arial",
+        "--font-fit-max-trials-per-role",
+        "4",
+        "--text-micro-adjust",
+        "true",
+        "--text-micro-adjust-inspect-aligned",
+        "true",
+        "--out",
+        "runs/golden-set/sample-deck-hifi-progress"
+      ]
+    },
+    {
+      "id": "ocr-text-sentinel",
+      "pageType": "text",
+      "mode": "sentinel-fail",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/ocr-text-smoke.js",
+        "--out",
+        "runs/golden-set/ocr-text-sentinel"
+      ]
+    },
+    {
+      "id": "text-micro-adjust",
+      "pageType": "text-adjust",
+      "mode": "coverage-improves",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/ocr-text-smoke.js",
+        "--ir",
+        "skills/pd-hifi-slideclone/examples/text-micro-adjust-smoke.ir.json",
+        "--rendered",
+        "skills/pd-hifi-slideclone/examples/ocr-text-smoke.source.png",
+        "--out",
+        "runs/golden-set/text-micro-adjust"
+      ]
+    },
+    {
+      "id": "openxml-build",
+      "pageType": "openxml-generator",
+      "mode": "command-passes",
+      "command": [
+        "node",
+        "scripts/run-local-dotnet.js",
+        "build",
+        "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj"
+      ]
+    },
+    {
+      "id": "openxml-sample-deck",
+      "pageType": "openxml-generator",
+      "mode": "command-passes",
+      "command": [
+        "node",
+        "scripts/run-local-dotnet.js",
+        "run",
+        "--project",
+        "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
+        "--",
+        "--ir",
+        "skills/pd-hifi-slideclone/examples/sample-deck.json",
+        "--out",
+        "runs/golden-set/openxml-sample-deck/deck.pptx"
+      ]
+    },
+    {
+      "id": "openxml-chart-shadow-crop",
+      "pageType": "openxml-generator",
+      "mode": "command-passes",
+      "command": [
+        "node",
+        "scripts/run-local-dotnet.js",
+        "run",
+        "--project",
+        "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
+        "--",
+        "--ir",
+        "skills/pd-hifi-slideclone/examples/openxml-chart-shadow-crop.ir.json",
+        "--out",
+        "runs/golden-set/openxml-chart-shadow-crop/deck.pptx"
+      ]
+    },
+    {
+      "id": "libreoffice-sample-render",
+      "pageType": "render-engine",
+      "mode": "delivery",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/libreoffice-benchmark.js",
+        "--pptx",
+        "runs/openxml-sample-deck/deck.pptx",
+        "--max-pages",
+        "2",
+        "--out",
+        "runs/golden-set/libreoffice-sample-render"
+      ]
+    },
+    {
+      "id": "libreoffice-openxml-chart-shadow-crop-render",
+      "pageType": "render-engine",
+      "mode": "delivery",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/libreoffice-benchmark.js",
+        "--pptx",
+        "runs/golden-set/openxml-chart-shadow-crop/deck.pptx",
+        "--max-pages",
+        "1",
+        "--out",
+        "runs/golden-set/libreoffice-openxml-chart-shadow-crop-render"
+      ]
+    },
+    {
+      "id": "libreoffice-real-pptx-2page-render",
+      "pageType": "real-pptx-render-engine",
+      "mode": "delivery",
+      "command": [
+        "node",
+        "skills/pd-hifi-slideclone/scripts/libreoffice-benchmark.js",
+        "--pptx",
+        "ppt文档/PM_Portal_AI_Skills_Engine.pptx",
+        "--max-pages",
+        "2",
+        "--out",
+        "runs/golden-set/libreoffice-real-pptx-2page-render"
+      ]
+    },
+    {
+      "id": "complex-hierarchy-real",
+      "pageType": "complex-hierarchy",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 7, "minShapes": 18, "maxShapes": 18, "minTextBoxes": 9, "maxRasterImageAreaRatio": 0.051, "maxSingleRasterImageAreaRatio": 0.016, "maxPixelDiffRatio": 0.095, "maxForegroundMissingRatio": 0.21, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 7, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 7, "maxNativeComponentGroups": 7, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["asset-os-flow-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "AI_Product_Asset_OS", "--pages", "1", "--out", "runs/golden-set/complex-hierarchy-real"]
+    },
+    {
+      "id": "complex-closed-loop-real",
+      "pageType": "complex-closed-loop",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 10, "minShapes": 21, "maxShapes": 24, "minTextBoxes": 10, "maxRasterImageAreaRatio": 0.08, "maxSingleRasterImageAreaRatio": 0.022, "maxPixelDiffRatio": 0.07, "maxForegroundMissingRatio": 0.27, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 10, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 7, "maxNativeComponentGroups": 7, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["asset-os-closed-loop-input-fidelity-crop", "asset-os-closed-loop-pictorial-atom-crop"], "allowedImageExpressionForms": ["screenshot-or-document", "icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "AI_Product_Asset_OS", "--pages", "5", "--out", "runs/golden-set/complex-closed-loop-real"]
+    },
+    {
+      "id": "complex-radial-network-real",
+      "pageType": "complex-radial-network",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": {
+        "maxImages": 1,
+        "minShapes": 4,
+        "maxShapes": 4,
+        "minTextBoxes": 2,
+        "maxRasterImageAreaRatio": 0.61,
+        "maxSingleRasterImageAreaRatio": 0.602,
+        "minIntentionalMinimumUnitCrops": 1,
+        "maxActionableUnexplainedCrops": 0,
+        "minNativeComponentGroups": 1,
+        "maxNativeComponentGroups": 1,
+        "maxUngroupedNativeComponentParts": 0,
+        "allowedImageDetectors": ["dense-radial-network-hero-crop"],
+        "allowedImageExpressionForms": ["icon-or-illustration"]
+      },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "12", "--out", "runs/golden-set/complex-radial-network-real"]
+    },
+    {
+      "id": "complex-semantic-hub-spoke-real",
+      "pageType": "complex-semantic-hub-spoke",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": {
+        "maxImages": 7,
+        "minShapes": 14,
+        "maxShapes": 14,
+        "minTextBoxes": 9,
+        "minNativeComponentGroups": 7,
+        "maxNativeComponentGroups": 7,
+        "maxUngroupedNativeComponentParts": 0,
+        "maxRasterImageAreaRatio": 0.24,
+        "maxSingleRasterImageAreaRatio": 0.121,
+        "minIntentionalMinimumUnitCrops": 7,
+        "maxActionableUnexplainedCrops": 0,
+        "allowedImageDetectors": ["asset-hub-cycle-residual-crop"],
+        "allowedImageExpressionForms": ["icon-or-illustration"]
+      },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Digital_Product_Brain", "--pages", "1", "--out", "runs/golden-set/complex-semantic-hub-spoke-real"]
+    },
+    {
+      "id": "complex-quadrant-cycle-real",
+      "pageType": "complex-quadrant-cycle",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": {
+        "maxImages": 1,
+        "minShapes": 0,
+        "maxShapes": 0,
+        "minTextBoxes": 16,
+        "maxTextBoxes": 16,
+        "maxRasterImageAreaRatio": 0.4,
+        "maxSingleRasterImageAreaRatio": 0.4,
+        "maxPixelDiffRatio": 0.07,
+        "maxForegroundMissingRatio": 0.07,
+        "minIntentionalMinimumUnitCrops": 1,
+        "maxActionableUnexplainedCrops": 0,
+        "allowedImageDetectors": ["center-badge-quadrant-cycle-fidelity-crop"],
+        "allowedImageExpressionForms": ["screenshot-or-document"]
+      },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "AI_Powered_Product_Workflow_Transformation", "--pages", "12", "--out", "runs/golden-set/complex-quadrant-cycle-real"]
+    },
+    {
+      "id": "complex-text-anchored-process-network-real",
+      "pageType": "text-anchored-branch-join-process-network",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": {
+        "maxImages": 9,
+        "minShapes": 41,
+        "maxShapes": 41,
+        "minTextBoxes": 12,
+        "maxTextBoxes": 12,
+        "maxUngroupedNativeComponentParts": 0,
+        "maxRasterImageAreaRatio": 0.052,
+        "maxSingleRasterImageAreaRatio": 0.015,
+        "minIntentionalMinimumUnitCrops": 9,
+        "maxActionableUnexplainedCrops": 0,
+        "maxPixelDiffRatio": 0.06,
+        "maxForegroundMissingRatio": 0.15,
+        "minLayoutMeanIoU": 0.99,
+        "allowedImageDetectors": ["text-anchored-process-icon-minimum-unit-crop", "text-anchored-process-input-icon-minimum-unit-crop"],
+        "allowedImageExpressionForms": ["icon-or-illustration"]
+      },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Digital_Product_Brain", "--pages", "6", "--out", "runs/golden-set/complex-text-anchored-process-network-real"]
+    },
+    {
+      "id": "complex-asset-hub-cycle-real",
+      "pageType": "closed-loop-cycle-with-side-illustrations",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": {
+        "maxImages": 2,
+        "minShapes": 24,
+        "maxShapes": 24,
+        "minTextBoxes": 12,
+        "maxTextBoxes": 12,
+        "maxUngroupedNativeComponentParts": 0,
+        "maxRasterImageAreaRatio": 0.131,
+        "maxSingleRasterImageAreaRatio": 0.066,
+        "minIntentionalMinimumUnitCrops": 2,
+        "maxActionableUnexplainedCrops": 0,
+        "maxPixelDiffRatio": 0.128,
+        "maxForegroundMissingRatio": 0.285,
+        "minLayoutMeanIoU": 0.99,
+        "allowedImageDetectors": ["ai-skills-cycle-side-illustration-crop"],
+        "allowedImageExpressionForms": ["icon-or-illustration"]
+      },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Asset_Hub", "--pages", "5", "--out", "runs/golden-set/complex-asset-hub-cycle-real"]
+    },
+    {
+      "id": "complex-asset-hub-wms-three-column-real",
+      "pageType": "three-column-review-with-pictorial-minimum-units",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": {
+        "maxImages": 2,
+        "minShapes": 15,
+        "maxShapes": 15,
+        "minTextBoxes": 18,
+        "maxTextBoxes": 18,
+        "minNativeComponentGroups": 6,
+        "maxRasterImageAreaRatio": 0.3,
+        "maxSingleRasterImageAreaRatio": 0.161,
+        "minIntentionalMinimumUnitCrops": 2,
+        "maxActionableUnexplainedCrops": 0,
+        "maxPixelDiffRatio": 0.147,
+        "maxForegroundMissingRatio": 0.265,
+        "minLayoutMeanIoU": 0.83,
+        "allowedImageDetectors": ["mixed-diagram-semantic-residual-crop"],
+        "allowedImageExpressionForms": ["icon-or-illustration"]
+      },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Asset_Hub", "--pages", "6", "--out", "runs/golden-set/complex-asset-hub-wms-three-column-real"]
+    },
+    {
+      "id": "complex-product-brain-asset-funnel-real",
+      "pageType": "text-anchored-asset-closure-funnel",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": {
+        "maxImages": 3,
+        "minShapes": 13,
+        "maxShapes": 13,
+        "minTextBoxes": 12,
+        "maxTextBoxes": 12,
+        "minNativeComponentGroups": 13,
+        "maxNativeComponentGroups": 13,
+        "maxUngroupedNativeComponentParts": 0,
+        "maxRasterImageAreaRatio": 0.091,
+        "maxSingleRasterImageAreaRatio": 0.059,
+        "minIntentionalMinimumUnitCrops": 3,
+        "maxActionableUnexplainedCrops": 0,
+        "maxPixelDiffRatio": 0.126,
+        "maxForegroundMissingRatio": 0.115,
+        "minLayoutMeanIoU": 0.99,
+        "allowedImageDetectors": ["product-brain-asset-closure-input-assembly-crop", "product-brain-asset-closure-document-output-crop", "product-brain-asset-closure-prototype-output-crop"],
+        "allowedImageExpressionForms": ["icon-or-illustration"]
+      },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Digital_Product_Brain", "--pages", "10", "--out", "runs/golden-set/complex-product-brain-asset-funnel-real"]
+    },
+    {
+      "id": "complex-product-manager-friction-network-real",
+      "pageType": "many-to-many-friction-network",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 0, "minShapes": 23, "maxShapes": 23, "minTextBoxes": 13, "maxTextBoxes": 13, "minNativeComponentGroups": 9, "maxNativeComponentGroups": 9, "maxUngroupedNativeComponentParts": 0, "maxRasterImageAreaRatio": 0, "maxActionableUnexplainedCrops": 0, "maxPixelDiffRatio": 0.102, "maxForegroundMissingRatio": 0.285, "minLayoutMeanIoU": 0.99, "allowedImageDetectors": [] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "3", "--out", "runs/golden-set/complex-product-manager-friction-network-real"]
+    },
+    {
+      "id": "complex-system-map-hybrid-real",
+      "pageType": "dense-system-map-hybrid",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 148, "maxShapes": 148, "minTextBoxes": 10, "maxTextBoxes": 10, "maxRasterImageAreaRatio": 0.206, "maxSingleRasterImageAreaRatio": 0.206, "maxPixelDiffRatio": 0.17, "maxForegroundMissingRatio": 0.18, "minLayoutMeanIoU": 0.92, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 1, "maxNativeComponentGroups": 1, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["system-map-network-fidelity-crop"], "allowedImageExpressionForms": ["complex-diagram"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "AI_Product_Asset_OS", "--pages", "11", "--out", "runs/golden-set/complex-system-map-hybrid-real"]
+    },
+    {
+      "id": "complex-system-map-fidelity-real",
+      "pageType": "dense-complete-system-map-fidelity",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "maxShapes": 0, "minTextBoxes": 9, "maxTextBoxes": 9, "maxRasterImageAreaRatio": 0.648, "maxSingleRasterImageAreaRatio": 0.648, "maxPixelDiffRatio": 0.07, "maxForegroundMissingRatio": 0.04, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["system-map-fidelity-crop"], "allowedImageExpressionForms": ["complex-diagram"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Digital_Product_Brain", "--pages", "13", "--out", "runs/golden-set/complex-system-map-fidelity-real"]
+    },
+    {
+      "id": "complex-fragmented-risk-convergence-real",
+      "pageType": "fragmented-input-risk-convergence-hybrid",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 21, "maxShapes": 21, "minTextBoxes": 11, "maxTextBoxes": 11, "maxRasterImageAreaRatio": 0.021, "maxSingleRasterImageAreaRatio": 0.021, "maxPixelDiffRatio": 0.18, "maxForegroundMissingRatio": 0.23, "minLayoutMeanIoU": 1, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 10, "maxNativeComponentGroups": 10, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["asset-os-fragmented-chain-broken-chain-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "AI_Product_Asset_OS", "--pages", "2", "--out", "runs/golden-set/complex-fragmented-risk-convergence-real"]
+    },
+    {
+      "id": "complex-visual-operation-sync-real",
+      "pageType": "visual-operation-sync-hybrid",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 7, "minShapes": 13, "maxShapes": 13, "minTextBoxes": 9, "maxTextBoxes": 9, "maxRasterImageAreaRatio": 0.077, "maxSingleRasterImageAreaRatio": 0.034, "maxPixelDiffRatio": 0.075, "maxForegroundMissingRatio": 0.08, "minIntentionalMinimumUnitCrops": 7, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 9, "maxNativeComponentGroups": 9, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["asset-os-visual-operation-sync-banner-gem-crop", "asset-os-visual-operation-sync-prototype-gem-crop", "asset-os-visual-operation-sync-manual-gem-crop", "asset-os-visual-operation-sync-prototype-ui-crop", "asset-os-visual-operation-sync-manual-ui-crop", "asset-os-visual-operation-sync-magic-wand-crop", "asset-os-visual-operation-sync-camera-crop"], "allowedImageExpressionForms": ["icon-or-illustration", "screenshot-or-document"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "AI_Product_Asset_OS", "--pages", "8", "--out", "runs/golden-set/complex-visual-operation-sync-real"]
+    },
+    {
+      "id": "complex-paradigm-shift-matrix-real",
+      "pageType": "editable-paradigm-shift-matrix",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 12, "maxShapes": 12, "minTextBoxes": 14, "maxTextBoxes": 14, "maxRasterImageAreaRatio": 0.004, "maxSingleRasterImageAreaRatio": 0.004, "maxPixelDiffRatio": 0.13, "maxForegroundMissingRatio": 0.25, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 1, "maxNativeComponentGroups": 1, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["asset-os-paradigm-shift-gem-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "AI_Product_Asset_OS", "--pages", "3", "--out", "runs/golden-set/complex-paradigm-shift-matrix-real"]
+    },
+    {
+      "id": "complex-embedded-expert-screenshot-real",
+      "pageType": "editable-chrome-with-product-ui-screenshot",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 2, "maxShapes": 2, "minTextBoxes": 4, "maxTextBoxes": 4, "maxRasterImageAreaRatio": 0.382, "maxSingleRasterImageAreaRatio": 0.382, "maxPixelDiffRatio": 0.055, "maxForegroundMissingRatio": 0.075, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 1, "maxNativeComponentGroups": 1, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["product-brain-embedded-expert-ui-screenshot-crop"], "allowedImageExpressionForms": ["screenshot-or-document"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Digital_Product_Brain", "--pages", "5", "--out", "runs/golden-set/complex-embedded-expert-screenshot-real"]
+    },
+    {
+      "id": "complex-product-brain-core-value-real",
+      "pageType": "hybrid-core-value-decision-flow",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 4, "minShapes": 12, "maxShapes": 12, "minTextBoxes": 7, "maxTextBoxes": 7, "maxRasterImageAreaRatio": 0.283, "maxSingleRasterImageAreaRatio": 0.266, "maxPixelDiffRatio": 0.12, "maxForegroundMissingRatio": 0.16, "minIntentionalMinimumUnitCrops": 4, "maxActionableUnexplainedCrops": 0, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["product-brain-core-value-left-illustration-crop", "product-brain-core-value-prompting-icon-crop", "product-brain-core-value-document-generation-icon-crop", "product-brain-core-value-rule-extraction-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Digital_Product_Brain", "--pages", "2", "--out", "runs/golden-set/complex-product-brain-core-value-real"]
+    },
+    {
+      "id": "complex-asset-hub-ocr-grid-real",
+      "pageType": "editable-comparison-table-with-header-icon",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 1, "maxShapes": 1, "minTables": 1, "minTextBoxes": 2, "maxTextBoxes": 2, "maxRasterImageAreaRatio": 0.0013, "maxSingleRasterImageAreaRatio": 0.0013, "maxPixelDiffRatio": 0.18, "maxForegroundMissingRatio": 0.19, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 1, "maxNativeComponentGroups": 1, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["ocr-grid-header-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Asset_Hub", "--pages", "3", "--out", "runs/golden-set/complex-asset-hub-ocr-grid-real"]
+    },
+    {
+      "id": "complex-decision-flow-real",
+      "pageType": "complex-decision-flow",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 4, "minShapes": 12, "maxShapes": 12, "minTextBoxes": 19, "maxRasterImageAreaRatio": 0.131, "maxSingleRasterImageAreaRatio": 0.076, "maxPixelDiffRatio": 0.1, "maxForegroundMissingRatio": 0.16, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 4, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 5, "maxNativeComponentGroups": 5, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["prototype-generation-loop-pictorial-atom-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "9", "--out", "runs/golden-set/complex-decision-flow-real"]
+    },
+    {
+      "id": "complex-stage-timeline-real",
+      "pageType": "complex-stage-timeline",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 0, "minShapes": 12, "maxShapes": 14, "minTextBoxes": 18, "maxTextBoxes": 18, "minNativeComponentGroups": 4, "maxNativeComponentGroups": 4, "maxUngroupedNativeComponentParts": 0, "maxRasterImageAreaRatio": 0, "allowedImageDetectors": [] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Digital_Product_Brain", "--pages", "12", "--out", "runs/golden-set/complex-stage-timeline-real"]
+    },
+    {
+      "id": "complex-entropy-illustration-real",
+      "pageType": "complex-entropy-illustration",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 2, "minShapes": 8, "maxShapes": 8, "minTextBoxes": 9, "maxRasterImageAreaRatio": 0.59, "maxSingleRasterImageAreaRatio": 0.399, "minIntentionalMinimumUnitCrops": 2, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 8, "maxNativeComponentGroups": 8, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["entropy-challenge-crop", "entropy-challenge-island-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "2", "--out", "runs/golden-set/complex-entropy-illustration-real"]
+    },
+    {
+      "id": "hybrid-workflow-challenge-triad-real",
+      "pageType": "workflow-challenge-triad",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 3, "minShapes": 18, "maxShapes": 18, "minTextBoxes": 6, "maxTextBoxes": 6, "maxRasterImageAreaRatio": 0.3, "maxSingleRasterImageAreaRatio": 0.11, "maxPixelDiffRatio": 0.085, "maxForegroundMissingRatio": 0.11, "minIntentionalMinimumUnitCrops": 3, "maxActionableUnexplainedCrops": 0, "allowedImageDetectors": ["workflow-challenge-triad-illustration-crop"], "allowedImageExpressionForms": ["illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "AI_Powered_Product_Workflow_Transformation", "--pages", "2", "--out", "runs/golden-set/hybrid-workflow-challenge-triad-real"]
+    },
+    {
+      "id": "complex-workflow-chaos-hybrid-real",
+      "pageType": "complex-workflow-chaos-hybrid",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 6, "minShapes": 18, "maxShapes": 18, "minTextBoxes": 14, "maxRasterImageAreaRatio": 0.32, "maxSingleRasterImageAreaRatio": 0.307, "maxPixelDiffRatio": 0.11, "maxForegroundMissingRatio": 0.06, "minIntentionalMinimumUnitCrops": 6, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 3, "maxNativeComponentGroups": 3, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["two-panel-diagram-crop", "workflow-supply-chain-icon-residual-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "AI_Powered_Product_Workflow_Transformation", "--pages", "9", "--out", "runs/golden-set/complex-workflow-chaos-hybrid-real"]
+    },
+    {
+      "id": "ui-screenshot-hybrid-real",
+      "pageType": "ui-screenshot-hybrid",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 4, "minShapes": 10, "maxShapes": 10, "minTextBoxes": 5, "maxTextBoxes": 5, "maxRasterImageAreaRatio": 0.205, "maxSingleRasterImageAreaRatio": 0.085, "maxPixelDiffRatio": 0.055, "maxForegroundMissingRatio": 0.135, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 4, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 5, "maxNativeComponentGroups": 5, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["prototype-validation-flow-residual-crop"], "allowedImageExpressionForms": ["icon-or-illustration", "screenshot-or-document"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "6", "--out", "runs/golden-set/ui-screenshot-hybrid-real"]
+    },
+    {
+      "id": "ui-screenshot-segmented-real",
+      "pageType": "ui-screenshot-segmented",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 3, "minShapes": 7, "maxShapes": 7, "minTextBoxes": 2, "maxRasterImageAreaRatio": 0.38, "maxSingleRasterImageAreaRatio": 0.203, "maxPixelDiffRatio": 0.035, "maxForegroundMissingRatio": 0.061, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 3, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 4, "maxNativeComponentGroups": 4, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["product-illustration-segment-crop"], "allowedImageExpressionForms": ["screenshot-or-document", "icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "7", "--out", "runs/golden-set/ui-screenshot-segmented-real"]
+    },
+    {
+      "id": "complex-answer-workflow-matrix-real",
+      "pageType": "complex-answer-workflow-matrix",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 1, "maxShapes": 1, "minTables": 1, "minTextBoxes": 2, "maxRasterImageAreaRatio": 0.002, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 1, "maxNativeComponentGroups": 1, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["ocr-grid-header-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Asset_Hub", "--pages", "3", "--ocr", "true", "--out", "runs/golden-set/complex-answer-workflow-matrix-real"]
+    },
+    {
+      "id": "complex-demand-convergence-real",
+      "pageType": "complex-demand-convergence",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 33, "maxShapes": 33, "minTextBoxes": 11, "maxPixelDiffRatio": 0.13, "maxForegroundMissingRatio": 0.21, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 11, "maxNativeComponentGroups": 11, "maxUngroupedNativeComponentParts": 0, "maxRasterImageAreaRatio": 0.097, "allowedImageDetectors": ["demand-understanding-flow-illustration-crop"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "5", "--ocr", "true", "--out", "runs/golden-set/complex-demand-convergence-real"]
+    },
+    {
+      "id": "complex-review-risk-gate-real",
+      "pageType": "complex-review-risk-gate",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": {
+        "maxImages": 1,
+        "minShapes": 27,
+        "maxShapes": 27,
+        "minTextBoxes": 10,
+        "minIntentionalMinimumUnitCrops": 1,
+        "maxActionableUnexplainedCrops": 0,
+        "minNativeComponentGroups": 5,
+        "maxNativeComponentGroups": 5,
+        "maxUngroupedNativeComponentParts": 0,
+        "maxRasterImageAreaRatio": 0.069,
+        "allowedImageDetectors": ["review-risk-gate-flow-residual-crop"]
+      },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "8", "--out", "runs/golden-set/complex-review-risk-gate-real"]
+    },
+    {
+      "id": "complex-triangle-topology-real",
+      "pageType": "complex-triangle-topology",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 3, "minShapes": 7, "maxShapes": 7, "minTextBoxes": 12, "maxPixelDiffRatio": 0.07, "maxForegroundMissingRatio": 0.25, "minLayoutMeanIoU": 0.9, "minIntentionalMinimumUnitCrops": 3, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 7, "maxNativeComponentGroups": 7, "maxUngroupedNativeComponentParts": 0, "maxRasterImageAreaRatio": 0.045, "allowedImageDetectors": ["triangle-topology-residual-crop"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "9", "--ocr", "true", "--out", "runs/golden-set/complex-triangle-topology-real"]
+    },
+    {
+      "id": "complex-value-quadrant-real",
+      "pageType": "complex-value-quadrant",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 4, "minShapes": 2, "maxShapes": 2, "minTextBoxes": 13, "minIntentionalMinimumUnitCrops": 4, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 5, "maxNativeComponentGroups": 5, "maxUngroupedNativeComponentParts": 0, "maxRasterImageAreaRatio": 0.064, "maxPixelDiffRatio": 0.07, "maxForegroundMissingRatio": 0.2, "minLayoutMeanIoU": 0.99, "allowedImageDetectors": ["value-quadrant-gem-crop"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "11", "--out", "runs/golden-set/complex-value-quadrant-real"]
+    },
+    {
+      "id": "complex-asset-hub-four-layer-real",
+      "pageType": "complex-stacked-four-layer-architecture",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 0, "minShapes": 20, "maxShapes": 20, "minTextBoxes": 10, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 6, "maxNativeComponentGroups": 6, "maxUngroupedNativeComponentParts": 0, "maxRasterImageAreaRatio": 0, "allowedImageDetectors": [] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Asset_Hub", "--pages", "4", "--out", "runs/golden-set/complex-asset-hub-four-layer-real"]
+    },
+    {
+      "id": "complex-cli-scaffold-generator-real",
+      "pageType": "complex-cli-scaffold-generator",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 0, "minShapes": 29, "maxShapes": 29, "minTextBoxes": 18, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 13, "maxNativeComponentGroups": 13, "maxUngroupedNativeComponentParts": 0, "maxRasterImageAreaRatio": 0, "allowedImageDetectors": [] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "11", "--out", "runs/golden-set/complex-cli-scaffold-generator-real"]
+    },
+    {
+      "id": "complex-runtime-engine-hybrid-real",
+      "pageType": "complex-runtime-engine-screenshot-hybrid",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": {
+        "maxImages": 2,
+        "minShapes": 8,
+        "maxShapes": 8,
+        "minTextBoxes": 9,
+        "maxRasterImageAreaRatio": 0.17,
+        "maxSingleRasterImageAreaRatio": 0.161,
+        "minIntentionalMinimumUnitCrops": 2,
+        "maxActionableUnexplainedCrops": 0,
+        "minNativeComponentGroups": 5,
+        "maxNativeComponentGroups": 5,
+        "maxUngroupedNativeComponentParts": 0,
+        "allowedImageDetectors": ["runtime-engine-portal-screenshot-crop", "runtime-engine-catalog-icon-crop"],
+        "allowedImageExpressionForms": ["screenshot-or-document", "icon-or-illustration"]
+      },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "12", "--out", "runs/golden-set/complex-runtime-engine-hybrid-real"]
+    },
+    {
+      "id": "complex-value-transformation-table-real",
+      "pageType": "complex-value-transformation-table",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "maxShapes": 0, "minTables": 1, "minTextBoxes": 18, "maxTextBoxes": 18, "maxRasterImageAreaRatio": 0.002, "maxSingleRasterImageAreaRatio": 0.0015, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 1, "maxNativeComponentGroups": 1, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["value-transformation-shield-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "13", "--out", "runs/golden-set/complex-value-transformation-table-real"]
+    },
+    {
+      "id": "complex-wms-route-hybrid-real",
+      "pageType": "complex-wms-route-hybrid",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": {
+        "maxImages": 1,
+        "minShapes": 8,
+        "maxShapes": 8,
+        "minTextBoxes": 11,
+        "maxTextBoxes": 11,
+        "maxRasterImageAreaRatio": 0.4,
+        "maxSingleRasterImageAreaRatio": 0.4,
+        "maxPixelDiffRatio": 0.095,
+        "maxForegroundMissingRatio": 0.12,
+        "minLayoutMeanIoU": 0.95,
+        "minIntentionalMinimumUnitCrops": 1,
+        "maxActionableUnexplainedCrops": 0,
+        "allowedImageDetectors": ["wms-chain-underlay-crop"],
+        "allowedImageExpressionForms": ["complex-diagram"]
+      },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "AI_Powered_Product_Workflow_Transformation", "--pages", "10", "--out", "runs/golden-set/complex-wms-route-hybrid-real"]
+    },
+    {
+      "id": "complex-four-stage-roadmap-real",
+      "pageType": "complex-four-stage-roadmap",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 2, "minShapes": 9, "maxShapes": 9, "minTextBoxes": 19, "maxTextBoxes": 19, "maxRasterImageAreaRatio": 0.011, "maxSingleRasterImageAreaRatio": 0.0049, "minIntentionalMinimumUnitCrops": 2, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 5, "maxNativeComponentGroups": 5, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["four-step-landing-path-badge-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "14", "--out", "runs/golden-set/complex-four-stage-roadmap-real"]
+    },
+    {
+      "id": "complex-organization-knowledge-network-real",
+      "pageType": "complex-organization-knowledge-network",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 0, "minShapes": 13, "maxShapes": 13, "minTextBoxes": 13, "minNativeComponentGroups": 9, "maxNativeComponentGroups": 9, "maxUngroupedNativeComponentParts": 0, "maxRasterImageAreaRatio": 0, "maxActionableUnexplainedCrops": 0, "allowedImageDetectors": [] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "15", "--out", "runs/golden-set/complex-organization-knowledge-network-real"]
+    },
+    {
+      "id": "complex-asset-hub-minimum-unit-real",
+      "pageType": "complex-asset-hub-minimum-unit",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 9, "maxShapes": 9, "minTextBoxes": 10, "maxRasterImageAreaRatio": 0.63, "maxSingleRasterImageAreaRatio": 0.624, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 4, "maxNativeComponentGroups": 4, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["asset-hub-super-brain-portal-illustration-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Asset_Hub", "--pages", "9", "--out", "runs/golden-set/complex-asset-hub-minimum-unit-real"]
+    },
+    {
+      "id": "complex-asset-hub-source-purification-real",
+      "pageType": "complex-source-purification-flow",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 2, "minShapes": 22, "maxShapes": 22, "minTextBoxes": 13, "maxTextBoxes": 13, "maxRasterImageAreaRatio": 0.215, "maxSingleRasterImageAreaRatio": 0.135, "maxPixelDiffRatio": 0.18, "maxForegroundMissingRatio": 0.22, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 2, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 9, "maxNativeComponentGroups": 9, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["asset-hub-source-purification-minimum-unit-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Asset_Hub", "--pages", "8", "--out", "runs/golden-set/complex-asset-hub-source-purification-real"]
+    },
+    {
+      "id": "complex-collaboration-challenge-protected-real",
+      "pageType": "complex-protected-diagram",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 2, "maxShapes": 0, "minTextBoxes": 2, "maxTextBoxes": 2, "maxRasterImageAreaRatio": 0.65, "maxSingleRasterImageAreaRatio": 0.56, "maxPixelDiffRatio": 0.05, "maxForegroundMissingRatio": 0.095, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 2, "maxActionableUnexplainedCrops": 0, "maxNativeComponentGroups": 0, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["product-collaboration-challenge-protected-diagram-crop"], "allowedImageExpressionForms": ["complex-diagram"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Asset_Hub", "--pages", "2", "--out", "runs/golden-set/complex-collaboration-challenge-protected-real"]
+    },
+    {
+      "id": "complex-wms-quality-gate-hybrid-real",
+      "pageType": "complex-wms-quality-gate-hybrid",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 18, "maxShapes": 18, "minTextBoxes": 14, "maxTextBoxes": 14, "maxRasterImageAreaRatio": 0.175, "maxSingleRasterImageAreaRatio": 0.175, "maxPixelDiffRatio": 0.112, "maxForegroundMissingRatio": 0.21, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 4, "maxNativeComponentGroups": 4, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["product-brain-wms-quality-input-complexity-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Digital_Product_Brain", "--pages", "9", "--out", "runs/golden-set/complex-wms-quality-gate-hybrid-real"]
+    },
+    {
+      "id": "native-skills-cover-engine-core-real",
+      "pageType": "native-cover-engine-core",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 0, "minShapes": 7, "maxShapes": 7, "minTextBoxes": 6, "maxTextBoxes": 6, "maxRasterImageAreaRatio": 0, "maxPixelDiffRatio": 0.052, "maxForegroundMissingRatio": 0.145, "minLayoutMeanIoU": 0.99, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 5, "maxNativeComponentGroups": 5, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": [] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "1", "--out", "runs/golden-set/native-skills-cover-engine-core-real", "--renderer", "libreoffice"]
+    },
+    {
+      "id": "native-skills-ai-comparison-table-real",
+      "pageType": "native-comparison-table-with-icon-overlays",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 9, "maxShapes": 0, "minTables": 1, "minTextBoxes": 1, "maxTextBoxes": 1, "maxRasterImageAreaRatio": 0.055, "maxSingleRasterImageAreaRatio": 0.0071, "maxPixelDiffRatio": 0.09, "maxForegroundMissingRatio": 0.45, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 9, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 1, "maxNativeComponentGroups": 1, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["skills-engine-ai-comparison-status-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "3", "--out", "runs/golden-set/native-skills-ai-comparison-table-real"]
+    },
+    {
+      "id": "hybrid-skills-asset-landing-triad-real",
+      "pageType": "hybrid-asset-landing-triad",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 14, "maxShapes": 14, "minTextBoxes": 8, "maxTextBoxes": 8, "maxRasterImageAreaRatio": 0.0093, "maxSingleRasterImageAreaRatio": 0.0093, "maxPixelDiffRatio": 0.085, "maxForegroundMissingRatio": 0.27, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 7, "maxNativeComponentGroups": 7, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["asset-landing-triad-native-mark-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "10", "--out", "runs/golden-set/hybrid-skills-asset-landing-triad-real", "--renderer", "libreoffice"]
+    },
+    {
+      "id": "native-rd-portal-platform-real",
+      "pageType": "native-portal-platform-architecture",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 0, "minShapes": 19, "maxShapes": 19, "minTextBoxes": 15, "maxTextBoxes": 15, "maxRasterImageAreaRatio": 0, "maxPixelDiffRatio": 0.082, "maxForegroundMissingRatio": 0.135, "minLayoutMeanIoU": 0.99, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 7, "maxNativeComponentGroups": 7, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": [] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "1", "--out", "runs/golden-set/native-rd-portal-platform-real"]
+    },
+    {
+      "id": "native-rd-collaboration-breakdown-real",
+      "pageType": "native-collaboration-breakdown",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 0, "minShapes": 26, "maxShapes": 26, "minTextBoxes": 14, "maxTextBoxes": 14, "maxRasterImageAreaRatio": 0, "maxPixelDiffRatio": 0.126, "maxForegroundMissingRatio": 0.28, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 10, "maxNativeComponentGroups": 10, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": [] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "2", "--out", "runs/golden-set/native-rd-collaboration-breakdown-real"]
+    },
+    {
+      "id": "native-rd-portal-four-layer-real",
+      "pageType": "native-portal-four-layer-architecture",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 0, "minShapes": 21, "maxShapes": 21, "minTextBoxes": 17, "maxTextBoxes": 17, "maxRasterImageAreaRatio": 0, "maxPixelDiffRatio": 0.08, "maxForegroundMissingRatio": 0.14, "minLayoutMeanIoU": 0.99, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 9, "maxNativeComponentGroups": 9, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": [] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "4", "--out", "runs/golden-set/native-rd-portal-four-layer-real"]
+    },
+    {
+      "id": "hybrid-rd-skills-capability-matrix-real",
+      "pageType": "hybrid-skills-capability-matrix",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 4, "minShapes": 20, "maxShapes": 20, "minTextBoxes": 12, "maxTextBoxes": 12, "maxRasterImageAreaRatio": 0.011, "maxSingleRasterImageAreaRatio": 0.0027, "maxPixelDiffRatio": 0.09, "maxForegroundMissingRatio": 0.125, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 4, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 15, "maxNativeComponentGroups": 15, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["skills-capability-matrix-native-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "5", "--out", "runs/golden-set/hybrid-rd-skills-capability-matrix-real"]
+    },
+    {
+      "id": "hybrid-rd-demand-intake-funnel-real",
+      "pageType": "hybrid-demand-intake-funnel",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 4, "minShapes": 22, "maxShapes": 22, "minTextBoxes": 14, "maxTextBoxes": 14, "maxRasterImageAreaRatio": 0.022, "maxSingleRasterImageAreaRatio": 0.0085, "maxPixelDiffRatio": 0.125, "maxForegroundMissingRatio": 0.245, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 4, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 14, "maxNativeComponentGroups": 14, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["demand-intake-funnel-native-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "6", "--out", "runs/golden-set/hybrid-rd-demand-intake-funnel-real"]
+    },
+    {
+      "id": "native-rd-prd-auto-generation-real",
+      "pageType": "native-prd-auto-generation-flow",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 38, "maxShapes": 38, "minTextBoxes": 16, "maxTextBoxes": 16, "maxRasterImageAreaRatio": 0.078, "maxSingleRasterImageAreaRatio": 0.078, "maxPixelDiffRatio": 0.13, "maxForegroundMissingRatio": 0.185, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 6, "maxNativeComponentGroups": 6, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["prd-auto-generation-engine-illustration-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "7", "--out", "runs/golden-set/native-rd-prd-auto-generation-real"]
+    },
+    {
+      "id": "hybrid-rd-smart-review-branch-gate-real",
+      "pageType": "hybrid-smart-review-branch-gate",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 21, "maxShapes": 21, "minTextBoxes": 13, "maxTextBoxes": 13, "maxRasterImageAreaRatio": 0.0055, "maxSingleRasterImageAreaRatio": 0.0055, "maxPixelDiffRatio": 0.14, "maxForegroundMissingRatio": 0.23, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 15, "maxNativeComponentGroups": 15, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["smart-review-branch-gate-native-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "8", "--out", "runs/golden-set/hybrid-rd-smart-review-branch-gate-real"]
+    },
+    {
+      "id": "hybrid-rd-skill-chain-orchestration-real",
+      "pageType": "hybrid-skill-chain-orchestration",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 1, "minShapes": 22, "maxShapes": 22, "minTextBoxes": 14, "maxTextBoxes": 14, "maxRasterImageAreaRatio": 0.0041, "maxSingleRasterImageAreaRatio": 0.0041, "maxPixelDiffRatio": 0.08, "maxForegroundMissingRatio": 0.2, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 1, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 14, "maxNativeComponentGroups": 14, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["skill-chain-orchestration-native-shield-icon-crop"], "allowedImageExpressionForms": ["icon-or-illustration"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "Intelligent_R_D_Asset_Blueprint", "--pages", "10", "--out", "runs/golden-set/hybrid-rd-skill-chain-orchestration-real", "--renderer", "libreoffice"]
+    },
+    {
+      "id": "hybrid-skills-chain-folded-components-real",
+      "pageType": "hybrid-skill-chain-with-minimum-unit-crops",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 2, "minShapes": 17, "maxShapes": 17, "minTextBoxes": 7, "maxTextBoxes": 7, "maxRasterImageAreaRatio": 0.094, "maxSingleRasterImageAreaRatio": 0.06, "maxPixelDiffRatio": 0.068, "maxForegroundMissingRatio": 0.14, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 2, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 8, "maxNativeComponentGroups": 8, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["skill-chain-overview-residual-crop"], "allowedImageExpressionForms": ["complex-diagram"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "4", "--out", "runs/golden-set/hybrid-skills-chain-folded-components-real"]
+    },
+    {
+      "id": "hybrid-prototype-validation-screenshot-flow-real",
+      "pageType": "hybrid-prototype-validation-screenshot-flow",
+      "mode": "delivery",
+      "timeoutMs": 180000,
+      "expect": { "maxImages": 4, "minShapes": 10, "maxShapes": 10, "minTextBoxes": 5, "maxTextBoxes": 5, "maxRasterImageAreaRatio": 0.205, "maxSingleRasterImageAreaRatio": 0.085, "maxPixelDiffRatio": 0.055, "maxForegroundMissingRatio": 0.135, "minLayoutMeanIoU": 0.99, "minIntentionalMinimumUnitCrops": 4, "maxActionableUnexplainedCrops": 0, "minNativeComponentGroups": 5, "maxNativeComponentGroups": 5, "maxUngroupedNativeComponentParts": 0, "allowedImageDetectors": ["prototype-validation-flow-residual-crop"], "allowedImageExpressionForms": ["icon-or-illustration", "screenshot-or-document"] },
+      "command": ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "PM_Portal_AI_Skills_Engine", "--pages", "6", "--out", "runs/golden-set/hybrid-prototype-validation-screenshot-flow-real"]
+    }
+  ]
+}

@@ -2,10 +2,16 @@
 
 const { execFile } = require("child_process");
 const path = require("path");
+const { pythonEnv, resolvePythonExecutable } = require("../lib/python-env");
 
-function run(command, args, cwd) {
+function run(command, args, cwd, env = null) {
   return new Promise((resolve, reject) => {
-    execFile(command, args, { cwd, windowsHide: true, maxBuffer: 20 * 1024 * 1024 }, (error, stdout, stderr) => {
+    execFile(command, args, {
+      cwd,
+      windowsHide: true,
+      maxBuffer: 20 * 1024 * 1024,
+      env: env ? { ...process.env, ...env } : process.env
+    }, (error, stdout, stderr) => {
       if (error) {
         error.stdout = stdout;
         error.stderr = stderr;
@@ -20,8 +26,13 @@ function run(command, args, cwd) {
 module.exports = async function pptxPythonPptx(input, context) {
   const outFile = path.join(context.outputDir, "pptx", "deck.pptx");
   const script = path.join(context.skillRoot, "scripts", "python", "build_pptx.py");
-  const python = process.env.PYTHON_BIN || "python";
-  await run(python, [script, "--ir", input.irFile, "--out", outFile], context.outputDir);
+  const python = resolvePythonExecutable(context.config?.python);
+  await run(
+    python,
+    [script, "--ir", input.irFile, "--out", outFile],
+    context.outputDir,
+    pythonEnv(context.skillRoot, { python })
+  );
   return {
     ok: true,
     data: {

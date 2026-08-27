@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { run } = require("../lib/exec");
+const { pythonEnv } = require("../lib/python-env");
 
 module.exports = async function compressPptxMedia(input, context) {
   const pptxFile = input.pptx?.pptxFile;
@@ -37,7 +38,11 @@ module.exports = async function compressPptxMedia(input, context) {
     String(config.maxImagePixels ?? 0),
     "--min-saving-bytes",
     String(config.minSavingBytes ?? 128)
-  ], { cwd: context.outputDir, maxBuffer: 20 * 1024 * 1024 });
+  ], {
+    cwd: context.outputDir,
+    maxBuffer: 20 * 1024 * 1024,
+    env: pythonEnv(context.skillRoot)
+  });
 
   const report = JSON.parse(fs.readFileSync(reportFile, "utf8"));
   return {

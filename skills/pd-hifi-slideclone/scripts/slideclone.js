@@ -3,6 +3,29 @@
 
 const fs = require("fs");
 const path = require("path");
+const {
+  buildReconstructionInventory,
+  enrichReconstructionContracts,
+  validateReconstructionContracts
+} = require("./lib/reconstruction-contract");
+const {
+  applyRoleFontOption,
+  describeRoleOption,
+  getRoleFitPlan
+} = require("./lib/font-fit");
+const {
+  applyContainerStyleOption,
+  collectContainerStylePlan,
+  describeContainerOption
+} = require("./lib/container-style-fit");
+const {
+  rankedOptionsForRole,
+  rankRoleFontOptions
+} = require("./lib/font-fast-rank");
+const { assertValidConfig } = require("./lib/config-validation");
+const { processPages } = require("./lib/page-pipeline");
+const { loadTrustedAdapter } = require("./lib/trusted-adapter");
+const { DEFAULT_OCR_ADAPTER, defaultOcrProviderConfigs } = require("./lib/ocr-provider-config");
 
 const skillRoot = path.resolve(__dirname, "..");
 const defaultAdapters = {
@@ -41,8 +64,16 @@ function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, "utf8"));
+function readJson(file, maxBytes = 128 * 1024 * 1024) {
+  const stats = fs.statSync(file);
+  if (!stats.isFile() || stats.size <= 0 || stats.size > maxBytes) {
+    throw new Error(`JSON file size exceeds the processing boundary: ${file}`);
+  }
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    throw new Error(`Invalid JSON file ${file}: ${error.message}`);
+  }
 }
 
 function writeJson(file, data) {
@@ -72,6 +103,7 @@ function createConfig(inputDir, outputDir) {
       widthPt: 960,
       heightPt: 540
     },
+    pageConcurrency: 2,
     adapters: defaultAdapters,
     thresholds: {
       pixelDiffRatio: 0.08,
@@ -85,7 +117,74 @@ function createConfig(inputDir, outputDir) {
     },
     fontFit: {
       enabled: false,
-      candidates: ["Microsoft YaHei", "SimHei", "DengXian", "Arial"]
+      mode: "role-greedy",
+      candidates: ["Microsoft YaHei", "SimHei", "DengXian", "Arial"],
+      roleOrder: ["title", "banner", "card-title", "button", "caption", "body"],
+      roleCandidates: {
+        title: { sizeAdjustPt: [-1, 0, 1], weights: ["bold"] },
+        banner: { sizeAdjustPt: [-1, 0, 1], weights: ["bold"] },
+        "card-title": { sizeAdjustPt: [-0.5, 0, 0.5], weights: ["bold"] },
+        button: { sizeAdjustPt: [-0.5, 0, 0.5], weights: ["regular", "bold"] },
+        caption: { sizeAdjustPt: [-0.5, 0, 0.5], weights: ["regular", "bold"] },
+        body: { sizeAdjustPt: [0], weights: ["regular", "bold"] }
+      }
+    },
+    containerStyleFit: {
+      enabled: false,
+      mode: "container-greedy",
+      kindCandidates: {
+        banner: {
+          radiusRatio: [0.03, 0.035, 0.04],
+          shadowAlpha: [0.11, 0.13, 0.15],
+          shadowBlurPt: [3.2, 3.8, 4.4],
+          shadowDistancePt: [0.8, 1.0, 1.2],
+          shadowAngleDeg: [45]
+        },
+        card: {
+          radiusRatio: [0.05, 0.06, 0.07],
+          shadowAlpha: [0.14, 0.16, 0.18],
+          shadowBlurPt: [3.8, 4.2, 4.8],
+          shadowDistancePt: [1.0, 1.3, 1.6],
+          shadowAngleDeg: [45]
+        },
+        "strong-card": {
+          radiusRatio: [0.05, 0.055, 0.06],
+          shadowAlpha: [0.18, 0.2, 0.22],
+          shadowBlurPt: [4.2, 4.6, 5.0],
+          shadowDistancePt: [1.2, 1.6, 2.0],
+          shadowAngleDeg: [45]
+        },
+        container: {
+          radiusRatio: [0.045, 0.05],
+          shadowAlpha: [0.16, 0.18],
+          shadowBlurPt: [4.0, 4.4],
+          shadowDistancePt: [1.2, 1.5],
+          shadowAngleDeg: [45]
+        }
+      }
+    },
+    textOcr: {
+      enabled: true,
+      adapter: DEFAULT_OCR_ADAPTER,
+      mode: "anchored",
+      paddingPt: 16,
+      upscale: 1,
+      psm: 6,
+      preprocess: false
+    },
+    ...defaultOcrProviderConfigs(),
+    textMicroAdjust: {
+      enabled: true,
+      minCoverage: 0.995,
+      paddingPt: 16,
+      maxMovePt: 3,
+      maxHeightAdjustPt: 2.5,
+      minDeltaPt: 0.15,
+      inspectAligned: true,
+      maxLayoutRegression: 0.08,
+      maxCriticalOffsetIncreasePt: 6,
+      layoutPenaltyWeight: 0.35,
+      criticalPenaltyWeight: 0.002
     },
     maxIterations: 2,
     postprocess: {
@@ -101,6 +200,9 @@ function createConfig(inputDir, outputDir) {
 function validateIr(ir, options = {}) {
   const errors = [];
   const warnings = [];
+  if (!ir || typeof ir !== "object" || Array.isArray(ir)) {
+    return { ok: false, errors: ["IR must be an object"], warnings };
+  }
   if (!ir || ir.version !== "1.0") errors.push("version must be 1.0");
   if (!ir.slideSize || typeof ir.slideSize.widthPt !== "number" || typeof ir.slideSize.heightPt !== "number") {
     errors.push("slideSize.widthPt and slideSize.heightPt are required numbers");
@@ -108,8 +210,13 @@ function validateIr(ir, options = {}) {
   if (!Array.isArray(ir.pages)) errors.push("pages must be an array");
   const slideWidth = ir?.slideSize?.widthPt || 0;
   const slideHeight = ir?.slideSize?.heightPt || 0;
-  (ir.pages || []).forEach((page, pageIdx) => {
+  const pages = Array.isArray(ir.pages) ? ir.pages : [];
+  pages.forEach((page, pageIdx) => {
     const pageLabel = `pages[${pageIdx}]`;
+    if (!page || typeof page !== "object" || Array.isArray(page)) {
+      errors.push(`${pageLabel} must be an object`);
+      return;
+    }
     if (typeof page.pageIndex !== "number") errors.push(`${pageLabel}.pageIndex must be a number`);
     if (typeof page.sourceImage !== "string" || !page.sourceImage.trim()) {
       errors.push(`${pageLabel}.sourceImage is required`);
@@ -117,26 +224,46 @@ function validateIr(ir, options = {}) {
       validateExistingFile(`${pageLabel}.sourceImage`, page.sourceImage, options, warnings);
     }
     const ids = new Map();
+    const collections = {};
     ["textBoxes", "shapes", "images", "tables", "charts", "icons"].forEach((key) => {
       if (!Array.isArray(page[key])) errors.push(`pages[${pageIdx}].${key} must be an array`);
+      collections[key] = Array.isArray(page[key]) ? page[key] : [];
     });
-    (page.textBoxes || []).forEach((textBox, boxIdx) => {
+    collections.textBoxes.forEach((textBox, boxIdx) => {
       const label = `${pageLabel}.textBoxes[${boxIdx}]`;
-      validateElementCommon(textBox, label, "text", { errors, warnings, ids, options, slideWidth, slideHeight });
+      if (!validateElementCommon(textBox, label, "text", { errors, warnings, ids, options, slideWidth, slideHeight })) return;
       if (typeof textBox.text !== "string") errors.push(`${label}.text must be a string`);
       if (!textBox.font?.family) warnings.push(`${label}.font.family is missing; PowerPoint may substitute fonts.`);
     });
     ["shapes", "images", "tables", "charts", "icons"].forEach((key) => {
-      (page[key] || []).forEach((item, itemIdx) => {
+      collections[key].forEach((item, itemIdx) => {
         const label = `${pageLabel}.${key}[${itemIdx}]`;
-        validateElementCommon(item, label, key, { errors, warnings, ids, options, slideWidth, slideHeight });
+        if (!validateElementCommon(item, label, key, { errors, warnings, ids, options, slideWidth, slideHeight })) return;
         if (!item.type) errors.push(`${label}.type is required`);
         if (key === "images") validateImageElement(item, label, { errors, warnings, options });
         if (key === "tables" && !Array.isArray(item.rows)) warnings.push(`${label}.rows is missing; table may not be editable.`);
       });
     });
   });
+  const reconstruction = validateReconstructionContracts(ir, options);
+  errors.push(...reconstruction.errors);
+  warnings.push(...reconstruction.warnings);
   return { ok: errors.length === 0, errors, warnings };
+}
+
+function prepareReconstructionIrForBuild(ir, options = {}) {
+  const irFile = path.resolve(options.irFile || path.join(process.cwd(), "deck.json"));
+  const baseDir = path.dirname(irFile);
+  const preparedIr = enrichReconstructionContracts(ir, { baseDir });
+  return {
+    ir: preparedIr,
+    validation: validateIr(preparedIr, {
+      baseDir,
+      checkFiles: options.checkFiles !== false,
+      allowManualRequired: options.allowManualRequired === true
+    }),
+    inventory: buildReconstructionInventory(preparedIr)
+  };
 }
 
 function isBox(box) {
@@ -145,6 +272,10 @@ function isBox(box) {
 
 function validateElementCommon(item, label, group, state) {
   const { errors, warnings, ids, options, slideWidth, slideHeight } = state;
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    errors.push(`${label} must be an object`);
+    return false;
+  }
   if (!item.id || typeof item.id !== "string") {
     errors.push(`${label}.id is required`);
   } else if (ids.has(item.id)) {
@@ -159,6 +290,7 @@ function validateElementCommon(item, label, group, state) {
     validateBox(label, item.box, { errors, warnings, slideWidth, slideHeight, allowLine });
   }
   validateSourceContract(item, label, { errors, warnings, options });
+  return true;
 }
 
 function validateBox(label, box, { errors, warnings, slideWidth, slideHeight, allowLine }) {
@@ -219,9 +351,13 @@ function resolveIrPath(baseDir, value) {
   return path.resolve(skillRoot, value);
 }
 
-async function loadAdapter(configDir, adapterPath) {
-  const fullPath = resolveMaybeRelative(configDir, adapterPath);
-  return require(fullPath);
+async function loadAdapter(configDir, adapterPath, options = {}) {
+  return loadTrustedAdapter({
+    configDir,
+    skillRoot,
+    adapterPath,
+    allowExternal: options.allowExternal === true
+  });
 }
 
 function assertAdapterOk(stage, result) {
@@ -246,20 +382,23 @@ async function runCommand(args) {
   if (!args.config) throw new Error("--config is required");
   const configFile = path.resolve(args.config);
   const configDir = path.dirname(configFile);
-  const config = readJson(configFile);
+  const config = assertValidConfig(readJson(configFile, 1024 * 1024));
   const inputDir = path.resolve(configDir, config.inputDir);
   const outputDir = path.resolve(configDir, config.outputDir);
+  const inputFiles = resolveRequestedInputFiles(args["input-file"], inputDir);
   ensureRunDirs(outputDir);
+  const adapterOptions = { allowExternal: args["allow-external-adapters"] === true };
 
   const context = {
     config,
     configFile,
     inputDir,
     outputDir,
+    inputFiles,
     skillRoot
   };
 
-  const normalize = await loadAdapter(configDir, config.adapters.normalize || defaultAdapters.normalize);
+  const normalize = await loadAdapter(configDir, config.adapters.normalize || defaultAdapters.normalize, adapterOptions);
   const normalizeResult = assertAdapterOk("normalize", await normalize({ inputDir, outputDir }, context));
   const pages = normalizeResult.data?.pageImages || [];
   if (pages.length === 0) {
@@ -270,14 +409,14 @@ async function runCommand(args) {
     throw new Error(`No normalized page images found in ${inputDir}. Put png/jpg/jpeg/webp pages there first or configure a PDF/PPTX normalizer.${suffix}`);
   }
 
-  const ocr = await loadAdapter(configDir, config.adapters.ocr);
-  const vision = await loadAdapter(configDir, config.adapters.vision);
-  const pptx = await loadAdapter(configDir, config.adapters.pptx);
-  const render = await loadAdapter(configDir, config.adapters.render);
-  const diff = await loadAdapter(configDir, config.adapters.diff);
-  const compare = await loadAdapter(configDir, config.adapters.compare || defaultAdapters.compare);
-  const polish = await loadAdapter(configDir, config.adapters.polish || defaultAdapters.polish);
-  const compress = await loadAdapter(configDir, config.adapters.compress || defaultAdapters.compress);
+  const ocr = await loadAdapter(configDir, config.adapters.ocr, adapterOptions);
+  const vision = await loadAdapter(configDir, config.adapters.vision, adapterOptions);
+  const pptx = await loadAdapter(configDir, config.adapters.pptx, adapterOptions);
+  const render = await loadAdapter(configDir, config.adapters.render, adapterOptions);
+  const diff = await loadAdapter(configDir, config.adapters.diff, adapterOptions);
+  const compare = await loadAdapter(configDir, config.adapters.compare || defaultAdapters.compare, adapterOptions);
+  const polish = await loadAdapter(configDir, config.adapters.polish || defaultAdapters.polish, adapterOptions);
+  const compress = await loadAdapter(configDir, config.adapters.compress || defaultAdapters.compress, adapterOptions);
 
   const ir = {
     version: "1.0",
@@ -288,40 +427,26 @@ async function runCommand(args) {
     pages: []
   };
 
-  for (let index = 0; index < pages.length; index += 1) {
-    const pageInput = pages[index];
-    const pageMeta = typeof pageInput === "string" ? { sourceImage: pageInput } : pageInput;
-    const sourceImage = pageMeta.sourceImage;
-    const ocrResult = assertAdapterOk("ocr", await ocr({
-      pageIndex: index,
-      sourceImage,
-      page: pageMeta,
-      slideSize: ir.slideSize
-    }, context));
-    const visionResult = assertAdapterOk("vision", await vision({
-      pageIndex: index,
-      sourceImage,
-      page: pageMeta,
-      slideSize: ir.slideSize,
-      ocr: ocrResult.data
-    }, context));
-    ir.pages.push({
-      pageIndex: index,
-      sourceImage,
-      background: visionResult.data.background || {},
-      textBoxes: visionResult.data.textBoxes || [],
-      shapes: visionResult.data.shapes || [],
-      images: visionResult.data.images || [],
-      tables: visionResult.data.tables || [],
-      charts: visionResult.data.charts || [],
-      icons: visionResult.data.icons || []
-    });
-  }
+  const pagePipeline = await processPages({
+    pages,
+    slideSize: ir.slideSize,
+    ocr,
+    vision,
+    context,
+    requestedConcurrency: config.pageConcurrency || 1
+  });
+  ir.pages = pagePipeline.pages;
 
   const irFile = path.join(outputDir, "ir", "deck.json");
-  writeJson(irFile, ir);
+  const prepared = prepareReconstructionIrForBuild(ir, { irFile, checkFiles: true });
+  const enrichedIr = prepared.ir;
+  writeJson(irFile, enrichedIr);
+  writeJson(
+    path.join(outputDir, "reports", "reconstruction-inventory.json"),
+    prepared.inventory
+  );
 
-  const validation = validateIr(ir, { baseDir: path.dirname(irFile), checkFiles: true });
+  const validation = prepared.validation;
   writeJson(path.join(outputDir, "reports", "ir-validation.json"), {
     ok: validation.errors.length === 0,
     errors: validation.errors,
@@ -331,7 +456,7 @@ async function runCommand(args) {
     throw new Error(`IR validation failed. See ${path.join(outputDir, "reports", "ir-validation.json")}`);
   }
 
-  let currentIr = ir;
+  let currentIr = enrichedIr;
   let currentIrFile = irFile;
   let pptxResult = assertAdapterOk("pptx", await pptx({ irFile: currentIrFile, ir: currentIr, iteration: 0 }, context));
   const postprocessResult = await runPostprocess({
@@ -346,6 +471,7 @@ async function runCommand(args) {
   const pipelineResult = {
     ok: true,
     pages: pages.length,
+    pageConcurrency: pagePipeline.concurrency,
     normalize: normalizeResult.data,
     irFile: postprocessResult.irFile,
     pptx: postprocessResult.pptx,
@@ -387,6 +513,8 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
   let lastCompare = null;
   let polishSummary = null;
   let fontFitSummary = null;
+  let containerStyleFitSummary = null;
+  let acceptedState = null;
 
   if (config.fontFit?.enabled === true) {
     const fitResult = await optimizeFonts({
@@ -401,6 +529,20 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
     currentIr = fitResult.ir;
     currentIrFile = fitResult.irFile;
     currentPptxResult = fitResult.pptxResult;
+  }
+  if (config.containerStyleFit?.enabled === true) {
+    const styleFitResult = await optimizeContainerStyles({
+      config,
+      context,
+      adapters,
+      ir: currentIr,
+      irFile: currentIrFile,
+      pptxResult: currentPptxResult
+    });
+    containerStyleFitSummary = styleFitResult.summary;
+    currentIr = styleFitResult.ir;
+    currentIrFile = styleFitResult.irFile;
+    currentPptxResult = styleFitResult.pptxResult;
   }
 
   for (let iteration = 0; iteration <= maxIterations; iteration += 1) {
@@ -427,7 +569,23 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
       }, context))
       : { ok: true, data: { skipped: true, passed: true } };
 
+    const preferred = iteration === 0
+      || isPreferredCompare(compareResult.data, acceptedState?.compare || null, config.thresholds);
+    if (!preferred && acceptedState) {
+      currentIr = acceptedState.ir;
+      currentIrFile = acceptedState.irFile;
+      currentPptxResult = acceptedState.pptxResult;
+      lastCompare = acceptedState.compare;
+      break;
+    }
+
     lastCompare = compareResult.data;
+    acceptedState = {
+      ir: currentIr,
+      irFile: currentIrFile,
+      pptxResult: currentPptxResult,
+      compare: compareResult.data
+    };
     iterations.push({
       iteration,
       irFile: currentIrFile,
@@ -438,7 +596,10 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
     });
 
     const passed = compareResult.data?.passed === true;
-    const shouldStop = passed && postprocess.stopWhenThresholdPassed;
+    const needsTextMicroPolish = hasTextMicroPolishOpportunity(compareResult.data, config);
+    const shouldStop = passed
+      && postprocess.stopWhenThresholdPassed
+      && !needsTextMicroPolish;
     const canPolish = postprocess.polish && iteration < maxIterations;
     if (shouldStop || !canPolish) break;
 
@@ -453,9 +614,21 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
     polishSummary = polishResult.data;
     if (!polishResult.data?.ir || polishResult.data.changed === false) break;
 
-    currentIr = polishResult.data.ir;
     currentIrFile = path.join(context.outputDir, "ir", `deck.polished.${iteration + 1}.json`);
+    const preparedPolished = prepareReconstructionIrForBuild(polishResult.data.ir, {
+      irFile: currentIrFile,
+      checkFiles: true
+    });
+    currentIr = preparedPolished.ir;
     writeJson(currentIrFile, currentIr);
+    writeJson(path.join(context.outputDir, "reports", `ir-validation.polished.${iteration + 1}.json`), {
+      ok: preparedPolished.validation.ok,
+      errors: preparedPolished.validation.errors,
+      warnings: preparedPolished.validation.warnings
+    });
+    if (!preparedPolished.validation.ok) {
+      throw new Error(`Polished IR validation failed. See ${path.join(context.outputDir, "reports", `ir-validation.polished.${iteration + 1}.json`)}`);
+    }
     currentPptxResult = assertAdapterOk("pptx", await adapters.pptx({
       irFile: currentIrFile,
       ir: currentIr,
@@ -478,8 +651,13 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
     render: adapters.render,
     ir: currentIr,
     pptx: currentPptxResult.data,
-    compress: compressResult.data
+    compress: compressResult.data,
+    priorRender: matchingFinalRender(iterations, currentPptxResult.data?.pptxFile)
   });
+  writeJson(
+    path.join(context.outputDir, "reports", "reconstruction-inventory.json"),
+    buildReconstructionInventory(currentIr)
+  );
 
   writeJson(path.join(context.outputDir, "reports", "postprocess-result.json"), {
     ok: true,
@@ -488,6 +666,7 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
     delivery,
     compare: lastCompare,
     fontFit: fontFitSummary,
+    containerStyleFit: containerStyleFitSummary,
     polish: polishSummary,
     compress: compressResult.data,
     iterations
@@ -499,13 +678,102 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
     delivery,
     compare: lastCompare,
     fontFit: fontFitSummary,
+    containerStyleFit: containerStyleFitSummary,
     polish: polishSummary,
     compress: compressResult.data,
     iterations
   };
 }
 
+function matchingFinalRender(iterations, finalPptxFile) {
+  if (!Array.isArray(iterations) || typeof finalPptxFile !== "string" || !finalPptxFile) return null;
+  const last = iterations[iterations.length - 1];
+  if (typeof last?.pptx?.pptxFile !== "string" || path.resolve(last.pptx.pptxFile) !== path.resolve(finalPptxFile)) return null;
+  return last.render || null;
+}
+
+function resolveRequestedInputFiles(value, inputDir) {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !value.trim()) throw new Error("--input-file must be a non-empty file path");
+  const root = fs.realpathSync.native(inputDir);
+  const candidate = path.isAbsolute(value) ? path.resolve(value) : path.resolve(inputDir, value);
+  const relative = path.relative(root, candidate);
+  if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error("--input-file must be an existing child file of config.inputDir");
+  }
+  let info;
+  try {
+    info = fs.lstatSync(candidate);
+  } catch {
+    throw new Error("--input-file must be an existing child file of config.inputDir");
+  }
+  if (!info.isFile() || info.isSymbolicLink()) throw new Error("--input-file must be an existing non-symbolic child file of config.inputDir");
+  const actual = fs.realpathSync.native(candidate);
+  const actualRelative = path.relative(root, actual);
+  if (!actualRelative || actualRelative === ".." || actualRelative.startsWith(`..${path.sep}`) || path.isAbsolute(actualRelative)) {
+    throw new Error("--input-file must resolve inside config.inputDir");
+  }
+  return [actual];
+}
+
+function hasTextMicroPolishOpportunity(compare, config = {}) {
+  if (config.textMicroAdjust?.enabled === false) return false;
+  const minCoverage = Number(config.textMicroAdjust?.minCoverage ?? 0.995);
+  if (!Number.isFinite(minCoverage)) return false;
+  const pages = compare?.textCoverage?.pages;
+  if (!Array.isArray(pages)) return false;
+  return pages.some((page) =>
+    (page?.boxes || []).some((box) => box?.ok === true && (
+      (typeof box.textCoverage === "number" && box.textCoverage < minCoverage)
+      || (typeof box.expectedCoverage === "number" && box.expectedCoverage < minCoverage)
+    )));
+}
+
+function isPreferredCompare(candidate, baseline, thresholds = {}) {
+  if (!baseline) return true;
+  const candidateVector = compareVector(candidate, thresholds);
+  const baselineVector = compareVector(baseline, thresholds);
+  for (let index = 0; index < candidateVector.length; index += 1) {
+    if (candidateVector[index] === baselineVector[index]) continue;
+    return candidateVector[index] > baselineVector[index];
+  }
+  return true;
+}
+
+function compareVector(compare, thresholds = {}) {
+  const metrics = compare?.summary || {};
+  const checks = Array.isArray(compare?.checks) ? compare.checks : [];
+  const requiredFailures = checks.filter((check) => check.required && check.passed !== true).length;
+  const optionalFailures = checks.filter((check) => !check.required && check.passed !== true).length;
+  const textCoverage = typeof metrics.textCoverage === "number" ? metrics.textCoverage : -1;
+  const layoutMeanIoU = typeof metrics.layoutMeanIoU === "number" ? metrics.layoutMeanIoU : -1;
+  const pixelDiff = typeof metrics.pixelDiffRatio === "number" ? metrics.pixelDiffRatio : Number.POSITIVE_INFINITY;
+  const foregroundMissing = typeof metrics.foregroundMissingRatio === "number" ? metrics.foregroundMissingRatio : Number.POSITIVE_INFINITY;
+  const maxCriticalOffset = typeof metrics.maxCriticalOffsetPt === "number" ? metrics.maxCriticalOffsetPt : Number.POSITIVE_INFINITY;
+  const textDelta = typeof thresholds.textCoverage === "number" && typeof metrics.textCoverage === "number"
+    ? metrics.textCoverage - thresholds.textCoverage
+    : textCoverage;
+  const layoutDelta = typeof thresholds.layoutMeanIoU === "number" && typeof metrics.layoutMeanIoU === "number"
+    ? metrics.layoutMeanIoU - thresholds.layoutMeanIoU
+    : layoutMeanIoU;
+  const offsetDelta = typeof thresholds.maxCriticalOffsetPt === "number" && typeof metrics.maxCriticalOffsetPt === "number"
+    ? thresholds.maxCriticalOffsetPt - metrics.maxCriticalOffsetPt
+    : -maxCriticalOffset;
+  return [
+    requiredFailures * -1,
+    textDelta,
+    layoutDelta,
+    optionalFailures * -1,
+    offsetDelta,
+    pixelDiff * -1,
+    foregroundMissing * -1
+  ];
+}
+
 async function optimizeFonts({ config, context, adapters, ir, irFile, pptxResult }) {
+  if (shouldUseRoleFontFit(config)) {
+    return optimizeFontsByRole({ config, context, adapters, ir, irFile, pptxResult });
+  }
   const configured = Array.isArray(config.fontFit?.candidates) ? config.fontFit.candidates : [];
   const existingFonts = listFonts(ir);
   const candidates = unique([
@@ -608,6 +876,370 @@ async function optimizeFonts({ config, context, adapters, ir, irFile, pptxResult
   };
 }
 
+async function optimizeFontsByRole({ config, context, adapters, ir, irFile, pptxResult }) {
+  const plan = getRoleFitPlan(ir, config.fontFit || {});
+  const maxTrialsPerRole = positiveIntOrNull(config.fontFit?.maxTrialsPerRole);
+  const fastRankEnabled = config.fontFit?.fastRank?.enabled === true;
+  const fastRankTopN = positiveIntOrNull(config.fontFit?.fastRank?.topN) || maxTrialsPerRole || 2;
+  const summary = {
+    provider: "font-fit-role-render-diff",
+    enabled: true,
+    mode: "role-greedy",
+    fastRank: null,
+    selected: null,
+    changed: false,
+    roles: plan,
+    baseline: null,
+    trials: [],
+    roleTrials: []
+  };
+  if (plan.length === 0 || countTextBoxes(ir) === 0) {
+    summary.skipped = true;
+    summary.reason = plan.length === 0 ? "No text roles available for role-based font fit." : "IR has no text boxes.";
+    writeJson(path.join(context.outputDir, "reports", "font-fit-result.json"), summary);
+    return { ir, irFile, pptxResult, summary };
+  }
+
+  let current = await evaluateFontTrial({
+    context,
+    adapters,
+    ir,
+    irFile,
+    iterationLabel: "fontfit-role-baseline",
+    label: "baseline",
+    pptxResult
+  });
+  summary.baseline = current.trial;
+  summary.trials.push(current.trial);
+
+  const optionsByRole = plan.map((rolePlan) => ({
+    role: rolePlan.role,
+    options: roleFontOptions(rolePlan)
+  }));
+  const fastRank = fastRankEnabled
+    ? await rankRoleFontOptions({
+      skillRoot,
+      outputDir: context.outputDir,
+      ir: current.ir,
+      irFile: current.irFile,
+      roles: optionsByRole,
+      topN: fastRankTopN
+    })
+    : null;
+  if (fastRank) {
+    summary.fastRank = {
+      ok: fastRank.ok,
+      reportFile: fastRank.reportFile,
+      inputFile: fastRank.inputFile,
+      topN: fastRankTopN,
+      preselectOnly: config.fontFit?.fastRank?.preselectOnly === true,
+      provider: fastRank.data?.provider || null,
+      error: fastRank.ok ? null : fastRank.error || "font fast rank failed"
+    };
+  }
+
+  if (fastRank?.ok === true && config.fontFit?.fastRank?.preselectOnly === true) {
+    const baseline = current;
+    let selectedIr = current.ir;
+    let selectedIrFile = current.irFile;
+    let changed = false;
+    for (const rolePlan of plan) {
+      const allOptions = roleFontOptions(rolePlan);
+      const rankedOptions = rankedOptionsForRole(fastRank, rolePlan.role, allOptions);
+      const selectedEntry = fastRank.data?.rankings?.[rolePlan.role]?.[0] || null;
+      const option = rankedOptions[0];
+      const roleResult = {
+        role: rolePlan.role,
+        count: rolePlan.count,
+        baselineScore: current.trial.score,
+        selected: null,
+        improved: false,
+        fastRanked: true,
+        preselected: true,
+        availableTrialCount: allOptions.length,
+        trials: []
+      };
+      if (option) {
+        const applied = applyRoleFontOption(selectedIr, rolePlan.role, option);
+        const trial = {
+          label: describeRoleOption(rolePlan.role, option),
+          role: rolePlan.role,
+          option,
+          verified: false,
+          fastRankScore: selectedEntry?.score ?? null
+        };
+        roleResult.trials.push(trial);
+        roleResult.selected = trial;
+        if (applied.changed) {
+          selectedIr = applied.ir;
+          changed = true;
+        }
+      }
+      summary.roleTrials.push(roleResult);
+    }
+    if (changed) {
+      selectedIrFile = path.join(context.outputDir, "ir", "deck.fontfit-role-fast-rank-selected.json");
+      current = await evaluateFontTrial({
+        context,
+        adapters,
+        ir: selectedIr,
+        irFile: selectedIrFile,
+        iterationLabel: "fontfit-role-fast-rank-selected",
+        label: "fast-rank-selected"
+      });
+      summary.trials.push(current.trial);
+      if (current.trial.score >= baseline.trial.score) {
+        summary.preselectRejected = {
+          reason: "Fast-rank preselection did not improve the verified PowerPoint diff score.",
+          baselineScore: baseline.trial.score,
+          candidateScore: current.trial.score
+        };
+        current = baseline;
+        changed = false;
+      }
+    }
+    summary.selected = current.trial;
+    summary.changed = changed;
+    const finalPptxFile = preservePptx(current.pptxResult.data?.pptxFile, context.outputDir, "deck.pptx");
+    if (finalPptxFile) {
+      current.pptxResult = {
+        ...current.pptxResult,
+        data: {
+          ...current.pptxResult.data,
+          pptxFile: finalPptxFile,
+          selectedCandidatePptxFile: current.trial.pptxFile
+        }
+      };
+      summary.finalPptxFile = finalPptxFile;
+    }
+    writeJson(path.join(context.outputDir, "reports", "font-fit-result.json"), summary);
+    return {
+      ir: current.ir,
+      irFile: current.irFile,
+      pptxResult: current.pptxResult,
+      summary
+    };
+  }
+
+  for (const rolePlan of plan) {
+    const roleResult = {
+      role: rolePlan.role,
+      count: rolePlan.count,
+      baselineScore: current.trial.score,
+      selected: null,
+      improved: false,
+      trials: []
+    };
+    let bestForRole = current;
+    const allOptions = roleFontOptions(rolePlan);
+    const rankedOptions = fastRank?.ok === true
+      ? rankedOptionsForRole(fastRank, rolePlan.role, allOptions)
+      : allOptions;
+    roleResult.fastRanked = fastRank?.ok === true;
+    roleResult.availableTrialCount = allOptions.length;
+    for (const option of rankedOptions) {
+      if (maxTrialsPerRole && roleResult.trials.length >= maxTrialsPerRole) {
+        roleResult.truncated = true;
+        break;
+      }
+      const applied = applyRoleFontOption(current.ir, rolePlan.role, option);
+      if (!applied.changed) continue;
+      const label = `fontfit-role-${sanitizeName(rolePlan.role)}-${roleResult.trials.length + 1}`;
+      const evaluated = await evaluateFontTrial({
+        context,
+        adapters,
+        ir: applied.ir,
+        irFile: path.join(context.outputDir, "ir", `deck.${label}.json`),
+        iterationLabel: label,
+        label: describeRoleOption(rolePlan.role, option)
+      });
+      const roleTrial = {
+        ...evaluated.trial,
+        role: rolePlan.role,
+        option
+      };
+      roleResult.trials.push(roleTrial);
+      summary.trials.push(roleTrial);
+      if (evaluated.trial.score < bestForRole.trial.score) {
+        bestForRole = evaluated;
+        roleResult.selected = roleTrial;
+        roleResult.improved = true;
+      }
+    }
+    summary.roleTrials.push(roleResult);
+    current = bestForRole;
+  }
+
+  summary.selected = current.trial;
+  summary.changed = current.irFile !== irFile || current.trial.label !== "baseline";
+  const finalPptxFile = preservePptx(current.pptxResult.data?.pptxFile, context.outputDir, "deck.pptx");
+  if (finalPptxFile) {
+    current.pptxResult = {
+      ...current.pptxResult,
+      data: {
+        ...current.pptxResult.data,
+        pptxFile: finalPptxFile,
+        selectedCandidatePptxFile: current.trial.pptxFile
+      }
+    };
+    summary.finalPptxFile = finalPptxFile;
+  }
+  writeJson(path.join(context.outputDir, "reports", "font-fit-result.json"), summary);
+  return {
+    ir: current.ir,
+    irFile: current.irFile,
+    pptxResult: current.pptxResult,
+    summary
+  };
+}
+
+async function optimizeContainerStyles({ config, context, adapters, ir, irFile, pptxResult }) {
+  const plan = collectContainerStylePlan(ir, config.containerStyleFit || {});
+  const maxTrialsPerTarget = positiveIntOrNull(config.containerStyleFit?.maxTrialsPerTarget);
+  const summary = {
+    provider: "container-style-fit-render-diff",
+    enabled: true,
+    mode: "container-greedy",
+    selected: null,
+    changed: false,
+    targets: plan,
+    baseline: null,
+    trials: [],
+    targetTrials: []
+  };
+  if (plan.length === 0) {
+    summary.skipped = true;
+    summary.reason = "No rounded container shapes available for style fit.";
+    writeJson(path.join(context.outputDir, "reports", "container-style-fit-result.json"), summary);
+    return { ir, irFile, pptxResult, summary };
+  }
+
+  let current = await evaluateFontTrial({
+    context,
+    adapters,
+    ir,
+    irFile,
+    iterationLabel: "containerfit-baseline",
+    label: "baseline",
+    pptxResult
+  });
+  summary.baseline = current.trial;
+  summary.trials.push(current.trial);
+
+  for (const target of plan) {
+    const targetResult = {
+      elementId: target.elementId,
+      pageIndex: target.pageIndex,
+      kind: target.kind,
+      baselineScore: current.trial.score,
+      selected: null,
+      improved: false,
+      trials: []
+    };
+    let bestForTarget = current;
+    for (const option of containerStyleOptions(target)) {
+      if (maxTrialsPerTarget && targetResult.trials.length >= maxTrialsPerTarget) {
+        targetResult.truncated = true;
+        break;
+      }
+      const applied = applyContainerStyleOption(current.ir, target, option);
+      if (!applied.changed) continue;
+      const label = `containerfit-${sanitizeName(target.elementId)}-${targetResult.trials.length + 1}`;
+      const evaluated = await evaluateFontTrial({
+        context,
+        adapters,
+        ir: applied.ir,
+        irFile: path.join(context.outputDir, "ir", `deck.${label}.json`),
+        iterationLabel: label,
+        label: describeContainerOption(target, option)
+      });
+      const targetTrial = {
+        ...evaluated.trial,
+        elementId: target.elementId,
+        pageIndex: target.pageIndex,
+        kind: target.kind,
+        option
+      };
+      targetResult.trials.push(targetTrial);
+      summary.trials.push(targetTrial);
+      if (evaluated.trial.score < bestForTarget.trial.score) {
+        bestForTarget = evaluated;
+        targetResult.selected = targetTrial;
+        targetResult.improved = true;
+      }
+    }
+    summary.targetTrials.push(targetResult);
+    current = bestForTarget;
+  }
+
+  summary.selected = current.trial;
+  summary.changed = current.irFile !== irFile || current.trial.label !== "baseline";
+  const finalPptxFile = preservePptx(current.pptxResult.data?.pptxFile, context.outputDir, "deck.pptx");
+  if (finalPptxFile) {
+    current.pptxResult = {
+      ...current.pptxResult,
+      data: {
+        ...current.pptxResult.data,
+        pptxFile: finalPptxFile,
+        selectedCandidatePptxFile: current.trial.pptxFile
+      }
+    };
+    summary.finalPptxFile = finalPptxFile;
+  }
+  writeJson(path.join(context.outputDir, "reports", "container-style-fit-result.json"), summary);
+  return {
+    ir: current.ir,
+    irFile: current.irFile,
+    pptxResult: current.pptxResult,
+    summary
+  };
+}
+
+async function evaluateFontTrial({ context, adapters, ir, irFile, iterationLabel, label, pptxResult = null }) {
+  writeJson(irFile, ir);
+  const candidatePptx = pptxResult || assertAdapterOk("font-fit-pptx", await adapters.pptx({
+    irFile,
+    ir,
+    iteration: iterationLabel
+  }, context));
+  const preservedPptxFile = preservePptx(candidatePptx.data?.pptxFile, context.outputDir, `deck.${sanitizeName(iterationLabel)}.pptx`);
+  const renderResult = assertAdapterOk("font-fit-render", await adapters.render({
+    irFile,
+    ir,
+    pptx: { ...candidatePptx.data, pptxFile: preservedPptxFile || candidatePptx.data?.pptxFile },
+    iteration: iterationLabel
+  }, context));
+  const diffResult = assertAdapterOk("font-fit-diff", await adapters.diff({
+    irFile,
+    ir,
+    render: renderResult.data,
+    iteration: iterationLabel
+  }, context));
+  const score = scoreDiff(diffResult.data?.summary);
+  return {
+    ir,
+    irFile,
+    pptxResult: {
+      ...candidatePptx,
+      data: {
+        ...candidatePptx.data,
+        pptxFile: preservedPptxFile || candidatePptx.data?.pptxFile
+      }
+    },
+    trial: {
+      label,
+      irFile,
+      pptxFile: preservedPptxFile || candidatePptx.data?.pptxFile,
+      renderDir: renderResult.data?.renderDir,
+      diffReportFile: diffResult.data?.reportFile,
+      score,
+      pixelDiffRatio: diffResult.data?.summary?.pixelDiffRatio ?? null,
+      foregroundMissingRatio: diffResult.data?.summary?.foregroundMissingRatio ?? null,
+      foregroundMissingRatioRaw: diffResult.data?.summary?.foregroundMissingRatioRaw ?? null
+    }
+  };
+}
+
 function withFontFamily(ir, family) {
   const next = JSON.parse(JSON.stringify(ir));
   for (const page of next.pages || []) {
@@ -640,6 +1272,50 @@ function unique(values) {
   return [...new Set(values.filter((value) => typeof value === "string" && value.trim()).map((value) => value.trim()))];
 }
 
+function shouldUseRoleFontFit(config = {}) {
+  return config.fontFit?.mode === "role-greedy" || Boolean(config.fontFit?.roleCandidates);
+}
+
+function roleFontOptions(rolePlan) {
+  const options = [];
+  for (const family of rolePlan.families) {
+    for (const weight of rolePlan.weights) {
+      for (const sizeAdjustPt of rolePlan.sizeAdjustPt) {
+        options.push({ family, weight, sizeAdjustPt });
+      }
+    }
+  }
+  return options;
+}
+
+function containerStyleOptions(target) {
+  const options = [];
+  for (const radiusRatio of target.radiusRatio) {
+    for (const alpha of target.shadowAlpha) {
+      for (const blurPt of target.shadowBlurPt) {
+        for (const distancePt of target.shadowDistancePt) {
+          for (const angleDeg of target.shadowAngleDeg) {
+            options.push({ radiusRatio, alpha, blurPt, distancePt, angleDeg, color: target.current.shadow.color });
+          }
+        }
+      }
+    }
+  }
+  return options;
+}
+
+function positiveIntOrNull(value) {
+  const number = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function sanitizeName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "trial";
+}
+
 function scoreDiff(summary = {}) {
   const pixel = typeof summary.pixelDiffRatio === "number" ? summary.pixelDiffRatio : 1;
   const foreground = typeof summary.foregroundMissingRatio === "number" ? summary.foregroundMissingRatio : 1;
@@ -654,7 +1330,7 @@ function preservePptx(sourceFile, outputDir, name) {
   return target;
 }
 
-function writeDeliverySummary({ config, configFile, inputDir, outputDir, pages, normalize, postprocess, pipeline }) {
+function writeDeliverySummary({ config, outputDir, pages, normalize, postprocess, pipeline }) {
   const compare = postprocess.compare || {};
   const delivery = postprocess.delivery || {};
   const compress = postprocess.compress || {};
@@ -665,32 +1341,29 @@ function writeDeliverySummary({ config, configFile, inputDir, outputDir, pages, 
     && delivery.verified !== false
     && requiredFailedChecks.length === 0;
   const summary = {
+    schemaVersion: 1,
     provider: "slideclone-delivery-summary",
     generatedAt: new Date().toISOString(),
     status: overallPassed ? "passed" : "failed",
     passed: overallPassed,
-    configFile,
-    inputDir,
-    outputDir,
     pages: {
       count: pages.length,
       imageOnlyCount: countImageOnlyPages(normalize)
     },
-    adapters: {
-      ...(config.adapters || {}),
-      textOcr: config.textOcr?.enabled === true ? config.textOcr.adapter || null : null
-    },
+    adapters: summarizeDeliveryAdapters(config),
     artifacts: {
-      irFile: postprocess.irFile,
-      pptxFile: postprocess.pptx?.pptxFile || null,
-      deliveryPptxFile: delivery.pptxFile || null,
-      compressedPptxFile: compress.compressedPptxFile || null,
-      postprocessReport: path.join(outputDir, "reports", "postprocess-result.json"),
-      pipelineReport: path.join(outputDir, "reports", "pipeline-result.json"),
-      diffReport: latestDiffReport(postprocess.iterations),
-      textCoverageReport: compare.textCoverage?.reportFile || null,
-      compressionReport: compress.reportFile || null,
-      renderedDeliveryPages: delivery.verification?.renderedPages || []
+      irFile: deliveryArtifactPath(postprocess.irFile, outputDir),
+      pptxFile: deliveryArtifactPath(postprocess.pptx?.pptxFile, outputDir),
+      deliveryPptxFile: deliveryArtifactPath(delivery.pptxFile, outputDir),
+      compressedPptxFile: deliveryArtifactPath(compress.compressedPptxFile, outputDir),
+      postprocessReport: "reports/postprocess-result.json",
+      pipelineReport: "reports/pipeline-result.json",
+      diffReport: deliveryArtifactPath(latestDiffReport(postprocess.iterations), outputDir),
+      textCoverageReport: deliveryArtifactPath(compare.textCoverage?.reportFile, outputDir),
+      compressionReport: deliveryArtifactPath(compress.reportFile, outputDir),
+      renderedDeliveryPages: (delivery.verification?.renderedPages || [])
+        .map((file) => deliveryArtifactPath(file, outputDir))
+        .filter(Boolean)
     },
     metrics: {
       ...(compare.summary || {}),
@@ -706,17 +1379,33 @@ function writeDeliverySummary({ config, configFile, inputDir, outputDir, pages, 
     delivery: {
       source: delivery.source || null,
       verified: delivery.verified === true,
-      renderDir: delivery.verification?.renderDir || null,
+      renderDir: deliveryArtifactPath(delivery.verification?.renderDir, outputDir),
       renderedPageCount: Array.isArray(delivery.verification?.renderedPages)
         ? delivery.verification.renderedPages.length
         : 0
     },
     fontFit: postprocess.fontFit
       ? {
-        selected: postprocess.fontFit.selected?.family || null,
+        selected: postprocess.fontFit.selected?.family || postprocess.fontFit.selected?.label || null,
         changed: postprocess.fontFit.changed === true,
         trials: (postprocess.fontFit.trials || []).map((trial) => ({
-          family: trial.family,
+          family: trial.family || null,
+          label: trial.label || null,
+          role: trial.role || null,
+          score: trial.score,
+          pixelDiffRatio: trial.pixelDiffRatio,
+          foregroundMissingRatio: trial.foregroundMissingRatio
+        }))
+      }
+      : null,
+    containerStyleFit: postprocess.containerStyleFit
+      ? {
+        selected: postprocess.containerStyleFit.selected?.label || null,
+        changed: postprocess.containerStyleFit.changed === true,
+        trials: (postprocess.containerStyleFit.trials || []).map((trial) => ({
+          elementId: trial.elementId || null,
+          kind: trial.kind || null,
+          label: trial.label || null,
           score: trial.score,
           pixelDiffRatio: trial.pixelDiffRatio,
           foregroundMissingRatio: trial.foregroundMissingRatio
@@ -729,6 +1418,29 @@ function writeDeliverySummary({ config, configFile, inputDir, outputDir, pages, 
   const markdownFile = path.join(outputDir, "reports", "delivery-summary.md");
   writeJson(jsonFile, summary);
   fs.writeFileSync(markdownFile, renderDeliverySummaryMarkdown(summary), "utf8");
+}
+
+function summarizeDeliveryAdapters(config = {}) {
+  const adapters = {};
+  for (const [name, value] of Object.entries(config.adapters || {})) {
+    adapters[name] = deliveryAdapterId(value);
+  }
+  adapters.textOcr = config.textOcr?.enabled === true ? deliveryAdapterId(config.textOcr.adapter) : null;
+  return adapters;
+}
+
+function deliveryAdapterId(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  return path.basename(value.trim(), path.extname(value.trim())).slice(0, 128) || null;
+}
+
+function deliveryArtifactPath(value, outputDir) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const root = path.resolve(outputDir);
+  const absolute = path.isAbsolute(value) ? path.resolve(value) : path.resolve(root, value);
+  const relative = path.relative(root, absolute);
+  if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
+  return relative.split(path.sep).join("/");
 }
 
 function countImageOnlyPages(normalize) {
@@ -816,7 +1528,7 @@ function formatMetric(value) {
   return Math.round(value * 1000000) / 1000000;
 }
 
-async function verifyDelivery({ postprocess, context, render, ir, pptx, compress }) {
+async function verifyDelivery({ postprocess, context, render, ir, pptx, compress, priorRender = null }) {
   const compressedPptxFile = compress?.compressedPptxFile || null;
   const originalPptxFile = pptx?.pptxFile || null;
   const deliveryPptxFile = compressedPptxFile || originalPptxFile;
@@ -828,10 +1540,15 @@ async function verifyDelivery({ postprocess, context, render, ir, pptx, compress
   };
   if (!deliveryPptxFile) return delivery;
   if (!compressedPptxFile || postprocess.verifyCompressed === false) {
-    delivery.verified = !compressedPptxFile;
+    const priorVerification = renderedDeliveryVerification(priorRender);
+    if (priorVerification) {
+      delivery.verified = true;
+      delivery.verification = priorVerification;
+      return delivery;
+    }
     delivery.verification = compressedPptxFile
       ? { skipped: true, reason: "postprocess.verifyCompressed=false" }
-      : { skipped: true, reason: "No compressed PPTX was produced." };
+      : { skipped: true, reason: "No rendered delivery verification was requested." };
     return delivery;
   }
 
@@ -849,10 +1566,23 @@ async function verifyDelivery({ postprocess, context, render, ir, pptx, compress
   return delivery;
 }
 
+function renderedDeliveryVerification(render) {
+  if (!render || typeof render !== "object" || !Array.isArray(render.renderedPages) || render.renderedPages.length === 0) return null;
+  const renderedPages = render.renderedPages
+    .filter((page) => page && typeof page.image === "string" && page.image)
+    .map((page) => ({ ...page }));
+  if (renderedPages.length !== render.renderedPages.length || /placeholder/i.test(String(render.provider || ""))) return null;
+  return {
+    provider: typeof render.provider === "string" ? render.provider : null,
+    renderDir: typeof render.renderDir === "string" ? render.renderDir : null,
+    renderedPages
+  };
+}
+
 async function validateCommand(args) {
   if (!args.ir) throw new Error("--ir is required");
   const irFile = path.resolve(args.ir);
-  const ir = readJson(irFile);
+  const ir = readJson(irFile, 128 * 1024 * 1024);
   const validation = validateIr(ir, {
     baseDir: path.dirname(irFile),
     checkFiles: args["no-check-files"] !== true
@@ -872,7 +1602,7 @@ async function validateCommand(args) {
 
 async function gateCommand(args) {
   const summaryFile = resolveGateSummaryFile(args);
-  const summary = readJson(summaryFile);
+  const summary = readJson(summaryFile, 16 * 1024 * 1024);
   const errors = [];
   const warnings = [];
 
@@ -965,7 +1695,20 @@ async function main() {
   console.log("Usage: slideclone.js <init|run|validate|gate> [--input dir] [--out dir] [--config file] [--ir file] [--summary file]");
 }
 
-main().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.stack || error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  createConfig,
+  loadAdapter,
+  parseArgs,
+  prepareReconstructionIrForBuild,
+  readJson,
+  renderedDeliveryVerification,
+  verifyDelivery,
+  validateIr
+};

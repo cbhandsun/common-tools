@@ -1,0 +1,76 @@
+{
+  "provider": "plugin-component-learning-campaign-v1",
+  "title": "Wave 1 - High-frequency structural components",
+  "layers": [
+    {
+      "layerKey": "ring-node",
+      "componentAcquisitionTasks": [
+        { "provider": "officeplus", "kind": "component", "keywords": "环形循环关系图", "alternateKeywords": ["圆环流程图"], "targetMotifs": ["ring-node", "arc-arrow"], "templateFamily": "cycle-relationship" },
+        { "provider": "islide", "kind": "smartdiagram", "keywords": "环形循环关系图", "alternateKeywords": ["圆环节点"], "targetMotifs": ["ring-node", "arc-arrow"], "templateFamily": "cycle-relationship" }
+      ]
+    },
+    {
+      "layerKey": "tree-link",
+      "componentAcquisitionTasks": [
+        { "provider": "officeplus", "kind": "component", "keywords": "树状层级关系图", "alternateKeywords": ["组织架构图"], "targetMotifs": ["tree-link", "org-hierarchy"], "templateFamily": "hierarchy" },
+        { "provider": "islide", "kind": "smartdiagram", "keywords": "树状层级关系图", "alternateKeywords": ["组织架构图"], "targetMotifs": ["tree-link", "org-hierarchy"], "templateFamily": "hierarchy" }
+      ]
+    },
+    {
+      "layerKey": "radial-link",
+      "componentAcquisitionTasks": [
+        { "provider": "officeplus", "kind": "component", "keywords": "中心辐射关系图", "alternateKeywords": ["径向关系图"], "targetMotifs": ["radial-link"], "templateFamily": "radial-relationship" },
+        { "provider": "islide", "kind": "smartdiagram", "keywords": "中心辐射关系图", "alternateKeywords": ["径向关系图"], "targetMotifs": ["radial-link"], "templateFamily": "radial-relationship" }
+      ]
+    },
+    {
+      "layerKey": "fishbone-cause",
+      "componentAcquisitionTasks": [
+        { "provider": "officeplus", "kind": "component", "keywords": "鱼骨因果分析图", "alternateKeywords": ["鱼骨图"], "targetMotifs": ["fishbone-cause"], "templateFamily": "cause-analysis" },
+        { "provider": "islide", "kind": "smartdiagram", "keywords": "鱼骨因果分析图", "alternateKeywords": ["鱼骨图"], "targetMotifs": ["fishbone-cause"], "templateFamily": "cause-analysis" }
+      ]
+    },
+    {
+      "layerKey": "whole-process-template",
+      "componentAcquisitionTasks": [
+        { "provider": "officeplus", "kind": "component", "keywords": "流程步骤关系图", "alternateKeywords": ["流程组件"], "targetMotifs": ["whole-process-template", "linear-arrow-chain"], "templateFamily": "process-flow" },
+        { "provider": "islide", "kind": "smartdiagram", "keywords": "流程步骤关系图", "alternateKeywords": ["流程组件"], "targetMotifs": ["whole-process-template", "linear-arrow-chain"], "templateFamily": "process-flow" }
+      ]
+    },
+    {
+      "layerKey": "branch-card-flow",
+      "componentAcquisitionTasks": [
+        { "provider": "officeplus", "kind": "component", "keywords": "分支卡片流程图", "alternateKeywords": ["分支流程图"], "targetMotifs": ["branch-card-flow", "card-grid"], "templateFamily": "branch-flow" },
+        { "provider": "islide", "kind": "smartdiagram", "keywords": "分支卡片流程图", "alternateKeywords": ["分支流程图"], "targetMotifs": ["branch-card-flow", "card-grid"], "templateFamily": "branch-flow" }
+      ]
+    },
+    {
+      "layerKey": "layered-stack",
+      "componentAcquisitionTasks": [
+        { "provider": "officeplus", "kind": "component", "keywords": "分层架构图", "alternateKeywords": ["层级架构图"], "targetMotifs": ["layered-stack"], "templateFamily": "layered-architecture" },
+        { "provider": "islide", "kind": "smartdiagram", "keywords": "分层架构图", "alternateKeywords": ["层级架构图"], "targetMotifs": ["layered-stack"], "templateFamily": "layered-architecture" }
+      ]
+    },
+    {
+      "layerKey": "funnel-stack",
+      "componentAcquisitionTasks": [
+        { "provider": "officeplus", "kind": "component", "keywords": "漏斗分析图", "alternateKeywords": ["分层漏斗"], "targetMotifs": ["funnel-stack", "lens-funnel-flow"], "templateFamily": "funnel" },
+        { "provider": "islide", "kind": "smartdiagram", "keywords": "漏斗分析图", "alternateKeywords": ["分层漏斗"], "targetMotifs": ["funnel-stack", "lens-funnel-flow"], "templateFamily": "funnel" }
+      ]
+    },
+    {
+      "layerKey": "venn-overlap",
+      "componentAcquisitionTasks": [
+        { "provider": "officeplus", "kind": "component", "keywords": "Venn交集关系图", "alternateKeywords": ["韦恩图"], "targetMotifs": ["venn-overlap", "intersection-overlap"], "templateFamily": "overlap" },
+        { "provider": "islide", "kind": "smartdiagram", "keywords": "Venn交集关系图", "alternateKeywords": ["韦恩图"], "targetMotifs": ["venn-overlap", "intersection-overlap"], "templateFamily": "overlap" }
+      ]
+    },
+    {
+      "layerKey": "milestone-roadmap",
+      "componentAcquisitionTasks": [
+        { "provider": "officeplus", "kind": "component", "keywords": "里程碑路线图", "alternateKeywords": ["时间轴路线图"], "targetMotifs": ["milestone-roadmap"], "templateFamily": "roadmap" },
+        { "provider": "islide", "kind": "smartdiagram", "keywords": "里程碑路线图", "alternateKeywords": ["时间轴路线图"], "targetMotifs": ["milestone-roadmap"], "templateFamily": "roadmap" }
+      ]
+    }
+  ]
+}

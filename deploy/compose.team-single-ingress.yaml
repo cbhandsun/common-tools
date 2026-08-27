@@ -1,0 +1,34 @@
+services:
+  # This overlay is intentionally opt-in. It makes one HTTPS origin serve MCP,
+  # OIDC and signed S3 object URLs while every Docker service stays private.
+  minio:
+    # The gateway forwards only time-limited, signed object paths. Do not keep
+    # the MinIO API or Console on a host port in the single-ingress topology.
+    ports: !reset []
+
+  keycloak:
+    command: ["start-dev", "--http-port=8080", "--import-realm", "--health-enabled=true", "--http-relative-path=/id", "--proxy-headers=xforwarded", "--hostname-strict=true"]
+    environment:
+      KC_HOSTNAME: ${COMMON_TOOLS_KEYCLOAK_PUBLIC_URL:?set single-ingress Keycloak public URL}
+      # Keep the existing private :9000 health check independent of /id.
+      KC_HTTP_MANAGEMENT_RELATIVE_PATH: "/"
+
+  remote-mcp:
+    environment:
+      COMMON_TOOLS_REMOTE_PUBLIC_URL: ${COMMON_TOOLS_SINGLE_INGRESS_PUBLIC_URL:?set single-ingress public URL}
+      COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS: ${COMMON_TOOLS_SINGLE_INGRESS_PUBLIC_URL:?set single-ingress public URL}
+      COMMON_TOOLS_OIDC_ISSUER: ${COMMON_TOOLS_SINGLE_INGRESS_OIDC_ISSUER:?set single-ingress OIDC issuer}
+      COMMON_TOOLS_OIDC_JWKS_URL: http://keycloak:8080/id/realms/common-tools/protocol/openid-connect/certs
+      COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT: ${COMMON_TOOLS_SINGLE_INGRESS_PUBLIC_URL:?set single-ingress public URL}
+
+  remote-mcp-gateway:
+    # Compose treats the mount target as a unique resource key, so this entry
+    # replaces the base gateway's default.conf bind mount. Do not use !reset:
+    # Compose v5 resets the entire value and silently leaves nginx unmounted.
+    volumes:
+      - type: bind
+        source: ./nginx/team-mcp-single-ingress.conf
+        target: /etc/nginx/templates/default.conf.template
+        read_only: true
+    environment:
+      COMMON_TOOLS_SINGLE_INGRESS_PUBLIC_HOST: ${COMMON_TOOLS_SINGLE_INGRESS_PUBLIC_HOST:?set single-ingress public host}

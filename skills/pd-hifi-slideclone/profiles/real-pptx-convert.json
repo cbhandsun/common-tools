@@ -1,0 +1,5 @@
+{
+  "description": "Convert the standard PPTX input directory into editable analysis workspaces.",
+  "script": "scripts/real-pptx-editable-batch.js",
+  "args": ["--input", "ppt文档", "--out", "ppt文档/可编辑版本"]
+}

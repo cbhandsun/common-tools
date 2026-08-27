@@ -1,0 +1,23 @@
+{
+  "name": "@common-tools/remote-mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "common-tools-remote-mcp": "bin/common-tools-remote-mcp.js",
+    "common-tools-team-worker": "bin/common-tools-team-worker.js"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1101.0",
+    "@aws-sdk/s3-request-presigner": "^3.1101.0",
+    "@common-tools/capability-runtime": "0.1.0",
+    "@common-tools/mcp-server": "0.1.0",
+    "@common-tools/ppt-improve-core": "0.1.0",
+    "@common-tools/ppt-quality-core": "0.1.0",
+    "@common-tools/project-audit-core": "0.1.0",
+    "@common-tools/slideclone-core": "0.1.0",
+    "@common-tools/team-runtime": "0.1.0",
+    "pg": "^8.22.0",
+    "redis": "^6.2.0"
+  }
+}

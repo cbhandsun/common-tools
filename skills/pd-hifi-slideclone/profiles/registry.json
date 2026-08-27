@@ -1,0 +1,1809 @@
+{
+  "version": 1,
+  "profiles": {
+    "batch-native-audit-for-repair": {
+      "description": "Versioned command profile for slideclone:batch-native-audit-for-repair.",
+      "script": "scripts/batch-native-audit-summary.js",
+      "args": [
+        "--ir-dir",
+        "ppt文档/组件策略插件增强版本",
+        "--out",
+        "runs/batch-native-audit-for-repair.json",
+        "--markdown-out",
+        "runs/batch-native-audit-for-repair.md",
+        "--max-protected-crop-area-ratio",
+        "0.28",
+        "--no-fail"
+      ]
+    },
+    "batch-native-audit-golden-gate": {
+      "description": "Versioned command profile for slideclone:batch-native-audit-golden-gate.",
+      "script": "scripts/batch-native-audit-summary.js",
+      "args": [
+        "--ir-dir",
+        "ppt文档/组件策略插件增强版本",
+        "--out",
+        "runs/batch-native-audit-golden-gate.json",
+        "--markdown-out",
+        "runs/batch-native-audit-golden-gate.md",
+        "--max-protected-crop-area-ratio",
+        "0.28",
+        "--min-decks",
+        "10",
+        "--min-pages",
+        "20"
+      ]
+    },
+    "batch-native-audit-summary": {
+      "description": "Versioned command profile for slideclone:batch-native-audit-summary.",
+      "script": "scripts/batch-native-audit-summary.js",
+      "args": []
+    },
+    "benchmark-libreoffice": {
+      "description": "Versioned command profile for slideclone:benchmark-libreoffice.",
+      "script": "scripts/libreoffice-benchmark.js",
+      "args": []
+    },
+    "benchmark-pptx-build-engines": {
+      "description": "Versioned command profile for slideclone:benchmark-pptx-build-engines.",
+      "script": "scripts/pptx-build-engine-benchmark.js",
+      "args": []
+    },
+    "chart-native-render-golden": {
+      "description": "Versioned command profile for slideclone:chart-native-render-golden.",
+      "script": "scripts/chart-native-render-golden-smoke.js",
+      "args": [
+        "--out",
+        "runs/chart-native-render-golden"
+      ]
+    },
+    "component-acquisition-search": {
+      "description": "Versioned command profile for slideclone:component-acquisition-search.",
+      "script": "scripts/component-acquisition-search.js",
+      "args": []
+    },
+    "component-acquisition-search-repair-coverage": {
+      "description": "Versioned command profile for slideclone:component-acquisition-search-repair-coverage.",
+      "script": "scripts/component-acquisition-search.js",
+      "args": [
+        "--repair-coverage",
+        "runs/expression-policy-repair-queue-quality-coverage.json",
+        "--out",
+        "runs/plugin-component-inventory/component-acquisition-search-repair-coverage.json",
+        "--max-tasks",
+        "30",
+        "--max-keywords-per-task",
+        "2"
+      ]
+    },
+    "component-adoption-ab-gate": {
+      "description": "Versioned command profile for slideclone:component-adoption-ab-gate.",
+      "script": "scripts/component-adoption-ab-gate.js",
+      "args": []
+    },
+    "component-asset-manifest": {
+      "description": "Versioned command profile for slideclone:component-asset-manifest.",
+      "script": "scripts/component-asset-manifest.js",
+      "args": []
+    },
+    "component-assets-coverage-gate": {
+      "description": "Versioned command profile for slideclone:component-assets-coverage-gate.",
+      "script": "scripts/component-coverage-matrix.js",
+      "args": [
+        "--coverage-manifest",
+        "skills/pd-hifi-slideclone/examples/component-assets-coverage.manifest.json",
+        "--out",
+        "runs/component-assets-coverage-matrix.json",
+        "--fail-on-coverage-gap"
+      ]
+    },
+    "component-assets-golden-gate-fast": {
+      "description": "Versioned command profile for slideclone:component-assets-golden-gate-fast.",
+      "script": "scripts/component-assets-golden-gate.js",
+      "args": []
+    },
+    "component-candidate-search": {
+      "description": "Versioned command profile for slideclone:component-candidate-search.",
+      "script": "scripts/component-candidate-search.js",
+      "args": []
+    },
+    "component-coverage-matrix": {
+      "description": "Versioned command profile for slideclone:component-coverage-matrix.",
+      "script": "scripts/component-coverage-matrix.js",
+      "args": []
+    },
+    "component-gap-learning-plan": {
+      "description": "Versioned command profile for slideclone:component-gap-learning-plan.",
+      "script": "scripts/component-gap-learning-plan.js",
+      "args": []
+    },
+    "component-harvest-candidate-rank": {
+      "description": "Versioned command profile for slideclone:component-harvest-candidate-rank.",
+      "script": "scripts/component-harvest-candidate-rank.js",
+      "args": []
+    },
+    "component-harvest-shortlist": {
+      "description": "Versioned command profile for slideclone:component-harvest-shortlist.",
+      "script": "scripts/component-harvest-shortlist.js",
+      "args": []
+    },
+    "component-ir-replacement-close-loop-repair-coverage-ready": {
+      "description": "Versioned command profile for slideclone:component-ir-replacement-close-loop-repair-coverage-ready.",
+      "script": "scripts/component-ir-replacement-close-loop.js",
+      "args": [
+        "--harvest-queue",
+        "runs/plugin-component-inventory/component-replacement-harvest-queue-repair-coverage.json",
+        "--ir-dir",
+        "ppt文档/组件策略插件增强版本",
+        "--pptx-dir",
+        "ppt文档/组件策略插件增强版本",
+        "--inventory",
+        "runs/plugin-component-inventory/learned-islide-card-grid/inventory.json",
+        "--out",
+        "runs/plugin-component-inventory/repair-coverage-ir-close-loop-ready-only-visual",
+        "--allow-pending-samples",
+        "--min-applied-count",
+        "3",
+        "--min-removed-shape-count",
+        "1",
+        "--strict-geometry",
+        "--concurrency",
+        "1",
+        "--object-audit",
+        "--min-object-picture-reduction",
+        "1",
+        "--min-object-native-increase",
+        "1",
+        "--visual-audit",
+        "--visual-renderer",
+        "powerpoint",
+        "--visual-page-budget",
+        "2",
+        "--visual-max-pages-per-deck",
+        "1",
+        "--visual-max-pixel-diff-ratio",
+        "0.55",
+        "--visual-max-foreground-missing-ratio",
+        "0.70",
+        "--visual-max-mean-delta",
+        "90"
+      ]
+    },
+    "component-ir-replacement-object-audit": {
+      "description": "Versioned command profile for slideclone:component-ir-replacement-object-audit.",
+      "script": "scripts/component-ir-replacement-object-audit.js",
+      "args": []
+    },
+    "component-ir-replacement-plan-repair-coverage": {
+      "description": "Versioned command profile for slideclone:component-ir-replacement-plan-repair-coverage.",
+      "script": "scripts/component-ir-replacement-plan.js",
+      "args": [
+        "--harvest-queue",
+        "runs/plugin-component-inventory/component-replacement-harvest-queue-repair-coverage.json",
+        "--ir-dir",
+        "ppt文档/组件策略插件增强版本",
+        "--inventory",
+        "runs/plugin-component-inventory/latest-inventory.json",
+        "--out",
+        "runs/plugin-component-inventory/component-ir-replacement-plan-repair-coverage.json",
+        "--markdown-out",
+        "runs/plugin-component-inventory/component-ir-replacement-plan-repair-coverage.md",
+        "--fail-on-missing-targets"
+      ]
+    },
+    "component-ir-visual-regression-audit": {
+      "description": "Versioned command profile for slideclone:component-ir-visual-regression-audit.",
+      "script": "scripts/component-ir-visual-regression-audit.js",
+      "args": []
+    },
+    "component-isolated-collection": {
+      "description": "Versioned command profile for slideclone:component-isolated-collection.",
+      "script": "scripts/component-isolated-collection-session.js",
+      "args": []
+    },
+    "component-learning-wave": {
+      "description": "Versioned command profile for slideclone:component-learning-wave.",
+      "script": "scripts/component-learning-wave.js",
+      "args": []
+    },
+    "component-library-refresh": {
+      "description": "Versioned command profile for slideclone:component-library-refresh.",
+      "script": "scripts/component-library-refresh.js",
+      "args": []
+    },
+    "component-library-refresh-harvest": {
+      "description": "Versioned command profile for slideclone:component-library-refresh-harvest.",
+      "script": "scripts/component-library-refresh.js",
+      "args": [
+        "--harvest-active"
+      ]
+    },
+    "component-library-refresh-watch-active": {
+      "description": "Versioned command profile for slideclone:component-library-refresh-watch-active.",
+      "script": "scripts/component-library-refresh.js",
+      "args": [
+        "--watch-plugin-downloads"
+      ]
+    },
+    "component-library-storage-audit": {
+      "description": "Versioned command profile for slideclone:component-library-storage-audit.",
+      "script": "scripts/component-library-storage-audit.js",
+      "args": []
+    },
+    "component-library-materialize": {
+      "description": "Materialize adopted plugin components into the offline content-addressed asset store.",
+      "script": "scripts/component-library-materialize.js",
+      "args": []
+    },
+    "component-motif-recall-report": {
+      "description": "Versioned command profile for slideclone:component-motif-recall-report.",
+      "script": "scripts/component-motif-recall-report.js",
+      "args": []
+    },
+    "component-native-promotion-batch": {
+      "description": "Versioned command profile for slideclone:component-native-promotion-batch.",
+      "script": "scripts/component-native-promotion-batch.js",
+      "args": []
+    },
+    "component-native-promotion-gate": {
+      "description": "Versioned command profile for slideclone:component-native-promotion-gate.",
+      "script": "scripts/component-native-promotion-gate.js",
+      "args": []
+    },
+    "component-native-promotion-gate-strict": {
+      "description": "Versioned command profile for slideclone:component-native-promotion-gate-strict.",
+      "script": "scripts/component-native-promotion-gate.js",
+      "args": [
+        "--require-actionable-retained-reduction",
+        "--min-actionable-retained-reduction",
+        "1"
+      ]
+    },
+    "component-native-promotion-materialize": {
+      "description": "Versioned command profile for slideclone:component-native-promotion-materialize.",
+      "script": "scripts/component-native-promotion-batch.js",
+      "args": [
+        "--require-actionable-retained-reduction",
+        "--min-actionable-retained-reduction",
+        "1"
+      ]
+    },
+    "component-plugin-action-queue": {
+      "description": "Versioned command profile for slideclone:component-plugin-action-queue.",
+      "script": "scripts/component-plugin-action-queue.js",
+      "args": []
+    },
+    "component-plugin-action-queue-repair-coverage": {
+      "description": "Versioned command profile for slideclone:component-plugin-action-queue-repair-coverage.",
+      "script": "scripts/component-plugin-action-queue.js",
+      "args": [
+        "--repair-coverage",
+        "runs/expression-policy-repair-queue-quality-coverage.json",
+        "--out",
+        "runs/plugin-component-inventory/component-plugin-action-queue-repair-coverage.json",
+        "--markdown-out",
+        "runs/plugin-component-inventory/component-plugin-action-queue-repair-coverage.md",
+        "--max-actions",
+        "30",
+        "--min-score",
+        "0",
+        "--min-suitability",
+        "0"
+      ]
+    },
+    "component-plugin-action-queue-v17": {
+      "description": "Versioned command profile for slideclone:component-plugin-action-queue-v17.",
+      "script": "scripts/component-plugin-action-queue.js",
+      "args": [
+        "--harvest-shortlist",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-harvest-refresh-decision-gated/close-loop/component-harvest-shortlist.json",
+        "--officeplus-resolve",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-plugin-apply-session/officeplus-component-resolve.json",
+        "--out",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-plugin-apply-session/component-plugin-action-queue.json",
+        "--markdown-out",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-plugin-apply-session/component-plugin-action-queue.md",
+        "--max-actions",
+        "4",
+        "--min-score",
+        "0",
+        "--min-suitability",
+        "0"
+      ]
+    },
+    "component-plugin-apply-session": {
+      "description": "Versioned command profile for slideclone:component-plugin-apply-session.",
+      "script": "scripts/component-plugin-apply-session.js",
+      "args": []
+    },
+    "component-plugin-apply-session-gate": {
+      "description": "Versioned command profile for slideclone:component-plugin-apply-session-gate.",
+      "script": "scripts/component-plugin-apply-session-gate.js",
+      "args": []
+    },
+    "component-plugin-apply-session-repair-coverage-guide": {
+      "description": "Versioned command profile for slideclone:component-plugin-apply-session-repair-coverage-guide.",
+      "script": "scripts/component-plugin-apply-session.js",
+      "args": [
+        "--queue",
+        "runs/plugin-component-inventory/component-plugin-action-queue-repair-coverage.json",
+        "--out",
+        "runs/plugin-component-inventory/plugin-apply-session-repair-coverage-guide",
+        "--max-actions",
+        "6",
+        "--duration-ms",
+        "0",
+        "--no-watch",
+        "--no-refresh-inventory",
+        "--active-powerpoint"
+      ]
+    },
+    "component-plugin-apply-session-v17-guide": {
+      "description": "Versioned command profile for slideclone:component-plugin-apply-session-v17-guide.",
+      "script": "scripts/component-plugin-apply-session.js",
+      "args": [
+        "--queue",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-plugin-apply-session/component-plugin-action-queue.json",
+        "--out",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-plugin-apply-session",
+        "--max-actions",
+        "2",
+        "--duration-ms",
+        "0",
+        "--no-watch",
+        "--no-refresh-inventory",
+        "--watch-provider",
+        "officeplus",
+        "--active-powerpoint"
+      ]
+    },
+    "component-plugin-apply-session-v17-watch": {
+      "description": "Versioned command profile for slideclone:component-plugin-apply-session-v17-watch.",
+      "script": "scripts/component-plugin-apply-session.js",
+      "args": [
+        "--queue",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-plugin-apply-session/component-plugin-action-queue.json",
+        "--out",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-plugin-apply-session",
+        "--max-actions",
+        "2",
+        "--duration-ms",
+        "60000",
+        "--poll-ms",
+        "500",
+        "--watch-provider",
+        "officeplus",
+        "--active-powerpoint",
+        "--learn-structure"
+      ]
+    },
+    "component-replacement-apply": {
+      "description": "Versioned command profile for slideclone:component-replacement-apply.",
+      "script": "scripts/component-replacement-apply.js",
+      "args": []
+    },
+    "component-replacement-apply-powerpoint": {
+      "description": "Offline Windows fallback for native PowerPoint component replacement.",
+      "script": "scripts/component-replacement-apply.js",
+      "args": ["--engine", "powerpoint"]
+    },
+    "component-replacement-apply-batch": {
+      "description": "Versioned command profile for slideclone:component-replacement-apply-batch.",
+      "script": "scripts/component-replacement-apply-batch.js",
+      "args": []
+    },
+    "component-replacement-apply-plan": {
+      "description": "Versioned command profile for slideclone:component-replacement-apply-plan.",
+      "script": "scripts/component-replacement-apply-plan.js",
+      "args": []
+    },
+    "component-replacement-close-loop": {
+      "description": "Versioned command profile for slideclone:component-replacement-close-loop.",
+      "script": "scripts/component-replacement-close-loop.js",
+      "args": []
+    },
+    "component-replacement-close-loop-gate": {
+      "description": "Versioned command profile for slideclone:component-replacement-close-loop-gate.",
+      "script": "scripts/component-replacement-close-loop-gate.js",
+      "args": []
+    },
+    "component-replacement-close-loop-gate-quality": {
+      "description": "Versioned command profile for slideclone:component-replacement-close-loop-gate-quality.",
+      "script": "scripts/component-replacement-close-loop-gate.js",
+      "args": [
+        "--report",
+        "runs/component-replacement-close-loop/component-replacement-close-loop-report.json",
+        "--quality-matrix",
+        "runs/component-assets-regression-matrix.json",
+        "--min-applied-count",
+        "1"
+      ]
+    },
+    "component-replacement-close-loop-gate-smoke": {
+      "description": "Versioned command profile for slideclone:component-replacement-close-loop-gate-smoke.",
+      "script": "scripts/component-replacement-close-loop-gate.js",
+      "args": [
+        "--report",
+        "runs/component-replacement-close-loop-smoke/component-replacement-close-loop-report.json",
+        "--out",
+        "runs/component-replacement-close-loop-smoke/component-replacement-close-loop-gate.json"
+      ]
+    },
+    "component-replacement-close-loop-gate-smoke-allow": {
+      "description": "Versioned command profile for slideclone:component-replacement-close-loop-gate-smoke-allow.",
+      "script": "scripts/component-replacement-close-loop-gate.js",
+      "args": [
+        "--report",
+        "runs/component-replacement-close-loop-smoke/component-replacement-close-loop-report.json",
+        "--out",
+        "runs/component-replacement-close-loop-smoke/component-replacement-close-loop-gate-allow-needs-harvest.json",
+        "--allow-needs-harvest"
+      ]
+    },
+    "component-replacement-close-loop-smoke": {
+      "description": "Versioned command profile for slideclone:component-replacement-close-loop-smoke.",
+      "script": "scripts/component-replacement-close-loop.js",
+      "args": [
+        "--input",
+        "runs/component-replacement-batch-smoke-input",
+        "--inventory",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--out",
+        "runs/component-replacement-close-loop-smoke",
+        "--concurrency",
+        "1"
+      ]
+    },
+    "component-replacement-harvest-queue": {
+      "description": "Versioned command profile for slideclone:component-replacement-harvest-queue.",
+      "script": "scripts/component-replacement-harvest-queue.js",
+      "args": []
+    },
+    "component-replacement-harvest-queue-repair-coverage": {
+      "description": "Versioned command profile for slideclone:component-replacement-harvest-queue-repair-coverage.",
+      "script": "scripts/component-replacement-harvest-queue.js",
+      "args": [
+        "--apply-session",
+        "runs/plugin-component-inventory/plugin-apply-session-repair-coverage-guide/plugin-apply-session.json",
+        "--out",
+        "runs/plugin-component-inventory/component-replacement-harvest-queue-repair-coverage.json",
+        "--markdown-out",
+        "runs/plugin-component-inventory/component-replacement-harvest-queue-repair-coverage.md"
+      ]
+    },
+    "component-replacement-harvest-refresh": {
+      "description": "Versioned command profile for slideclone:component-replacement-harvest-refresh.",
+      "script": "scripts/component-replacement-harvest-refresh.js",
+      "args": []
+    },
+    "component-replacement-harvest-refresh-v17": {
+      "description": "Versioned command profile for slideclone:component-replacement-harvest-refresh-v17.",
+      "script": "scripts/component-replacement-harvest-refresh.js",
+      "args": [
+        "--queue",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-close-loop-search-auto-decision-gated-icon-protect/component-replacement-harvest-queue.json",
+        "--input",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-pptx/AI_Product_Asset_OS.native-editable.pptx",
+        "--out",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-harvest-refresh-decision-gated",
+        "--decision-ir",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-pptx/AI_Product_Asset_OS.native.ir.json",
+        "--decision-search-candidates",
+        "--decision-candidate-size",
+        "4",
+        "--min-decision-plugin-targets",
+        "8",
+        "--min-decision-protected-crops",
+        "2",
+        "--max-decision-actionable-gaps",
+        "0",
+        "--concurrency",
+        "1"
+      ]
+    },
+    "component-replacement-plan-report": {
+      "description": "Versioned command profile for slideclone:component-replacement-plan-report.",
+      "script": "scripts/component-replacement-plan-report.js",
+      "args": []
+    },
+    "component-replacement-sample-gap-report": {
+      "description": "Versioned command profile for slideclone:component-replacement-sample-gap-report.",
+      "script": "scripts/component-replacement-sample-gap-report.js",
+      "args": []
+    },
+    "component-self-fidelity-batch": {
+      "description": "Versioned command profile for slideclone:component-self-fidelity-batch.",
+      "script": "scripts/component-asset-self-fidelity-batch.js",
+      "args": []
+    },
+    "component-strategy-rebuild": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild.",
+      "script": "scripts/component-strategy-rebuild.js",
+      "args": []
+    },
+    "component-strategy-rebuild-assets": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets.",
+      "script": "scripts/component-strategy-rebuild.js",
+      "args": [
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72"
+      ]
+    },
+    "component-strategy-rebuild-assets-cached": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-cached.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略插件增强版本",
+        "--concurrency",
+        "2",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--reuse-final-ir",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--pptx-engine",
+        "openxml"
+      ]
+    },
+    "component-strategy-rebuild-assets-fast": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-fast.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略插件增强版本",
+        "--concurrency",
+        "2",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--pptx-engine",
+        "openxml"
+      ]
+    },
+    "component-strategy-rebuild-assets-ir-fast": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-fast.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略插件增强版本",
+        "--concurrency",
+        "2",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--skip-pptx"
+      ]
+    },
+    "component-strategy-rebuild-assets-ir-one-deck-turbo": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-one-deck-turbo.",
+      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "runs/one-deck-page-shards-ir-turbo",
+        "--concurrency",
+        "4",
+        "--page-shard-size",
+        "1",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--skip-pptx",
+        "--heartbeat-ms",
+        "5000"
+      ]
+    },
+    "component-strategy-rebuild-assets-ir-page": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-page.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "runs/page-fast-smoke",
+        "--concurrency",
+        "1",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--skip-pptx",
+        "--heartbeat-ms",
+        "5000"
+      ]
+    },
+    "component-strategy-rebuild-assets-ir-page-shards": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-page-shards.",
+      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "runs/page-shard-smoke",
+        "--concurrency",
+        "2",
+        "--page-shard-size",
+        "1",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--skip-pptx",
+        "--heartbeat-ms",
+        "5000"
+      ]
+    },
+    "component-strategy-rebuild-assets-ir-page-shards-turbo": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-page-shards-turbo.",
+      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "runs/page-shard-smoke-turbo",
+        "--concurrency",
+        "4",
+        "--page-shard-size",
+        "1",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--skip-pptx",
+        "--heartbeat-ms",
+        "5000"
+      ]
+    },
+    "component-strategy-rebuild-assets-ir-turbo": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-turbo.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略插件增强版本",
+        "--concurrency",
+        "4",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--skip-pptx",
+        "--heartbeat-ms",
+        "15000"
+      ]
+    },
+    "component-strategy-rebuild-assets-native-one-deck-turbo": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-one-deck-turbo.",
+      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略插件增强版本-one-deck-native",
+        "--concurrency",
+        "4",
+        "--page-shard-size",
+        "1",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--pptx-engine",
+        "openxml",
+        "--heartbeat-ms",
+        "5000"
+      ]
+    },
+    "component-strategy-rebuild-assets-native-page": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-page.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "runs/page-native-smoke",
+        "--concurrency",
+        "1",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--pptx-engine",
+        "openxml",
+        "--heartbeat-ms",
+        "5000"
+      ]
+    },
+    "component-strategy-rebuild-assets-native-page-shards": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-page-shards.",
+      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "runs/page-shard-native-smoke",
+        "--concurrency",
+        "2",
+        "--page-shard-size",
+        "1",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--pptx-engine",
+        "openxml",
+        "--heartbeat-ms",
+        "5000"
+      ]
+    },
+    "component-strategy-rebuild-assets-native-page-shards-turbo": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-page-shards-turbo.",
+      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "runs/page-shard-native-smoke-turbo",
+        "--concurrency",
+        "4",
+        "--page-shard-size",
+        "1",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--pptx-engine",
+        "openxml",
+        "--heartbeat-ms",
+        "5000"
+      ]
+    },
+    "component-strategy-rebuild-assets-native-turbo": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-turbo.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略插件增强版本-native",
+        "--concurrency",
+        "4",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--replace-safe-component-template-crops",
+        "true",
+        "--pptx-engine",
+        "openxml",
+        "--heartbeat-ms",
+        "15000"
+      ]
+    },
+    "component-strategy-rebuild-assets-native-turbo-repaired": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-turbo-repaired.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略插件增强版本-native-repaired",
+        "--concurrency",
+        "4",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--replace-safe-component-template-crops",
+        "true",
+        "--expression-policy-repair-queue",
+        "runs/expression-policy-repair-queue-batch.json",
+        "--pptx-engine",
+        "openxml",
+        "--heartbeat-ms",
+        "15000"
+      ]
+    },
+    "component-strategy-rebuild-assets-quality": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-quality.",
+      "script": "scripts/component-strategy-rebuild.js",
+      "args": [
+        "--quality",
+        "true",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72"
+      ]
+    },
+    "component-strategy-rebuild-assets-turbo": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-turbo.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略插件增强版本",
+        "--concurrency",
+        "4",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--pptx-engine",
+        "openxml",
+        "--heartbeat-ms",
+        "15000"
+      ]
+    },
+    "component-strategy-rebuild-cached": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-cached.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略可编辑版本",
+        "--concurrency",
+        "2",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--reuse-final-ir",
+        "--pptx-engine",
+        "openxml"
+      ]
+    },
+    "component-strategy-rebuild-fast": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-fast.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略可编辑版本",
+        "--concurrency",
+        "2",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--pptx-engine",
+        "openxml"
+      ]
+    },
+    "component-strategy-rebuild-ir-cached": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-ir-cached.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略可编辑版本",
+        "--concurrency",
+        "2",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--reuse-final-ir",
+        "--skip-pptx"
+      ]
+    },
+    "component-strategy-rebuild-ir-fast": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-ir-fast.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略可编辑版本",
+        "--concurrency",
+        "2",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--skip-pptx"
+      ]
+    },
+    "component-strategy-rebuild-parallel": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-parallel.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略可编辑版本",
+        "--concurrency",
+        "2"
+      ]
+    },
+    "component-strategy-rebuild-quality": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-quality.",
+      "script": "scripts/component-strategy-rebuild.js",
+      "args": [
+        "--quality",
+        "true"
+      ]
+    },
+    "component-strategy-rebuild-quality-smoke": {
+      "description": "Versioned command profile for slideclone:component-strategy-rebuild-quality-smoke.",
+      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/组件策略可编辑版本",
+        "--concurrency",
+        "2",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--quality",
+        "true",
+        "--quality-max-pages",
+        "2"
+      ]
+    },
+    "convert-real-pptx": {
+      "description": "Convert the standard PPTX input directory into editable analysis workspaces.",
+      "script": "scripts/real-pptx-editable-batch.js",
+      "args": [
+        "--input",
+        "ppt文档",
+        "--out",
+        "ppt文档/可编辑版本"
+      ]
+    },
+    "convert-real-pptx-turbo": {
+      "description": "Convert the standard PPTX input directory with bounded parallelism.",
+      "script": "scripts/real-pptx-editable-batch.js",
+      "args": [
+        "--input",
+        "ppt文档",
+        "--out",
+        "ppt文档/可编辑版本",
+        "--concurrency",
+        "2",
+        "--page-concurrency",
+        "3",
+        "--heartbeat-ms",
+        "15000"
+      ]
+    },
+    "demo": {
+      "description": "Versioned command profile for slideclone:demo.",
+      "script": "scripts/slideclone.js",
+      "args": [
+        "validate",
+        "--ir",
+        "skills/pd-hifi-slideclone/examples/sample-deck.json"
+      ]
+    },
+    "detect-regions": {
+      "description": "Versioned command profile for slideclone:detect-regions.",
+      "script": "scripts/detect-regions.js",
+      "args": []
+    },
+    "expression-policy-repair-queue": {
+      "description": "Versioned command profile for slideclone:expression-policy-repair-queue.",
+      "script": "scripts/expression-policy-repair-queue.js",
+      "args": []
+    },
+    "expression-policy-repair-queue-assets": {
+      "description": "Versioned command profile for slideclone:expression-policy-repair-queue-assets.",
+      "script": "scripts/expression-policy-repair-queue.js",
+      "args": [
+        "--coverage-matrix",
+        "runs/component-assets-coverage-matrix.json",
+        "--out",
+        "runs/expression-policy-repair-queue.json",
+        "--markdown-out",
+        "runs/expression-policy-repair-queue.md"
+      ]
+    },
+    "expression-policy-repair-queue-batch": {
+      "description": "Versioned command profile for slideclone:expression-policy-repair-queue-batch.",
+      "script": "scripts/expression-policy-repair-queue.js",
+      "args": [
+        "--batch-native-audit",
+        "runs/batch-native-audit-for-repair.json",
+        "--out",
+        "runs/expression-policy-repair-queue-batch.json",
+        "--markdown-out",
+        "runs/expression-policy-repair-queue-batch.md"
+      ]
+    },
+    "expression-policy-repair-queue-quality": {
+      "description": "Versioned command profile for slideclone:expression-policy-repair-queue-quality.",
+      "script": "scripts/expression-policy-repair-queue.js",
+      "args": [
+        "--quality-matrix",
+        "runs/quality-matrix-enhanced-visual.json",
+        "--out",
+        "runs/expression-policy-repair-queue-quality.json",
+        "--markdown-out",
+        "runs/expression-policy-repair-queue-quality.md"
+      ]
+    },
+    "expression-policy-repair-queue-quality-coverage": {
+      "description": "Versioned command profile for slideclone:expression-policy-repair-queue-quality-coverage.",
+      "script": "scripts/expression-policy-repair-queue-coverage.js",
+      "args": [
+        "--repair-queue",
+        "runs/expression-policy-repair-queue-quality.json",
+        "--parallel-report",
+        "ppt文档/组件策略插件增强版本/component-strategy-rebuild-parallel-report.json",
+        "--out",
+        "runs/expression-policy-repair-queue-quality-coverage.json"
+      ]
+    },
+    "golden-set": {
+      "description": "Versioned command profile for slideclone:golden-set.",
+      "script": "scripts/golden-set-runner.js",
+      "args": []
+    },
+    "golden-set-complex-strict": {
+      "description": "Versioned command profile for slideclone:golden-set-complex-strict.",
+      "script": "scripts/golden-set-runner.js",
+      "args": [
+        "--suite",
+        "complex-strict",
+        "--concurrency",
+        "8",
+        "--case-timeout-ms",
+        "180000",
+        "--out",
+        "runs/golden-set-complex-strict"
+      ]
+    },
+    "golden-set-focused": {
+      "description": "Versioned command profile for slideclone:golden-set-focused.",
+      "script": "scripts/golden-set-runner.js",
+      "args": [
+        "--concurrency",
+        "8",
+        "--case-timeout-ms",
+        "180000",
+        "--out",
+        "runs/golden-set-focused"
+      ]
+    },
+    "graphic-reconstruction-decision-audit": {
+      "description": "Versioned command profile for slideclone:graphic-reconstruction-decision-audit.",
+      "script": "scripts/graphic-reconstruction-decision-audit.js",
+      "args": []
+    },
+    "graphic-reconstruction-decision-gate": {
+      "description": "Versioned command profile for slideclone:graphic-reconstruction-decision-gate.",
+      "script": "scripts/graphic-reconstruction-decision-gate.js",
+      "args": []
+    },
+    "harvest-active-ppt-component": {
+      "description": "Versioned command profile for slideclone:harvest-active-ppt-component.",
+      "script": "scripts/harvest-active-powerpoint-component.js",
+      "args": []
+    },
+    "init": {
+      "description": "Versioned command profile for slideclone:init.",
+      "script": "scripts/slideclone.js",
+      "args": [
+        "init"
+      ]
+    },
+    "islide-search": {
+      "description": "Versioned command profile for slideclone:islide-search.",
+      "script": "scripts/islide-component-search.js",
+      "args": []
+    },
+    "minimum-unit-gap-audit": {
+      "description": "Versioned command profile for slideclone:minimum-unit-gap-audit.",
+      "script": "scripts/minimum-unit-gap-audit.js",
+      "args": [
+        "--ir-dir",
+        "ppt文档/组件策略插件增强版本",
+        "--out",
+        "runs/minimum-unit-gap-audit.json",
+        "--markdown-out",
+        "runs/minimum-unit-gap-audit.md",
+        "--repair-queue-out",
+        "runs/minimum-unit-gap-repair-queue.json",
+        "--min-area-ratio",
+        "0.18",
+        "--no-fail"
+      ]
+    },
+    "minimum-unit-gap-repair-merge": {
+      "description": "Versioned command profile for slideclone:minimum-unit-gap-repair-merge.",
+      "script": "scripts/minimum-unit-gap-repair-merge.js",
+      "args": [
+        "--base-ir-dir",
+        "ppt文档/组件策略插件增强版本",
+        "--repair-root",
+        "runs/minimum-unit-gap-repair-queue-pptx",
+        "--out",
+        "runs/minimum-unit-gap-repair-merged",
+        "--pptx-engine",
+        "openxml"
+      ]
+    },
+    "minimum-unit-gap-repair-queue": {
+      "description": "Versioned command profile for slideclone:minimum-unit-gap-repair-queue.",
+      "script": "scripts/minimum-unit-gap-repair-runner.js",
+      "args": [
+        "--repair-queue",
+        "runs/minimum-unit-gap-repair-queue.json",
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "runs/minimum-unit-gap-repair-queue-pptx",
+        "--max-pages",
+        "10",
+        "--deck-concurrency",
+        "2",
+        "--page-concurrency",
+        "2",
+        "--page-shard-size",
+        "1",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--replace-safe-component-template-crops",
+        "--pptx-engine",
+        "openxml",
+        "--heartbeat-ms",
+        "30000"
+      ]
+    },
+    "minimum-unit-gap-repair-smoke": {
+      "description": "Versioned command profile for slideclone:minimum-unit-gap-repair-smoke.",
+      "script": "scripts/component-strategy-rebuild.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "runs/minimum-unit-gap-rebuild-smoke-pptx",
+        "--only",
+        "PM_Portal_AI_Asset_Hub",
+        "--pages",
+        "9",
+        "--reuse-analysis",
+        "--reuse-final-page-cache",
+        "--component-assets",
+        "true",
+        "--harvest-islide-temp",
+        "--component-inventory-cache",
+        "runs/plugin-component-inventory/officeplus-islide-cache.json",
+        "--component-learning-cache",
+        "runs/plugin-component-inventory/officeplus-islide-learning-cache.json",
+        "--objectify-component-group-matches",
+        "true",
+        "--component-group-match-min-score",
+        "72",
+        "--replace-safe-component-template-crops",
+        "true",
+        "--expression-policy-repair-queue",
+        "runs/minimum-unit-gap-repair-queue.json",
+        "--pptx-engine",
+        "openxml"
+      ]
+    },
+    "minimum-unit-gap-visual-matrix": {
+      "description": "Versioned command profile for slideclone:minimum-unit-gap-visual-matrix.",
+      "script": "scripts/real-pptx-quality-matrix.js",
+      "args": [
+        "--root",
+        "runs/quality-gate-visual-minimum-unit-merged-all",
+        "--out",
+        "runs/minimum-unit-gap-repair-merged/visual-quality-matrix.json",
+        "--max-deck-pixel-diff-ratio",
+        "0.12",
+        "--max-deck-foreground-missing-ratio",
+        "0.14",
+        "--max-average-pixel-diff-ratio",
+        "0.08",
+        "--max-average-foreground-missing-ratio",
+        "0.10",
+        "--min-compared-pages",
+        "76",
+        "--require-no-actionable-unexplained-crops",
+        "true",
+        "--fail-on-regression"
+      ]
+    },
+    "native-fragmentation-audit": {
+      "description": "Versioned command profile for slideclone:native-fragmentation-audit.",
+      "script": "scripts/native-fragmentation-audit.js",
+      "args": []
+    },
+    "officeplus-resolve": {
+      "description": "Versioned command profile for slideclone:officeplus-resolve.",
+      "script": "scripts/officeplus-component-resolve.js",
+      "args": []
+    },
+    "officeplus-resolve-v17": {
+      "description": "Versioned command profile for slideclone:officeplus-resolve-v17.",
+      "script": "scripts/officeplus-component-resolve.js",
+      "args": [
+        "--target",
+        "MatlComponentContent-1900=渐变风流程箭头元素_4项",
+        "--target",
+        "MatlComponentContent-16000=简约渐变3项向上箭头循环",
+        "--out",
+        "runs/component-assets-ai-product-asset-os-owner-search-v17-plugin-apply-session/officeplus-component-resolve.json",
+        "--size",
+        "6"
+      ]
+    },
+    "officeplus-search": {
+      "description": "Versioned command profile for slideclone:officeplus-search.",
+      "script": "scripts/officeplus-component-search.js",
+      "args": []
+    },
+    "plugin-component-inventory": {
+      "description": "Versioned command profile for slideclone:plugin-component-inventory.",
+      "script": "scripts/plugin-component-inventory.js",
+      "args": []
+    },
+    "plugin-component-inventory-acquire": {
+      "description": "Explicitly scan installed plugin provider roots for component acquisition.",
+      "script": "scripts/plugin-component-inventory.js",
+      "args": [
+        "--include-provider-roots"
+      ]
+    },
+    "quality-gate-ocr-batch": {
+      "description": "Versioned command profile for slideclone:quality-gate-ocr-batch.",
+      "script": "scripts/quality-gate-ocr-batch.js",
+      "args": []
+    },
+    "quality-gate-ocr-batch-enhanced-turbo": {
+      "description": "Versioned command profile for slideclone:quality-gate-ocr-batch-enhanced-turbo.",
+      "script": "scripts/quality-gate-ocr-batch.js",
+      "args": [
+        "--input",
+        "ppt文档/组件策略插件增强版本",
+        "--out",
+        "runs/quality-gate-ocr-batch-enhanced-turbo",
+        "--concurrency",
+        "2",
+        "--text-ocr-adapter",
+        "scripts/adapters/ocr-paddleocr-local.js",
+        "--text-ocr-mode",
+        "fullPage",
+        "--text-ocr-pages",
+        "auto",
+        "--auto-text-ocr-max-pages",
+        "2",
+        "--min-text-coverage",
+        "0.80",
+        "--renderer",
+        "powerpoint",
+        "--reuse-render",
+        "true"
+      ]
+    },
+    "quality-gate-ocr-batch-umi-representative": {
+      "description": "Versioned command profile for slideclone:quality-gate-ocr-batch-umi-representative.",
+      "script": "scripts/quality-gate-ocr-batch.js",
+      "args": [
+        "--concurrency",
+        "2",
+        "--text-ocr-adapter",
+        "scripts/adapters/ocr-umi-paddle.js",
+        "--text-ocr-mode",
+        "anchored",
+        "--text-ocr-pages",
+        "auto",
+        "--auto-text-ocr-max-pages",
+        "2",
+        "--text-ocr-padding",
+        "16",
+        "--min-text-coverage",
+        "0.80",
+        "--renderer",
+        "powerpoint",
+        "--reuse-render",
+        "true"
+      ]
+    },
+    "quality-gate-real-pptx": {
+      "description": "Versioned command profile for slideclone:quality-gate-real-pptx.",
+      "script": "scripts/quality-gate-real-pptx.js",
+      "args": []
+    },
+    "quality-gate-visual-batch-enhanced-turbo": {
+      "description": "Versioned command profile for slideclone:quality-gate-visual-batch-enhanced-turbo.",
+      "script": "scripts/quality-gate-ocr-batch.js",
+      "args": [
+        "--input",
+        "ppt文档/组件策略插件增强版本",
+        "--out",
+        "runs/quality-gate-visual-batch-enhanced-turbo",
+        "--concurrency",
+        "2",
+        "--text-ocr",
+        "false",
+        "--renderer",
+        "powerpoint",
+        "--reuse-render",
+        "true"
+      ]
+    },
+    "quality-matrix-component-assets-regression": {
+      "description": "Versioned command profile for slideclone:quality-matrix-component-assets-regression.",
+      "script": "scripts/real-pptx-quality-matrix.js",
+      "args": [
+        "--comparison-manifest",
+        "skills/pd-hifi-slideclone/examples/component-assets-regression.manifest.json",
+        "--out",
+        "runs/component-assets-regression-matrix.json",
+        "--fail-on-regression"
+      ]
+    },
+    "quality-matrix-enhanced-visual": {
+      "description": "Versioned command profile for slideclone:quality-matrix-enhanced-visual.",
+      "script": "scripts/real-pptx-quality-matrix.js",
+      "args": [
+        "--root",
+        "runs/quality-gate-visual-batch-enhanced-turbo",
+        "--out",
+        "runs/quality-matrix-enhanced-visual.json",
+        "--require-no-residual-layer-candidates",
+        "true",
+        "--require-no-actionable-unexplained-crops",
+        "true"
+      ]
+    },
+    "quality-matrix-enhanced-visual-gate": {
+      "description": "Versioned command profile for slideclone:quality-matrix-enhanced-visual-gate.",
+      "script": "scripts/real-pptx-quality-matrix.js",
+      "args": [
+        "--root",
+        "runs/quality-gate-visual-batch-enhanced-turbo",
+        "--out",
+        "runs/quality-matrix-enhanced-visual.json",
+        "--require-no-residual-layer-candidates",
+        "true",
+        "--require-no-actionable-unexplained-crops",
+        "true",
+        "--fail-on-regression"
+      ]
+    },
+    "quality-matrix-real-pptx": {
+      "description": "Versioned command profile for slideclone:quality-matrix-real-pptx.",
+      "script": "scripts/real-pptx-quality-matrix.js",
+      "args": []
+    },
+    "quality-matrix-real-pptx-strict": {
+      "description": "Versioned command profile for slideclone:quality-matrix-real-pptx-strict.",
+      "script": "scripts/real-pptx-quality-matrix.js",
+      "args": [
+        "--require-no-text-overlay-risk",
+        "true",
+        "--require-no-residual-layer-candidates",
+        "true",
+        "--require-no-actionable-unexplained-crops",
+        "true",
+        "--fail-on-regression"
+      ]
+    },
+    "quality-trend-gate": {
+      "description": "Versioned command profile for slideclone:quality-trend-gate.",
+      "script": "scripts/quality-trend-gate.js",
+      "args": []
+    },
+    "real-blind-layer-audit-production": {
+      "description": "Versioned command profile for slideclone:real-blind-layer-audit-production.",
+      "script": "scripts/real-blind-layer-audit-parallel.js",
+      "args": [
+        "--ir-dir",
+        "ppt文档/组件策略插件增强版本",
+        "--concurrency",
+        "6",
+        "--out",
+        "runs/real-blind-layer-audit-production/report.json"
+      ]
+    },
+    "real-pptx-corpus": {
+      "description": "Versioned command profile for slideclone:real-pptx-corpus.",
+      "script": "scripts/real-pptx-corpus-runner.js",
+      "args": []
+    },
+    "real-pptx-corpus-smoke": {
+      "description": "Versioned command profile for slideclone:real-pptx-corpus-smoke.",
+      "script": "scripts/real-pptx-corpus-runner.js",
+      "args": [
+        "--suite",
+        "smoke",
+        "--concurrency",
+        "1",
+        "--out",
+        "runs/real-pptx-corpus-smoke"
+      ]
+    },
+    "rebuild-real-pptx-layered": {
+      "description": "Versioned command profile for slideclone:rebuild-real-pptx-layered.",
+      "script": "scripts/rebuild-real-pptx-native.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/分层可编辑版本",
+        "--smart-native-layers",
+        "true"
+      ]
+    },
+    "rebuild-real-pptx-layered-text": {
+      "description": "Versioned command profile for slideclone:rebuild-real-pptx-layered-text.",
+      "script": "scripts/rebuild-real-pptx-native.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/分层可编辑版本-text",
+        "--smart-native-layers",
+        "true",
+        "--objectify-layer-text",
+        "true"
+      ]
+    },
+    "rebuild-real-pptx-native": {
+      "description": "Rebuild analyzed PPTX workspaces with the native editable pipeline.",
+      "script": "scripts/rebuild-real-pptx-native.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/真可编辑版本"
+      ]
+    },
+    "rebuild-real-pptx-native-parallel": {
+      "description": "Versioned command profile for slideclone:rebuild-real-pptx-native-parallel.",
+      "script": "scripts/rebuild-real-pptx-native-parallel.js",
+      "args": [
+        "--work-root",
+        "ppt文档/可编辑版本",
+        "--out",
+        "ppt文档/真可编辑版本"
+      ]
+    },
+    "render-engine-report": {
+      "description": "Versioned command profile for slideclone:render-engine-report.",
+      "script": "scripts/render-engine-report.js",
+      "args": []
+    },
+    "rendered-preview-audit": {
+      "description": "Versioned command profile for slideclone:rendered-preview-audit.",
+      "script": "scripts/rendered-preview-audit.js",
+      "args": []
+    },
+    "rendered-similarity-audit": {
+      "description": "Versioned command profile for slideclone:rendered-similarity-audit.",
+      "script": "scripts/rendered-similarity-audit.js",
+      "args": []
+    },
+    "review": {
+      "description": "Versioned command profile for slideclone:review.",
+      "script": "scripts/review-studio.js",
+      "args": []
+    },
+    "run": {
+      "description": "Versioned command profile for slideclone:run.",
+      "script": "scripts/slideclone.js",
+      "args": [
+        "run"
+      ]
+    },
+    "smoke-flow-e2e": {
+      "description": "Versioned command profile for slideclone:smoke-flow-e2e.",
+      "script": "scripts/flow-e2e-smoke.js",
+      "args": []
+    },
+    "smoke-flow-e2e-deep": {
+      "description": "Versioned command profile for slideclone:smoke-flow-e2e-deep.",
+      "script": "scripts/flow-e2e-smoke.js",
+      "args": [
+        "--profile",
+        "deep-polish",
+        "--font-fit",
+        "--container-style-fit"
+      ]
+    },
+    "smoke-flow-e2e-fast": {
+      "description": "Versioned command profile for slideclone:smoke-flow-e2e-fast.",
+      "script": "scripts/flow-e2e-smoke.js",
+      "args": [
+        "--profile",
+        "fast-batch",
+        "--font-fit"
+      ]
+    },
+    "smoke-flow-e2e-fast-3page": {
+      "description": "Versioned command profile for slideclone:smoke-flow-e2e-fast-3page.",
+      "script": "scripts/flow-e2e-smoke.js",
+      "args": [
+        "--profile",
+        "fast-batch",
+        "--font-fit",
+        "--pages",
+        "3",
+        "--out",
+        "runs/flow-e2e-smoke-fast-3page"
+      ]
+    },
+    "smoke-flow-e2e-fontfit": {
+      "description": "Versioned command profile for slideclone:smoke-flow-e2e-fontfit.",
+      "script": "scripts/flow-e2e-smoke.js",
+      "args": [
+        "--font-fit"
+      ]
+    },
+    "smoke-flow-e2e-hifi": {
+      "description": "Versioned command profile for slideclone:smoke-flow-e2e-hifi.",
+      "script": "scripts/flow-e2e-smoke.js",
+      "args": [
+        "--profile",
+        "balanced",
+        "--font-fit",
+        "--container-style-fit",
+        "--out",
+        "runs/flow-e2e-smoke-hifi"
+      ]
+    },
+    "smoke-flow-e2e-matrix": {
+      "description": "Versioned command profile for slideclone:smoke-flow-e2e-matrix.",
+      "script": "scripts/flow-e2e-matrix.js",
+      "args": []
+    },
+    "smoke-flow-e2e-stylefit": {
+      "description": "Versioned command profile for slideclone:smoke-flow-e2e-stylefit.",
+      "script": "scripts/flow-e2e-smoke.js",
+      "args": [
+        "--container-style-fit"
+      ]
+    },
+    "smoke-ocr-text": {
+      "description": "Versioned command profile for slideclone:smoke-ocr-text.",
+      "script": "scripts/ocr-text-smoke.js",
+      "args": []
+    },
+    "smoke-real-pptx": {
+      "description": "Normalize the first two pages of the standard real-PPTX smoke fixture.",
+      "script": "scripts/real-pptx-normalize-smoke.js",
+      "args": [
+        "--pptx",
+        "ppt文档/PM_Portal_AI_Skills_Engine.pptx",
+        "--max-pages",
+        "2",
+        "--out",
+        "runs/real-pptx-normalize-smoke"
+      ]
+    },
+    "smoke-sample-deck-hifi": {
+      "description": "Versioned command profile for slideclone:smoke-sample-deck-hifi.",
+      "script": "scripts/ir-delivery-smoke.js",
+      "args": [
+        "--ir",
+        "skills/pd-hifi-slideclone/examples/sample-deck.json",
+        "--font-fit",
+        "true",
+        "--font-fit-only-roles",
+        "title,table",
+        "--font-candidates",
+        "Microsoft YaHei,Arial",
+        "--font-fit-max-trials-per-role",
+        "4",
+        "--text-micro-adjust",
+        "true",
+        "--text-micro-adjust-inspect-aligned",
+        "true",
+        "--out",
+        "runs/sample-deck-hifi-smoke"
+      ]
+    },
+    "smoke-text-micro-adjust": {
+      "description": "Versioned command profile for slideclone:smoke-text-micro-adjust.",
+      "script": "scripts/ocr-text-smoke.js",
+      "args": [
+        "--ir",
+        "skills/pd-hifi-slideclone/examples/text-micro-adjust-smoke.ir.json",
+        "--rendered",
+        "skills/pd-hifi-slideclone/examples/ocr-text-smoke.source.png",
+        "--out",
+        "runs/text-micro-adjust-smoke"
+      ]
+    },
+    "structural-native-audit": {
+      "description": "Versioned command profile for slideclone:structural-native-audit.",
+      "script": "scripts/structural-native-audit.js",
+      "args": []
+    },
+    "validate": {
+      "description": "Versioned command profile for slideclone:validate.",
+      "script": "scripts/slideclone.js",
+      "args": [
+        "validate"
+      ]
+    },
+    "watch-active-pptx-component": {
+      "description": "Versioned command profile for slideclone:watch-active-pptx-component.",
+      "script": "scripts/watch-plugin-component-downloads.js",
+      "args": [
+        "--active-powerpoint",
+        "--no-default-roots"
+      ]
+    },
+    "watch-plugin-component-downloads": {
+      "description": "Versioned command profile for slideclone:watch-plugin-component-downloads.",
+      "script": "scripts/watch-plugin-component-downloads.js",
+      "args": []
+    }
+  }
+}

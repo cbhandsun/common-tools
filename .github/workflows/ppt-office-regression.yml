@@ -1,0 +1,85 @@
+name: PowerPoint Office Regression
+
+on:
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Real PPTX corpus suite
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - smoke
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ppt-office-regression-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  real-pptx-quality:
+    runs-on: [self-hosted, Windows, X64, slideclone-office]
+    timeout-minutes: 180
+    env:
+      SLIDECLONE_REAL_PPTX_WORK_ROOT: ${{ vars.SLIDECLONE_REAL_PPTX_WORK_ROOT }}
+      SLIDECLONE_QUALITY_HISTORY_ROOT: ${{ vars.SLIDECLONE_QUALITY_HISTORY_ROOT }}
+      CORPUS_SUITE: ${{ inputs.suite || 'full' }}
+      TEST_REPORTER: dot
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - name: Install locked dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm run slideclone:bootstrap-python
+          npm run audit:dotnet
+          npm run build:dotnet:locked
+
+      - name: Restore visual quality history
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .ci-state/ppt-quality-history-${{ env.CORPUS_SUITE }}.json
+          key: ppt-quality-history-${{ runner.name }}-${{ env.CORPUS_SUITE }}-${{ github.run_id }}
+          restore-keys: |
+            ppt-quality-history-${{ runner.name }}-${{ env.CORPUS_SUITE }}-
+
+      - name: Run serialized Office corpus and trend gate
+        shell: pwsh
+        run: >-
+          node scripts/run-office-ppt-regression.js
+          --suite "$env:CORPUS_SUITE"
+
+      - name: Upload bounded regression reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ppt-office-regression-${{ github.run_id }}
+          path: |
+            artifacts/ppt-office-regression/*.json
+            artifacts/ppt-office-regression/cross-renderer/cross-renderer-report.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Save passing visual quality history
+        if: success()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .ci-state/ppt-quality-history-${{ env.CORPUS_SUITE }}.json
+          key: ppt-quality-history-${{ runner.name }}-${{ env.CORPUS_SUITE }}-${{ github.run_id }}

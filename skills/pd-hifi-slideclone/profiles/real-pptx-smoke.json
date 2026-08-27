@@ -1,0 +1,5 @@
+{
+  "description": "Normalize the first two pages of the standard real-PPTX smoke fixture.",
+  "script": "scripts/real-pptx-normalize-smoke.js",
+  "args": ["--pptx", "ppt文档/PM_Portal_AI_Skills_Engine.pptx", "--max-pages", "2", "--out", "runs/real-pptx-normalize-smoke"]
+}

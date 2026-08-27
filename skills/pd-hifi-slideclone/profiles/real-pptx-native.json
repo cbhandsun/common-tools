@@ -1,0 +1,5 @@
+{
+  "description": "Rebuild analyzed PPTX workspaces with the native editable pipeline.",
+  "script": "scripts/rebuild-real-pptx-native.js",
+  "args": ["--work-root", "ppt文档/可编辑版本", "--out", "ppt文档/真可编辑版本"]
+}

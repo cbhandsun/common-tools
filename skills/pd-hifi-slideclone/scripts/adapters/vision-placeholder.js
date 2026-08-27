@@ -99,3 +99,5 @@ function buildRegionImages(input) {
 function round(value) {
   return Math.round(value * 100) / 100;
 }
+
+module.exports.maxConcurrency = 4;

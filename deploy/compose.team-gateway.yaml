@@ -1,0 +1,38 @@
+services:
+  remote-mcp:
+    # API replicas must be reached through the gateway; a host port would make
+    # Compose scale fail before the second container can start.
+    ports: !reset []
+
+  remote-mcp-gateway:
+    image: nginx:1.27.5-alpine
+    profiles: ["team-gateway"]
+    depends_on:
+      remote-mcp: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:${COMMON_TOOLS_REMOTE_PORT:-54000}:8080"
+    volumes:
+      - type: bind
+        source: ./nginx/team-mcp.conf
+        target: /etc/nginx/templates/default.conf.template
+        read_only: true
+    user: "101:101"
+    # Validate the full public request path, not merely that nginx has a
+    # listening socket. /readyz is proxied to the API and verifies its
+    # dependencies plus every enabled capability Worker heartbeat.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    cpus: "0.5"
+    mem_limit: 128m
+    pids_limit: 64
+    read_only: true
+    # The nginx image renders the mounted template at startup. conf.d must be
+    # writable because this container intentionally runs as a non-root user.
+    tmpfs: ["/etc/nginx/conf.d:rw,noexec,nosuid,size=1m,mode=1777", "/var/cache/nginx:rw,noexec,nosuid,size=16m,mode=1777", "/var/run:rw,noexec,nosuid,size=1m,mode=1777"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]

@@ -14,3 +14,5 @@ module.exports = async function ocrPlaceholder(input) {
     }
   };
 };
+
+module.exports.maxConcurrency = 4;

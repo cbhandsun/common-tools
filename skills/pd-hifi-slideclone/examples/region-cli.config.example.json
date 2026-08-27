@@ -35,6 +35,38 @@
     "maxCriticalOffsetPt": 8,
     "maxRasterImageAreaRatio": 0.25
   },
+  "textOcr": {
+    "enabled": true,
+    "adapter": "scripts/adapters/ocr-paddleocr-local.js",
+    "mode": "anchored",
+    "paddingPt": 16,
+    "upscale": 1,
+    "psm": 6,
+    "preprocess": false
+  },
+  "umiOcr": {
+    "paddleBin": "C:\\Program Files\\Umi-OCR_Paddle_v2.1.5\\UmiOCR-data\\plugins\\win7_x64_PaddleOCR-json\\PaddleOCR-json.exe",
+    "initTimeoutMs": 60000
+  },
+  "tesseract": {
+    "bin": "tesseract",
+    "lang": "chi_sim+eng",
+    "tessdataPrefix": "./tools/tessdata",
+    "psm": 6
+  },
+  "textMicroAdjust": {
+    "enabled": true,
+    "minCoverage": 0.995,
+    "paddingPt": 16,
+    "maxMovePt": 3,
+    "maxHeightAdjustPt": 2.5,
+    "minDeltaPt": 0.15,
+    "inspectAligned": true,
+    "maxLayoutRegression": 0.08,
+    "maxCriticalOffsetIncreasePt": 6,
+    "layoutPenaltyWeight": 0.35,
+    "criticalPenaltyWeight": 0.002
+  },
   "maxIterations": 2,
   "postprocess": {
     "compare": true,

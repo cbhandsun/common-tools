@@ -29,6 +29,13 @@ module.exports = async function visionFlowDiagramRules(input, context = {}) {
     uiContainer,
     docContainer
   });
+  const iconPlan = buildIconPlan(input, context, {
+    sourceScale,
+    pageWidth,
+    pageHeight,
+    uiContainer,
+    docContainer
+  });
 
   const shapes = [
     withShadow(scaleVisual(roundRect("banner", { x: 112, y: 260, w: 2444, h: 126 }, palette.bannerFill, "none", 0, "bannerFill", palette), sourceScale), "soft"),
@@ -42,36 +49,31 @@ module.exports = async function visionFlowDiagramRules(input, context = {}) {
 
     withShadow(scaleVisual(roundRect("portal-button", { x: 2188, y: 744, w: 370, h: 180 }, palette.blueFill, palette.blueStroke, 1, "blueFill", palette), sourceScale), "strong"),
 
-    scaleVisual(elbow("left-prd-to-engine", 472, 670, 613, 790, palette.grayLine, 4, null, "grayLine", palette), sourceScale),
-    scaleVisual(elbow("left-dom-to-engine", 472, 1008, 613, 870, palette.grayLine, 4, null, "grayLine", palette), sourceScale),
-    ...arrow("engine-to-ui", 935, 670, 1045, 670, palette.greenLine, "greenLine", palette).map((item) => scaleVisual(item, sourceScale)),
-    ...arrow("engine-to-doc-lower", 935, 998, 1045, 998, palette.greenLine, "greenLine", palette).map((item) => scaleVisual(item, sourceScale)),
-    scaleVisual(elbow("card-upper-to-portal", 2096, 672, 2188, 812, palette.greenLine, 5, "triangle", "greenLine", palette), sourceScale),
-    scaleVisual(elbow("card-lower-to-portal", 2096, 996, 2188, 856, palette.greenLine, 5, "triangle", "greenLine", palette), sourceScale)
+    scaleVisual(elbow("left-prd-to-engine", 472, 670, 613, 790, palette.grayLine, 4, null, "grayLine", palette, connectorAnchors("left-prd", "right", 0.49, "engine", "left", 0.42)), sourceScale),
+    scaleVisual(elbow("left-dom-to-engine", 472, 1008, 613, 870, palette.grayLine, 4, null, "grayLine", palette, connectorAnchors("left-dom", "right", 0.51, "engine", "left", 0.55)), sourceScale),
+    ...arrow("engine-to-ui", 935, 670, 1045, 670, palette.greenLine, "greenLine", palette, connectorAnchors("engine", "right", 0.22, "ui-card", "left", 0.22)).map((item) => scaleVisual(item, sourceScale)),
+    ...arrow("engine-to-doc-lower", 935, 998, 1045, 998, palette.greenLine, "greenLine", palette, connectorAnchors("engine", "right", 0.77, "doc-card", "left", 0.77)).map((item) => scaleVisual(item, sourceScale)),
+    scaleVisual(elbow("card-upper-to-portal", 2096, 672, 2188, 812, palette.greenLine, 5, "triangle", "greenLine", palette, connectorAnchors("ui-card", "right", 0.23, "portal-button", "left", 0.38)), sourceScale),
+    scaleVisual(elbow("card-lower-to-portal", 2096, 996, 2188, 856, palette.greenLine, 5, "triangle", "greenLine", palette, connectorAnchors("doc-card", "right", 0.76, "portal-button", "left", 0.62)), sourceScale),
+    ...iconPlan.shapes
   ];
 
   const textBoxes = [
-    scaleText(text("title", "视觉还原与操作同步：彻底消灭文档与界面的割裂", { x: 112, y: 90, w: 1700, h: 70 }, 26, "#000000", "bold"), sourceScale),
-    scaleText(text("banner-text", "【Gem 提炼】：将文字方案具象化为高保真交互原型，并自动化生成产品操作手册。", { x: 298, y: 296, w: 1650, h: 46 }, 17, "#000000", "bold"), sourceScale),
-    scaleText(text("prd-text", "标准 PRD 文本", { x: 160, y: 642, w: 260, h: 46 }, 17, "#000000", "bold", "center", "middle"), sourceScale),
-    scaleText(text("dom-text", "线上系统 DOM /\nFigma 原文件", { x: 142, y: 960, w: 300, h: 86 }, 16, "#000000", "bold", "center", "middle"), sourceScale),
-    scaleText(text("engine-title", "形态转换引擎", { x: 660, y: 596, w: 230, h: 44 }, 17, "#FFFFFF", "bold", "center"), sourceScale),
-    text("ui-card-title", "可点击交互原型", nudgeBox(titleBox(uiContainer), 0, -2), 14.4, "#000000", "bold"),
-    text("doc-card-title", "自动截屏操作手册", nudgeBox(titleBox(docContainer), 0, -2), 14.4, "#000000", "bold"),
-    scaleText(text("portal-text", "PM Portal\n门户展示", { x: 2235, y: 792, w: 270, h: 78 }, 17, "#FFFFFF", "regular", "center", "middle"), sourceScale),
-    scaleText(text("portal-caption", "路由与菜单全自动打通，\n形成资产最终闭环展示", { x: 2188, y: 970, w: 370, h: 92 }, 15, "#000000", "bold", "center", "middle"), sourceScale)
+    scaleText(text("title", "视觉还原与操作同步：彻底消灭文档与界面的割裂", { x: 112, y: 90, w: 1700, h: 70 }, 26, "#000000", "bold", "left", "top", "title"), sourceScale),
+    scaleText(text("banner-text", "【Gem 提炼】：将文字方案具象化为高保真交互原型，并自动化生成产品操作手册。", { x: 298, y: 296, w: 1650, h: 46 }, 17, "#000000", "bold", "left", "top", "banner"), sourceScale),
+    scaleText(text("prd-text", "标准 PRD 文本", { x: 160, y: 642, w: 260, h: 46 }, 17, "#000000", "bold", "center", "middle", "body"), sourceScale),
+    scaleText(text("dom-text", "线上系统 DOM /\nFigma 原文件", { x: 142, y: 960, w: 300, h: 86 }, 16, "#000000", "bold", "center", "middle", "body"), sourceScale),
+    scaleText(text("engine-title", "形态转换引擎", { x: 660, y: 596, w: 230, h: 44 }, 17, "#FFFFFF", "bold", "center", "top", "card-title"), sourceScale),
+    text("ui-card-title", "可点击交互原型", nudgeBox(titleBox(uiContainer), 0, -2), 14.4, "#000000", "bold", "left", "top", "card-title"),
+    text("doc-card-title", "自动截屏操作手册", nudgeBox(titleBox(docContainer), 0, -2), 14.4, "#000000", "bold", "left", "top", "card-title"),
+    scaleText(text("portal-text", "PM Portal\n门户展示", { x: 2235, y: 792, w: 270, h: 78 }, 17, "#FFFFFF", "regular", "center", "middle", "button"), sourceScale),
+    scaleText(text("portal-caption", "路由与菜单全自动打通，\n形成资产最终闭环展示", { x: 2188, y: 970, w: 370, h: 92 }, 15, "#000000", "bold", "center", "middle", "caption"), sourceScale)
   ];
 
   const images = [docRegion, uiRegion]
     .filter(Boolean)
     .map((region, index) => regionImage(input, region, index, pageScale));
-  images.push(...iconImages(input, context, {
-    sourceScale,
-    pageWidth,
-    pageHeight,
-    uiContainer,
-    docContainer
-  }));
+  images.push(...iconPlan.images);
 
   return {
     ok: true,
@@ -196,8 +198,8 @@ function withShadow(item, variant = "card") {
   };
 }
 
-function iconImages(input, context, geometry) {
-  const icons = [];
+function buildIconPlan(input, context, geometry) {
+  const plan = { shapes: [], images: [] };
   const specs = [
     { id: "banner-gem", box: { x: 135, y: 270, w: 95, h: 100 } },
     { id: "engine-wand", box: { x: 710, y: 720, w: 120, h: 120 } },
@@ -223,9 +225,16 @@ function iconImages(input, context, geometry) {
 
   for (const spec of specs) {
     const image = cropIconImage(input, context, spec, geometry);
-    if (image) icons.push(image);
+    const vectorShapes = image && image.source.foregroundCoverage >= 0.015
+      ? vectorIconShapes(spec.id, image.box, image.source)
+      : [];
+    if (vectorShapes.length > 0) {
+      plan.shapes.push(...vectorShapes);
+    } else if (image && image.source.foregroundCoverage >= 0.003) {
+      plan.images.push(image);
+    }
   }
-  return icons;
+  return plan;
 }
 
 function cropIconImage(input, context, spec, geometry) {
@@ -239,6 +248,7 @@ function cropIconImage(input, context, spec, geometry) {
   const cropFile = path.join(outputDir, `page-${input.pageIndex + 1}.${spec.id}.png`);
   const source = readPng(input.sourceImage);
   const crop = transparentizeBackground(cropPng(source, cropBox));
+  const foregroundCoverage = alphaCoverage(crop);
   writePng(cropFile, crop);
   return {
     id: `p${input.pageIndex}-${spec.id}`,
@@ -255,12 +265,120 @@ function cropIconImage(input, context, spec, geometry) {
       cropImage: cropFile,
       visionProvider: "vision-flow-diagram-rules",
       confidence: 0.85,
+      foregroundCoverage,
       evidenceBox: slideBox,
       evidenceBoxPx: cropBox,
       editable: false,
       nonEditableReason: "Small complex icon retained as a precise raster to avoid shape approximation artifacts."
     }
   };
+}
+
+function vectorIconShapes(iconId, box, evidence) {
+  const match = matchIconLibrary(iconId);
+  return match ? match.render(iconId, box, evidence) : [];
+}
+
+const ICON_LIBRARY = [
+  { id: "gem", aliases: ["gem", "diamond", "宝石"], render: gemIconShapes },
+  { id: "wand", aliases: ["wand", "magic", "魔棒"], render: wandIconShapes },
+  { id: "camera", aliases: ["camera", "photo", "相机"], render: cameraIconShapes }
+];
+
+function matchIconLibrary(iconId) {
+  const normalized = String(iconId || "").toLowerCase();
+  return ICON_LIBRARY.find((entry) => entry.aliases.some((alias) => normalized.includes(alias.toLowerCase()))) || null;
+}
+
+function gemIconShapes(iconId, box, evidence) {
+  return [
+    vectorShape(`${iconId}-gem-main`, "diamond", insetBox(box, 0.12, 0.08, 0.12, 0.08), "#39D3E3", "#FFFFFF", 1.2, evidence),
+    vectorShape(`${iconId}-gem-shine`, "diamond", insetBox(box, 0.34, 0.2, 0.45, 0.56), "#FFFFFF", "none", 0, evidence)
+  ];
+}
+
+function wandIconShapes(iconId, box, evidence) {
+  return [
+    vectorLine(`${iconId}-wand-stick`, box.x + box.w * 0.28, box.y + box.h * 0.72, box.x + box.w * 0.75, box.y + box.h * 0.25, "#FFFFFF", 3.2, evidence),
+    vectorShape(`${iconId}-wand-star`, "diamond", { x: box.x + box.w * 0.64, y: box.y + box.h * 0.08, w: box.w * 0.26, h: box.h * 0.26 }, "#FFFFFF", "none", 0, evidence),
+    vectorShape(`${iconId}-wand-spark-1`, "diamond", { x: box.x + box.w * 0.18, y: box.y + box.h * 0.18, w: box.w * 0.14, h: box.h * 0.14 }, "#FFFFFF", "none", 0, evidence),
+    vectorShape(`${iconId}-wand-spark-2`, "diamond", { x: box.x + box.w * 0.76, y: box.y + box.h * 0.58, w: box.w * 0.12, h: box.h * 0.12 }, "#FFFFFF", "none", 0, evidence)
+  ];
+}
+
+function cameraIconShapes(iconId, box, evidence) {
+  return [
+    vectorShape(`${iconId}-camera-body`, "rounded-rect", insetBox(box, 0.1, 0.24, 0.1, 0.18), "#FFFFFF", "none", 0, evidence, { radiusRatio: 0.12 }),
+    vectorShape(`${iconId}-camera-top`, "rounded-rect", { x: box.x + box.w * 0.28, y: box.y + box.h * 0.14, w: box.w * 0.28, h: box.h * 0.18 }, "#FFFFFF", "none", 0, evidence, { radiusRatio: 0.16 }),
+    vectorShape(`${iconId}-camera-lens`, "ellipse", { x: box.x + box.w * 0.38, y: box.y + box.h * 0.42, w: box.w * 0.24, h: box.h * 0.28 }, "#168BE8", "#168BE8", 0.8, evidence),
+    vectorShape(`${iconId}-camera-dot`, "ellipse", { x: box.x + box.w * 0.68, y: box.y + box.h * 0.34, w: box.w * 0.08, h: box.h * 0.1 }, "#168BE8", "none", 0, evidence)
+  ];
+}
+
+function vectorShape(id, type, box, fill, stroke, strokeWidthPt, evidence, extraStyle = {}) {
+  return {
+    id,
+    type,
+    box: roundBox(box),
+    style: {
+      fill,
+      stroke,
+      strokeWidthPt,
+      ...extraStyle
+    },
+    source: iconVectorSource(evidence)
+  };
+}
+
+function vectorLine(id, x1, y1, x2, y2, stroke, strokeWidthPt, evidence) {
+  return {
+    id,
+    type: "line",
+    box: roundBox({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }),
+    style: { stroke, strokeWidthPt },
+    source: iconVectorSource(evidence)
+  };
+}
+
+function iconVectorSource(evidence) {
+  return {
+    pageImage: evidence.pageImage,
+    cropImage: evidence.cropImage,
+    visionProvider: "vision-flow-diagram-rules",
+    confidence: 0.72,
+    foregroundCoverage: evidence.foregroundCoverage,
+    evidenceBox: evidence.evidenceBox,
+    evidenceBoxPx: evidence.evidenceBoxPx,
+    editable: true,
+    vectorization: "native-shape-icon-approximation",
+    iconMatch: "library-alias"
+  };
+}
+
+function insetBox(box, left, top, right, bottom) {
+  return {
+    x: box.x + box.w * left,
+    y: box.y + box.h * top,
+    w: box.w * Math.max(0.05, 1 - left - right),
+    h: box.h * Math.max(0.05, 1 - top - bottom)
+  };
+}
+
+function roundBox(box) {
+  return {
+    x: round(box.x),
+    y: round(box.y),
+    w: round(box.w),
+    h: round(box.h)
+  };
+}
+
+function alphaCoverage(image) {
+  let foreground = 0;
+  for (let index = 3; index < image.rgba.length; index += 4) {
+    if (image.rgba[index] > 32) foreground += 1;
+  }
+  return foreground / Math.max(1, image.width * image.height);
 }
 
 function transparentizeBackground(image) {
@@ -355,10 +473,10 @@ function titleBox(container) {
   };
 }
 
-function text(id, value, box, sizePt, color, weight = "regular", align = "left", valign = "top") {
+function text(id, value, box, sizePt, color, weight = "regular", align = "left", valign = "top", role = "body") {
   return {
     id,
-    role: "body",
+    role,
     text: value,
     box,
     font: {
@@ -401,24 +519,33 @@ function rightTriangle(id, box, fill) {
   return { id, type: "right-triangle", box, style: { fill, stroke: "none" }, source: source(box, true) };
 }
 
-function line(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = null, palette = null) {
+function line(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = null, palette = null, anchors = null) {
   return {
     id,
     type: "line",
     box: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 },
-    style: { stroke, strokeWidthPt: widthPt, ...(endArrow ? { endArrow } : {}) },
-    source: source({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, true, sampledStyle(sampleKey, palette))
+    style: {
+      stroke,
+      strokeWidthPt: widthPt,
+      ...(endArrow ? { endArrow } : {}),
+      ...anchorStyle(anchors)
+    },
+    source: source({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, true, {
+      ...sampledStyle(sampleKey, palette),
+      ...(anchors ? { connectorAnchors: anchors } : {})
+    })
   };
 }
 
-function elbow(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = null, palette = null) {
+function elbow(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = null, palette = null, anchors = null) {
   return {
-    ...line(id, x1, y1, x2, y2, stroke, widthPt, endArrow, sampleKey, palette),
+    ...line(id, x1, y1, x2, y2, stroke, widthPt, endArrow, sampleKey, palette, anchors),
     style: {
       stroke,
       strokeWidthPt: widthPt,
       connectorType: "elbow",
-      ...(endArrow ? { endArrow } : {})
+      ...(endArrow ? { endArrow } : {}),
+      ...anchorStyle(anchors)
     }
   };
 }
@@ -427,10 +554,25 @@ function lineGroup(prefix, items) {
   return items.map((item, index) => line(`${prefix}-${index + 1}`, item[0], item[1], item[2], item[3], item[4], item[5], item[6] || null));
 }
 
-function arrow(id, x1, y1, x2, y2, stroke, sampleKey = null, palette = null) {
+function arrow(id, x1, y1, x2, y2, stroke, sampleKey = null, palette = null, anchors = null) {
   return [
-    line(`${id}-arrow`, x1, y1, x2, y2, stroke, 5, "triangle", sampleKey, palette)
+    line(`${id}-arrow`, x1, y1, x2, y2, stroke, 5, "triangle", sampleKey, palette, anchors)
   ];
+}
+
+function connectorAnchors(startElementId, startSide, startPosition, endElementId, endSide, endPosition) {
+  return {
+    startAnchor: { elementId: startElementId, side: startSide, position: startPosition },
+    endAnchor: { elementId: endElementId, side: endSide, position: endPosition }
+  };
+}
+
+function anchorStyle(anchors) {
+  if (!anchors) return {};
+  return {
+    ...(anchors.startAnchor ? { startAnchor: anchors.startAnchor } : {}),
+    ...(anchors.endAnchor ? { endAnchor: anchors.endAnchor } : {})
+  };
 }
 
 function regionImage(input, region, index, scale) {
@@ -620,3 +762,5 @@ function clamp(value, min, max) {
 function round(value) {
   return Math.round(value * 100) / 100;
 }
+
+module.exports.maxConcurrency = 4;

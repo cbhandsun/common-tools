@@ -1,0 +1,20 @@
+{
+  "name": "@common-tools/slideclone-core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./config-validation": "./config-validation.js",
+    "./image-size": "./image-size.js",
+    "./team-ocr-profile": "./team-ocr-profile.js",
+    "./team-raw-image-archive": "./team-raw-image-archive.js",
+    "./team-worker": "./team-worker.js"
+  },
+  "dependencies": {
+    "@common-tools/capability-contracts": "0.1.0",
+    "@common-tools/capability-runtime": "0.1.0",
+    "@common-tools/project-audit-core": "0.1.0"
+  },
+  "type": "commonjs"
+}

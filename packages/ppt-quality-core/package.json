@@ -1,0 +1,15 @@
+{
+  "name": "@common-tools/ppt-quality-core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./team-worker": "./team-worker.js"
+  },
+  "dependencies": {
+    "@common-tools/capability-contracts": "0.1.0",
+    "@common-tools/capability-runtime": "0.1.0"
+  },
+  "type": "commonjs"
+}

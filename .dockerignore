@@ -1,0 +1,18 @@
+# The worker image must only contain its declared runtime inputs.  Besides
+# reducing build time, this prevents local jobs, credentials, and unrelated
+# user work from becoming part of the image build context.
+**
+!package.json
+!package-lock.json
+!packages/
+!packages/**
+!skills/
+!skills/pd-hifi-slideclone/
+!skills/pd-hifi-slideclone/**
+!skills/pd-hifi-slideclone/scripts/lib/config-validation.js
+!skills/pd-hifi-slideclone/scripts/lib/image-size.js
+!deploy/
+!deploy/docker/
+!deploy/docker/Dockerfile.worker
+!deploy/docker/Dockerfile.remote-mcp
+!deploy/docker/Dockerfile.image-to-editable

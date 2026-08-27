@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "id": "officeplus-assets-real-deck-coverage",
+  "description": "Verify the OfficePLUS/iSlide component-assets golden set has safe local coverage, real native replacement plans, and no actionable residual visual layers.",
+  "gates": {
+    "requireNoActionableResiduals": true,
+    "requireNoExpressionPolicyViolations": true,
+    "expectedDecks": 6,
+    "expectedDeckNames": [
+      "AI_Powered_Product_Workflow_Transformation",
+      "AI_Product_Asset_OS",
+      "Digital_Product_Brain",
+      "Intelligent_R_D_Asset_Blueprint",
+      "PM_Portal_AI_Asset_Hub",
+      "PM_Portal_AI_Skills_Engine"
+    ],
+    "expectedPageCounts": {
+      "AI_Powered_Product_Workflow_Transformation": 14,
+      "AI_Product_Asset_OS": 11,
+      "Digital_Product_Brain": 13,
+      "Intelligent_R_D_Asset_Blueprint": 15,
+      "PM_Portal_AI_Asset_Hub": 11,
+      "PM_Portal_AI_Skills_Engine": 12
+    },
+    "minComponentAssetLocalCoverageRatio": 0.95,
+    "minComponentAssetLocalMatches": 350,
+    "minComponentAssetHighReusableGroups": 200,
+    "minComponentReplacementPlanShapes": 150,
+    "minComponentReplacementPlanTextBoxes": 75,
+    "minComponentTemplateAppliedTextBoxes": 13,
+    "minComponentTemplateMotifReadyTargetCounts": {
+      "whole-process-template": 1
+    },
+    "minComponentTemplateMotifReadyTargetTypes": 4,
+    "requireOutputPptxExists": true,
+    "requireOutputPptxZip": true,
+    "requireOutputPptxOpenXml": true
+  },
+  "reports": [
+    "runs/component-assets-golden-v3/component-strategy-rebuild-parallel-report.json"
+  ]
+}

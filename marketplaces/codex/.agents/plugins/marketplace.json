@@ -1,0 +1,56 @@
+{
+  "name": "common-tools-codex",
+  "interface": {
+    "displayName": "Common Tools Codex"
+  },
+  "plugins": [
+    {
+      "name": "image-to-editable",
+      "source": {
+        "source": "local",
+        "path": "./plugins/image-to-editable"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "project-audit",
+      "source": {
+        "source": "local",
+        "path": "./plugins/project-audit"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "ppt-quality",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ppt-quality"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "ppt-improve",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ppt-improve"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

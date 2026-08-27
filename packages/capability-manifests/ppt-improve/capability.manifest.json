@@ -1,0 +1,20 @@
+{
+  "manifestVersion": 1,
+  "capability": "ppt-improve",
+  "version": "0.1.2",
+  "toolNames": ["create_ppt_improve_job", "get_ppt_improve_report"],
+  "dependencies": ["ppt-quality"],
+  "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
+  "requiredWorkerProfile": "base",
+  "team": {
+    "oauthScope": "common-tools:capability:ppt-improve",
+    "acceptedUploadMediaTypes": ["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+    "deployment": {
+      "workerProfile": "team-worker-ppt-improve",
+      "workerService": "ppt-improve-worker",
+      "imageKind": "remote-mcp",
+      "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-ppt-improve-worker.js"
+    }
+  },
+  "contentSha256": "2c0cbc383e4fb1b70be1002851b83a7e330c7ddcab16e309abe122963c07b73c"
+}

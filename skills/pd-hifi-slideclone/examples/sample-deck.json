@@ -7,7 +7,7 @@
   "pages": [
     {
       "pageIndex": 0,
-      "sourceImage": "examples/page-001.png",
+      "sourceImage": "./page-001.png",
       "background": {
         "fill": "#FFFFFF"
       },
@@ -17,20 +17,20 @@
           "role": "title",
           "text": "Slide Clone Sample",
           "box": {
-            "x": 80,
+            "x": 87,
             "y": 64,
             "w": 640,
             "h": 56
           },
           "font": {
             "family": "Arial",
-            "sizePt": 32,
+            "sizePt": 43,
             "weight": "bold",
             "color": "#111111",
             "align": "left"
           },
           "source": {
-            "pageImage": "examples/page-001.png",
+            "pageImage": "./page-001.png",
             "ocrProvider": "sample",
             "visionProvider": "sample",
             "confidence": 1,
@@ -60,7 +60,7 @@
             "strokeWidthPt": 0
           },
           "source": {
-            "pageImage": "examples/page-001.png",
+            "pageImage": "./page-001.png",
             "visionProvider": "sample",
             "confidence": 1,
             "evidenceBox": {
@@ -73,7 +73,33 @@
           }
         }
       ],
-      "images": [],
+      "images": [
+        {
+          "id": "p0-table-fidelity-crop",
+          "type": "fidelity-crop",
+          "box": {
+            "x": 80,
+            "y": 190,
+            "w": 420,
+            "h": 120
+          },
+          "assetPath": "./sample-deck-table-underlay.png",
+          "source": {
+            "pageImage": "./page-001.png",
+            "visionProvider": "sample",
+            "confidence": 1,
+            "evidenceBox": {
+              "x": 80,
+              "y": 190,
+              "w": 420,
+              "h": 120
+            },
+            "editable": false,
+            "nonEditableReason": "fidelity-underlay",
+            "reason": "fidelity-underlay"
+          }
+        }
+      ],
       "tables": [
         {
           "id": "p0-table",
@@ -90,11 +116,29 @@
             ["Diff", "视觉指标", "待接入"]
           ],
           "style": {
-            "fill": "#FFFFFF",
-            "stroke": "#D0D7DE"
+            "fill": "none",
+            "stroke": "#D0D7DE",
+            "strokeWidthPt": 0.15,
+            "fontFamily": "Microsoft YaHei",
+            "fontSizePt": 16,
+            "headerFontSizePt": 16,
+            "textColor": "#222222",
+            "headerTextColor": "#222222",
+            "headerFill": "none",
+            "paddingLeftPt": 5,
+            "paddingRightPt": 5,
+            "paddingTopPt": 2,
+            "paddingBottomPt": 2,
+            "textMode": "overlay-textboxes",
+            "gridMode": "overlay-lines",
+            "textBoxPaddingLeftPt": 20,
+            "textBoxPaddingRightPt": 4,
+            "textBoxPaddingTopPt": 0,
+            "textBoxPaddingBottomPt": 0,
+            "textValign": "middle"
           },
           "source": {
-            "pageImage": "examples/page-001.png",
+            "pageImage": "./page-001.png",
             "visionProvider": "sample",
             "confidence": 1,
             "evidenceBox": {

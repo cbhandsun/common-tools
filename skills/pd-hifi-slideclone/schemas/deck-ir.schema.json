@@ -42,7 +42,38 @@
         "confidence": { "type": "number" },
         "evidenceBox": { "$ref": "#/$defs/box" },
         "editable": { "type": "boolean" },
-        "nonEditableReason": { "type": "string" }
+        "nonEditableReason": { "type": "string" },
+        "reconstruction": { "$ref": "#/$defs/reconstruction" }
+      },
+      "additionalProperties": true
+    },
+    "canonicalCanvas": {
+      "type": "object",
+      "required": ["widthPx", "heightPx", "sha256"],
+      "properties": {
+        "widthPx": { "type": "integer", "minimum": 1 },
+        "heightPx": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "reconstruction": {
+      "type": "object",
+      "required": ["contractVersion", "family", "realization", "sourceSufficiency", "boundaryState", "zOrderRole"],
+      "properties": {
+        "contractVersion": { "const": "1.0" },
+        "family": { "enum": ["text", "graphic", "data", "geometry", "scene", "unknown"] },
+        "realization": { "enum": ["native_text", "native_shape", "native_table", "native_chart", "source_crop", "registered_image_layer", "manual_required"] },
+        "sourceSufficiency": { "enum": ["sufficient", "reconstructable", "insufficient", "unknown"] },
+        "boundaryState": { "enum": ["complete", "partial", "occluded", "contaminated", "unknown"] },
+        "zOrderRole": { "enum": ["base", "midground", "subject", "foreground", "source_graphic", "native"] },
+        "canonicalPageSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "canonicalCanvas": { "$ref": "#/$defs/canonicalCanvas" },
+        "registrationGroupId": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,160}$" },
+        "identityVerifiable": { "type": "boolean" },
+        "dataVerifiable": { "type": "boolean" },
+        "reconstructedPixels": { "type": "boolean" },
+        "manualRequiredReason": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": true
     },
@@ -69,6 +100,23 @@
       },
       "additionalProperties": true
     },
+    "nativeChartPayload": {
+      "type": "object",
+      "required": ["schemaVersion", "fallbackSignature", "fallbackSha256", "dataVerified", "workbook"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "fallbackSignature": { "type": "string", "minLength": 1, "maxLength": 1048576 },
+        "fallbackSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "dataVerified": { "const": true },
+        "workbook": {
+          "type": "object",
+          "required": ["sheetName"],
+          "properties": { "sheetName": { "type": "string", "minLength": 1, "maxLength": 31 } },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "visualElement": {
       "type": "object",
       "required": ["id", "type", "box", "source"],
@@ -78,6 +126,22 @@
         "box": { "$ref": "#/$defs/box" },
         "style": { "type": "object" },
         "assetPath": { "type": "string" },
+        "categories": { "type": "array", "items": { "type": "string" }, "maxItems": 10000 },
+        "values": { "type": "array", "items": { "type": "number" }, "maxItems": 10000 },
+        "series": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": ["values"],
+            "properties": {
+              "name": { "type": "string" },
+              "values": { "type": "array", "items": { "type": "number" }, "maxItems": 10000 }
+            },
+            "additionalProperties": true
+          }
+        },
+        "nativePayload": { "$ref": "#/$defs/nativeChartPayload" },
         "rows": {
           "type": "array",
           "items": {
@@ -95,6 +159,19 @@
       "properties": {
         "pageIndex": { "type": "integer" },
         "sourceImage": { "type": "string" },
+        "reconstruction": {
+          "type": "object",
+          "required": ["contractVersion", "sourceImageAvailable"],
+          "properties": {
+            "contractVersion": { "const": "1.0" },
+            "canonicalPageSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "canonicalCanvas": { "$ref": "#/$defs/canonicalCanvas" },
+            "sourceImageAvailable": { "type": "boolean" },
+            "allowCanonicalMedia": { "type": "boolean" },
+            "allowCanonicalMediaReason": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
         "background": { "type": "object" },
         "textBoxes": {
           "type": "array",

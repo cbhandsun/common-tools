@@ -1,0 +1,17 @@
+{
+  "name": "@common-tools/cli",
+  "version": "0.1.0",
+  "private": true,
+  "bin": { "common-tools": "bin/common-tools.js" },
+  "dependencies": {
+    "@common-tools/capability-runtime": "0.1.0",
+    "@common-tools/mcp-server": "0.1.0",
+    "@common-tools/ppt-improve-core": "0.1.0",
+    "@common-tools/ppt-quality-core": "0.1.0",
+    "@common-tools/project-audit-core": "0.1.0",
+    "@common-tools/remote-mcp-server": "0.1.0",
+    "@common-tools/slideclone-core": "0.1.0",
+    "@common-tools/team-runtime": "0.1.0"
+  },
+  "type": "commonjs"
+}

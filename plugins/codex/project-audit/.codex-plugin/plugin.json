@@ -1,0 +1,22 @@
+{
+  "name": "project-audit",
+  "version": "0.3.0+codex.20260809070714",
+  "description": "Run evidence-based code, gate, browser-experience, or full project audits.",
+  "author": {
+    "name": "common-tools"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Project Audit",
+    "shortDescription": "Audit code, gates, and browser experience with evidence.",
+    "longDescription": "Creates evidence-based local project audit reports in code, gate, experience, or full mode, with explicit optional remote team audit.",
+    "developerName": "common-tools",
+    "category": "Productivity",
+    "capabilities": [
+      "Read"
+    ],
+    "defaultPrompt": [
+      "Choose a numbered audit scope, then verify evidence and report prioritized findings and explicit gaps."
+    ]
+  }
+}

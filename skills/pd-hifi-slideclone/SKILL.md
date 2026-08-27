@@ -139,19 +139,20 @@ PPTX 生成器必须写入 `font.family`，中文文本需同时设置 Latin/Eas
 ```json
 "textOcr": {
   "enabled": true,
-  "adapter": "scripts/adapters/ocr-umi-paddle.js",
+  "adapter": "scripts/adapters/ocr-paddleocr-local.js",
   "mode": "anchored",
   "paddingPt": 16,
   "upscale": 1,
   "preprocess": false
 },
-"umiOcr": {
-  "paddleBin": "C:\\Program Files\\Umi-OCR_Paddle_v2.1.5\\UmiOCR-data\\plugins\\win7_x64_PaddleOCR-json\\PaddleOCR-json.exe",
-  "initTimeoutMs": 60000
+"paddleOcr": {
+  "lang": "ch",
+  "ocrVersion": "PP-OCRv6",
+  "cache": true
 }
 ```
 
-`mode=anchored` 必须优先使用 `source.evidenceBox` 对每个文本元素裁剪源图和生成图，逐框计算覆盖率；这比整页 OCR 更适合 PPT 高仿校验。Umi/PaddleOCR-json 场景下默认保留原图色彩，避免二值化导致中文笔画丢失；若换回 Tesseract，再按页面质量调整 `psm`、`upscale` 与 `preprocess`。
+`mode=anchored` 必须优先使用 `source.evidenceBox` 对每个文本元素裁剪源图和生成图，逐框计算覆盖率；这比整页 OCR 更适合 PPT 高仿校验。官方 PaddleOCR 场景下默认保留原图色彩，避免二值化导致中文笔画丢失；若换回 Tesseract，再按页面质量调整 `psm`、`upscale` 与 `preprocess`。
 
 打磨动作必须可追溯。每次自动修改都要记录：
 

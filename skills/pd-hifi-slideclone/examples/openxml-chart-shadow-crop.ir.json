@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "slideSize": { "widthPt": 960, "heightPt": 540 },
+  "pages": [
+    {
+      "pageIndex": 0,
+      "sourceImage": "",
+      "background": { "fill": "#F7FAFC" },
+      "textBoxes": [
+        {
+          "id": "title",
+          "text": "OpenXML chart, shadow, and crop smoke",
+          "box": { "x": 48, "y": 32, "w": 640, "h": 40 },
+          "font": {
+            "family": "Microsoft YaHei",
+            "sizePt": 22,
+            "weight": "bold",
+            "color": "#15324B",
+            "align": "left",
+            "valign": "middle"
+          }
+        }
+      ],
+      "shapes": [
+        {
+          "id": "shadow-card",
+          "type": "roundrect",
+          "box": { "x": 48, "y": 94, "w": 348, "h": 260 },
+          "style": {
+            "fill": "#FFFFFF",
+            "stroke": "#D0D7DE",
+            "strokeWidthPt": 0.6,
+            "shadow": {
+              "color": "#000000",
+              "alpha": 0.18,
+              "blurPt": 4.6,
+              "distancePt": 1.6,
+              "angleDeg": 45
+            }
+          }
+        }
+      ],
+      "images": [
+        {
+          "id": "cropped-underlay",
+          "type": "image",
+          "box": { "x": 84, "y": 128, "w": 276, "h": 184 },
+          "assetPath": "sample-deck-table-underlay.png",
+          "style": {
+            "cropRect": {
+              "left": 0.08,
+              "top": 0.04,
+              "right": 0.08,
+              "bottom": 0.04
+            }
+          }
+        }
+      ],
+      "tables": [],
+      "charts": [
+        {
+          "id": "chart-velocity",
+          "type": "bar",
+          "box": { "x": 448, "y": 104, "w": 420, "h": 260 },
+          "categories": ["OCR", "Font", "Layout", "Batch"],
+          "values": [82, 74, 88, 93],
+          "style": {
+            "fill": "#FFFFFF",
+            "stroke": "#B8C4D4",
+            "barFill": "#2F80ED",
+            "axisColor": "#6B7280",
+            "textColor": "#1F2937",
+            "fontFamily": "Microsoft YaHei",
+            "fontSizePt": 9
+          }
+        }
+      ],
+      "icons": []
+    }
+  ]
+}

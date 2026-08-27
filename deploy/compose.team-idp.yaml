@@ -1,0 +1,30 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.0
+    profiles: ["team-idp"]
+    restart: unless-stopped
+    command: ["start-dev", "--http-port=8080", "--import-realm", "--health-enabled=true"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${COMMON_TOOLS_KEYCLOAK_ADMIN:?set Keycloak admin username}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD:?set Keycloak admin password}
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - common-tools-keycloak:/opt/keycloak/data
+      - type: bind
+        source: ./keycloak
+        target: /opt/keycloak/data/import
+        read_only: true
+    ports:
+      - "127.0.0.1:${COMMON_TOOLS_KEYCLOAK_PORT:-58080}:8080"
+    healthcheck:
+      # The Keycloak image intentionally has no curl. Use its bundled Bash TCP
+      # redirect against the internal management endpoint; do not expose :9000.
+      test: ["CMD-SHELL", "bash -ec \"{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep -q 'HTTP/1.0 200'; } 0<>/dev/tcp/127.0.0.1/9000\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+volumes:
+  common-tools-keycloak:

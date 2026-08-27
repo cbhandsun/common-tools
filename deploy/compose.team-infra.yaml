@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    profiles: ["team-infra"]
+    environment:
+      POSTGRES_DB: common_tools
+      POSTGRES_USER: common_tools
+      POSTGRES_PASSWORD: ${COMMON_TOOLS_POSTGRES_PASSWORD:?set COMMON_TOOLS_POSTGRES_PASSWORD in your shell or secret manager}
+    ports:
+      - "127.0.0.1:${COMMON_TOOLS_POSTGRES_PORT:-54329}:5432"
+    volumes:
+      - common-tools-postgres:/var/lib/postgresql/data
+      - type: bind
+        source: ../packages/team-runtime/schema/001_jobs.sql
+        target: /docker-entrypoint-initdb.d/001_jobs.sql
+        read_only: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U common_tools -d common_tools"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.4.2-alpine
+    profiles: ["team-infra"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${COMMON_TOOLS_REDIS_PASSWORD:?set COMMON_TOOLS_REDIS_PASSWORD in your shell or secret manager}"]
+    environment:
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:?set COMMON_TOOLS_REDIS_PASSWORD in your shell or secret manager}
+    ports:
+      - "127.0.0.1:${COMMON_TOOLS_REDIS_PORT:-16379}:6379"
+    volumes:
+      - common-tools-redis:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$COMMON_TOOLS_REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    profiles: ["team-infra"]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: common-tools-admin
+      MINIO_ROOT_PASSWORD: ${COMMON_TOOLS_MINIO_PASSWORD:?set COMMON_TOOLS_MINIO_PASSWORD in your shell or secret manager}
+    ports:
+      - "127.0.0.1:${COMMON_TOOLS_MINIO_PORT:-59000}:9000"
+      - "127.0.0.1:${COMMON_TOOLS_MINIO_CONSOLE_PORT:-59001}:9001"
+    volumes:
+      - common-tools-minio:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+volumes:
+  common-tools-postgres:
+  common-tools-redis:
+  common-tools-minio:

@@ -1,0 +1,74 @@
+# Optional local/Compose observability profile. It intentionally exposes only
+# Prometheus on loopback and reuses one mounted metrics token for API scraping.
+secrets:
+  common_tools_metrics_token:
+    file: ${COMMON_TOOLS_METRICS_TOKEN_FILE:?set metrics token secret file}
+
+volumes:
+  common-tools-prometheus-data:
+
+services:
+  remote-mcp:
+    secrets:
+      - common_tools_metrics_token
+    environment:
+      # The base service renders an empty direct value if this host variable is
+      # absent. The runtime treats that as absent and reads the mounted file.
+      COMMON_TOOLS_METRICS_TOKEN_FILE: /run/secrets/common_tools_metrics_token
+
+  # Docker initializes named volumes as root-owned. This one-shot service is
+  # deliberately isolated from the network and can touch only Prometheus data.
+  prometheus-volume-init:
+    image: busybox:1.37
+    profiles: ["team-observability"]
+    command: ["sh", "-ec", "chmod 0750 /prometheus && chown 65534:65534 /prometheus"]
+    network_mode: "none"
+    volumes:
+      - type: volume
+        source: common-tools-prometheus-data
+        target: /prometheus
+    user: "0:0"
+    restart: "no"
+    cpus: "0.1"
+    mem_limit: 64m
+    pids_limit: 16
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "FOWNER"]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: ["team-observability"]
+    depends_on:
+      remote-mcp: { condition: service_healthy }
+      prometheus-volume-init: { condition: service_completed_successfully }
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle=false
+    ports:
+      - "127.0.0.1:${COMMON_TOOLS_PROMETHEUS_PORT:-59090}:9090"
+    volumes:
+      - type: bind
+        source: ./prometheus/prometheus.yaml
+        target: /etc/prometheus/prometheus.yaml
+        read_only: true
+      - type: bind
+        source: ./prometheus/common-tools-alerts.yaml
+        target: /etc/prometheus/common-tools-alerts.yaml
+        read_only: true
+      - type: volume
+        source: common-tools-prometheus-data
+        target: /prometheus
+    secrets:
+      - common_tools_metrics_token
+    user: "65534:65534"
+    restart: unless-stopped
+    cpus: "0.5"
+    mem_limit: 512m
+    pids_limit: 128
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]

@@ -1,5 +1,9 @@
 .tools/
 runs/
+/ppt文档/
+/.codex/
+/.codex-temp/
+.common-tools*/
 node_modules/
 *.log
 bin/

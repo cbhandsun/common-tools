@@ -1,0 +1,66 @@
+"use strict";
+
+const crypto = require("node:crypto");
+const fs = require("node:fs");
+const path = require("node:path");
+const { readRawImageDimensions } = require("./team-worker");
+
+const MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES = 20 * 1024 * 1024;
+const MAX_RAW_IMAGE_DIMENSION = 16384;
+const MAX_RAW_IMAGE_PIXELS = 40000000;
+const RAW_IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);
+
+function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
+function tarField(buffer, offset, length, value) { buffer.write(value.slice(0, length), offset, length, "utf8"); }
+function tarEntry(name, body) {
+  const header = Buffer.alloc(512);
+  tarField(header, 0, 100, name);
+  tarField(header, 100, 8, "0000600\0");
+  tarField(header, 108, 8, "0000000\0");
+  tarField(header, 116, 8, "0000000\0");
+  tarField(header, 124, 12, `${body.length.toString(8).padStart(11, "0")}\0`);
+  tarField(header, 136, 12, "00000000000\0");
+  tarField(header, 148, 8, "        ");
+  tarField(header, 156, 1, "0");
+  tarField(header, 257, 6, "ustar\0");
+  tarField(header, 263, 2, "00");
+  let checksum = 0;
+  for (const byte of header) checksum += byte;
+  tarField(header, 148, 8, `${checksum.toString(8).padStart(6, "0")}\0 `);
+  return Buffer.concat([header, body, Buffer.alloc((512 - (body.length % 512)) % 512)]);
+}
+function assertRegularInput(inputFile) {
+  if (typeof inputFile !== "string" || !path.isAbsolute(inputFile)) throw new TypeError("raw image archive input must be an absolute path");
+  let stat;
+  try { stat = fs.lstatSync(inputFile); } catch { throw new Error("raw image archive input is unavailable"); }
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size < 1 || stat.size > MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES) throw new Error("raw image archive input is invalid");
+  const extension = path.extname(inputFile).toLowerCase();
+  if (!RAW_IMAGE_EXTENSIONS.has(extension)) throw new Error("raw image archive input must be a PNG or JPEG");
+  return { extension, bytes: stat.size };
+}
+function assertNewOutput(outputFile) {
+  if (typeof outputFile !== "string" || !path.isAbsolute(outputFile) || path.extname(outputFile).toLowerCase() !== ".gz") throw new TypeError("raw image archive output must be an absolute .gz path");
+  if (fs.existsSync(outputFile)) throw new Error("raw image archive output already exists");
+  const parent = path.dirname(outputFile);
+  let parentStat;
+  try { parentStat = fs.lstatSync(parent); } catch { throw new Error("raw image archive output directory is unavailable"); }
+  if (!parentStat.isDirectory() || parentStat.isSymbolicLink()) throw new Error("raw image archive output directory is invalid");
+}
+function createRawImageArchive({ inputFile, outputFile }) {
+  const input = assertRegularInput(inputFile);
+  assertNewOutput(outputFile);
+  const body = fs.readFileSync(inputFile);
+  const dimensions = readRawImageDimensions(inputFile, input.extension);
+  const pixels = dimensions.widthPx * dimensions.heightPx;
+  if (dimensions.widthPx > MAX_RAW_IMAGE_DIMENSION || dimensions.heightPx > MAX_RAW_IMAGE_DIMENSION || !Number.isSafeInteger(pixels) || pixels > MAX_RAW_IMAGE_PIXELS) throw new Error("raw image archive input dimensions exceed team limits");
+  const assetPath = `assets/source${input.extension === ".png" ? ".png" : input.extension === ".jpg" ? ".jpg" : ".jpeg"}`;
+  const archive = require("node:zlib").gzipSync(Buffer.concat([tarEntry(assetPath, body), Buffer.alloc(1024)]), { level: 9 });
+  const temporary = `${outputFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temporary, archive, { mode: 0o600, flag: "wx" });
+    fs.renameSync(temporary, outputFile);
+  } catch (error) { try { fs.rmSync(temporary, { force: true }); } catch { /* Preserve the primary archive creation failure. */ } throw error; }
+  return Object.freeze({ archive: outputFile, contentType: "application/gzip", contentLength: archive.length, sha256: sha256(archive), source: Object.freeze({ bytes: input.bytes, widthPx: dimensions.widthPx, heightPx: dimensions.heightPx }) });
+}
+
+module.exports = { MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES, RAW_IMAGE_EXTENSIONS, createRawImageArchive, tarEntry };

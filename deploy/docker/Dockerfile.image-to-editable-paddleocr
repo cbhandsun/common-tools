@@ -1,0 +1,35 @@
+ARG BASE_IMAGE=common-tools-image-to-editable:local
+FROM ${BASE_IMAGE}
+
+USER root
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends python3 python3-venv libgomp1 libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/paddleocr-requirements.lock.txt /opt/paddleocr/requirements.lock.txt
+RUN python3 -m venv /opt/paddleocr/venv \
+    && /opt/paddleocr/venv/bin/python -m pip install --no-cache-dir --upgrade pip \
+    && /opt/paddleocr/venv/bin/python -m pip install --no-cache-dir --requirement /opt/paddleocr/requirements.lock.txt
+
+COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/python/paddleocr_worker.py /opt/paddleocr/paddleocr_worker.py
+COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local.js /opt/paddleocr/skill/scripts/adapters/ocr-paddleocr-local.js
+COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/lib/process-boundaries.js /opt/paddleocr/skill/scripts/lib/process-boundaries.js
+COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/lib/python-env.js /opt/paddleocr/skill/scripts/lib/python-env.js
+COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/lib/ocr-result-contract.js /opt/paddleocr/skill/scripts/lib/ocr-result-contract.js
+COPY --chown=worker:worker skills/pd-hifi-slideclone/examples/ocr-text-smoke.source.png /opt/paddleocr/healthcheck.png
+
+ENV PADDLE_PDX_CACHE_HOME=/opt/paddleocr/models
+ENV PADDLE_PDX_MODEL_SOURCE=BOS
+RUN mkdir -p /opt/paddleocr/models \
+    && chown -R worker:worker /opt/paddleocr
+
+USER worker
+# Initialize once while building so production inference is network-free and
+# the reviewed PP-OCRv6 small detection/recognition models are image content.
+RUN printf '' | /opt/paddleocr/venv/bin/python /opt/paddleocr/paddleocr_worker.py \
+      --lang ch --ocr-version PP-OCRv6 --device cpu --engine paddle_dynamic --cpu-threads 2 \
+      --text-detection-model PP-OCRv6_small_det \
+      --text-recognition-model PP-OCRv6_small_rec \
+    | grep --fixed-strings '"type":"ready"'
+
+COPY --chown=worker:worker packages ./packages

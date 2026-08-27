@@ -1,0 +1,28 @@
+# Optional, separately tagged profile for team raw-image OCR.  The resulting
+# image digest—not this mutable build recipe—is the production trust boundary;
+# the Worker also verifies /usr/bin/tesseract against release evidence at boot.
+ARG BASE_IMAGE=common-tools-image-to-editable:local
+FROM ${BASE_IMAGE}
+
+USER root
+
+# Debian bookworm package revisions.  Keep the profile deliberately narrow:
+# English and Simplified Chinese only.  Additional languages require a new
+# reviewed image, release evidence entry, and deployment configuration.
+ARG TESSERACT_VERSION=5.3.0-2
+ARG TESSERACT_LANGUAGE_VERSION=1:4.1.0-2
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+      tesseract-ocr=${TESSERACT_VERSION} \
+      tesseract-ocr-eng=${TESSERACT_LANGUAGE_VERSION} \
+      tesseract-ocr-chi-sim=${TESSERACT_LANGUAGE_VERSION} \
+    && tesseract --list-langs | grep --fixed-strings --line-regexp eng \
+    && tesseract --list-langs | grep --fixed-strings --line-regexp chi_sim \
+    && rm -rf /var/lib/apt/lists/*
+
+# The base may have been built before the profile code changed.  Overlay the
+# runtime packages from this build context so the verified profile, Worker and
+# archive boundary always ship together.
+COPY --chown=worker:worker packages ./packages
+
+USER worker

@@ -1,0 +1,11 @@
+{
+  "name": "@common-tools/project-audit-core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@common-tools/capability-contracts": "0.1.0",
+    "@common-tools/capability-runtime": "0.1.0"
+  },
+  "type": "commonjs"
+}

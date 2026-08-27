@@ -1,0 +1,6 @@
+{
+  "name": "ppt-quality",
+  "version": "0.1.1",
+  "description": "Create read-only, verifiable PPTX quality reports with common-tools.",
+  "author": { "name": "common-tools" }
+}

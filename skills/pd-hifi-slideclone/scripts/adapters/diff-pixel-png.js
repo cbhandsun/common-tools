@@ -1,7 +1,9 @@
 "use strict";
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
+const { Worker } = require("worker_threads");
 const { readPng, writePng } = require("../lib/png");
 
 module.exports = async function diffPixelPng(input, context) {
@@ -9,37 +11,52 @@ module.exports = async function diffPixelPng(input, context) {
   const foregroundTolerancePx = Number(context.config?.diff?.foregroundTolerancePx ?? 2);
   const foregroundToleranceDelta = Number(context.config?.diff?.foregroundToleranceDelta ?? Math.max(42, threshold * 1.8));
   const rendered = new Map((input.render?.renderedPages || []).map((page) => [page.pageIndex, page]));
-  const metrics = [];
-
-  for (const page of input.ir.pages || []) {
+  const pages = input.ir.pages || [];
+  const concurrency = resolveDiffConcurrency(pages.length);
+  const jobs = pages.map((page) => {
     const renderedPage = rendered.get(page.pageIndex);
     if (!renderedPage) {
-      metrics.push({
+      return {
+        immediate: {
         pageIndex: page.pageIndex,
         ok: false,
         error: "Rendered page is missing."
-      });
-      continue;
+        }
+      };
     }
-    try {
-      const source = readPng(page.sourceImage);
-      const generated = readPng(renderedPage.image);
-      const diffImage = path.join(context.outputDir, "diff", `page-${page.pageIndex + 1}.iteration-${input.iteration || 0}.diff.png`);
-      metrics.push(compareImages(page.pageIndex, source, generated, {
+    return {
+      pageIndex: page.pageIndex,
+      sourceImage: page.sourceImage,
+      renderedImage: renderedPage.image,
+      diffImage: path.join(context.outputDir, "diff", `page-${page.pageIndex + 1}.iteration-${input.iteration || 0}.diff.png`),
+      options: {
         threshold,
         foregroundTolerancePx,
         foregroundToleranceDelta
-      }, renderedPage.image, diffImage));
+      }
+    };
+  });
+  context.onProgress?.({ phase: "diff", status: "start", pages: pages.length, concurrency });
+  let completedPages = 0;
+  const metrics = await mapWithConcurrency(jobs, concurrency, async (job) => {
+    if (job.immediate) return job.immediate;
+    try {
+      const metric = concurrency === 1
+        ? comparePageFiles(job)
+        : await comparePageInWorker(job);
+      completedPages += 1;
+      context.onProgress?.({ phase: "diff-page", status: "done", page: job.pageIndex + 1, completed: completedPages, total: jobs.length });
+      return metric;
     } catch (error) {
-      metrics.push({
-        pageIndex: page.pageIndex,
+      return {
+        pageIndex: job.pageIndex,
         ok: false,
-        sourceImage: page.sourceImage,
-        renderedImage: renderedPage.image,
+        sourceImage: job.sourceImage,
+        renderedImage: job.renderedImage,
         error: error.message
-      });
+      };
     }
-  }
+  });
 
   const okMetrics = metrics.filter((metric) => metric.ok);
   const summary = {
@@ -73,6 +90,44 @@ module.exports = async function diffPixelPng(input, context) {
     }
   };
 };
+
+function comparePageFiles(job) {
+  const source = readPng(job.sourceImage);
+  const generated = readPng(job.renderedImage);
+  return compareImages(job.pageIndex, source, generated, job.options, job.renderedImage, job.diffImage);
+}
+
+function comparePageInWorker(job) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(path.join(__dirname, "../lib/pixel-diff-page-worker.js"), { workerData: job });
+    worker.once("message", (message) => message?.ok ? resolve(message.metric) : reject(new Error(message?.error || "Pixel diff worker failed.")));
+    worker.once("error", reject);
+    worker.once("exit", (code) => {
+      if (code !== 0) reject(new Error(`Pixel diff worker exited with code ${code}.`));
+    });
+  });
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function run() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, Math.max(1, items.length)) }, run));
+  return results;
+}
+
+function resolveDiffConcurrency(pageCount, env = process.env) {
+  const requested = Number.parseInt(env.SLIDECLONE_DIFF_CONCURRENCY || "", 10);
+  const cpuLimit = Math.max(1, Math.min(4, os.availableParallelism?.() || os.cpus().length || 1));
+  const value = Number.isSafeInteger(requested) && requested > 0 ? requested : cpuLimit;
+  return Math.max(1, Math.min(value, Math.max(1, pageCount), 8));
+}
 
 function compareImages(pageIndex, source, generated, options, renderedImage, diffImage) {
   const threshold = options.threshold;
@@ -173,3 +228,7 @@ function writeDiffPixel(out, offset, source, srcOffset, generated, genOffset, is
   out[offset + 2] = Math.floor(source[srcOffset + 2] * 0.35 + generated[genOffset + 2] * 0.65);
   out[offset + 3] = 255;
 }
+
+module.exports.compareImages = compareImages;
+module.exports.comparePageFiles = comparePageFiles;
+module.exports.resolveDiffConcurrency = resolveDiffConcurrency;
