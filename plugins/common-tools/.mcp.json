@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "common-tools": {
+      "command": "common-tools",
+      "args": [
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}

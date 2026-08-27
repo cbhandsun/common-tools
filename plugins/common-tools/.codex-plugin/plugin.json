@@ -1,0 +1,30 @@
+{
+  "name": "common-tools",
+  "version": "0.1.0+codex.20260827000000",
+  "description": "Install the complete Common Tools capability surface from one Git Marketplace entry.",
+  "author": {
+    "name": "common-tools",
+    "url": "https://github.com/cbhandsun/common-tools"
+  },
+  "homepage": "https://github.com/cbhandsun/common-tools",
+  "repository": "https://github.com/cbhandsun/common-tools",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Common Tools",
+    "shortDescription": "Audit projects and create, inspect, or improve editable presentations.",
+    "longDescription": "Provides the complete Common Tools skill set through one default-installed plugin and connects to the versioned local Common Tools MCP runtime when it is available.",
+    "developerName": "common-tools",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/cbhandsun/common-tools",
+    "defaultPrompt": [
+      "Audit this project with an explicit level, scope, and evidence boundary.",
+      "Convert this approved image into an editable presentation and verify the result.",
+      "Audit or safely improve this approved PowerPoint file without overwriting it."
+    ]
+  }
+}
