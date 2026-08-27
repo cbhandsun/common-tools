@@ -1,0 +1,16 @@
+{
+  "name": "@common-tools/project-audit-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lightweight local-only Common Tools project audit runtime.",
+  "type": "commonjs",
+  "bin": {
+    "common-tools-audit": "bin/common-tools-audit.js"
+  },
+  "dependencies": {
+    "@common-tools/project-audit-core": "0.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -9,6 +9,10 @@ Treat the runtime report as a candidate-evidence inventory. Complete the audit o
 
 Read [references/audit-contract.md](references/audit-contract.md) before an `enhanced`, `experience`, or `full` audit, and whenever reporting findings.
 
+## Execution policy
+
+Source-code privacy is the default boundary. Resolve `<plugin-root>` to the absolute directory containing this Skill's `.codex-plugin/plugin.json`; do not use the task working directory and do not run the placeholder literally. Call `load_workspace_dependencies` and resolve `<node>` to its returned absolute Node.js executable; use `node` from `PATH` only after verifying it when that app capability is unavailable. In the commands below, `<audit-cli>` means `<node> "<plugin-root>/runtime/project-audit/packages/project-audit-runtime/bin/common-tools-audit.js"`. Run `<audit-cli> doctor --workspace <workspace>` before execution. The lightweight local Runtime is included by the Git Marketplace sparse checkout and contains no SlideClone, OCR, .NET, Docker, or PPT processing components; do not install Node, npm packages, or another Runtime. If it is unavailable, report that the plugin installation is incomplete and stop rather than silently uploading the project. An explicit team/isolated execution request still does not authorize upload by itself: state that the bounded project archive will be sent to `plugins.iepose.cn` and obtain separate explicit user approval before creating the archive or upload target.
+
 ## Ask for level and scope
 
 Unless the request already specifies them, present the missing level and scope choices together in one message so the user can answer once. Ask only for the missing choice when the other is already explicit:
@@ -51,15 +55,14 @@ Do not silently reduce the selected level when required browser evidence or gate
 | Journey, UX, visual, responsive, keyboard, accessibility, or browser review | `experience` | Capture and inspect approved experience evidence. |
 | Complete, comprehensive, or end-to-end review | `full` | Combine enhanced static review, authorized gates, and reviewed experience evidence. |
 
-For ambiguity, run `common-tools audit plan --instruction "<user request>"`. State the selected mode and evidence boundary. Do not silently downgrade `experience` or `full`.
+For ambiguity, run `<audit-cli> plan --instruction "<user request>"`. State the selected mode and evidence boundary. Do not silently downgrade `experience` or `full`.
 
 ## Workflow
 
 1. Inspect project instructions, repository structure, package manifests, existing user-facing entrypoints, and current worktree state. Preserve unrelated changes.
 2. Record the selected audit domains, detected project profile, intended user goal, primary journey, applicable viewports, and requested operational boundary. Mark assumptions.
-3. Enable the local capability and collect candidate evidence:
-   `common-tools plugin enable --capability project-audit`
-   `common-tools audit run --mode enhanced --scope <selected-scope-ids> --out .common-tools/reports/project-audit`
+3. Collect candidate evidence with the lightweight local Runtime:
+   `<audit-cli> run --mode enhanced --scope <selected-scope-ids> --out .common-tools/reports/project-audit`
    Use `--mode code` only for an explicit static-only request.
 4. Open both JSON and Markdown artifacts. Inspect every warning, missing item, and evidence gap. Open representative candidate files at the reported lines. Reject self-matches, generated artifacts, fixtures, docs-only matches, and unrelated keyword hits.
 5. Classify conclusions only as `confirmed-issue`, `healthy-with-evidence`, `not-verified`, or `not-applicable`. Candidate static evidence is never sufficient for `healthy-with-evidence` when runtime or visual behavior matters.
@@ -67,23 +70,23 @@ For ambiguity, run `common-tools audit plan --instruction "<user request>"`. Sta
 
 ## Gates
 
-Run `common-tools audit run --mode gates --run-gates --out <output>` only after explicit authorization. Report each declared `check`, `lint`, `typecheck`, `test`, and `build` result separately. An unconfigured, unavailable, timed-out, or unrun gate is not a pass.
+Run `<audit-cli> run --mode gates --run-gates --out <output>` only after explicit authorization. Report each declared `check`, `lint`, `typecheck`, `test`, and `build` result separately. An unconfigured, unavailable, timed-out, or unrun gate is not a pass.
 
 ## Experience evidence
 
 Obtain explicit approval before starting the product or using browser automation. Create the bounded manifest and plan, then collect only after the user has started the local application:
 
-`common-tools audit evidence-template --out audit-evidence/experience.json`
+`<audit-cli> evidence-template --out audit-evidence/experience.json`
 
-`common-tools audit experience-collect --plan audit-evidence/plan.json --out audit-evidence/capture --run-browser`
+`<audit-cli> experience-collect --plan audit-evidence/plan.json --out audit-evidence/capture --run-browser`
 
 Use only fixed safe actions and non-sensitive synthetic values. Do not use `--allow-external-url` without explicit approval. Collection proves that actions and captures completed; scenarios remain `not-verified` until their screenshots and console/network artifacts are inspected. Reject blank, loading, blocked, cropped, wrong-state, or error-page screenshots. Do not infer keyboard, focus, contrast, reflow, screen-reader, or recovery health from a screenshot alone.
 
-Create a separately reviewed manifest after inspection, then run `common-tools audit run --mode experience --experience-evidence <reviewed-manifest.json> --out <output>`. Use `--mode full --run-gates --experience-evidence <reviewed-manifest.json>` for a full audit.
+Create a separately reviewed manifest after inspection, then run `<audit-cli> run --mode experience --experience-evidence <reviewed-manifest.json> --out <output>`. Use `--mode full --run-gates --experience-evidence <reviewed-manifest.json>` for a full audit.
 
 ## Remote boundary
 
-Use the remote Common Tools workflow only for an explicit team/remote audit, centralized retention, or isolated execution request. Upload only the approved archive through the short-lived team upload/job/artifact flow. Never reproduce source, credentials, signed URLs, or sensitive captured content in the report.
+Use the remote Common Tools workflow only when the resolved policy permits it, the user explicitly requests a team/remote audit, centralized retention, or isolated execution, and the separate upload approval above has been obtained. Upload only the approved archive through the short-lived `create_team_upload_target`, `create_team_job`, `get_team_job`, and `get_team_artifact_target` flow. Exclude credentials, `.env` files, dependency directories, VCS metadata, caches, generated artifacts, and unrelated data. Never reproduce source, credentials, signed URLs, or sensitive captured content in the report.
 
 ## Completion gate
 

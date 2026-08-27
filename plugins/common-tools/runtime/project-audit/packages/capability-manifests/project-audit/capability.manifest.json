@@ -1,0 +1,19 @@
+{
+  "manifestVersion": 1,
+  "capability": "project-audit",
+  "version": "0.3.0",
+  "toolNames": ["create_project_audit_job", "get_project_audit_report"],
+  "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
+  "requiredWorkerProfile": "base",
+  "team": {
+    "oauthScope": "common-tools:capability:project-audit",
+    "acceptedUploadMediaTypes": ["application/gzip", "application/x-gzip"],
+    "deployment": {
+      "workerProfile": "team-worker-audit",
+      "workerService": "project-audit-worker",
+      "imageKind": "remote-mcp",
+      "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-worker.js"
+    }
+  },
+  "contentSha256": "1ad9bb2dda8c7ee3120171153acd5034b9fd639c69c35f3a9c1377446e819a26"
+}

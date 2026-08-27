@@ -1,11 +1,11 @@
 {
   "mcpServers": {
     "common-tools": {
-      "command": "common-tools",
-      "args": [
-        "mcp",
-        "serve"
-      ]
+      "type": "http",
+      "url": "https://plugins.iepose.cn/mcp",
+      "oauth": {
+        "clientId": "common-tools-mcp"
+      }
     }
   }
 }

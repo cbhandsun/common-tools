@@ -1,0 +1,10 @@
+{
+  "name": "@common-tools/capability-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@common-tools/capability-contracts": "0.1.0"
+  },
+  "type": "commonjs"
+}

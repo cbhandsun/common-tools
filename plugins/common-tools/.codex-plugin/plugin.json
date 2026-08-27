@@ -1,7 +1,7 @@
 {
   "name": "common-tools",
-  "version": "0.1.0+codex.20260827000000",
-  "description": "Install the complete Common Tools capability surface from one Git Marketplace entry.",
+  "version": "0.1.0+codex.20260827020000",
+  "description": "Common Tools client skills backed by the hosted HTTPS MCP service.",
   "author": {
     "name": "common-tools",
     "url": "https://github.com/cbhandsun/common-tools"
@@ -12,8 +12,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Common Tools",
-    "shortDescription": "Audit projects and create, inspect, or improve editable presentations.",
-    "longDescription": "Provides the complete Common Tools skill set through one default-installed plugin and connects to the versioned local Common Tools MCP runtime when it is available.",
+    "shortDescription": "Use Common Tools through the hosted team Runtime.",
+    "longDescription": "Uses the hosted Docker Runtime for heavy image conversion while keeping source-sensitive project audit local by default. Remote project upload requires explicit approval.",
     "developerName": "common-tools",
     "category": "Productivity",
     "capabilities": [
@@ -22,9 +22,8 @@
     ],
     "websiteURL": "https://github.com/cbhandsun/common-tools",
     "defaultPrompt": [
-      "Audit this project with an explicit level, scope, and evidence boundary.",
-      "Convert this approved image into an editable presentation and verify the result.",
-      "Audit or safely improve this approved PowerPoint file without overwriting it."
+      "Audit this approved project locally with an explicit scope and evidence boundary.",
+      "Convert this approved image into an editable presentation through the hosted service and report its quality status."
     ]
   }
 }
