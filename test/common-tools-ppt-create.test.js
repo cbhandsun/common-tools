@@ -97,7 +97,7 @@ test("local ppt-create job writes IR, PPTX, and non-content quality reports", ()
     const completed = runPptCreateJob({ stateRoot, ownerId: "owner", id: created.id, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder });
     assert.equal(completed.status, "succeeded");
     assert.equal(completed.quality.passed, true);
-    assert.deepEqual(completed.artifacts.map((item) => item.name), ["deck.ir.json", "deck.preview.html", "deck.html", "deck.pptx", "deck.pdf", "ppt-create-report.json", "ppt-create-report.md"]);
+    assert.deepEqual(completed.artifacts.map((item) => item.name), ["deck.ir.json", "deck.preview.html", "deck.html", "deck.pptx", "deck.pdf", "asset-manifest.json", "ppt-create-report.json", "ppt-create-report.md"]);
     const preview = fs.readFileSync(path.join(output, "deck.preview.html"), "utf8");
     assert.match(preview, /PPT Preview Editor/);
     const html = fs.readFileSync(path.join(output, "deck.html"), "utf8");
@@ -151,7 +151,8 @@ test("team ppt-create worker uses the same spec and emits owner-scoped artifacts
   const handler = createPptCreateHandler({ objectStore, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder, temporaryRoot: os.tmpdir() });
   const result = await handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/spec", outputPrefix: "owners/hash/jobs/1/" }, isCancellationRequested: async () => false });
   assert.equal(result.quality.passed, true);
-  assert.equal(result.artifacts.length, 7);
+  assert.equal(result.artifacts.length, 8);
+  assert.equal(JSON.parse(stored.get("owners/hash/jobs/1/asset-manifest.json").body.toString("utf8")).assets.length, 0);
   assert.equal(stored.get("owners/hash/jobs/1/deck.preview.html").contentType, "text/html");
   assert.equal([...stored.keys()].every((key) => key.startsWith("owners/hash/jobs/1/")), true);
 });
@@ -161,6 +162,13 @@ test("team ppt-create worker honors cancellation before reading input", async ()
   const handler = createPptCreateHandler({ objectStore: { readObject: async () => { read = true; }, putObject: async () => {} }, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder });
   await assert.rejects(() => handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/spec", outputPrefix: "owners/hash/jobs/1/" }, isCancellationRequested: async () => true }), /cancelled/);
   assert.equal(read, false);
+});
+
+test("team ppt-create worker rejects local asset manifests until a bounded archive transport is approved", async () => {
+  const spec = validSpec(); spec.assets = [{ id: "hero", path: "media/hero.png", sha256: "0".repeat(64), source: { kind: "original", locator: "internal://hero", license: "company-owned" } }];
+  spec.slides[1].role = "content"; spec.slides[1].visual = { kind: "media", mediaType: "image", alt: "hero", assetId: "hero" }; spec.slides[1].layout = "media-frame-v1";
+  const handler = createPptCreateHandler({ objectStore: { readObject: async () => Buffer.from(JSON.stringify(spec)), putObject: async () => assert.fail("must not upload") }, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder });
+  await assert.rejects(() => handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/spec", outputPrefix: "owners/hash/jobs/1/" }, isCancellationRequested: async () => false }), /local Runtime/);
 });
 
 test("ppt-create routing and remote upload boundaries are explicit", () => {

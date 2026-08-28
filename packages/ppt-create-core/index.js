@@ -6,6 +6,7 @@ const path = require("node:path");
 const { assertNonEmptyString, assertQualityReport } = require("../capability-contracts");
 const { JobStore, insideRoot, sha256File } = require("../capability-runtime");
 const { createPreviewHtml } = require("./editor");
+const { materializeAssetPack, resolveAssetPack } = require("./assets");
 const { createPrintableHtml, deckIrFingerprint, multiFormatQuality } = require("./export");
 const { createDeckIr } = require("./layout");
 const { MAX_SPEC_BYTES, parsePresentationSpec } = require("./spec");
@@ -14,7 +15,7 @@ const CAPABILITY = "ppt-create";
 const REGISTRATION = Object.freeze({ capability: CAPABILITY, toolNames: ["create_ppt_create_job", "get_ppt_create_report"], minimumRuntimeVersion: ">=0.1.0 <1.0.0", requiredWorkerProfile: "ppt-create" });
 const PPTX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 const PDF_MEDIA_TYPE = "application/pdf";
-const ARTIFACT_NAMES = Object.freeze({ ir: "deck.ir.json", preview: "deck.preview.html", html: "deck.html", pptx: "deck.pptx", pdf: "deck.pdf", json: "ppt-create-report.json", markdown: "ppt-create-report.md" });
+const ARTIFACT_NAMES = Object.freeze({ ir: "deck.ir.json", preview: "deck.preview.html", html: "deck.html", pptx: "deck.pptx", pdf: "deck.pdf", assetManifest: "asset-manifest.json", json: "ppt-create-report.json", markdown: "ppt-create-report.md" });
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function assertInputFile(workspaceRoot, input) {
@@ -35,15 +36,15 @@ function createPptCreateJob({ workspaceRoot, stateRoot, ownerId, input, output, 
   const approvedInput = assertInputFile(workspaceRoot, input);
   const approvedOutput = assertNewOutput(workspaceRoot, output);
   const inputBuffer = fs.readFileSync(approvedInput);
-  parsePresentationSpec(inputBuffer);
+  const spec = parsePresentationSpec(inputBuffer); const assets = resolveAssetPack(approvedInput, spec.assets || []);
   const inputSha256 = sha256(inputBuffer);
   const key = idempotencyKey || sha256(Buffer.from(`${inputSha256}\u0000${approvedOutput}`, "utf8"));
   const store = new JobStore({ root: stateRoot, ownerId });
   const job = store.create({ id: crypto.randomUUID(), capability: CAPABILITY, idempotencyKey: assertNonEmptyString(key, "idempotencyKey"), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() });
-  if (!job.input) store.write({ ...job, input: { path: approvedInput, sha256: inputSha256 }, output: { path: approvedOutput } });
+  if (!job.input) store.write({ ...job, input: { path: approvedInput, sha256: inputSha256, assets: assets.map((asset) => ({ id: asset.id, sha256: asset.sha256 })) }, output: { path: approvedOutput } });
   return store.get(job.id);
 }
-function qualityFor(spec, ir, formats) {
+function qualityFor(spec, ir, formats, assetRecords = []) {
   const editableObjects = ir.pages.reduce((total, page) => total + page.textBoxes.length + page.shapes.length + page.tables.length + page.charts.length, 0);
   const requiredFacts = spec.slides.reduce((total, slide) => total + slide.items.filter((item) => item.required).length, 0);
   const renderedFacts = spec.slides.reduce((total, slide) => total + slide.items.length, 0);
@@ -55,6 +56,8 @@ function qualityFor(spec, ir, formats) {
   const nativeTables = ir.pages.reduce((total, page) => total + page.tables.length, 0);
   const nativeCharts = ir.pages.reduce((total, page) => total + page.charts.filter((chart) => chart.nativePayload?.dataVerified === true).length, 0);
   const mediaSlots = spec.slides.filter((slide) => slide.visual?.kind === "media").length;
+  const rasterImages = ir.pages.reduce((total, page) => total + page.images.length, 0);
+  const declaredAssets = spec.assets || [];
   const checks = [
     { name: "presentation-spec-valid", passed: true },
     { name: "required-facts-covered", passed: renderedFacts >= requiredFacts },
@@ -64,9 +67,11 @@ function qualityFor(spec, ir, formats) {
     { name: "layout-selection-resolved", passed: selectedLayoutsResolved },
     { name: "semantic-visuals-resolved", passed: resolvedVisuals >= visualSlides.length },
     { name: "native-data-editable", passed: nativeTables === visualSlides.filter((slide) => slide.visual?.kind === "table").length && nativeCharts === visualSlides.filter((slide) => slide.visual?.kind === "chart").length },
+    { name: "declared-assets-resolved", passed: declaredAssets.length === rasterImages && assetRecords.length === declaredAssets.length },
+    { name: "asset-provenance-recorded", passed: assetRecords.every((asset) => asset.source && typeof asset.source.kind === "string" && /^[a-f0-9]{64}$/u.test(asset.sha256)) },
     ...(formats?.checks || [])
   ];
-  return assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: ir.pages.length, "required-facts": requiredFacts, "rendered-facts": renderedFacts, "editable-objects": editableObjects, "candidate-layouts": candidateLayouts, "semantic-visuals": visualSlides.length, "native-tables": nativeTables, "native-charts": nativeCharts, "media-slots": mediaSlots, "raster-images": 0 } });
+  return assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: ir.pages.length, "required-facts": requiredFacts, "rendered-facts": renderedFacts, "editable-objects": editableObjects, "candidate-layouts": candidateLayouts, "semantic-visuals": visualSlides.length, "native-tables": nativeTables, "native-charts": nativeCharts, "media-slots": mediaSlots, "declared-assets": declaredAssets.length, "raster-images": rasterImages } });
 }
 function creationReport(spec, quality, inputSha256, pptxSha256, formats) {
   return Object.freeze({
@@ -96,31 +101,34 @@ function runPptCreateJob({ stateRoot, ownerId, id, buildPptx, buildPdf }) {
   try {
     const input = fs.readFileSync(job.input.path);
     if (sha256(input) !== job.input.sha256) throw new Error("presentation spec changed after job creation");
-    const spec = parsePresentationSpec(input);
-    const ir = createDeckIr(spec);
+    const spec = parsePresentationSpec(input); const resolvedAssets = resolveAssetPack(job.input.path, spec.assets || []);
+    if (JSON.stringify(resolvedAssets.map((asset) => ({ id: asset.id, sha256: asset.sha256 }))) !== JSON.stringify(job.input.assets || [])) throw new Error("presentation asset pack changed after job creation");
     fs.mkdirSync(output, { recursive: false });
+    const assetPack = materializeAssetPack(resolvedAssets, output); const assetInfo = Object.fromEntries(assetPack.records.map((asset) => [asset.id, asset])); const ir = createDeckIr(spec, { assetPaths: assetPack.paths, assetInfo });
     const irFile = path.join(output, ARTIFACT_NAMES.ir);
     const previewFile = path.join(output, ARTIFACT_NAMES.preview);
     const htmlFile = path.join(output, ARTIFACT_NAMES.html);
     const pptxFile = path.join(output, ARTIFACT_NAMES.pptx);
     const pdfFile = path.join(output, ARTIFACT_NAMES.pdf);
+    const assetManifestFile = path.join(output, ARTIFACT_NAMES.assetManifest);
     writeExclusive(irFile, `${JSON.stringify(ir, null, 2)}\n`);
+    writeExclusive(assetManifestFile, `${JSON.stringify({ version: "1.0", assets: assetPack.records }, null, 2)}\n`);
     writeExclusive(previewFile, createPreviewHtml(spec, ir));
-    writeExclusive(htmlFile, createPrintableHtml(ir));
+    writeExclusive(htmlFile, createPrintableHtml(ir, { assetRoot: output }));
     buildPptx(Object.freeze({ irFile, outFile: pptxFile }));
     const pptxInfo = fs.lstatSync(pptxFile);
     if (!pptxInfo.isFile() || pptxInfo.isSymbolicLink() || pptxInfo.size < 22) throw new Error("OpenXML builder did not create a valid PPTX artifact");
     const sourceFingerprint = deckIrFingerprint(ir);
     const pdfResult = buildPdf(Object.freeze({ pptxFile, htmlFile, outFile: pdfFile, sourceFingerprint, pageCount: ir.pages.length }));
     const formats = multiFormatQuality(ir, { htmlFile, pptxFile, pdfFile }, pdfResult);
-    const quality = qualityFor(spec, ir, formats);
+    const quality = qualityFor(spec, ir, formats, assetPack.records);
     if (!quality.passed) throw new Error("multi-format consistency gate failed");
     const report = creationReport(spec, quality, job.input.sha256, sha256File(pptxFile), formats);
     const reportFile = path.join(output, ARTIFACT_NAMES.json);
     const markdownFile = path.join(output, ARTIFACT_NAMES.markdown);
     writeExclusive(reportFile, `${JSON.stringify(report, null, 2)}\n`);
     writeExclusive(markdownFile, renderMarkdown(report));
-    const artifacts = [artifact(irFile, ARTIFACT_NAMES.ir, "application/json"), artifact(previewFile, ARTIFACT_NAMES.preview, "text/html"), artifact(htmlFile, ARTIFACT_NAMES.html, "text/html"), artifact(pptxFile, ARTIFACT_NAMES.pptx, PPTX_MEDIA_TYPE), artifact(pdfFile, ARTIFACT_NAMES.pdf, PDF_MEDIA_TYPE), artifact(reportFile, ARTIFACT_NAMES.json, "application/json"), artifact(markdownFile, ARTIFACT_NAMES.markdown, "text/markdown")];
+    const artifacts = [artifact(irFile, ARTIFACT_NAMES.ir, "application/json"), artifact(previewFile, ARTIFACT_NAMES.preview, "text/html"), artifact(htmlFile, ARTIFACT_NAMES.html, "text/html"), artifact(pptxFile, ARTIFACT_NAMES.pptx, PPTX_MEDIA_TYPE), artifact(pdfFile, ARTIFACT_NAMES.pdf, PDF_MEDIA_TYPE), artifact(assetManifestFile, ARTIFACT_NAMES.assetManifest, "application/json"), artifact(reportFile, ARTIFACT_NAMES.json, "application/json"), artifact(markdownFile, ARTIFACT_NAMES.markdown, "text/markdown")];
     return store.transition(id, "succeeded", { artifacts, quality, lease: undefined });
   } catch {
     try { fs.rmSync(output, { recursive: true, force: true, maxRetries: 2 }); } catch { /* preserve the original bounded failure */ }

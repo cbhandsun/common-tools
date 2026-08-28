@@ -25,6 +25,7 @@ function createPptCreateHandler({ objectStore, buildPptx, buildPdf, temporaryRoo
     if (await isCancellationRequested()) throw new Error("PPT creation was cancelled");
     const input = await store.readObject({ objectKey: job.inputObjectKey, maxBytes: MAX_SPEC_BYTES });
     const spec = parsePresentationSpec(input);
+    if (spec.assets?.length) throw new Error("remote ppt-create does not accept local asset paths; use the local Runtime for asset packs");
     const root = fs.mkdtempSync(path.join(temporaryRoot, "common-tools-ppt-create-"));
     try {
       const ir = createDeckIr(spec);
@@ -45,18 +46,20 @@ function createPptCreateHandler({ objectStore, buildPptx, buildPdf, temporaryRoo
       if (!quality.passed) throw new Error("multi-format consistency gate failed");
       const pdf = fs.readFileSync(pdfFile);
       const report = creationReport(spec, quality, sha256(input), sha256(pptx), formats);
+      const assetManifest = Buffer.from(`${JSON.stringify({ version: "1.0", assets: [] }, null, 2)}\n`);
       const bodies = Object.freeze({
         [ARTIFACT_NAMES.ir]: Buffer.from(`${JSON.stringify(ir, null, 2)}\n`),
         [ARTIFACT_NAMES.preview]: Buffer.from(createPreviewHtml(spec, ir)),
         [ARTIFACT_NAMES.html]: fs.readFileSync(htmlFile),
         [ARTIFACT_NAMES.pptx]: pptx,
         [ARTIFACT_NAMES.pdf]: pdf,
+        [ARTIFACT_NAMES.assetManifest]: assetManifest,
         [ARTIFACT_NAMES.json]: Buffer.from(`${JSON.stringify(report, null, 2)}\n`),
         [ARTIFACT_NAMES.markdown]: Buffer.from(renderMarkdown(report))
       });
-      const mediaTypes = Object.freeze({ [ARTIFACT_NAMES.ir]: "application/json", [ARTIFACT_NAMES.preview]: "text/html", [ARTIFACT_NAMES.html]: "text/html", [ARTIFACT_NAMES.pptx]: PPTX_MEDIA_TYPE, [ARTIFACT_NAMES.pdf]: PDF_MEDIA_TYPE, [ARTIFACT_NAMES.json]: "application/json", [ARTIFACT_NAMES.markdown]: "text/markdown" });
+      const mediaTypes = Object.freeze({ [ARTIFACT_NAMES.ir]: "application/json", [ARTIFACT_NAMES.preview]: "text/html", [ARTIFACT_NAMES.html]: "text/html", [ARTIFACT_NAMES.pptx]: PPTX_MEDIA_TYPE, [ARTIFACT_NAMES.pdf]: PDF_MEDIA_TYPE, [ARTIFACT_NAMES.assetManifest]: "application/json", [ARTIFACT_NAMES.json]: "application/json", [ARTIFACT_NAMES.markdown]: "text/markdown" });
       const artifacts = [];
-      for (const name of [ARTIFACT_NAMES.ir, ARTIFACT_NAMES.preview, ARTIFACT_NAMES.html, ARTIFACT_NAMES.pptx, ARTIFACT_NAMES.pdf, ARTIFACT_NAMES.json, ARTIFACT_NAMES.markdown]) {
+      for (const name of [ARTIFACT_NAMES.ir, ARTIFACT_NAMES.preview, ARTIFACT_NAMES.html, ARTIFACT_NAMES.pptx, ARTIFACT_NAMES.pdf, ARTIFACT_NAMES.assetManifest, ARTIFACT_NAMES.json, ARTIFACT_NAMES.markdown]) {
         if (await isCancellationRequested()) throw new Error("PPT creation was cancelled");
         const objectKey = `${job.outputPrefix}${name}`;
         await store.putObject({ objectKey, body: bodies[name], contentType: mediaTypes[name] });

@@ -30,13 +30,19 @@ function boundedStringArray(value, label, { minimum, maximum, itemMaximum }) {
   return Object.freeze(value.map((item, index) => boundedText(item, `${label} ${index + 1}`, itemMaximum)));
 }
 function normalizeMedia(value, label) {
-  exactKeys(value, ["kind", "mediaType", "alt", "caption", "assetId", "fit"], label);
+  exactKeys(value, ["kind", "mediaType", "alt", "caption", "assetId", "fit", "crop"], label);
   if (!MEDIA_TYPES.includes(value.mediaType)) throw new TypeError(`${label} mediaType is invalid`);
   const caption = optionalText(value.caption, `${label} caption`, 160);
   const assetId = value.assetId === undefined ? undefined : safeId(value.assetId, `${label} assetId`);
   const fit = value.fit === undefined ? "contain" : value.fit;
   if (!MEDIA_FITS.includes(fit)) throw new TypeError(`${label} fit is invalid`);
-  return Object.freeze({ kind: "media", mediaType: value.mediaType, alt: boundedText(value.alt, `${label} alt`, 240), ...(caption ? { caption } : {}), ...(assetId ? { assetId } : {}), fit });
+  let crop;
+  if (value.crop !== undefined) {
+    exactKeys(value.crop, ["left", "top", "right", "bottom"], `${label} crop`);
+    if (![value.crop.left, value.crop.top, value.crop.right, value.crop.bottom].every((item) => typeof item === "number" && Number.isFinite(item) && item >= 0 && item < 1) || value.crop.left + value.crop.right >= 1 || value.crop.top + value.crop.bottom >= 1) throw new TypeError(`${label} crop is invalid`);
+    crop = Object.freeze({ ...value.crop });
+  }
+  return Object.freeze({ kind: "media", mediaType: value.mediaType, alt: boundedText(value.alt, `${label} alt`, 240), ...(caption ? { caption } : {}), ...(assetId ? { assetId } : {}), fit, ...(crop ? { crop } : {}) });
 }
 function normalizeTable(value, label) {
   exactKeys(value, ["kind", "headers", "rows", "insight"], label);

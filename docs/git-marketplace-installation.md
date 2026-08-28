@@ -22,7 +22,7 @@ The Marketplace commit and the hosted service release are one compatibility boun
 | --- | --- | --- | --- |
 | `image-to-editable` | Remote | OCR, reconstruction, rendering, fonts, and quality gates are heavy and centrally versioned | No local fallback in the Marketplace workflow |
 | `project-audit` | Local | Source privacy, lower transfer cost, direct access to workspace evidence | Only explicit team/isolated execution plus separate upload approval |
-| `ppt-create` | Local when a complete Runtime is already installed; otherwise explicit remote | Semantic input is lightweight, but the sparse Marketplace does not embed the OpenXML builder | Upload only the approved PresentationSpec JSON to the hosted service |
+| `ppt-create` | Local when a complete Runtime is already installed; otherwise explicit remote | Semantic input is lightweight, but the sparse Marketplace does not embed the OpenXML builder | Current remote transport accepts only the approved PresentationSpec JSON; provenance-bound local asset packs require local execution |
 | `ppt-quality` | Local | The deck remains private and structural inspection is lightweight | Not advertised by the current public service |
 | `ppt-improve` | Local | Copy-on-write repair stays bound to the approved source and audit report | Not advertised by the current public service |
 

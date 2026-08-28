@@ -8,6 +8,7 @@
     "./spec": "./spec.js",
     "./layout": "./layout.js",
     "./data-models": "./data-models.js",
+    "./assets": "./assets.js",
     "./editor": "./editor.js",
     "./export": "./export.js",
     "./image-delivery": "./image-delivery.js",

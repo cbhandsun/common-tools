@@ -146,6 +146,28 @@ function mediaCaption(slide, index, theme, plan) {
   page.textBoxes.push(text(`${slide.id}-media-caption`, visual.caption || `${visual.mediaType} · ${visual.fit}`, box(96, 438, 768, 34), { family: theme.font, sizePt: 16, color: theme.muted, align: "center" }, "media-caption"));
   return page;
 }
+function fittedMedia(slot, visual, assetInfo) {
+  const imageAspect = assetInfo?.widthPx / assetInfo?.heightPx; const slotAspect = slot.w / slot.h;
+  if (!Number.isFinite(imageAspect) || imageAspect <= 0) return { bounds: slot, crop: visual.crop };
+  if (visual.fit === "contain") {
+    if (imageAspect > slotAspect) { const height = slot.w / imageAspect; return { bounds: box(slot.x, slot.y + (slot.h - height) / 2, slot.w, height) }; }
+    const width = slot.h * imageAspect; return { bounds: box(slot.x + (slot.w - width) / 2, slot.y, width, slot.h) };
+  }
+  if (visual.crop) return { bounds: slot, crop: visual.crop };
+  if (imageAspect > slotAspect) { const horizontal = (1 - slotAspect / imageAspect) / 2; return { bounds: slot, crop: { left: horizontal, top: 0, right: horizontal, bottom: 0 } }; }
+  const vertical = (1 - imageAspect / slotAspect) / 2; return { bounds: slot, crop: { left: 0, top: vertical, right: 0, bottom: vertical } };
+}
+function applyResolvedMedia(page, slide, assetPaths, assetInfo) {
+  const visual = slide.visual;
+  if (visual?.kind !== "media" || !visual.assetId) return page;
+  const assetPath = assetPaths?.[visual.assetId];
+  if (typeof assetPath !== "string" || !assetPath) return page;
+  const slot = page.intent.layoutId === "media-frame-v1" ? box(500, 194, 390, 270) : box(68, 200, 824, 202); const fitted = fittedMedia(slot, visual, assetInfo?.[visual.assetId]);
+  page.images.push(Object.freeze({ id: `${slide.id}-media-image`, type: "image", assetPath, box: fitted.bounds, alt: visual.alt, style: Object.freeze({ fit: visual.fit, ...(fitted.crop ? { cropRect: fitted.crop } : {}) }), source: Object.freeze({ pageImage: "generated:ppt-create", assetId: visual.assetId, editable: false, licensedAsset: true }) }));
+  page.shapes = page.shapes.filter((item) => !item.id.endsWith("-media-mark"));
+  page.textBoxes = page.textBoxes.filter((item) => !item.id.endsWith("-media-alt"));
+  return page;
+}
 function tableIr(slide, bounds, theme, compact) {
   const visual = slide.visual; const rows = [visual.headers, ...visual.rows];
   return Object.freeze({ id: `${slide.id}-table`, type: "table", box: bounds, rows, style: Object.freeze({ fill: theme.surface, headerFill: theme.primary, textColor: theme.text, headerTextColor: theme.inverse, stroke: theme.line, strokeWidthPt: 0.6, fontFamily: theme.font, fontSizePt: compact ? 13 : 14, headerFontSizePt: compact ? 14 : 16, headerWeight: "bold", textValign: "middle", paddingLeftPt: 7, paddingRightPt: 7 }), source: source(bounds) });
@@ -188,9 +210,9 @@ function createLayoutPlanFromSpec(spec) {
   return Object.freeze({ version: "1.0", seed: spec.seed, variantCount: spec.variantCount, pages: Object.freeze(pages) });
 }
 function createLayoutPlan(rawSpec) { return createLayoutPlanFromSpec(validatePresentationSpec(rawSpec)); }
-function createDeckIr(rawSpec) {
+function createDeckIr(rawSpec, options = {}) {
   const spec = validatePresentationSpec(rawSpec); const theme = getTheme(spec.theme); const plan = createLayoutPlanFromSpec(spec);
-  const pages = spec.slides.map((slide, index) => { const pagePlan = plan.pages[index]; const renderer = RENDERERS[pagePlan.selectedLayout]; if (typeof renderer !== "function") throw new Error("presentation layout renderer is unavailable"); getLayout(pagePlan.selectedLayout); return Object.freeze(renderer(slide, index, theme, pagePlan)); });
+  const pages = spec.slides.map((slide, index) => { const pagePlan = plan.pages[index]; const renderer = RENDERERS[pagePlan.selectedLayout]; if (typeof renderer !== "function") throw new Error("presentation layout renderer is unavailable"); getLayout(pagePlan.selectedLayout); return Object.freeze(applyResolvedMedia(renderer(slide, index, theme, pagePlan), slide, options.assetPaths, options.assetInfo)); });
   return Object.freeze({ version: "1.0", slideSize: Object.freeze({ widthPt: WIDTH, heightPt: HEIGHT }), pages: Object.freeze(pages) });
 }
 

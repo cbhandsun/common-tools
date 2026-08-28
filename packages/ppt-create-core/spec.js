@@ -2,6 +2,7 @@
 
 const { containsControlCharacter } = require("../capability-contracts");
 const { normalizeVisual } = require("./data-models");
+const { normalizeAssetManifest } = require("./assets");
 const { LAYOUT_REGISTRY, MAX_VARIANTS, PRIORITIES, getLayout } = require("./layout-registry");
 const { THEME_REGISTRY } = require("./theme-registry");
 
@@ -91,7 +92,7 @@ function assertNarrativeOrder(slides) {
 }
 function validatePresentationSpec(value) {
   if (!plainObject(value)) throw new TypeError("presentation spec must be an object");
-  exactKeys(value, ["version", "title", "subtitle", "audience", "language", "theme", "seed", "variantCount", "slides"], "presentation spec");
+  exactKeys(value, ["version", "title", "subtitle", "audience", "language", "theme", "seed", "variantCount", "assets", "slides"], "presentation spec");
   if (value.version !== SPEC_VERSION) throw new TypeError("presentation spec version is unsupported");
   if (!Array.isArray(value.slides) || value.slides.length < 1 || value.slides.length > MAX_SLIDES) throw new RangeError("presentation spec slide count is invalid");
   const theme = value.theme === undefined ? THEMES[0] : value.theme;
@@ -101,6 +102,10 @@ function validatePresentationSpec(value) {
   if (!Number.isSafeInteger(variantCount) || variantCount < 1 || variantCount > MAX_VARIANTS) throw new TypeError("presentation variant count is invalid");
   const seenIds = new Set();
   const slides = value.slides.map((slide, index) => normalizedSlide(slide, index, seenIds));
+  const assets = normalizeAssetManifest(value.assets);
+  const referencedAssets = new Set(slides.map((slide) => slide.visual?.kind === "media" ? slide.visual.assetId : undefined).filter(Boolean));
+  if (assets.length > 0 && [...referencedAssets].some((id) => !assets.some((asset) => asset.id === id))) throw new TypeError("presentation media references an unknown asset");
+  if (assets.some((asset) => !referencedAssets.has(asset.id))) throw new TypeError("presentation asset manifest contains an unused asset");
   assertNarrativeOrder(slides);
   const normalized = Object.freeze({
     version: SPEC_VERSION,
@@ -111,6 +116,7 @@ function validatePresentationSpec(value) {
     theme,
     seed,
     variantCount,
+    ...(assets.length ? { assets } : {}),
     slides: Object.freeze(slides)
   });
   assertNoPlaceholders(normalized);
