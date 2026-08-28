@@ -19,12 +19,13 @@ Both execution modes use this pipeline:
 
 Local execution reads a workspace-contained JSON file. Remote execution accepts the same JSON through the existing owner-scoped upload and job APIs. Only the transport, storage, queue, and worker composition differ. The core planner and output contract remain shared.
 
-The first release uses two independently designed built-in themes and emits editable text and shapes. It does not use third-party presentation assets or APIs. Output is written only to a new directory and includes `deck.ir.json`, `deck.pptx`, `ppt-create-report.json`, and `ppt-create-report.md`.
+The Runtime uses a repository-owned registry of four independently designed themes and fourteen semantic layouts. Content-aware selection produces one to three deterministic candidates from `seed`, semantic role, priority, item capacity, and adjacent-slide silhouette; a compatible explicit layout may override the first choice. Deck IR preserves the selected and candidate layout IDs. The implementation emits editable text and shapes and does not use third-party presentation assets or APIs. Output is written only to a new directory and includes `deck.ir.json`, `deck.pptx`, `ppt-create-report.json`, and `ppt-create-report.md`.
 
 ## Consequences
 
 - Image-to-editable and new-deck creation converge at validated Deck IR and the existing OpenXML writer while keeping separate upstream inputs and quality metrics.
 - A new theme or semantic role requires repository-owned fixtures, bounds tests, and rendering verification.
+- Registry changes require unique stable IDs, role and capacity validation, deterministic candidate tests, and Marketplace/runtime release probes.
 - Local and remote parity can be tested at the Deck IR and artifact-contract levels.
 - Presentation text is treated as untrusted data and is excluded from logs and aggregate reports.
 - Inspiration from external projects is limited to abstract workflow and product concepts. No external implementation, template, asset, proprietary schema, or distinctive coordinate system is imported.

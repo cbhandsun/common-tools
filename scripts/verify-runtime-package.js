@@ -16,6 +16,14 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "skills/pd-hifi-slideclone/scripts/lib/full-slide-native-residual.js",
   "plugins/common-tools/skills/image-to-editable/SKILL.md"
 ]);
+const PPT_CREATE_RELEASE_FILES = Object.freeze([
+  "packages/capability-manifests/ppt-create/capability.manifest.json",
+  "packages/ppt-create-core/theme-registry.js",
+  "packages/ppt-create-core/layout-registry.js",
+  "packages/ppt-create-core/layout.js",
+  "packages/ppt-create-core/presentation-spec.schema.json",
+  "plugins/common-tools/skills/ppt-create/SKILL.md"
+]);
 const REQUIRED_FILES = Object.freeze([
   ".agents/plugins/marketplace.json",
   "package.json",
@@ -44,7 +52,8 @@ const REQUIRED_FILES = Object.freeze([
   "skills/pd-hifi-slideclone/scripts/slideclone.js",
   "skills/pd-hifi-slideclone/schemas/slideclone.config.schema.json",
   "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
-  ...IMAGE_EDITABLE_RELEASE_FILES
+  ...IMAGE_EDITABLE_RELEASE_FILES,
+  ...PPT_CREATE_RELEASE_FILES
 ]);
 const FORBIDDEN_PREFIXES = Object.freeze([
   ".codex-tmp/",
@@ -155,6 +164,23 @@ function imageEditableEnhancementProbe() {
   ].join("");
 }
 
+function pptCreateLayoutProbe() {
+  return [
+    "let stage='initialization';try{const fs=require('node:fs');const path=require('node:path');",
+    "const root=path.resolve(process.argv[1]);",
+    "stage='manifest-load';const manifest=require(path.join(root,'packages','capability-manifests','ppt-create','capability.manifest.json'));",
+    "const version=String(manifest.version||'').split('.').map(Number);",
+    "stage='registry-load';const themes=require(path.join(root,'packages','ppt-create-core','theme-registry.js'));const layouts=require(path.join(root,'packages','ppt-create-core','layout-registry.js'));const planner=require(path.join(root,'packages','ppt-create-core','layout.js'));const schema=require(path.join(root,'packages','ppt-create-core','presentation-spec.schema.json'));",
+    "stage='source-read';const skill=fs.readFileSync(path.join(root,'plugins','common-tools','skills','ppt-create','SKILL.md'),'utf8');",
+    "stage='plan';const input={version:'1.0',title:'Release probe',theme:'clean-light-v1',seed:'release-probe',variantCount:3,slides:[{id:'cover',role:'cover',title:'Release probe'}]};const first=planner.createLayoutPlan(input);const second=planner.createLayoutPlan(input);",
+    "const versionReady=version.length===3&&version.every(Number.isSafeInteger)&&(version[0]>0||version[1]>1||(version[1]===1&&version[2]>=2));",
+    "const candidates=first.pages&&first.pages[0]&&first.pages[0].candidates;",
+    "const checks=[['capability-version',versionReady],['theme-registry',Array.isArray(themes.THEME_REGISTRY)&&themes.THEME_REGISTRY.length>=4],['layout-registry',Array.isArray(layouts.LAYOUT_REGISTRY)&&layouts.LAYOUT_REGISTRY.length>=14],['layout-export',typeof planner.createLayoutPlan==='function'],['candidate-bounds',Array.isArray(candidates)&&candidates.length>=2&&candidates.length<=3],['deterministic-plan',JSON.stringify(first)===JSON.stringify(second)],['schema-variant-bound',schema.properties&&schema.properties.variantCount&&schema.properties.variantCount.maximum===3],['marketplace-skill-gate',skill.includes('layout-candidates-available')&&skill.includes('layout-selection-resolved')]];",
+    "const failed=checks.find((entry)=>!entry[1]);if(failed){process.stdout.write(failed[0]);process.exit(2);}process.stdout.write('ready');",
+    "}catch{process.stdout.write(stage);process.exit(2);}"
+  ].join("");
+}
+
 function verifyInstalledCli({ installRoot, commandRunner }) {
   const cli = installedCliPath(installRoot);
   const packageRoot = path.join(installRoot, "node_modules", "common-tools");
@@ -170,7 +196,8 @@ function verifyInstalledCli({ installRoot, commandRunner }) {
   const remoteWorker = path.join(packageRoot, "packages", "remote-mcp-server", "bin", "common-tools-team-image-worker.js");
   run(commandRunner, process.execPath, ["--check", remoteWorker], installRoot, "installed image-to-editable remote worker syntax check failed");
   runClassifiedProbe(commandRunner, ["-e", imageEditableEnhancementProbe(), packageRoot], installRoot, "installed image-to-editable residual deduplication check failed");
-  return Object.freeze({ capabilityCount: catalog.capabilities.length, imageToEditableEngine: true, residualDeduplication: true });
+  runClassifiedProbe(commandRunner, ["-e", pptCreateLayoutProbe(), packageRoot], installRoot, "installed ppt-create layout candidate check failed");
+  return Object.freeze({ capabilityCount: catalog.capabilities.length, imageToEditableEngine: true, residualDeduplication: true, pptCreateLayoutCandidates: true });
 }
 
 function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), commandRunner = childProcess.spawnSync, temporaryDirectory = fs.mkdtempSync } = {}) {
@@ -192,7 +219,7 @@ function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), 
     const installInvocation = npmInvocation(["install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", installRoot, tarball]);
     run(commandRunner, installInvocation.command, installInvocation.arguments, root, "runtime package installation failed");
     const installed = verifyInstalledCli({ installRoot, commandRunner });
-    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, imageToEditableEngine: installed.imageToEditableEngine, residualDeduplication: installed.residualDeduplication });
+    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, imageToEditableEngine: installed.imageToEditableEngine, residualDeduplication: installed.residualDeduplication, pptCreateLayoutCandidates: installed.pptCreateLayoutCandidates });
   } finally {
     if (cleanable) fs.rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
@@ -203,4 +230,4 @@ if (require.main === module) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-module.exports = { FORBIDDEN_PREFIXES, IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, REQUIRED_FILES, imageEditableEnhancementProbe, installedCliPath, npmCliPath, npmInvocation, parsePackMetadata, runClassifiedProbe, verifyInstalledCli, verifyRuntimePackage };
+module.exports = { FORBIDDEN_PREFIXES, IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, installedCliPath, npmCliPath, npmInvocation, parsePackMetadata, pptCreateLayoutProbe, runClassifiedProbe, verifyInstalledCli, verifyRuntimePackage };

@@ -44,13 +44,18 @@ function qualityFor(spec, ir) {
   const editableObjects = ir.pages.reduce((total, page) => total + page.textBoxes.length + page.shapes.length + page.tables.length + page.charts.length, 0);
   const requiredFacts = spec.slides.reduce((total, slide) => total + slide.items.filter((item) => item.required).length, 0);
   const renderedFacts = spec.slides.reduce((total, slide) => total + slide.items.length, 0);
+  const candidateLayouts = ir.pages.reduce((total, page) => total + (Array.isArray(page.intent?.candidateLayoutIds) ? page.intent.candidateLayoutIds.length : 0), 0);
+  const selectedLayoutsResolved = ir.pages.every((page) => typeof page.intent?.layoutId === "string" && page.intent.candidateLayoutIds?.includes(page.intent.layoutId));
+  const layoutCandidatesAvailable = ir.pages.every((page) => Array.isArray(page.intent?.candidateLayoutIds) && page.intent.candidateLayoutIds.length >= 2);
   const checks = [
     { name: "presentation-spec-valid", passed: true },
     { name: "required-facts-covered", passed: renderedFacts >= requiredFacts },
     { name: "editable-content-present", passed: editableObjects > 0 },
-    { name: "slide-count-matches", passed: ir.pages.length === spec.slides.length }
+    { name: "slide-count-matches", passed: ir.pages.length === spec.slides.length },
+    { name: "layout-candidates-available", passed: layoutCandidatesAvailable },
+    { name: "layout-selection-resolved", passed: selectedLayoutsResolved }
   ];
-  return assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: ir.pages.length, "required-facts": requiredFacts, "rendered-facts": renderedFacts, "editable-objects": editableObjects, "raster-images": 0 } });
+  return assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: ir.pages.length, "required-facts": requiredFacts, "rendered-facts": renderedFacts, "editable-objects": editableObjects, "candidate-layouts": candidateLayouts, "raster-images": 0 } });
 }
 function creationReport(spec, quality, inputSha256, pptxSha256) {
   return Object.freeze({

@@ -42,7 +42,7 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.equal(marketplace.plugins[0].source.path, "./plugins/common-tools");
   const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".codex-plugin", "plugin.json"), "utf8"));
   assert.equal(manifest.mcpServers, "./.mcp.json");
-  assert.match(manifest.version, /^0\.1\.1\+codex\./);
+  assert.match(manifest.version, /^0\.1\.2\+codex\./);
   const mcp = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".mcp.json"), "utf8"));
   assert.deepEqual(mcp.mcpServers["common-tools"], { type: "http", url: "https://plugins.iepose.cn/mcp", oauth: { clientId: "common-tools-mcp" } });
   const imageSkill = fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "image-to-editable", "SKILL.md"), "utf8");
@@ -75,7 +75,24 @@ test("Git Marketplace rejects removal of the image residual deduplication releas
     const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
     manifest.version = "0.1.0+codex.legacy";
     fs.writeFileSync(manifestFile, JSON.stringify(manifest), "utf8");
-    assert.throws(() => verifyPluginPackaging(root, capabilities), /does not include the image residual deduplication release/);
+    assert.throws(() => verifyPluginPackaging(root, capabilities), /does not include the ppt-create layout candidate release/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Git Marketplace rejects removal of the ppt-create layout candidate contract", () => {
+  const root = copiedPluginRoot();
+  try {
+    const skill = path.join(root, "plugins", "common-tools", "skills", "ppt-create", "SKILL.md");
+    fs.writeFileSync(skill, fs.readFileSync(skill, "utf8").replaceAll("layout-candidates-available", "legacy-layout-check"), "utf8");
+    assert.throws(() => verifyPluginPackaging(root, capabilities), /clean-room layout candidate contract/);
+    fs.copyFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "ppt-create", "SKILL.md"), skill);
+    const manifestFile = path.join(root, "plugins", "common-tools", ".codex-plugin", "plugin.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+    manifest.version = "0.1.1+codex.legacy";
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest), "utf8");
+    assert.throws(() => verifyPluginPackaging(root, capabilities), /does not include the ppt-create layout candidate release/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

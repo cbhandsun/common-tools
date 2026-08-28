@@ -1,97 +1,146 @@
 "use strict";
 
+const { getLayout, selectLayoutCandidates } = require("./layout-registry");
 const { validatePresentationSpec } = require("./spec");
+const { getTheme } = require("./theme-registry");
 
 const WIDTH = 960;
 const HEIGHT = 540;
-const THEMES = Object.freeze({
-  "clean-light-v1": Object.freeze({ background: "#F7F9FC", surface: "#FFFFFF", primary: "#175CD3", accent: "#0E9384", text: "#101828", muted: "#475467", line: "#D0D5DD", inverse: "#FFFFFF", font: "Microsoft YaHei" }),
-  "executive-dark-v1": Object.freeze({ background: "#101828", surface: "#1D2939", primary: "#84ADFF", accent: "#5FE9D0", text: "#F9FAFB", muted: "#D0D5DD", line: "#344054", inverse: "#101828", font: "Microsoft YaHei" })
-});
 
 function box(x, y, w, h) { return Object.freeze({ x, y, w, h }); }
-function source(evidenceBox) { return Object.freeze({ pageImage: "generated:ppt-create", visionProvider: "common-tools-layout-v1", confidence: 1, evidenceBox, editable: true }); }
+function source(evidenceBox) { return Object.freeze({ pageImage: "generated:ppt-create", visionProvider: "common-tools-layout-v2", confidence: 1, evidenceBox, editable: true }); }
 function text(id, value, bounds, font, role = "body") { return Object.freeze({ id, role, text: value, box: bounds, font: Object.freeze(font), source: source(bounds) }); }
 function shape(id, type, bounds, style) { return Object.freeze({ id, type, box: bounds, style: Object.freeze(style), source: source(bounds) }); }
-function titleSize(value, normal = 32) { return value.length > 48 ? normal - 6 : value.length > 28 ? normal - 3 : normal; }
-function pageBase(slide, pageIndex, theme) {
-  return { pageIndex, sourceImage: "generated:ppt-create", background: { fill: theme.background }, textBoxes: [], shapes: [], images: [], tables: [], charts: [], icons: [], intent: { id: slide.id, role: slide.role } };
+function pageBase(slide, pageIndex, theme, plan) {
+  return { pageIndex, sourceImage: "generated:ppt-create", background: { fill: theme.background }, textBoxes: [], shapes: [], images: [], tables: [], charts: [], icons: [], intent: { id: slide.id, role: slide.role, priority: slide.priority, layoutId: plan.selectedLayout, layoutFamily: plan.family, candidateLayoutIds: plan.candidates.map((candidate) => candidate.id) } };
 }
 function addHeader(page, slide, theme, pageIndex) {
   page.shapes.push(shape(`${slide.id}-header-rule`, "rect", box(56, 46, 44, 6), { fill: theme.accent, stroke: theme.accent, strokeWidthPt: 0 }));
-  page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(56, 66, 780, 52), { family: theme.font, sizePt: titleSize(slide.title), weight: "bold", color: theme.text, align: "left" }, "title"));
-  page.textBoxes.push(text(`${slide.id}-number`, String(pageIndex + 1).padStart(2, "0"), box(852, 58, 52, 28), { family: "Arial", sizePt: 14, weight: "bold", color: theme.muted, align: "right" }, "page-number"));
-  if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(56, 122, 820, 42), { family: theme.font, sizePt: slide.summary.length > 100 ? 15 : 18, color: theme.muted, align: "left" }, "summary"));
+  page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(56, 66, 790, 52), { family: theme.font, sizePt: 35, weight: "bold", color: theme.text, align: "left" }, "title"));
+  page.textBoxes.push(text(`${slide.id}-number`, String(pageIndex + 1).padStart(2, "0"), box(852, 58, 52, 28), { family: "Arial", sizePt: 16, weight: "bold", color: theme.muted, align: "right" }, "page-number"));
+  if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(56, 124, 820, 42), { family: theme.font, sizePt: 18, color: theme.muted, align: "left" }, "summary"));
 }
-function coverPage(slide, index, theme) {
-  const page = pageBase(slide, index, theme);
-  page.shapes.push(shape(`${slide.id}-rail`, "rect", box(0, 0, 18, HEIGHT), { fill: theme.accent, stroke: theme.accent, strokeWidthPt: 0 }));
-  page.shapes.push(shape(`${slide.id}-panel`, "roundRect", box(570, 70, 300, 400), { fill: theme.surface, stroke: theme.line, strokeWidthPt: 1, radiusPt: 18 }));
-  page.shapes.push(shape(`${slide.id}-signal-a`, "ellipse", box(640, 130, 150, 150), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0, opacity: 0.86 }));
-  page.shapes.push(shape(`${slide.id}-signal-b`, "ellipse", box(690, 245, 110, 110), { fill: theme.accent, stroke: theme.accent, strokeWidthPt: 0, opacity: 0.78 }));
-  page.textBoxes.push(text(`${slide.id}-eyebrow`, "COMMON TOOLS · PPT CREATE", box(62, 86, 430, 28), { family: "Arial", sizePt: 13, weight: "bold", color: theme.accent, align: "left" }, "eyebrow"));
-  page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(62, 150, 455, 170), { family: theme.font, sizePt: titleSize(slide.title, 44), weight: "bold", color: theme.text, align: "left" }, "title"));
-  if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(64, 342, 420, 82), { family: theme.font, sizePt: 19, color: theme.muted, align: "left" }, "summary"));
-  return page;
-}
-function sectionPage(slide, index, theme) {
-  const page = pageBase(slide, index, theme);
-  page.shapes.push(shape(`${slide.id}-band`, "rect", box(0, 0, WIDTH, 118), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0 }));
-  page.textBoxes.push(text(`${slide.id}-number`, String(index + 1).padStart(2, "0"), box(62, 55, 90, 56), { family: "Arial", sizePt: 26, weight: "bold", color: theme.inverse, align: "left" }, "section-number"));
-  page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(62, 185, 720, 100), { family: theme.font, sizePt: titleSize(slide.title, 42), weight: "bold", color: theme.text, align: "left" }, "title"));
-  if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(64, 300, 700, 70), { family: theme.font, sizePt: 20, color: theme.muted, align: "left" }, "summary"));
-  slide.items.forEach((item, itemIndex) => page.textBoxes.push(text(`${slide.id}-${item.id}`, item.label, box(64 + itemIndex * 250, 418, 220, 46), { family: theme.font, sizePt: 16, weight: "bold", color: theme.accent, align: "left" }, "section-item")));
-  return page;
-}
-function cardPage(slide, index, theme, mode) {
-  const page = pageBase(slide, index, theme); addHeader(page, slide, theme, index);
-  const count = slide.items.length;
-  const columns = mode === "comparison" ? 2 : count <= 3 ? count : 2;
-  const rows = Math.ceil(count / columns);
-  const gap = 18; const areaX = 56; const areaY = 190; const areaW = 848; const areaH = 292;
-  const cardW = (areaW - gap * (columns - 1)) / columns; const cardH = (areaH - gap * (rows - 1)) / rows;
-  slide.items.forEach((item, itemIndex) => {
-    const column = itemIndex % columns; const row = Math.floor(itemIndex / columns);
-    const x = areaX + column * (cardW + gap); const y = areaY + row * (cardH + gap);
-    page.shapes.push(shape(`${slide.id}-${item.id}-card`, "roundRect", box(x, y, cardW, cardH), { fill: theme.surface, stroke: theme.line, strokeWidthPt: 1, radiusPt: 12 }));
-    page.shapes.push(shape(`${slide.id}-${item.id}-accent`, "rect", box(x, y, 8, cardH), { fill: itemIndex % 2 ? theme.primary : theme.accent, stroke: "none", strokeWidthPt: 0 }));
-    if (item.value) page.textBoxes.push(text(`${slide.id}-${item.id}-value`, item.value, box(x + 28, y + 20, cardW - 48, Math.min(58, cardH * 0.34)), { family: theme.font, sizePt: item.value.length > 12 ? 23 : 31, weight: "bold", color: theme.primary, align: "left" }, "value"));
-    page.textBoxes.push(text(`${slide.id}-${item.id}-label`, item.label, box(x + 28, y + (item.value ? 78 : 28), cardW - 48, 38), { family: theme.font, sizePt: item.label.length > 30 ? 15 : 18, weight: "bold", color: theme.text, align: "left" }, "item-title"));
-    if (item.detail) page.textBoxes.push(text(`${slide.id}-${item.id}-detail`, item.detail, box(x + 28, y + (item.value ? 118 : 76), cardW - 48, Math.max(42, cardH - (item.value ? 138 : 96))), { family: theme.font, sizePt: item.detail.length > 100 ? 13 : 15, color: theme.muted, align: "left" }, "item-detail"));
-  });
-  return page;
-}
-function processPage(slide, index, theme) {
-  const page = pageBase(slide, index, theme); addHeader(page, slide, theme, index);
-  const count = slide.items.length; const gap = 12; const startX = 56; const totalW = 848; const cardW = (totalW - gap * (count - 1)) / count;
-  page.shapes.push(shape(`${slide.id}-flow-line`, "rect", box(startX + cardW / 2, 286, totalW - cardW, 5), { fill: theme.line, stroke: theme.line, strokeWidthPt: 0 }));
-  slide.items.forEach((item, itemIndex) => {
-    const x = startX + itemIndex * (cardW + gap);
-    page.shapes.push(shape(`${slide.id}-${item.id}-node`, "ellipse", box(x + cardW / 2 - 18, 269, 36, 36), { fill: itemIndex % 2 ? theme.primary : theme.accent, stroke: theme.background, strokeWidthPt: 3 }));
-    page.textBoxes.push(text(`${slide.id}-${item.id}-step`, String(itemIndex + 1).padStart(2, "0"), box(x, 205, cardW, 34), { family: "Arial", sizePt: 14, weight: "bold", color: theme.accent, align: "center" }, "step-number"));
-    page.textBoxes.push(text(`${slide.id}-${item.id}-label`, item.label, box(x, 320, cardW, 54), { family: theme.font, sizePt: item.label.length > 16 ? 14 : 17, weight: "bold", color: theme.text, align: "center" }, "item-title"));
-    if (item.detail) page.textBoxes.push(text(`${slide.id}-${item.id}-detail`, item.detail, box(x, 380, cardW, 76), { family: theme.font, sizePt: item.detail.length > 70 ? 12 : 14, color: theme.muted, align: "center" }, "item-detail"));
-  });
-  return page;
-}
-function closingPage(slide, index, theme) {
-  const page = pageBase(slide, index, theme);
-  page.shapes.push(shape(`${slide.id}-top`, "rect", box(0, 0, WIDTH, 14), { fill: theme.accent, stroke: theme.accent, strokeWidthPt: 0 }));
-  page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(120, 155, 720, 90), { family: theme.font, sizePt: titleSize(slide.title, 42), weight: "bold", color: theme.text, align: "center" }, "title"));
-  if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(170, 270, 620, 74), { family: theme.font, sizePt: 20, color: theme.muted, align: "center" }, "summary"));
-  slide.items.forEach((item, itemIndex) => page.textBoxes.push(text(`${slide.id}-${item.id}`, item.label, box(170 + itemIndex * 210, 395, 200, 44), { family: theme.font, sizePt: 16, weight: "bold", color: theme.accent, align: "center" }, "closing-item")));
-  return page;
-}
-function createPage(slide, index, theme) {
-  if (slide.role === "cover") return coverPage(slide, index, theme);
-  if (slide.role === "section") return sectionPage(slide, index, theme);
-  if (slide.role === "process") return processPage(slide, index, theme);
-  if (slide.role === "closing") return closingPage(slide, index, theme);
-  return cardPage(slide, index, theme, slide.role);
-}
-function createDeckIr(rawSpec) {
-  const spec = validatePresentationSpec(rawSpec); const theme = THEMES[spec.theme];
-  return Object.freeze({ version: "1.0", slideSize: Object.freeze({ widthPt: WIDTH, heightPt: HEIGHT }), pages: Object.freeze(spec.slides.map((slide, index) => Object.freeze(createPage(slide, index, theme)))) });
+function addItemCopy(page, slide, item, bounds, theme, align = "left") {
+  if (item.value) page.textBoxes.push(text(`${slide.id}-${item.id}-value`, item.value, box(bounds.x, bounds.y, bounds.w, 44), { family: theme.font, sizePt: 30, weight: "bold", color: theme.primary, align }, "value"));
+  page.textBoxes.push(text(`${slide.id}-${item.id}-label`, item.label, box(bounds.x, bounds.y + (item.value ? 50 : 0), bounds.w, 34), { family: theme.font, sizePt: 24, weight: "bold", color: theme.text, align }, "item-title"));
+  if (item.detail) page.textBoxes.push(text(`${slide.id}-${item.id}-detail`, item.detail, box(bounds.x, bounds.y + (item.value ? 90 : 40), bounds.w, Math.max(34, bounds.h - (item.value ? 90 : 40))), { family: theme.font, sizePt: 16, color: theme.muted, align }, "item-detail"));
 }
 
-module.exports = { HEIGHT, THEMES, WIDTH, createDeckIr };
+function coverSignal(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan);
+  page.shapes.push(shape(`${slide.id}-rail`, "rect", box(0, 0, 18, HEIGHT), { fill: theme.accent, stroke: theme.accent, strokeWidthPt: 0 }));
+  page.shapes.push(shape(`${slide.id}-panel`, "roundRect", box(590, 72, 280, 396), { fill: theme.surface, stroke: theme.line, strokeWidthPt: 1, radiusPt: 18 }));
+  page.shapes.push(shape(`${slide.id}-signal-a`, "ellipse", box(642, 128, 150, 150), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0, opacity: 0.86 }));
+  page.shapes.push(shape(`${slide.id}-signal-b`, "ellipse", box(692, 250, 108, 108), { fill: theme.accent, stroke: theme.accent, strokeWidthPt: 0, opacity: 0.78 }));
+  page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(62, 142, 470, 174), { family: theme.font, sizePt: 50, weight: "bold", color: theme.text, align: "left" }, "title"));
+  if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(64, 346, 440, 86), { family: theme.font, sizePt: 20, color: theme.muted, align: "left" }, "summary"));
+  return page;
+}
+function coverBand(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan);
+  page.shapes.push(shape(`${slide.id}-band`, "rect", box(0, 176, WIDTH, 188), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0 }));
+  page.shapes.push(shape(`${slide.id}-accent`, "rect", box(0, 364, WIDTH, 10), { fill: theme.accent, stroke: theme.accent, strokeWidthPt: 0 }));
+  page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(90, 206, 780, 78), { family: theme.font, sizePt: 50, weight: "bold", color: theme.inverse, align: "center" }, "title"));
+  if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(140, 292, 680, 48), { family: theme.font, sizePt: 20, color: theme.inverse, align: "center" }, "summary"));
+  return page;
+}
+function sectionBand(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan);
+  page.shapes.push(shape(`${slide.id}-band`, "rect", box(0, 0, WIDTH, 118), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0 }));
+  page.textBoxes.push(text(`${slide.id}-number`, String(index + 1).padStart(2, "0"), box(62, 52, 90, 56), { family: "Arial", sizePt: 26, weight: "bold", color: theme.inverse, align: "left" }, "section-number"));
+  page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(62, 184, 760, 88), { family: theme.font, sizePt: 42, weight: "bold", color: theme.text, align: "left" }, "title"));
+  if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(64, 292, 740, 70), { family: theme.font, sizePt: 20, color: theme.muted, align: "left" }, "summary"));
+  slide.items.forEach((item, itemIndex) => page.textBoxes.push(text(`${slide.id}-${item.id}`, item.label, box(64 + itemIndex * 276, 418, 248, 46), { family: theme.font, sizePt: 18, weight: "bold", color: theme.accent, align: "left" }, "section-item")));
+  return page;
+}
+function sectionIndex(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan);
+  page.textBoxes.push(text(`${slide.id}-number`, String(index + 1).padStart(2, "0"), box(58, 100, 260, 180), { family: "Arial", sizePt: 92, weight: "bold", color: theme.primary, align: "left" }, "section-number"));
+  page.shapes.push(shape(`${slide.id}-divider`, "rect", box(324, 92, 4, 340), { fill: theme.accent, stroke: theme.accent, strokeWidthPt: 0 }));
+  page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(378, 122, 500, 110), { family: theme.font, sizePt: 42, weight: "bold", color: theme.text, align: "left" }, "title"));
+  if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(380, 252, 480, 74), { family: theme.font, sizePt: 20, color: theme.muted, align: "left" }, "summary"));
+  slide.items.forEach((item, itemIndex) => page.textBoxes.push(text(`${slide.id}-${item.id}`, item.label, box(380, 354 + itemIndex * 42, 470, 34), { family: theme.font, sizePt: 18, weight: "bold", color: theme.accent, align: "left" }, "section-item")));
+  return page;
+}
+function contentCards(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); addHeader(page, slide, theme, index);
+  const count = slide.items.length; const columns = count <= 3 ? count : 2; const rows = Math.ceil(count / columns);
+  const gap = 18; const areaX = 56; const areaY = 190; const areaW = 848; const areaH = 292; const cardW = (areaW - gap * (columns - 1)) / columns; const cardH = (areaH - gap * (rows - 1)) / rows;
+  slide.items.forEach((item, itemIndex) => {
+    const column = itemIndex % columns; const row = Math.floor(itemIndex / columns); const x = areaX + column * (cardW + gap); const y = areaY + row * (cardH + gap);
+    page.shapes.push(shape(`${slide.id}-${item.id}-card`, "roundRect", box(x, y, cardW, cardH), { fill: theme.surface, stroke: theme.line, strokeWidthPt: 1, radiusPt: 12 }));
+    page.shapes.push(shape(`${slide.id}-${item.id}-accent`, "rect", box(x, y, 8, cardH), { fill: itemIndex % 2 ? theme.primary : theme.accent, stroke: "none", strokeWidthPt: 0 }));
+    addItemCopy(page, slide, item, box(x + 28, y + 18, cardW - 50, cardH - 28), theme);
+  });
+  return page;
+}
+function contentEditorial(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); addHeader(page, slide, theme, index);
+  page.shapes.push(shape(`${slide.id}-rail`, "rect", box(56, 194, 266, 286), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0 }));
+  page.textBoxes.push(text(`${slide.id}-takeaway`, slide.summary || slide.items[0].label, box(82, 228, 214, 190), { family: theme.font, sizePt: 24, weight: "bold", color: theme.inverse, align: "left" }, "takeaway"));
+  const columns = slide.items.length > 3 ? 2 : 1; const rows = Math.ceil(slide.items.length / columns); const x0 = 364; const totalW = 540; const gap = 20; const columnW = (totalW - gap * (columns - 1)) / columns; const rowH = 280 / rows;
+  slide.items.forEach((item, itemIndex) => {
+    const column = itemIndex % columns; const row = Math.floor(itemIndex / columns); const x = x0 + column * (columnW + gap); const y = 198 + row * rowH;
+    page.textBoxes.push(text(`${slide.id}-${item.id}-label`, item.label, box(x, y, columnW, 32), { family: theme.font, sizePt: 24, weight: "bold", color: theme.text, align: "left" }, "item-title"));
+    if (item.value) page.textBoxes.push(text(`${slide.id}-${item.id}-value`, item.value, box(x, y + 36, columnW, 34), { family: theme.font, sizePt: 26, weight: "bold", color: theme.accent, align: "left" }, "value"));
+    if (item.detail) page.textBoxes.push(text(`${slide.id}-${item.id}-detail`, item.detail, box(x, y + (item.value ? 76 : 40), columnW, Math.max(34, rowH - (item.value ? 84 : 48))), { family: theme.font, sizePt: 16, color: theme.muted, align: "left" }, "item-detail"));
+  });
+  return page;
+}
+function metricsRow(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); addHeader(page, slide, theme, index); const gap = 18; const itemW = (848 - gap * (slide.items.length - 1)) / slide.items.length;
+  slide.items.forEach((item, itemIndex) => { const x = 56 + itemIndex * (itemW + gap); page.shapes.push(shape(`${slide.id}-${item.id}-metric`, "roundRect", box(x, 205, itemW, 240), { fill: theme.surface, stroke: theme.line, strokeWidthPt: 1, radiusPt: 14 })); addItemCopy(page, slide, item, box(x + 22, 246, itemW - 44, 166), theme, "center"); });
+  return page;
+}
+function metricsFocus(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); addHeader(page, slide, theme, index); const [focus, ...others] = slide.items;
+  page.shapes.push(shape(`${slide.id}-${focus.id}-focus`, "roundRect", box(56, 198, 404, 280), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0, radiusPt: 16 }));
+  page.textBoxes.push(text(`${slide.id}-${focus.id}-value`, focus.value || focus.label, box(88, 246, 340, 74), { family: theme.font, sizePt: 44, weight: "bold", color: theme.inverse, align: "left" }, "value"));
+  page.textBoxes.push(text(`${slide.id}-${focus.id}-label`, focus.label, box(88, 330, 340, 44), { family: theme.font, sizePt: 24, weight: "bold", color: theme.inverse, align: "left" }, "item-title"));
+  if (focus.detail) page.textBoxes.push(text(`${slide.id}-${focus.id}-detail`, focus.detail, box(88, 386, 340, 56), { family: theme.font, sizePt: 16, color: theme.inverse, align: "left" }, "item-detail"));
+  const rowH = 260 / Math.max(1, others.length); others.forEach((item, itemIndex) => addItemCopy(page, slide, item, box(512, 204 + itemIndex * rowH, 372, rowH - 8), theme));
+  return page;
+}
+function comparisonSplit(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); addHeader(page, slide, theme, index);
+  slide.items.forEach((item, itemIndex) => { const x = itemIndex === 0 ? 56 : 490; page.shapes.push(shape(`${slide.id}-${item.id}-panel`, "roundRect", box(x, 204, 414, 264), { fill: theme.surface, stroke: itemIndex ? theme.primary : theme.accent, strokeWidthPt: 2, radiusPt: 14 })); addItemCopy(page, slide, item, box(x + 32, 244, 350, 190), theme); });
+  return page;
+}
+function comparisonAxis(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); addHeader(page, slide, theme, index); page.shapes.push(shape(`${slide.id}-axis`, "rect", box(477, 194, 6, 286), { fill: theme.line, stroke: theme.line, strokeWidthPt: 0 }));
+  slide.items.forEach((item, itemIndex) => { const x = itemIndex === 0 ? 70 : 530; const y = itemIndex === 0 ? 214 : 278; page.textBoxes.push(text(`${slide.id}-${item.id}-label`, item.label, box(x, y, 350, 48), { family: theme.font, sizePt: 28, weight: "bold", color: itemIndex ? theme.primary : theme.accent, align: "left" }, "item-title")); if (item.value) page.textBoxes.push(text(`${slide.id}-${item.id}-value`, item.value, box(x, y + 58, 350, 54), { family: theme.font, sizePt: 36, weight: "bold", color: theme.text, align: "left" }, "value")); if (item.detail) page.textBoxes.push(text(`${slide.id}-${item.id}-detail`, item.detail, box(x, y + (item.value ? 122 : 60), 350, 92), { family: theme.font, sizePt: 16, color: theme.muted, align: "left" }, "item-detail")); });
+  return page;
+}
+function processLinear(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); addHeader(page, slide, theme, index); const count = slide.items.length; const gap = 12; const startX = 56; const totalW = 848; const itemW = (totalW - gap * (count - 1)) / count;
+  page.shapes.push(shape(`${slide.id}-flow-line`, "rect", box(startX + itemW / 2, 286, totalW - itemW, 5), { fill: theme.line, stroke: theme.line, strokeWidthPt: 0 }));
+  slide.items.forEach((item, itemIndex) => { const x = startX + itemIndex * (itemW + gap); page.shapes.push(shape(`${slide.id}-${item.id}-node`, "ellipse", box(x + itemW / 2 - 18, 269, 36, 36), { fill: itemIndex % 2 ? theme.primary : theme.accent, stroke: theme.background, strokeWidthPt: 3 })); page.textBoxes.push(text(`${slide.id}-${item.id}-step`, String(itemIndex + 1).padStart(2, "0"), box(x, 212, itemW, 34), { family: "Arial", sizePt: 16, weight: "bold", color: theme.accent, align: "center" }, "step-number")); page.textBoxes.push(text(`${slide.id}-${item.id}-label`, item.label, box(x, 322, itemW, 54), { family: theme.font, sizePt: 20, weight: "bold", color: theme.text, align: "center" }, "item-title")); if (item.detail) page.textBoxes.push(text(`${slide.id}-${item.id}-detail`, item.detail, box(x, 386, itemW, 76), { family: theme.font, sizePt: 16, color: theme.muted, align: "center" }, "item-detail")); });
+  return page;
+}
+function processStages(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); addHeader(page, slide, theme, index); const gap = 10; const itemW = (848 - gap * (slide.items.length - 1)) / slide.items.length;
+  slide.items.forEach((item, itemIndex) => { const x = 56 + itemIndex * (itemW + gap); const y = 208 + (itemIndex % 2) * 54; page.shapes.push(shape(`${slide.id}-${item.id}-stage`, "roundRect", box(x, y, itemW, 198), { fill: itemIndex % 2 ? theme.surface : theme.primary, stroke: theme.line, strokeWidthPt: 1, radiusPt: 12 })); page.textBoxes.push(text(`${slide.id}-${item.id}-step`, String(itemIndex + 1).padStart(2, "0"), box(x + 18, y + 18, itemW - 36, 30), { family: "Arial", sizePt: 16, weight: "bold", color: itemIndex % 2 ? theme.accent : theme.inverse, align: "left" }, "step-number")); page.textBoxes.push(text(`${slide.id}-${item.id}-label`, item.label, box(x + 18, y + 58, itemW - 36, 52), { family: theme.font, sizePt: 20, weight: "bold", color: itemIndex % 2 ? theme.text : theme.inverse, align: "left" }, "item-title")); if (item.detail) page.textBoxes.push(text(`${slide.id}-${item.id}-detail`, item.detail, box(x + 18, y + 118, itemW - 36, 62), { family: theme.font, sizePt: 16, color: itemIndex % 2 ? theme.muted : theme.inverse, align: "left" }, "item-detail")); });
+  return page;
+}
+function closingCentered(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); page.shapes.push(shape(`${slide.id}-top`, "rect", box(0, 0, WIDTH, 14), { fill: theme.accent, stroke: theme.accent, strokeWidthPt: 0 })); page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(120, 148, 720, 94), { family: theme.font, sizePt: 42, weight: "bold", color: theme.text, align: "center" }, "title")); if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(170, 270, 620, 74), { family: theme.font, sizePt: 20, color: theme.muted, align: "center" }, "summary")); slide.items.forEach((item, itemIndex) => page.textBoxes.push(text(`${slide.id}-${item.id}`, item.label, box(150 + itemIndex * 220, 398, 210, 44), { family: theme.font, sizePt: 18, weight: "bold", color: theme.accent, align: "center" }, "closing-item"))); return page;
+}
+function closingActions(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); page.shapes.push(shape(`${slide.id}-panel`, "rect", box(0, 0, 344, HEIGHT), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0 })); page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(56, 110, 250, 166), { family: theme.font, sizePt: 42, weight: "bold", color: theme.inverse, align: "left" }, "title")); if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(56, 304, 250, 100), { family: theme.font, sizePt: 18, color: theme.inverse, align: "left" }, "summary")); const rowH = 320 / Math.max(1, slide.items.length); slide.items.forEach((item, itemIndex) => addItemCopy(page, slide, item, box(408, 110 + itemIndex * rowH, 450, rowH - 18), theme)); return page;
+}
+
+const RENDERERS = Object.freeze({ "cover-signal-v1": coverSignal, "cover-band-v1": coverBand, "section-band-v1": sectionBand, "section-index-v1": sectionIndex, "content-cards-v1": contentCards, "content-editorial-v1": contentEditorial, "metrics-row-v1": metricsRow, "metrics-focus-v1": metricsFocus, "comparison-split-v1": comparisonSplit, "comparison-axis-v1": comparisonAxis, "process-linear-v1": processLinear, "process-stages-v1": processStages, "closing-centered-v1": closingCentered, "closing-actions-v1": closingActions });
+
+function createLayoutPlanFromSpec(spec) {
+  let previousSilhouette;
+  const pages = spec.slides.map((slide) => { const candidates = selectLayoutCandidates(slide, { seed: spec.seed, variantCount: spec.variantCount, previousSilhouette }); const selected = candidates[0]; previousSilhouette = selected.silhouette; return Object.freeze({ slideId: slide.id, selectedLayout: selected.id, family: selected.family, silhouette: selected.silhouette, candidates: Object.freeze(candidates.map((candidate) => Object.freeze({ id: candidate.id, family: candidate.family, silhouette: candidate.silhouette }))) }); });
+  return Object.freeze({ version: "1.0", seed: spec.seed, variantCount: spec.variantCount, pages: Object.freeze(pages) });
+}
+function createLayoutPlan(rawSpec) { return createLayoutPlanFromSpec(validatePresentationSpec(rawSpec)); }
+function createDeckIr(rawSpec) {
+  const spec = validatePresentationSpec(rawSpec); const theme = getTheme(spec.theme); const plan = createLayoutPlanFromSpec(spec);
+  const pages = spec.slides.map((slide, index) => { const pagePlan = plan.pages[index]; const renderer = RENDERERS[pagePlan.selectedLayout]; if (typeof renderer !== "function") throw new Error("presentation layout renderer is unavailable"); getLayout(pagePlan.selectedLayout); return Object.freeze(renderer(slide, index, theme, pagePlan)); });
+  return Object.freeze({ version: "1.0", slideSize: Object.freeze({ widthPt: WIDTH, heightPt: HEIGHT }), pages: Object.freeze(pages) });
+}
+
+module.exports = { HEIGHT, RENDERERS, WIDTH, createDeckIr, createLayoutPlan };

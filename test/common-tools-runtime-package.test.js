@@ -5,11 +5,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const packageManifest = require("../package.json");
-const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, REQUIRED_FILES, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, runClassifiedProbe } = require("../scripts/verify-runtime-package");
+const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, pptCreateLayoutProbe, runClassifiedProbe } = require("../scripts/verify-runtime-package");
 
 function metadata(files = REQUIRED_FILES) {
   return JSON.stringify([{
-    filename: "common-tools-0.1.1.tgz",
+    filename: "common-tools-0.1.2.tgz",
     size: 1024,
     files: files.map((file) => ({ path: file, size: 1 }))
   }]);
@@ -17,7 +17,7 @@ function metadata(files = REQUIRED_FILES) {
 
 test("runtime package verifier accepts a bounded release-only file manifest", () => {
   const result = parsePackMetadata(metadata([...REQUIRED_FILES, "README.md"]));
-  assert.equal(result.filename, "common-tools-0.1.1.tgz");
+  assert.equal(result.filename, "common-tools-0.1.2.tgz");
   assert.equal(result.size, 1024);
   assert.deepEqual(result.files, [...REQUIRED_FILES, "README.md"]);
 });
@@ -42,6 +42,12 @@ test("runtime package release gate retains and probes the image residual dedupli
   const probe = imageEditableEnhancementProbe();
   for (const marker of ["residualEraseObjects", "residualDeduplicationStatus", "eraseObjectMask", "full-slide-object-erased-residual", "residual-native-duplicates-removed"]) assert.match(probe, new RegExp(marker));
   assert.match(probe, /remote-worker-wiring/);
+});
+
+test("runtime package release gate retains and probes the ppt-create layout candidate implementation", () => {
+  for (const file of PPT_CREATE_RELEASE_FILES) assert.ok(REQUIRED_FILES.includes(file));
+  const probe = pptCreateLayoutProbe();
+  for (const marker of ["THEME_REGISTRY", "LAYOUT_REGISTRY", "createLayoutPlan", "candidate-bounds", "deterministic-plan", "layout-candidates-available", "layout-selection-resolved"]) assert.match(probe, new RegExp(marker));
 });
 
 test("classified Runtime probes expose only bounded safe failure codes", () => {

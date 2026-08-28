@@ -1,13 +1,16 @@
 "use strict";
 
 const { containsControlCharacter } = require("../capability-contracts");
+const { LAYOUT_REGISTRY, MAX_VARIANTS, PRIORITIES, getLayout } = require("./layout-registry");
+const { THEME_REGISTRY } = require("./theme-registry");
 
 const SPEC_VERSION = "1.0";
 const MAX_SPEC_BYTES = 1024 * 1024;
 const MAX_SLIDES = 100;
 const MAX_ITEMS = 8;
 const ROLES = Object.freeze(["cover", "section", "content", "metrics", "comparison", "process", "closing"]);
-const THEMES = Object.freeze(["clean-light-v1", "executive-dark-v1"]);
+const THEMES = Object.freeze(THEME_REGISTRY.map((theme) => theme.id));
+const LAYOUTS = Object.freeze(LAYOUT_REGISTRY.map((layout) => layout.id));
 const PLACEHOLDER_PATTERN = /(?:请输入|待补充|lorem ipsum|placeholder|todo|tbd)/iu;
 
 function plainObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
@@ -50,7 +53,7 @@ function validateRoleCapacity(role, items, slideIndex) {
 }
 function normalizedSlide(value, index, seenIds) {
   if (!plainObject(value)) throw new TypeError(`slide ${index + 1} must be an object`);
-  exactKeys(value, ["id", "role", "title", "summary", "items"], `slide ${index + 1}`);
+  exactKeys(value, ["id", "role", "title", "summary", "items", "priority", "layout"], `slide ${index + 1}`);
   const id = normalizedId(value.id, `slide-${index + 1}`, `slide ${index + 1} id`);
   if (seenIds.has(id)) throw new TypeError("slide ids must be unique");
   seenIds.add(id);
@@ -60,11 +63,21 @@ function normalizedSlide(value, index, seenIds) {
   const normalizedItems = items.map((item, itemIndex) => normalizedItem(item, index, itemIndex));
   if (new Set(normalizedItems.map((item) => item.id)).size !== normalizedItems.length) throw new TypeError(`slide ${index + 1} item ids must be unique`);
   validateRoleCapacity(value.role, normalizedItems, index);
+  const priority = value.priority === undefined ? ({ metrics: "metrics", comparison: "comparison", process: "process", closing: "action" }[value.role] || "narrative") : value.priority;
+  if (typeof priority !== "string" || !PRIORITIES.includes(priority)) throw new TypeError(`slide ${index + 1} priority is invalid`);
+  const layout = value.layout === undefined ? undefined : boundedString(value.layout, `slide ${index + 1} layout`, { maximum: 80 });
+  if (layout !== undefined && !LAYOUTS.includes(layout)) throw new TypeError(`slide ${index + 1} layout is invalid`);
+  if (layout !== undefined) {
+    const selected = getLayout(layout);
+    if (!selected.roles.includes(value.role) || normalizedItems.length < selected.minimumItems || normalizedItems.length > selected.maximumItems) throw new TypeError(`slide ${index + 1} layout is incompatible with slide content`);
+  }
   return Object.freeze({
     id,
     role: value.role,
     title: boundedString(value.title, `slide ${index + 1} title`, { maximum: 120 }),
     ...(value.summary === undefined ? {} : { summary: boundedString(value.summary, `slide ${index + 1} summary`, { maximum: 500 }) }),
+    priority,
+    ...(layout === undefined ? {} : { layout }),
     items: Object.freeze(normalizedItems)
   });
 }
@@ -75,11 +88,14 @@ function assertNarrativeOrder(slides) {
 }
 function validatePresentationSpec(value) {
   if (!plainObject(value)) throw new TypeError("presentation spec must be an object");
-  exactKeys(value, ["version", "title", "subtitle", "audience", "language", "theme", "slides"], "presentation spec");
+  exactKeys(value, ["version", "title", "subtitle", "audience", "language", "theme", "seed", "variantCount", "slides"], "presentation spec");
   if (value.version !== SPEC_VERSION) throw new TypeError("presentation spec version is unsupported");
   if (!Array.isArray(value.slides) || value.slides.length < 1 || value.slides.length > MAX_SLIDES) throw new RangeError("presentation spec slide count is invalid");
   const theme = value.theme === undefined ? THEMES[0] : value.theme;
   if (typeof theme !== "string" || !THEMES.includes(theme)) throw new TypeError("presentation theme is invalid");
+  const seed = value.seed === undefined ? normalizedId(undefined, "presentation", "presentation seed") : normalizedId(value.seed, "presentation", "presentation seed");
+  const variantCount = value.variantCount === undefined ? MAX_VARIANTS : value.variantCount;
+  if (!Number.isSafeInteger(variantCount) || variantCount < 1 || variantCount > MAX_VARIANTS) throw new TypeError("presentation variant count is invalid");
   const seenIds = new Set();
   const slides = value.slides.map((slide, index) => normalizedSlide(slide, index, seenIds));
   assertNarrativeOrder(slides);
@@ -90,6 +106,8 @@ function validatePresentationSpec(value) {
     ...(value.audience === undefined ? {} : { audience: optionalString(value.audience, "presentation audience", 160) }),
     language: value.language === undefined ? "zh-CN" : boundedString(value.language, "presentation language", { maximum: 32 }),
     theme,
+    seed,
+    variantCount,
     slides: Object.freeze(slides)
   });
   assertNoPlaceholders(normalized);
@@ -111,4 +129,4 @@ function parsePresentationSpec(buffer) {
   return validatePresentationSpec(parsed);
 }
 
-module.exports = { MAX_ITEMS, MAX_SLIDES, MAX_SPEC_BYTES, PLACEHOLDER_PATTERN, ROLES, SPEC_VERSION, THEMES, parsePresentationSpec, validatePresentationSpec };
+module.exports = { LAYOUTS, MAX_ITEMS, MAX_SLIDES, MAX_SPEC_BYTES, PLACEHOLDER_PATTERN, PRIORITIES, ROLES, SPEC_VERSION, THEMES, parsePresentationSpec, validatePresentationSpec };
