@@ -37,6 +37,16 @@ function applyObjectLifecycleOperation(ir, operation, index, { collections, vali
     page.textBoxes.push({ id: objectId, role: "body", text: boundedText(operation.value), box: { ...validateBox(operation.box, ir.slideSize) }, font: { family: "Arial", sizePt: 16, color: "#111827", weight: "normal", align: "left" }, style: { fill: "none", stroke: "none", opacity: 1 } });
     return true;
   }
+  if (operation.type === "add-shape-object") {
+    exactKeys(operation, ["type", "pageIndex", "objectId", "box", "shapeType"], label);
+    const page = targetPage(ir, operation.pageIndex);
+    if (pageObjectCount(page, collections) >= MAX_OBJECTS_PER_PAGE) throw new TypeError("editable page object limit exceeded");
+    const objectId = newObjectId(page, collections, operation.objectId);
+    if (!["rect", "roundRect", "ellipse", "line"].includes(operation.shapeType)) throw new TypeError("editable shape type is invalid");
+    page.shapes ||= [];
+    page.shapes.push({ id: objectId, type: operation.shapeType, box: { ...validateBox(operation.box, ir.slideSize) }, style: { fill: operation.shapeType === "line" ? "none" : "#E0F2FE", stroke: "#0284C7", opacity: 1, strokeWidthPt: 1 } });
+    return true;
+  }
   if (operation.type === "duplicate-object") {
     exactKeys(operation, ["type", "pageIndex", "objectId", "newObjectId", "offsetXPt", "offsetYPt"], label);
     const page = targetPage(ir, operation.pageIndex);
@@ -52,6 +62,13 @@ function applyObjectLifecycleOperation(ir, operation, index, { collections, vali
     exactKeys(operation, ["type", "pageIndex", "objectId"], label);
     const page = targetPage(ir, operation.pageIndex); const target = location(page, collections, operation.objectId);
     page[target.collection].splice(target.index, 1);
+    return true;
+  }
+  if (operation.type === "set-image-asset") {
+    exactKeys(operation, ["type", "pageIndex", "objectId", "assetPath"], label);
+    const page = targetPage(ir, operation.pageIndex); const target = location(page, collections, operation.objectId);
+    if (target.collection !== "images" || typeof operation.assetPath !== "string" || !operation.assetPath.trim() || operation.assetPath.length > 1024 || operation.assetPath.includes("\0") || /^(?:data|https?):/iu.test(operation.assetPath)) throw new TypeError("editable image asset path is invalid");
+    target.item.assetPath = operation.assetPath;
     return true;
   }
   return false;

@@ -294,6 +294,8 @@ npm run common-tools -- team deployment-plan --capabilities ppt-quality
 
 `ppt-create` 的自然语言路径默认仍使用本地确定性整理器，只重组输入中已有事实。若部署方有经审批的研究/内容服务，可额外叠加 `deploy/compose.team-ppt-create-provider.yaml`：该 overlay 仅向 `ppt-create-worker` 注入固定 HTTPS endpoint、provider ID、model 与文件型 token。调用方只能在 `kind: "prompt"` 的 JSON 中选择已经注册的 `providerId`，不能提供 URL、模型、凭据或任意请求头；HTTP 调用禁止重定向，响应限制为 512 KiB，并必须返回通过 `PresentationBrief 1.0`、来源及逐 section 引用校验的数据。未配置、未知或失败的 Provider 会失败关闭，不会静默退回本地生成。启用时需在原 Compose 文件后追加该 overlay，并设置 `COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_*`；token 只通过 `COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN_FILE` 挂载。
 
+需要注册多个内容 Provider 时，改用 `COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDERS_FILE` 指向只读 JSON 配置，并且不得同时设置旧的单 Provider 环境变量。配置格式为 `{ "version": "1.0", "providers": [{ "id": "research-a", "endpoint": "https://provider.example/generate", "model": "approved-model", "tokenFile": "/run/secrets/research-a-token", "timeoutMs": 30000 }] }`；最多八项，`tokenFile` 必须指向普通非符号链接文件，配置中不得内联 token。Local Runtime 的 `ppt draft` / `ppt compose` 也可通过成对的 `--provider-config <workspace-json> --provider-id <id>` 使用同一合同，配置和 token 文件必须位于已批准工作区内。
+
 ```powershell
 $env:COMMON_TOOLS_TEAM_CAPABILITIES = 'project-audit'
 docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml --profile team-infra --profile team-api --profile team-worker-audit up -d --build --wait

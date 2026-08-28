@@ -16,10 +16,11 @@ const { CAPABILITY: PPT_IMPROVE_CAPABILITY, createPptImproveJob, runPptImproveJo
 const { CAPABILITY: PPT_CREATE_CAPABILITY, createPptCreateJob, runPptCreateJob } = require("../../ppt-create-core");
 const { persistEditorPatch, writeEditorPreview } = require("../../ppt-create-core/editor");
 const { createImageDeliveryArtifacts } = require("../../ppt-create-core/image-delivery");
-const { exportEditedIrArtifacts, persistIrEditorPatch } = require("../../ppt-create-core/ir-editor");
+const { applyAndExportIrArtifacts, exportEditedIrArtifacts, persistIrEditorPatch } = require("../../ppt-create-core/ir-editor");
+const { loadContentProviderConfig } = require("../../ppt-create-core/content-provider-config");
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { persistPresentationPlan } = require("../../ppt-create-core/planner");
-const { persistPromptPlan, promptToPresentation } = require("../../ppt-create-core/prompt");
+const { persistPromptPlan, persistPromptPlanAsync, promptToPresentation, promptToPresentationAsync } = require("../../ppt-create-core/prompt");
 const { persistDocumentPlan } = require("../../ppt-create-core/document-ingest");
 const { extractPdfLayout, extractPdfText } = require("../../ppt-create-core/pdf-text");
 const { createPptCreateArchive } = require("../../ppt-create-core/team-archive");
@@ -46,7 +47,7 @@ const COMMAND_USAGE = [
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
   "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team raw-image-archive --input <png|jpg> --out <archive.tar.gz> | team production-preflight | team keycloak-mcp-client [--apply --backup-file <new.json>]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
-  "  editable init|create|run|apply-edit | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|apply-edit|apply-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|audit-only] | job get|run|cancel"
+  "  editable init|create|run|apply-edit | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose [--provider-config <json> --provider-id <id>]|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|apply-edit|apply-ir-edit|finalize-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|layout-safe|typography-safe|editability-safe|audit-only] | job get|run|cancel"
 ].join("\n");
 
 function parse(argv) { const result = { _: [] }; for (let index = 0; index < argv.length; index += 1) { const item = argv[index]; if (!item.startsWith("--")) { result._.push(item); continue; } const next = argv[index + 1]; if (next && !next.startsWith("--")) { result[item.slice(2)] = next; index += 1; } else result[item.slice(2)] = true; } return result; }
@@ -727,15 +728,22 @@ async function mainWithPptQuality() {
       deckVariantCount: args["deck-variants"] === undefined ? undefined : Number(args["deck-variants"]),
       closing: args.closing === undefined ? [] : String(args.closing).split("|").map((item) => item.trim()).filter(Boolean)
     };
+    if ((args["provider-config"] === undefined) !== (args["provider-id"] === undefined)) throw new Error("ppt content provider requires both --provider-config and --provider-id");
+    if (args["provider-config"] !== undefined) {
+      promptOptions.contentProviderId = args["provider-id"];
+      promptOptions.contentProviderRegistry = loadContentProviderConfig({ configFile: args["provider-config"], allowedRoot: ctx.workspaceRoot });
+    }
     if (action === "draft") {
-      const result = persistPromptPlan({ workspaceRoot: ctx.workspaceRoot, input: args.input, output: args.out, outputFormat: args["output-format"], ...promptOptions });
+      const result = args["provider-config"] === undefined
+        ? persistPromptPlan({ workspaceRoot: ctx.workspaceRoot, input: args.input, output: args.out, outputFormat: args["output-format"], ...promptOptions })
+        : await persistPromptPlanAsync({ workspaceRoot: ctx.workspaceRoot, input: args.input, output: args.out, outputFormat: args["output-format"], ...promptOptions });
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return 0;
     }
     const source = resolveWorkspaceChild(ctx.workspaceRoot, args.input, "--input");
     const info = fs.lstatSync(source);
     if (!info.isFile() || info.isSymbolicLink() || info.size < 1 || info.size > 256 * 1024 || ![".md", ".markdown", ".txt"].includes(path.extname(source).toLowerCase())) throw new Error("ppt compose input must be a bounded, non-symbolic text or Markdown file");
-    const generated = promptToPresentation(fs.readFileSync(source, "utf8"), promptOptions);
+    const generated = args["provider-config"] === undefined ? promptToPresentation(fs.readFileSync(source, "utf8"), promptOptions) : await promptToPresentationAsync(fs.readFileSync(source, "utf8"), promptOptions);
     const temporarySpec = path.join(ctx.workspaceRoot, `.common-tools-compose-${crypto.randomUUID()}.json`);
     try {
       fs.writeFileSync(temporarySpec, `${JSON.stringify(generated.spec, null, 2)}\n`, { flag: "wx", mode: 0o600 });
@@ -792,6 +800,13 @@ async function mainWithPptQuality() {
     if (!args.input || !args.out) throw new Error("ppt export-ir requires --input and --out");
     requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);
     const result = exportEditedIrArtifacts({ workspaceRoot: ctx.workspaceRoot, input: args.input, output: args.out, template: args.template, buildPptx: buildCreatedPptx, buildPdf: buildPdfWithLibreOffice });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return 0;
+  }
+  if (area === "ppt" && action === "finalize-ir-edit") {
+    if (!args.input || !args.patch || !args.out) throw new Error("ppt finalize-ir-edit requires --input, --patch and --out");
+    requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);
+    const result = applyAndExportIrArtifacts({ workspaceRoot: ctx.workspaceRoot, input: args.input, patch: args.patch, output: args.out, template: args.template, buildPptx: buildCreatedPptx, buildPdf: buildPdfWithLibreOffice });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return 0;
   }

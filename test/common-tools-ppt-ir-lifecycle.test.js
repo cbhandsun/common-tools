@@ -23,6 +23,32 @@ test("editable IR lifecycle adds, duplicates, and deletes bounded objects", () =
   assert.notEqual(result.revision, deckIrFingerprint(source));
 });
 
+test("editable IR lifecycle adds shapes, replaces local image paths, and manages pages", () => {
+  const source = deck();
+  source.pages[0].images.push({ id: "hero", type: "image", assetPath: "assets/old.png", box: { x: 500, y: 100, w: 300, h: 220 } });
+  const result = applyIrEditorPatch(source, patch(source, [
+    { type: "add-shape-object", pageIndex: 0, objectId: "callout", shapeType: "roundRect", box: { x: 40, y: 180, w: 200, h: 80 } },
+    { type: "set-image-asset", pageIndex: 0, objectId: "hero", assetPath: "assets/new.png" },
+    { type: "duplicate-page", pageIndex: 0, insertAt: 1 },
+    { type: "add-blank-page", insertAt: 2 },
+    { type: "move-page", pageIndex: 2, toIndex: 1 },
+    { type: "delete-page", pageIndex: 2 }
+  ]));
+  assert.equal(result.ir.pages.length, 2);
+  assert.deepEqual(result.ir.pages.map((page) => page.pageIndex), [0, 1]);
+  assert.equal(result.ir.pages[0].shapes.at(-1).id, "callout");
+  assert.equal(result.ir.pages[0].images[0].assetPath, "assets/new.png");
+  assert.equal(result.ir.pages[1].textBoxes.length, 0);
+  assert.ok(result.checks.some((check) => check.name === "ir-page-lifecycle-validated"));
+});
+
+test("editable page lifecycle rejects last-page deletion and invalid positions", () => {
+  const source = deck();
+  assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "delete-page", pageIndex: 0 }])), /retain one page/u);
+  assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "add-blank-page", insertAt: 2 }])), /insertion/u);
+  assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-image-asset", pageIndex: 0, objectId: "title", assetPath: "https://example.test/x.png" }])), /image asset/u);
+});
+
 test("editable IR lifecycle rejects duplicate ids, unsafe ids, missing targets, and out-of-slide copies", () => {
   const source = deck();
   assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "add-text-object", pageIndex: 0, objectId: "title", box: { x: 1, y: 1, w: 10, h: 10 }, value: "x" }])), /object id/);
@@ -39,5 +65,7 @@ test("editable IR preview blocks network access and refuses empty or oversized d
   assert.match(html, /nonce="[A-Za-z0-9+/=]+"/u);
   assert.match(html, /TextEncoder/);
   assert.match(html, /补丁为空或超出安全限制/u);
+  for (const marker of ["addText", "addShape", "duplicateObject", "deleteObject", "replaceImage", "addPage", "duplicatePage", "deletePage", "pageUp", "pageDown"]) assert.match(html, new RegExp(marker));
+  assert.match(html, /page\+":"\+id/u);
   assert.doesNotMatch(html, /unsafe-inline/u);
 });

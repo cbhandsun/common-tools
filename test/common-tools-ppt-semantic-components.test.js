@@ -53,3 +53,14 @@ test("analysis canvas persists semantic component identity while keeping native 
   assert.equal(page.shapes.filter((shape) => shape.id.endsWith("-analysis")).length, 4);
   assert.equal(page.images.length, 0);
 });
+
+test("roadmap, gantt, architecture and deep hierarchy keep distinct native geometry", () => {
+  const roadmap = planSemanticAnalysis(visual("roadmap", 5), bounds);
+  const gantt = planSemanticAnalysis(visual("gantt", 5), bounds);
+  const architecture = planSemanticAnalysis(visual("architecture", 4, [{ id: "a1", from: "n1", to: "n2" }, { id: "a2", from: "n2", to: "n3" }, { id: "a3", from: "n3", to: "n4" }]), bounds);
+  const hierarchy = planSemanticAnalysis(visual("decision-tree", 4, [{ id: "h1", from: "n1", to: "n2" }, { id: "h2", from: "n2", to: "n3" }, { id: "h3", from: "n3", to: "n4" }]), bounds);
+  assert.deepEqual([roadmap.component, gantt.component, architecture.component, hierarchy.component], ["roadmap", "gantt", "architecture", "hierarchy"]);
+  assert.notDeepEqual(roadmap.nodes.map((node) => node.box), gantt.nodes.map((node) => node.box));
+  assert.equal(new Set(hierarchy.nodes.map((node) => node.box.y)).size, 4);
+  assert.equal(new Set(architecture.nodes.map((node) => node.box.x)).size, 4);
+});

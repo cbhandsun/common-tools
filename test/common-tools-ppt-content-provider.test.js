@@ -2,9 +2,11 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { ContentProviderRegistry, MAX_PROVIDER_RESPONSE_BYTES, createHttpsJsonContentProvider } = require("../packages/ppt-create-core/content-provider");
+const { loadContentProviderConfig } = require("../packages/ppt-create-core/content-provider-config");
 const { promptToPresentationAsync } = require("../packages/ppt-create-core/prompt");
 
 function providerResult(request) {
@@ -44,4 +46,19 @@ test("content provider deployment overlay mounts a file token only into the PPT 
   assert.match(overlay, /ppt-create-worker:/u); assert.match(overlay, /COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN_FILE: \/run\/secrets\//u);
   assert.match(overlay, /COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN: !reset null/u); assert.doesNotMatch(overlay, /COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN: \$\{/u);
   assert.equal((overlay.match(/common_tools_ppt_create_content_provider_token:/gu) || []).length, 1);
+});
+
+test("content provider config loads multiple bounded providers with file-only secrets", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-content-providers-"));
+  try {
+    fs.writeFileSync(path.join(root, "alpha.token"), "alpha-secret\n");
+    fs.writeFileSync(path.join(root, "beta.token"), "beta-secret\n");
+    fs.writeFileSync(path.join(root, "providers.json"), JSON.stringify({ version: "1.0", providers: [
+      { id: "alpha", endpoint: "https://alpha.example.test/generate", model: "a1", tokenFile: "alpha.token", timeoutMs: 5000 },
+      { id: "beta", endpoint: "https://beta.example.test/generate", model: "b1", tokenFile: "beta.token" }
+    ] }));
+    const registry = loadContentProviderConfig({ configFile: "providers.json", allowedRoot: root, fetchImpl: async () => { throw new Error("not called"); } });
+    assert.deepEqual(registry.ids(), ["alpha", "beta"]);
+    assert.throws(() => loadContentProviderConfig({ configFile: "../outside.json", allowedRoot: root }), /outside/u);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

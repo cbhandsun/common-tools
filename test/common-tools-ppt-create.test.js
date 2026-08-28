@@ -205,6 +205,17 @@ test("ppt-create routing and remote upload boundaries are explicit", () => {
   assert.throws(() => workerSettings({ COMMON_TOOLS_WORKER_CAPABILITIES: "ppt-create", COMMON_TOOLS_WORKER_POLL_SECONDS: "0" }), /between 1 and 60/);
 });
 
+test("PPT create worker accepts a multi-provider config and rejects mixed legacy settings", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-worker-providers-"));
+  try {
+    const token = path.join(root, "provider.token"); const config = path.join(root, "providers.json");
+    fs.writeFileSync(token, "secret\n");
+    fs.writeFileSync(config, JSON.stringify({ version: "1.0", providers: [{ id: "provider-a", endpoint: "https://provider.example.test/generate", model: "m1", tokenFile: token }] }));
+    assert.deepEqual(loadContentProviderRegistry({ COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDERS_FILE: config }).ids(), ["provider-a"]);
+    assert.throws(() => loadContentProviderRegistry({ COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDERS_FILE: config, COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_ID: "legacy" }), /ambiguous/u);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("local MCP creates a ppt-create job and returns only its verified creation summary", () => {
   const root = temporaryWorkspace();
   try {

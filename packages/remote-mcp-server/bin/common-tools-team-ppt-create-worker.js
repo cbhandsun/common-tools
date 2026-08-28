@@ -6,6 +6,7 @@ const path = require("node:path");
 const { TeamWorker, TeamWorkerRunner, loadTeamConfig, recoverWorkerLeases } = require("../../team-runtime");
 const { createPptCreateHandler } = require("../../ppt-create-core/team-worker");
 const { ContentProviderRegistry, createHttpsJsonContentProvider } = require("../../ppt-create-core/content-provider");
+const { loadContentProviderConfig } = require("../../ppt-create-core/content-provider-config");
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
 const { createTeamProviderBundle, loadTeamSecrets, optionalSecretFromEnvironment, startWorkerHeartbeat } = require("../team-providers");
@@ -20,11 +21,16 @@ function workerSettings(environment = process.env) {
   return Object.freeze({ pollSeconds, workerId });
 }
 function loadContentProviderRegistry(environment = process.env) {
+  const configFile = environment.COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDERS_FILE;
   const id = environment.COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_ID;
   const endpoint = environment.COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_ENDPOINT;
   const model = environment.COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_MODEL;
   const tokenConfigured = Boolean(environment.COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN?.trim() || environment.COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN_FILE);
   const configured = [id, endpoint, model].some((value) => typeof value === "string" && value.trim()) || tokenConfigured;
+  if (configFile) {
+    if (configured) throw new Error("PPT creation content provider configuration is ambiguous");
+    return loadContentProviderConfig({ configFile });
+  }
   if (!configured) return new ContentProviderRegistry();
   if (![id, endpoint, model].every((value) => typeof value === "string" && value.trim()) || !tokenConfigured) throw new Error("PPT creation content provider configuration is incomplete");
   const timeoutMs = Number(environment.COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TIMEOUT_MS || 30_000);

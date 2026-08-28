@@ -138,6 +138,7 @@ test("Office workflow is scheduled, manually selectable, serialized and isolated
   const workflow = fs.readFileSync(path.join(root, ".github", "workflows", "ppt-office-regression.yml"), "utf8");
   assert.match(workflow, /schedule:/u);
   assert.match(workflow, /pull_request:/u);
+  assert.match(workflow, /push:[\s\S]*branches:[\s\S]*- main/u);
   assert.match(workflow, /github[.]event_name == 'pull_request' && 'smoke'/u);
   assert.match(workflow, /workflow_dispatch:/u);
   assert.match(workflow, /runs-on: \[self-hosted, Windows, X64, slideclone-office\]/u);

@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { createImageDeliveryArtifacts, createPreservationPlan } = require("../packages/ppt-create-core/image-delivery");
-const { applyIrEditorPatch, createIrPreviewHtml, exportEditedIrArtifacts, persistIrEditorPatch } = require("../packages/ppt-create-core/ir-editor");
+const { applyAndExportIrArtifacts, applyIrEditorPatch, createIrPreviewHtml, exportEditedIrArtifacts, persistIrEditorPatch } = require("../packages/ppt-create-core/ir-editor");
 const { deckIrFingerprint } = require("../packages/ppt-create-core/export");
 
 function sampleIr(assetPath = "../assets/pixel.png") {
@@ -124,5 +124,18 @@ test("edited IR exports a new self-contained PPTX, PDF, HTML and preview bundle"
     assert.equal(result.report.passed, true); assert.equal(result.report.pageCount, 1);
     for (const file of Object.values(result.files)) assert.equal(fs.statSync(file).isFile(), true);
     assert.throws(() => exportEditedIrArtifacts({ workspaceRoot: root, input, output: path.join(root, "exported"), buildPptx() {}, buildPdf() {} }), /new child/u);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("IR edit finalization applies a revision-bound patch and exports in one operation", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ir-finalize-"));
+  try {
+    const input = path.join(root, "deck.json"); const patchFile = path.join(root, "edit.patch.json"); const ir = sampleIr(); ir.pages[0].images = [];
+    fs.writeFileSync(input, JSON.stringify(ir));
+    fs.writeFileSync(patchFile, JSON.stringify({ version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [{ type: "set-text", pageIndex: 0, objectId: "title", value: "Final title" }] }));
+    const result = applyAndExportIrArtifacts({ workspaceRoot: root, input, patch: patchFile, output: path.join(root, "final"), buildPptx: ({ outFile }) => fs.writeFileSync(outFile, Buffer.concat([Buffer.from("PK\u0003\u0004"), Buffer.alloc(64, 1)])), buildPdf: fakePdf });
+    assert.equal(result.operationCount, 1); assert.equal(result.report.passed, true);
+    assert.equal(JSON.parse(fs.readFileSync(result.files.irFile, "utf8")).pages[0].textBoxes[0].text, "Final title");
+    assert.equal(fs.readdirSync(root).some((name) => name.startsWith(".common-tools-ir-edit-")), false);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
   "capability": "ppt-create",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "toolNames": ["create_ppt_create_job", "get_ppt_create_report"],
   "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
   "requiredWorkerProfile": "ppt-create",
@@ -15,5 +15,5 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker.js"
     }
   },
-  "contentSha256": "a637f2986d27847b84e368e4f83f10122d11a58b50ce7666944489286bb7c630"
+  "contentSha256": "93b5eeb9d74b2656e7936551ce9604947b9da2d57f3aa083624a79ae8f1343a5"
 }

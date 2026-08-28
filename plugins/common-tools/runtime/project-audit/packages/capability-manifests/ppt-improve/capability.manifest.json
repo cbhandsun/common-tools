@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
   "capability": "ppt-improve",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "toolNames": ["create_ppt_improve_job", "get_ppt_improve_report"],
   "dependencies": ["ppt-quality"],
   "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
@@ -16,5 +16,5 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-ppt-improve-worker.js"
     }
   },
-  "contentSha256": "2bb00b0716250f4582e2592247a23ab5c7f602e25a4a712c3e4594e353db5ba9"
+  "contentSha256": "84c6bd651517452d608139771973154dd949f7d110b6d9e57180d081fb3e3635"
 }

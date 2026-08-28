@@ -169,4 +169,19 @@ function persistPromptPlan({ workspaceRoot, input, output, outputFormat = "spec"
   return Object.freeze({ output: outputFile, report: result.report });
 }
 
-module.exports = { MAX_PROMPT_BYTES, MAX_PROMPT_CHARACTERS, SUPPORTED_PROMPT_EXTENSIONS, applyProviderCitations, createGenerationManifest, deterministicBrief, finalizePromptPresentation, normalizeProviderEnvelope, persistPromptPlan, promptRequest, promptToPresentation, promptToPresentationAsync, proseOutline, validateGenerationManifest };
+async function persistPromptPlanAsync({ workspaceRoot, input, output, outputFormat = "spec", ...options }) {
+  const inputFile = insideRoot(workspaceRoot, input);
+  const outputFile = insideRoot(workspaceRoot, output);
+  const info = fs.lstatSync(inputFile);
+  if (!info.isFile() || info.isSymbolicLink() || info.size < 1 || info.size > MAX_PROMPT_BYTES || !SUPPORTED_PROMPT_EXTENSIONS.includes(path.extname(inputFile).toLowerCase())) throw new Error("ppt draft input must be a bounded, non-symbolic text or Markdown file");
+  if (fs.existsSync(outputFile) || path.extname(outputFile).toLowerCase() !== ".json") throw new Error("ppt draft output must be a new JSON file");
+  const parent = insideRoot(workspaceRoot, path.dirname(outputFile));
+  if (!fs.existsSync(parent) || !fs.statSync(parent).isDirectory()) throw new Error("ppt draft output parent is unavailable");
+  if (!["brief", "spec"].includes(outputFormat)) throw new Error("ppt draft outputFormat must be brief or spec");
+  const prompt = boundedText(fs.readFileSync(inputFile, "utf8"), "presentation prompt", MAX_PROMPT_CHARACTERS, true);
+  const result = await promptToPresentationAsync(prompt, options);
+  fs.writeFileSync(outputFile, `${JSON.stringify(outputFormat === "brief" ? result.brief : result.spec, null, 2)}\n`, { flag: "wx", mode: 0o600 });
+  return Object.freeze({ output: outputFile, report: result.report });
+}
+
+module.exports = { MAX_PROMPT_BYTES, MAX_PROMPT_CHARACTERS, SUPPORTED_PROMPT_EXTENSIONS, applyProviderCitations, createGenerationManifest, deterministicBrief, finalizePromptPresentation, normalizeProviderEnvelope, persistPromptPlan, persistPromptPlanAsync, promptRequest, promptToPresentation, promptToPresentationAsync, proseOutline, validateGenerationManifest };
