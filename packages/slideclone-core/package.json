@@ -8,6 +8,7 @@
     "./config-validation": "./config-validation.js",
     "./image-size": "./image-size.js",
     "./team-ocr-profile": "./team-ocr-profile.js",
+    "./team-native-rebuild": "./team-native-rebuild.js",
     "./team-raw-image-archive": "./team-raw-image-archive.js",
     "./team-worker": "./team-worker.js"
   },

@@ -14,6 +14,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 COPY packages ./packages
+COPY skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js ./skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js
+COPY skills/pd-hifi-slideclone/scripts/lib ./skills/pd-hifi-slideclone/scripts/lib
+COPY skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet.js ./skills/pd-hifi-slideclone/scripts/adapters/
 # Keep the runtime image independent from a second remote base image.  The SDK
 # stage already contains the exact runtime used to publish OpenXmlDeckBuilder;
 # copy only the runtime host and shared framework, never the SDK itself.

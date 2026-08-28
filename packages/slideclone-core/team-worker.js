@@ -7,6 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { MAX_ARCHIVE_BYTES, extractProjectArchive } = require("../project-audit-core/team-worker");
 const { assertQualityReport } = require("../capability-contracts");
+const { nativeObjectMetrics } = require("./team-native-rebuild");
 
 const MAX_DECK_BYTES = 1024 * 1024;
 const MAX_PAGES = 50;
@@ -136,20 +137,6 @@ function readRawImageDimensions(file, extension) {
   }
   throw new Error("raw editable JPEG dimensions are invalid");
 }
-function rawImageDeck(metadata, ocr) {
-  const items = Array.isArray(ocr?.lines) ? ocr.lines : [];
-  if (items.length > 10000) throw new Error("raw editable OCR result exceeds limits");
-  const widthPt = 960;
-  const heightPt = Math.max(72, Math.min(4000, Math.round(widthPt * metadata.dimensions.heightPx / metadata.dimensions.widthPx)));
-  const scaleX = widthPt / metadata.dimensions.widthPx; const scaleY = heightPt / metadata.dimensions.heightPx;
-  const textBoxes = items.map((line, index) => {
-    if (!line || typeof line.text !== "string" || !line.text.trim() || !line.box || !["x", "y", "w", "h"].every((key) => Number.isFinite(line.box[key]))) throw new Error("raw editable OCR result is invalid");
-    const box = { x: line.box.x * scaleX, y: line.box.y * scaleY, w: line.box.w * scaleX, h: line.box.h * scaleY };
-    if (box.x < 0 || box.y < 0 || box.w <= 0 || box.h <= 0 || box.x + box.w > widthPt || box.y + box.h > heightPt) throw new Error("raw editable OCR box is invalid");
-    return { id: `ocr-${index + 1}`, role: "body", text: line.text.trim(), box, font: { family: "Arial", sizePt: Math.max(6, Math.min(36, box.h * 0.72)), color: "#111111", opacity: 0 }, style: { visibility: "hidden", opacity: 0 }, source: { ocrProvider: "team-pinned-ocr", editable: true, overlayVisibility: "hidden" } };
-  });
-  return { version: "1.0", slideSize: { widthPt, heightPt }, pages: [{ pageIndex: 0, background: { fill: "#FFFFFF" }, textBoxes, shapes: [], images: [{ id: "source-background", type: "source-background", box: { x: 0, y: 0, w: widthPt, h: heightPt }, assetPath: metadata.assetPath, style: { opacity: 1, assetPath: metadata.assetPath, strategy: "full-slide-underlay" }, source: { editable: false, nonEditableReason: "Full-slide underlay preserves visual fidelity while OCR text is rebuilt as hidden editable overlay text." } }], tables: [], charts: [], icons: [] }] };
-}
 function runBuilder({ executable, builderArgs = [], deckFile, outputFile, cwd, timeoutMs }) {
   if (typeof executable !== "string" || !path.isAbsolute(executable)) throw new Error("OpenXML builder executable is invalid");
   if (!Array.isArray(builderArgs) || builderArgs.some((arg) => typeof arg !== "string" || !arg)) throw new TypeError("OpenXML builder arguments are invalid");
@@ -157,7 +144,7 @@ function runBuilder({ executable, builderArgs = [], deckFile, outputFile, cwd, t
     childProcess.execFile(executable, [...builderArgs, "--ir", deckFile, "--out", outputFile, "--powerpoint-safe", "true"], { cwd, windowsHide: true, timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error) => error ? reject(error) : resolve());
   });
 }
-function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.tmpdir(), builderExecutable = process.env.OPENXML_BUILDER_EXE || "/opt/openxml/OpenXmlDeckBuilder", builderArgs = [], rawImageOcr, timeoutMs = 8 * 60 * 1000 } = {}) {
+function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.tmpdir(), builderExecutable = process.env.OPENXML_BUILDER_EXE || "/opt/openxml/OpenXmlDeckBuilder", builderArgs = [], rawImageOcr, rawImageRebuilder, timeoutMs = 8 * 60 * 1000 } = {}) {
   const store = assertObjectStore(objectStore);
   if (typeof temporaryRoot !== "string" || !path.isAbsolute(temporaryRoot)) throw new TypeError("temporaryRoot must be an absolute path");
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 30000 || timeoutMs > 9 * 60 * 1000) throw new RangeError("editable worker timeout is invalid");
@@ -172,13 +159,17 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       if (await isCancellationRequested()) throw new Error("editable job was cancelled");
       if (metadata.kind === "raw-image") {
         if (typeof rawImageOcr !== "function") throw new Error("raw editable image profile is not enabled for this worker");
+        if (typeof rawImageRebuilder !== "function") throw new Error("raw editable native rebuild profile is not enabled for this worker");
         const ocr = await rawImageOcr({ inputFile: metadata.inputFile, dimensions: metadata.dimensions, isCancellationRequested });
         if (await isCancellationRequested()) throw new Error("editable job was cancelled");
-        const generatedDeck = rawImageDeck(metadata, ocr);
+        const rebuilt = await rawImageRebuilder({ root, metadata, ocr, isCancellationRequested });
+        const generatedDeck = rebuilt?.deck;
         metadata.deckFile = path.join(root, "deck.json");
         fs.writeFileSync(metadata.deckFile, `${JSON.stringify(generatedDeck)}\n`, "utf8");
         const validated = validateDeckIr(generatedDeck, root);
-        metadata.pages = validated.pages; metadata.assets = validated.assets; metadata.ocrTextOverlays = generatedDeck.pages[0].textBoxes.length;
+        const nativeMetrics = nativeObjectMetrics(generatedDeck);
+        if (nativeMetrics.graphicalObjects < 1) throw new Error("native image rebuild produced no editable graphical objects");
+        metadata.pages = validated.pages; metadata.assets = validated.assets; metadata.nativeMetrics = nativeMetrics;
       }
       const outputFile = path.join(root, "deck.pptx");
       await runBuilder({ executable: builderExecutable, builderArgs, deckFile: metadata.deckFile, outputFile, cwd: root, timeoutMs });
@@ -188,9 +179,9 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       const artifact = { name: "deck.pptx", objectKey: `${job.outputPrefix}deck.pptx`, mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", body };
       await store.putObject({ objectKey: artifact.objectKey, body: artifact.body, contentType: artifact.mediaType });
       const raw = metadata.kind === "raw-image";
-      return { artifacts: [{ name: artifact.name, objectKey: artifact.objectKey, mediaType: artifact.mediaType, sha256: sha256(artifact.body) }], quality: assertQualityReport({ passed: !raw, checks: [{ name: raw ? "raw-image-validated" : "deck-ir-validated", passed: true }, { name: "assets-resolved", passed: true }, ...(raw ? [{ name: "quality-render-not-configured", passed: false }] : []), { name: "pptx-generated", passed: true }], metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "ocr-text-overlays": metadata.ocrTextOverlays || 0 } : {}), "pptx-bytes": body.length } }) };
+      return { artifacts: [{ name: artifact.name, objectKey: artifact.objectKey, mediaType: artifact.mediaType, sha256: sha256(artifact.body) }], quality: assertQualityReport({ passed: !raw, checks: [{ name: raw ? "raw-image-validated" : "deck-ir-validated", passed: true }, { name: "assets-resolved", passed: true }, ...(raw ? [{ name: "native-graphics-rebuilt", passed: (metadata.nativeMetrics?.graphicalObjects || 0) > 0 }, { name: "quality-render-not-configured", passed: false }] : []), { name: "pptx-generated", passed: true }], metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0 } : {}), "pptx-bytes": body.length } }) };
     } finally { fs.rmSync(root, { recursive: true, force: true, maxRetries: 2 }); }
   };
 }
 
-module.exports = { IMAGE_EXTENSIONS, MAX_DECK_BYTES, createImageToEditableArchiveHandler, rawImageDeck, readRawImageDimensions, safeAssetPath, validateDeckIr, validatePackage };
+module.exports = { IMAGE_EXTENSIONS, MAX_DECK_BYTES, createImageToEditableArchiveHandler, readRawImageDimensions, safeAssetPath, validateDeckIr, validatePackage };

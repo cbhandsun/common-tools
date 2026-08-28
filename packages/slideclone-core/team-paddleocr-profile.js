@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -41,9 +42,29 @@ function readPinnedPaddleOcrProfile(environment = process.env) {
     python: checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON", "COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON_SHA256"),
     adapter: checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER", "COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER_SHA256"),
     worker: checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER", "COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256"),
+    imageNormalizer: checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE_NORMALIZER", "COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE_NORMALIZER_SHA256"),
     healthcheckImage: checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK", "COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK_SHA256"),
     modelCacheDir
   });
+}
+function createPinnedPaddleImageNormalizer(profile, { execFile = childProcess.execFile } = {}) {
+  if (!profile || profile.enabled !== true || profile.kind !== "paddleocr" || typeof profile.python !== "string" || typeof profile.imageNormalizer !== "string" || typeof execFile !== "function") throw new TypeError("PaddleOCR image normalizer profile is invalid");
+  return async ({ inputFile, outputFile, dimensions, isCancellationRequested }) => {
+    if (![inputFile, outputFile].every((file) => typeof file === "string" && path.isAbsolute(file))
+      || !Number.isSafeInteger(dimensions?.widthPx) || !Number.isSafeInteger(dimensions?.heightPx)
+      || dimensions.widthPx < 1 || dimensions.heightPx < 1 || dimensions.widthPx > 16384 || dimensions.heightPx > 16384
+      || dimensions.widthPx * dimensions.heightPx > 40000000) throw new TypeError("PaddleOCR image normalizer request is invalid");
+    if (await isCancellationRequested?.()) throw new Error("editable job was cancelled");
+    await new Promise((resolve, reject) => {
+      execFile(profile.python, [profile.imageNormalizer, "--input", inputFile, "--output", outputFile, "--width", String(dimensions.widthPx), "--height", String(dimensions.heightPx)], {
+        windowsHide: true,
+        timeout: 120000,
+        maxBuffer: 64 * 1024,
+        env: { PATH: path.dirname(profile.python), PYTHONNOUSERSITE: "1", PYTHONDONTWRITEBYTECODE: "1" }
+      }, (error) => error ? reject(new Error("PaddleOCR image normalization failed")) : resolve());
+    });
+    if (await isCancellationRequested?.()) throw new Error("editable job was cancelled");
+  };
 }
 function polygonBox(polygon) {
   if (!Array.isArray(polygon) || polygon.length < 4 || polygon.length > 16) throw new Error("PaddleOCR result polygon is invalid");
@@ -103,4 +124,4 @@ async function verifyPinnedPaddleOcrProfile(profile, ocr) {
   return true;
 }
 
-module.exports = { EXPECTED_VERSIONS, PROFILE_NAME, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile };
+module.exports = { EXPECTED_VERSIONS, PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile };

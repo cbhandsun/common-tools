@@ -1,7 +1,6 @@
 ARG BASE_IMAGE=common-tools-image-to-editable:local
-FROM ${BASE_IMAGE}
+FROM node:22-bookworm-slim AS paddle-runtime
 
-USER root
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends python3 python3-venv libgomp1 libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
@@ -11,19 +10,19 @@ RUN python3 -m venv /opt/paddleocr/venv \
     && /opt/paddleocr/venv/bin/python -m pip install --no-cache-dir --upgrade pip \
     && /opt/paddleocr/venv/bin/python -m pip install --no-cache-dir --requirement /opt/paddleocr/requirements.lock.txt
 
-COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/python/paddleocr_worker.py /opt/paddleocr/paddleocr_worker.py
-COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local.js /opt/paddleocr/skill/scripts/adapters/ocr-paddleocr-local.js
-COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/lib/process-boundaries.js /opt/paddleocr/skill/scripts/lib/process-boundaries.js
-COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/lib/python-env.js /opt/paddleocr/skill/scripts/lib/python-env.js
-COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/lib/ocr-result-contract.js /opt/paddleocr/skill/scripts/lib/ocr-result-contract.js
-COPY --chown=worker:worker skills/pd-hifi-slideclone/examples/ocr-text-smoke.source.png /opt/paddleocr/healthcheck.png
+COPY skills/pd-hifi-slideclone/scripts/python/paddleocr_worker.py /opt/paddleocr/paddleocr_worker.py
+COPY skills/pd-hifi-slideclone/scripts/python/image_to_png.py /opt/paddleocr/image_to_png.py
+COPY skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local.js /opt/paddleocr/skill/scripts/adapters/ocr-paddleocr-local.js
+COPY skills/pd-hifi-slideclone/scripts/lib/process-boundaries.js /opt/paddleocr/skill/scripts/lib/process-boundaries.js
+COPY skills/pd-hifi-slideclone/scripts/lib/python-env.js /opt/paddleocr/skill/scripts/lib/python-env.js
+COPY skills/pd-hifi-slideclone/scripts/lib/ocr-result-contract.js /opt/paddleocr/skill/scripts/lib/ocr-result-contract.js
+COPY skills/pd-hifi-slideclone/examples/ocr-text-smoke.source.png /opt/paddleocr/healthcheck.png
 
 ENV PADDLE_PDX_CACHE_HOME=/opt/paddleocr/models
 ENV PADDLE_PDX_MODEL_SOURCE=BOS
 RUN mkdir -p /opt/paddleocr/models \
-    && chown -R worker:worker /opt/paddleocr
+    && chmod -R a+rX /opt/paddleocr
 
-USER worker
 # Initialize once while building so production inference is network-free and
 # the reviewed PP-OCRv6 small detection/recognition models are image content.
 RUN printf '' | /opt/paddleocr/venv/bin/python /opt/paddleocr/paddleocr_worker.py \
@@ -31,5 +30,25 @@ RUN printf '' | /opt/paddleocr/venv/bin/python /opt/paddleocr/paddleocr_worker.p
       --text-detection-model PP-OCRv6_small_det \
       --text-recognition-model PP-OCRv6_small_rec \
     | grep --fixed-strings '"type":"ready"'
+RUN /opt/paddleocr/venv/bin/python /opt/paddleocr/image_to_png.py \
+      --input /opt/paddleocr/healthcheck.png --output /tmp/normalized-healthcheck.png --width 960 --height 540 \
+    && test -s /tmp/normalized-healthcheck.png \
+    && rm /tmp/normalized-healthcheck.png
+
+FROM ${BASE_IMAGE}
+
+USER root
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends python3 libgomp1 libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=paddle-runtime --chown=worker:worker /opt/paddleocr /opt/paddleocr
+
+ENV PADDLE_PDX_CACHE_HOME=/opt/paddleocr/models
+ENV PADDLE_PDX_MODEL_SOURCE=BOS
+
+USER worker
 
 COPY --chown=worker:worker packages ./packages
+COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js ./skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js
+COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/lib ./skills/pd-hifi-slideclone/scripts/lib
+COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet.js ./skills/pd-hifi-slideclone/scripts/adapters/

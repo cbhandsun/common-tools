@@ -11,6 +11,12 @@
 !skills/pd-hifi-slideclone/dotnet/
 !skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/
 !skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/**
+!skills/pd-hifi-slideclone/scripts/
+!skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js
+!skills/pd-hifi-slideclone/scripts/lib/
+!skills/pd-hifi-slideclone/scripts/lib/**
+!skills/pd-hifi-slideclone/scripts/adapters/
+!skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet.js
 # `dotnet publish` runs inside the SDK stage. Local bin/ and obj/ outputs can
 # contain platform-specific OCR/ONNX binaries totaling multiple GiB; they are
 # neither reproducible image inputs nor safe to copy into the build context.

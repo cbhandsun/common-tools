@@ -7,7 +7,8 @@ const path = require("node:path");
 const { TeamWorker, TeamWorkerRunner, loadTeamConfig, recoverWorkerLeases } = require("../../team-runtime");
 const { createImageToEditableArchiveHandler } = require("../../slideclone-core/team-worker");
 const { createPinnedRawImageOcr, readPinnedRawImageOcrProfile, verifyPinnedRawImageOcrProfile } = require("../../slideclone-core/team-ocr-profile");
-const { PROFILE_NAME: PADDLE_PROFILE_NAME, createPinnedPaddleRawImageOcr, readPinnedPaddleOcrProfile, verifyPinnedPaddleOcrProfile } = require("../../slideclone-core/team-paddleocr-profile");
+const { createRawImageNativeRebuilder } = require("../../slideclone-core/team-native-rebuild");
+const { PROFILE_NAME: PADDLE_PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, readPinnedPaddleOcrProfile, verifyPinnedPaddleOcrProfile } = require("../../slideclone-core/team-paddleocr-profile");
 const { createTeamProviderBundle, loadTeamSecrets, startWorkerHeartbeat } = require("../team-providers");
 const { createOtlpTraceExporter, createTracedWorkerHandler, loadOtlpTraceConfig } = require("../telemetry");
 
@@ -33,6 +34,12 @@ function startupFailureCode(error) {
   return "provider-initialization";
 }
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
+function createNativeRebuilder(settings, { loadImplementation = () => require("../../../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native") } = {}) {
+  const implementation = loadImplementation();
+  if (typeof implementation?.rebuildDeckFromWorkDir !== "function") throw new Error("native image rebuild implementation is unavailable");
+  const normalizeImageFile = settings.rawImageOcrProfile.kind === "paddleocr" ? createPinnedPaddleImageNormalizer(settings.rawImageOcrProfile) : undefined;
+  return createRawImageNativeRebuilder({ rebuildDeckFromWorkDir: implementation.rebuildDeckFromWorkDir, normalizeImageFile });
+}
 async function main(environment = process.env) {
   const config = loadTeamConfig(environment);
   if (!config.enabledCapabilities.includes("image-to-editable")) throw new Error("image-to-editable is not enabled for this team deployment");
@@ -45,6 +52,7 @@ async function main(environment = process.env) {
     await verifyPinnedRawImageOcrProfile(settings.rawImageOcrProfile);
     rawImageOcr = createPinnedRawImageOcr(settings.rawImageOcrProfile);
   }
+  const rawImageRebuilder = settings.rawImageOcrProfile.enabled ? createNativeRebuilder(settings) : undefined;
   const bundle = await createTeamProviderBundle({ config, secrets: loadTeamSecrets(environment), allowCreateBucket: config.mode === "development" });
   const telemetryConfig = loadOtlpTraceConfig(environment);
   const traceExporter = telemetryConfig ? createOtlpTraceExporter(telemetryConfig) : undefined;
@@ -58,7 +66,7 @@ async function main(environment = process.env) {
     await workerHeartbeat.ready;
     const worker = new TeamWorker({
       repository: bundle.repository,
-      handlers: { "image-to-editable": createTracedWorkerHandler(createImageToEditableArchiveHandler({ objectStore: bundle.objectStore, builderExecutable: settings.builderExecutable, rawImageOcr }), { exporter: traceExporter, capability: "image-to-editable" }) },
+      handlers: { "image-to-editable": createTracedWorkerHandler(createImageToEditableArchiveHandler({ objectStore: bundle.objectStore, builderExecutable: settings.builderExecutable, rawImageOcr, rawImageRebuilder }), { exporter: traceExporter, capability: "image-to-editable" }) },
       leaseSeconds: config.workerLeaseSeconds
     });
     const runner = new TeamWorkerRunner({ queue: bundle.queue, worker, workerId: settings.workerId, capability: "image-to-editable", pollSeconds: settings.pollSeconds });
@@ -77,4 +85,4 @@ async function main(environment = process.env) {
 
 if (require.main === module) main().catch((error) => { process.stderr.write(`team image worker could not start (${startupFailureCode(error)})\n`); process.exitCode = 1; });
 
-module.exports = { main, pathIsFile, startupFailureCode, workerSettings };
+module.exports = { createNativeRebuilder, main, pathIsFile, startupFailureCode, workerSettings };

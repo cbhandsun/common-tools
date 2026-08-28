@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { EXPECTED_VERSIONS, PROFILE_NAME, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile } = require("../packages/slideclone-core/team-paddleocr-profile");
+const { EXPECTED_VERSIONS, PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile } = require("../packages/slideclone-core/team-paddleocr-profile");
 
 function environment(overrides = {}) {
   const fixture = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png");
@@ -16,6 +16,8 @@ function environment(overrides = {}) {
     COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER_SHA256: sha256File(__filename),
     COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER: __filename,
     COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256: sha256File(__filename),
+    COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE_NORMALIZER: __filename,
+    COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE_NORMALIZER_SHA256: sha256File(__filename),
     COMMON_TOOLS_IMAGE_PADDLEOCR_MODEL_CACHE: os.tmpdir(),
     COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK: fixture,
     COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK_SHA256: sha256File(fixture),
@@ -37,6 +39,21 @@ test("PaddleOCR result normalization rejects unsafe text and geometry", () => {
   assert.deepEqual(normalizeLines(valid, { widthPx: 100, heightPx: 100 }), { lines: [{ text: "你好", box: { x: 1, y: 2, w: 10, h: 6 } }] });
   assert.throws(() => normalizeLines([{ ...valid[0], polygon: [[99, 2], [110, 2], [110, 8], [99, 8]] }], { widthPx: 100, heightPx: 100 }), /geometry/);
   assert.throws(() => normalizeLines([{ ...valid[0], text: "" }], { widthPx: 100, heightPx: 100 }), /text/);
+});
+
+test("pinned image normalizer uses fixed arguments, a minimal environment, cancellation and sanitized failures", async () => {
+  const profile = readPinnedPaddleOcrProfile(environment());
+  const calls = [];
+  const normalizer = createPinnedPaddleImageNormalizer(profile, { execFile: (file, args, options, callback) => { calls.push({ file, args, options }); callback(null); } });
+  await normalizer({ inputFile: __filename, outputFile: path.join(os.tmpdir(), "normalized.png"), dimensions: { widthPx: 960, heightPx: 540 }, isCancellationRequested: async () => false });
+  assert.equal(calls[0].file, profile.python);
+  assert.deepEqual(calls[0].args.slice(0, 5), [profile.imageNormalizer, "--input", __filename, "--output", path.join(os.tmpdir(), "normalized.png")]);
+  assert.equal(calls[0].options.env.TEST_PADDLEOCR_SECRET, undefined);
+  await assert.rejects(() => normalizer({ inputFile: "relative.jpg", outputFile: path.join(os.tmpdir(), "x.png"), dimensions: { widthPx: 1, heightPx: 1 } }), /request is invalid/);
+  await assert.rejects(() => normalizer({ inputFile: __filename, outputFile: path.join(os.tmpdir(), "x.png"), dimensions: { widthPx: 0, heightPx: 1 } }), /request is invalid/);
+  await assert.rejects(() => normalizer({ inputFile: __filename, outputFile: path.join(os.tmpdir(), "x.png"), dimensions: { widthPx: 1, heightPx: 1 }, isCancellationRequested: async () => true }), /cancelled/);
+  const failed = createPinnedPaddleImageNormalizer(profile, { execFile: (_file, _args, _options, callback) => callback(new Error("token=secret")) });
+  await assert.rejects(() => failed({ inputFile: __filename, outputFile: path.join(os.tmpdir(), "x.png"), dimensions: { widthPx: 1, heightPx: 1 } }), /^Error: PaddleOCR image normalization failed$/);
 });
 
 test("pinned PaddleOCR adapter uses fixed models, checks versions, warms startup and observes cancellation", async () => {
