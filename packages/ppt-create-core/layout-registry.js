@@ -3,8 +3,8 @@
 const MAX_VARIANTS = 3;
 const PRIORITIES = Object.freeze(["narrative", "metrics", "comparison", "process", "action"]);
 
-function layout(id, roles, family, silhouette, minimumItems, maximumItems, priorities, summaryMode = "optional") {
-  return Object.freeze({ id, roles: Object.freeze(roles), family, silhouette, minimumItems, maximumItems, priorities: Object.freeze(priorities), summaryMode });
+function layout(id, roles, family, silhouette, minimumItems, maximumItems, priorities, summaryMode = "optional", visualKinds) {
+  return Object.freeze({ id, roles: Object.freeze(roles), family, silhouette, minimumItems, maximumItems, priorities: Object.freeze(priorities), summaryMode, ...(visualKinds ? { visualKinds: Object.freeze(visualKinds) } : {}) });
 }
 
 const LAYOUT_REGISTRY = Object.freeze([
@@ -21,7 +21,15 @@ const LAYOUT_REGISTRY = Object.freeze([
   layout("process-linear-v1", ["process"], "sequence", "horizontal-flow", 2, 6, ["process"]),
   layout("process-stages-v1", ["process"], "sequence", "stepped-flow", 2, 6, ["process"]),
   layout("closing-centered-v1", ["closing"], "close", "centered", 0, 3, ["action", "narrative"]),
-  layout("closing-actions-v1", ["closing"], "close", "action-strip", 0, 3, ["action"])
+  layout("closing-actions-v1", ["closing"], "close", "action-strip", 0, 3, ["action"]),
+  layout("media-frame-v1", ["content"], "media", "media-right", 1, 4, ["narrative"], "optional", ["media"]),
+  layout("media-caption-v1", ["content"], "media", "media-stage", 1, 4, ["narrative"], "optional", ["media"]),
+  layout("table-focus-v1", ["content"], "data", "table-wide", 1, 4, ["metrics", "comparison", "narrative"], "optional", ["table"]),
+  layout("table-compact-v1", ["content"], "data", "table-insight", 1, 4, ["metrics", "comparison", "narrative"], "optional", ["table"]),
+  layout("chart-focus-v1", ["content", "metrics"], "data", "chart-wide", 1, 4, ["metrics", "comparison"], "optional", ["chart"]),
+  layout("chart-insight-v1", ["content", "metrics"], "data", "chart-insight", 1, 4, ["metrics", "comparison"], "optional", ["chart"]),
+  layout("analysis-canvas-v1", ["content"], "analysis", "analysis-grid", 1, 4, ["comparison", "process", "narrative"], "optional", ["analysis"]),
+  layout("analysis-steps-v1", ["content"], "analysis", "analysis-rail", 1, 4, ["comparison", "process", "narrative"], "optional", ["analysis"])
 ]);
 
 function stableHash(value) {
@@ -37,6 +45,7 @@ function validateLayoutRegistry(registry = LAYOUT_REGISTRY) {
     if (!Array.isArray(candidate.roles) || candidate.roles.length < 1 || candidate.roles.some((role) => typeof role !== "string")) throw new TypeError("layout registry contains invalid roles");
     if (!Number.isSafeInteger(candidate.minimumItems) || !Number.isSafeInteger(candidate.maximumItems) || candidate.minimumItems < 0 || candidate.maximumItems < candidate.minimumItems || candidate.maximumItems > 12) throw new TypeError("layout registry contains invalid capacity");
     if (!Array.isArray(candidate.priorities) || candidate.priorities.some((priority) => !PRIORITIES.includes(priority))) throw new TypeError("layout registry contains invalid priorities");
+    if (candidate.visualKinds !== undefined && (!Array.isArray(candidate.visualKinds) || candidate.visualKinds.length < 1 || candidate.visualKinds.some((kind) => !["media", "table", "chart", "analysis"].includes(kind)))) throw new TypeError("layout registry contains invalid visual kinds");
     ids.add(candidate.id);
   }
   return true;
@@ -47,7 +56,8 @@ function getLayout(id) {
   return candidate;
 }
 function compatible(candidate, slide) {
-  return candidate.roles.includes(slide.role) && slide.items.length >= candidate.minimumItems && slide.items.length <= candidate.maximumItems;
+  const visualCompatible = slide.visual ? candidate.visualKinds?.includes(slide.visual.kind) === true : candidate.visualKinds === undefined;
+  return visualCompatible && candidate.roles.includes(slide.role) && slide.items.length >= candidate.minimumItems && slide.items.length <= candidate.maximumItems;
 }
 function layoutScore(candidate, slide, seed, previousSilhouette) {
   let score = 1000;

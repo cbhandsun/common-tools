@@ -1,6 +1,7 @@
 "use strict";
 
 const { containsControlCharacter } = require("../capability-contracts");
+const { normalizeVisual } = require("./data-models");
 const { LAYOUT_REGISTRY, MAX_VARIANTS, PRIORITIES, getLayout } = require("./layout-registry");
 const { THEME_REGISTRY } = require("./theme-registry");
 
@@ -53,7 +54,7 @@ function validateRoleCapacity(role, items, slideIndex) {
 }
 function normalizedSlide(value, index, seenIds) {
   if (!plainObject(value)) throw new TypeError(`slide ${index + 1} must be an object`);
-  exactKeys(value, ["id", "role", "title", "summary", "items", "priority", "layout"], `slide ${index + 1}`);
+  exactKeys(value, ["id", "role", "title", "summary", "items", "priority", "layout", "visual"], `slide ${index + 1}`);
   const id = normalizedId(value.id, `slide-${index + 1}`, `slide ${index + 1} id`);
   if (seenIds.has(id)) throw new TypeError("slide ids must be unique");
   seenIds.add(id);
@@ -66,10 +67,11 @@ function normalizedSlide(value, index, seenIds) {
   const priority = value.priority === undefined ? ({ metrics: "metrics", comparison: "comparison", process: "process", closing: "action" }[value.role] || "narrative") : value.priority;
   if (typeof priority !== "string" || !PRIORITIES.includes(priority)) throw new TypeError(`slide ${index + 1} priority is invalid`);
   const layout = value.layout === undefined ? undefined : boundedString(value.layout, `slide ${index + 1} layout`, { maximum: 80 });
+  const visual = value.visual === undefined ? undefined : normalizeVisual(value.visual, `slide ${index + 1} visual`);
   if (layout !== undefined && !LAYOUTS.includes(layout)) throw new TypeError(`slide ${index + 1} layout is invalid`);
   if (layout !== undefined) {
     const selected = getLayout(layout);
-    if (!selected.roles.includes(value.role) || normalizedItems.length < selected.minimumItems || normalizedItems.length > selected.maximumItems) throw new TypeError(`slide ${index + 1} layout is incompatible with slide content`);
+    if (!selected.roles.includes(value.role) || normalizedItems.length < selected.minimumItems || normalizedItems.length > selected.maximumItems || (selected.visualKinds && !selected.visualKinds.includes(visual?.kind)) || (!selected.visualKinds && visual)) throw new TypeError(`slide ${index + 1} layout is incompatible with slide content`);
   }
   return Object.freeze({
     id,
@@ -78,6 +80,7 @@ function normalizedSlide(value, index, seenIds) {
     ...(value.summary === undefined ? {} : { summary: boundedString(value.summary, `slide ${index + 1} summary`, { maximum: 500 }) }),
     priority,
     ...(layout === undefined ? {} : { layout }),
+    ...(visual === undefined ? {} : { visual }),
     items: Object.freeze(normalizedItems)
   });
 }

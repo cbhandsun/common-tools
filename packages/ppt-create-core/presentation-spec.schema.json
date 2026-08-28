@@ -35,6 +35,54 @@
         "required": { "type": "boolean" }
       }
     },
+    "mediaVisual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "mediaType", "alt"],
+      "properties": {
+        "kind": { "const": "media" },
+        "mediaType": { "enum": ["image", "illustration", "icon"] },
+        "alt": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "caption": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "assetId": { "$ref": "#/$defs/safeId" },
+        "fit": { "enum": ["contain", "cover"] }
+      }
+    },
+    "tableVisual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "headers", "rows"],
+      "properties": {
+        "kind": { "const": "table" },
+        "headers": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "type": "string", "minLength": 1, "maxLength": 80 } },
+        "rows": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "type": "string", "minLength": 1, "maxLength": 120 } } },
+        "insight": { "type": "string", "minLength": 1, "maxLength": 240 }
+      }
+    },
+    "chartVisual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "type", "categories", "series"],
+      "properties": {
+        "kind": { "const": "chart" },
+        "type": { "enum": ["bar", "column", "line", "pie", "donut"] },
+        "categories": { "type": "array", "minItems": 2, "maxItems": 12, "items": { "type": "string", "minLength": 1, "maxLength": 80 } },
+        "series": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "type": "object", "additionalProperties": false, "required": ["name", "values"], "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 80 }, "values": { "type": "array", "minItems": 2, "maxItems": 12, "items": { "type": "number", "minimum": -1000000000, "maximum": 1000000000 } } } } },
+        "insight": { "type": "string", "minLength": 1, "maxLength": 240 }
+      }
+    },
+    "analysisVisual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "model", "entries"],
+      "properties": {
+        "kind": { "const": "analysis" },
+        "model": { "enum": ["swot", "quadrant", "funnel", "timeline"] },
+        "entries": { "type": "array", "minItems": 2, "maxItems": 8, "items": { "type": "object", "additionalProperties": false, "required": ["id", "label"], "properties": { "id": { "$ref": "#/$defs/safeId" }, "label": { "type": "string", "minLength": 1, "maxLength": 80 }, "detail": { "type": "string", "minLength": 1, "maxLength": 180 }, "group": { "type": "string", "minLength": 1, "maxLength": 24 } } } },
+        "insight": { "type": "string", "minLength": 1, "maxLength": 240 }
+      }
+    },
+    "visual": { "oneOf": [{ "$ref": "#/$defs/mediaVisual" }, { "$ref": "#/$defs/tableVisual" }, { "$ref": "#/$defs/chartVisual" }, { "$ref": "#/$defs/analysisVisual" }] },
     "slide": {
       "type": "object",
       "additionalProperties": false,
@@ -45,7 +93,8 @@
         "title": { "type": "string", "minLength": 1, "maxLength": 120 },
         "summary": { "type": "string", "minLength": 1, "maxLength": 500 },
         "priority": { "enum": ["narrative", "metrics", "comparison", "process", "action"] },
-        "layout": { "enum": ["cover-signal-v1", "cover-band-v1", "section-band-v1", "section-index-v1", "content-cards-v1", "content-editorial-v1", "metrics-row-v1", "metrics-focus-v1", "comparison-split-v1", "comparison-axis-v1", "process-linear-v1", "process-stages-v1", "closing-centered-v1", "closing-actions-v1"] },
+        "layout": { "enum": ["cover-signal-v1", "cover-band-v1", "section-band-v1", "section-index-v1", "content-cards-v1", "content-editorial-v1", "metrics-row-v1", "metrics-focus-v1", "comparison-split-v1", "comparison-axis-v1", "process-linear-v1", "process-stages-v1", "closing-centered-v1", "closing-actions-v1", "media-frame-v1", "media-caption-v1", "table-focus-v1", "table-compact-v1", "chart-focus-v1", "chart-insight-v1", "analysis-canvas-v1", "analysis-steps-v1"] },
+        "visual": { "$ref": "#/$defs/visual" },
         "items": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/item" } }
       },
       "allOf": [

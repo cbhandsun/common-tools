@@ -19,7 +19,9 @@ Both execution modes use this pipeline:
 
 Local execution reads a workspace-contained JSON file. Remote execution accepts the same JSON through the existing owner-scoped upload and job APIs. Only the transport, storage, queue, and worker composition differ. The core planner and output contract remain shared.
 
-The Runtime uses a repository-owned registry of four independently designed themes and fourteen semantic layouts. Content-aware selection produces one to three deterministic candidates from `seed`, semantic role, priority, item capacity, and adjacent-slide silhouette; a compatible explicit layout may override the first choice. Deck IR preserves the selected and candidate layout IDs. The implementation emits editable text and shapes and does not use third-party presentation assets or APIs. Output is written only to a new directory and includes `deck.ir.json`, `deck.pptx`, `ppt-create-report.json`, and `ppt-create-report.md`.
+The Runtime uses a repository-owned registry of four independently designed themes and twenty-two semantic layouts. Content-aware selection produces one to three deterministic candidates from `seed`, semantic role, priority, item capacity, visual kind, and adjacent-slide silhouette; a compatible explicit layout may override the first choice. Deck IR preserves the selected and candidate layout IDs. The implementation emits editable text and shapes and does not use third-party presentation assets or APIs. Output is written only to a new directory and includes `deck.ir.json`, `deck.pptx`, `ppt-create-report.json`, and `ppt-create-report.md`.
+
+The public spec may attach one bounded semantic visual to a slide. Tables become native editable PowerPoint tables, charts become native ChartParts with a hash-bound embedded workbook, and SWOT, quadrant, funnel, and timeline models become editable shapes and text. Media requests are represented as safe semantic slots containing alt text and an optional opaque asset ID; PresentationSpec does not accept local paths or remote URLs, and a slot is never reported as an embedded image.
 
 ## Consequences
 

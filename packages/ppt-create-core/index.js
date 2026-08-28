@@ -47,15 +47,22 @@ function qualityFor(spec, ir) {
   const candidateLayouts = ir.pages.reduce((total, page) => total + (Array.isArray(page.intent?.candidateLayoutIds) ? page.intent.candidateLayoutIds.length : 0), 0);
   const selectedLayoutsResolved = ir.pages.every((page) => typeof page.intent?.layoutId === "string" && page.intent.candidateLayoutIds?.includes(page.intent.layoutId));
   const layoutCandidatesAvailable = ir.pages.every((page) => Array.isArray(page.intent?.candidateLayoutIds) && page.intent.candidateLayoutIds.length >= 2);
+  const visualSlides = spec.slides.filter((slide) => slide.visual);
+  const resolvedVisuals = ir.pages.reduce((total, page) => total + page.tables.length + page.charts.length + page.shapes.filter((item) => /-(?:media-slot|media-stage|analysis|node)$/u.test(item.id)).length, 0);
+  const nativeTables = ir.pages.reduce((total, page) => total + page.tables.length, 0);
+  const nativeCharts = ir.pages.reduce((total, page) => total + page.charts.filter((chart) => chart.nativePayload?.dataVerified === true).length, 0);
+  const mediaSlots = spec.slides.filter((slide) => slide.visual?.kind === "media").length;
   const checks = [
     { name: "presentation-spec-valid", passed: true },
     { name: "required-facts-covered", passed: renderedFacts >= requiredFacts },
     { name: "editable-content-present", passed: editableObjects > 0 },
     { name: "slide-count-matches", passed: ir.pages.length === spec.slides.length },
     { name: "layout-candidates-available", passed: layoutCandidatesAvailable },
-    { name: "layout-selection-resolved", passed: selectedLayoutsResolved }
+    { name: "layout-selection-resolved", passed: selectedLayoutsResolved },
+    { name: "semantic-visuals-resolved", passed: resolvedVisuals >= visualSlides.length },
+    { name: "native-data-editable", passed: nativeTables === visualSlides.filter((slide) => slide.visual?.kind === "table").length && nativeCharts === visualSlides.filter((slide) => slide.visual?.kind === "chart").length }
   ];
-  return assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: ir.pages.length, "required-facts": requiredFacts, "rendered-facts": renderedFacts, "editable-objects": editableObjects, "candidate-layouts": candidateLayouts, "raster-images": 0 } });
+  return assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: ir.pages.length, "required-facts": requiredFacts, "rendered-facts": renderedFacts, "editable-objects": editableObjects, "candidate-layouts": candidateLayouts, "semantic-visuals": visualSlides.length, "native-tables": nativeTables, "native-charts": nativeCharts, "media-slots": mediaSlots, "raster-images": 0 } });
 }
 function creationReport(spec, quality, inputSha256, pptxSha256) {
   return Object.freeze({

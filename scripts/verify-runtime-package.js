@@ -20,6 +20,7 @@ const PPT_CREATE_RELEASE_FILES = Object.freeze([
   "packages/capability-manifests/ppt-create/capability.manifest.json",
   "packages/ppt-create-core/theme-registry.js",
   "packages/ppt-create-core/layout-registry.js",
+  "packages/ppt-create-core/data-models.js",
   "packages/ppt-create-core/layout.js",
   "packages/ppt-create-core/presentation-spec.schema.json",
   "plugins/common-tools/skills/ppt-create/SKILL.md"
@@ -170,12 +171,13 @@ function pptCreateLayoutProbe() {
     "const root=path.resolve(process.argv[1]);",
     "stage='manifest-load';const manifest=require(path.join(root,'packages','capability-manifests','ppt-create','capability.manifest.json'));",
     "const version=String(manifest.version||'').split('.').map(Number);",
-    "stage='registry-load';const themes=require(path.join(root,'packages','ppt-create-core','theme-registry.js'));const layouts=require(path.join(root,'packages','ppt-create-core','layout-registry.js'));const planner=require(path.join(root,'packages','ppt-create-core','layout.js'));const schema=require(path.join(root,'packages','ppt-create-core','presentation-spec.schema.json'));",
+    "stage='registry-load';const themes=require(path.join(root,'packages','ppt-create-core','theme-registry.js'));const layouts=require(path.join(root,'packages','ppt-create-core','layout-registry.js'));const models=require(path.join(root,'packages','ppt-create-core','data-models.js'));const planner=require(path.join(root,'packages','ppt-create-core','layout.js'));const schema=require(path.join(root,'packages','ppt-create-core','presentation-spec.schema.json'));",
     "stage='source-read';const skill=fs.readFileSync(path.join(root,'plugins','common-tools','skills','ppt-create','SKILL.md'),'utf8');",
     "stage='plan';const input={version:'1.0',title:'Release probe',theme:'clean-light-v1',seed:'release-probe',variantCount:3,slides:[{id:'cover',role:'cover',title:'Release probe'}]};const first=planner.createLayoutPlan(input);const second=planner.createLayoutPlan(input);",
-    "const versionReady=version.length===3&&version.every(Number.isSafeInteger)&&(version[0]>0||version[1]>1||(version[1]===1&&version[2]>=2));",
+    "stage='data-model';const chart=models.normalizeVisual({kind:'chart',type:'column',categories:['A','B'],series:[{name:'Value',values:[1,2]}]},'probe chart');const payload=models.nativeChartPayload(chart,{barFill:'#175CD3'});",
+    "const versionReady=version.length===3&&version.every(Number.isSafeInteger)&&(version[0]>0||version[1]>1||(version[1]===1&&version[2]>=3));",
     "const candidates=first.pages&&first.pages[0]&&first.pages[0].candidates;",
-    "const checks=[['capability-version',versionReady],['theme-registry',Array.isArray(themes.THEME_REGISTRY)&&themes.THEME_REGISTRY.length>=4],['layout-registry',Array.isArray(layouts.LAYOUT_REGISTRY)&&layouts.LAYOUT_REGISTRY.length>=14],['layout-export',typeof planner.createLayoutPlan==='function'],['candidate-bounds',Array.isArray(candidates)&&candidates.length>=2&&candidates.length<=3],['deterministic-plan',JSON.stringify(first)===JSON.stringify(second)],['schema-variant-bound',schema.properties&&schema.properties.variantCount&&schema.properties.variantCount.maximum===3],['marketplace-skill-gate',skill.includes('layout-candidates-available')&&skill.includes('layout-selection-resolved')]];",
+    "const checks=[['capability-version',versionReady],['theme-registry',Array.isArray(themes.THEME_REGISTRY)&&themes.THEME_REGISTRY.length>=4],['layout-registry',Array.isArray(layouts.LAYOUT_REGISTRY)&&layouts.LAYOUT_REGISTRY.length>=22],['layout-export',typeof planner.createLayoutPlan==='function'],['candidate-bounds',Array.isArray(candidates)&&candidates.length>=2&&candidates.length<=3],['deterministic-plan',JSON.stringify(first)===JSON.stringify(second)],['schema-variant-bound',schema.properties&&schema.properties.variantCount&&schema.properties.variantCount.maximum===3],['schema-semantic-visuals',schema.$defs&&schema.$defs.visual&&Array.isArray(schema.$defs.visual.oneOf)&&schema.$defs.visual.oneOf.length===4],['native-chart-payload',payload.dataVerified===true&&/^[a-f0-9]{64}$/.test(payload.fallbackSha256)],['marketplace-skill-gate',skill.includes('layout-candidates-available')&&skill.includes('layout-selection-resolved')&&skill.includes('semantic-visuals-resolved')&&skill.includes('native-data-editable')]];",
     "const failed=checks.find((entry)=>!entry[1]);if(failed){process.stdout.write(failed[0]);process.exit(2);}process.stdout.write('ready');",
     "}catch{process.stdout.write(stage);process.exit(2);}"
   ].join("");

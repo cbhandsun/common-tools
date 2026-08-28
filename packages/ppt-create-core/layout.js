@@ -1,5 +1,6 @@
 "use strict";
 
+const { nativeChartPayload } = require("./data-models");
 const { getLayout, selectLayoutCandidates } = require("./layout-registry");
 const { validatePresentationSpec } = require("./spec");
 const { getTheme } = require("./theme-registry");
@@ -129,7 +130,57 @@ function closingActions(slide, index, theme, plan) {
   const page = pageBase(slide, index, theme, plan); page.shapes.push(shape(`${slide.id}-panel`, "rect", box(0, 0, 344, HEIGHT), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0 })); page.textBoxes.push(text(`${slide.id}-title`, slide.title, box(56, 110, 250, 166), { family: theme.font, sizePt: 42, weight: "bold", color: theme.inverse, align: "left" }, "title")); if (slide.summary) page.textBoxes.push(text(`${slide.id}-summary`, slide.summary, box(56, 304, 250, 100), { family: theme.font, sizePt: 18, color: theme.inverse, align: "left" }, "summary")); const rowH = 320 / Math.max(1, slide.items.length); slide.items.forEach((item, itemIndex) => addItemCopy(page, slide, item, box(408, 110 + itemIndex * rowH, 450, rowH - 18), theme)); return page;
 }
 
-const RENDERERS = Object.freeze({ "cover-signal-v1": coverSignal, "cover-band-v1": coverBand, "section-band-v1": sectionBand, "section-index-v1": sectionIndex, "content-cards-v1": contentCards, "content-editorial-v1": contentEditorial, "metrics-row-v1": metricsRow, "metrics-focus-v1": metricsFocus, "comparison-split-v1": comparisonSplit, "comparison-axis-v1": comparisonAxis, "process-linear-v1": processLinear, "process-stages-v1": processStages, "closing-centered-v1": closingCentered, "closing-actions-v1": closingActions });
+function mediaFrame(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); const visual = slide.visual; addHeader(page, slide, theme, index);
+  page.shapes.push(shape(`${slide.id}-media-slot`, "roundRect", box(500, 194, 390, 270), { fill: theme.surface, stroke: theme.primary, strokeWidthPt: 2, radiusPt: 16, dash: "dash" }));
+  page.shapes.push(shape(`${slide.id}-media-mark`, visual.mediaType === "icon" ? "ellipse" : "rect", box(650, 256, 90, 70), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0, opacity: 0.18 }));
+  page.textBoxes.push(text(`${slide.id}-media-alt`, visual.alt, box(548, 344, 294, 62), { family: theme.font, sizePt: 16, weight: "bold", color: theme.muted, align: "center" }, "media-alt"));
+  slide.items.slice(0, 4).forEach((item, itemIndex) => addItemCopy(page, slide, item, box(58, 206 + itemIndex * 70, 380, 64), theme));
+  return page;
+}
+function mediaCaption(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); const visual = slide.visual; addHeader(page, slide, theme, index);
+  page.shapes.push(shape(`${slide.id}-media-stage`, "roundRect", box(56, 188, 848, 226), { fill: theme.surface, stroke: theme.line, strokeWidthPt: 1, radiusPt: 14 }));
+  page.shapes.push(shape(`${slide.id}-media-accent`, "rect", box(56, 188, 12, 226), { fill: theme.accent, stroke: theme.accent, strokeWidthPt: 0 }));
+  page.textBoxes.push(text(`${slide.id}-media-alt`, visual.alt, box(110, 254, 740, 70), { family: theme.font, sizePt: 20, weight: "bold", color: theme.muted, align: "center" }, "media-alt"));
+  page.textBoxes.push(text(`${slide.id}-media-caption`, visual.caption || `${visual.mediaType} · ${visual.fit}`, box(96, 438, 768, 34), { family: theme.font, sizePt: 16, color: theme.muted, align: "center" }, "media-caption"));
+  return page;
+}
+function tableIr(slide, bounds, theme, compact) {
+  const visual = slide.visual; const rows = [visual.headers, ...visual.rows];
+  return Object.freeze({ id: `${slide.id}-table`, type: "table", box: bounds, rows, style: Object.freeze({ fill: theme.surface, headerFill: theme.primary, textColor: theme.text, headerTextColor: theme.inverse, stroke: theme.line, strokeWidthPt: 0.6, fontFamily: theme.font, fontSizePt: compact ? 13 : 14, headerFontSizePt: compact ? 14 : 16, headerWeight: "bold", textValign: "middle", paddingLeftPt: 7, paddingRightPt: 7 }), source: source(bounds) });
+}
+function tableFocus(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); addHeader(page, slide, theme, index); page.tables.push(tableIr(slide, box(56, 190, 848, 282), theme, false)); return page;
+}
+function tableCompact(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); const visual = slide.visual; addHeader(page, slide, theme, index); page.tables.push(tableIr(slide, box(56, 196, 610, 270), theme, true));
+  page.shapes.push(shape(`${slide.id}-insight-panel`, "roundRect", box(696, 196, 208, 270), { fill: theme.primary, stroke: theme.primary, strokeWidthPt: 0, radiusPt: 14 }));
+  page.textBoxes.push(text(`${slide.id}-insight`, visual.insight || slide.items[0].label, box(724, 238, 152, 178), { family: theme.font, sizePt: 20, weight: "bold", color: theme.inverse, align: "left" }, "insight")); return page;
+}
+function chartIr(slide, bounds, theme) {
+  const visual = slide.visual; const style = Object.freeze({ fill: theme.surface, stroke: theme.line, barFill: theme.primary, accent: theme.accent, axisColor: theme.muted, textColor: theme.text, fontFamily: theme.font, fontSizePt: 12 });
+  return Object.freeze({ id: `${slide.id}-chart`, type: visual.type, box: bounds, style, categories: visual.categories, series: visual.series, nativePayload: nativeChartPayload(visual, style), source: source(bounds) });
+}
+function chartFocus(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); addHeader(page, slide, theme, index); page.charts.push(chartIr(slide, box(56, 188, 848, 292), theme)); return page;
+}
+function chartInsight(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); const visual = slide.visual; addHeader(page, slide, theme, index); page.charts.push(chartIr(slide, box(56, 198, 610, 270), theme));
+  page.shapes.push(shape(`${slide.id}-insight-panel`, "roundRect", box(700, 198, 204, 270), { fill: theme.surface, stroke: theme.accent, strokeWidthPt: 2, radiusPt: 14 }));
+  page.textBoxes.push(text(`${slide.id}-insight`, visual.insight || slide.items[0].label, box(726, 232, 152, 196), { family: theme.font, sizePt: 20, weight: "bold", color: theme.text, align: "left" }, "insight")); return page;
+}
+function analysisCanvas(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); const visual = slide.visual; addHeader(page, slide, theme, index); const columns = visual.model === "swot" || visual.model === "quadrant" ? 2 : Math.min(4, visual.entries.length); const rows = Math.ceil(visual.entries.length / columns); const gap = 12; const cellW = (848 - gap * (columns - 1)) / columns; const cellH = (278 - gap * (rows - 1)) / rows;
+  visual.entries.forEach((entry, entryIndex) => { const x = 56 + (entryIndex % columns) * (cellW + gap); const y = 194 + Math.floor(entryIndex / columns) * (cellH + gap); page.shapes.push(shape(`${slide.id}-${entry.id}-analysis`, "roundRect", box(x, y, cellW, cellH), { fill: entryIndex % 2 ? theme.surface : theme.primary, stroke: theme.line, strokeWidthPt: 1, radiusPt: 12 })); page.textBoxes.push(text(`${slide.id}-${entry.id}-label`, entry.label, box(x + 18, y + 18, cellW - 36, 34), { family: theme.font, sizePt: 20, weight: "bold", color: entryIndex % 2 ? theme.text : theme.inverse, align: "left" }, "analysis-label")); if (entry.detail) page.textBoxes.push(text(`${slide.id}-${entry.id}-detail`, entry.detail, box(x + 18, y + 58, cellW - 36, Math.max(34, cellH - 74)), { family: theme.font, sizePt: 16, color: entryIndex % 2 ? theme.muted : theme.inverse, align: "left" }, "analysis-detail")); }); return page;
+}
+function analysisSteps(slide, index, theme, plan) {
+  const page = pageBase(slide, index, theme, plan); const visual = slide.visual; addHeader(page, slide, theme, index); const rowH = 280 / visual.entries.length;
+  page.shapes.push(shape(`${slide.id}-analysis-rail`, "rect", box(94, 196, 5, 272), { fill: theme.line, stroke: theme.line, strokeWidthPt: 0 }));
+  visual.entries.forEach((entry, entryIndex) => { const y = 192 + entryIndex * rowH; page.shapes.push(shape(`${slide.id}-${entry.id}-node`, "ellipse", box(79, y + 10, 34, 34), { fill: entryIndex % 2 ? theme.primary : theme.accent, stroke: theme.background, strokeWidthPt: 3 })); page.textBoxes.push(text(`${slide.id}-${entry.id}-label`, entry.label, box(138, y + 4, 260, 36), { family: theme.font, sizePt: 20, weight: "bold", color: theme.text, align: "left" }, "analysis-label")); if (entry.detail) page.textBoxes.push(text(`${slide.id}-${entry.id}-detail`, entry.detail, box(418, y + 4, 430, 42), { family: theme.font, sizePt: 16, color: theme.muted, align: "left" }, "analysis-detail")); }); return page;
+}
+
+const RENDERERS = Object.freeze({ "cover-signal-v1": coverSignal, "cover-band-v1": coverBand, "section-band-v1": sectionBand, "section-index-v1": sectionIndex, "content-cards-v1": contentCards, "content-editorial-v1": contentEditorial, "metrics-row-v1": metricsRow, "metrics-focus-v1": metricsFocus, "comparison-split-v1": comparisonSplit, "comparison-axis-v1": comparisonAxis, "process-linear-v1": processLinear, "process-stages-v1": processStages, "closing-centered-v1": closingCentered, "closing-actions-v1": closingActions, "media-frame-v1": mediaFrame, "media-caption-v1": mediaCaption, "table-focus-v1": tableFocus, "table-compact-v1": tableCompact, "chart-focus-v1": chartFocus, "chart-insight-v1": chartInsight, "analysis-canvas-v1": analysisCanvas, "analysis-steps-v1": analysisSteps });
 
 function createLayoutPlanFromSpec(spec) {
   let previousSilhouette;
