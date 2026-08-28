@@ -81,8 +81,8 @@ function assertImageToEditableSkill(file) {
 }
 function assertPptCreateSkill(file) {
   const skill = fs.readFileSync(file, "utf8");
-  for (const marker of ["layout-candidates-available", "layout-selection-resolved", "semantic-visuals-resolved", "native-data-editable", "deck.preview.html", "ppt apply-edit", "deck.html", "deck.pdf", "multi-format-page-count-matches", "multi-format-source-fingerprint-matches", "Do not copy third-party slide templates"]) {
-    if (!skill.includes(marker)) throw new Error("ppt-create Skill does not protect the clean-room layout candidate contract");
+  for (const marker of ["layout-candidates-available", "layout-selection-resolved", "semantic-visuals-resolved", "native-data-editable", "deck.preview.html", "ppt apply-edit", "deck.html", "deck.pdf", "multi-format-page-count-matches", "multi-format-source-fingerprint-matches", "ppt plan", "planning-source-covered", "planning-required-points-covered", "Never silently truncate", "Do not copy third-party slide templates"]) {
+    if (!skill.includes(marker)) throw new Error("ppt-create Skill does not protect the clean-room creation contract");
   }
 }
 function assertPluginPackage(root, capability, host, capabilityVersion) {
@@ -145,7 +145,7 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   const pluginRoot = path.join(root, "plugins", "common-tools");
   const metadata = assertPluginMetadata(path.join(pluginRoot, ".codex-plugin", "plugin.json"), "common-tools", "codex");
   if (metadata.mcpServers !== "./.mcp.json") throw new Error("unified Codex plugin MCP configuration is invalid");
-  if (!versionAtLeast(pluginRuntimeVersion(metadata.version), "0.1.5")) throw new Error("unified Codex plugin version does not include the ppt-create multi-format release");
+  if (!versionAtLeast(pluginRuntimeVersion(metadata.version), "0.1.6")) throw new Error("unified Codex plugin version does not include the ppt-create planning release");
   const mcp = assertObject(readJson(path.join(pluginRoot, ".mcp.json"), "unified Codex plugin MCP configuration is invalid"), "unified Codex plugin MCP configuration is invalid");
   const server = mcp.mcpServers?.["common-tools"];
   if (!server || server.type !== "http" || server.url !== "https://plugins.iepose.cn/mcp" || server.oauth?.clientId !== "common-tools-mcp" || Object.keys(server).some((key) => !["type", "url", "oauth"].includes(key))) throw new Error("unified Codex plugin MCP configuration is invalid");

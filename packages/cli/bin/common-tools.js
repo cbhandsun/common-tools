@@ -15,6 +15,7 @@ const { CAPABILITY: PPT_IMPROVE_CAPABILITY, createPptImproveJob, runPptImproveJo
 const { CAPABILITY: PPT_CREATE_CAPABILITY, createPptCreateJob, runPptCreateJob } = require("../../ppt-create-core");
 const { persistEditorPatch, writeEditorPreview } = require("../../ppt-create-core/editor");
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
+const { persistPresentationPlan } = require("../../ppt-create-core/planner");
 const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
 const { CAPABILITY_MANIFESTS, effectivePluginConfig, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
 const { TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig, teamDeploymentPlan } = require("../../team-runtime");
@@ -38,7 +39,7 @@ const COMMAND_USAGE = [
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
   "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team raw-image-archive --input <png|jpg> --out <archive.tar.gz> | team production-preflight | team keycloak-mcp-client [--apply --backup-file <new.json>]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
-  "  editable init|create|run | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt create|enqueue|preview|apply-edit | ppt-quality create|run | ppt-improve create|run|pipeline | job get|run|cancel"
+  "  editable init|create|run | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt plan|create|enqueue|preview|apply-edit | ppt-quality create|run | ppt-improve create|run|pipeline | job get|run|cancel"
 ].join("\n");
 
 function parse(argv) { const result = { _: [] }; for (let index = 0; index < argv.length; index += 1) { const item = argv[index]; if (!item.startsWith("--")) { result._.push(item); continue; } const next = argv[index + 1]; if (next && !next.startsWith("--")) { result[item.slice(2)] = next; index += 1; } else result[item.slice(2)] = true; } return result; }
@@ -701,6 +702,12 @@ async function mainWithPptQuality() {
     return 0;
   }
   if (area === "team" && action === "runtime") return teamRuntime(args);
+  if (area === "ppt" && action === "plan") {
+    if (!args.input || !args.out) throw new Error("ppt plan requires --input and --out");
+    requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);
+    process.stdout.write(`${JSON.stringify(persistPresentationPlan({ workspaceRoot: ctx.workspaceRoot, input: args.input, output: args.out }), null, 2)}\n`);
+    return 0;
+  }
   if (area === "ppt" && action === "preview") {
     if (!args.input || !args.out) throw new Error("ppt preview requires --input and --out");
     requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);

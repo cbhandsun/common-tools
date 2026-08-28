@@ -10,4 +10,6 @@ Each creation also emits self-contained read-only HTML and PDF beside the editab
 It also supports safe media slots, editable native tables, workbook-backed native charts, and editable SWOT/quadrant/funnel/timeline models. Media slots do not ingest a path or URL and remain explicitly distinguishable from embedded assets.
 Every creation includes a self-contained preview/editor. Browser changes become revision-bound patches; `ppt apply-edit` validates and atomically persists them to a new PresentationSpec without overwriting the source.
 
+Long structured material can enter through `PresentationBrief 1.0` and `common-tools ppt plan`. The planner preserves all bounded source points, validates semantic section capacities, and fails instead of truncating when the requested slide budget is too small.
+
 Local development remains available from a complete repository clone with `npm ci` and `npm run common-tools -- mcp serve`; that path is intentionally separate from this sparse Marketplace client.

@@ -13,6 +13,8 @@ The user-facing action is **创建 PPT**. The stable capability ID is `ppt-creat
 
 `PresentationSpec 1.0` is the bounded public input contract. It contains semantic slide roles and facts rather than rendering instructions. The repository owns the schema, validators, theme tokens, layout algorithms, tests, and generated artifacts.
 
+`PresentationBrief 1.0` is an optional upstream planning contract for long structured material. It records audience, purpose, bounded sections, semantic section modes, source points, and a slide budget. The deterministic planner preserves all source and required points, splits narrative sections only at repository-owned capacity boundaries, rejects incompatible semantic modes, and fails with the minimum required slide count instead of silently truncating content. Its only output is a fully validated PresentationSpec.
+
 Both execution modes use this pipeline:
 
 `PresentationSpec -> validation -> semantic layout -> Deck IR -> HTML / OpenXML PPTX -> controlled PDF export -> quality report`
@@ -30,6 +32,7 @@ The read-only `deck.html`, editable `deck.pptx`, and `deck.pdf` share one Deck I
 ## Consequences
 
 - Image-to-editable and new-deck creation converge at validated Deck IR and the existing OpenXML writer while keeping separate upstream inputs and quality metrics.
+- Long structured briefs have a reviewable planning checkpoint before layout or rendering; generated specs can be edited and versioned independently.
 - A new theme or semantic role requires repository-owned fixtures, bounds tests, and rendering verification.
 - Registry changes require unique stable IDs, role and capacity validation, deterministic candidate tests, and Marketplace/runtime release probes.
 - Local and remote parity can be tested at the Deck IR, editor preview, multi-format consistency, and artifact-contract levels.

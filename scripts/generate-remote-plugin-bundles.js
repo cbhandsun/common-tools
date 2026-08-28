@@ -405,6 +405,8 @@ description: Create a new editable PPTX locally by default, with an explicit rem
 
 Use the user-facing phrase “创建 PPT”; reserve \`ppt-create\` for the capability ID. Accept only a user-approved PresentationSpec 1.0 JSON file. Do not copy third-party templates, assets, schemas, implementation code, or layout coordinates.
 
+For long structured material, use the repository-owned PresentationBrief 1.0 contract and run \`common-tools ppt plan --input <brief.json> --out <presentation.json>\` locally. Preserve every source and required point, enforce the slide budget, and never silently truncate content.
+
 Run \`common-tools runtime resolve --capability ppt-create\` when the Local Runtime is available. For local execution, enable the capability and run \`common-tools ppt create --input <presentation.json> --out <new-directory>\`. The output directory must not exist.
 
 For explicit remote execution, upload the same JSON as \`application/json\` using \`create_team_upload_target\`, then submit capability \`ppt-create\` with \`create_team_job\`. Poll only the returned job and call \`get_team_artifact_target\` only for its reported artifacts. Local and remote paths share the same PresentationSpec, Deck IR planner, OpenXML writer, and seven-file artifact contract, including printable HTML and PDF bound to the same source fingerprint and page count.

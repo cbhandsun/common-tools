@@ -11,10 +11,12 @@
     "./editor": "./editor.js",
     "./export": "./export.js",
     "./libreoffice-pdf": "./libreoffice-pdf.js",
+    "./planner": "./planner.js",
     "./layout-registry": "./layout-registry.js",
     "./theme-registry": "./theme-registry.js",
     "./team-worker": "./team-worker.js",
-    "./presentation-spec.schema.json": "./presentation-spec.schema.json"
+    "./presentation-spec.schema.json": "./presentation-spec.schema.json",
+    "./presentation-brief.schema.json": "./presentation-brief.schema.json"
   },
   "dependencies": {
     "@common-tools/capability-contracts": "0.1.0",
