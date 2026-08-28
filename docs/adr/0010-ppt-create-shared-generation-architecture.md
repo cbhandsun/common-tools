@@ -15,6 +15,8 @@ The user-facing action is **创建 PPT**. The stable capability ID is `ppt-creat
 
 `PresentationBrief 1.0` is an optional upstream planning contract for long structured material. It records audience, purpose, bounded sections, semantic section modes, source points, and a slide budget. The deterministic planner preserves all source and required points, splits narrative sections only at repository-owned capacity boundaries, rejects incompatible semantic modes, and fails with the minimum required slide count instead of silently truncating content. Its only output is a fully validated PresentationSpec.
 
+The local `ppt ingest` entry converts bounded Markdown, DOCX, or PDF source material into either a validated PresentationBrief or a planned PresentationSpec. Markdown headings and blocks and Word heading styles/paragraphs become semantic sections and points. DOCX admission validates the ZIP directory, CRC checksums, main-document content type, and decompression limits, and reads only `word/document.xml`; it does not execute macros, fields, external relationships, or embedded objects. PDF admission validates the container and invokes a fixed-argument `pdftotext` adapter in an isolated temporary directory. PDF text extraction supports semantic planning only and is not represented as visual-layout fidelity. Ingest reports contain hashes and aggregate counts rather than document text.
+
 Both execution modes use this pipeline:
 
 `PresentationSpec -> validation -> semantic layout -> Deck IR -> HTML / OpenXML PPTX -> controlled PDF export -> quality report`

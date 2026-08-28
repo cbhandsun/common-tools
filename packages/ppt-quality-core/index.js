@@ -308,4 +308,4 @@ function pptQualitySummary(job, workspaceRoot) {
   } catch { return null; }
 }
 
-module.exports = { CAPABILITY, REGISTRATION, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, assertSafeExistingPptx, auditPptx, createPptQualityJob, crc32, ensureSafeOutputDirectory, inspectPptx, inspectRelationships, pptQualitySummary, qualityFromReport, readCentralDirectory, renderMarkdown, runPptQualityJob, unusedMediaEntries, writeReport };
+module.exports = { CAPABILITY, REGISTRATION, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, assertSafeExistingPptx, auditPptx, createPptQualityJob, crc32, ensureSafeOutputDirectory, extractEntry, inspectPptx, inspectRelationships, pptQualitySummary, qualityFromReport, readCentralDirectory, renderMarkdown, runPptQualityJob, unusedMediaEntries, writeReport };
