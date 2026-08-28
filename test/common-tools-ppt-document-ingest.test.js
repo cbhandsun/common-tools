@@ -26,6 +26,12 @@ function docxFixture() {
   const document = '<w:document xmlns:w="urn:w"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>年度经营复盘</w:t></w:r></w:p><w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>增长与效率</w:t></w:r></w:p><w:p><w:r><w:t>收入同比增长 18%，交付周期缩短 12%。</w:t></w:r></w:p><w:p><w:r><w:t>下一阶段聚焦高价值客户与标准化交付。</w:t></w:r></w:p></w:body></w:document>';
   return storedZip([["[Content_Types].xml", types], ["word/document.xml", document]]);
 }
+function docxTableFixture() {
+  const types = '<Types><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
+  const cell = (value) => `<w:tc><w:p><w:r><w:t>${value}</w:t></w:r></w:p></w:tc>`;
+  const document = `<w:document xmlns:w="urn:w"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>经营数据</w:t></w:r></w:p><w:tbl><w:tr>${cell("指标")}${cell("本期")}</w:tr><w:tr>${cell("收入")}${cell("120")}</w:tr><w:tr>${cell("利润")}${cell("24")}</w:tr></w:tbl></w:body></w:document>`;
+  return storedZip([["[Content_Types].xml", types], ["word/document.xml", document]]);
+}
 const options = { audience: "经营团队", purpose: "形成可执行的复盘汇报", maxSlides: 12 };
 
 test("Markdown and DOCX inputs preserve headings and points through the Brief-to-Spec planner", () => {
@@ -48,6 +54,21 @@ test("PDF ingestion requires a bounded fixed adapter and produces the same valid
     assert.equal(result.report.sourceFormat, "pdf"); assert.equal(result.document.slides[0].title, "项目复盘"); assert.equal(result.document.slides[1].items.length, 2);
     assert.throws(() => documentToPresentation(pdf, { ...options, extractPdfText: () => "" }), /extracted text/);
     assert.throws(() => resolvePdftotext({ COMMON_TOOLS_PDFTOTEXT_BIN: "bad\ncommand" }), /configuration/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("DOCX tables and PDF page boundaries become native visual structure", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-visual-ingest-"));
+  try {
+    const docx = path.join(root, "table.docx"); fs.writeFileSync(docx, docxTableFixture());
+    const fromDocx = documentToPresentation(docx, options);
+    assert.equal(fromDocx.report.structuredTables, 1);
+    assert.equal(fromDocx.document.slides[1].visual.kind, "table");
+    assert.deepEqual(fromDocx.document.slides[1].visual.headers, ["指标", "本期"]);
+    const pdf = path.join(root, "pages.pdf"); fs.writeFileSync(pdf, "%PDF-1.4\n%%EOF");
+    const fromPdf = documentToPresentation(pdf, { ...options, extractPdfText: () => "封面\n摘要内容\f第二页标题\n第二页事实" });
+    assert.equal(fromPdf.report.sourcePages, 2);
+    assert.ok(fromPdf.document.slides.some((slide) => slide.title === "第二页标题"));
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 

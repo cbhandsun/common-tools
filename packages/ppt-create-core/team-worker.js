@@ -12,7 +12,7 @@ const { createDeckVariants } = require("./layout");
 const { createPreviewHtml } = require("./editor");
 const { MAX_SPEC_BYTES, parsePresentationSpec } = require("./spec");
 const { admitPptCreateArchive } = require("./team-archive");
-const { materializeTemplate, templateRecord } = require("./template");
+const { applyTemplateLayoutMap, materializeTemplate, templateRecord } = require("./template");
 const { describeVariants, variantManifest, variantNames } = require("./variants");
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
@@ -42,7 +42,7 @@ function createPptCreateHandler({ objectStore, buildPptx, buildPdf, temporaryRoo
         if (spec.assets?.length || spec.template) throw new Error("remote ppt-create JSON cannot resolve local asset or template paths; upload a ppt-create archive");
       }
       const assetPack = materializeAssetPack(resolvedAssets, deliveryRoot); const materializedTemplate = materializeTemplate(resolvedTemplate, deliveryRoot); const assetInfo = Object.fromEntries(assetPack.records.map((asset) => [asset.id, asset]));
-      const deckVariants = createDeckVariants(spec, { assetPaths: assetPack.paths, assetInfo }); const records = describeVariants(deckVariants); const bodies = {}; const mediaTypes = {}; const uploadNames = []; const deliveries = [];
+      const deckVariants = createDeckVariants(spec, { assetPaths: assetPack.paths, assetInfo }).map((variant) => Object.freeze({ ...variant, ir: applyTemplateLayoutMap(variant.ir, resolvedTemplate) })); const records = describeVariants(deckVariants); const bodies = {}; const mediaTypes = {}; const uploadNames = []; const deliveries = [];
       for (const variant of deckVariants) {
         const names = variantNames(variant.variantIndex); const files = Object.fromEntries(Object.entries(names).map(([key, name]) => [key, path.join(deliveryRoot, name)]));
         fs.writeFileSync(files.ir, `${JSON.stringify(variant.ir, null, 2)}\n`, { flag: "wx", mode: 0o600 }); fs.writeFileSync(files.html, createPrintableHtml(variant.ir, { assetRoot: deliveryRoot }), { flag: "wx", mode: 0o600 });

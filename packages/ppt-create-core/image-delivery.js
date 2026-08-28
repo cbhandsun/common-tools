@@ -56,7 +56,9 @@ function createPreservationPlan(ir) {
     ].filter((candidate) => candidate.eligible).map(({ id, strategy }) => ({ id, strategy }));
     if (candidates.length === 0) candidates.push({ id: "preserve-native-v1", strategy: "native-first" });
     const selectedCandidateId = nativeObjects > 0 && residualImages > 0 ? "preserve-hybrid-v1" : nativeObjects > 0 ? "preserve-native-v1" : "preserve-raster-fallback-v1";
-    return { pageIndex: page.pageIndex, selectedCandidateId, candidates, metrics: { nativeObjects, residualImages } };
+    const nativeCategories = ["shapes", "tables", "charts", "icons"].filter((name) => (page[name] || []).length > 0).length;
+    const editabilityTier = nativeObjects === 0 ? "raster-only" : nativeCategories >= 2 || nativeObjects >= 6 ? "native-complex" : residualImages > 0 ? "native-hybrid" : "native-basic";
+    return { pageIndex: page.pageIndex, selectedCandidateId, candidates, metrics: { nativeObjects, nativeCategories, residualImages, editabilityTier } };
   });
   return Object.freeze({ version: "1.0", sourceFingerprint: fingerprint, semantics: "faithful-reconstruction-strategy-not-layout-reflow", pages });
 }
@@ -82,6 +84,7 @@ function createImageDeliveryArtifacts({ outputDir, buildPdf }) {
     { name: "shared-deck-ir-present", passed: true }, { name: "shared-preview-present", passed: true },
     { name: "preservation-candidates-available", passed: plan.pages.every((page) => page.candidates.length >= 1 && page.candidates.length <= 3) },
     { name: "preservation-selection-resolved", passed: plan.pages.every((page) => page.candidates.some((candidate) => candidate.id === page.selectedCandidateId)) },
+    { name: "complex-graphic-native-gate", passed: plan.pages.every((page) => ["raster-only", "native-basic", "native-hybrid", "native-complex"].includes(page.metrics.editabilityTier)) },
     { name: "multi-format-artifacts-present", passed: true }, { name: "multi-format-page-count-matches", passed: pdf.pageCount === ir.pages.length },
     { name: "multi-format-source-fingerprint-matches", passed: adapterResult?.sourceFingerprint === fingerprint }
   ];

@@ -42,7 +42,7 @@ test("image delivery emits shared editable, preview, preservation, HTML, PPTX an
     const delivered = JSON.parse(fs.readFileSync(result.files.irFile, "utf8"));
     assert.equal(delivered.pages[0].images[0].assetPath, "assets/pixel.png");
     assert.match(fs.readFileSync(result.files.htmlFile, "utf8"), /data:image\/png;base64,/);
-    assert.match(fs.readFileSync(result.files.previewFile, "utf8"), /editable apply-edit/);
+    assert.match(fs.readFileSync(result.files.previewFile, "utf8"), /ppt apply-ir-edit/);
     const plan = JSON.parse(fs.readFileSync(result.files.planFile, "utf8"));
     assert.equal(plan.semantics, "faithful-reconstruction-strategy-not-layout-reflow");
     assert.equal(plan.pages[0].selectedCandidateId, "preserve-hybrid-v1");
@@ -67,6 +67,22 @@ test("IR editor applies revision-bound text and geometry changes and rejects sta
   assert.throws(() => applyIrEditorPatch(ir, { ...patch, expectedRevision: "0".repeat(64) }), /revision/);
   assert.throws(() => applyIrEditorPatch(ir, { ...patch, operations: [{ type: "set-box", pageIndex: 0, objectId: "panel", box: { x: 0, y: 0, w: 2000, h: 20 } }] }), /boundary/);
   assert.throws(() => applyIrEditorPatch(ir, { ...patch, operations: [{ type: "set-text", pageIndex: 0, objectId: "missing", value: "x" }] }), /does not exist/);
+});
+
+test("IR editor supports validated layers and single or batch style changes", () => {
+  const ir = sampleIr();
+  ir.pages[0].shapes.push({ id: "accent", type: "rect", box: { x: 60, y: 160, w: 80, h: 30 }, style: { fill: "#FFFFFF" } });
+  const result = applyIrEditorPatch(ir, { version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [
+    { type: "set-style", pageIndex: 0, objectId: "title", style: { color: "#2563EB", sizePt: 32, weight: "bold" } },
+    { type: "batch-style", pageIndex: 0, objectIds: ["panel", "accent"], style: { fill: "#DBEAFE", opacity: 0.9 } },
+    { type: "reorder-object", pageIndex: 0, objectId: "accent", toIndex: 0 }
+  ] });
+  assert.equal(result.ir.pages[0].textBoxes[0].font.sizePt, 32);
+  assert.equal(result.ir.pages[0].shapes[0].id, "accent");
+  assert.equal(result.ir.pages[0].shapes[1].style.opacity, 0.9);
+  assert.throws(() => applyIrEditorPatch(ir, { version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [{ type: "set-style", pageIndex: 0, objectId: "title", style: { color: "url(javascript:1)" } }] }), /color/u);
+  assert.throws(() => applyIrEditorPatch(ir, { version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [{ type: "batch-style", pageIndex: 0, objectIds: ["panel", "panel"], style: { fill: "#FFFFFF" } }] }), /targets/u);
+  assert.throws(() => applyIrEditorPatch(ir, { version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [{ type: "reorder-object", pageIndex: 0, objectId: "panel", toIndex: 9 }] }), /layer/u);
 });
 
 test("IR patch persistence refuses overwrite and writes a separately validated deck", () => {

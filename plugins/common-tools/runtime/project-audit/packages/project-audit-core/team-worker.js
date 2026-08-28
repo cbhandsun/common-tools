@@ -26,6 +26,11 @@ function tarNumber(header, offset, length, label) {
   return value;
 }
 function tarText(header, offset, length) { return header.subarray(offset, offset + length).toString("utf8").replace(/\0.*$/, ""); }
+function assertTarChecksum(header, label) {
+  const expected = tarNumber(header, 148, 8, label); let actual = 0;
+  for (let index = 0; index < header.length; index += 1) actual += index >= 148 && index < 156 ? 0x20 : header[index];
+  if (expected !== actual) throw new Error(archiveMessage(label, "has an invalid tar checksum"));
+}
 function safeTarPath(name, label) {
   if (!name || Buffer.byteLength(name, "utf8") > MAX_ARCHIVE_PATH_BYTES || name.includes("\0") || name.includes("\\") || name.startsWith("/") || name.startsWith("../")) throw new Error(archiveMessage(label, "contains an unsafe path"));
   const normalized = path.posix.normalize(name);
@@ -74,8 +79,9 @@ function isIgnoredArchivePath(candidate, ignoredDirectories) {
   if (candidate.includes("\0") || candidate.includes("\\") || candidate.startsWith("/") || segments.includes("..")) return false;
   return segments.some((segment) => ignoredDirectories.has(segment));
 }
-function extractProjectArchive(archive, destination, { label = "project", ignoredDirectories } = {}) {
+function extractProjectArchive(archive, destination, { label = "project", ignoredDirectories, verifyChecksum = false } = {}) {
   if (typeof label !== "string" || !/^[a-z][a-z0-9-]{0,63}$/.test(label)) throw new TypeError("archive label is invalid");
+  if (typeof verifyChecksum !== "boolean") throw new TypeError("archive checksum policy is invalid");
   const ignored = normalizeIgnoredDirectories(ignoredDirectories);
   if (!Buffer.isBuffer(archive) || archive.length < 2 || archive.length > MAX_ARCHIVE_BYTES || archive[0] !== 0x1f || archive[1] !== 0x8b) throw new Error(`${label} input must be a gzip-compressed tar archive`);
   let tar;
@@ -91,6 +97,7 @@ function extractProjectArchive(archive, destination, { label = "project", ignore
     const header = tar.subarray(offset, offset + TAR_BLOCK_SIZE);
     offset += TAR_BLOCK_SIZE;
     if (isZeroBlock(header)) break;
+    if (verifyChecksum) assertTarChecksum(header, label);
     const prefix = tarText(header, 345, 155);
     const baseName = tarText(header, 0, 100);
     const name = prefix ? `${prefix}/${baseName}` : baseName;

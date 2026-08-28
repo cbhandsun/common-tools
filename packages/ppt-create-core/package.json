@@ -18,6 +18,7 @@
     "./libreoffice-pdf": "./libreoffice-pdf.js",
     "./pdf-text": "./pdf-text.js",
     "./planner": "./planner.js",
+    "./prompt": "./prompt.js",
     "./layout-registry": "./layout-registry.js",
     "./theme-registry": "./theme-registry.js",
     "./team-worker": "./team-worker.js",

@@ -6,6 +6,7 @@ const path = require("node:path");
 const { insideRoot } = require("../capability-runtime");
 const { extractEntry, readCentralDirectory } = require("../ppt-quality-core");
 const { planPresentation, validatePresentationBrief } = require("./planner");
+const { validatePresentationSpec } = require("./spec");
 
 const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 const MAX_EXTRACTED_TEXT = 1_000_000;
@@ -19,7 +20,14 @@ function extractDocxOutline(buffer) {
   if (!types || !document || !extractEntry(buffer, types, 1024 * 1024).toString("utf8").includes("wordprocessingml.document.main+xml")) throw new Error("DOCX package is missing its main document");
   const xml = extractEntry(buffer, document, 8 * 1024 * 1024).toString("utf8"); const records = [];
   let extractedCharacters = 0;
-  for (const match of xml.matchAll(/<w:p\b[\s\S]*?<\/w:p>/gu)) {
+  for (const match of xml.matchAll(/<w:(p|tbl)\b[\s\S]*?<\/w:\1>/gu)) {
+    if (match[1] === "tbl") {
+      const rows = [...match[0].matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/gu)].slice(0, 13).map((row) => [...row[0].matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/gu)].slice(0, 6).map((cell) => normalizeLine([...cell[0].matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/gu)].map((item) => decodeXml(item[1])).join(" ")))).filter((row) => row.some(Boolean));
+      const width = Math.min(6, ...rows.map((row) => row.length));
+      if (rows.length >= 2 && width >= 2) records.push({ kind: "table", rows: rows.map((row) => row.slice(0, width).map((cell) => cell || "—")) });
+      if (records.length > 5000) throw new Error("DOCX contains too many blocks");
+      continue;
+    }
     const text = normalizeLine([...match[0].matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/gu)].map((item) => decodeXml(item[1])).join("")); if (!text) continue;
     extractedCharacters += text.length; if (extractedCharacters > MAX_EXTRACTED_TEXT) throw new Error("DOCX extracted text is too large");
     const style = /<w:pStyle\b[^>]*w:val=["']([^"']+)["']/u.exec(match[0])?.[1] || ""; const heading = /^Heading([1-6])$/iu.exec(style);
@@ -41,8 +49,17 @@ function extractMarkdownOutline(text) {
   flush(); return records;
 }
 function extractPlainOutline(text) {
-  const lines = text.split(/\r?\n|\f/u).map(normalizeLine).filter(Boolean); if (lines.length > 10000) throw new Error("PDF contains too many text lines");
-  return lines.map((value, index) => ({ kind: index === 0 || (value.length <= 80 && /[:：]$/u.test(value)) ? "heading" : "paragraph", ...(index === 0 ? { level: 1 } : value.endsWith(":") || value.endsWith("：") ? { level: 2 } : {}), text: value.replace(/[:：]$/u, "") }));
+  const pages = text.split(/\f/u); const records = [];
+  pages.forEach((page, pageIndex) => {
+    const lines = page.split(/\r?\n/u).map(normalizeLine).filter(Boolean);
+    lines.forEach((value, lineIndex) => {
+      const explicitHeading = value.length <= 80 && /[:：]$/u.test(value);
+      const pageHeading = lineIndex === 0 && value.length <= 120;
+      records.push({ kind: pageHeading || explicitHeading ? "heading" : "paragraph", ...(pageIndex === 0 && lineIndex === 0 ? { level: 1 } : pageHeading || explicitHeading ? { level: 2 } : {}), text: value.replace(/[:：]$/u, ""), page: pageIndex + 1 });
+    });
+  });
+  if (records.length > 10000) throw new Error("PDF contains too many text lines");
+  return records;
 }
 function boundedChunks(value, maximum = 240) {
   const chunks = []; let remaining = normalizeLine(value);
@@ -56,6 +73,11 @@ function outlineToBrief(records, options) {
   const addSection = (sectionTitle) => { if (sections.length >= 24) throw new Error("document contains too many presentation sections"); current = { id: `section-${sections.length + 1}`, title: safeTitle(sectionTitle, `Section ${sections.length + 1}`).slice(0, 120), mode: "narrative", points: [] }; sections.push(current); };
   for (const record of records) {
     if (record === firstHeading) continue;
+    if (record.kind === "table") {
+      addSection(`表格 ${sections.filter((section) => /^表格 /u.test(section.title)).length + 1}`);
+      record.rows.slice(1, 7).forEach((row, rowIndex) => current.points.push({ id: `point-${rowIndex + 1}`, label: row.join(" · ").slice(0, 80), required: true }));
+      continue;
+    }
     if (record.kind === "heading") { addSection(record.text); continue; }
     if (!current) addSection(options.defaultSectionTitle || "核心内容");
     for (const chunk of boundedChunks(record.text)) {
@@ -77,7 +99,17 @@ function documentToPresentation(inputFile, options = {}) {
     const text = options.extractPdfText(inputFile); if (typeof text !== "string" || text.length < 1 || text.length > MAX_EXTRACTED_TEXT) throw new Error("PDF extracted text is invalid"); records = extractPlainOutline(text); sourceFormat = "pdf";
   }
   const brief = outlineToBrief(records, { ...options, fallbackTitle: path.basename(inputFile, extension) }); const planned = options.outputFormat === "brief" ? null : planPresentation(brief);
-  return Object.freeze({ document: planned ? planned.spec : brief, report: Object.freeze({ version: "1.0", sourceFormat, sourceSha256: crypto.createHash("sha256").update(bytes).digest("hex"), extractedBlocks: records.length, sections: brief.sections.length, points: brief.sections.reduce((sum, section) => sum + section.points.length, 0), outputFormat: planned ? "spec" : "brief", ...(planned ? { slideCount: planned.spec.slides.length, planningPassed: planned.report.passed } : {}) }) });
+  let document = planned?.spec || brief;
+  const tables = records.filter((record) => record.kind === "table");
+  if (planned && tables.length) {
+    const draft = JSON.parse(JSON.stringify(planned.spec));
+    tables.forEach((table, index) => {
+      const slide = draft.slides.find((item) => item.title === `表格 ${index + 1}`);
+      if (slide) slide.visual = { kind: "table", headers: table.rows[0], rows: table.rows.slice(1, 13) };
+    });
+    document = validatePresentationSpec(draft);
+  }
+  return Object.freeze({ document, report: Object.freeze({ version: "1.0", sourceFormat, sourceSha256: crypto.createHash("sha256").update(bytes).digest("hex"), extractedBlocks: records.length, structuredTables: tables.length, sourcePages: sourceFormat === "pdf" ? Math.max(...records.map((record) => record.page || 1)) : undefined, sections: brief.sections.length, points: brief.sections.reduce((sum, section) => sum + section.points.length, 0), outputFormat: planned ? "spec" : "brief", checks: Object.freeze([{ name: "document-visual-structure-preserved", passed: sourceFormat !== "docx" || tables.every((table) => table.rows.length >= 2) }, { name: "document-source-hash-recorded", passed: true }]), ...(planned ? { slideCount: document.slides.length, planningPassed: planned.report.passed } : {}) }) });
 }
 function persistDocumentPlan({ workspaceRoot, input, output, ...options }) {
   const inputFile = insideRoot(workspaceRoot, input); const outputFile = insideRoot(workspaceRoot, output);

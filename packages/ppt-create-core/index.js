@@ -10,7 +10,7 @@ const { materializeAssetPack, resolveAssetPack } = require("./assets");
 const { createPrintableHtml, deckIrFingerprint, multiFormatQuality } = require("./export");
 const { createDeckVariants } = require("./layout");
 const { MAX_SPEC_BYTES, parsePresentationSpec } = require("./spec");
-const { materializeTemplate, resolveTemplate, templateRecord } = require("./template");
+const { applyTemplateLayoutMap, materializeTemplate, resolveTemplate, templateRecord } = require("./template");
 const { describeVariants, variantManifest, variantNames } = require("./variants");
 
 const CAPABILITY = "ppt-create";
@@ -76,6 +76,7 @@ function qualityFor(spec, ir, formats, assetRecords = [], template, variants = [
     { name: "asset-provenance-recorded", passed: assetRecords.every((asset) => asset.source && typeof asset.source.kind === "string" && /^[a-f0-9]{64}$/u.test(asset.sha256)) },
     { name: "template-admission", passed: !spec.template || (template?.sha256 === spec.template.sha256 && template.mode === "master-and-theme") },
     { name: "template-provenance-recorded", passed: !spec.template || Boolean(template?.source?.kind && template?.source?.license) },
+    { name: "template-semantic-layout-mapped", passed: !spec.template || (template?.layoutMap?.length > 0 && ir.pages.every((page) => typeof page.intent?.templateLayoutId === "string")) },
     { name: "deck-variants-generated", passed: deliveredVariants.length === spec.deckVariantCount },
     { name: "deck-variants-distinct", passed: new Set(deliveredVariants.map((variant) => variant.layoutIds.join("\u0000"))).size === deliveredVariants.length },
     { name: "deck-variant-formats-consistent", passed: deliveredVariants.every((variant) => variant.formats?.passed === true) },
@@ -117,7 +118,7 @@ function runPptCreateJob({ stateRoot, ownerId, id, buildPptx, buildPdf }) {
     if (JSON.stringify(resolvedAssets.map((asset) => ({ id: asset.id, sha256: asset.sha256 }))) !== JSON.stringify(job.input.assets || [])) throw new Error("presentation asset pack changed after job creation");
     if ((resolvedTemplate?.sha256 || null) !== (job.input.template?.sha256 || null)) throw new Error("presentation template changed after job creation");
     fs.mkdirSync(output, { recursive: false });
-    const assetPack = materializeAssetPack(resolvedAssets, output); const materializedTemplate = materializeTemplate(resolvedTemplate, output); const assetInfo = Object.fromEntries(assetPack.records.map((asset) => [asset.id, asset])); const deckVariants = createDeckVariants(spec, { assetPaths: assetPack.paths, assetInfo }); const variantRecords = describeVariants(deckVariants);
+    const assetPack = materializeAssetPack(resolvedAssets, output); const materializedTemplate = materializeTemplate(resolvedTemplate, output); const assetInfo = Object.fromEntries(assetPack.records.map((asset) => [asset.id, asset])); const deckVariants = createDeckVariants(spec, { assetPaths: assetPack.paths, assetInfo }).map((variant) => Object.freeze({ ...variant, ir: applyTemplateLayoutMap(variant.ir, resolvedTemplate) })); const variantRecords = describeVariants(deckVariants);
     const assetManifestFile = path.join(output, ARTIFACT_NAMES.assetManifest);
     const templateManifestFile = resolvedTemplate ? path.join(output, ARTIFACT_NAMES.templateManifest) : undefined;
     const variantsManifestFile = deckVariants.length > 1 ? path.join(output, ARTIFACT_NAMES.variants) : undefined;

@@ -6,6 +6,8 @@ The plugin contains `image-to-editable`, `project-audit`, `ppt-create`, `ppt-qua
 
 PPT creation currently exposes four repository-owned themes and twenty-two semantic layouts. A bounded, deterministic candidate planner selects one to three compatible alternatives and records them in Deck IR so layout choice is inspectable without importing third-party templates or coordinates.
 
+Version 0.1.9 adds bounded `ppt draft`/`ppt compose` natural-language planning, native DOCX-table and page-aware PDF structure, semantic user-template layout mapping, and revision-bound Deck IR drag/snap, batch-style, and layer-order editing. Marketplace verification requires these exact contracts in every Codex and Claude mirror so a sparse or stale release cannot silently omit the enhancement.
+
 Each creation also emits self-contained read-only HTML and PDF beside the editable PPTX. All three formats are bound to the same Deck IR fingerprint and exact page-count gates; a failed conversion removes the partial output instead of publishing a mixed result.
 It also supports safe media slots, editable native tables, workbook-backed native charts, and editable SWOT/quadrant/funnel/timeline models. Media slots do not ingest a path or URL and remain explicitly distinguishable from embedded assets.
 Every creation includes a self-contained preview/editor. Browser changes become revision-bound patches; `ppt apply-edit` validates and atomically persists them to a new PresentationSpec without overwriting the source.

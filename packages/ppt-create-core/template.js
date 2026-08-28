@@ -8,6 +8,7 @@ const { sourceRecord } = require("./assets");
 
 const MAX_TEMPLATE_BYTES = 100 * 1024 * 1024;
 const MAX_RELATIONSHIP_XML_BYTES = 32 * 1024 * 1024;
+const MAX_LAYOUT_XML_BYTES = 4 * 1024 * 1024;
 const FORBIDDEN_ENTRY = /(?:^|\/)(?:vbaProject\.bin|activeX\/|embeddings\/|customUI\/|_xmlsignatures\/)/iu;
 const FORBIDDEN_CONTENT_TYPE = /(?:macroEnabled|vbaProject|activeX|oleObject|digital-signature)/iu;
 
@@ -43,9 +44,24 @@ function inspectTemplate(file) {
     externalRelationships += [...xml.matchAll(/<Relationship\b[^>]*\bTargetMode=(['"])External\1[^>]*>/gu)].length;
   }
   if (externalRelationships > 0) throw new Error("presentation template contains external relationships");
+  const layouts = names.filter((name) => /^ppt\/slideLayouts\/slideLayout[1-9]\d*[.]xml$/u.test(name)).sort().map((name) => {
+    const entry = entries.get(name);
+    if (entry.uncompressedBytes > MAX_LAYOUT_XML_BYTES) throw new Error("presentation template layout XML is too large");
+    const xml = extractEntry(bytes, entry).toString("utf8");
+    const displayName = /<p:cSld\b[^>]*\bname=(['"])(.*?)\1/u.exec(xml)?.[2] || path.basename(name, ".xml");
+    const placeholderTypes = [...xml.matchAll(/<p:ph\b([^>]*)\/?\s*>/gu)].map((match) => /\btype=(['"])(.*?)\1/u.exec(match[1])?.[2] || "body").slice(0, 32);
+    const bodyCapacity = placeholderTypes.filter((type) => ["body", "obj", "subTitle", "chart", "tbl", "pic"].includes(type)).length;
+    const roles = new Set();
+    if (placeholderTypes.some((type) => ["ctrTitle", "subTitle"].includes(type))) roles.add("cover");
+    if (placeholderTypes.includes("title")) roles.add("section");
+    if (bodyCapacity >= 1) { roles.add("content"); roles.add("process"); roles.add("metrics"); }
+    if (bodyCapacity >= 2) roles.add("comparison");
+    if (placeholderTypes.length === 0) { roles.add("content"); roles.add("closing"); }
+    return Object.freeze({ id: path.basename(name, ".xml"), name: displayName.slice(0, 160), placeholderTypes: Object.freeze(placeholderTypes), bodyCapacity, roles: Object.freeze([...roles]) });
+  });
   const inspected = inspectPptx(file);
   if (inspected.unresolvedRelationshipCount > 0 || inspected.invalidRelationshipCount > 0) throw new Error("presentation template relationships are invalid");
-  return Object.freeze({ bytes: info.size, entryCount: entries.size, slideCount: inspected.slideCount, sha256: crypto.createHash("sha256").update(bytes).digest("hex") });
+  return Object.freeze({ bytes: info.size, entryCount: entries.size, slideCount: inspected.slideCount, layoutMap: Object.freeze(layouts), sha256: crypto.createHash("sha256").update(bytes).digest("hex") });
 }
 
 function resolveTemplate(specFile, template) {
@@ -71,7 +87,18 @@ function materializeTemplate(template, output) {
 
 function templateRecord(template) {
   if (!template) return undefined;
-  return Object.freeze({ mode: template.mode, sha256: template.sha256, bytes: template.bytes, entryCount: template.entryCount, slideCount: template.slideCount, source: template.source });
+  return Object.freeze({ mode: template.mode, sha256: template.sha256, bytes: template.bytes, entryCount: template.entryCount, slideCount: template.slideCount, semanticLayouts: template.layoutMap?.length || 0, layoutMap: template.layoutMap || [], source: template.source });
 }
 
-module.exports = { FORBIDDEN_CONTENT_TYPE, FORBIDDEN_ENTRY, MAX_TEMPLATE_BYTES, inspectTemplate, materializeTemplate, normalizeTemplate, resolveTemplate, templateRecord };
+function applyTemplateLayoutMap(rawIr, template) {
+  if (!template?.layoutMap?.length) return rawIr;
+  const ir = JSON.parse(JSON.stringify(rawIr));
+  for (const page of ir.pages) {
+    const role = page.intent?.role;
+    const candidate = template.layoutMap.find((layout) => layout.roles.includes(role)) || template.layoutMap.find((layout) => layout.roles.includes("content")) || template.layoutMap[0];
+    page.intent = { ...(page.intent || {}), templateLayoutId: candidate.id, templateLayoutName: candidate.name, templatePlaceholderCapacity: candidate.bodyCapacity };
+  }
+  return Object.freeze(ir);
+}
+
+module.exports = { FORBIDDEN_CONTENT_TYPE, FORBIDDEN_ENTRY, MAX_TEMPLATE_BYTES, applyTemplateLayoutMap, inspectTemplate, materializeTemplate, normalizeTemplate, resolveTemplate, templateRecord };

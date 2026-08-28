@@ -33,7 +33,7 @@ function templateFixture(extraEntries = [], rootRelationships = '<Relationships>
     ["ppt/slides/_rels/slide1.xml.rels", rels([["rId1", "../slideLayouts/slideLayout1.xml"]])],
     ["ppt/slideMasters/slideMaster1.xml", '<p:sldMaster xmlns:p="urn:p"/>'],
     ["ppt/slideMasters/_rels/slideMaster1.xml.rels", rels([["rId1", "../slideLayouts/slideLayout1.xml"]])],
-    ["ppt/slideLayouts/slideLayout1.xml", '<p:sldLayout xmlns:p="urn:p"/>'],
+    ["ppt/slideLayouts/slideLayout1.xml", '<p:sldLayout xmlns:p="urn:p"><p:cSld name="标题与内容"><p:spTree><p:sp><p:nvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr></p:sp><p:sp><p:nvSpPr><p:nvPr><p:ph type="body"/></p:nvPr></p:nvSpPr></p:sp></p:spTree></p:cSld></p:sldLayout>'],
     ["ppt/slideLayouts/_rels/slideLayout1.xml.rels", rels([["rId1", "../slideMasters/slideMaster1.xml"]])],
     ...extraEntries
   ]);
@@ -53,7 +53,8 @@ test("user PPTX template is hash-bound, admitted, passed to the builder, and rep
     const stateRoot = path.join(root, "state"); const output = path.join(root, "out"); const job = createPptCreateJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output }); let received;
     const completed = runPptCreateJob({ stateRoot, ownerId: "owner", id: job.id, buildPptx: ({ outFile, templatePptx }) => { received = templatePptx; fs.writeFileSync(outFile, Buffer.concat([Buffer.from("PK\u0003\u0004"), Buffer.alloc(64)]), { flag: "wx" }); }, buildPdf: fakePdfBuilder });
     assert.equal(completed.status, "succeeded"); assert.equal(path.basename(received), ".template-input.pptx"); assert.equal(fs.existsSync(received), false); assert.ok(completed.artifacts.some((artifact) => artifact.name === "template-manifest.json"));
-    const manifest = fs.readFileSync(path.join(output, "template-manifest.json"), "utf8"); assert.match(manifest, /owned-or-authorized/); assert.doesNotMatch(manifest, /brand[.]pptx|common-tools-template/);
+    const manifest = fs.readFileSync(path.join(output, "template-manifest.json"), "utf8"); assert.match(manifest, /owned-or-authorized/); assert.match(manifest, /semanticLayouts/); assert.match(manifest, /标题与内容/); assert.doesNotMatch(manifest, /brand[.]pptx|common-tools-template/);
+    const ir = JSON.parse(fs.readFileSync(path.join(output, "deck.ir.json"), "utf8")); assert.equal(ir.pages[1].intent.templateLayoutId, "slideLayout1");
     const report = JSON.parse(fs.readFileSync(path.join(output, "ppt-create-report.json"))); assert.equal(report.result.template.sha256, sha256); assert.equal(report.quality.checks.find((check) => check.name === "template-admission").passed, true);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

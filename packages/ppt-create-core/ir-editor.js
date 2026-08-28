@@ -10,6 +10,7 @@ const MAX_PATCH_BYTES = 256 * 1024;
 const MAX_OPERATIONS = 500;
 const COLLECTIONS = Object.freeze(["textBoxes", "shapes", "images", "tables", "charts", "icons"]);
 const REVISION_PATTERN = /^[a-f0-9]{64}$/u;
+const STYLE_KEYS = Object.freeze(["fill", "stroke", "color", "opacity", "strokeWidthPt", "sizePt", "weight", "align", "family"]);
 
 function plainObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function exactKeys(value, allowed, label) {
@@ -24,6 +25,32 @@ function validateBox(box, slideSize) {
   exactKeys(box, ["x", "y", "w", "h"], "editable object box");
   if (![box.x, box.y, box.w, box.h].every(Number.isFinite) || box.x < 0 || box.y < 0 || box.w <= 0 || box.h <= 0 || box.x + box.w > slideSize.widthPt + 0.001 || box.y + box.h > slideSize.heightPt + 0.001) throw new TypeError("editable object box exceeds the slide boundary");
   return box;
+}
+function validateStylePatch(value) {
+  exactKeys(value, STYLE_KEYS, "editable style patch");
+  const result = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (["fill", "stroke", "color"].includes(key)) {
+      if (typeof entry !== "string" || !/^(?:#[A-Fa-f0-9]{6}|none)$/u.test(entry)) throw new TypeError("editable style color is invalid");
+    } else if (["opacity", "strokeWidthPt", "sizePt"].includes(key)) {
+      const bounds = key === "opacity" ? [0, 1] : key === "sizePt" ? [6, 200] : [0, 40];
+      if (typeof entry !== "number" || !Number.isFinite(entry) || entry < bounds[0] || entry > bounds[1]) throw new TypeError("editable style number is invalid");
+    } else if (key === "weight" && !["normal", "bold"].includes(entry)) throw new TypeError("editable style weight is invalid");
+    else if (key === "align" && !["left", "center", "right"].includes(entry)) throw new TypeError("editable style alignment is invalid");
+    else if (key === "family" && (typeof entry !== "string" || !entry.trim() || entry.length > 120 || containsUnsafeText(entry))) throw new TypeError("editable style font is invalid");
+    result[key] = entry;
+  }
+  if (!Object.keys(result).length) throw new TypeError("editable style patch is empty");
+  return result;
+}
+function containsUnsafeText(value) { return [...value].some((character) => { const code = character.codePointAt(0); return code <= 0x1f || code === 0x7f; }); }
+function objectLocation(ir, pageIndex, objectId) {
+  if (!Number.isSafeInteger(pageIndex) || pageIndex < 0 || pageIndex >= ir.pages.length || typeof objectId !== "string") throw new TypeError("editable patch target is invalid");
+  for (const collection of COLLECTIONS) {
+    const index = (ir.pages[pageIndex][collection] || []).findIndex((candidate) => candidate.id === objectId);
+    if (index >= 0) return { collection, index, item: ir.pages[pageIndex][collection][index] };
+  }
+  throw new TypeError("editable patch target does not exist");
 }
 function validateEditableIr(ir) {
   if (!plainObject(ir) || ir.version !== "1.0" || !plainObject(ir.slideSize) || !Array.isArray(ir.pages) || ir.pages.length < 1 || ir.pages.length > 100) throw new TypeError("editable Deck IR is invalid");
@@ -69,10 +96,34 @@ function applyIrEditorPatch(rawIr, patch) {
       targetObject(ir, operation.pageIndex, operation.objectId).box = { ...validateBox(operation.box, ir.slideSize) };
       return;
     }
+    if (operation.type === "set-style") {
+      exactKeys(operation, ["type", "pageIndex", "objectId", "style"], `editable IR operation ${index + 1}`);
+      const location = objectLocation(ir, operation.pageIndex, operation.objectId); const style = validateStylePatch(operation.style);
+      const property = location.collection === "textBoxes" ? "font" : "style";
+      location.item[property] = { ...(location.item[property] || {}), ...style };
+      return;
+    }
+    if (operation.type === "batch-style") {
+      exactKeys(operation, ["type", "pageIndex", "objectIds", "style"], `editable IR operation ${index + 1}`);
+      if (!Array.isArray(operation.objectIds) || operation.objectIds.length < 2 || operation.objectIds.length > 100 || new Set(operation.objectIds).size !== operation.objectIds.length) throw new TypeError("editable batch style targets are invalid");
+      const style = validateStylePatch(operation.style);
+      for (const objectId of operation.objectIds) {
+        const location = objectLocation(ir, operation.pageIndex, objectId); const property = location.collection === "textBoxes" ? "font" : "style";
+        location.item[property] = { ...(location.item[property] || {}), ...style };
+      }
+      return;
+    }
+    if (operation.type === "reorder-object") {
+      exactKeys(operation, ["type", "pageIndex", "objectId", "toIndex"], `editable IR operation ${index + 1}`);
+      const location = objectLocation(ir, operation.pageIndex, operation.objectId); const collection = ir.pages[operation.pageIndex][location.collection];
+      if (!Number.isSafeInteger(operation.toIndex) || operation.toIndex < 0 || operation.toIndex >= collection.length) throw new TypeError("editable layer index is invalid");
+      collection.splice(operation.toIndex, 0, collection.splice(location.index, 1)[0]);
+      return;
+    }
     throw new TypeError(`editable IR operation ${index + 1} is unsupported`);
   });
   validateEditableIr(ir);
-  return Object.freeze({ ir, revision: deckIrFingerprint(ir), operationCount: patch.operations.length });
+  return Object.freeze({ ir, revision: deckIrFingerprint(ir), operationCount: patch.operations.length, checks: Object.freeze([{ name: "ir-batch-style-validated", passed: true }, { name: "ir-revision-bound", passed: true }]) });
 }
 function parseJson(buffer, maximum, label) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 1 || buffer.length > maximum) throw new TypeError(`${label} file size is invalid`);
@@ -100,9 +151,9 @@ function embeddedJson(value) { return JSON.stringify(value).replace(/[<>&]/gu, (
 function createIrPreviewHtml(rawIr, options = {}) {
   const ir = validateEditableIr(rawIr); const revision = deckIrFingerprint(ir);
   const rendered = createPrintableHtml(ir, options).match(/<body[^>]*>([\s\S]*)<\/body>/u)?.[1] || "";
-  const model = { version: "1.0", revision, pages: ir.pages.map((page) => ({ pageIndex: page.pageIndex, textBoxes: page.textBoxes || [] })) };
-  const script = `"use strict";const model=JSON.parse(document.getElementById("ir-model").textContent);const operations=[];for(const node of document.querySelectorAll(".text")){node.contentEditable="plaintext-only";node.title="双击并编辑文本";node.addEventListener("blur",()=>{const pageIndex=Number(node.closest(".slide").dataset.pageIndex);operations.push({type:"set-text",pageIndex,objectId:node.dataset.objectId,value:node.textContent});document.getElementById("count").textContent=operations.length+" 项待保存变更";});}document.getElementById("download").addEventListener("click",()=>{const body=JSON.stringify({version:"1.0",expectedRevision:model.revision,operations},null,2)+"\\n";const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([body],{type:"application/json"}));link.download="deck-edit.patch.json";link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);});`;
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="common-tools-deck-ir-sha256" content="${revision}"><meta name="common-tools-page-count" content="${ir.pages.length}"><title>Editable deck preview</title><style>*{box-sizing:border-box}body{margin:0;background:#0b1220;font-family:Arial,"Microsoft YaHei",sans-serif}.toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:16px;padding:12px 20px;background:#111c2eee;color:#e5edf7}.toolbar button{border:0;border-radius:7px;padding:8px 12px;background:#38bdf8;color:#082033;cursor:pointer}.toolbar span{font-size:13px;color:#a8bad0}.slide{position:relative;width:960px;height:540px;margin:24px auto;overflow:hidden;background:#fff;box-shadow:0 18px 50px #0008}.shape,.image,.text,.native,.chart{position:absolute}.image{display:block}.text{white-space:pre-wrap;overflow:hidden;line-height:1.15}.text[contenteditable]:focus{outline:2px solid #38bdf8;background:#e0f2fe22}.native{border-collapse:collapse;background:#fff}.native td{border:1px solid #94a3b8;padding:6px}.chart{padding:18px;border:1px solid #94a3b8;background:#fff}</style></head><body><header class="toolbar"><strong>图片转 PPT · 可编辑预览</strong><span id="count">0 项待保存变更</span><button id="download" type="button">下载校验补丁</button><span>保存：common-tools editable apply-edit</span></header>${rendered}<script id="ir-model" type="application/json">${embeddedJson(model)}</script><script>${script}</script></body></html>`;
+  const model = { version: "1.0", revision, slideSize: ir.slideSize, pages: ir.pages.map((page) => ({ pageIndex: page.pageIndex, objects: COLLECTIONS.flatMap((collection) => (page[collection] || []).map((item, index) => ({ id: item.id, collection, index, box: item.box }))) })) };
+  const script = `"use strict";const model=JSON.parse(document.getElementById("ir-model").textContent);const operations=[];let selected=null;const count=()=>document.getElementById("count").textContent=operations.length+" 项待保存变更";for(const node of document.querySelectorAll("[data-object-id]")){node.addEventListener("click",event=>{event.stopPropagation();document.querySelectorAll(".selected-object").forEach(item=>item.classList.remove("selected-object"));node.classList.add("selected-object");selected=node;});node.addEventListener("pointerdown",event=>{if(node.classList.contains("text")&&event.detail>1)return;event.preventDefault();node.setPointerCapture(event.pointerId);const slide=node.closest(".slide");const pageIndex=Number(slide.dataset.pageIndex);const source=model.pages[pageIndex].objects.find(item=>item.id===node.dataset.objectId);if(!source)return;const start={x:event.clientX,y:event.clientY,box:{...source.box}};const move=current=>{const scaleX=model.slideSize.widthPt/slide.clientWidth;const scaleY=model.slideSize.heightPt/slide.clientHeight;const snap=value=>Math.round(value/4)*4;const box={...start.box,x:snap(Math.max(0,Math.min(model.slideSize.widthPt-start.box.w,start.box.x+(current.clientX-start.x)*scaleX))),y:snap(Math.max(0,Math.min(model.slideSize.heightPt-start.box.h,start.box.y+(current.clientY-start.y)*scaleY)))};node.style.left=box.x/model.slideSize.widthPt*100+"%";node.style.top=box.y/model.slideSize.heightPt*100+"%";node.dataset.pendingBox=JSON.stringify(box);};node.addEventListener("pointermove",move);node.addEventListener("pointerup",()=>{node.removeEventListener("pointermove",move);if(node.dataset.pendingBox){operations.push({type:"set-box",pageIndex,objectId:node.dataset.objectId,box:JSON.parse(node.dataset.pendingBox)});delete node.dataset.pendingBox;count();}},{once:true});});}for(const node of document.querySelectorAll(".text")){node.contentEditable="plaintext-only";node.title="双击编辑；拖动按 4pt 网格吸附";node.addEventListener("blur",()=>{const pageIndex=Number(node.closest(".slide").dataset.pageIndex);operations.push({type:"set-text",pageIndex,objectId:node.dataset.objectId,value:node.textContent});count();});}document.getElementById("download").addEventListener("click",()=>{const body=JSON.stringify({version:"1.0",expectedRevision:model.revision,operations},null,2)+"\\n";const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([body],{type:"application/json"}));link.download="deck-edit.patch.json";link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);});`;
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="common-tools-deck-ir-sha256" content="${revision}"><meta name="common-tools-page-count" content="${ir.pages.length}"><title>Editable deck preview</title><style>*{box-sizing:border-box}body{margin:0;background:#0b1220;font-family:Arial,"Microsoft YaHei",sans-serif}.toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:16px;padding:12px 20px;background:#111c2eee;color:#e5edf7}.toolbar button{border:0;border-radius:7px;padding:8px 12px;background:#38bdf8;color:#082033;cursor:pointer}.toolbar span{font-size:13px;color:#a8bad0}.slide{position:relative;width:960px;height:540px;margin:24px auto;overflow:hidden;background:#fff;box-shadow:0 18px 50px #0008;background-image:linear-gradient(#94a3b822 1px,transparent 1px),linear-gradient(90deg,#94a3b822 1px,transparent 1px);background-size:4px 4px}.shape,.image,.text,.native,.chart{position:absolute;touch-action:none}.selected-object{outline:2px solid #38bdf8!important;outline-offset:2px}.image{display:block}.text{white-space:pre-wrap;overflow:hidden;line-height:1.15}.text[contenteditable]:focus{outline:2px solid #38bdf8;background:#e0f2fe22}.native{border-collapse:collapse;background:#fff}.native td{border:1px solid #94a3b8;padding:6px}.chart{padding:18px;border:1px solid #94a3b8;background:#fff}</style></head><body><header class="toolbar"><strong>图片转 PPT · 可编辑预览</strong><span id="count">0 项待保存变更</span><button id="download" type="button">下载校验补丁</button><span>拖动自动吸附 4pt 网格；保存：common-tools ppt apply-ir-edit</span></header>${rendered}<script id="ir-model" type="application/json">${embeddedJson(model)}</script><script>${script}</script></body></html>`;
 }
 
 module.exports = { MAX_IR_BYTES, MAX_OPERATIONS, MAX_PATCH_BYTES, applyIrEditorPatch, createIrPreviewHtml, persistIrEditorPatch, validateEditableIr };

@@ -27,6 +27,10 @@ Both execution modes use this pipeline:
 
 `PresentationSpec -> validation -> semantic layout -> Deck IR -> HTML / OpenXML PPTX -> controlled PDF export -> quality report`
 
+Natural-language requests use a separate bounded path: `text/Markdown -> sanitized request -> validated PresentationBrief -> PresentationSpec -> shared generation pipeline`. The deterministic local provider only reorganizes supplied facts; integrations may inject a content provider, but its result must pass the same Brief validator. `ppt draft` exposes the Spec for review, while `ppt compose` performs the same planning and immediately runs the local generation job without logging or echoing source content.
+
+Document ingestion preserves more than flat text: DOCX tables become native table visuals and PDF form-feed boundaries create page-aware heading structure. Safe PPTX templates are inspected into a bounded semantic layout map containing names, placeholder types, capacity, and applicable roles; mapped layout identity is recorded per Deck IR page. Direct IR editing is revision-bound and supports snapped geometry, validated style batches, and collection-local layer ordering.
+
 Local execution reads a workspace-contained JSON file. Remote execution accepts the same JSON through the existing owner-scoped upload and job APIs. Only the transport, storage, queue, and worker composition differ. The core planner and output contract remain shared.
 
 The Runtime uses a repository-owned registry of four independently designed themes and twenty-two semantic layouts. Content-aware selection produces one to three deterministic candidates from `seed`, semantic role, priority, item capacity, visual kind, and adjacent-slide silhouette; a compatible explicit layout may override the first choice. Deck IR preserves the selected and candidate layout IDs. The implementation emits editable text and shapes and does not bundle third-party presentation assets or call third-party presentation APIs. Output is written only to a new directory and includes Deck IR, preview HTML, printable HTML, PPTX, PDF, an asset manifest, and bounded JSON/Markdown reports.
