@@ -38,6 +38,7 @@ function main() {
     "--case-timeout-ms", "600000",
     "--out", path.join(plan.outDir, "cross-renderer")
   ], plan.environment);
+  runNode(["scripts/ppt-create-office-smoke.js", "--out", path.join(plan.outDir, "ppt-create-smoke")], plan.environment);
   const historyCohort = readHistoryCohort(plan.historyFile, environmentEvidence.fingerprint);
   const trendArgs = [
     "skills/pd-hifi-slideclone/scripts/quality-trend-gate.js",
@@ -57,6 +58,7 @@ function main() {
     suite: plan.suite,
     reportFile,
     crossRendererReportFile,
+    pptCreateOfficeSmokeReportFile: path.join(plan.outDir, "ppt-create-smoke", "ppt-create-office-smoke-report.json"),
     historyProvider: plan.historyProvider,
     environmentFingerprint: environmentEvidence.fingerprint,
     baselineBootstrap

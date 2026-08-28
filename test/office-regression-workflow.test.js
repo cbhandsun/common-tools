@@ -147,6 +147,8 @@ test("Office workflow is scheduled, manually selectable, serialized and isolated
   assert.match(workflow, /ppt-quality-history-\$\{\{ env\.CORPUS_SUITE \}\}/u);
   assert.match(workflow, /SLIDECLONE_QUALITY_HISTORY_ROOT/u);
   assert.match(workflow, /Upload bounded regression reports/u);
+  assert.match(workflow, /scripts\/ppt-create-office-smoke[.]js/u);
+  assert.match(workflow, /ppt-create-smoke\/[*][.]json/u);
   assert.match(workflow, /retention-days: 90/u);
   assert.doesNotMatch(workflow, /secrets\./u);
 });

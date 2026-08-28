@@ -47,6 +47,7 @@ test("Deck IR emits native tables, verified native charts, editable analysis, an
   assert.deepEqual(quality.metrics["native-charts"], 1);
   assert.deepEqual(quality.metrics["media-slots"], 1);
   assert.equal(quality.checks.find((check) => check.name === "semantic-visuals-resolved").passed, true);
+  assert.equal(quality.checks.find((check) => check.name === "semantic-component-plan-resolved").passed, true);
   assert.equal(ir.pages[2].tables[0].rows.length, 3);
   assert.equal(ir.pages[3].charts[0].nativePayload.dataVerified, true);
   assert.match(ir.pages[3].charts[0].nativePayload.fallbackSha256, /^[a-f0-9]{64}$/u);

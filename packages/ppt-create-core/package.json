@@ -21,6 +21,7 @@
     "./pdf-text": "./pdf-text.js",
     "./planner": "./planner.js",
     "./prompt": "./prompt.js",
+    "./semantic-components": "./semantic-components.js",
     "./layout-registry": "./layout-registry.js",
     "./theme-registry": "./theme-registry.js",
     "./team-worker": "./team-worker.js",

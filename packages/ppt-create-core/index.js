@@ -60,6 +60,8 @@ function qualityFor(spec, ir, formats, assetRecords = [], template, variants = [
   const resolvedVisuals = ir.pages.reduce((total, page) => total + page.tables.length + page.charts.length + page.shapes.filter((item) => /-(?:media-slot|media-stage|analysis|node)$/u.test(item.id)).length, 0);
   const nativeTables = ir.pages.reduce((total, page) => total + page.tables.length, 0);
   const nativeCharts = ir.pages.reduce((total, page) => total + page.charts.filter((chart) => chart.nativePayload?.dataVerified === true).length, 0);
+  const semanticAnalysisSlides = spec.slides.filter((slide) => slide.visual?.kind === "analysis").length;
+  const semanticComponentPlans = ir.pages.reduce((total, page) => total + (page.semanticComponents?.length || 0), 0);
   const mediaSlots = spec.slides.filter((slide) => slide.visual?.kind === "media").length;
   const rasterImages = ir.pages.reduce((total, page) => total + page.images.length, 0);
   const declaredAssets = spec.assets || [];
@@ -96,6 +98,7 @@ function qualityFor(spec, ir, formats, assetRecords = [], template, variants = [
     { name: "layout-candidates-available", passed: layoutCandidatesAvailable },
     { name: "layout-selection-resolved", passed: selectedLayoutsResolved },
     { name: "semantic-visuals-resolved", passed: resolvedVisuals >= visualSlides.length },
+    { name: "semantic-component-plan-resolved", passed: semanticComponentPlans === semanticAnalysisSlides },
     { name: "native-data-editable", passed: nativeTables === visualSlides.filter((slide) => slide.visual?.kind === "table").length && nativeCharts === visualSlides.filter((slide) => slide.visual?.kind === "chart").length },
     { name: "declared-assets-resolved", passed: declaredAssets.length === rasterImages && assetRecords.length === declaredAssets.length },
     { name: "asset-provenance-recorded", passed: assetRecords.every((asset) => asset.source && typeof asset.source.kind === "string" && /^[a-f0-9]{64}$/u.test(asset.sha256)) },

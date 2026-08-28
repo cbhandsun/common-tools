@@ -216,6 +216,7 @@
     "slideclone:quality-trend-gate": "node scripts/slideclone-profile.js quality-trend-gate",
     "slideclone:office-regression-ci": "node scripts/run-office-ppt-regression.js",
     "slideclone:powerpoint-editable-roundtrip": "node scripts/powerpoint-editable-roundtrip.js",
+    "ppt-create:office-smoke": "node scripts/ppt-create-office-smoke.js",
     "slideclone:smartart-portability-holdout": "node scripts/smartart-portability-holdout.js",
     "slideclone:chart-native-render-golden": "node scripts/slideclone-profile.js chart-native-render-golden",
     "common-tools": "node packages/cli/bin/common-tools.js",

@@ -8,6 +8,7 @@ on:
       - "skills/pd-hifi-slideclone/**"
       - "scripts/run-office-ppt-regression.js"
       - "scripts/cross-renderer-corpus-audit.js"
+      - "scripts/ppt-create-office-smoke.js"
       - ".github/workflows/ppt-office-regression.yml"
   schedule:
     - cron: "17 3 * * 0"
@@ -82,6 +83,7 @@ jobs:
           path: |
             artifacts/ppt-office-regression/*.json
             artifacts/ppt-office-regression/cross-renderer/cross-renderer-report.json
+            artifacts/ppt-office-regression/ppt-create-smoke/*.json
           if-no-files-found: warn
           retention-days: 90
 
