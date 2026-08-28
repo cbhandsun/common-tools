@@ -13,6 +13,7 @@ const { collectBrowserExperience } = require("../../project-audit-core/browser-e
 const { CAPABILITY: PPT_QUALITY_CAPABILITY, REPORT_JSON_NAME: PPT_QUALITY_REPORT_JSON_NAME, createPptQualityJob, runPptQualityJob } = require("../../ppt-quality-core");
 const { CAPABILITY: PPT_IMPROVE_CAPABILITY, createPptImproveJob, runPptImproveJob } = require("../../ppt-improve-core");
 const { CAPABILITY: PPT_CREATE_CAPABILITY, createPptCreateJob, runPptCreateJob } = require("../../ppt-create-core");
+const { persistEditorPatch, writeEditorPreview } = require("../../ppt-create-core/editor");
 const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
 const { CAPABILITY_MANIFESTS, effectivePluginConfig, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
 const { TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig, teamDeploymentPlan } = require("../../team-runtime");
@@ -36,7 +37,7 @@ const COMMAND_USAGE = [
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
   "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team raw-image-archive --input <png|jpg> --out <archive.tar.gz> | team production-preflight | team keycloak-mcp-client [--apply --backup-file <new.json>]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
-  "  editable init|create|run | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt create|enqueue | ppt-quality create|run | ppt-improve create|run|pipeline | job get|run|cancel"
+  "  editable init|create|run | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt create|enqueue|preview|apply-edit | ppt-quality create|run | ppt-improve create|run|pipeline | job get|run|cancel"
 ].join("\n");
 
 function parse(argv) { const result = { _: [] }; for (let index = 0; index < argv.length; index += 1) { const item = argv[index]; if (!item.startsWith("--")) { result._.push(item); continue; } const next = argv[index + 1]; if (next && !next.startsWith("--")) { result[item.slice(2)] = next; index += 1; } else result[item.slice(2)] = true; } return result; }
@@ -699,6 +700,18 @@ async function mainWithPptQuality() {
     return 0;
   }
   if (area === "team" && action === "runtime") return teamRuntime(args);
+  if (area === "ppt" && action === "preview") {
+    if (!args.input || !args.out) throw new Error("ppt preview requires --input and --out");
+    requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);
+    process.stdout.write(`${JSON.stringify(writeEditorPreview({ workspaceRoot: ctx.workspaceRoot, input: args.input, output: args.out }), null, 2)}\n`);
+    return 0;
+  }
+  if (area === "ppt" && action === "apply-edit") {
+    if (!args.input || !args.patch || !args.out) throw new Error("ppt apply-edit requires --input, --patch and --out");
+    requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);
+    process.stdout.write(`${JSON.stringify(persistEditorPatch({ workspaceRoot: ctx.workspaceRoot, input: args.input, patch: args.patch, output: args.out }), null, 2)}\n`);
+    return 0;
+  }
   if (area === "ppt" && ["create", "enqueue"].includes(action)) {
     if (!args.input || !args.out) throw new Error(`ppt ${action} requires --input and --out`);
     requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);

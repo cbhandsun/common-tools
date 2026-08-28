@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { ARTIFACT_NAMES, CAPABILITY, PPTX_MEDIA_TYPE, creationReport, qualityFor, renderMarkdown } = require(".");
 const { createDeckIr } = require("./layout");
+const { createPreviewHtml } = require("./editor");
 const { MAX_SPEC_BYTES, parsePresentationSpec } = require("./spec");
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
@@ -36,13 +37,14 @@ function createPptCreateHandler({ objectStore, buildPptx, temporaryRoot = os.tmp
       const report = creationReport(spec, quality, sha256(input), sha256(pptx));
       const bodies = Object.freeze({
         [ARTIFACT_NAMES.ir]: Buffer.from(`${JSON.stringify(ir, null, 2)}\n`),
+        [ARTIFACT_NAMES.preview]: Buffer.from(createPreviewHtml(spec, ir)),
         [ARTIFACT_NAMES.pptx]: pptx,
         [ARTIFACT_NAMES.json]: Buffer.from(`${JSON.stringify(report, null, 2)}\n`),
         [ARTIFACT_NAMES.markdown]: Buffer.from(renderMarkdown(report))
       });
-      const mediaTypes = Object.freeze({ [ARTIFACT_NAMES.ir]: "application/json", [ARTIFACT_NAMES.pptx]: PPTX_MEDIA_TYPE, [ARTIFACT_NAMES.json]: "application/json", [ARTIFACT_NAMES.markdown]: "text/markdown" });
+      const mediaTypes = Object.freeze({ [ARTIFACT_NAMES.ir]: "application/json", [ARTIFACT_NAMES.preview]: "text/html", [ARTIFACT_NAMES.pptx]: PPTX_MEDIA_TYPE, [ARTIFACT_NAMES.json]: "application/json", [ARTIFACT_NAMES.markdown]: "text/markdown" });
       const artifacts = [];
-      for (const name of [ARTIFACT_NAMES.ir, ARTIFACT_NAMES.pptx, ARTIFACT_NAMES.json, ARTIFACT_NAMES.markdown]) {
+      for (const name of [ARTIFACT_NAMES.ir, ARTIFACT_NAMES.preview, ARTIFACT_NAMES.pptx, ARTIFACT_NAMES.json, ARTIFACT_NAMES.markdown]) {
         if (await isCancellationRequested()) throw new Error("PPT creation was cancelled");
         const objectKey = `${job.outputPrefix}${name}`;
         await store.putObject({ objectKey, body: bodies[name], contentType: mediaTypes[name] });

@@ -6,5 +6,6 @@ The plugin contains `image-to-editable`, `project-audit`, `ppt-create`, `ppt-qua
 
 PPT creation currently exposes four repository-owned themes and twenty-two semantic layouts. A bounded, deterministic candidate planner selects one to three compatible alternatives and records them in Deck IR so layout choice is inspectable without importing third-party templates or coordinates.
 It also supports safe media slots, editable native tables, workbook-backed native charts, and editable SWOT/quadrant/funnel/timeline models. Media slots do not ingest a path or URL and remain explicitly distinguishable from embedded assets.
+Every creation includes a self-contained preview/editor. Browser changes become revision-bound patches; `ppt apply-edit` validates and atomically persists them to a new PresentationSpec without overwriting the source.
 
 Local development remains available from a complete repository clone with `npm ci` and `npm run common-tools -- mcp serve`; that path is intentionally separate from this sparse Marketplace client.

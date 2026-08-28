@@ -8,6 +8,7 @@
     "./spec": "./spec.js",
     "./layout": "./layout.js",
     "./data-models": "./data-models.js",
+    "./editor": "./editor.js",
     "./layout-registry": "./layout-registry.js",
     "./theme-registry": "./theme-registry.js",
     "./team-worker": "./team-worker.js",

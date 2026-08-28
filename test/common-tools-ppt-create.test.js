@@ -92,7 +92,9 @@ test("local ppt-create job writes IR, PPTX, and non-content quality reports", ()
     const completed = runPptCreateJob({ stateRoot, ownerId: "owner", id: created.id, buildPptx: fakePptxBuilder });
     assert.equal(completed.status, "succeeded");
     assert.equal(completed.quality.passed, true);
-    assert.deepEqual(completed.artifacts.map((item) => item.name), ["deck.ir.json", "deck.pptx", "ppt-create-report.json", "ppt-create-report.md"]);
+    assert.deepEqual(completed.artifacts.map((item) => item.name), ["deck.ir.json", "deck.preview.html", "deck.pptx", "ppt-create-report.json", "ppt-create-report.md"]);
+    const preview = fs.readFileSync(path.join(output, "deck.preview.html"), "utf8");
+    assert.match(preview, /PPT Preview Editor/);
     const reportText = fs.readFileSync(path.join(output, "ppt-create-report.json"), "utf8");
     assert.doesNotMatch(reportText, /季度经营复盘|营业收入/);
     assert.equal(pptCreateSummary(completed, root).pageCount, 4);
@@ -141,7 +143,8 @@ test("team ppt-create worker uses the same spec and emits owner-scoped artifacts
   const handler = createPptCreateHandler({ objectStore, buildPptx: fakePptxBuilder, temporaryRoot: os.tmpdir() });
   const result = await handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/spec", outputPrefix: "owners/hash/jobs/1/" }, isCancellationRequested: async () => false });
   assert.equal(result.quality.passed, true);
-  assert.equal(result.artifacts.length, 4);
+  assert.equal(result.artifacts.length, 5);
+  assert.equal(stored.get("owners/hash/jobs/1/deck.preview.html").contentType, "text/html");
   assert.equal([...stored.keys()].every((key) => key.startsWith("owners/hash/jobs/1/")), true);
 });
 

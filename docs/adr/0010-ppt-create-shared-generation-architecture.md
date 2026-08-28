@@ -23,12 +23,14 @@ The Runtime uses a repository-owned registry of four independently designed them
 
 The public spec may attach one bounded semantic visual to a slide. Tables become native editable PowerPoint tables, charts become native ChartParts with a hash-bound embedded workbook, and SWOT, quadrant, funnel, and timeline models become editable shapes and text. Media requests are represented as safe semantic slots containing alt text and an optional opaque asset ID; PresentationSpec does not accept local paths or remote URLs, and a slot is never reported as an embedded image.
 
+Each creation also emits a self-contained HTML preview/editor generated from validated PresentationSpec and Deck IR. The browser may keep a local draft and download a bounded operation list, but it cannot write the source file. Persistence is a separate local Runtime command that verifies the source revision, operation schema, narrative order, layout compatibility, workspace boundary, and non-overwrite rule before atomically creating a new PresentationSpec file.
+
 ## Consequences
 
 - Image-to-editable and new-deck creation converge at validated Deck IR and the existing OpenXML writer while keeping separate upstream inputs and quality metrics.
 - A new theme or semantic role requires repository-owned fixtures, bounds tests, and rendering verification.
 - Registry changes require unique stable IDs, role and capacity validation, deterministic candidate tests, and Marketplace/runtime release probes.
-- Local and remote parity can be tested at the Deck IR and artifact-contract levels.
+- Local and remote parity can be tested at the Deck IR, editor preview, and artifact-contract levels.
 - Presentation text is treated as untrusted data and is excluded from logs and aggregate reports.
 - Inspiration from external projects is limited to abstract workflow and product concepts. No external implementation, template, asset, proprietary schema, or distinctive coordinate system is imported.
 

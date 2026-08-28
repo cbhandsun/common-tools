@@ -5,13 +5,14 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { assertNonEmptyString, assertQualityReport } = require("../capability-contracts");
 const { JobStore, insideRoot, sha256File } = require("../capability-runtime");
+const { createPreviewHtml } = require("./editor");
 const { createDeckIr } = require("./layout");
 const { MAX_SPEC_BYTES, parsePresentationSpec } = require("./spec");
 
 const CAPABILITY = "ppt-create";
 const REGISTRATION = Object.freeze({ capability: CAPABILITY, toolNames: ["create_ppt_create_job", "get_ppt_create_report"], minimumRuntimeVersion: ">=0.1.0 <1.0.0", requiredWorkerProfile: "ppt-create" });
 const PPTX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-const ARTIFACT_NAMES = Object.freeze({ ir: "deck.ir.json", pptx: "deck.pptx", json: "ppt-create-report.json", markdown: "ppt-create-report.md" });
+const ARTIFACT_NAMES = Object.freeze({ ir: "deck.ir.json", preview: "deck.preview.html", pptx: "deck.pptx", json: "ppt-create-report.json", markdown: "ppt-create-report.md" });
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function assertInputFile(workspaceRoot, input) {
@@ -95,8 +96,10 @@ function runPptCreateJob({ stateRoot, ownerId, id, buildPptx }) {
     const ir = createDeckIr(spec);
     fs.mkdirSync(output, { recursive: false });
     const irFile = path.join(output, ARTIFACT_NAMES.ir);
+    const previewFile = path.join(output, ARTIFACT_NAMES.preview);
     const pptxFile = path.join(output, ARTIFACT_NAMES.pptx);
     writeExclusive(irFile, `${JSON.stringify(ir, null, 2)}\n`);
+    writeExclusive(previewFile, createPreviewHtml(spec, ir));
     buildPptx(Object.freeze({ irFile, outFile: pptxFile }));
     const pptxInfo = fs.lstatSync(pptxFile);
     if (!pptxInfo.isFile() || pptxInfo.isSymbolicLink() || pptxInfo.size < 22) throw new Error("OpenXML builder did not create a valid PPTX artifact");
@@ -106,7 +109,7 @@ function runPptCreateJob({ stateRoot, ownerId, id, buildPptx }) {
     const markdownFile = path.join(output, ARTIFACT_NAMES.markdown);
     writeExclusive(reportFile, `${JSON.stringify(report, null, 2)}\n`);
     writeExclusive(markdownFile, renderMarkdown(report));
-    const artifacts = [artifact(irFile, ARTIFACT_NAMES.ir, "application/json"), artifact(pptxFile, ARTIFACT_NAMES.pptx, PPTX_MEDIA_TYPE), artifact(reportFile, ARTIFACT_NAMES.json, "application/json"), artifact(markdownFile, ARTIFACT_NAMES.markdown, "text/markdown")];
+    const artifacts = [artifact(irFile, ARTIFACT_NAMES.ir, "application/json"), artifact(previewFile, ARTIFACT_NAMES.preview, "text/html"), artifact(pptxFile, ARTIFACT_NAMES.pptx, PPTX_MEDIA_TYPE), artifact(reportFile, ARTIFACT_NAMES.json, "application/json"), artifact(markdownFile, ARTIFACT_NAMES.markdown, "text/markdown")];
     return store.transition(id, "succeeded", { artifacts, quality, lease: undefined });
   } catch {
     try { fs.rmSync(output, { recursive: true, force: true, maxRetries: 2 }); } catch { /* preserve the original bounded failure */ }
