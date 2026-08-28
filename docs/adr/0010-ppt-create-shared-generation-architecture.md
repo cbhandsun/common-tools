@@ -17,6 +17,8 @@ The user-facing action is **创建 PPT**. The stable capability ID is `ppt-creat
 
 The local `ppt ingest` entry converts bounded Markdown, DOCX, or PDF source material into either a validated PresentationBrief or a planned PresentationSpec. Markdown headings and blocks and Word heading styles/paragraphs become semantic sections and points. DOCX admission validates the ZIP directory, CRC checksums, main-document content type, and decompression limits, and reads only `word/document.xml`; it does not execute macros, fields, external relationships, or embedded objects. PDF admission validates the container and invokes a fixed-argument `pdftotext` adapter in an isolated temporary directory. PDF text extraction supports semantic planning only and is not represented as visual-layout fidelity. Ingest reports contain hashes and aggregate counts rather than document text.
 
+A local PresentationSpec may reference one user-controlled PPTX template by a relative path, exact SHA-256, reuse mode, and source/license record. Admission requires a bounded regular PPTX with a slide master and layout, valid internal relationships, and no macros, VBA, ActiveX, OLE/embedded packages, signatures, custom UI, or external relationships. The builder copies the admitted package to a new output and consumes its master/theme; the source is never overwritten or bundled into the product. Team execution rejects filesystem template references until a separately bounded archive protocol is approved.
+
 Both execution modes use this pipeline:
 
 `PresentationSpec -> validation -> semantic layout -> Deck IR -> HTML / OpenXML PPTX -> controlled PDF export -> quality report`

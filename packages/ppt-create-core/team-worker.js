@@ -25,7 +25,7 @@ function createPptCreateHandler({ objectStore, buildPptx, buildPdf, temporaryRoo
     if (await isCancellationRequested()) throw new Error("PPT creation was cancelled");
     const input = await store.readObject({ objectKey: job.inputObjectKey, maxBytes: MAX_SPEC_BYTES });
     const spec = parsePresentationSpec(input);
-    if (spec.assets?.length) throw new Error("remote ppt-create does not accept local asset paths; use the local Runtime for asset packs");
+    if (spec.assets?.length || spec.template) throw new Error("remote ppt-create does not accept local asset or template paths; use the local Runtime for these inputs");
     const root = fs.mkdtempSync(path.join(temporaryRoot, "common-tools-ppt-create-"));
     try {
       const ir = createDeckIr(spec);

@@ -87,6 +87,17 @@ test("OpenXmlDeckBuilder admits PPTX packages before the Open XML SDK opens them
   assert.match(admission, /unsafe ZIP entry path/);
 });
 
+test("OpenXmlDeckBuilder applies the stricter executable-content and external-relationship policy only to templates", () => {
+  const validator = fs.readFileSync(packageAdmissionFile, "utf8");
+  const writer = fs.readFileSync(deckPackageWriterFile, "utf8");
+  assert.match(validator, /ValidateTemplate/);
+  assert.match(validator, /vbaProject/);
+  assert.match(validator, /activeX/);
+  assert.match(validator, /embeddings/);
+  assert.match(validator, /TargetMode/);
+  assert.match(writer, /ValidateTemplate\(templatePath\)/);
+});
+
 test("OpenXmlDeckBuilder isolates the bounded SmartArt part graph from component orchestration", () => {
   const componentImporter = fs.readFileSync(componentImporterFile, "utf8");
   const smartArtImporter = fs.readFileSync(portableSmartArtImporterFile, "utf8");

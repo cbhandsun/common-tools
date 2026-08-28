@@ -136,7 +136,7 @@ public static class DeckPackageWriter
     {
         if (string.IsNullOrWhiteSpace(templatePptx)) return PresentationDocument.Create(outputPath, PresentationDocumentType.Presentation);
         var templatePath = RequiredFile(templatePptx, "PPTX template");
-        PptxPackageAdmissionValidator.Validate(templatePath, "PPTX template");
+        PptxPackageAdmissionValidator.ValidateTemplate(templatePath);
         File.Copy(templatePath, outputPath, overwrite: true);
         return PresentationDocument.Open(outputPath, true);
     }

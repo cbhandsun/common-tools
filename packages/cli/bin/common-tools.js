@@ -511,9 +511,9 @@ function runCreatedLocalJob(ctx, job) {
   if (job.capability === REGISTRATION.capability) return runEditableJob({ ...ctx, id: job.id, executeSlideclone: bundledSlidecloneRunner(), enhanceArtifacts: ({ outputDir }) => createImageDeliveryArtifacts({ outputDir, buildPdf: buildPdfWithLibreOffice }) });
   throw new Error("job capability cannot be run locally");
 }
-function buildCreatedPptx({ irFile, outFile }) {
+function buildCreatedPptx({ irFile, outFile, templatePptx }) {
   const skillRoot = path.join(REPOSITORY_ROOT, "skills", "pd-hifi-slideclone");
-  buildOpenXmlDecksSync([{ irFile, outFile }], { skillRoot, config: { openXmlBuilder: { cache: false, configuration: "Release", targetFramework: "net8.0" } }, metrics: {} }, path.join(skillRoot, "dotnet", "OpenXmlDeckBuilder"), { powerPointSafe: true });
+  buildOpenXmlDecksSync([{ irFile, outFile, templatePptx }], { skillRoot, config: { openXmlBuilder: { cache: false, configuration: "Release", targetFramework: "net8.0" } }, metrics: {} }, path.join(skillRoot, "dotnet", "OpenXmlDeckBuilder"), { powerPointSafe: true });
 }
 async function main() {
   const args = parse(process.argv.slice(2));

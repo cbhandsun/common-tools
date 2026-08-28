@@ -20,6 +20,7 @@
     "./layout-registry": "./layout-registry.js",
     "./theme-registry": "./theme-registry.js",
     "./team-worker": "./team-worker.js",
+    "./template": "./template.js",
     "./presentation-spec.schema.json": "./presentation-spec.schema.json",
     "./presentation-brief.schema.json": "./presentation-brief.schema.json"
   },

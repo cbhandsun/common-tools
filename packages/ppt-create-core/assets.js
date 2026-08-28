@@ -80,4 +80,4 @@ function materializeAssetPack(assets, output) {
   return Object.freeze({ paths: Object.freeze(paths), records: Object.freeze(records) });
 }
 
-module.exports = { MAX_ASSETS, MAX_ASSET_BYTES, SOURCE_KINDS, inspectImageAsset, materializeAssetPack, normalizeAssetManifest, resolveAssetPack };
+module.exports = { MAX_ASSETS, MAX_ASSET_BYTES, SOURCE_KINDS, inspectImageAsset, materializeAssetPack, normalizeAssetManifest, resolveAssetPack, sourceRecord };
