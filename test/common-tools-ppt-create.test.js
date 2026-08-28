@@ -164,11 +164,11 @@ test("team ppt-create worker honors cancellation before reading input", async ()
   assert.equal(read, false);
 });
 
-test("team ppt-create worker rejects local asset manifests until a bounded archive transport is approved", async () => {
+test("team ppt-create worker rejects file-bound JSON and requires the bounded archive transport", async () => {
   const spec = validSpec(); spec.assets = [{ id: "hero", path: "media/hero.png", sha256: "0".repeat(64), source: { kind: "original", locator: "internal://hero", license: "company-owned" } }];
   spec.slides[1].role = "content"; spec.slides[1].visual = { kind: "media", mediaType: "image", alt: "hero", assetId: "hero" }; spec.slides[1].layout = "media-frame-v1";
   const handler = createPptCreateHandler({ objectStore: { readObject: async () => Buffer.from(JSON.stringify(spec)), putObject: async () => assert.fail("must not upload") }, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder });
-  await assert.rejects(() => handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/spec", outputPrefix: "owners/hash/jobs/1/" }, isCancellationRequested: async () => false }), /local Runtime/);
+  await assert.rejects(() => handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/spec", outputPrefix: "owners/hash/jobs/1/" }, isCancellationRequested: async () => false }), /ppt-create archive/);
 });
 
 test("ppt-create routing and remote upload boundaries are explicit", () => {
@@ -176,6 +176,9 @@ test("ppt-create routing and remote upload boundaries are explicit", () => {
   assert.deepEqual(resolveExecutionRoute({ capability: "ppt-create", executionMode: "remote-only" }), { execution: "remote", reason: "configured-remote-only", locallySupported: true });
   assert.equal(validUploadRequest("ppt-create", "application/json", 1024 * 1024), true);
   assert.equal(validUploadRequest("ppt-create", "application/json", 1024 * 1024 + 1), false);
+  assert.equal(validUploadRequest("ppt-create", "application/gzip", 100 * 1024 * 1024), true);
+  assert.equal(validUploadRequest("ppt-create", "application/x-gzip", 100 * 1024 * 1024), true);
+  assert.equal(validUploadRequest("ppt-create", "application/gzip", 100 * 1024 * 1024 + 1), false);
   assert.equal(validUploadRequest("ppt-create", "text/json", 100), false);
   assert.equal(workerSettings({ COMMON_TOOLS_WORKER_CAPABILITIES: "ppt-create" }).pollSeconds, 5);
   assert.throws(() => workerSettings({ COMMON_TOOLS_WORKER_CAPABILITIES: "ppt-quality" }), /supports only ppt-create/);

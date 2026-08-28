@@ -7,7 +7,7 @@ const path = require("node:path");
 // Keep existing numeric installer codes stable; append new capabilities.
 const CAPABILITIES = Object.freeze(["image-to-editable", "ppt-improve", "ppt-quality", "project-audit", "ppt-create"]);
 const REMOTE_CAPABILITY_CODES = Object.freeze(Object.fromEntries(CAPABILITIES.map((capability, index) => [capability, String(index + 1)])));
-const REMOTE_PLUGIN_VERSION = "0.1.22";
+const REMOTE_PLUGIN_VERSION = "0.1.23";
 const REPOSITORY_ROOT = path.resolve(__dirname, "..");
 // Keep the on-device runtime revision aligned with the plugin release.  A
 // source-package version is intentionally not used here: it can stay stable
@@ -24,7 +24,7 @@ const REMOTE_CAPABILITY_GUIDANCE = Object.freeze({
   "project-audit": Object.freeze({ contentType: "application/gzip", input: "a single approved project archive containing only the intended audit input" }),
   "ppt-quality": Object.freeze({ contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", input: "one approved PPTX file" }),
   "ppt-improve": Object.freeze({ contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", input: "one approved PPTX file; the service audits it first and only creates a separate improved PPTX when a safe repair is available" }),
-  "ppt-create": Object.freeze({ contentType: "application/json", input: "one approved PresentationSpec 1.0 JSON file" })
+  "ppt-create": Object.freeze({ contentType: "application/json", alternateContentType: "application/gzip", input: "one approved PresentationSpec 1.0 JSON file, or one hash-bound ppt-create archive when assets or a user-owned template are declared" })
 });
 const REMOTE_CAPABILITY_SCOPES = Object.freeze(Object.fromEntries(CAPABILITIES.map((capability) => [capability, `common-tools:capability:${capability}`])));
 
@@ -411,7 +411,7 @@ Local media uses a hash-bound PNG/JPEG asset manifest with provenance and licens
 
 Run \`common-tools runtime resolve --capability ppt-create\` when the Local Runtime is available. For local execution, enable the capability and run \`common-tools ppt create --input <presentation.json> --out <new-directory>\`. The output directory must not exist.
 
-The local \`deck.preview.html\` editor persists spec edits only through \`ppt apply-edit\` and direct Deck IR edits only through revision-bound \`ppt apply-ir-edit\`. For explicit remote execution, upload only the approved JSON as \`application/json\` using \`create_team_upload_target\`, then submit capability \`ppt-create\` with \`create_team_job\`. Remote JSON intentionally rejects local asset and template paths. Poll only the returned job and call \`get_team_artifact_target\` only for reported artifacts.
+The local \`deck.preview.html\` editor persists spec edits only through \`ppt apply-edit\` and direct Deck IR edits only through revision-bound \`ppt apply-ir-edit\`. For explicit remote execution, use a file-free spec as \`application/json\`. When the spec binds assets or a user-owned template, first run \`common-tools ppt archive --input <presentation.json> --out <new.tar.gz>\` and use that exact hash-bound archive as \`application/gzip\`. Call \`create_team_upload_target\` with the selected content type and exact byte length, upload only to its returned URL, then submit capability \`ppt-create\` with \`create_team_job\`. The Worker rejects undeclared files, links, traversal, excess size, hash drift, unsafe templates, and mismatched provenance. Poll only the returned job and call \`get_team_artifact_target\` only for reported artifacts.
 
 Every run reports \`deck.ir.json\`, \`deck.preview.html\`, \`deck.html\`, \`deck.pptx\`, \`deck.pdf\`, both reports, and \`asset-manifest.json\`. Add \`template-manifest.json\` only for an applied template. For multiple whole-deck alternatives, add \`deck.variants.json\` and numbered secondary deck artifacts. This bounded dynamic artifact contract must pass \`multi-format-page-count-matches\` and \`multi-format-source-fingerprint-matches\`.
 `;
@@ -474,7 +474,7 @@ const CHINESE_CAPABILITY_GUIDANCE = Object.freeze({
   "image-to-editable": Object.freeze({ title: "图片转可编辑", purpose: "将已获批准的图片归档转换为可编辑产物。", input: "单个已获批准的图片归档（application/gzip）。" }),
   "ppt-improve": Object.freeze({ title: "PPT 改善", purpose: "先审视 PPTX，再在存在安全可修复项时生成独立改善版。", input: "单个已获批准的 PPTX 文件。" }),
   "ppt-quality": Object.freeze({ title: "PPT 质量审计", purpose: "审视 PPTX 的质量并生成独立质量报告。", input: "单个已获批准的 PPTX 文件。" }),
-  "ppt-create": Object.freeze({ title: "创建 PPT", purpose: "从结构化内容创建新的可编辑 PPTX。", input: "单个已获批准的 PresentationSpec 1.0 JSON 文件。" }),
+  "ppt-create": Object.freeze({ title: "创建 PPT", purpose: "从结构化内容创建新的可编辑 PPTX。", input: "无本地文件时使用已批准的 PresentationSpec 1.0 JSON；包含素材或用户自有模板时使用 `common-tools ppt archive` 生成的哈希绑定归档（application/gzip）。" }),
   "project-audit": Object.freeze({ title: "项目审计", purpose: "默认在本机执行只读项目审计；明确要求团队/远程审计时才上传归档。", input: "远程模式使用单个已获批准的项目归档（application/gzip）。" })
 });
 function chineseCapabilityGuide(capability) {
@@ -496,7 +496,7 @@ function chineseCapabilityGuide(capability) {
     capability === "project-audit"
       ? "在 Codex 中直接说明审计目标。普通“审计当前项目”会走 `enhanced` 本机只读审视，覆盖产品闭环、视觉交互、数据/权限/可靠性和工程交付四域；“只做代码审计”才走 `code`。若已安装 Local Runtime，先运行 `common-tools runtime resolve --capability project-audit`：只有用户明确要求团队/远程审计且策略允许时才上传归档。未安装 Local Runtime 时，不要把普通请求自动改为远程上传。"
       : capability === "ppt-create"
-        ? "在 Codex 中直接说明创建目标并提供 PresentationSpec 1.0 JSON。先运行 `common-tools runtime resolve --capability ppt-create`；默认走本机创建，只有执行策略或用户明确要求时才上传到团队服务。"
+        ? "在 Codex 中直接说明创建目标并提供 PresentationSpec 1.0 JSON。先运行 `common-tools runtime resolve --capability ppt-create`；默认走本机创建。远程模式下，无本地文件的 spec 直接上传 JSON，带素材或模板的 spec 必须先运行 `common-tools ppt archive` 并上传生成的 application/gzip 归档。"
         : "在 Codex 中直接用自然语言说明目标，并明确所需能力。该能力当前需要远程 MCP；实际可调用范围以当前会话可见的 common-tools MCP 工具、已授权 OAuth scope 和服务端已部署能力为准。",
     "",
     "## 结果与限制",

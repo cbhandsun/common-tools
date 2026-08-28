@@ -1,6 +1,6 @@
 {
   "name": "ppt-create",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Create a new editable PPTX from validated structured content.",
   "author": { "name": "common-tools" }
 }

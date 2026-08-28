@@ -427,7 +427,7 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-idp.yaml
 
 本机演练中，20 个 `/healthz` 请求已均匀落到两个副本。开发模式响应会提供临时容器 instance 标识以验证分发；生产模式只返回 `{ "status": "ok" }`。公网部署必须把 Nginx 替换或置于受管 TLS ingress/LB 后，TLS 终止、精确 Origin、速率限制和日志策略由 ingress 承担，不能直接公开此 loopback gateway。
 
-`remote-mcp` 只签发对象存储上传/下载 URL、创建/查询/取消作业并投递队列；它不下载或执行用户文件。要调用任一能力，授权码 + S256 PKCE 请求必须显式携带对应的 optional scope：`common-tools:capability:project-audit`、`common-tools:capability:image-to-editable`、`common-tools:capability:ppt-quality` 或 `common-tools:capability:ppt-improve`；access token 必须包含稳定 `sub`、`common-tools-mcp` audience 和该 `scope`。部署前应以授权码 + PKCE 获取 token，不能使用共享静态 token。
+`remote-mcp` 只签发对象存储上传/下载 URL、创建/查询/取消作业并投递队列；它不下载或执行用户文件。要调用任一能力，授权码 + S256 PKCE 请求必须显式携带对应的 optional scope：`common-tools:capability:project-audit`、`common-tools:capability:image-to-editable`、`common-tools:capability:ppt-create`、`common-tools:capability:ppt-quality` 或 `common-tools:capability:ppt-improve`；access token 必须包含稳定 `sub`、`common-tools-mcp` audience 和该 `scope`。部署前应以授权码 + PKCE 获取 token，不能使用共享静态 token。
 
 ## 项目审视归档协议
 
@@ -442,6 +442,12 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 # 演练完成后
 docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml --profile team-infra --profile team-worker-audit up -d --scale project-audit-worker=1
 ```
+
+## 创建 PPT 归档协议
+
+不含本地文件引用的 `PresentationSpec 1.0` 可继续使用 `application/json`，大小上限 1 MiB。声明 PNG/JPEG 素材或一个用户自有 PPTX 模板时，必须在本地运行 `common-tools ppt archive --input <presentation.json> --out <new.tar.gz>`，并以 `application/gzip`（或 `application/x-gzip`）上传；压缩包上限 100 MiB，安全解压总量上限 64 MiB。
+
+归档固定包含 `ppt-create-archive.json`、`presentation.json`、PresentationSpec 明确声明的素材，以及至多一个明确声明的模板。归档清单记录每个文件的角色、字节数和 SHA-256；Worker 解包后还会使用本地创建链路相同的图片、模板和 PresentationSpec 验证器再次验收。未声明或缺失文件、重复路径、绝对/回退/反斜杠路径、链接、截断、超限、哈希漂移、清单与 spec 不一致，以及包含宏、嵌入对象、签名、外链或未授权来源的模板都会在生成前失败。归档命令只写入新的本地文件，不上传内容、不读取凭据，也不创建团队 Job。
 
 ## 图片转可编辑归档协议
 

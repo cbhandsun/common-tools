@@ -1,13 +1,13 @@
 {
   "manifestVersion": 1,
   "capability": "ppt-create",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "toolNames": ["create_ppt_create_job", "get_ppt_create_report"],
   "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
   "requiredWorkerProfile": "ppt-create",
   "team": {
     "oauthScope": "common-tools:capability:ppt-create",
-    "acceptedUploadMediaTypes": ["application/json"],
+    "acceptedUploadMediaTypes": ["application/json", "application/gzip", "application/x-gzip"],
     "deployment": {
       "workerProfile": "team-worker-ppt-create",
       "workerService": "ppt-create-worker",
@@ -15,5 +15,5 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker.js"
     }
   },
-  "contentSha256": "683e286bebd5d2e797f2068f931b457a39d7015cfe3a594814fc24fd2f33272e"
+  "contentSha256": "25f12c7710500b6f4d1fc71053bab62d4ba64e76e0588dcfcab9f3607525995f"
 }
