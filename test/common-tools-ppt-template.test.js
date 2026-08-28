@@ -55,8 +55,16 @@ test("user PPTX template is hash-bound, admitted, passed to the builder, and rep
     assert.equal(completed.status, "succeeded"); assert.equal(path.basename(received), ".template-input.pptx"); assert.equal(fs.existsSync(received), false); assert.ok(completed.artifacts.some((artifact) => artifact.name === "template-manifest.json"));
     const manifest = fs.readFileSync(path.join(output, "template-manifest.json"), "utf8"); assert.match(manifest, /owned-or-authorized/); assert.match(manifest, /semanticLayouts/); assert.match(manifest, /标题与内容/); assert.doesNotMatch(manifest, /brand[.]pptx|common-tools-template/);
     const ir = JSON.parse(fs.readFileSync(path.join(output, "deck.ir.json"), "utf8")); assert.equal(ir.pages[1].intent.templateLayoutId, "slideLayout1");
+    assert.equal(ir.pages[1].intent.templateLayoutFit, "fit"); assert.equal(ir.pages[1].intent.templatePlaceholderBindings.length, ir.pages[1].textBoxes.length);
     const report = JSON.parse(fs.readFileSync(path.join(output, "ppt-create-report.json"))); assert.equal(report.result.template.sha256, sha256); assert.equal(report.quality.checks.find((check) => check.name === "template-admission").passed, true);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("template layout mapping fails closed when no semantic layout has enough regions", () => {
+  const { applyTemplateLayoutMap } = require("../packages/ppt-create-core/template");
+  const ir = { pages: [{ intent: { role: "comparison" }, textBoxes: [{ id: "a", role: "body" }], tables: [], charts: [], images: [] }] };
+  const mapped = applyTemplateLayoutMap(ir, { layoutMap: [{ id: "one", name: "One body", roles: ["comparison"], bodyCapacity: 1 }] });
+  assert.equal(mapped.pages[0].intent.templateLayoutFit, "overflow"); assert.equal(mapped.pages[0].intent.templateLayoutDemand, 2);
 });
 
 test("template contract rejects traversal, drift, executable content, external relationships, and unsupported rights", () => {

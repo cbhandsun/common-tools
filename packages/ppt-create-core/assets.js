@@ -10,6 +10,7 @@ const MAX_ASSET_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 16384;
 const MAX_IMAGE_PIXELS = 40_000_000;
 const SOURCE_KINDS = Object.freeze(["customer-provided", "generated", "licensed", "original"]);
+const LICENSE_EVIDENCE_TYPES = Object.freeze(["generation-record", "license-page", "ownership-attestation", "receipt"]);
 
 function plainObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function exactKeys(value, allowed, label) { if (!plainObject(value) || Object.keys(value).some((key) => !allowed.includes(key))) throw new TypeError(`${label} is invalid`); }
@@ -19,9 +20,22 @@ function text(value, label, maximum) {
 }
 function assetId(value, label) { const id = text(value, label, 80); if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/u.test(id)) throw new TypeError(`${label} is invalid`); return id; }
 function sourceRecord(value, label) {
-  exactKeys(value, ["kind", "locator", "license", "author", "attribution"], label);
+  exactKeys(value, ["kind", "locator", "license", "author", "attribution", "attributionRequired", "licenseEvidence"], label);
   if (!SOURCE_KINDS.includes(value.kind)) throw new TypeError(`${label} kind is invalid`);
-  return Object.freeze({ kind: value.kind, locator: text(value.locator, `${label} locator`, 1024), license: text(value.license, `${label} license`, 160), ...(value.author === undefined ? {} : { author: text(value.author, `${label} author`, 160) }), ...(value.attribution === undefined ? {} : { attribution: text(value.attribution, `${label} attribution`, 500) }) });
+  if (value.attributionRequired !== undefined && typeof value.attributionRequired !== "boolean") throw new TypeError(`${label} attributionRequired is invalid`);
+  let licenseEvidence;
+  if (value.licenseEvidence !== undefined) { exactKeys(value.licenseEvidence, ["type", "locator", "sha256", "capturedAt", "expiresAt"], `${label} licenseEvidence`); if (!LICENSE_EVIDENCE_TYPES.includes(value.licenseEvidence.type) || !/^\d{4}-\d{2}-\d{2}$/u.test(value.licenseEvidence.capturedAt || "") || (value.licenseEvidence.expiresAt !== undefined && !/^\d{4}-\d{2}-\d{2}$/u.test(value.licenseEvidence.expiresAt)) || (value.licenseEvidence.sha256 !== undefined && !/^[a-f0-9]{64}$/u.test(value.licenseEvidence.sha256))) throw new TypeError(`${label} licenseEvidence is invalid`); licenseEvidence = Object.freeze({ type: value.licenseEvidence.type, locator: text(value.licenseEvidence.locator, `${label} licenseEvidence locator`, 1024), ...(value.licenseEvidence.sha256 ? { sha256: value.licenseEvidence.sha256 } : {}), capturedAt: value.licenseEvidence.capturedAt, ...(value.licenseEvidence.expiresAt ? { expiresAt: value.licenseEvidence.expiresAt } : {}) }); }
+  const record = { kind: value.kind, locator: text(value.locator, `${label} locator`, 1024), license: text(value.license, `${label} license`, 160), ...(value.author === undefined ? {} : { author: text(value.author, `${label} author`, 160) }), ...(value.attribution === undefined ? {} : { attribution: text(value.attribution, `${label} attribution`, 500) }), ...(value.attributionRequired === undefined ? {} : { attributionRequired: value.attributionRequired }), ...(licenseEvidence ? { licenseEvidence } : {}) };
+  if (record.attributionRequired === true && !record.attribution) throw new TypeError(`${label} requires attribution text`); return Object.freeze(record);
+}
+function sourceCompliance(source, today = new Date().toISOString().slice(0, 10)) {
+  const license = String(source?.license || "").toLowerCase(); const evidence = source?.licenseEvidence; const reasons = [];
+  if (source?.kind === "customer-provided" && !/(?:owned|authoriz|customer)/u.test(license)) reasons.push("customer-rights-not-attested");
+  else if (source?.kind === "original" && !/(?:owned|original|company)/u.test(license)) reasons.push("original-ownership-not-attested");
+  else if (source?.kind === "licensed" && !evidence) reasons.push("license-evidence-missing");
+  else if (source?.kind === "generated" && evidence?.type !== "generation-record") reasons.push("generation-record-missing");
+  if (evidence?.expiresAt && evidence.expiresAt < today) reasons.push("license-evidence-expired"); if (source?.attributionRequired === true && !source.attribution) reasons.push("required-attribution-missing");
+  return Object.freeze({ verified: reasons.length === 0, reasons: Object.freeze(reasons), attributionRequired: source?.attributionRequired === true });
 }
 function normalizeAssetManifest(value) {
   if (value === undefined) return Object.freeze([]);
@@ -75,9 +89,9 @@ function materializeAssetPack(assets, output) {
   for (const asset of assets) {
     const extension = path.extname(asset.file).toLowerCase(); const name = `${asset.id}${extension}`; const target = path.join(directory, name);
     fs.copyFileSync(asset.file, target, fs.constants.COPYFILE_EXCL); paths[asset.id] = `assets/${name}`;
-    records.push(Object.freeze({ id: asset.id, path: paths[asset.id], sha256: asset.sha256, widthPx: asset.widthPx, heightPx: asset.heightPx, bytes: asset.bytes, source: asset.source }));
+    records.push(Object.freeze({ id: asset.id, path: paths[asset.id], sha256: asset.sha256, widthPx: asset.widthPx, heightPx: asset.heightPx, bytes: asset.bytes, source: asset.source, compliance: sourceCompliance(asset.source) }));
   }
   return Object.freeze({ paths: Object.freeze(paths), records: Object.freeze(records) });
 }
 
-module.exports = { MAX_ASSETS, MAX_ASSET_BYTES, SOURCE_KINDS, inspectImageAsset, materializeAssetPack, normalizeAssetManifest, resolveAssetPack, sourceRecord };
+module.exports = { LICENSE_EVIDENCE_TYPES, MAX_ASSETS, MAX_ASSET_BYTES, SOURCE_KINDS, inspectImageAsset, materializeAssetPack, normalizeAssetManifest, resolveAssetPack, sourceCompliance, sourceRecord };

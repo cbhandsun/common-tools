@@ -7,35 +7,42 @@ const { insideRoot } = require("../capability-runtime");
 const { extractEntry, readCentralDirectory } = require("../ppt-quality-core");
 const { planPresentation, validatePresentationBrief } = require("./planner");
 const { validatePresentationSpec } = require("./spec");
+const { inspectImageAsset } = require("./assets");
 
 const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 const MAX_EXTRACTED_TEXT = 1_000_000;
 const SUPPORTED_EXTENSIONS = Object.freeze([".docx", ".markdown", ".md", ".pdf"]);
 
+function plainObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function decodeXml(value) { return value.replace(/&#(x?[0-9a-f]+);/giu, (_, code) => String.fromCodePoint(Number.parseInt(code.startsWith("x") || code.startsWith("X") ? code.slice(1) : code, code.startsWith("x") || code.startsWith("X") ? 16 : 10))).replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&quot;", '"').replaceAll("&apos;", "'").replaceAll("&amp;", "&"); }
 function normalizeLine(value) { return value.replace(/\s+/gu, " ").trim(); }
-function extractDocxOutline(buffer) {
+function extractDocxStructure(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 22 || buffer.length > MAX_DOCUMENT_BYTES) throw new Error("DOCX input size is invalid");
   const entries = readCentralDirectory(buffer); const types = entries.get("[Content_Types].xml"); const document = entries.get("word/document.xml");
   if (!types || !document || !extractEntry(buffer, types, 1024 * 1024).toString("utf8").includes("wordprocessingml.document.main+xml")) throw new Error("DOCX package is missing its main document");
-  const xml = extractEntry(buffer, document, 8 * 1024 * 1024).toString("utf8"); const records = [];
+  const xml = extractEntry(buffer, document, 8 * 1024 * 1024).toString("utf8"); const records = []; const relationships = new Map(); const relationshipEntry = entries.get("word/_rels/document.xml.rels");
+  if (relationshipEntry) for (const match of extractEntry(buffer, relationshipEntry, 2 * 1024 * 1024).toString("utf8").matchAll(/<Relationship\b[^>]*\bId="([^"]+)"[^>]*\bTarget="([^"]+)"[^>]*\/?\s*>/gu)) { const target = path.posix.normalize(match[2]); if (!target.startsWith("../") && !path.posix.isAbsolute(target)) relationships.set(match[1], `word/${target}`); }
   let extractedCharacters = 0;
   for (const match of xml.matchAll(/<w:(p|tbl)\b[\s\S]*?<\/w:\1>/gu)) {
     if (match[1] === "tbl") {
-      const rows = [...match[0].matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/gu)].slice(0, 13).map((row) => [...row[0].matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/gu)].slice(0, 6).map((cell) => normalizeLine([...cell[0].matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/gu)].map((item) => decodeXml(item[1])).join(" ")))).filter((row) => row.some(Boolean));
+      const tableXml = match[0]; const rows = [...tableXml.matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/gu)].slice(0, 13).map((row) => [...row[0].matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/gu)].slice(0, 6).map((cell) => normalizeLine([...cell[0].matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/gu)].map((item) => decodeXml(item[1])).join(" ")))).filter((row) => row.some(Boolean));
       const width = Math.min(6, ...rows.map((row) => row.length));
-      if (rows.length >= 2 && width >= 2) records.push({ kind: "table", rows: rows.map((row) => row.slice(0, width).map((cell) => cell || "—")) });
+      if (rows.length >= 2 && width >= 2) records.push({ kind: "table", rows: rows.map((row) => row.slice(0, width).map((cell) => cell || "—")), mergedCells: (tableXml.match(/<w:(?:gridSpan|vMerge)\b/gu) || []).length });
       if (records.length > 5000) throw new Error("DOCX contains too many blocks");
       continue;
     }
-    const text = normalizeLine([...match[0].matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/gu)].map((item) => decodeXml(item[1])).join("")); if (!text) continue;
+    const paragraphXml = match[0]; const text = normalizeLine([...paragraphXml.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/gu)].map((item) => decodeXml(item[1])).join(""));
+    const imageIds = [...paragraphXml.matchAll(/<a:blip\b[^>]*\br:embed="([^"]+)"[^>]*\/?\s*>/gu)].map((item) => item[1]); const description = /<wp:docPr\b[^>]*(?:\bdescr|\btitle|\bname)="([^"]+)"/u.exec(paragraphXml)?.[1];
+    for (const relationshipId of imageIds) { const entryName = relationships.get(relationshipId); if (entryName && entries.has(entryName) && /[.](?:png|jpe?g)$/iu.test(entryName)) records.push({ kind: "image", entryName, alt: normalizeLine(decodeXml(description || "源文档图像")), ...(text ? { caption: text } : {}) }); }
+    if (!text) continue;
     extractedCharacters += text.length; if (extractedCharacters > MAX_EXTRACTED_TEXT) throw new Error("DOCX extracted text is too large");
-    const style = /<w:pStyle\b[^>]*w:val=["']([^"']+)["']/u.exec(match[0])?.[1] || ""; const heading = /^Heading([1-6])$/iu.exec(style);
-    records.push({ kind: heading ? "heading" : "paragraph", level: heading ? Number(heading[1]) : undefined, text });
+    const style = /<w:pStyle\b[^>]*w:val=["']([^"']+)["']/u.exec(paragraphXml)?.[1] || ""; const heading = /^Heading([1-6])$/iu.exec(style); const listLevel = /<w:ilvl\b[^>]*w:val=["']([0-8])["']/u.exec(paragraphXml)?.[1];
+    records.push({ kind: heading ? "heading" : "paragraph", level: heading ? Number(heading[1]) : undefined, text, ...(listLevel === undefined ? {} : { listLevel: Number(listLevel) }) });
     if (records.length > 5000) throw new Error("DOCX contains too many paragraphs");
   }
-  return records;
+  return Object.freeze({ records: Object.freeze(records), entries, buffer });
 }
+function extractDocxOutline(buffer) { return extractDocxStructure(buffer).records; }
 function extractMarkdownOutline(text) {
   const records = []; let paragraph = [];
   const flush = () => { const value = normalizeLine(paragraph.join(" ")); if (value) records.push({ kind: "paragraph", text: value }); paragraph = []; };
@@ -78,6 +85,7 @@ function outlineToBrief(records, options) {
       record.rows.slice(1, 7).forEach((row, rowIndex) => current.points.push({ id: `point-${rowIndex + 1}`, label: row.join(" · ").slice(0, 80), required: true }));
       continue;
     }
+    if (record.kind === "image") { addSection(`图像 ${sections.filter((section) => /^图像 /u.test(section.title)).length + 1}`); current.points.push({ id: "point-1", label: safeTitle(record.caption || record.alt, "源文档图像").slice(0, 80), required: true }); continue; }
     if (record.kind === "heading") { addSection(record.text); continue; }
     if (!current) addSection(options.defaultSectionTitle || "核心内容");
     for (const chunk of boundedChunks(record.text)) {
@@ -93,14 +101,17 @@ function documentToPresentation(inputFile, options = {}) {
   if (!info.isFile() || info.isSymbolicLink() || info.size < 1 || info.size > MAX_DOCUMENT_BYTES || !SUPPORTED_EXTENSIONS.includes(extension)) throw new Error("document input must be a bounded Markdown, DOCX, or PDF file");
   const bytes = fs.readFileSync(inputFile); let records; let sourceFormat;
   if ([".md", ".markdown"].includes(extension)) { const text = bytes.toString("utf8"); if (text.length > MAX_EXTRACTED_TEXT) throw new Error("Markdown extracted text is too large"); records = extractMarkdownOutline(text); sourceFormat = "markdown"; }
-  else if (extension === ".docx") { records = extractDocxOutline(bytes); sourceFormat = "docx"; }
+  else if (extension === ".docx") { records = extractDocxStructure(bytes).records; sourceFormat = "docx"; }
   else {
-    if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-")) || !bytes.includes(Buffer.from("%%EOF")) || typeof options.extractPdfText !== "function") throw new Error("PDF input or extraction adapter is invalid");
-    const text = options.extractPdfText(inputFile); if (typeof text !== "string" || text.length < 1 || text.length > MAX_EXTRACTED_TEXT) throw new Error("PDF extracted text is invalid"); records = extractPlainOutline(text); sourceFormat = "pdf";
+    if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-")) || !bytes.includes(Buffer.from("%%EOF")) || (typeof options.extractPdfLayout !== "function" && typeof options.extractPdfText !== "function")) throw new Error("PDF input or extraction adapter is invalid");
+    if (typeof options.extractPdfLayout === "function") { try { records = options.extractPdfLayout(inputFile); } catch { records = undefined; } if (records !== undefined && (!Array.isArray(records) || records.length < 1 || records.length > 20000 || records.some((record) => !["heading", "paragraph", "table", "image"].includes(record?.kind)))) throw new Error("PDF extracted layout is invalid"); }
+    if (records === undefined) { if (typeof options.extractPdfText !== "function") throw new Error("PDF layout extraction failed and no text fallback is available"); const text = options.extractPdfText(inputFile); if (typeof text !== "string" || text.length < 1 || text.length > MAX_EXTRACTED_TEXT) throw new Error("PDF extracted text is invalid"); records = extractPlainOutline(text); }
+    sourceFormat = "pdf";
   }
   const brief = outlineToBrief(records, { ...options, fallbackTitle: path.basename(inputFile, extension) }); const planned = options.outputFormat === "brief" ? null : planPresentation(brief);
   let document = planned?.spec || brief;
   const tables = records.filter((record) => record.kind === "table");
+  const images = records.filter((record) => record.kind === "image"); const sourceSha256 = crypto.createHash("sha256").update(bytes).digest("hex"); let materializedAssetDirectory;
   if (planned && tables.length) {
     const draft = JSON.parse(JSON.stringify(planned.spec));
     tables.forEach((table, index) => {
@@ -109,15 +120,25 @@ function documentToPresentation(inputFile, options = {}) {
     });
     document = validatePresentationSpec(draft);
   }
-  return Object.freeze({ document, report: Object.freeze({ version: "1.0", sourceFormat, sourceSha256: crypto.createHash("sha256").update(bytes).digest("hex"), extractedBlocks: records.length, structuredTables: tables.length, sourcePages: sourceFormat === "pdf" ? Math.max(...records.map((record) => record.page || 1)) : undefined, sections: brief.sections.length, points: brief.sections.reduce((sum, section) => sum + section.points.length, 0), outputFormat: planned ? "spec" : "brief", checks: Object.freeze([{ name: "document-visual-structure-preserved", passed: sourceFormat !== "docx" || tables.every((table) => table.rows.length >= 2) }, { name: "document-source-hash-recorded", passed: true }]), ...(planned ? { slideCount: document.slides.length, planningPassed: planned.report.passed } : {}) }) });
+  if (planned && images.length) {
+    const draft = JSON.parse(JSON.stringify(document)); const assets = [];
+    if (options.assetOutputRoot !== undefined) {
+      if (typeof options.assetOutputRoot !== "string" || !path.isAbsolute(options.assetOutputRoot) || !fs.statSync(options.assetOutputRoot).isDirectory()) throw new Error("document asset output root is invalid"); materializedAssetDirectory = path.join(options.assetOutputRoot, `document-assets-${sourceSha256.slice(0, 12)}`); if (fs.existsSync(materializedAssetDirectory)) throw new Error("document asset output already exists"); fs.mkdirSync(materializedAssetDirectory);
+      try { for (const [index, image] of images.entries()) { const entry = readCentralDirectory(bytes).get(image.entryName); if (!entry) throw new Error("DOCX image entry is unavailable"); const body = extractEntry(bytes, entry, 20 * 1024 * 1024); const extensionName = path.extname(image.entryName).toLowerCase(); const name = `${crypto.createHash("sha256").update(body).digest("hex")}${extensionName}`; const file = path.join(materializedAssetDirectory, name); if (!fs.existsSync(file)) fs.writeFileSync(file, body, { flag: "wx", mode: 0o600 }); const inspected = inspectImageAsset(file); const id = `docx-image-${index + 1}`; assets.push({ id, path: `${path.basename(materializedAssetDirectory)}/${name}`, sha256: inspected.sha256, source: { kind: "customer-provided", locator: `docx:${image.entryName}`, license: "customer-owned-or-authorized" } }); const slide = draft.slides.find((candidate) => candidate.title === `图像 ${index + 1}`); if (slide) slide.visual = { kind: "media", mediaType: "image", alt: image.alt, ...(image.caption ? { caption: image.caption.slice(0, 160) } : {}), assetId: id, fit: "contain" }; } } catch (error) { fs.rmSync(materializedAssetDirectory, { recursive: true, force: true }); throw error; }
+    } else images.forEach((image, index) => { const slide = draft.slides.find((candidate) => candidate.title === `图像 ${index + 1}`); if (slide) slide.visual = { kind: "media", mediaType: "image", alt: image.alt, ...(image.caption ? { caption: image.caption.slice(0, 160) } : {}), fit: "contain" }; });
+    if (assets.length) draft.assets = assets; document = validatePresentationSpec(draft);
+  }
+  const positionedBlocks = records.filter((record) => plainObject(record.box)).length; const detectedColumns = new Set(records.map((record) => record.column).filter(Number.isSafeInteger)).size;
+  return Object.freeze({ document, report: Object.freeze({ version: "1.1", sourceFormat, sourceSha256, extractedBlocks: records.length, structuredTables: tables.length, mergedTableCells: tables.reduce((sum, table) => sum + (table.mergedCells || 0), 0), extractedImages: images.length, listItems: records.filter((record) => Number.isSafeInteger(record.listLevel)).length, positionedBlocks, detectedColumns, sourcePages: sourceFormat === "pdf" ? Math.max(...records.map((record) => record.page || 1)) : undefined, sections: brief.sections.length, points: brief.sections.reduce((sum, section) => sum + section.points.length, 0), outputFormat: planned ? "spec" : "brief", checks: Object.freeze([{ name: "document-visual-structure-preserved", passed: sourceFormat !== "docx" || (tables.every((table) => table.rows.length >= 2) && images.every((image) => typeof image.entryName === "string")) }, { name: "pdf-layout-preserved", passed: sourceFormat !== "pdf" || typeof options.extractPdfLayout !== "function" || positionedBlocks === records.length }, { name: "document-source-hash-recorded", passed: true }]), ...(planned ? { slideCount: document.slides.length, planningPassed: planned.report.passed } : {}) }), ...(materializedAssetDirectory ? { materializedAssetDirectory } : {}) });
 }
 function persistDocumentPlan({ workspaceRoot, input, output, ...options }) {
   const inputFile = insideRoot(workspaceRoot, input); const outputFile = insideRoot(workspaceRoot, output);
   if (fs.existsSync(outputFile) || path.extname(outputFile).toLowerCase() !== ".json") throw new Error("document plan output must be a new JSON file");
   const parent = insideRoot(workspaceRoot, path.dirname(outputFile)); if (!fs.existsSync(parent) || !fs.statSync(parent).isDirectory()) throw new Error("document plan output parent is unavailable");
   if (options.outputFormat !== undefined && !["brief", "spec"].includes(options.outputFormat)) throw new Error("document plan outputFormat must be brief or spec");
-  const result = documentToPresentation(inputFile, { ...options, outputFormat: options.outputFormat || "spec" }); fs.writeFileSync(outputFile, `${JSON.stringify(result.document, null, 2)}\n`, { flag: "wx", mode: 0o600 });
+  const result = documentToPresentation(inputFile, { ...options, outputFormat: options.outputFormat || "spec", assetOutputRoot: options.outputFormat === "brief" ? undefined : path.dirname(outputFile) });
+  try { fs.writeFileSync(outputFile, `${JSON.stringify(result.document, null, 2)}\n`, { flag: "wx", mode: 0o600 }); } catch (error) { if (result.materializedAssetDirectory) fs.rmSync(result.materializedAssetDirectory, { recursive: true, force: true }); throw error; }
   return Object.freeze({ output: outputFile, report: result.report });
 }
 
-module.exports = { MAX_DOCUMENT_BYTES, MAX_EXTRACTED_TEXT, SUPPORTED_EXTENSIONS, documentToPresentation, extractDocxOutline, extractMarkdownOutline, extractPlainOutline, outlineToBrief, persistDocumentPlan };
+module.exports = { MAX_DOCUMENT_BYTES, MAX_EXTRACTED_TEXT, SUPPORTED_EXTENSIONS, documentToPresentation, extractDocxOutline, extractDocxStructure, extractMarkdownOutline, extractPlainOutline, outlineToBrief, persistDocumentPlan };

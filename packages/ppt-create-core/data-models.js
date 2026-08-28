@@ -5,7 +5,7 @@ const { containsControlCharacter } = require("../capability-contracts");
 
 const VISUAL_KINDS = Object.freeze(["media", "table", "chart", "analysis"]);
 const CHART_TYPES = Object.freeze(["bar", "column", "line", "pie", "donut"]);
-const ANALYSIS_MODELS = Object.freeze(["swot", "quadrant", "funnel", "timeline"]);
+const ANALYSIS_MODELS = Object.freeze(["swot", "quadrant", "funnel", "timeline", "org-chart", "architecture", "network", "decision-tree", "roadmap", "gantt"]);
 const MEDIA_TYPES = Object.freeze(["image", "illustration", "icon"]);
 const MEDIA_FITS = Object.freeze(["contain", "cover"]);
 
@@ -73,7 +73,7 @@ function normalizeChart(value, label) {
   return Object.freeze({ kind: "chart", type: value.type, categories, series: Object.freeze(series), ...(value.insight === undefined ? {} : { insight: boundedText(value.insight, `${label} insight`, 240) }) });
 }
 function normalizeAnalysis(value, label) {
-  exactKeys(value, ["kind", "model", "entries", "insight"], label);
+  exactKeys(value, ["kind", "model", "entries", "links", "insight"], label);
   if (!ANALYSIS_MODELS.includes(value.model)) throw new TypeError(`${label} model is invalid`);
   const bounds = value.model === "swot" || value.model === "quadrant" ? [4, 8] : [2, 8];
   if (!Array.isArray(value.entries) || value.entries.length < bounds[0] || value.entries.length > bounds[1]) throw new TypeError(`${label} entries are invalid`);
@@ -88,7 +88,12 @@ function normalizeAnalysis(value, label) {
   });
   if (new Set(entries.map((entry) => entry.id)).size !== entries.length) throw new TypeError(`${label} entry ids must be unique`);
   if (groups && groups.some((group) => !entries.some((entry) => entry.group === group))) throw new TypeError(`${label} must cover every analysis group`);
-  return Object.freeze({ kind: "analysis", model: value.model, entries: Object.freeze(entries), ...(value.insight === undefined ? {} : { insight: boundedText(value.insight, `${label} insight`, 240) }) });
+  let links;
+  if (value.links !== undefined) {
+    if (!Array.isArray(value.links) || value.links.length < 1 || value.links.length > 32 || !["org-chart", "architecture", "network", "decision-tree", "roadmap"].includes(value.model)) throw new TypeError(`${label} links are invalid`); const entryIds = new Set(entries.map((entry) => entry.id)); const linkIds = new Set();
+    links = value.links.map((link, index) => { if (!plainObject(link)) throw new TypeError(`${label} link ${index + 1} is invalid`); exactKeys(link, ["id", "from", "to", "label"], `${label} link ${index + 1}`); const id = safeId(link.id, `${label} link ${index + 1} id`); const from = safeId(link.from, `${label} link ${index + 1} from`); const to = safeId(link.to, `${label} link ${index + 1} to`); if (linkIds.has(id) || !entryIds.has(from) || !entryIds.has(to) || from === to) throw new TypeError(`${label} link ${index + 1} is invalid`); linkIds.add(id); return Object.freeze({ id, from, to, ...(link.label === undefined ? {} : { label: boundedText(link.label, `${label} link ${index + 1} label`, 80) }) }); });
+  }
+  return Object.freeze({ kind: "analysis", model: value.model, entries: Object.freeze(entries), ...(links ? { links: Object.freeze(links) } : {}), ...(value.insight === undefined ? {} : { insight: boundedText(value.insight, `${label} insight`, 240) }) });
 }
 function normalizeVisual(value, label) {
   if (!plainObject(value) || !VISUAL_KINDS.includes(value.kind)) throw new TypeError(`${label} is invalid`);

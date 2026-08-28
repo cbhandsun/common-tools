@@ -1,6 +1,14 @@
 name: PowerPoint Office Regression
 
 on:
+  pull_request:
+    paths:
+      - "packages/ppt-create-core/**"
+      - "packages/ppt-improve-core/**"
+      - "skills/pd-hifi-slideclone/**"
+      - "scripts/run-office-ppt-regression.js"
+      - "scripts/cross-renderer-corpus-audit.js"
+      - ".github/workflows/ppt-office-regression.yml"
   schedule:
     - cron: "17 3 * * 0"
   workflow_dispatch:
@@ -28,7 +36,7 @@ jobs:
     env:
       SLIDECLONE_REAL_PPTX_WORK_ROOT: ${{ vars.SLIDECLONE_REAL_PPTX_WORK_ROOT }}
       SLIDECLONE_QUALITY_HISTORY_ROOT: ${{ vars.SLIDECLONE_QUALITY_HISTORY_ROOT }}
-      CORPUS_SUITE: ${{ inputs.suite || 'full' }}
+      CORPUS_SUITE: ${{ github.event_name == 'pull_request' && 'smoke' || inputs.suite || 'full' }}
       TEST_REPORTER: dot
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

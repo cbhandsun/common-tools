@@ -8,6 +8,7 @@ const path = require("node:path");
 const test = require("node:test");
 const { createPptCreateJob, runPptCreateJob } = require("../packages/ppt-create-core");
 const { validatePresentationSpec } = require("../packages/ppt-create-core/spec");
+const { sourceCompliance, sourceRecord } = require("../packages/ppt-create-core/assets");
 
 function sha256(file) { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
 function assetSpec(hash) {
@@ -57,4 +58,12 @@ test("asset manifests reject unknown, unused, traversal, invalid crop and hash c
     const specFile = path.join(root, "presentation.json"); fs.writeFileSync(specFile, JSON.stringify(valid));
     assert.throws(() => createPptCreateJob({ workspaceRoot: root, stateRoot: path.join(root, ".state"), ownerId: "owner", input: specFile, output: path.join(root, "out") }), /hash/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("asset license policy requires evidence for licensed and generated media and renders attribution", () => {
+  const licensed = sourceRecord({ kind: "licensed", locator: "https://stock.example/asset", license: "commercial-license", attributionRequired: true, attribution: "Photo: Example Studio", licenseEvidence: { type: "receipt", locator: "internal://receipts/123", sha256: "a".repeat(64), capturedAt: "2026-08-28" } }, "licensed source");
+  assert.equal(sourceCompliance(licensed, "2026-08-28").verified, true);
+  assert.deepEqual(sourceCompliance(sourceRecord({ kind: "licensed", locator: "https://stock.example/asset", license: "commercial-license" }, "licensed source"), "2026-08-28").reasons, ["license-evidence-missing"]);
+  assert.deepEqual(sourceCompliance(sourceRecord({ kind: "generated", locator: "model:request-1", license: "generated-output", licenseEvidence: { type: "generation-record", locator: "internal://generation/1", capturedAt: "2026-08-28", expiresAt: "2026-08-27" } }, "generated source"), "2026-08-28").reasons, ["license-evidence-expired"]);
+  assert.throws(() => sourceRecord({ kind: "licensed", locator: "x", license: "commercial-license", attributionRequired: true }, "licensed source"), /attribution text/u);
 });

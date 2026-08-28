@@ -159,6 +159,11 @@ test("PPT improve does not fabricate an output or post-audit when no safe repair
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test("PPT improve audit-only profile identifies safe work without creating a deck", () => {
+  const root = temporaryWorkspace();
+  try { const input = writeFixture(root); const stateRoot = path.join(root, ".state"); const qualityOutput = path.join(root, "quality"); const qualityJob = createPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: qualityOutput }); runPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: qualityJob.id }); const output = path.join(root, "audit-only"); const job = createPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, report: path.join(qualityOutput, "ppt-quality-report.json"), output, profile: "audit-only" }); const completed = runPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: job.id }); assert.equal(completed.status, "succeeded"); assert.equal(fs.existsSync(path.join(output, "improved.pptx")), false); const report = JSON.parse(fs.readFileSync(path.join(output, "ppt-improve-report.json"))); assert.equal(report.repairProfile, "audit-only"); assert.equal(report.result.eligibleUnusedMediaCount, 1); assert.equal(report.result.removedMediaCount, 0); assert.throws(() => createPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, report: path.join(qualityOutput, "ppt-quality-report.json"), output: path.join(root, "bad"), profile: "unsafe" }), /profile/); } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("PPT improve never overwrites an existing report and rolls back this attempt's output", () => {
   const root = temporaryWorkspace();
   try {

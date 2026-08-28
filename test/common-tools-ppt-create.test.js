@@ -157,6 +157,13 @@ test("team ppt-create worker uses the same spec and emits owner-scoped artifacts
   assert.equal([...stored.keys()].every((key) => key.startsWith("owners/hash/jobs/1/")), true);
 });
 
+test("team ppt-create worker accepts a bounded prompt envelope and persists reproducibility evidence", async () => {
+  const stored = new Map(); const input = Buffer.from(JSON.stringify({ version: "1.0", kind: "prompt", prompt: "# 供应链提效\n\n## 现状\n- 交付周期偏长\n\n## 行动\n- 建立周度协同", audience: "管理层", purpose: "决策汇报", language: "zh-CN", maxSlides: 6 }));
+  const handler = createPptCreateHandler({ objectStore: { readObject: async () => input, putObject: async ({ objectKey, body }) => stored.set(objectKey, body) }, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder, temporaryRoot: os.tmpdir() });
+  const result = await handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/prompt", outputPrefix: "owners/hash/jobs/prompt/" }, isCancellationRequested: async () => false });
+  assert.equal(result.quality.passed, true); assert.ok(result.artifacts.some((artifact) => artifact.name === "generation-manifest.json")); assert.ok(result.artifacts.some((artifact) => artifact.name === "presentation.generated.json")); const manifest = JSON.parse(stored.get("owners/hash/jobs/prompt/generation-manifest.json")); assert.equal(manifest.generation.provider, "deterministic-local"); assert.match(manifest.request.promptSha256, /^[a-f0-9]{64}$/u);
+});
+
 test("team ppt-create worker honors cancellation before reading input", async () => {
   let read = false;
   const handler = createPptCreateHandler({ objectStore: { readObject: async () => { read = true; }, putObject: async () => {} }, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder });

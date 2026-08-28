@@ -18,6 +18,8 @@ const POST_QUALITY_REPORT_MARKDOWN_NAME = "improved-ppt-quality-report.md";
 const ZIP_LOCAL_SIGNATURE = 0x04034b50;
 const ZIP_CENTRAL_SIGNATURE = 0x02014b50;
 const ZIP_EOCD_SIGNATURE = 0x06054b50;
+const REPAIR_PROFILES = Object.freeze(["safe-package", "audit-only"]);
+function normalizeRepairProfile(value = "safe-package") { if (!REPAIR_PROFILES.includes(value)) throw new TypeError("PPT improvement repair profile is invalid"); return value; }
 
 function safeReport(workspaceRoot, report) {
   const approved = insideRoot(workspaceRoot, report);
@@ -34,15 +36,15 @@ function safeReport(workspaceRoot, report) {
   return Object.freeze({ path: approved, sha256: sha256File(approved), sourceSha256: value.source.sha256, sourceBytes: value.source.bytes, unusedMediaCount: value.summary.unusedMediaCount });
 }
 
-function createPptImproveJob({ workspaceRoot, stateRoot, ownerId, input, report, output, idempotencyKey }) {
+function createPptImproveJob({ workspaceRoot, stateRoot, ownerId, input, report, output, idempotencyKey, profile }) {
   const source = assertSafeExistingPptx(workspaceRoot, input);
   const auditReport = safeReport(workspaceRoot, report);
   if (auditReport.sourceSha256 !== source.sha256 || auditReport.sourceBytes !== source.bytes) throw new Error("PPT quality report does not match the source file");
   const approvedOutput = ensureSafeOutputDirectory(workspaceRoot, output);
-  const key = idempotencyKey || crypto.createHash("sha256").update(`${source.sha256}\u0000${auditReport.sha256}\u0000${approvedOutput}`).digest("hex");
+  const repairProfile = normalizeRepairProfile(profile); const key = idempotencyKey || crypto.createHash("sha256").update(`${source.sha256}\u0000${auditReport.sha256}\u0000${approvedOutput}\u0000${repairProfile}`).digest("hex");
   const store = new JobStore({ root: stateRoot, ownerId });
   const job = store.create({ id: crypto.randomUUID(), capability: CAPABILITY, idempotencyKey: assertNonEmptyString(key, "idempotencyKey"), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() });
-  if (!job.source) store.write({ ...job, source, auditReport, output: { path: approvedOutput } });
+  if (!job.source) store.write({ ...job, source, auditReport, repairProfile, output: { path: approvedOutput } });
   return store.get(job.id);
 }
 
@@ -157,8 +159,9 @@ function runPptImproveJob({ workspaceRoot, stateRoot, ownerId, id }) {
     const output = ensureSafeOutputDirectory(workspaceRoot, job.output.path);
     const inspection = inspectPptx(source.path);
     if (inspection.unusedMediaCount !== auditReport.unusedMediaCount) throw new Error("PPT quality report is stale for the current source file");
-    const report = { version: "0.1.0", capability: CAPABILITY, generatedAt: new Date().toISOString(), source: { sha256: source.sha256, bytes: source.bytes }, auditReport: { sha256: auditReport.sha256 }, result: { changed: inspection.unusedMediaCount > 0, removedMediaCount: inspection.unusedMediaCount } };
-    if (inspection.unusedMediaCount > 0) {
+    const repairProfile = normalizeRepairProfile(job.repairProfile); const shouldRepair = repairProfile === "safe-package" && inspection.unusedMediaCount > 0;
+    const report = { version: "0.2.0", capability: CAPABILITY, generatedAt: new Date().toISOString(), repairProfile, source: { sha256: source.sha256, bytes: source.bytes }, auditReport: { sha256: auditReport.sha256 }, result: { changed: shouldRepair, eligibleUnusedMediaCount: inspection.unusedMediaCount, removedMediaCount: shouldRepair ? inspection.unusedMediaCount : 0 } };
+    if (shouldRepair) {
       const destination = path.join(output, IMPROVED_PPTX_NAME);
       const original = fs.readFileSync(source.path);
       const entries = readCentralDirectory(original);
@@ -186,11 +189,11 @@ function pptImproveSummary(job, workspaceRoot) {
     const stat = fs.lstatSync(file);
     if (!declared || !stat.isFile() || stat.isSymbolicLink() || stat.size < 2 || stat.size > MAX_REPORT_BYTES || sha256File(file) !== declared.sha256) throw new Error("unavailable");
     const report = JSON.parse(fs.readFileSync(file, "utf8"));
-    if (!report || report.capability !== CAPABILITY || !report.source || !/^[a-f0-9]{64}$/.test(report.source.sha256 || "") || !Number.isSafeInteger(report.source.bytes) || !report.auditReport || !/^[a-f0-9]{64}$/.test(report.auditReport.sha256 || "") || !report.result || typeof report.result.changed !== "boolean" || !Number.isSafeInteger(report.result.removedMediaCount) || report.result.removedMediaCount < 0 || report.result.removedMediaCount > 4096) throw new Error("unavailable");
+    if (!report || report.capability !== CAPABILITY || !REPAIR_PROFILES.includes(report.repairProfile || "safe-package") || !report.source || !/^[a-f0-9]{64}$/.test(report.source.sha256 || "") || !Number.isSafeInteger(report.source.bytes) || !report.auditReport || !/^[a-f0-9]{64}$/.test(report.auditReport.sha256 || "") || !report.result || typeof report.result.changed !== "boolean" || !Number.isSafeInteger(report.result.removedMediaCount) || report.result.removedMediaCount < 0 || report.result.removedMediaCount > 4096) throw new Error("unavailable");
     const postAudit = report.postAudit;
     if (report.result.changed !== !!postAudit || (postAudit && (!/^[a-f0-9]{64}$/.test(postAudit.sourceSha256 || "") || !Number.isSafeInteger(postAudit.sourceBytes) || postAudit.sourceBytes < 22 || !Number.isSafeInteger(postAudit.unusedMediaCount) || postAudit.unusedMediaCount !== 0 || typeof postAudit.qualityPassed !== "boolean"))) throw new Error("unavailable");
-    return Object.freeze({ source: Object.freeze({ sha256: report.source.sha256, bytes: report.source.bytes }), auditReport: Object.freeze({ sha256: report.auditReport.sha256 }), result: Object.freeze({ changed: report.result.changed, removedMediaCount: report.result.removedMediaCount }), postAudit: postAudit ? Object.freeze({ sourceSha256: postAudit.sourceSha256, sourceBytes: postAudit.sourceBytes, unusedMediaCount: postAudit.unusedMediaCount, qualityPassed: postAudit.qualityPassed }) : null });
+    return Object.freeze({ repairProfile: report.repairProfile || "safe-package", source: Object.freeze({ sha256: report.source.sha256, bytes: report.source.bytes }), auditReport: Object.freeze({ sha256: report.auditReport.sha256 }), result: Object.freeze({ changed: report.result.changed, removedMediaCount: report.result.removedMediaCount }), postAudit: postAudit ? Object.freeze({ sourceSha256: postAudit.sourceSha256, sourceBytes: postAudit.sourceBytes, unusedMediaCount: postAudit.unusedMediaCount, qualityPassed: postAudit.qualityPassed }) : null });
   } catch { return null; }
 }
 
-module.exports = { CAPABILITY, IMPROVED_PPTX_NAME, POST_QUALITY_REPORT_JSON_NAME, POST_QUALITY_REPORT_MARKDOWN_NAME, REGISTRATION, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, createPptImproveJob, pptImproveSummary, rebuildZip, runPptImproveJob };
+module.exports = { CAPABILITY, IMPROVED_PPTX_NAME, POST_QUALITY_REPORT_JSON_NAME, POST_QUALITY_REPORT_MARKDOWN_NAME, REGISTRATION, REPAIR_PROFILES, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, createPptImproveJob, normalizeRepairProfile, pptImproveSummary, rebuildZip, runPptImproveJob };

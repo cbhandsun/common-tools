@@ -16,13 +16,16 @@ public sealed record PageIr(
     JsonElement? Background,
     bool? PreserveTemplateSlide = null,
     string? SpeakerNotes = null,
-    List<CitationIr>? Citations = null
+    List<CitationIr>? Citations = null,
+    PageIntentIr? Intent = null
 )
 {
     public SlideSizeIr SlideSize { get; set; } = new(960, 540);
 }
+public sealed record PageIntentIr(string? TemplateLayoutId = null, string? TemplateLayoutName = null, int? TemplatePlaceholderCapacity = null, int? TemplateLayoutDemand = null, string? TemplateLayoutFit = null, string? TemplateLayoutMode = null, List<PlaceholderBindingIr>? TemplatePlaceholderBindings = null);
+public sealed record PlaceholderBindingIr(string ObjectId, string? Role = null, string? PlaceholderType = null);
 public sealed record CitationIr(string Id, string Title, string Locator, string? AccessedAt = null, string? License = null);
-public sealed record TextBoxIr(string Id, string Text, BoxIr Box, FontIr? Font, JsonElement? Style = null, double? Rotation = null, JsonElement? Source = null, bool? Wrap = null, List<TextRunIr>? Runs = null);
+public sealed record TextBoxIr(string Id, string Text, BoxIr Box, FontIr? Font, JsonElement? Style = null, double? Rotation = null, JsonElement? Source = null, bool? Wrap = null, List<TextRunIr>? Runs = null, string? Role = null);
 public sealed record TextRunIr(string Text, FontIr? Font = null);
 public sealed record BoxIr(double X, double Y, double W, double H);
 public sealed record PointIr(double X, double Y);

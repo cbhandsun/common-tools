@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { createImageDeliveryArtifacts, createPreservationPlan } = require("../packages/ppt-create-core/image-delivery");
-const { applyIrEditorPatch, persistIrEditorPatch } = require("../packages/ppt-create-core/ir-editor");
+const { applyIrEditorPatch, createIrPreviewHtml, exportEditedIrArtifacts, persistIrEditorPatch } = require("../packages/ppt-create-core/ir-editor");
 const { deckIrFingerprint } = require("../packages/ppt-create-core/export");
 
 function sampleIr(assetPath = "../assets/pixel.png") {
@@ -54,6 +54,18 @@ test("image preservation candidates remain bounded and do not masquerade as new-
   assert.equal(plan.pages[0].candidates.length, 3);
   assert.ok(plan.pages[0].candidates.every((candidate) => candidate.id.startsWith("preserve-")));
   assert.equal(plan.pages[0].candidates.some((candidate) => candidate.id.includes("layout")), false);
+  assert.equal(plan.pages[0].decision.passed, true);
+  assert.equal(plan.pages[0].decision.deliveryStatus, "partially-editable");
+});
+
+test("complex graphic gate rejects raster-only and oversized residual delivery", () => {
+  const rasterOnly = sampleIr(); rasterOnly.pages[0].textBoxes = []; rasterOnly.pages[0].shapes = []; rasterOnly.pages[0].images[0].box = { x: 0, y: 0, w: 960, h: 540 };
+  const rejected = createPreservationPlan(rasterOnly);
+  assert.equal(rejected.pages[0].decision.passed, false);
+  assert.deepEqual(rejected.pages[0].decision.reasons, ["insufficient-native-objects", "insufficient-native-area", "excessive-raster-residual-area", "oversized-raster-residual"]);
+  const background = sampleIr(); background.pages[0].images[0].box = { x: 0, y: 0, w: 960, h: 540 }; background.pages[0].intent = { rasterBackgroundAllowed: true };
+  assert.equal(createPreservationPlan(background).pages[0].decision.rasterBackgroundException, true);
+  assert.throws(() => createPreservationPlan(sampleIr(), { maxResidualAreaRatio: 2 }), /ratio/u);
 });
 
 test("IR editor applies revision-bound text and geometry changes and rejects stale or unsafe patches", () => {
@@ -75,14 +87,22 @@ test("IR editor supports validated layers and single or batch style changes", ()
   const result = applyIrEditorPatch(ir, { version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [
     { type: "set-style", pageIndex: 0, objectId: "title", style: { color: "#2563EB", sizePt: 32, weight: "bold" } },
     { type: "batch-style", pageIndex: 0, objectIds: ["panel", "accent"], style: { fill: "#DBEAFE", opacity: 0.9 } },
-    { type: "reorder-object", pageIndex: 0, objectId: "accent", toIndex: 0 }
+    { type: "reorder-object", pageIndex: 0, objectId: "accent", toIndex: 0 },
+    { type: "set-rotation", pageIndex: 0, objectId: "panel", rotation: 15 }
   ] });
   assert.equal(result.ir.pages[0].textBoxes[0].font.sizePt, 32);
   assert.equal(result.ir.pages[0].shapes[0].id, "accent");
   assert.equal(result.ir.pages[0].shapes[1].style.opacity, 0.9);
+  assert.equal(result.ir.pages[0].shapes[1].rotation, 15);
   assert.throws(() => applyIrEditorPatch(ir, { version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [{ type: "set-style", pageIndex: 0, objectId: "title", style: { color: "url(javascript:1)" } }] }), /color/u);
   assert.throws(() => applyIrEditorPatch(ir, { version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [{ type: "batch-style", pageIndex: 0, objectIds: ["panel", "panel"], style: { fill: "#FFFFFF" } }] }), /targets/u);
   assert.throws(() => applyIrEditorPatch(ir, { version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [{ type: "reorder-object", pageIndex: 0, objectId: "panel", toIndex: 9 }] }), /layer/u);
+  assert.throws(() => applyIrEditorPatch(ir, { version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [{ type: "set-rotation", pageIndex: 0, objectId: "panel", rotation: 361 }] }), /rotation/u);
+});
+
+test("IR editor preview exposes resize, multi-select, alignment, layers, undo and export guidance", () => {
+  const html = createIrPreviewHtml(sampleIr());
+  for (const marker of ["resize-handle", "alignLeft", "distribute", "undo", "redo", "batch-style", "ppt export-ir"]) assert.match(html, new RegExp(marker));
 });
 
 test("IR patch persistence refuses overwrite and writes a separately validated deck", () => {
@@ -93,5 +113,16 @@ test("IR patch persistence refuses overwrite and writes a separately validated d
     const result = persistIrEditorPatch({ workspaceRoot: root, input, patch: patchFile, output });
     assert.equal(result.operationCount, 1); assert.equal(JSON.parse(fs.readFileSync(output, "utf8")).pages[0].textBoxes[0].text, "持久化标题");
     assert.throws(() => persistIrEditorPatch({ workspaceRoot: root, input, patch: patchFile, output }), /new JSON/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("edited IR exports a new self-contained PPTX, PDF, HTML and preview bundle", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ir-export-"));
+  try {
+    const input = path.join(root, "edited.json"); const ir = sampleIr(); ir.pages[0].images = []; fs.writeFileSync(input, JSON.stringify(ir));
+    const result = exportEditedIrArtifacts({ workspaceRoot: root, input, output: path.join(root, "exported"), buildPptx: ({ outFile }) => fs.writeFileSync(outFile, Buffer.concat([Buffer.from("PK\u0003\u0004"), Buffer.alloc(64, 1)])), buildPdf: fakePdf });
+    assert.equal(result.report.passed, true); assert.equal(result.report.pageCount, 1);
+    for (const file of Object.values(result.files)) assert.equal(fs.statSync(file).isFile(), true);
+    assert.throws(() => exportEditedIrArtifacts({ workspaceRoot: root, input, output: path.join(root, "exported"), buildPptx() {}, buildPdf() {} }), /new child/u);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

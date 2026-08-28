@@ -14,6 +14,7 @@ const { MAX_SPEC_BYTES, parsePresentationSpec } = require("./spec");
 const { admitPptCreateArchive } = require("./team-archive");
 const { applyTemplateLayoutMap, materializeTemplate, templateRecord } = require("./template");
 const { describeVariants, variantManifest, variantNames } = require("./variants");
+const { promptToPresentation, validateGenerationManifest } = require("./prompt");
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function assertObjectStore(value) {
@@ -32,13 +33,18 @@ function createPptCreateHandler({ objectStore, buildPptx, buildPdf, temporaryRoo
     const root = fs.mkdtempSync(path.join(temporaryRoot, "common-tools-ppt-create-"));
     try {
       const sourceRoot = path.join(root, "source"); const deliveryRoot = path.join(root, "delivery"); fs.mkdirSync(deliveryRoot, { mode: 0o700 });
-      let spec; let specBytes; let resolvedAssets = []; let resolvedTemplate;
+      let spec; let specBytes; let generation; let resolvedAssets = []; let resolvedTemplate;
       if (input[0] === 0x1f && input[1] === 0x8b) {
         fs.mkdirSync(sourceRoot, { mode: 0o700 });
         const admitted = admitPptCreateArchive(input, sourceRoot); ({ spec, specBytes, assets: resolvedAssets, template: resolvedTemplate } = admitted);
       } else {
         if (input.length > MAX_SPEC_BYTES) throw new Error("remote ppt-create JSON input exceeds the spec limit");
-        specBytes = input; spec = parsePresentationSpec(input);
+        let json; try { json = JSON.parse(input.toString("utf8")); } catch { throw new Error("remote ppt-create JSON input is invalid"); }
+        if (json?.kind === "prompt") {
+          const keys = Object.keys(json).sort(); const allowed = ["audience", "closing", "deckVariantCount", "kind", "language", "maxSlides", "prompt", "purpose", "theme", "version"];
+          if (keys.some((key) => !allowed.includes(key)) || json.version !== "1.0") throw new Error("remote ppt-create prompt request is invalid");
+          generation = promptToPresentation(json.prompt, { audience: json.audience, purpose: json.purpose, language: json.language, theme: json.theme, maxSlides: json.maxSlides, deckVariantCount: json.deckVariantCount, closing: json.closing }); spec = generation.spec; specBytes = Buffer.from(`${JSON.stringify(spec, null, 2)}\n`);
+        } else { specBytes = input; spec = parsePresentationSpec(input); }
         if (spec.assets?.length || spec.template) throw new Error("remote ppt-create JSON cannot resolve local asset or template paths; upload a ppt-create archive");
       }
       const assetPack = materializeAssetPack(resolvedAssets, deliveryRoot); const materializedTemplate = materializeTemplate(resolvedTemplate, deliveryRoot); const assetInfo = Object.fromEntries(assetPack.records.map((asset) => [asset.id, asset]));
@@ -56,10 +62,11 @@ function createPptCreateHandler({ objectStore, buildPptx, buildPdf, temporaryRoo
       if (materializedTemplate) fs.rmSync(materializedTemplate, { force: true });
       const primary = deliveries[0]; const ir = deckVariants[0].ir; const primaryNames = variantNames(0); const quality = qualityFor(spec, ir, primary.formats, assetPack.records, resolvedTemplate, deliveries);
       if (!quality.passed) throw new Error("multi-format consistency gate failed");
-      const report = creationReport(spec, quality, sha256(specBytes), sha256(bodies[primaryNames.pptx]), primary.formats, resolvedTemplate, deliveries);
+      const report = creationReport(spec, quality, sha256(input), sha256(bodies[primaryNames.pptx]), primary.formats, resolvedTemplate, deliveries);
       const assetManifest = Buffer.from(`${JSON.stringify({ version: "1.0", assets: assetPack.records }, null, 2)}\n`); const templateManifest = resolvedTemplate ? Buffer.from(`${JSON.stringify({ version: "1.0", template: templateRecord(resolvedTemplate) }, null, 2)}\n`) : undefined;
-      Object.assign(bodies, { [ARTIFACT_NAMES.assetManifest]: assetManifest, ...(templateManifest ? { [ARTIFACT_NAMES.templateManifest]: templateManifest } : {}), ...(deckVariants.length > 1 ? { [ARTIFACT_NAMES.variants]: Buffer.from(`${JSON.stringify(variantManifest(records), null, 2)}\n`) } : {}), [ARTIFACT_NAMES.json]: Buffer.from(`${JSON.stringify(report, null, 2)}\n`), [ARTIFACT_NAMES.markdown]: Buffer.from(renderMarkdown(report)) });
-      Object.assign(mediaTypes, { [ARTIFACT_NAMES.assetManifest]: "application/json", ...(templateManifest ? { [ARTIFACT_NAMES.templateManifest]: "application/json" } : {}), ...(deckVariants.length > 1 ? { [ARTIFACT_NAMES.variants]: "application/json" } : {}), [ARTIFACT_NAMES.json]: "application/json", [ARTIFACT_NAMES.markdown]: "text/markdown" }); uploadNames.push(ARTIFACT_NAMES.assetManifest, ...(templateManifest ? [ARTIFACT_NAMES.templateManifest] : []), ...(deckVariants.length > 1 ? [ARTIFACT_NAMES.variants] : []), ARTIFACT_NAMES.json, ARTIFACT_NAMES.markdown);
+      const generationManifest = generation ? Buffer.from(`${JSON.stringify(validateGenerationManifest(generation.manifest), null, 2)}\n`) : undefined; const generatedSpec = generation ? specBytes : undefined;
+      Object.assign(bodies, { [ARTIFACT_NAMES.assetManifest]: assetManifest, ...(templateManifest ? { [ARTIFACT_NAMES.templateManifest]: templateManifest } : {}), ...(generationManifest ? { [ARTIFACT_NAMES.generationManifest]: generationManifest, [ARTIFACT_NAMES.generatedSpec]: generatedSpec } : {}), ...(deckVariants.length > 1 ? { [ARTIFACT_NAMES.variants]: Buffer.from(`${JSON.stringify(variantManifest(records), null, 2)}\n`) } : {}), [ARTIFACT_NAMES.json]: Buffer.from(`${JSON.stringify(report, null, 2)}\n`), [ARTIFACT_NAMES.markdown]: Buffer.from(renderMarkdown(report)) });
+      Object.assign(mediaTypes, { [ARTIFACT_NAMES.assetManifest]: "application/json", ...(templateManifest ? { [ARTIFACT_NAMES.templateManifest]: "application/json" } : {}), ...(generationManifest ? { [ARTIFACT_NAMES.generationManifest]: "application/json", [ARTIFACT_NAMES.generatedSpec]: "application/json" } : {}), ...(deckVariants.length > 1 ? { [ARTIFACT_NAMES.variants]: "application/json" } : {}), [ARTIFACT_NAMES.json]: "application/json", [ARTIFACT_NAMES.markdown]: "text/markdown" }); uploadNames.push(ARTIFACT_NAMES.assetManifest, ...(templateManifest ? [ARTIFACT_NAMES.templateManifest] : []), ...(generationManifest ? [ARTIFACT_NAMES.generationManifest, ARTIFACT_NAMES.generatedSpec] : []), ...(deckVariants.length > 1 ? [ARTIFACT_NAMES.variants] : []), ARTIFACT_NAMES.json, ARTIFACT_NAMES.markdown);
       const artifacts = [];
       for (const name of uploadNames) {
         if (await isCancellationRequested()) throw new Error("PPT creation was cancelled");

@@ -137,6 +137,8 @@ test("golden smoke work root accepts explicit CI environment configuration with 
 test("Office workflow is scheduled, manually selectable, serialized and isolated to a labeled runner", () => {
   const workflow = fs.readFileSync(path.join(root, ".github", "workflows", "ppt-office-regression.yml"), "utf8");
   assert.match(workflow, /schedule:/u);
+  assert.match(workflow, /pull_request:/u);
+  assert.match(workflow, /github[.]event_name == 'pull_request' && 'smoke'/u);
   assert.match(workflow, /workflow_dispatch:/u);
   assert.match(workflow, /runs-on: \[self-hosted, Windows, X64, slideclone-office\]/u);
   assert.match(workflow, /cancel-in-progress: false/u);

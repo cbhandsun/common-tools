@@ -41,7 +41,7 @@ function callTool(name, rawArgs, context = settings()) {
   if (name === "create_editable_job") return validateToolOutput(name, createEditableJob({ ...context, input: args.input, output: args.output, config: args.config, idempotencyKey: args.idempotencyKey }));
   if (name === "create_project_audit_job") return validateToolOutput(name, createProjectAuditJob({ ...context, projectRoot: args.projectRoot || context.workspaceRoot, output: args.output, level: args.level, scope: args.scope, idempotencyKey: args.idempotencyKey }));
   if (name === "create_ppt_quality_job") return validateToolOutput(name, createPptQualityJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey }));
-  if (name === "create_ppt_improve_job") return validateToolOutput(name, createPptImproveJob({ ...context, input: args.input, report: args.report, output: args.output, idempotencyKey: args.idempotencyKey }));
+  if (name === "create_ppt_improve_job") return validateToolOutput(name, createPptImproveJob({ ...context, input: args.input, report: args.report, output: args.output, idempotencyKey: args.idempotencyKey, profile: args.profile }));
   if (name === "create_ppt_create_job") return validateToolOutput(name, createPptCreateJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey }));
   const currentJob = getJob({ ...context, id: args.id });
   if (!currentJob) throw new Error("job not found");

@@ -49,7 +49,8 @@ function inspectTemplate(file) {
     if (entry.uncompressedBytes > MAX_LAYOUT_XML_BYTES) throw new Error("presentation template layout XML is too large");
     const xml = extractEntry(bytes, entry).toString("utf8");
     const displayName = /<p:cSld\b[^>]*\bname=(['"])(.*?)\1/u.exec(xml)?.[2] || path.basename(name, ".xml");
-    const placeholderTypes = [...xml.matchAll(/<p:ph\b([^>]*)\/?\s*>/gu)].map((match) => /\btype=(['"])(.*?)\1/u.exec(match[1])?.[2] || "body").slice(0, 32);
+    const placeholders = [...xml.matchAll(/<p:ph\b([^>]*)\/?\s*>/gu)].map((match, index) => Object.freeze({ type: /\btype=(['"])(.*?)\1/u.exec(match[1])?.[2] || "body", index: Number(/\bidx=(['"])(\d+)\1/u.exec(match[1])?.[2] || index) })).slice(0, 32);
+    const placeholderTypes = placeholders.map((item) => item.type);
     const bodyCapacity = placeholderTypes.filter((type) => ["body", "obj", "subTitle", "chart", "tbl", "pic"].includes(type)).length;
     const roles = new Set();
     if (placeholderTypes.some((type) => ["ctrTitle", "subTitle"].includes(type))) roles.add("cover");
@@ -57,7 +58,7 @@ function inspectTemplate(file) {
     if (bodyCapacity >= 1) { roles.add("content"); roles.add("process"); roles.add("metrics"); }
     if (bodyCapacity >= 2) roles.add("comparison");
     if (placeholderTypes.length === 0) { roles.add("content"); roles.add("closing"); }
-    return Object.freeze({ id: path.basename(name, ".xml"), name: displayName.slice(0, 160), placeholderTypes: Object.freeze(placeholderTypes), bodyCapacity, roles: Object.freeze([...roles]) });
+    return Object.freeze({ id: path.basename(name, ".xml"), name: displayName.slice(0, 160), placeholders: Object.freeze(placeholders), placeholderTypes: Object.freeze(placeholderTypes), bodyCapacity, flexibleCanvas: placeholderTypes.length === 0, roles: Object.freeze([...roles]) });
   });
   const inspected = inspectPptx(file);
   if (inspected.unresolvedRelationshipCount > 0 || inspected.invalidRelationshipCount > 0) throw new Error("presentation template relationships are invalid");
@@ -95,8 +96,17 @@ function applyTemplateLayoutMap(rawIr, template) {
   const ir = JSON.parse(JSON.stringify(rawIr));
   for (const page of ir.pages) {
     const role = page.intent?.role;
-    const candidate = template.layoutMap.find((layout) => layout.roles.includes(role)) || template.layoutMap.find((layout) => layout.roles.includes("content")) || template.layoutMap[0];
-    page.intent = { ...(page.intent || {}), templateLayoutId: candidate.id, templateLayoutName: candidate.name, templatePlaceholderCapacity: candidate.bodyCapacity };
+    const candidates = template.layoutMap.filter((layout) => layout.roles.includes(role));
+    const contentCandidates = template.layoutMap.filter((layout) => layout.roles.includes("content"));
+    const pool = candidates.length ? candidates : contentCandidates.length ? contentCandidates : template.layoutMap;
+    const hasBodyText = (page.textBoxes || []).some((item) => !["title", "page-number", "section-number", "citation"].includes(item.role));
+    const nativeRegions = (page.tables?.length || 0) + (page.charts?.length || 0) + (page.images?.length || 0);
+    const demand = Math.max(role === "comparison" ? 2 : 0, nativeRegions, hasBodyText ? 1 : 0);
+    const fitting = pool.filter((layout) => layout.flexibleCanvas === true || layout.bodyCapacity >= demand);
+    const candidatePool = fitting.length ? fitting : pool;
+    const candidate = [...candidatePool].sort((left, right) => Math.abs((left.flexibleCanvas ? demand : left.bodyCapacity) - demand) - Math.abs((right.flexibleCanvas ? demand : right.bodyCapacity) - demand) || left.id.localeCompare(right.id))[0];
+    const placeholderBindings = (page.textBoxes || []).map((item) => ({ objectId: item.id, role: item.role, placeholderType: item.role === "title" ? (role === "cover" ? "ctrTitle" : "title") : item.role === "summary" && role === "cover" ? "subTitle" : "body" }));
+    page.intent = { ...(page.intent || {}), templateLayoutId: candidate.id, templateLayoutName: candidate.name, templatePlaceholderCapacity: candidate.bodyCapacity, templateLayoutDemand: demand, templateLayoutFit: candidate.flexibleCanvas === true || candidate.bodyCapacity >= demand ? "fit" : "overflow", templateLayoutMode: candidate.flexibleCanvas === true ? "freeform" : "placeholder", templatePlaceholderBindings: placeholderBindings };
   }
   return Object.freeze(ir);
 }

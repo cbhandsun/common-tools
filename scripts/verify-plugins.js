@@ -46,6 +46,9 @@ function relativeFiles(root) { return listFiles(root).map((file) => path.relativ
 function assertSafeSkill(file) {
   const text = fs.readFileSync(file, "utf8");
   if (!/^---\r?\n[\s\S]*?\r?\n---\r?\n/.test(text)) throw new Error("plugin skill front matter is invalid");
+  if ((text.match(/^---\s*$/gm) || []).length !== 2) throw new Error("plugin skill front matter must be unique");
+  if (/^(?:<{7}|={7}|>{7})/m.test(text) || /^\+(?=[A-Za-z\u4e00-\u9fff])/mu.test(text)) throw new Error("plugin skill contains an unresolved patch artifact");
+  if (/\[[^\]]+\]\(\s*\)/u.test(text) || /\[[^\]]+\]\((?:javascript:|data:)/iu.test(text)) throw new Error("plugin skill contains an unsafe or empty link");
   if (/\.\.[\\/]|file:\/\/|(?:^|\s)[A-Za-z]:[\\/]/m.test(text)) throw new Error("plugin skill must not reference files outside its package");
 }
 function assertPluginMetadata(file, capability, host) {
@@ -81,7 +84,7 @@ function assertImageToEditableSkill(file) {
 }
 function assertPptCreateSkill(file) {
   const skill = fs.readFileSync(file, "utf8");
-  for (const marker of ["layout-candidates-available", "layout-selection-resolved", "semantic-visuals-resolved", "native-data-editable", "deck.preview.html", "ppt apply-edit", "ppt apply-ir-edit", "batch-style", "ppt draft", "ppt compose", "prompt-source-hash-recorded", "document-visual-structure-preserved", "template-semantic-layout-mapped", "complex-graphic-native-gate", "ir-batch-style-validated", "deck.html", "deck.pdf", "multi-format-page-count-matches", "multi-format-source-fingerprint-matches", "ppt plan", "ppt ingest", "ppt archive", "application/gzip", "planning-source-covered", "planning-required-points-covered", "Never silently truncate", "Do not copy Dashi", "asset-provenance-verified", "template-package-safe", "deckVariantCount", "citations-editable", "speaker-notes-native", "deck.variants.json", "asset-manifest.json", "template-manifest.json", "bounded dynamic artifact contract"]) {
+  for (const marker of ["layout-candidates-available", "layout-selection-resolved", "semantic-visuals-resolved", "native-data-editable", "deck.preview.html", "ppt apply-edit", "ppt apply-ir-edit", "ppt export-ir", "batch-style", "ppt draft", "ppt compose", "prompt-source-hash-recorded", "document-visual-structure-preserved", "template-semantic-layout-mapped", "template-layout-capacity-respected", "template-placeholder-bindings-recorded", "complex-graphic-native-gate", "ir-batch-style-validated", "deck.html", "deck.pdf", "multi-format-page-count-matches", "multi-format-source-fingerprint-matches", "ppt plan", "ppt ingest", "ppt archive", "application/gzip", "planning-source-covered", "planning-required-points-covered", "Never silently truncate", "Do not copy Dashi", "asset-provenance-verified", "asset-license-policy-compliant", "template-package-safe", "deckVariantCount", "citations-editable", "speaker-notes-native", "deck.variants.json", "asset-manifest.json", "template-manifest.json", "generation-manifest.json", "presentation.generated.json", "bounded dynamic artifact contract"]) {
     if (!skill.includes(marker)) throw new Error("ppt-create Skill does not protect the clean-room creation contract");
   }
 }

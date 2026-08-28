@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { assertQualityReport } = require("../capability-contracts");
 const { auditPptx, inspectPptx, qualityFromReport, readCentralDirectory, renderMarkdown: renderQualityMarkdown } = require("../ppt-quality-core");
-const { IMPROVED_PPTX_NAME, POST_QUALITY_REPORT_JSON_NAME, POST_QUALITY_REPORT_MARKDOWN_NAME, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, rebuildZip } = require(".");
+const { IMPROVED_PPTX_NAME, POST_QUALITY_REPORT_JSON_NAME, POST_QUALITY_REPORT_MARKDOWN_NAME, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, normalizeRepairProfile, rebuildZip } = require(".");
 
 const MAX_PPTX_BYTES = 100 * 1024 * 1024;
 
@@ -56,12 +56,13 @@ function createPptImproveHandler({ objectStore, temporaryRoot = os.tmpdir() } = 
       const initialMarkdown = Buffer.from(renderQualityMarkdown(initialReport, initialQuality));
       const inspection = inspectPptx(sourceFile);
       if (inspection.unusedMediaCount !== initialReport.summary.unusedMediaCount) throw new Error("PPT improvement initial audit is inconsistent");
-      const report = { version: "0.1.0", capability: "ppt-improve", generatedAt: new Date().toISOString(), source: { sha256: source.sha256, bytes: source.bytes }, auditReport: { sha256: sha256(initialJson) }, result: { changed: inspection.unusedMediaCount > 0, removedMediaCount: inspection.unusedMediaCount } };
+      const repairProfile = normalizeRepairProfile(job.profile); const shouldRepair = repairProfile === "safe-package" && inspection.unusedMediaCount > 0;
+      const report = { version: "0.2.0", capability: "ppt-improve", generatedAt: new Date().toISOString(), repairProfile, source: { sha256: source.sha256, bytes: source.bytes }, auditReport: { sha256: sha256(initialJson) }, result: { changed: shouldRepair, eligibleUnusedMediaCount: inspection.unusedMediaCount, removedMediaCount: shouldRepair ? inspection.unusedMediaCount : 0 } };
       const artifacts = [
         reportArtifact("ppt-quality-report.json", "application/json", initialJson, job.outputPrefix),
         reportArtifact("ppt-quality-report.md", "text/markdown", initialMarkdown, job.outputPrefix)
       ];
-      if (inspection.unusedMediaCount > 0) {
+      if (shouldRepair) {
         const entries = readCentralDirectory(input);
         const removable = new Set(inspection.unusedMediaEntries.map((entry) => entry.name));
         const improved = rebuildZip(input, [...entries.values()].filter((entry) => !removable.has(entry.name)));

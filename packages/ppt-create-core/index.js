@@ -6,18 +6,19 @@ const path = require("node:path");
 const { assertNonEmptyString, assertQualityReport } = require("../capability-contracts");
 const { JobStore, insideRoot, sha256File } = require("../capability-runtime");
 const { createPreviewHtml } = require("./editor");
-const { materializeAssetPack, resolveAssetPack } = require("./assets");
+const { materializeAssetPack, resolveAssetPack, sourceCompliance } = require("./assets");
 const { createPrintableHtml, deckIrFingerprint, multiFormatQuality } = require("./export");
 const { createDeckVariants } = require("./layout");
 const { MAX_SPEC_BYTES, parsePresentationSpec } = require("./spec");
 const { applyTemplateLayoutMap, materializeTemplate, resolveTemplate, templateRecord } = require("./template");
 const { describeVariants, variantManifest, variantNames } = require("./variants");
+const { validateGenerationManifest } = require("./prompt");
 
 const CAPABILITY = "ppt-create";
 const REGISTRATION = Object.freeze({ capability: CAPABILITY, toolNames: ["create_ppt_create_job", "get_ppt_create_report"], minimumRuntimeVersion: ">=0.1.0 <1.0.0", requiredWorkerProfile: "ppt-create" });
 const PPTX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 const PDF_MEDIA_TYPE = "application/pdf";
-const ARTIFACT_NAMES = Object.freeze({ ir: "deck.ir.json", preview: "deck.preview.html", html: "deck.html", pptx: "deck.pptx", pdf: "deck.pdf", assetManifest: "asset-manifest.json", templateManifest: "template-manifest.json", variants: "deck.variants.json", json: "ppt-create-report.json", markdown: "ppt-create-report.md" });
+const ARTIFACT_NAMES = Object.freeze({ ir: "deck.ir.json", preview: "deck.preview.html", html: "deck.html", pptx: "deck.pptx", pdf: "deck.pdf", assetManifest: "asset-manifest.json", templateManifest: "template-manifest.json", generationManifest: "generation-manifest.json", generatedSpec: "presentation.generated.json", variants: "deck.variants.json", json: "ppt-create-report.json", markdown: "ppt-create-report.md" });
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function assertInputFile(workspaceRoot, input) {
@@ -34,7 +35,7 @@ function assertNewOutput(workspaceRoot, output) {
   if (!fs.existsSync(approvedParent) || !fs.statSync(approvedParent).isDirectory()) throw new Error("ppt-create output parent directory is unavailable");
   return directory;
 }
-function createPptCreateJob({ workspaceRoot, stateRoot, ownerId, input, output, idempotencyKey }) {
+function createPptCreateJob({ workspaceRoot, stateRoot, ownerId, input, output, idempotencyKey, generationManifest }) {
   const approvedInput = assertInputFile(workspaceRoot, input);
   const approvedOutput = assertNewOutput(workspaceRoot, output);
   const inputBuffer = fs.readFileSync(approvedInput);
@@ -43,7 +44,8 @@ function createPptCreateJob({ workspaceRoot, stateRoot, ownerId, input, output, 
   const key = idempotencyKey || sha256(Buffer.from(`${inputSha256}\u0000${approvedOutput}`, "utf8"));
   const store = new JobStore({ root: stateRoot, ownerId });
   const job = store.create({ id: crypto.randomUUID(), capability: CAPABILITY, idempotencyKey: assertNonEmptyString(key, "idempotencyKey"), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() });
-  if (!job.input) store.write({ ...job, input: { path: approvedInput, sha256: inputSha256, assets: assets.map((asset) => ({ id: asset.id, sha256: asset.sha256 })), ...(template ? { template: { sha256: template.sha256 } } : {}) }, output: { path: approvedOutput } });
+  const generation = generationManifest === undefined ? undefined : validateGenerationManifest(generationManifest);
+  if (!job.input) store.write({ ...job, input: { path: approvedInput, sha256: inputSha256, assets: assets.map((asset) => ({ id: asset.id, sha256: asset.sha256 })), ...(template ? { template: { sha256: template.sha256 } } : {}), ...(generation ? { generation } : {}) }, output: { path: approvedOutput } });
   return store.get(job.id);
 }
 function qualityFor(spec, ir, formats, assetRecords = [], template, variants = []) {
@@ -74,9 +76,13 @@ function qualityFor(spec, ir, formats, assetRecords = [], template, variants = [
     { name: "native-data-editable", passed: nativeTables === visualSlides.filter((slide) => slide.visual?.kind === "table").length && nativeCharts === visualSlides.filter((slide) => slide.visual?.kind === "chart").length },
     { name: "declared-assets-resolved", passed: declaredAssets.length === rasterImages && assetRecords.length === declaredAssets.length },
     { name: "asset-provenance-recorded", passed: assetRecords.every((asset) => asset.source && typeof asset.source.kind === "string" && /^[a-f0-9]{64}$/u.test(asset.sha256)) },
+    { name: "asset-license-policy-compliant", passed: assetRecords.every((asset) => asset.compliance?.verified === true) },
     { name: "template-admission", passed: !spec.template || (template?.sha256 === spec.template.sha256 && template.mode === "master-and-theme") },
     { name: "template-provenance-recorded", passed: !spec.template || Boolean(template?.source?.kind && template?.source?.license) },
+    { name: "template-license-policy-compliant", passed: !spec.template || sourceCompliance(template.source).verified },
     { name: "template-semantic-layout-mapped", passed: !spec.template || (template?.layoutMap?.length > 0 && ir.pages.every((page) => typeof page.intent?.templateLayoutId === "string")) },
+    { name: "template-layout-capacity-respected", passed: !spec.template || ir.pages.every((page) => page.intent?.templateLayoutFit === "fit") },
+    { name: "template-placeholder-bindings-recorded", passed: !spec.template || ir.pages.every((page) => Array.isArray(page.intent?.templatePlaceholderBindings) && page.intent.templatePlaceholderBindings.length === page.textBoxes.length) },
     { name: "deck-variants-generated", passed: deliveredVariants.length === spec.deckVariantCount },
     { name: "deck-variants-distinct", passed: new Set(deliveredVariants.map((variant) => variant.layoutIds.join("\u0000"))).size === deliveredVariants.length },
     { name: "deck-variant-formats-consistent", passed: deliveredVariants.every((variant) => variant.formats?.passed === true) },
@@ -122,8 +128,12 @@ function runPptCreateJob({ stateRoot, ownerId, id, buildPptx, buildPdf }) {
     const assetManifestFile = path.join(output, ARTIFACT_NAMES.assetManifest);
     const templateManifestFile = resolvedTemplate ? path.join(output, ARTIFACT_NAMES.templateManifest) : undefined;
     const variantsManifestFile = deckVariants.length > 1 ? path.join(output, ARTIFACT_NAMES.variants) : undefined;
+    const generationManifestFile = job.input.generation ? path.join(output, ARTIFACT_NAMES.generationManifest) : undefined;
+    const generatedSpecFile = job.input.generation ? path.join(output, ARTIFACT_NAMES.generatedSpec) : undefined;
     writeExclusive(assetManifestFile, `${JSON.stringify({ version: "1.0", assets: assetPack.records }, null, 2)}\n`);
     if (templateManifestFile) writeExclusive(templateManifestFile, `${JSON.stringify({ version: "1.0", template: templateRecord(resolvedTemplate) }, null, 2)}\n`);
+    if (generationManifestFile) writeExclusive(generationManifestFile, `${JSON.stringify(job.input.generation, null, 2)}\n`);
+    if (generatedSpecFile) writeExclusive(generatedSpecFile, input);
     const deliveries = [];
     for (const variant of deckVariants) {
       const names = variantNames(variant.variantIndex); const files = Object.fromEntries(Object.entries(names).map(([key, name]) => [key, path.join(output, name)]));
@@ -142,8 +152,8 @@ function runPptCreateJob({ stateRoot, ownerId, id, buildPptx, buildPdf }) {
     const markdownFile = path.join(output, ARTIFACT_NAMES.markdown);
     writeExclusive(reportFile, `${JSON.stringify(report, null, 2)}\n`);
     writeExclusive(markdownFile, renderMarkdown(report));
-    const artifacts = [...deliveries.flatMap((delivery) => [artifact(delivery.files.ir, delivery.names.ir, "application/json"), artifact(delivery.files.preview, delivery.names.preview, "text/html"), artifact(delivery.files.html, delivery.names.html, "text/html"), artifact(delivery.files.pptx, delivery.names.pptx, PPTX_MEDIA_TYPE), artifact(delivery.files.pdf, delivery.names.pdf, PDF_MEDIA_TYPE)]), artifact(assetManifestFile, ARTIFACT_NAMES.assetManifest, "application/json"), ...(templateManifestFile ? [artifact(templateManifestFile, ARTIFACT_NAMES.templateManifest, "application/json")] : []), ...(variantsManifestFile ? [artifact(variantsManifestFile, ARTIFACT_NAMES.variants, "application/json")] : []), artifact(reportFile, ARTIFACT_NAMES.json, "application/json"), artifact(markdownFile, ARTIFACT_NAMES.markdown, "text/markdown")];
-    return store.transition(id, "succeeded", { artifacts, quality, lease: undefined });
+    const artifacts = [...deliveries.flatMap((delivery) => [artifact(delivery.files.ir, delivery.names.ir, "application/json"), artifact(delivery.files.preview, delivery.names.preview, "text/html"), artifact(delivery.files.html, delivery.names.html, "text/html"), artifact(delivery.files.pptx, delivery.names.pptx, PPTX_MEDIA_TYPE), artifact(delivery.files.pdf, delivery.names.pdf, PDF_MEDIA_TYPE)]), artifact(assetManifestFile, ARTIFACT_NAMES.assetManifest, "application/json"), ...(templateManifestFile ? [artifact(templateManifestFile, ARTIFACT_NAMES.templateManifest, "application/json")] : []), ...(generationManifestFile ? [artifact(generationManifestFile, ARTIFACT_NAMES.generationManifest, "application/json"), artifact(generatedSpecFile, ARTIFACT_NAMES.generatedSpec, "application/json")] : []), ...(variantsManifestFile ? [artifact(variantsManifestFile, ARTIFACT_NAMES.variants, "application/json")] : []), artifact(reportFile, ARTIFACT_NAMES.json, "application/json"), artifact(markdownFile, ARTIFACT_NAMES.markdown, "text/markdown")];
+    return store.transition(id, "succeeded", { artifacts, quality, lease: undefined, ...(generatedSpecFile ? { input: { ...job.input, path: generatedSpecFile } } : {}) });
   } catch {
     try { fs.rmSync(output, { recursive: true, force: true, maxRetries: 2 }); } catch { /* preserve the original bounded failure */ }
     return store.transition(id, "failed", { error: { code: "PPT_CREATE_FAILED", message: "PPT creation failed", retryable: false }, lease: undefined });

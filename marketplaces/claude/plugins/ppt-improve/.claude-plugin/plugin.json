@@ -1,6 +1,6 @@
 {
   "name": "ppt-improve",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Apply report-bound, copy-on-write PPTX improvements with common-tools.",
   "author": { "name": "common-tools" }
 }

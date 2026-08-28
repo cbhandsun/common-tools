@@ -292,11 +292,14 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId)
         paragraph.Append(new A.Run(CreateRunProperties(null), new A.Text(textBox.Text ?? string.Empty)));
     }
 
+    var applicationProperties = new P.ApplicationNonVisualDrawingProperties();
+    var placeholderType = PlaceholderType(textBox.Role);
+    if (placeholderType is not null) applicationProperties.Append(new P.PlaceholderShape { Type = placeholderType.Value });
     return new P.Shape(
         new P.NonVisualShapeProperties(
             CreateNonVisualDrawingProperties(shapeId, SafeDrawingName(textBox.Id, "TextBox", shapeId), textBox.Source ?? textBox.Style),
             new P.NonVisualShapeDrawingProperties(new A.ShapeLocks { NoGrouping = true }),
-            new P.ApplicationNonVisualDrawingProperties()
+            applicationProperties
         ),
         new P.ShapeProperties(
             transform,
@@ -311,6 +314,20 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId)
         )
     );
 }
+
+static P.PlaceholderValues? PlaceholderType(string? role) => role?.Trim().ToLowerInvariant() switch
+{
+    "title" => P.PlaceholderValues.Title,
+    "summary" => P.PlaceholderValues.SubTitle,
+    "page-number" => P.PlaceholderValues.SlideNumber,
+    "section-number" => P.PlaceholderValues.SlideNumber,
+    "body" => P.PlaceholderValues.Body,
+    "item-title" => P.PlaceholderValues.Body,
+    "item-detail" => P.PlaceholderValues.Body,
+    "takeaway" => P.PlaceholderValues.Body,
+    "value" => P.PlaceholderValues.Body,
+    _ => null
+};
 
 static FontIr? ResolveTextBoxFont(TextBoxIr textBox)
 {

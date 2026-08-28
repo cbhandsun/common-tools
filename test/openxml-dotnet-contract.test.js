@@ -206,6 +206,15 @@ test("OpenXmlDeckBuilder supports high-fidelity table overlay IR fields", () => 
   assert.match(source, /IsNone\(color\) \|\| width <= 0/);
 });
 
+test("OpenXmlDeckBuilder binds generated semantic text to native PowerPoint placeholders", () => {
+  const models = fs.readFileSync(modelsFile, "utf8");
+  const source = fs.readFileSync(programFile, "utf8");
+  assert.match(models, /string\? Role = null/);
+  assert.match(source, /new P[.]PlaceholderShape/);
+  assert.match(source, /P[.]PlaceholderValues[.]Title/);
+  assert.match(source, /P[.]PlaceholderValues[.]Body/);
+});
+
 test("both PPTX builders support native table dimensions and per-cell styles", () => {
   const source = fs.readFileSync(nativeTableWriterFile, "utf8");
   const pythonSource = fs.readFileSync(pythonBuilderFile, "utf8");
@@ -251,7 +260,8 @@ test("OpenXmlDeckBuilder uses deterministic package relationship ids", () => {
   assert.match(packageSource, /ChangeIdOfPart\(presentationPart, "rIdPresentation"\)/);
   assert.match(packageSource, /layoutPart\.AddPart\(masterPart, "rIdMaster"\)/);
   assert.match(packageSource, /AddNewPart<SlidePart>\(\$"rIdSlide\{slideId\}"\)/);
-  assert.match(packageSource, /slidePart\.AddPart\(layoutPart, "rIdLayout"\)/);
+  assert.match(packageSource, /slidePart\.AddPart\(pageLayout, "rIdLayout"\)/);
+  assert.match(packageSource, /ResolvePageLayout\(page, layoutPart, templateLayouts\)/);
   assert.match(objectWriterSource, /AddImagePart\(GetImagePartType\(assetPath\), \$"rIdImage\{shapeId\}"\)/);
   assert.match(chartWriterSource, /AddNewPart<ChartPart>\(\$"rIdChart\{shapeId\}"\)/);
   assert.match(chartWriterSource, /AddEmbeddedPackagePart\([^\n]+, "rIdWorkbook1"\)/);
@@ -315,6 +325,24 @@ test("OpenXmlDeckBuilder can rebuild content on a trusted PPTX template without 
   assert.equal(targetMaster, templateMaster);
   assert.equal(countMatches(presentation, /<p:sldId\b/g), 1);
   assert.match(slide, /rebuilt/);
+  assert.match(slide, /<p:ph[^>]*type="title"/u);
+});
+
+test("OpenXmlDeckBuilder consumes each page semantic template layout selection", { timeout: 60_000 }, () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-template-layout-selection-"));
+  const baseIr = path.join(tmp, "base.ir.json"); const basePptx = path.join(tmp, "base.pptx"); const templatePptx = path.join(tmp, "template.pptx"); const targetIr = path.join(tmp, "target.ir.json"); const targetPptx = path.join(tmp, "target.pptx");
+  fs.writeFileSync(baseIr, JSON.stringify(createMinimalDeckIr("base"))); runBuilder(["--ir", baseIr, "--out", basePptx, "--powerpoint-safe", "false"]);
+  const archive = fs.readFileSync(basePptx); const entries = readZipEntries(archive).map((entry) => ({ name: entry.name, data: readZipBufferEntry(archive, entry.name) })); const byName = new Map(entries.map((entry) => [entry.name, entry]));
+  const master = byName.get("ppt/slideMasters/slideMaster1.xml"); const masterRels = byName.get("ppt/slideMasters/_rels/slideMaster1.xml.rels");
+  const contentTypes = byName.get("[Content_Types].xml");
+  master.data = Buffer.from(master.data.toString("utf8").replace("</p:sldLayoutIdLst>", '<p:sldLayoutId id="2147483650" r:id="rIdLayout2" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/></p:sldLayoutIdLst>'));
+  masterRels.data = Buffer.from(masterRels.data.toString("utf8").replace("</Relationships>", '<Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="/ppt/slideLayouts/slideLayout2.xml" Id="rIdLayout2"/></Relationships>'));
+  contentTypes.data = Buffer.from(contentTypes.data.toString("utf8").replace("</Types>", '<Override PartName="/ppt/slideLayouts/slideLayout2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/></Types>'));
+  entries.push({ name: "ppt/slideLayouts/slideLayout2.xml", data: Buffer.from(byName.get("ppt/slideLayouts/slideLayout1.xml").data) }); entries.push({ name: "ppt/slideLayouts/_rels/slideLayout2.xml.rels", data: Buffer.from(byName.get("ppt/slideLayouts/_rels/slideLayout1.xml.rels").data) }); writeStoredZipAtomic(templatePptx, entries);
+  const target = createMinimalDeckIr("uses-second-layout"); target.pages[0].intent = { templateLayoutId: "slideLayout2", templateLayoutName: "Second layout", templatePlaceholderCapacity: 1 }; fs.writeFileSync(targetIr, JSON.stringify(target));
+  runBuilder(["--ir", targetIr, "--out", targetPptx, "--template-pptx", templatePptx, "--powerpoint-safe", "false"]);
+  const slideRelationship = listZipEntries(targetPptx).map((entry) => entry.name).find((name) => /^ppt\/slides\/_rels\/slide\d+[.]xml[.]rels$/u.test(name)); assert.ok(slideRelationship);
+  assert.match(readZipEntry(targetPptx, slideRelationship).toString("utf8"), /Target="\/ppt\/slideLayouts\/slideLayout2[.]xml"/u);
 });
 
 test("OpenXmlDeckBuilder writes hybrid fidelity crops below native overlays", { timeout: 60_000 }, () => {
@@ -1854,6 +1882,7 @@ function createMinimalDeckIr(text) {
       shapes: [],
       textBoxes: [{
         id: "title",
+        role: "title",
         text,
         box: { x: 100, y: 100, w: 400, h: 60 },
         font: { family: "Arial", sizePt: 24, weight: "bold", color: "#111111", align: "left", valign: "top", lineHeightMultiple: 1 },

@@ -8,7 +8,7 @@ const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 const { crc32 } = require("../packages/ppt-quality-core");
 const { documentToPresentation, extractDocxOutline, persistDocumentPlan } = require("../packages/ppt-create-core/document-ingest");
-const { resolvePdftotext } = require("../packages/ppt-create-core/pdf-text");
+const { parsePdfBboxLayout, resolvePdftotext } = require("../packages/ppt-create-core/pdf-text");
 const { setCapabilityEnabled } = require("../packages/capability-runtime");
 
 function storedZip(entries) {
@@ -31,6 +31,12 @@ function docxTableFixture() {
   const cell = (value) => `<w:tc><w:p><w:r><w:t>${value}</w:t></w:r></w:p></w:tc>`;
   const document = `<w:document xmlns:w="urn:w"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>经营数据</w:t></w:r></w:p><w:tbl><w:tr>${cell("指标")}${cell("本期")}</w:tr><w:tr>${cell("收入")}${cell("120")}</w:tr><w:tr>${cell("利润")}${cell("24")}</w:tr></w:tbl></w:body></w:document>`;
   return storedZip([["[Content_Types].xml", types], ["word/document.xml", document]]);
+}
+function docxRichFixture() {
+  const types = '<Types><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
+  const document = '<w:document xmlns:w="urn:w" xmlns:a="urn:a" xmlns:r="urn:r" xmlns:wp="urn:wp"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>图文报告</w:t></w:r></w:p><w:p><w:r><w:drawing><wp:docPr name="经营趋势图" descr="已授权经营趋势图"/><a:blip r:embed="rId5"/></w:drawing></w:r><w:r><w:t>趋势图说明</w:t></w:r></w:p><w:p><w:pPr><w:numPr><w:ilvl w:val="2"/></w:numPr></w:pPr><w:r><w:t>三级列表事项</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:tcPr><w:gridSpan w:val="2"/></w:tcPr><w:p><w:r><w:t>合并标题</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>值</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>B</w:t></w:r></w:p></w:tc></w:tr></w:tbl></w:body></w:document>';
+  const relationships = '<Relationships><Relationship Id="rId5" Target="media/image1.png"/></Relationships>'; const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8fK8QAAAABJRU5ErkJggg==", "base64");
+  return storedZip([["[Content_Types].xml", types], ["word/document.xml", document], ["word/_rels/document.xml.rels", relationships], ["word/media/image1.png", png]]);
 }
 const options = { audience: "经营团队", purpose: "形成可执行的复盘汇报", maxSlides: 12 };
 
@@ -57,6 +63,13 @@ test("PDF ingestion requires a bounded fixed adapter and produces the same valid
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test("PDF bbox ingestion preserves page coordinates, heading scale and column evidence", () => {
+  const records = parsePdfBboxLayout('<html><body><page width="600" height="800"><flow><block><line xMin="40" yMin="40" xMax="300" yMax="70"><word>项目</word><word>复盘</word></line><line xMin="40" yMin="100" xMax="260" yMax="116"><word>左栏事实</word></line><line xMin="340" yMin="100" xMax="560" yMax="116"><word>右栏事实</word></line></block></flow></page></body></html>');
+  assert.equal(records[0].kind, "heading"); assert.equal(records[0].page, 1); assert.equal(records[1].column, 1); assert.equal(records[2].column, 2); assert.deepEqual(records[0].box, { x: 40 / 600, y: 40 / 800, w: 260 / 600, h: 30 / 800 });
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-pdf-layout-ingest-"));
+  try { const pdf = path.join(root, "layout.pdf"); fs.writeFileSync(pdf, "%PDF-1.4\n%%EOF"); const result = documentToPresentation(pdf, { ...options, extractPdfLayout: () => records }); assert.equal(result.report.positionedBlocks, 3); assert.equal(result.report.detectedColumns, 2); assert.equal(result.report.checks.find((check) => check.name === "pdf-layout-preserved").passed, true); } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("DOCX tables and PDF page boundaries become native visual structure", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-visual-ingest-"));
   try {
@@ -69,6 +82,16 @@ test("DOCX tables and PDF page boundaries become native visual structure", () =>
     const fromPdf = documentToPresentation(pdf, { ...options, extractPdfText: () => "封面\n摘要内容\f第二页标题\n第二页事实" });
     assert.equal(fromPdf.report.sourcePages, 2);
     assert.ok(fromPdf.document.slides.some((slide) => slide.title === "第二页标题"));
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("DOCX embedded images, list hierarchy and merged-cell evidence are preserved and materialized", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-rich-docx-"));
+  try {
+    const input = path.join(root, "rich.docx"); const output = path.join(root, "rich.presentation.json"); fs.writeFileSync(input, docxRichFixture()); const records = extractDocxOutline(fs.readFileSync(input));
+    assert.equal(records.find((record) => record.kind === "image").alt, "已授权经营趋势图"); assert.equal(records.find((record) => record.listLevel === 2).text, "三级列表事项"); assert.equal(records.find((record) => record.kind === "table").mergedCells, 1);
+    const result = persistDocumentPlan({ workspaceRoot: root, input, output, ...options }); const spec = JSON.parse(fs.readFileSync(output, "utf8"));
+    assert.equal(result.report.extractedImages, 1); assert.equal(result.report.listItems, 1); assert.equal(result.report.mergedTableCells, 1); assert.equal(spec.assets.length, 1); assert.equal(spec.slides.find((slide) => slide.title === "图像 1").visual.assetId, "docx-image-1"); assert.equal(fs.existsSync(path.join(root, spec.assets[0].path)), true);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 

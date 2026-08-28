@@ -42,7 +42,7 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.equal(marketplace.plugins[0].source.path, "./plugins/common-tools");
   const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".codex-plugin", "plugin.json"), "utf8"));
   assert.equal(manifest.mcpServers, "./.mcp.json");
-  assert.match(manifest.version, /^0\.1\.9\+codex\./);
+  assert.match(manifest.version, /^0\.1\.10\+codex\./);
   const mcp = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".mcp.json"), "utf8"));
   assert.deepEqual(mcp.mcpServers["common-tools"], { type: "http", url: "https://plugins.iepose.cn/mcp", oauth: { clientId: "common-tools-mcp" } });
   const imageSkill = fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "image-to-editable", "SKILL.md"), "utf8");
@@ -113,7 +113,7 @@ test("Git Marketplace rejects removal of the ppt-create enhancement release cont
   const root = copiedPluginRoot();
   try {
     const skill = path.join(root, "plugins", "common-tools", "skills", "ppt-create", "SKILL.md");
-    for (const marker of ["asset-provenance-verified", "template-package-safe", "deckVariantCount", "citations-editable", "speaker-notes-native", "ppt ingest", "ppt archive", "application/gzip", "ppt apply-ir-edit", "ppt draft", "ppt compose", "document-visual-structure-preserved", "template-semantic-layout-mapped", "complex-graphic-native-gate", "ir-batch-style-validated", "deck.variants.json", "asset-manifest.json"]) {
+    for (const marker of ["asset-provenance-verified", "asset-license-policy-compliant", "template-package-safe", "template-layout-capacity-respected", "template-placeholder-bindings-recorded", "deckVariantCount", "citations-editable", "speaker-notes-native", "ppt ingest", "ppt archive", "application/gzip", "ppt apply-ir-edit", "ppt export-ir", "ppt draft", "ppt compose", "document-visual-structure-preserved", "template-semantic-layout-mapped", "complex-graphic-native-gate", "ir-batch-style-validated", "deck.variants.json", "asset-manifest.json", "generation-manifest.json", "presentation.generated.json"]) {
       const original = fs.readFileSync(skill, "utf8");
       fs.writeFileSync(skill, original.replaceAll(marker, "legacy-enhancement-check"), "utf8");
       assert.throws(() => verifyPluginPackaging(root, capabilities), /clean-room creation contract/);
@@ -158,6 +158,15 @@ test("plugin packaging rejects external Skill references and marketplace drift",
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("plugin packaging rejects unresolved patch artifacts in Skill prose", () => {
+  const root = copiedPluginRoot();
+  try {
+    const skill = path.join(root, "plugins", "codex", "ppt-create", "skills", "ppt-create", "SKILL.md");
+    fs.appendFileSync(skill, "\n+Unresolved patch line\n");
+    assert.throws(() => verifyPluginPackaging(root, capabilities), /unresolved patch artifact/u);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test("Codex plugin manifests require install-page metadata and accept cachebuster semver", () => {

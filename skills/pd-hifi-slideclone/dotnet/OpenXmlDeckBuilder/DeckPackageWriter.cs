@@ -34,6 +34,7 @@ public static class DeckPackageWriter
                 PresentationPart presentationPart;
                 SlideMasterPart masterPart;
                 SlideLayoutPart layoutPart;
+                Dictionary<string, SlideLayoutPart>? templateLayouts = null;
                 Dictionary<int, SlidePart>? preservedTemplateSlides = null;
                 if (hasTemplate)
                 {
@@ -43,6 +44,7 @@ public static class DeckPackageWriter
                     layoutPart = templateSlides.Values.FirstOrDefault()?.SlideLayoutPart
                         ?? masterPart.SlideLayoutParts.FirstOrDefault()
                         ?? throw new InvalidOperationException("PPTX template does not contain a slide layout.");
+                    templateLayouts = GetTemplateLayoutsById(presentationPart);
                     var preserveIndexes = ir.Pages.Where(page => page.PreserveTemplateSlide == true).Select(page => page.PageIndex).ToHashSet();
                     preservedTemplateSlides = templateSlides.Where(pair => preserveIndexes.Contains(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
                     foreach (var pair in templateSlides.Where(pair => !preserveIndexes.Contains(pair.Key))) presentationPart.DeletePart(pair.Value);
@@ -90,7 +92,8 @@ public static class DeckPackageWriter
                     else
                     {
                         slidePart = presentationPart.AddNewPart<SlidePart>($"rIdSlide{slideId}");
-                        slidePart.AddPart(layoutPart, "rIdLayout");
+                        var pageLayout = ResolvePageLayout(page, layoutPart, templateLayouts);
+                        slidePart.AddPart(pageLayout, "rIdLayout");
                         slidePart.Slide = createSlide(page, slidePart, irDirectory);
                     }
                     if (!string.IsNullOrWhiteSpace(page.SpeakerNotes)) SpeakerNotesWriter.Add(presentationPart, slidePart, page.SpeakerNotes, page.PageIndex);
@@ -172,6 +175,25 @@ public static class DeckPackageWriter
         }
         if (result.Count == 0) throw new InvalidOperationException("PPTX template does not contain usable slides.");
         return result;
+    }
+
+    private static Dictionary<string, SlideLayoutPart> GetTemplateLayoutsById(PresentationPart presentationPart)
+    {
+        var layouts = presentationPart.SlideMasterParts
+            .SelectMany(master => master.SlideLayoutParts)
+            .GroupBy(layout => Path.GetFileNameWithoutExtension(layout.Uri.OriginalString), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        if (layouts.Count == 0) throw new InvalidOperationException("PPTX template does not contain usable slide layouts.");
+        return layouts;
+    }
+
+    private static SlideLayoutPart ResolvePageLayout(PageIr page, SlideLayoutPart fallback, Dictionary<string, SlideLayoutPart>? templateLayouts)
+    {
+        var requested = page.Intent?.TemplateLayoutId;
+        if (string.IsNullOrWhiteSpace(requested)) return fallback;
+        if (templateLayouts is null || !templateLayouts.TryGetValue(requested, out var layout))
+            throw new InvalidOperationException($"Deck IR page {page.PageIndex + 1} requests unavailable template layout '{requested}'.");
+        return layout;
     }
 
     private static int ToInt32Emu(double point) => checked((int)Math.Round(point * 12700));
