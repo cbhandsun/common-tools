@@ -79,6 +79,18 @@ test("team MCP validates unknown input and never forwards owner identifiers from
   assert.equal(job.ownerId, "member-1");
 });
 
+test("team MCP forwards only bounded PPT improvement options", async () => {
+  const ctx = context();
+  ctx.principal.capabilities = new Set(["ppt-improve"]);
+  ctx.enabledCapabilities = ["ppt-improve"];
+  const listed = await handleTeamMcp({ jsonrpc: "2.0", id: 1, method: "tools/list" }, ctx);
+  const createJob = listed.result.tools.find((tool) => tool.name === "create_team_job");
+  assert.deepEqual(createJob.inputSchema.properties.options.properties.repairProfile.enum, ["safe-package", "audit-only"]);
+  await callTeamTool("create_team_job", { capability: "ppt-improve", inputObjectKey: "owners/hash/inputs/deck.pptx", idempotencyKey: "audit-only", options: { repairProfile: "audit-only" } }, ctx);
+  assert.deepEqual(ctx.calls[0][1].options, { repairProfile: "audit-only" });
+  await assert.rejects(() => callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/deck", idempotencyKey: "bad", options: { repairProfile: "audit-only" } }, context()), /options/);
+});
+
 test("team MCP accepts trace parent only from its trusted transport context", async () => {
   const ctx = context();
   ctx.traceParent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";

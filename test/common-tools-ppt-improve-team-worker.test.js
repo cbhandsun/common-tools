@@ -74,7 +74,7 @@ test("team PPT improvement produces an initial audit, a safe improved copy, and 
 
 test("team PPT improvement audit-only profile reports eligible repairs without mutating", async () => {
   const writes = []; const handler = createPptImproveHandler({ objectStore: { async readObject() { return fixture(); }, async putObject(value) { writes.push(value); } } });
-  const result = await handler({ job: { capability: "ppt-improve", profile: "audit-only", inputObjectKey: "owners/hash/inputs/deck.pptx", outputPrefix: "owners/hash/jobs/job/" }, isCancellationRequested: async () => false });
+  const result = await handler({ job: { capability: "ppt-improve", options: { repairProfile: "audit-only" }, inputObjectKey: "owners/hash/inputs/deck.pptx", outputPrefix: "owners/hash/jobs/job/" }, isCancellationRequested: async () => false });
   assert.equal(result.artifacts.some((artifact) => artifact.name === "improved.pptx"), false); const report = JSON.parse(writes.at(-2).body.toString("utf8")); assert.equal(report.repairProfile, "audit-only"); assert.deepEqual(report.result, { changed: false, eligibleUnusedMediaCount: 1, removedMediaCount: 0 });
 });
 

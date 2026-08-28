@@ -703,18 +703,18 @@ MVP 截止在 **I3**：用户只安装 `image-to-editable-plugin`，在本地 Do
 
 `Dockerfile.worker` 仍是 **base** profile，只包含 Node 和能力编排代码。`Dockerfile.image-to-editable` 是独立 engine profile：构建时以 NuGet 锁文件发布 OpenXML 核心，运行时只复制 .NET runtime、发布物和 `libicu72`；不复制本机 DLL、许可证或 Office COM。已在 Docker Desktop 上验证 PNG → Job → OpenXML `deck.pptx`，并校验 Job 成功状态、工件 MIME 类型和 SHA-256。
 
-这不等同于“高保真图片转可编辑已经生产化”。现在提供 `common-tools editable init` 的 `editable-text-overlay-v1` 本地 profile：它显式选择 Umi PaddleOCR（或已安装的 Tesseract）、以原图作为视觉底图，并把识别出的文本作为隐藏但可编辑的 PowerPoint 叠层写入 OpenXML。因此它可用于“保留原外观 + 文字可改”的基线交付，不能宣称图形、图表、图标或版式已转换为原生对象；基础 profile 不执行渲染差异验证，PPTX 工件可正常交付，但 `delivery-summary` 会标记为未验证/不通过，不能作为质量门禁依据。Windows 上已安装 PowerPoint 时，PNG 输入可显式使用 `editable init --verify-render` 生成 `editable-text-overlay-verified-v1`：它以 PowerPoint COM 导出最终 PPTX，执行像素差异、前景缺失、全页 OCR 覆盖、布局、边界与可操作栅格检查，并只在实际导出页存在且所有要求的检查通过时将 delivery 标为 verified/passed；不支持的非 Windows 或 JPEG 输入会在生成配置前失败关闭。高保真文字/图形还原仍需要按许可和数据边界加入 OCR、视觉、渲染和质量评估 profile。本地 `create_editable_job` 与 `editable create|run` 仍要求调用方提供工作区内的 slideclone config，并在创建阶段拒绝缺失配置，避免产生必然失败的 queued Job；`editable init` 只是安全地生成该配置，不覆盖既有文件。单张本地 Job 在执行时还将内建 `normalize-cli` 的输入精确限制到已登记图片，避免同目录的相邻图片被误纳入；本地原始输入只接受工作区内不超过 100 MiB、单边不超过 16,384 像素且总量不超过 40,000,000 像素的 PNG/JPG/JPEG，配置输入/输出目录必须与请求精确绑定。插件也不会静默选择 OCR 或视觉 Provider。团队 Job 现已强制输出固定质量报告（通过状态、检查名与有界数值指标），可作为这些 profile 的机器化验收容器；I2 的下一验收增量仍是为真实 profile 增加锁定依赖、成功/取消/崩溃 Docker 端到端测试和具体质量阈值，之后才可宣称高保真能力可用。
+图片转可编辑采用置信度门控的 native-hybrid 路径：OCR 文本、识别出的表格、图表、连接线和语义图形优先转为原生对象，并从全页残留保真图中擦除已原生化对象，避免双层重复。未被可靠理解的照片、截图、插画和长尾复杂视觉继续作为明确标记的 residual；交付报告记录 native/residual 面积、最大残留、重复擦除及显式状态，不能以存在少量原生对象冒充整页可编辑。Windows 本机可使用 PowerPoint 最终渲染验证；团队 Worker 使用固定 LibreOffice 渲染和像素比较，并输出相同的有界质量检查。所有本地/团队输入仍执行字节、尺寸、像素、路径、归档和 Provider 锁定门禁。
 
 #### 团队端原始图片接入门禁
 
-当前团队 `image-to-editable` Worker **只接受根目录 `deck.json` 加可选 `assets/` 的受限 `.tar.gz`**；它验证 Deck IR、资产路径和 OpenXML 交付链路，不接收单张原始截图，也不会把本机 Umi OCR 或 PowerPoint COM 当作容器能力。若将来接入原始 PNG/JPEG，必须作为新的、版本化的 archive profile，而不是放宽现有 Deck IR 解析器：
+当前团队 `image-to-editable` Worker 接受两种相互隔离的受限归档：调用方已构造的 `deck.json` 加可选 `assets/`，或版本化的单张 `raw-image` PNG/JPEG 归档。两条路径都复用相同的 OpenXML、工件和质量报告契约，但原始图片路径额外要求部署侧锁定的 OCR/模型 profile：
 
 1. 归档只能含一个声明的输入图片及固定 profile 元数据；API 上传目标、对象类型、归档解包、文件尺寸、解码尺寸、像素总量、格式完整性和路径规则必须在 Worker 前失败关闭。
-2. OCR 运行时、模型/语言包及其版本、许可、SHA-256 和资源上限必须固定在独立的非 root 镜像中；不得让 Job 传入命令、模型路径、OCR 参数、模板或脚本。构造的 Deck IR 只能使用固定的原图底图和 OCR 文本叠层策略。
-3. `succeeded` 只能表示工件已经生成；没有 Linux 可复现的渲染器和像素/文字/布局验收时，团队 `quality.passed` 必须为 `false`，不得复用本机 COM 的验证结论。跨平台渲染 profile 需要单独的 OCI 镜像、字体清单、确定性阈值和版本化 golden set。
+2. OCR 运行时、模型/语言包及其版本、许可、SHA-256 和资源上限必须固定在独立的非 root 镜像中；不得让 Job 传入命令、模型路径、OCR 参数、模板或脚本。构造的 Deck IR 进入固定 native-hybrid 重建器，并保留置信度不足的 residual。
+3. `quality.passed` 必须同时满足 Linux 内固定 LibreOffice 渲染、像素/前景比较、原生对象存在和 residual 去重检查；不得复用本机 COM 的验证结论。
 4. 验收至少覆盖：有效 PNG/JPEG、空 OCR、中文与英文 OCR、未知格式、截断/伪造容器、压缩炸弹、超尺寸、取消、超时、Worker 崩溃后的 lease 恢复、同一 Job 的幂等重投、对象存储清理，以及 owner/project 隔离。只有 Docker E2E 同时证明上述链路与质量门禁，才可在团队 MCP 工具说明中声明“原始图片转可编辑”。
 
-代码层已预留默认关闭的 `raw-image` archive seam：归档只能包含单一 `assets/source.png|jpg|jpeg`，会再次校验容器完整性、字节/尺寸/像素上限。首个可启用实现为 `tesseract-tsv-v1`：Worker 只接受镜像内绝对路径的 Tesseract 二进制、固定语言白名单和部署侧 SHA-256，并在启动时复算二进制 hash、确认每个语言包存在；Job 只能使用固定 TSV 命令、90 秒超时和 1 MiB 有界输出。默认 Compose Worker 没有这个 profile，仍会拒绝该归档。profile 生成的 Deck IR 固定为原图底图加隐藏文本叠层，当前质量报告仍固定为 `passed=false` 并记录 `quality-render-not-configured`，防止无跨平台渲染器的团队任务被误认定为质量通过。生产镜像 digest、二进制 hash、语言包清单与许可必须进入同一份 release evidence，生产预检会将部署变量和该证据精确匹配；具体启动变量和验收边界见《团队 Docker 部署》。
+`raw-image` 归档只能包含单一 `assets/source.png|jpg|jpeg`，并再次校验容器完整性、字节/尺寸/像素上限。可启用实现包括锁定的 `tesseract-tsv-v1` 和 PaddleOCR profile；Worker 在启动时复算运行时代码、模型/语言包证据并执行真实预热。Job 使用固定参数和有界输出，随后执行 native-hybrid 重建、object-erased residual、LibreOffice 渲染与像素比较。生产镜像 digest、二进制 hash、模型或语言包清单与许可必须进入同一份 release evidence。
 
 #### OCR 运行时门禁
 

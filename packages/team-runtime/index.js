@@ -19,6 +19,7 @@ const OBJECT_KEY_PATTERN = /^[a-z0-9][a-z0-9._/-]{0,511}$/;
 const PROJECT_ID_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
 const TRACE_PARENT_PATTERN = /^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/;
 const TERMINAL = new Set(["succeeded", "failed", "cancelled", "expired"]);
+const PPT_IMPROVE_REPAIR_PROFILES = new Set(["safe-package", "audit-only"]);
 
 function parseServiceUrl(value, label, protocols) {
   let url;
@@ -97,6 +98,14 @@ function ownedInputKey(ownerId, inputObjectKey) {
   if (!key.startsWith(`${ownerPrefix(ownerId)}inputs/`)) throw new Error("input object does not belong to the owner input prefix");
   return key;
 }
+function normalizeTeamJobOptions(capability, value) {
+  if (value === undefined || value === null) return Object.freeze({});
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError("team Job options are invalid");
+  const keys = Object.keys(value);
+  if (keys.length === 0) return Object.freeze({});
+  if (capability !== "ppt-improve" || keys.some((key) => key !== "repairProfile") || keys.length !== 1 || !PPT_IMPROVE_REPAIR_PROFILES.has(value.repairProfile)) throw new TypeError("team Job options are invalid for the capability");
+  return Object.freeze({ repairProfile: value.repairProfile });
+}
 function validUploadRequest(capability, contentType, contentLength) {
   const allowed = UPLOAD_MEDIA_TYPES[capability];
   const normalizedType = typeof contentType === "string" ? contentType.trim().toLowerCase() : "";
@@ -104,14 +113,14 @@ function validUploadRequest(capability, contentType, contentLength) {
   const maximum = typeof configuredMaximum === "number" ? configuredMaximum : configuredMaximum?.[normalizedType] || 100 * 1024 * 1024;
   return TEAM_DEPLOYABLE_CAPABILITIES.includes(capability) && !!allowed && allowed.has(normalizedType) && Number.isSafeInteger(contentLength) && contentLength >= 1 && contentLength <= maximum;
 }
-function createTeamJob({ capability, ownerId, projectId, idempotencyKey, inputObjectKey, expiresAt, maxAttempts = 1, traceParent }) {
+function createTeamJob({ capability, ownerId, projectId, idempotencyKey, inputObjectKey, expiresAt, maxAttempts = 1, traceParent, options }) {
   if (!TEAM_DEPLOYABLE_CAPABILITIES.includes(capability)) throw new Error("unsupported capability");
   const owner = assertNonEmptyString(ownerId, "ownerId");
   const id = crypto.randomUUID();
   const expiry = new Date(expiresAt);
   if (Number.isNaN(expiry.getTime()) || expiry.getTime() <= Date.now()) throw new Error("expiresAt must be in the future");
   if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 5) throw new Error("maxAttempts must be between 1 and 5");
-  return withTraceParent({ id, capability, ownerId: owner, projectId: projectId === undefined ? undefined : assertProjectId(projectId), idempotencyKey: assertNonEmptyString(idempotencyKey, "idempotencyKey"), status: "queued", attempt: 0, maxAttempts, inputObjectKey: ownedInputKey(owner, inputObjectKey), outputPrefix: `${ownerPrefix(owner)}jobs/${id}/`, artifacts: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), expiresAt: expiry.toISOString() }, assertTraceParent(traceParent));
+  return withTraceParent({ id, capability, ownerId: owner, projectId: projectId === undefined ? undefined : assertProjectId(projectId), idempotencyKey: assertNonEmptyString(idempotencyKey, "idempotencyKey"), status: "queued", attempt: 0, maxAttempts, inputObjectKey: ownedInputKey(owner, inputObjectKey), outputPrefix: `${ownerPrefix(owner)}jobs/${id}/`, options: normalizeTeamJobOptions(capability, options), artifacts: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), expiresAt: expiry.toISOString() }, assertTraceParent(traceParent));
 }
 function storedQuality(value) {
   if (value == null) return null;
@@ -123,14 +132,14 @@ function storedQuality(value) {
 function fromRow(row) {
   assertPlainObject(row, "database job row");
   const json = (value, fallback) => typeof value === "string" ? JSON.parse(value) : value ?? fallback;
-  return withTraceParent({ id: row.id, capability: row.capability, ownerId: row.owner_id, projectId: row.project_id || undefined, idempotencyKey: row.idempotency_key, status: row.status, attempt: row.attempt, maxAttempts: row.max_attempts, inputObjectKey: row.input_object_key, outputPrefix: row.output_prefix, artifacts: json(row.artifacts, []), quality: storedQuality(json(row.quality, null)), error: json(row.error, null), lease: row.lease_owner ? { workerId: row.lease_owner, expiresAt: new Date(row.lease_expires_at).toISOString() } : undefined, createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString(), expiresAt: new Date(row.expires_at).toISOString() }, assertTraceParent(row.trace_parent));
+  return withTraceParent({ id: row.id, capability: row.capability, ownerId: row.owner_id, projectId: row.project_id || undefined, idempotencyKey: row.idempotency_key, status: row.status, attempt: row.attempt, maxAttempts: row.max_attempts, inputObjectKey: row.input_object_key, outputPrefix: row.output_prefix, options: normalizeTeamJobOptions(row.capability, json(row.options, {})), artifacts: json(row.artifacts, []), quality: storedQuality(json(row.quality, null)), error: json(row.error, null), lease: row.lease_owner ? { workerId: row.lease_owner, expiresAt: new Date(row.lease_expires_at).toISOString() } : undefined, createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString(), expiresAt: new Date(row.expires_at).toISOString() }, assertTraceParent(row.trace_parent));
 }
 function requireQuery(query) { if (typeof query !== "function") throw new TypeError("query must be a function"); return query; }
 
 class PostgresJobRepository {
   constructor({ query }) { this.query = requireQuery(query); }
   async create(job, actorId = job.ownerId) {
-    const result = await this.query("INSERT INTO capability_jobs (id, capability, owner_id, project_id, idempotency_key, status, attempt, max_attempts, input_object_key, output_prefix, artifacts, created_at, updated_at, expires_at, trace_parent) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::timestamptz,$13::timestamptz,$14::timestamptz,$15) ON CONFLICT DO NOTHING RETURNING *", [job.id, job.capability, job.ownerId, job.projectId || null, job.idempotencyKey, job.status, job.attempt, job.maxAttempts, job.inputObjectKey, job.outputPrefix, JSON.stringify(job.artifacts), job.createdAt, job.updatedAt, job.expiresAt, job.traceParent || null]);
+    const result = await this.query("INSERT INTO capability_jobs (id, capability, owner_id, project_id, idempotency_key, status, attempt, max_attempts, input_object_key, output_prefix, options, artifacts, created_at, updated_at, expires_at, trace_parent) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13::timestamptz,$14::timestamptz,$15::timestamptz,$16) ON CONFLICT DO NOTHING RETURNING *", [job.id, job.capability, job.ownerId, job.projectId || null, job.idempotencyKey, job.status, job.attempt, job.maxAttempts, job.inputObjectKey, job.outputPrefix, JSON.stringify(job.options), JSON.stringify(job.artifacts), job.createdAt, job.updatedAt, job.expiresAt, job.traceParent || null]);
     if (result.rows.length) { await this.event(job.id, "created", actorId, {}); return fromRow(result.rows[0]); }
     const existing = await this.query("SELECT * FROM capability_jobs WHERE owner_id = $1 AND project_id IS NOT DISTINCT FROM $2 AND capability = $3 AND idempotency_key = $4 AND status NOT IN ('succeeded','failed','cancelled','expired') ORDER BY created_at DESC LIMIT 1", [job.ownerId, job.projectId || null, job.capability, job.idempotencyKey]);
     if (!existing.rows.length) throw new Error("could not create an idempotent job");
@@ -140,7 +149,7 @@ class PostgresJobRepository {
     const limit = Number(projectActiveJobLimit);
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 10000) throw new RangeError("project active Job limit must be between 1 and 10000");
     const projectId = assertProjectId(job?.projectId);
-    const result = await this.query("WITH advisory_lock AS (SELECT pg_advisory_xact_lock(hashtextextended($1, 0))), existing AS (SELECT jobs.*, false AS newly_created FROM capability_jobs AS jobs CROSS JOIN advisory_lock WHERE jobs.owner_id = $2 AND jobs.project_id = $1 AND jobs.capability = $3 AND jobs.idempotency_key = $4 AND jobs.status NOT IN ('succeeded','failed','cancelled','expired') ORDER BY jobs.created_at DESC LIMIT 1), active_jobs AS (SELECT COUNT(*)::integer AS active_count FROM capability_jobs AS jobs CROSS JOIN advisory_lock WHERE jobs.project_id = $1 AND jobs.status IN ('queued','running','input_required','cancel_requested')), inserted AS (INSERT INTO capability_jobs (id, capability, owner_id, project_id, idempotency_key, status, attempt, max_attempts, input_object_key, output_prefix, artifacts, created_at, updated_at, expires_at, trace_parent) SELECT $5,$3,$2,$1,$4,$6,$7,$8,$9,$10,$11::jsonb,$12::timestamptz,$13::timestamptz,$14::timestamptz,$15 WHERE NOT EXISTS (SELECT 1 FROM existing) AND (SELECT active_count FROM active_jobs) < $16 ON CONFLICT DO NOTHING RETURNING *, true AS newly_created), selected AS (SELECT * FROM existing UNION ALL SELECT * FROM inserted) SELECT to_jsonb(selected) AS job, COALESCE((SELECT newly_created FROM selected LIMIT 1), false) AS newly_created, active_jobs.active_count FROM active_jobs LEFT JOIN selected ON TRUE", [projectId, job.ownerId, job.capability, job.idempotencyKey, job.id, job.status, job.attempt, job.maxAttempts, job.inputObjectKey, job.outputPrefix, JSON.stringify(job.artifacts), job.createdAt, job.updatedAt, job.expiresAt, job.traceParent || null, limit]);
+    const result = await this.query("WITH advisory_lock AS (SELECT pg_advisory_xact_lock(hashtextextended($1, 0))), existing AS (SELECT jobs.*, false AS newly_created FROM capability_jobs AS jobs CROSS JOIN advisory_lock WHERE jobs.owner_id = $2 AND jobs.project_id = $1 AND jobs.capability = $3 AND jobs.idempotency_key = $4 AND jobs.status NOT IN ('succeeded','failed','cancelled','expired') ORDER BY jobs.created_at DESC LIMIT 1), active_jobs AS (SELECT COUNT(*)::integer AS active_count FROM capability_jobs AS jobs CROSS JOIN advisory_lock WHERE jobs.project_id = $1 AND jobs.status IN ('queued','running','input_required','cancel_requested')), inserted AS (INSERT INTO capability_jobs (id, capability, owner_id, project_id, idempotency_key, status, attempt, max_attempts, input_object_key, output_prefix, options, artifacts, created_at, updated_at, expires_at, trace_parent) SELECT $5,$3,$2,$1,$4,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13::timestamptz,$14::timestamptz,$15::timestamptz,$16 WHERE NOT EXISTS (SELECT 1 FROM existing) AND (SELECT active_count FROM active_jobs) < $17 ON CONFLICT DO NOTHING RETURNING *, true AS newly_created), selected AS (SELECT * FROM existing UNION ALL SELECT * FROM inserted) SELECT to_jsonb(selected) AS job, COALESCE((SELECT newly_created FROM selected LIMIT 1), false) AS newly_created, active_jobs.active_count FROM active_jobs LEFT JOIN selected ON TRUE", [projectId, job.ownerId, job.capability, job.idempotencyKey, job.id, job.status, job.attempt, job.maxAttempts, job.inputObjectKey, job.outputPrefix, JSON.stringify(job.options), JSON.stringify(job.artifacts), job.createdAt, job.updatedAt, job.expiresAt, job.traceParent || null, limit]);
     const row = result.rows?.[0];
     if (!row || !row.job) {
       const activeCount = Number(row?.active_count);
@@ -406,4 +415,4 @@ function createTeamServices({ repository, queue, objectStore, projectActiveJobLi
   });
 }
 
-module.exports = { CAPABILITIES, PostgresJobRepository, TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYABLE_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, TeamWorker, TeamWorkerRunner, assertProjectId, assertTraceParent, createTeamJob, createTeamServices, fromRow, loadTeamConfig, ownedInputKey, parseEnabledCapabilities, recoverWorkerLeases, retentionObjectKeys, runTeamRetention, storedQuality, teamDeploymentPlan, validUploadRequest };
+module.exports = { CAPABILITIES, PostgresJobRepository, TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYABLE_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, TeamWorker, TeamWorkerRunner, assertProjectId, assertTraceParent, createTeamJob, createTeamServices, fromRow, loadTeamConfig, normalizeTeamJobOptions, ownedInputKey, parseEnabledCapabilities, recoverWorkerLeases, retentionObjectKeys, runTeamRetention, storedQuality, teamDeploymentPlan, validUploadRequest };

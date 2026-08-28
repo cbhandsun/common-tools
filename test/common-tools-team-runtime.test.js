@@ -5,7 +5,7 @@ const crypto = require("node:crypto");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
-const { PostgresJobRepository, TeamWorker, TeamWorkerRunner, assertTraceParent, createTeamJob, createTeamServices, fromRow, loadTeamConfig, recoverWorkerLeases, retentionObjectKeys, runTeamRetention } = require("../packages/team-runtime");
+const { PostgresJobRepository, TeamWorker, TeamWorkerRunner, assertTraceParent, createTeamJob, createTeamServices, fromRow, loadTeamConfig, normalizeTeamJobOptions, recoverWorkerLeases, retentionObjectKeys, runTeamRetention } = require("../packages/team-runtime");
 const { assertQualityReport } = require("../packages/capability-contracts");
 const { retentionSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-retention");
 const { retentionScheduleSettings, runRetentionSchedule } = require("../packages/team-runtime/retention-scheduler");
@@ -226,6 +226,18 @@ test("team jobs use opaque owner-scoped object prefixes and reject path-like inp
   assert.throws(() => createTeamJob({ capability: "project-audit", ownerId, projectId: "Bad project", idempotencyKey: "project-request", inputObjectKey: `owners/${ownerHash}/inputs/project.tar.gz`, expiresAt: "2030-01-01T00:00:00.000Z" }), /projectId/);
 });
 
+test("team Job options are capability-scoped and preserve PPT improvement profiles", () => {
+  const ownerId = "member@example.test";
+  const ownerHash = crypto.createHash("sha256").update(ownerId).digest("hex");
+  const inputObjectKey = `owners/${ownerHash}/inputs/deck.pptx`;
+  const job = createTeamJob({ capability: "ppt-improve", ownerId, idempotencyKey: "audit-only", inputObjectKey, options: { repairProfile: "audit-only" }, expiresAt: "2030-01-01T00:00:00.000Z" });
+  assert.deepEqual(job.options, { repairProfile: "audit-only" });
+  assert.deepEqual(normalizeTeamJobOptions("ppt-improve", undefined), {});
+  assert.throws(() => createTeamJob({ capability: "project-audit", ownerId, idempotencyKey: "bad-options", inputObjectKey, options: { repairProfile: "audit-only" }, expiresAt: "2030-01-01T00:00:00.000Z" }), /options/);
+  assert.throws(() => normalizeTeamJobOptions("ppt-improve", { repairProfile: "visual-repair" }), /options/);
+  assert.throws(() => normalizeTeamJobOptions("ppt-improve", { repairProfile: "safe-package", token: "secret" }), /options/);
+});
+
 test("team Jobs preserve only a validated private trace parent for workers", () => {
   const ownerId = "member@example.test";
   const ownerHash = crypto.createHash("sha256").update(ownerId).digest("hex");
@@ -336,7 +348,7 @@ test("project Job idempotency lookup remains in the same project partition", asy
   const job = createTeamJob({ capability: "project-audit", ownerId: owner, projectId: "product-core", idempotencyKey: "same-key", inputObjectKey: inputKey, expiresAt: "2030-01-01T00:00:00.000Z", traceParent });
   await assert.rejects(() => repository.create(job), /could not create/);
   assert.match(calls[0].text, /trace_parent/);
-  assert.equal(calls[0].values[14], traceParent);
+  assert.equal(calls[0].values[15], traceParent);
   assert.match(calls[1].text, /project_id IS NOT DISTINCT FROM \$2/);
   assert.deepEqual(calls[1].values, [owner, "product-core", "project-audit", "same-key"]);
 });
@@ -357,7 +369,7 @@ test("Postgres project admission holds a project lock before counting active Job
   assert.match(calls[0].text, /pg_advisory_xact_lock/);
   assert.match(calls[0].text, /project_id = \$1/);
   assert.match(calls[0].text, /status IN \('queued','running','input_required','cancel_requested'\)/);
-  assert.equal(calls[0].values[15], 2);
+  assert.equal(calls[0].values[16], 2);
   assert.deepEqual(calls[1].values.slice(0, 3), [job.id, "created", owner]);
   const exhausted = new PostgresJobRepository({ query: async () => ({ rows: [{ job: null, newly_created: false, active_count: 2 }] }) });
   await assert.rejects(() => exhausted.createWithinProjectQuota(job, 2), /quota is exhausted/);

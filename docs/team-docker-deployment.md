@@ -539,9 +539,9 @@ docker run --rm --network none --read-only --user 10001:10001 --entrypoint /bin/
 
 如已有经审核的本地镜像，可在 Apply 时加 `-SkipRawImageOcrBuild -RawImageOcrImage <local-tag>`；脚本仍会按所选 provider 核验镜像。生产环境不能使用这个本机构建路径，必须使用 registry digest、release evidence 和生产预检。
 
-语言只允许 `eng`、`chi_sim`、`chi_tra`、`jpn`、`kor` 的无重复逗号列表。Worker 启动时执行固定的 `tesseract --list-langs` 自检；任何缺失语言包都会停止 Worker。生产预检还会将部署环境的 profile、二进制 hash 和语言列表与已验证 release evidence 中、同一 Worker image 的 profile 精确比对。每个 Job 只会以固定参数调用 `tesseract <image> stdout --psm 3 -l <locked-languages> tsv`，输出最多 1 MiB、运行最多 90 秒，并在取消、超时、非零退出、非法 TSV 或越界文字框时失败。TSV 仅转换为隐藏、可编辑的文本叠层，原图仍是全页视觉底图。
+语言只允许 `eng`、`chi_sim`、`chi_tra`、`jpn`、`kor` 的无重复逗号列表。Worker 启动时执行固定的 `tesseract --list-langs` 自检；任何缺失语言包都会停止 Worker。生产预检还会将部署环境的 profile、二进制 hash 和语言列表与已验证 release evidence 中、同一 Worker image 的 profile 精确比对。每个 Job 只会以固定参数调用 `tesseract <image> stdout --psm 3 -l <locked-languages> tsv`，输出最多 1 MiB、运行最多 90 秒，并在取消、超时、非零退出、非法 TSV 或越界文字框时失败。OCR 结果进入固定 native-hybrid 重建器，置信度不足的视觉内容保留为 object-erased residual。
 
-这个阶段产生的 `deck.pptx` 会保留 `raw-image-validated`、`assets-resolved`、`ocr-text-overlays` 等质量报告字段，但由于团队 Docker 尚未接入跨平台最终渲染与视觉比对，报告强制为 `passed=false` 并标记 `quality-render-not-configured`。它保证“可编辑文字叠层”的受控交付，**不能**作为“高保真原始图片转可编辑”验收或自动发布依据。
+团队 Worker 已接入固定 LibreOffice 最终渲染与像素/前景比较，并同时检查原生图形数量、残留层去重和多格式交付。报告只有在全部门禁通过时才允许 `passed=true`；未知复杂视觉仍会明确保留 residual，因此通过不代表任意像素都已矢量化。
 
 启动图片 Worker（也可与审计 Worker 同时启动）：
 

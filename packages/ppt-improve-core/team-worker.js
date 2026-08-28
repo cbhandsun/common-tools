@@ -56,7 +56,7 @@ function createPptImproveHandler({ objectStore, temporaryRoot = os.tmpdir() } = 
       const initialMarkdown = Buffer.from(renderQualityMarkdown(initialReport, initialQuality));
       const inspection = inspectPptx(sourceFile);
       if (inspection.unusedMediaCount !== initialReport.summary.unusedMediaCount) throw new Error("PPT improvement initial audit is inconsistent");
-      const repairProfile = normalizeRepairProfile(job.profile); const shouldRepair = repairProfile === "safe-package" && inspection.unusedMediaCount > 0;
+      const repairProfile = normalizeRepairProfile(job.options?.repairProfile); const shouldRepair = repairProfile === "safe-package" && inspection.unusedMediaCount > 0;
       const report = { version: "0.2.0", capability: "ppt-improve", generatedAt: new Date().toISOString(), repairProfile, source: { sha256: source.sha256, bytes: source.bytes }, auditReport: { sha256: sha256(initialJson) }, result: { changed: shouldRepair, eligibleUnusedMediaCount: inspection.unusedMediaCount, removedMediaCount: shouldRepair ? inspection.unusedMediaCount : 0 } };
       const artifacts = [
         reportArtifact("ppt-quality-report.json", "application/json", initialJson, job.outputPrefix),

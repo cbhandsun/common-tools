@@ -1,24 +1,25 @@
 # Goal Completion Audit
 
-Generated: 2026-06-21
+Generated: 2026-08-28
 
 ## Current Position
 
-The slide clone pipeline has moved from emergency-fix mode into a verified, repeatable high-fidelity bridge:
+The slide clone pipeline is now a verified native-hybrid reconstruction system:
 
 1. Use LibreOffice headless to normalize/render source decks.
 2. Run real OCR readback and compute `textCoverage`.
-3. Keep the source slide render as the visual underlay.
-4. Add hidden editable OCR text boxes to preserve search/select/edit affordances without double-rendering.
-5. Generate editable PPTX through the OpenXML/Python pipeline.
-6. Verify generated decks with LibreOffice render checks and golden-set gates.
+3. Reconstruct recognized text, tables, charts, shapes, connectors and semantic diagrams as native editable objects.
+4. Remove reconstructed native objects from a bounded residual image so native and raster layers do not duplicate one another.
+5. Generate editable PPTX through the shared OpenXML pipeline and expose a revision-bound IR editor/export flow.
+6. Verify generated decks with PowerPoint/LibreOffice render comparison, editability metrics and real-corpus trend gates.
 
-This is not yet a claim that arbitrary source PPTX files are fully reverse-engineered into native editable vectors. For real decks, the current production-safe mode is a visual underlay plus editable hidden text overlay. For structured IR fixtures, native editable shapes, connectors, tables, text, shadows, crops, simple chart vectors, sampled colors, and icon-library vectors are covered.
+This is not a claim that photos, screenshots, arbitrary illustrations or every unknown diagram should become native vectors. The production-safe contract is confidence-gated native reconstruction plus an object-erased residual fidelity layer. Native charts use ChartParts with hash-bound embedded workbooks; native tables, grouped components, connectors, custom geometry, semantic metadata and template-backed layouts are also covered.
 
 ## Evidence Snapshot
 
-- `npm run verify`: 40/40 tests passed after the icon-library and OpenXML changes.
-- `npm run slideclone:golden-set`: `totalCases=15`, `passingCases=9`, `commandPassingCases=3`, `improvingCases=2`, `sentinelCaught=1`, `failingCases=0`.
+- `npm run verify:ci` passed on 2026-08-28, including locked dependency audits, .NET build, sharded unit/contract/integration suites, Python hash-lock verification and an isolated Runtime package install probe.
+- `skills/pd-hifi-slideclone/examples/golden-set.manifest.json` contains 70 bounded cases.
+- `skills/pd-hifi-slideclone/examples/real-pptx-corpus.manifest.json` contains 31 representative real-corpus cases; pull requests run the four-case smoke suite and the scheduled/manual workflow runs the full suite on the labeled Office runner.
 - Real PPT batch output: `ppt文档/可编辑版本/batch-report.json` reports `totalFiles=6`, `convertedFiles=6`, `failedFiles=0`, `totalPages=76`, `totalEditableTextBoxes=1226`.
 - Full output spot-check: every generated `.editable.pptx` preserved source slide count and first-page LibreOffice render verification produced non-empty 1921x1080 PNGs.
 - Golden flow metrics: `layoutMeanIoU=0.8751`, `textCoverage=0.9844961240310077`, `pixelDiffRatio≈0.05966` across the 1/3/5-page flow cases.
@@ -35,8 +36,8 @@ This is not yet a claim that arbitrary source PPTX files are fully reverse-engin
 | Icon vectorization / library matching | Implemented for current known icons | `ICON_LIBRARY` matches gem/diamond, wand/magic, and camera/photo aliases, then emits editable vector shapes; covered by `test/connector-anchors.test.js`. Broader external icon-library search is still a future expansion. |
 | Layout structure IoU | Implemented as a real gate | Golden flow reports `layoutMeanIoU=0.8751`; table sample reports `layoutMeanIoU=0.9946`; failing pages are tracked. |
 | Connector anchor enhancement | Implemented for semantic anchors and native connectors | Flow lines carry `connectorAnchors`; OpenXML emits connector shapes; covered by `test/connector-anchors.test.js` and `test/openxml-dotnet-contract.test.js`. |
-| Multi-page / multi-style golden set | Implemented as a local 15-case golden set plus real-deck batch proof | Golden set covers flow 1/3/5 pages, table sample, real PPT normalization, OCR sentinel, text micro-adjust, OpenXML generation, and LibreOffice render checks. Real local directory has 6 decks / 76 slides converted. More 10-20 diverse authored goldens would still improve generalization confidence. |
-| Open XML SDK main generator coverage | Substantially improved | OpenXML generator now covers editable text, basic shapes, images, simple tables, connectors, shadows, picture crop rectangles, and lightweight editable vector chart approximation. It does not yet create native Excel-backed PowerPoint ChartPart charts. |
+| Multi-page / multi-style golden set | Implemented as a 70-case golden set plus a 31-case real-corpus manifest | Pull requests run a bounded Office smoke suite; scheduled/manual runs use the full corpus and preserve trend evidence. |
+| Open XML SDK main generator coverage | Implemented for the current bounded IR | OpenXML covers editable text, rich text, shapes, freeforms, images, native tables, connectors, groups, native ChartParts with embedded workbooks, bounded SmartArt, template preservation and deterministic batch generation. Unknown or unsafe package features fail closed. |
 
 ## Engine Evaluation
 
@@ -60,10 +61,10 @@ This policy was followed before the full `ppt文档` conversion. The full conver
 
 ## Remaining Truthful Limits
 
-- The current real-deck editable mode is high-safety underlay plus hidden editable OCR text, not full arbitrary-shape reconstruction.
+- Unknown complex visuals may remain in the object-erased residual layer; the system does not promise semantically correct native reconstruction for arbitrary pixels.
 - OCR is verified through UmiOCR/PaddleOCR locally; Tesseract/Azure are viable adapter targets but were not the adapter used for the final real batch.
-- The chart implementation is editable vector approximation, not native PowerPoint chart data parts.
-- Broader icon matching and larger authored golden sets would increase generalization confidence.
+- Broader icon matching, additional semantic diagram families and more independently authored real-corpus decks would increase generalization confidence.
+- Office-corpus execution still depends on a maintained self-hosted Windows runner with the approved corpus root and renderers; the workflow contract alone is not evidence that a particular scheduled run occurred.
 
 ## External Reference Basis
 

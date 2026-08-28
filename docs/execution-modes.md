@@ -33,7 +33,7 @@ Common Tools 将“用户入口”和“实际执行”分离：一个统一插�
 当前远程优先能力：
 
 - `image-to-editable`：图片转可编辑产物；依赖较重的转换、字体、渲染和 Worker 环境。
-- `ppt-quality`、`ppt-improve`：按当前部署情况使用远程 Worker；后续只有在本机运行条件与质量门禁达到等价要求后才开放本机模式。
+- `ppt-quality`、`ppt-improve`：完整 Runtime 已提供本机同步/Job 模式，也可使用远程 Worker；稀疏 Marketplace 本身不包含本机执行引擎，因此必须以 `runtime resolve` 的实际结果决定执行位置。
 
 因此，`local-only` 不能与这些远程优先能力同时安装；安装器会停止并列出冲突能力，而不会静默降级或上传数据。
 
