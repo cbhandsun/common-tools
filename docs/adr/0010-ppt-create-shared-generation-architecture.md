@@ -15,7 +15,7 @@ The user-facing action is **创建 PPT**. The stable capability ID is `ppt-creat
 
 Both execution modes use this pipeline:
 
-`PresentationSpec -> validation -> semantic layout -> Deck IR -> OpenXML writer -> PPTX and quality report`
+`PresentationSpec -> validation -> semantic layout -> Deck IR -> HTML / OpenXML PPTX -> controlled PDF export -> quality report`
 
 Local execution reads a workspace-contained JSON file. Remote execution accepts the same JSON through the existing owner-scoped upload and job APIs. Only the transport, storage, queue, and worker composition differ. The core planner and output contract remain shared.
 
@@ -25,12 +25,14 @@ The public spec may attach one bounded semantic visual to a slide. Tables become
 
 Each creation also emits a self-contained HTML preview/editor generated from validated PresentationSpec and Deck IR. The browser may keep a local draft and download a bounded operation list, but it cannot write the source file. Persistence is a separate local Runtime command that verifies the source revision, operation schema, narrative order, layout compatibility, workspace boundary, and non-overwrite rule before atomically creating a new PresentationSpec file.
 
+The read-only `deck.html`, editable `deck.pptx`, and `deck.pdf` share one Deck IR source fingerprint. PDF is exported from the generated PPTX by a fixed-argument LibreOffice adapter with an isolated profile; user input cannot select a command or add arguments. The Runtime validates PDF structure and exact page count, records the source fingerprint, and fails closed before publishing any partial artifact contract when formats diverge.
+
 ## Consequences
 
 - Image-to-editable and new-deck creation converge at validated Deck IR and the existing OpenXML writer while keeping separate upstream inputs and quality metrics.
 - A new theme or semantic role requires repository-owned fixtures, bounds tests, and rendering verification.
 - Registry changes require unique stable IDs, role and capacity validation, deterministic candidate tests, and Marketplace/runtime release probes.
-- Local and remote parity can be tested at the Deck IR, editor preview, and artifact-contract levels.
+- Local and remote parity can be tested at the Deck IR, editor preview, multi-format consistency, and artifact-contract levels.
 - Presentation text is treated as untrusted data and is excluded from logs and aggregate reports.
 - Inspiration from external projects is limited to abstract workflow and product concepts. No external implementation, template, asset, proprietary schema, or distinctive coordinate system is imported.
 

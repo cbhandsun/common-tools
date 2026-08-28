@@ -9,6 +9,8 @@
     "./layout": "./layout.js",
     "./data-models": "./data-models.js",
     "./editor": "./editor.js",
+    "./export": "./export.js",
+    "./libreoffice-pdf": "./libreoffice-pdf.js",
     "./layout-registry": "./layout-registry.js",
     "./theme-registry": "./theme-registry.js",
     "./team-worker": "./team-worker.js",

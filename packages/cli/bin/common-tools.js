@@ -14,6 +14,7 @@ const { CAPABILITY: PPT_QUALITY_CAPABILITY, REPORT_JSON_NAME: PPT_QUALITY_REPORT
 const { CAPABILITY: PPT_IMPROVE_CAPABILITY, createPptImproveJob, runPptImproveJob } = require("../../ppt-improve-core");
 const { CAPABILITY: PPT_CREATE_CAPABILITY, createPptCreateJob, runPptCreateJob } = require("../../ppt-create-core");
 const { persistEditorPatch, writeEditorPreview } = require("../../ppt-create-core/editor");
+const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
 const { CAPABILITY_MANIFESTS, effectivePluginConfig, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
 const { TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig, teamDeploymentPlan } = require("../../team-runtime");
@@ -501,7 +502,7 @@ function runCreatedLocalJob(ctx, job) {
   if (job.capability === PROJECT_AUDIT_CAPABILITY) return runProjectAuditJob({ ...ctx, id: job.id });
   if (job.capability === PPT_QUALITY_CAPABILITY) return runPptQualityJob({ ...ctx, id: job.id });
   if (job.capability === PPT_IMPROVE_CAPABILITY) return runPptImproveJob({ ...ctx, id: job.id });
-  if (job.capability === PPT_CREATE_CAPABILITY) return runPptCreateJob({ ...ctx, id: job.id, buildPptx: buildCreatedPptx });
+  if (job.capability === PPT_CREATE_CAPABILITY) return runPptCreateJob({ ...ctx, id: job.id, buildPptx: buildCreatedPptx, buildPdf: buildPdfWithLibreOffice });
   if (job.capability === REGISTRATION.capability) return runEditableJob({ ...ctx, id: job.id, executeSlideclone: bundledSlidecloneRunner() });
   throw new Error("job capability cannot be run locally");
 }
@@ -769,7 +770,7 @@ async function mainWithPptQuality() {
     }
     if (current?.capability === PPT_CREATE_CAPABILITY) {
       requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);
-      const job = runPptCreateJob({ ...ctx, id: args.id, buildPptx: buildCreatedPptx });
+      const job = runPptCreateJob({ ...ctx, id: args.id, buildPptx: buildCreatedPptx, buildPdf: buildPdfWithLibreOffice });
       process.stdout.write(`${JSON.stringify(job, null, 2)}\n`);
       return 0;
     }

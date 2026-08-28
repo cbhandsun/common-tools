@@ -5,6 +5,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { TeamWorker, TeamWorkerRunner, loadTeamConfig, recoverWorkerLeases } = require("../../team-runtime");
 const { createPptCreateHandler } = require("../../ppt-create-core/team-worker");
+const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
 const { createTeamProviderBundle, loadTeamSecrets, startWorkerHeartbeat } = require("../team-providers");
 const { createOtlpTraceExporter, createTracedWorkerHandler, loadOtlpTraceConfig } = require("../telemetry");
@@ -37,7 +38,7 @@ async function main(environment = process.env) {
   try {
     workerHeartbeat = startWorkerHeartbeat({ heartbeats: bundle.workerHeartbeats, capability: "ppt-create", workerId: settings.workerId, intervalMs: Math.min(30000, Math.max(5000, settings.pollSeconds * 1000)), reportFailure: () => { process.stderr.write("team PPT creation worker availability heartbeat failed\n"); } });
     await workerHeartbeat.ready;
-    const handler = createPptCreateHandler({ objectStore: bundle.objectStore, buildPptx });
+    const handler = createPptCreateHandler({ objectStore: bundle.objectStore, buildPptx, buildPdf: buildPdfWithLibreOffice });
     const worker = new TeamWorker({ repository: bundle.repository, handlers: { "ppt-create": createTracedWorkerHandler(handler, { exporter: traceExporter, capability: "ppt-create" }) }, leaseSeconds: config.workerLeaseSeconds });
     const runner = new TeamWorkerRunner({ queue: bundle.queue, worker, workerId: settings.workerId, capability: "ppt-create", pollSeconds: settings.pollSeconds });
     let lastRecovery = 0;

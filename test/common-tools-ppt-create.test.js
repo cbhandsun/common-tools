@@ -43,6 +43,11 @@ function writeSpec(root, value = validSpec()) {
   return file;
 }
 function fakePptxBuilder({ outFile }) { fs.writeFileSync(outFile, Buffer.concat([Buffer.from("PK\u0003\u0004"), Buffer.alloc(64, 1)]), { flag: "wx" }); }
+function fakePdfBuilder({ outFile, sourceFingerprint, pageCount }) {
+  const pages = Array.from({ length: pageCount }, (_, index) => `${index + 1} 0 obj << /Type /Page /Parent 99 0 R >> endobj`).join("\n");
+  fs.writeFileSync(outFile, `%PDF-1.4\n${pages}\n99 0 obj << /Type /Pages /Count ${pageCount} >> endobj\n%%EOF`, { flag: "wx" });
+  return { sourceFingerprint };
+}
 
 test("presentation spec validates a bounded semantic deck and creates editable Deck IR", () => {
   const spec = validatePresentationSpec(validSpec());
@@ -89,12 +94,15 @@ test("local ppt-create job writes IR, PPTX, and non-content quality reports", ()
     const stateRoot = path.join(root, "state");
     const created = createPptCreateJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output });
     assert.equal(created.status, "queued");
-    const completed = runPptCreateJob({ stateRoot, ownerId: "owner", id: created.id, buildPptx: fakePptxBuilder });
+    const completed = runPptCreateJob({ stateRoot, ownerId: "owner", id: created.id, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder });
     assert.equal(completed.status, "succeeded");
     assert.equal(completed.quality.passed, true);
-    assert.deepEqual(completed.artifacts.map((item) => item.name), ["deck.ir.json", "deck.preview.html", "deck.pptx", "ppt-create-report.json", "ppt-create-report.md"]);
+    assert.deepEqual(completed.artifacts.map((item) => item.name), ["deck.ir.json", "deck.preview.html", "deck.html", "deck.pptx", "deck.pdf", "ppt-create-report.json", "ppt-create-report.md"]);
     const preview = fs.readFileSync(path.join(output, "deck.preview.html"), "utf8");
     assert.match(preview, /PPT Preview Editor/);
+    const html = fs.readFileSync(path.join(output, "deck.html"), "utf8");
+    assert.match(html, /common-tools-deck-ir-sha256/);
+    assert.equal((html.match(/class="slide"/g) || []).length, 4);
     const reportText = fs.readFileSync(path.join(output, "ppt-create-report.json"), "utf8");
     assert.doesNotMatch(reportText, /季度经营复盘|营业收入/);
     assert.equal(pptCreateSummary(completed, root).pageCount, 4);
@@ -108,12 +116,12 @@ test("local ppt-create fails closed when input changes or builder fails", () => 
     const stateRoot = path.join(root, "state");
     const first = createPptCreateJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: path.join(root, "changed") });
     fs.appendFileSync(input, " ");
-    const changed = runPptCreateJob({ stateRoot, ownerId: "owner", id: first.id, buildPptx: fakePptxBuilder });
+    const changed = runPptCreateJob({ stateRoot, ownerId: "owner", id: first.id, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder });
     assert.equal(changed.status, "failed");
     assert.equal(fs.existsSync(path.join(root, "changed")), false);
     fs.writeFileSync(input, `${JSON.stringify(validSpec())}\n`);
     const second = createPptCreateJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: path.join(root, "builder-failure"), idempotencyKey: "second" });
-    const failed = runPptCreateJob({ stateRoot, ownerId: "owner", id: second.id, buildPptx: () => { throw new Error("secret content"); } });
+    const failed = runPptCreateJob({ stateRoot, ownerId: "owner", id: second.id, buildPptx: () => { throw new Error("secret content"); }, buildPdf: fakePdfBuilder });
     assert.equal(failed.status, "failed");
     assert.equal(failed.error.message, "PPT creation failed");
     assert.equal(fs.existsSync(path.join(root, "builder-failure")), false);
@@ -140,17 +148,17 @@ test("team ppt-create worker uses the same spec and emits owner-scoped artifacts
     readObject: async ({ objectKey, maxBytes }) => { assert.equal(objectKey, "owners/hash/inputs/spec"); assert.ok(input.length <= maxBytes); return input; },
     putObject: async ({ objectKey, body, contentType }) => { stored.set(objectKey, { body, contentType }); }
   };
-  const handler = createPptCreateHandler({ objectStore, buildPptx: fakePptxBuilder, temporaryRoot: os.tmpdir() });
+  const handler = createPptCreateHandler({ objectStore, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder, temporaryRoot: os.tmpdir() });
   const result = await handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/spec", outputPrefix: "owners/hash/jobs/1/" }, isCancellationRequested: async () => false });
   assert.equal(result.quality.passed, true);
-  assert.equal(result.artifacts.length, 5);
+  assert.equal(result.artifacts.length, 7);
   assert.equal(stored.get("owners/hash/jobs/1/deck.preview.html").contentType, "text/html");
   assert.equal([...stored.keys()].every((key) => key.startsWith("owners/hash/jobs/1/")), true);
 });
 
 test("team ppt-create worker honors cancellation before reading input", async () => {
   let read = false;
-  const handler = createPptCreateHandler({ objectStore: { readObject: async () => { read = true; }, putObject: async () => {} }, buildPptx: fakePptxBuilder });
+  const handler = createPptCreateHandler({ objectStore: { readObject: async () => { read = true; }, putObject: async () => {} }, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder });
   await assert.rejects(() => handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/spec", outputPrefix: "owners/hash/jobs/1/" }, isCancellationRequested: async () => true }), /cancelled/);
   assert.equal(read, false);
 });
@@ -174,7 +182,7 @@ test("local MCP creates a ppt-create job and returns only its verified creation 
     const context = { workspaceRoot: root, stateRoot, ownerId: "owner" };
     const created = callTool("create_ppt_create_job", { input: writeSpec(root), output: path.join(root, "mcp-out") }, context);
     assert.equal(created.capability, "ppt-create");
-    runPptCreateJob({ stateRoot, ownerId: "owner", id: created.id, buildPptx: fakePptxBuilder });
+    runPptCreateJob({ stateRoot, ownerId: "owner", id: created.id, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder });
     const report = callTool("get_ppt_create_report", { id: created.id }, context);
     assert.deepEqual(Object.keys(report).sort(), ["artifacts", "capability", "creation", "id", "quality", "status"]);
     assert.deepEqual(report.creation, { theme: "clean-light-v1", pageCount: 4, pptxSha256: report.creation.pptxSha256 });
