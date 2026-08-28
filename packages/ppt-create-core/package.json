@@ -10,6 +10,7 @@
     "./data-models": "./data-models.js",
     "./assets": "./assets.js",
     "./content-metadata": "./content-metadata.js",
+    "./content-provider": "./content-provider.js",
     "./document-ingest": "./document-ingest.js",
     "./editor": "./editor.js",
     "./export": "./export.js",

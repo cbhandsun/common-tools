@@ -110,14 +110,18 @@ function promptToPresentation(rawPrompt, options = {}) {
   if (provider !== undefined && typeof provider !== "function") throw new TypeError("contentProvider must be a function");
   const supplied = provider ? provider(request) : deterministicBrief(request);
   if (supplied && typeof supplied.then === "function") throw new TypeError("contentProvider must return synchronously");
+  return finalizePromptPresentation(request, supplied, Boolean(provider));
+}
+
+function finalizePromptPresentation(request, supplied, providerUsed) {
   const envelope = normalizeProviderEnvelope(supplied); const brief = envelope.brief;
   const planned = planPresentation(brief);
   const spec = applyProviderCitations(planned.spec, brief, envelope);
   const promptSha256 = crypto.createHash("sha256").update(request.prompt).digest("hex");
-  const checks = Object.freeze([{ name: "prompt-source-hash-recorded", passed: true }, { name: "prompt-brief-valid", passed: true }, { name: "prompt-planning-valid", passed: planned.report.passed }, { name: "provider-sources-grounded", passed: !provider || (Boolean(envelope.provenance) && brief.sections.every((section) => Boolean(envelope.citationsBySection[section.id]))) }]);
+  const checks = Object.freeze([{ name: "prompt-source-hash-recorded", passed: true }, { name: "prompt-brief-valid", passed: true }, { name: "prompt-planning-valid", passed: planned.report.passed }, { name: "provider-sources-grounded", passed: !providerUsed || (Boolean(envelope.provenance) && brief.sections.every((section) => Boolean(envelope.citationsBySection[section.id]))) }]);
   const report = Object.freeze({
     version: "1.1",
-    provider: provider ? envelope.provenance?.providerId || "injected-content-provider" : "deterministic-local",
+    provider: providerUsed ? envelope.provenance?.providerId || "injected-content-provider" : "deterministic-local",
     promptSha256,
     sourceCharacters: request.prompt.length,
     sections: brief.sections.length,
@@ -133,6 +137,20 @@ function promptToPresentation(rawPrompt, options = {}) {
     report,
     manifest: createGenerationManifest(request, report)
   });
+}
+
+async function promptToPresentationAsync(rawPrompt, options = {}) {
+  const request = promptRequest(rawPrompt, options);
+  if (options.contentProvider !== undefined && options.contentProviderRegistry !== undefined) throw new TypeError("content provider selection is ambiguous");
+  if (options.contentProvider !== undefined) {
+    if (typeof options.contentProvider !== "function") throw new TypeError("contentProvider must be a function");
+    return finalizePromptPresentation(request, await options.contentProvider(request), true);
+  }
+  if (options.contentProviderId !== undefined) {
+    if (!options.contentProviderRegistry || typeof options.contentProviderRegistry.generate !== "function") throw new TypeError("content provider registry is required");
+    return finalizePromptPresentation(request, await options.contentProviderRegistry.generate(options.contentProviderId, request), true);
+  }
+  return finalizePromptPresentation(request, deterministicBrief(request), false);
 }
 
 function persistPromptPlan({ workspaceRoot, input, output, outputFormat = "spec", ...options }) {
@@ -151,4 +169,4 @@ function persistPromptPlan({ workspaceRoot, input, output, outputFormat = "spec"
   return Object.freeze({ output: outputFile, report: result.report });
 }
 
-module.exports = { MAX_PROMPT_BYTES, MAX_PROMPT_CHARACTERS, SUPPORTED_PROMPT_EXTENSIONS, applyProviderCitations, createGenerationManifest, deterministicBrief, normalizeProviderEnvelope, persistPromptPlan, promptRequest, promptToPresentation, proseOutline, validateGenerationManifest };
+module.exports = { MAX_PROMPT_BYTES, MAX_PROMPT_CHARACTERS, SUPPORTED_PROMPT_EXTENSIONS, applyProviderCitations, createGenerationManifest, deterministicBrief, finalizePromptPresentation, normalizeProviderEnvelope, persistPromptPlan, promptRequest, promptToPresentation, promptToPresentationAsync, proseOutline, validateGenerationManifest };

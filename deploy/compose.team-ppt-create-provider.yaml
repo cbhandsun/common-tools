@@ -1,0 +1,18 @@
+# Optional overlay for an operator-approved HTTPS content provider used only by
+# the ppt-create worker. The provider token is mounted as a file secret and is
+# never accepted from a Job or prompt envelope.
+secrets:
+  common_tools_ppt_create_content_provider_token:
+    file: ${COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN_FILE:?set PPT content-provider token secret file}
+
+services:
+  ppt-create-worker:
+    secrets:
+      - common_tools_ppt_create_content_provider_token
+    environment:
+      COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_ID: ${COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_ID:?set PPT content-provider id}
+      COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_ENDPOINT: ${COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_ENDPOINT:?set HTTPS PPT content-provider endpoint}
+      COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_MODEL: ${COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_MODEL:?set PPT content-provider model}
+      COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TIMEOUT_MS: ${COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TIMEOUT_MS:-30000}
+      COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN: !reset null
+      COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN_FILE: /run/secrets/common_tools_ppt_create_content_provider_token

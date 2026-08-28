@@ -14,14 +14,14 @@ const { MAX_SPEC_BYTES, parsePresentationSpec } = require("./spec");
 const { admitPptCreateArchive } = require("./team-archive");
 const { applyTemplateLayoutMap, materializeTemplate, templateRecord } = require("./template");
 const { describeVariants, variantManifest, variantNames } = require("./variants");
-const { promptToPresentation, validateGenerationManifest } = require("./prompt");
+const { promptToPresentationAsync, validateGenerationManifest } = require("./prompt");
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function assertObjectStore(value) {
   if (!value || typeof value.readObject !== "function" || typeof value.putObject !== "function") throw new TypeError("team object store does not support ppt-create worker I/O");
   return value;
 }
-function createPptCreateHandler({ objectStore, buildPptx, buildPdf, temporaryRoot = os.tmpdir() } = {}) {
+function createPptCreateHandler({ objectStore, buildPptx, buildPdf, contentProviderRegistry, temporaryRoot = os.tmpdir() } = {}) {
   const store = assertObjectStore(objectStore);
   if (typeof buildPptx !== "function") throw new TypeError("ppt-create team worker requires an OpenXML build adapter");
   if (typeof buildPdf !== "function") throw new TypeError("ppt-create team worker requires a PDF build adapter");
@@ -41,9 +41,9 @@ function createPptCreateHandler({ objectStore, buildPptx, buildPdf, temporaryRoo
         if (input.length > MAX_SPEC_BYTES) throw new Error("remote ppt-create JSON input exceeds the spec limit");
         let json; try { json = JSON.parse(input.toString("utf8")); } catch { throw new Error("remote ppt-create JSON input is invalid"); }
         if (json?.kind === "prompt") {
-          const keys = Object.keys(json).sort(); const allowed = ["audience", "closing", "deckVariantCount", "kind", "language", "maxSlides", "prompt", "purpose", "theme", "version"];
+          const keys = Object.keys(json).sort(); const allowed = ["audience", "closing", "deckVariantCount", "kind", "language", "maxSlides", "prompt", "providerId", "purpose", "theme", "version"];
           if (keys.some((key) => !allowed.includes(key)) || json.version !== "1.0") throw new Error("remote ppt-create prompt request is invalid");
-          generation = promptToPresentation(json.prompt, { audience: json.audience, purpose: json.purpose, language: json.language, theme: json.theme, maxSlides: json.maxSlides, deckVariantCount: json.deckVariantCount, closing: json.closing }); spec = generation.spec; specBytes = Buffer.from(`${JSON.stringify(spec, null, 2)}\n`);
+          generation = await promptToPresentationAsync(json.prompt, { audience: json.audience, purpose: json.purpose, language: json.language, theme: json.theme, maxSlides: json.maxSlides, deckVariantCount: json.deckVariantCount, closing: json.closing, ...(json.providerId === undefined ? {} : { contentProviderId: json.providerId, contentProviderRegistry }) }); spec = generation.spec; specBytes = Buffer.from(`${JSON.stringify(spec, null, 2)}\n`);
         } else { specBytes = input; spec = parsePresentationSpec(input); }
         if (spec.assets?.length || spec.template) throw new Error("remote ppt-create JSON cannot resolve local asset or template paths; upload a ppt-create archive");
       }

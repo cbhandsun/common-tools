@@ -292,6 +292,8 @@ npm run common-tools -- team deployment-plan --capabilities ppt-quality
 
 `ppt-quality` 与 `ppt-improve` 均提供可选的团队 Docker Worker，且只接受 `application/vnd.openxmlformats-officedocument.presentationml.presentation` 的单一 PPTX 输入。质量 Worker 输出 owner/job-scoped JSON/Markdown 审计报告；改善 Worker 会在受限临时目录内先生成同一份独立质量报告，再按 Job 的受限 `options.repairProfile` 执行 `safe-package`、`layout-safe`、`typography-safe`、`editability-safe` 或 `audit-only`。前三个元数据类修复分别处理重复 drawing ID、缺失文本语言标记和缺失对象名称，不改变可见版式；发生修改时输出新的 `improved.pptx`、改善报告和独立复审报告。它不接受调用方提供的报告、修复脚本、模板或路径，因此单输入对象协议不会绕过“审视后再改善”的 SHA-256 绑定。两者均沿用队列、lease、对象存储和心跳门禁，且不在默认 allowlist 中；部署时必须同时设置 capability 并启用对应 profile。
 
+`ppt-create` 的自然语言路径默认仍使用本地确定性整理器，只重组输入中已有事实。若部署方有经审批的研究/内容服务，可额外叠加 `deploy/compose.team-ppt-create-provider.yaml`：该 overlay 仅向 `ppt-create-worker` 注入固定 HTTPS endpoint、provider ID、model 与文件型 token。调用方只能在 `kind: "prompt"` 的 JSON 中选择已经注册的 `providerId`，不能提供 URL、模型、凭据或任意请求头；HTTP 调用禁止重定向，响应限制为 512 KiB，并必须返回通过 `PresentationBrief 1.0`、来源及逐 section 引用校验的数据。未配置、未知或失败的 Provider 会失败关闭，不会静默退回本地生成。启用时需在原 Compose 文件后追加该 overlay，并设置 `COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_*`；token 只通过 `COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN_FILE` 挂载。
+
 ```powershell
 $env:COMMON_TOOLS_TEAM_CAPABILITIES = 'project-audit'
 docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml --profile team-infra --profile team-api --profile team-worker-audit up -d --build --wait

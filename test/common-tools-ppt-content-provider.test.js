@@ -1,0 +1,47 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const test = require("node:test");
+const { ContentProviderRegistry, MAX_PROVIDER_RESPONSE_BYTES, createHttpsJsonContentProvider } = require("../packages/ppt-create-core/content-provider");
+const { promptToPresentationAsync } = require("../packages/ppt-create-core/prompt");
+
+function providerResult(request) {
+  return { brief: { version: "1.0", title: "Provider deck", audience: request.audience, purpose: request.purpose, sections: [{ id: "facts", title: "Facts", points: [{ label: "Verified outcome" }] }] }, provenance: { providerId: "grounded-provider", model: "grounded-v1", requestId: "req-1", retrievedAt: "2026-08-28T12:00:00Z", sources: [{ id: "source-1", title: "Approved source", locator: "https://example.test/source", accessedAt: "2026-08-28" }] }, citationsBySection: { facts: ["source-1"] } };
+}
+
+test("content provider registry is bounded, explicit, and redacts provider failures", async () => {
+  const registry = new ContentProviderRegistry([{ id: "grounded-provider", generate: async (request) => providerResult(request) }]);
+  assert.deepEqual(registry.ids(), ["grounded-provider"]);
+  const generated = await promptToPresentationAsync("Use approved facts", { audience: "Board", purpose: "Decision", contentProviderId: "grounded-provider", contentProviderRegistry: registry });
+  assert.equal(generated.report.provider, "grounded-provider"); assert.equal(generated.spec.slides[1].citations[0].id, "source-1");
+  await assert.rejects(() => registry.generate("missing-provider", {}), /unavailable/u);
+  const failing = new ContentProviderRegistry([{ id: "failing-provider", generate: async () => { throw new Error("secret upstream detail"); } }]);
+  await assert.rejects(() => failing.generate("failing-provider", {}), (error) => error.message === "content provider request failed" && !error.message.includes("secret"));
+  const oversized = new ContentProviderRegistry([{ id: "large-provider", generate: async () => ({ payload: "x".repeat(MAX_PROVIDER_RESPONSE_BYTES) }) }]);
+  await assert.rejects(() => oversized.generate("large-provider", {}), /response is invalid/u);
+  assert.throws(() => new ContentProviderRegistry([{ id: "same-provider", generate() {} }, { id: "same-provider", generate() {} }]), /unique/u);
+});
+
+test("HTTPS JSON provider uses a no-redirect bounded contract and constructs trusted provenance", async () => {
+  let captured;
+  const fetchImpl = async (url, options) => {
+    captured = { url, options };
+    const body = Buffer.from(JSON.stringify({ brief: { version: "1.0", title: "Remote", audience: "Board", purpose: "Decision", sections: [{ id: "facts", title: "Facts", points: [{ label: "Result" }] }] }, requestId: "remote-1", sources: [{ id: "s1", title: "Source", locator: "https://example.test/source", accessedAt: "2026-08-28" }], citationsBySection: { facts: ["s1"] } }));
+    return { ok: true, headers: { get: (name) => name === "content-type" ? "application/json; charset=utf-8" : name === "content-length" ? String(body.length) : null }, arrayBuffer: async () => body };
+  };
+  const provider = createHttpsJsonContentProvider({ id: "grounded-provider", endpoint: "https://provider.example.test/generate", model: "grounded-v1", token: "private-token", fetchImpl, timeoutMs: 5_000 });
+  const result = await provider.generate({ version: "1.0", prompt: "facts", audience: "Board", purpose: "Decision", language: "en-US" });
+  assert.equal(captured.url, "https://provider.example.test/generate"); assert.equal(captured.options.redirect, "error"); assert.equal(captured.options.headers.authorization, "Bearer private-token");
+  assert.equal(result.provenance.providerId, "grounded-provider"); assert.equal(result.provenance.model, "grounded-v1"); assert.equal(result.provenance.requestId, "remote-1");
+  assert.throws(() => createHttpsJsonContentProvider({ id: "provider", endpoint: "http://localhost/generate", model: "m", token: "t" }), /endpoint/u);
+  assert.throws(() => createHttpsJsonContentProvider({ id: "provider", endpoint: "https://example.test/generate?key=secret", model: "m", token: "t" }), /endpoint/u);
+});
+
+test("content provider deployment overlay mounts a file token only into the PPT creation worker", () => {
+  const overlay = fs.readFileSync(path.join(__dirname, "..", "deploy", "compose.team-ppt-create-provider.yaml"), "utf8");
+  assert.match(overlay, /ppt-create-worker:/u); assert.match(overlay, /COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN_FILE: \/run\/secrets\//u);
+  assert.match(overlay, /COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN: !reset null/u); assert.doesNotMatch(overlay, /COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN: \$\{/u);
+  assert.equal((overlay.match(/common_tools_ppt_create_content_provider_token:/gu) || []).length, 1);
+});

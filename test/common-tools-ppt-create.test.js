@@ -9,9 +9,10 @@ const { createPptCreateJob, pptCreateSummary, runPptCreateJob } = require("../pa
 const { createDeckIr } = require("../packages/ppt-create-core/layout");
 const { MAX_SLIDES, parsePresentationSpec, validatePresentationSpec } = require("../packages/ppt-create-core/spec");
 const { createPptCreateHandler } = require("../packages/ppt-create-core/team-worker");
+const { ContentProviderRegistry } = require("../packages/ppt-create-core/content-provider");
 const { resolveExecutionRoute, setCapabilityEnabled } = require("../packages/capability-runtime");
 const { validUploadRequest } = require("../packages/team-runtime");
-const { workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker");
+const { loadContentProviderRegistry, workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker");
 const { callTool } = require("../packages/mcp-server/core");
 
 function temporaryWorkspace() { return fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-create-test-")); }
@@ -164,6 +165,14 @@ test("team ppt-create worker accepts a bounded prompt envelope and persists repr
   assert.equal(result.quality.passed, true); assert.ok(result.artifacts.some((artifact) => artifact.name === "generation-manifest.json")); assert.ok(result.artifacts.some((artifact) => artifact.name === "presentation.generated.json")); const manifest = JSON.parse(stored.get("owners/hash/jobs/prompt/generation-manifest.json")); assert.equal(manifest.generation.provider, "deterministic-local"); assert.match(manifest.request.promptSha256, /^[a-f0-9]{64}$/u);
 });
 
+test("team ppt-create worker routes an explicit prompt provider through the bounded registry", async () => {
+  const stored = new Map(); const input = Buffer.from(JSON.stringify({ version: "1.0", kind: "prompt", providerId: "grounded-provider", prompt: "Approved facts", audience: "Board", purpose: "Decision", language: "en-US", maxSlides: 6 }));
+  const contentProviderRegistry = new ContentProviderRegistry([{ id: "grounded-provider", generate: async (request) => ({ brief: { version: "1.0", title: "Grounded deck", audience: request.audience, purpose: request.purpose, sections: [{ id: "facts", title: "Facts", points: [{ label: "Verified result" }] }] }, provenance: { providerId: "grounded-provider", model: "grounded-v1", requestId: "req-1", retrievedAt: "2026-08-28T12:00:00Z", sources: [{ id: "s1", title: "Source", locator: "https://example.test/source", accessedAt: "2026-08-28" }] }, citationsBySection: { facts: ["s1"] } }) }]);
+  const handler = createPptCreateHandler({ objectStore: { readObject: async () => input, putObject: async ({ objectKey, body }) => stored.set(objectKey, body) }, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder, contentProviderRegistry, temporaryRoot: os.tmpdir() });
+  const result = await handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/prompt", outputPrefix: "owners/hash/jobs/provider/" }, isCancellationRequested: async () => false });
+  assert.equal(result.quality.passed, true); const manifest = JSON.parse(stored.get("owners/hash/jobs/provider/generation-manifest.json")); assert.equal(manifest.generation.provider, "grounded-provider"); assert.equal(manifest.generation.provenance.sources[0].id, "s1");
+});
+
 test("team ppt-create worker honors cancellation before reading input", async () => {
   let read = false;
   const handler = createPptCreateHandler({ objectStore: { readObject: async () => { read = true; }, putObject: async () => {} }, buildPptx: fakePptxBuilder, buildPdf: fakePdfBuilder });
@@ -188,6 +197,10 @@ test("ppt-create routing and remote upload boundaries are explicit", () => {
   assert.equal(validUploadRequest("ppt-create", "application/gzip", 100 * 1024 * 1024 + 1), false);
   assert.equal(validUploadRequest("ppt-create", "text/json", 100), false);
   assert.equal(workerSettings({ COMMON_TOOLS_WORKER_CAPABILITIES: "ppt-create" }).pollSeconds, 5);
+  assert.deepEqual(loadContentProviderRegistry({}).ids(), []);
+  assert.throws(() => loadContentProviderRegistry({ COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_ID: "provider" }), /incomplete/u);
+  const providers = loadContentProviderRegistry({ COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_ID: "provider", COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_ENDPOINT: "https://provider.example.test/generate", COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_MODEL: "model-v1", COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN: "secret" });
+  assert.deepEqual(providers.ids(), ["provider"]);
   assert.throws(() => workerSettings({ COMMON_TOOLS_WORKER_CAPABILITIES: "ppt-quality" }), /supports only ppt-create/);
   assert.throws(() => workerSettings({ COMMON_TOOLS_WORKER_CAPABILITIES: "ppt-create", COMMON_TOOLS_WORKER_POLL_SECONDS: "0" }), /between 1 and 60/);
 });
