@@ -1,6 +1,6 @@
 {
   "name": "common-tools",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Reusable engineering tools and Codex skills.",
   "type": "commonjs",
@@ -227,6 +227,7 @@
     "common-tools:team-image-worker": "node packages/remote-mcp-server/bin/common-tools-team-image-worker.js",
     "common-tools:team-ppt-quality-worker": "node packages/remote-mcp-server/bin/common-tools-team-ppt-quality-worker.js",
     "common-tools:team-ppt-improve-worker": "node packages/remote-mcp-server/bin/common-tools-team-ppt-improve-worker.js",
+    "common-tools:team-ppt-create-worker": "node packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker.js",
     "common-tools:team-migrate": "node packages/remote-mcp-server/bin/common-tools-team-migrate.js",
     "common-tools:team-retention": "node packages/remote-mcp-server/bin/common-tools-team-retention.js",
     "common-tools:team-retention-scheduler": "node packages/remote-mcp-server/bin/common-tools-team-retention-scheduler.js",

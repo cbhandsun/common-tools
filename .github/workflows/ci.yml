@@ -64,6 +64,9 @@ jobs:
       - name: Verify standalone Codex and Claude plugin packages
         run: npm run common-tools:verify-plugins
 
+      - name: Pack, install, and verify the release Runtime
+        run: npm run common-tools:verify-runtime-package
+
       - name: Verify Team observability configuration
         run: npm run common-tools:verify-observability
 

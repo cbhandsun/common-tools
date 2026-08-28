@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "title": "PPT Create Verification",
+  "subtitle": "Editable OpenXML smoke test",
+  "audience": "Engineering",
+  "language": "en-US",
+  "theme": "clean-light-v1",
+  "slides": [
+    {
+      "id": "cover",
+      "role": "cover",
+      "title": "PPT Create Verification",
+      "summary": "A repository-owned layout and theme"
+    },
+    {
+      "id": "facts",
+      "role": "metrics",
+      "title": "Verified outputs",
+      "items": [
+        { "id": "editable", "label": "Editable", "value": "100%", "detail": "Text and shapes remain native" },
+        { "id": "raster", "label": "Raster slides", "value": "0", "detail": "No full-page screenshot fallback" }
+      ]
+    },
+    {
+      "id": "close",
+      "role": "closing",
+      "title": "Ready for local and team execution",
+      "summary": "The transport changes; the presentation core does not"
+    }
+  ]
+}

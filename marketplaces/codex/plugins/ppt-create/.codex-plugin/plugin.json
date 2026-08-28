@@ -1,0 +1,16 @@
+{
+  "name": "ppt-create",
+  "version": "0.1.1+codex.20260827030000",
+  "description": "Create a new editable PPTX from validated structured content.",
+  "author": { "name": "common-tools" },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PPT Create",
+    "shortDescription": "Create a new editable PPTX from structured content.",
+    "longDescription": "Builds a new editable presentation from a bounded PresentationSpec using repository-owned themes and the shared OpenXML pipeline.",
+    "developerName": "common-tools",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["Create a new editable PPTX from this structured presentation content."]
+  }
+}

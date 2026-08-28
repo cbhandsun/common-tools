@@ -6,6 +6,7 @@ const { cancelJob, createEditableJob, editableVisualSummary, getJob, REGISTRATIO
 const { CAPABILITY: PROJECT_AUDIT_CAPABILITY, REGISTRATION: PROJECT_AUDIT_REGISTRATION, createProjectAuditJob, projectAuditSummary } = require("../project-audit-core");
 const { CAPABILITY: PPT_QUALITY_CAPABILITY, REGISTRATION: PPT_QUALITY_REGISTRATION, createPptQualityJob, pptQualitySummary } = require("../ppt-quality-core");
 const { CAPABILITY: PPT_IMPROVE_CAPABILITY, REGISTRATION: PPT_IMPROVE_REGISTRATION, createPptImproveJob, pptImproveSummary } = require("../ppt-improve-core");
+const { CAPABILITY: PPT_CREATE_CAPABILITY, REGISTRATION: PPT_CREATE_REGISTRATION, createPptCreateJob, pptCreateSummary } = require("../ppt-create-core");
 const { RUNTIME_VERSION, effectivePluginConfig } = require("../capability-runtime");
 const { appServerCapabilities, clientSupportsMcpApps, listAppResources, readAppResource, withQualityReportApp } = require("./mcp-apps");
 const { TOOLS, validateToolArguments, validateToolOutput } = require("./tool-contracts");
@@ -36,11 +37,12 @@ function callTool(name, rawArgs, context = settings()) {
   const definition = TOOLS.find((toolDefinition) => toolDefinition.name === name);
   const enabled = enabledCapabilities(context);
   if (definition.capability && !enabled.includes(definition.capability)) throw new Error("capability is not enabled for this principal");
-  if (name === "health_check") return validateToolOutput(name, { runtime: RUNTIME_VERSION, enabledCapabilities: enabled, registrations: [REGISTRATION, PROJECT_AUDIT_REGISTRATION, PPT_QUALITY_REGISTRATION, PPT_IMPROVE_REGISTRATION] });
+  if (name === "health_check") return validateToolOutput(name, { runtime: RUNTIME_VERSION, enabledCapabilities: enabled, registrations: [REGISTRATION, PROJECT_AUDIT_REGISTRATION, PPT_QUALITY_REGISTRATION, PPT_IMPROVE_REGISTRATION, PPT_CREATE_REGISTRATION] });
   if (name === "create_editable_job") return validateToolOutput(name, createEditableJob({ ...context, input: args.input, output: args.output, config: args.config, idempotencyKey: args.idempotencyKey }));
   if (name === "create_project_audit_job") return validateToolOutput(name, createProjectAuditJob({ ...context, projectRoot: args.projectRoot || context.workspaceRoot, output: args.output, level: args.level, scope: args.scope, idempotencyKey: args.idempotencyKey }));
   if (name === "create_ppt_quality_job") return validateToolOutput(name, createPptQualityJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey }));
   if (name === "create_ppt_improve_job") return validateToolOutput(name, createPptImproveJob({ ...context, input: args.input, report: args.report, output: args.output, idempotencyKey: args.idempotencyKey }));
+  if (name === "create_ppt_create_job") return validateToolOutput(name, createPptCreateJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey }));
   const currentJob = getJob({ ...context, id: args.id });
   if (!currentJob) throw new Error("job not found");
   if (currentJob.ownerId !== context.ownerId) throw new Error("job is not owned by this principal");
@@ -49,7 +51,8 @@ function callTool(name, rawArgs, context = settings()) {
   if (name === "get_project_audit_report" && job.capability !== PROJECT_AUDIT_CAPABILITY) throw new Error("job is not a project audit");
   if (name === "get_ppt_quality_report" && job.capability !== PPT_QUALITY_CAPABILITY) throw new Error("job is not a PPT quality audit");
   if (name === "get_ppt_improve_report" && job.capability !== PPT_IMPROVE_CAPABILITY) throw new Error("job is not a PPT improvement");
-  const value = name === "list_job_artifacts" ? { id: job.id, artifacts: job.artifacts } : name === "get_project_audit_report" ? { id: job.id, capability: job.capability, status: job.status, artifacts: job.artifacts, quality: job.quality || null, audit: projectAuditSummary(job, context.workspaceRoot) } : name === "get_ppt_quality_report" ? { id: job.id, capability: job.capability, status: job.status, artifacts: job.artifacts, quality: job.quality || null, audit: pptQualitySummary(job, context.workspaceRoot) } : name === "get_ppt_improve_report" ? { id: job.id, capability: job.capability, status: job.status, artifacts: job.artifacts, quality: job.quality || null, improvement: pptImproveSummary(job, context.workspaceRoot) } : name === "get_job" ? { ...job, visual: editableVisualSummary(job, context.workspaceRoot) } : job;
+  if (name === "get_ppt_create_report" && job.capability !== PPT_CREATE_CAPABILITY) throw new Error("job is not a PPT creation");
+  const value = name === "list_job_artifacts" ? { id: job.id, artifacts: job.artifacts } : name === "get_project_audit_report" ? { id: job.id, capability: job.capability, status: job.status, artifacts: job.artifacts, quality: job.quality || null, audit: projectAuditSummary(job, context.workspaceRoot) } : name === "get_ppt_quality_report" ? { id: job.id, capability: job.capability, status: job.status, artifacts: job.artifacts, quality: job.quality || null, audit: pptQualitySummary(job, context.workspaceRoot) } : name === "get_ppt_improve_report" ? { id: job.id, capability: job.capability, status: job.status, artifacts: job.artifacts, quality: job.quality || null, improvement: pptImproveSummary(job, context.workspaceRoot) } : name === "get_ppt_create_report" ? { id: job.id, capability: job.capability, status: job.status, artifacts: job.artifacts, quality: job.quality || null, creation: pptCreateSummary(job, context.workspaceRoot) } : name === "get_job" ? { ...job, visual: editableVisualSummary(job, context.workspaceRoot) } : job;
   return validateToolOutput(name, value);
 }
 

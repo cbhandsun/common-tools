@@ -21,7 +21,7 @@ test("team Compose applies restart and resource limits to untrusted execution se
   const root = path.resolve(__dirname, "..");
   const api = fs.readFileSync(path.join(root, "deploy", "compose.team-api.yaml"), "utf8");
   const gateway = fs.readFileSync(path.join(root, "deploy", "compose.team-gateway.yaml"), "utf8");
-  for (const [name, expected] of [["remote-mcp", ["cpus: \"1.0\"", "mem_limit: 768m", "pids_limit: 256"]], ["team-retention", ["cpus: \"0.25\"", "mem_limit: 256m", "pids_limit: 128", "team-maintenance"]], ["project-audit-worker", ["cpus: \"1.0\"", "mem_limit: 1g", "pids_limit: 256"]], ["ppt-quality-worker", ["cpus: \"1.0\"", "mem_limit: 512m", "pids_limit: 128", "team-worker-ppt-quality"]], ["ppt-improve-worker", ["cpus: \"1.0\"", "mem_limit: 768m", "pids_limit: 128", "team-worker-ppt-improve"]], ["image-to-editable-worker", ["cpus: \"2.0\"", "mem_limit: 3g", "pids_limit: 256"]]]) {
+  for (const [name, expected] of [["remote-mcp", ["cpus: \"1.0\"", "mem_limit: 768m", "pids_limit: 256"]], ["team-retention", ["cpus: \"0.25\"", "mem_limit: 256m", "pids_limit: 128", "team-maintenance"]], ["project-audit-worker", ["cpus: \"1.0\"", "mem_limit: 1g", "pids_limit: 256"]], ["ppt-quality-worker", ["cpus: \"1.0\"", "mem_limit: 512m", "pids_limit: 128", "team-worker-ppt-quality"]], ["ppt-improve-worker", ["cpus: \"1.0\"", "mem_limit: 768m", "pids_limit: 128", "team-worker-ppt-improve"]], ["ppt-create-worker", ["cpus: \"1.5\"", "mem_limit: 2g", "pids_limit: 256", "team-worker-ppt-create"]], ["image-to-editable-worker", ["cpus: \"2.0\"", "mem_limit: 3g", "pids_limit: 256"]]]) {
     const block = serviceBlock(api, name);
     assert.match(block, /restart: unless-stopped/);
     if (name !== "remote-mcp") assert.match(block, /stop_grace_period: 60s/);
@@ -46,7 +46,7 @@ test("team Compose applies restart and resource limits to untrusted execution se
   assert.match(serviceBlock(api, "remote-mcp"), /COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: \$\{COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-\}/);
   assert.match(serviceBlock(api, "remote-mcp"), /COMMON_TOOLS_OTEL_SERVICE_NAME: \$\{COMMON_TOOLS_OTEL_SERVICE_NAME:-\}/);
   assert.match(serviceBlock(api, "remote-mcp"), /COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS: \$\{COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS:-\}/);
-  for (const name of ["project-audit-worker", "ppt-quality-worker", "ppt-improve-worker", "image-to-editable-worker"]) {
+  for (const name of ["project-audit-worker", "ppt-create-worker", "ppt-quality-worker", "ppt-improve-worker", "image-to-editable-worker"]) {
     const worker = serviceBlock(api, name);
     assert.match(worker, /COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: \$\{COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-\}/);
     assert.match(worker, /COMMON_TOOLS_OTEL_SERVICE_NAME: \$\{COMMON_TOOLS_OTEL_SERVICE_NAME:-\}/);
@@ -63,7 +63,7 @@ test("team Compose applies restart and resource limits to untrusted execution se
   const retention = serviceBlock(api, "team-retention");
   assert.match(retention, /common-tools-team-retention-scheduler\.js/);
   assert.match(retention, /COMMON_TOOLS_RETENTION_INTERVAL_SECONDS: \$\{COMMON_TOOLS_RETENTION_INTERVAL_SECONDS:-86400\}/);
-  for (const name of ["remote-mcp", "team-retention", "project-audit-worker", "ppt-quality-worker", "ppt-improve-worker", "image-to-editable-worker"]) assert.match(serviceBlock(api, name), /team-migrate: \{ condition: service_completed_successfully \}/);
+  for (const name of ["remote-mcp", "team-retention", "project-audit-worker", "ppt-create-worker", "ppt-quality-worker", "ppt-improve-worker", "image-to-editable-worker"]) assert.match(serviceBlock(api, name), /team-migrate: \{ condition: service_completed_successfully \}/);
 });
 
 test("production Compose override requires managed endpoints and disables direct API port publishing", () => {
@@ -79,19 +79,20 @@ test("production Compose override requires managed endpoints and disables direct
   assert.match(production, /managed PostgreSQL URL without credentials/);
   assert.match(production, /managed Redis URL without credentials/);
   assert.match(production, /ports: !reset \[\]/);
-  assert.equal((production.match(/build: !reset null/g) || []).length, 7);
+  assert.equal((production.match(/build: !reset null/g) || []).length, 8);
   const migration = serviceBlock(production, "team-migrate");
   assert.match(migration, /COMMON_TOOLS_TEAM_MODE: production/);
   assert.match(migration, /COMMON_TOOLS_DATABASE_URL:\s+\$\{COMMON_TOOLS_DATABASE_URL/);
-  for (const name of ["remote-mcp", "team-retention", "project-audit-worker", "ppt-quality-worker", "ppt-improve-worker", "image-to-editable-worker"]) {
+  for (const name of ["remote-mcp", "team-retention", "project-audit-worker", "ppt-create-worker", "ppt-quality-worker", "ppt-improve-worker", "image-to-editable-worker"]) {
     assert.match(serviceBlock(production, name), /depends_on: !override\s+team-migrate: \{ condition: service_completed_successfully \}/);
   }
-  assert.equal((production.match(/team-migrate: \{ condition: service_completed_successfully \}/g) || []).length, 6);
+  assert.equal((production.match(/team-migrate: \{ condition: service_completed_successfully \}/g) || []).length, 7);
   assert.doesNotMatch(production, /keycloak|127\.0\.0\.1|COMMON_TOOLS_KEYCLOAK/i);
   assert.match(secretFiles, /COMMON_TOOLS_DATABASE_PASSWORD_FILE:\?set database password secret file/);
   assert.match(secretFiles, /COMMON_TOOLS_DATABASE_PASSWORD_FILE: \/run\/secrets\/common_tools_database_password/);
   assert.match(serviceBlock(secretFiles, "ppt-quality-worker"), /common_tools_object_store_secret_access_key/);
   assert.match(serviceBlock(secretFiles, "ppt-improve-worker"), /common_tools_object_store_secret_access_key/);
+  assert.match(serviceBlock(secretFiles, "ppt-create-worker"), /common_tools_object_store_secret_access_key/);
   assert.match(serviceBlock(secretFiles, "team-retention"), /common_tools_object_store_secret_access_key/);
   assert.match(secretFiles, /COMMON_TOOLS_DATABASE_PASSWORD: !reset null/);
 });
@@ -390,8 +391,9 @@ test("isolated Compose smoke script uses a unique project, temporary credentials
   assert.match(script, /\$null -eq \$BasePort/);
   assert.match(script, /team-worker-ppt-quality/);
   assert.match(script, /team-worker-ppt-improve/);
+  assert.match(script, /team-worker-ppt-create/);
   assert.match(script, /team-maintenance/);
-  assert.match(script, /COMMON_TOOLS_TEAM_CAPABILITIES = 'image-to-editable,project-audit,ppt-improve,ppt-quality'/);
+  assert.match(script, /COMMON_TOOLS_TEAM_CAPABILITIES = 'image-to-editable,project-audit,ppt-create,ppt-improve,ppt-quality'/);
   assert.match(script, /'up', '--detach', '--build', '--wait'/);
   assert.match(script, /'down', '--volumes', '--remove-orphans'/);
   assert.match(script, /foreach \(\$name in \$temporaryVariables\) \{ \[Environment\]::SetEnvironmentVariable/);

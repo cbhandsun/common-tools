@@ -18,7 +18,7 @@ $composeFiles = @(
   (Join-Path $repositoryRoot 'deploy/compose.team-api.yaml'),
   (Join-Path $repositoryRoot 'deploy/compose.team-gateway.yaml')
 )
-$profiles = @('team-infra', 'team-idp', 'team-api', 'team-gateway', 'team-maintenance', 'team-worker-audit', 'team-worker-image', 'team-worker-ppt-improve', 'team-worker-ppt-quality')
+$profiles = @('team-infra', 'team-idp', 'team-api', 'team-gateway', 'team-maintenance', 'team-worker-audit', 'team-worker-image', 'team-worker-ppt-create', 'team-worker-ppt-improve', 'team-worker-ppt-quality')
 $temporaryVariables = @(
   'COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD',
   'COMMON_TOOLS_KEYCLOAK_ADMIN', 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD',
@@ -91,7 +91,7 @@ try {
   $env:COMMON_TOOLS_OIDC_AUDIENCE = 'common-tools-mcp'
   # Keep the enabled API capabilities exactly aligned with all Workers that this
   # isolated smoke test starts; a Worker must never run for a disabled capability.
-  $env:COMMON_TOOLS_TEAM_CAPABILITIES = 'image-to-editable,project-audit,ppt-improve,ppt-quality'
+  $env:COMMON_TOOLS_TEAM_CAPABILITIES = 'image-to-editable,project-audit,ppt-create,ppt-improve,ppt-quality'
 
   Assert-DockerEngineAvailable -TimeoutSeconds $DockerEngineTimeoutSeconds
   Invoke-Compose @('config', '--quiet')

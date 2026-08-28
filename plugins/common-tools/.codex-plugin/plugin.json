@@ -1,6 +1,6 @@
 {
   "name": "common-tools",
-  "version": "0.1.0+codex.20260827020000",
+  "version": "0.1.1+codex.20260827030000",
   "description": "Common Tools client skills backed by the hosted HTTPS MCP service.",
   "author": {
     "name": "common-tools",

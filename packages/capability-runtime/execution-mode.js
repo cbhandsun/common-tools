@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const EXECUTION_MODES = Object.freeze(["local-preferred", "remote-only", "local-only"]);
-const LOCAL_CAPABILITIES = Object.freeze(["project-audit"]);
+const LOCAL_CAPABILITIES = Object.freeze(["project-audit", "ppt-create"]);
 const RUNTIME_CONFIG_FILE = "runtime.json";
 
 function normalizeExecutionMode(value) {

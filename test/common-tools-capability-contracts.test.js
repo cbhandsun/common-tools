@@ -17,8 +17,9 @@ function contractTool(name, capability) {
 }
 
 test("capability manifests exactly match local MCP registrations", () => {
-  assert.deepEqual(verifyCapabilityToolContracts(), { capabilities: ["image-to-editable", "ppt-improve", "ppt-quality", "project-audit"], toolCount: 11 });
-  assert.deepEqual(assertCapabilityToolContracts({ manifests: CAPABILITY_MANIFESTS, tools: TOOLS }), { capabilities: ["image-to-editable", "ppt-improve", "ppt-quality", "project-audit"], toolCount: 11 });
+  const expected = { capabilities: ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit"], toolCount: 13 };
+  assert.deepEqual(verifyCapabilityToolContracts(), expected);
+  assert.deepEqual(assertCapabilityToolContracts({ manifests: CAPABILITY_MANIFESTS, tools: TOOLS }), expected);
 });
 
 test("image-to-editable MCP admission requires an explicit provider config", () => {
@@ -56,7 +57,7 @@ test("team authorization and upload policy derive from the capability manifest",
   assert.deepEqual(CAPABILITY_SCOPES, Object.fromEntries(expectedCapabilities.map((capability) => [capability, CAPABILITY_MANIFESTS.get(capability).team.oauthScope])));
   for (const capability of expectedCapabilities) {
     assert.equal(validUploadRequest(capability, CAPABILITY_MANIFESTS.get(capability).team.acceptedUploadMediaTypes[0], 1), TEAM_DEPLOYABLE_CAPABILITIES.includes(capability));
-    assert.equal(validUploadRequest(capability, "application/json", 1), false);
+    assert.equal(validUploadRequest(capability, "application/json", 1), capability === "ppt-create");
   }
 });
 

@@ -244,7 +244,7 @@ test("manifest changes require an explicit version-increasing plugin upgrade", (
     assert.throws(() => loadPluginConfig(root), /manifest changed/);
     const upgraded = upgradePluginConfig(root, "image-to-editable");
     assert.equal(upgraded.generation, 5);
-    assert.equal(upgraded.manifests["image-to-editable"].version, "0.1.3");
+    assert.equal(upgraded.manifests["image-to-editable"].version, "0.1.4");
     assert.equal(fs.existsSync(path.join(root, "plugins.history", "4.json")), true);
     assert.equal(upgradePluginConfig(root, "image-to-editable").generation, 5);
     assert.equal(compareManifestVersions("0.1.1", "0.1.0"), 1);

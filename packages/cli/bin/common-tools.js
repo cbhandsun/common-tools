@@ -12,6 +12,8 @@ const { parseAuditScope, promptAuditScope, renderAuditScopeMenu } = require("../
 const { collectBrowserExperience } = require("../../project-audit-core/browser-experience");
 const { CAPABILITY: PPT_QUALITY_CAPABILITY, REPORT_JSON_NAME: PPT_QUALITY_REPORT_JSON_NAME, createPptQualityJob, runPptQualityJob } = require("../../ppt-quality-core");
 const { CAPABILITY: PPT_IMPROVE_CAPABILITY, createPptImproveJob, runPptImproveJob } = require("../../ppt-improve-core");
+const { CAPABILITY: PPT_CREATE_CAPABILITY, createPptCreateJob, runPptCreateJob } = require("../../ppt-create-core");
+const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
 const { CAPABILITY_MANIFESTS, effectivePluginConfig, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
 const { TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig, teamDeploymentPlan } = require("../../team-runtime");
 const { runKeycloakMcpClientCommand, runKeycloakProjectMapperCommand } = require("../keycloak-project-mapper");
@@ -34,7 +36,7 @@ const COMMAND_USAGE = [
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
   "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team raw-image-archive --input <png|jpg> --out <archive.tar.gz> | team production-preflight | team keycloak-mcp-client [--apply --backup-file <new.json>]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
-  "  editable init|create|run | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt-quality create|run | ppt-improve create|run|pipeline | job get|run|cancel"
+  "  editable init|create|run | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt create|enqueue | ppt-quality create|run | ppt-improve create|run|pipeline | job get|run|cancel"
 ].join("\n");
 
 function parse(argv) { const result = { _: [] }; for (let index = 0; index < argv.length; index += 1) { const item = argv[index]; if (!item.startsWith("--")) { result._.push(item); continue; } const next = argv[index + 1]; if (next && !next.startsWith("--")) { result[item.slice(2)] = next; index += 1; } else result[item.slice(2)] = true; } return result; }
@@ -47,7 +49,7 @@ function parseCapabilityList(value) {
 function context(args) { const workspaceRoot = path.resolve(args.workspace || process.cwd()); const stateRoot = path.resolve(args.state || path.join(workspaceRoot, ".common-tools")); return { workspaceRoot, stateRoot, ownerId: args.owner || "local-user" }; }
 function runtimeStatus(args = {}, environment = process.env) {
   const configuration = readRuntimeConfig(environment);
-  const capabilities = [PROJECT_AUDIT_CAPABILITY, REGISTRATION.capability, PPT_QUALITY_CAPABILITY, PPT_IMPROVE_CAPABILITY];
+  const capabilities = [PROJECT_AUDIT_CAPABILITY, REGISTRATION.capability, PPT_QUALITY_CAPABILITY, PPT_IMPROVE_CAPABILITY, PPT_CREATE_CAPABILITY];
   return Object.freeze({
     configuration,
     routes: Object.freeze(Object.fromEntries(capabilities.map((capability) => [capability, resolveExecutionRoute({ capability, executionMode: configuration.executionMode })])))
@@ -498,8 +500,13 @@ function runCreatedLocalJob(ctx, job) {
   if (job.capability === PROJECT_AUDIT_CAPABILITY) return runProjectAuditJob({ ...ctx, id: job.id });
   if (job.capability === PPT_QUALITY_CAPABILITY) return runPptQualityJob({ ...ctx, id: job.id });
   if (job.capability === PPT_IMPROVE_CAPABILITY) return runPptImproveJob({ ...ctx, id: job.id });
+  if (job.capability === PPT_CREATE_CAPABILITY) return runPptCreateJob({ ...ctx, id: job.id, buildPptx: buildCreatedPptx });
   if (job.capability === REGISTRATION.capability) return runEditableJob({ ...ctx, id: job.id, executeSlideclone: bundledSlidecloneRunner() });
   throw new Error("job capability cannot be run locally");
+}
+function buildCreatedPptx({ irFile, outFile }) {
+  const skillRoot = path.join(REPOSITORY_ROOT, "skills", "pd-hifi-slideclone");
+  buildOpenXmlDecksSync([{ irFile, outFile }], { skillRoot, config: { openXmlBuilder: { cache: false, configuration: "Release", targetFramework: "net8.0" } }, metrics: {} }, path.join(skillRoot, "dotnet", "OpenXmlDeckBuilder"), { powerPointSafe: true });
 }
 async function main() {
   const args = parse(process.argv.slice(2));
@@ -692,6 +699,14 @@ async function mainWithPptQuality() {
     return 0;
   }
   if (area === "team" && action === "runtime") return teamRuntime(args);
+  if (area === "ppt" && ["create", "enqueue"].includes(action)) {
+    if (!args.input || !args.out) throw new Error(`ppt ${action} requires --input and --out`);
+    requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);
+    const created = createPptCreateJob({ ...ctx, input: args.input, output: args.out, idempotencyKey: args.idempotencyKey });
+    const job = action === "create" ? runCreatedLocalJob(ctx, created) : created;
+    process.stdout.write(`${JSON.stringify(job, null, 2)}\n`);
+    return 0;
+  }
   if (area === "ppt-quality" && action === "run") {
     if (!args.input || !args.out) throw new Error("ppt-quality run requires --input and --out");
     requireEnabledCapability(ctx, PPT_QUALITY_CAPABILITY);
@@ -736,6 +751,12 @@ async function mainWithPptQuality() {
     if (current?.capability === PPT_IMPROVE_CAPABILITY) {
       requireEnabledCapability(ctx, PPT_IMPROVE_CAPABILITY);
       const job = runPptImproveJob({ ...ctx, id: args.id });
+      process.stdout.write(`${JSON.stringify(job, null, 2)}\n`);
+      return 0;
+    }
+    if (current?.capability === PPT_CREATE_CAPABILITY) {
+      requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);
+      const job = runPptCreateJob({ ...ctx, id: args.id, buildPptx: buildCreatedPptx });
       process.stdout.write(`${JSON.stringify(job, null, 2)}\n`);
       return 0;
     }

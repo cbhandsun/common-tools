@@ -42,11 +42,15 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.equal(marketplace.plugins[0].source.path, "./plugins/common-tools");
   const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".codex-plugin", "plugin.json"), "utf8"));
   assert.equal(manifest.mcpServers, "./.mcp.json");
+  assert.match(manifest.version, /^0\.1\.1\+codex\./);
   const mcp = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".mcp.json"), "utf8"));
   assert.deepEqual(mcp.mcpServers["common-tools"], { type: "http", url: "https://plugins.iepose.cn/mcp", oauth: { clientId: "common-tools-mcp" } });
   const imageSkill = fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "image-to-editable", "SKILL.md"), "utf8");
   assert.match(imageSkill, /heavy OCR, reconstruction, rendering, and quality work runs on the server/);
   assert.match(imageSkill, /create_team_upload_target/);
+  assert.match(imageSkill, /residual-native-duplicates-removed/);
+  assert.match(imageSkill, /quality-rendered/);
+  assert.match(imageSkill, /visual-fidelity/);
   assert.doesNotMatch(imageSkill, /common-tools doctor --capability image-to-editable/);
   assert.doesNotMatch(imageSkill, /common-tools editable run --input/);
   const installedSkills = fs.readdirSync(path.join(repositoryRoot, "plugins", "common-tools", "skills"), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
@@ -58,6 +62,23 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.match(auditSkill, /obtain separate explicit user approval/);
   assert.match(auditSkill, /Do not silently reduce the selected level/);
   assert.match(auditSkill, /Completion gate/);
+});
+
+test("Git Marketplace rejects removal of the image residual deduplication release contract", () => {
+  const root = copiedPluginRoot();
+  try {
+    const skill = path.join(root, "plugins", "common-tools", "skills", "image-to-editable", "SKILL.md");
+    fs.writeFileSync(skill, fs.readFileSync(skill, "utf8").replaceAll("residual-native-duplicates-removed", "legacy-residual-check"), "utf8");
+    assert.throws(() => verifyPluginPackaging(root, capabilities), /does not protect residual deduplication/);
+    fs.copyFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "image-to-editable", "SKILL.md"), skill);
+    const manifestFile = path.join(root, "plugins", "common-tools", ".codex-plugin", "plugin.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+    manifest.version = "0.1.0+codex.legacy";
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest), "utf8");
+    assert.throws(() => verifyPluginPackaging(root, capabilities), /does not include the image residual deduplication release/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("project audit Skill keeps one evidence-review contract across packaged hosts", () => {
@@ -101,7 +122,7 @@ test("Codex plugin manifests require install-page metadata and accept cachebuste
   try {
     const manifest = path.join(root, "plugins", "codex", "image-to-editable", ".codex-plugin", "plugin.json");
     const parsed = JSON.parse(fs.readFileSync(manifest, "utf8"));
-    assert.match(parsed.version, /^0\.1\.3\+codex\./);
+    assert.match(parsed.version, /^0\.1\.4\+codex\./);
     delete parsed.interface;
     fs.writeFileSync(manifest, JSON.stringify(parsed), "utf8");
     assert.throws(() => verifyPluginPackaging(root, capabilities), /Codex plugin interface/);
@@ -123,20 +144,21 @@ test("CLI lists separately installable capabilities only after package verificat
     const catalog = JSON.parse(listed.stdout);
     assert.equal(catalog.distributionVerified, true);
     assert.deepEqual(catalog.capabilities.map((item) => item.capability), capabilities);
-    assert.deepEqual(catalog.capabilities.map((item) => item.runtimeEnabled), [true, false, false, false]);
-    assert.deepEqual(catalog.capabilities.map((item) => item.lifecycle), [{ status: "active" }, { status: "active" }, { status: "active" }, { status: "active" }]);
+    assert.deepEqual(catalog.capabilities.map((item) => item.runtimeEnabled), [true, false, false, false, false]);
+    assert.deepEqual(catalog.capabilities.map((item) => item.lifecycle), Array.from({ length: capabilities.length }, () => ({ status: "active" })));
     assert.equal(catalog.capabilities[0].team.oauthScope, "common-tools:capability:image-to-editable");
-    assert.deepEqual(catalog.capabilities[1].team.acceptedUploadMediaTypes, ["application/vnd.openxmlformats-officedocument.presentationml.presentation"]);
-    assert.deepEqual(catalog.capabilities[1].dependencies, ["ppt-quality"]);
-    assert.deepEqual(catalog.capabilities[1].install.codex, { marketplace: "common-tools-codex", plugin: "ppt-improve@common-tools-codex" });
-    assert.deepEqual(catalog.capabilities[1].install.claude, { marketplace: "common-tools", plugin: "ppt-improve@common-tools" });
+    const improvement = catalog.capabilities.find((item) => item.capability === "ppt-improve");
+    assert.deepEqual(improvement.team.acceptedUploadMediaTypes, ["application/vnd.openxmlformats-officedocument.presentationml.presentation"]);
+    assert.deepEqual(improvement.dependencies, ["ppt-quality"]);
+    assert.deepEqual(improvement.install.codex, { marketplace: "common-tools-codex", plugin: "ppt-improve@common-tools-codex" });
+    assert.deepEqual(improvement.install.claude, { marketplace: "common-tools", plugin: "ppt-improve@common-tools" });
     assert.equal(fs.existsSync(state), false);
 
     const verified = spawnSync(process.execPath, [cli, "plugin", "verify"], { encoding: "utf8", windowsHide: true });
     assert.equal(verified.status, 0, verified.stderr);
     const verification = JSON.parse(verified.stdout);
     assert.deepEqual(verification.capabilities, capabilities);
-    assert.deepEqual(verification.capabilityContracts, { capabilities, toolCount: 11 });
+    assert.deepEqual(verification.capabilityContracts, { capabilities, toolCount: 13 });
 
     const enabledAudit = spawnSync(process.execPath, [cli, "plugin", "enable", "--workspace", path.dirname(state), "--state", state, "--capability", "project-audit"], { encoding: "utf8", windowsHide: true });
     assert.equal(enabledAudit.status, 0, enabledAudit.stderr);
@@ -144,7 +166,7 @@ test("CLI lists separately installable capabilities only after package verificat
     fs.writeFileSync(path.join(path.dirname(state), ".common-tools", "runtime.json"), JSON.stringify({ allowedCapabilities: ["project-audit"] }), "utf8");
     const scoped = spawnSync(process.execPath, [cli, "plugin", "list", "--workspace", path.dirname(state), "--state", state], { encoding: "utf8", windowsHide: true });
     assert.equal(scoped.status, 0, scoped.stderr);
-    assert.deepEqual(JSON.parse(scoped.stdout).capabilities.map((item) => item.runtimeEnabled), [false, false, false, true]);
+    assert.deepEqual(JSON.parse(scoped.stdout).capabilities.map((item) => item.runtimeEnabled), [false, false, false, false, true]);
     const status = spawnSync(process.execPath, [cli, "plugin", "status", "--workspace", path.dirname(state), "--state", state], { encoding: "utf8", windowsHide: true });
     assert.equal(status.status, 0, status.stderr);
     assert.deepEqual(JSON.parse(status.stdout).effectiveCapabilities, ["project-audit"]);
@@ -195,7 +217,7 @@ test("CLI upgrades only an explicitly version-increasing capability manifest", (
     assert.equal(upgraded.status, 0, upgraded.stderr);
     const config = JSON.parse(upgraded.stdout);
     assert.equal(config.generation, 3);
-    assert.equal(config.manifests["image-to-editable"].version, "0.1.3");
+    assert.equal(config.manifests["image-to-editable"].version, "0.1.4");
     assert.equal(fs.existsSync(path.join(state, "plugins.history", "2.json")), true);
   } finally {
     fs.rmSync(state, { recursive: true, force: true });

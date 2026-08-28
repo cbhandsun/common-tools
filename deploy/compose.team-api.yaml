@@ -5,7 +5,7 @@ services:
       dockerfile: deploy/docker/Dockerfile.remote-mcp
     image: common-tools-remote-mcp:local
     # A Worker-only deployment needs the same schema gate as the API profile.
-    profiles: ["team-api", "team-maintenance", "team-worker-audit", "team-worker-image", "team-worker-ppt-improve", "team-worker-ppt-quality"]
+    profiles: ["team-api", "team-maintenance", "team-worker-audit", "team-worker-image", "team-worker-ppt-create", "team-worker-ppt-improve", "team-worker-ppt-quality"]
     command: ["node", "packages/remote-mcp-server/bin/common-tools-team-migrate.js"]
     depends_on:
       postgres: { condition: service_healthy }
@@ -259,6 +259,46 @@ services:
     pids_limit: 128
     read_only: true
     tmpfs: ["/tmp:rw,noexec,nosuid,size=128m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  ppt-create-worker:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.image-to-editable
+    image: common-tools-image-to-editable:local
+    profiles: ["team-worker-ppt-create"]
+    command: ["node", "packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker.js"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: development
+      COMMON_TOOLS_TEAM_MODE: development
+      COMMON_TOOLS_TEAM_CAPABILITIES: ${COMMON_TOOLS_TEAM_CAPABILITIES:-image-to-editable,project-audit}
+      COMMON_TOOLS_WORKER_CAPABILITIES: ppt-create
+      COMMON_TOOLS_WORKER_POLL_SECONDS: 5
+      COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+      COMMON_TOOLS_OTEL_SERVICE_NAME: ${COMMON_TOOLS_OTEL_SERVICE_NAME:-}
+      COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS: ${COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS:-}
+      COMMON_TOOLS_DATABASE_URL: postgresql://postgres:5432/common_tools
+      COMMON_TOOLS_DATABASE_USER: common_tools
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-${COMMON_TOOLS_POSTGRES_PASSWORD:?set database password}}
+      COMMON_TOOLS_REDIS_URL: redis://redis:6379
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:?set Redis password}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: http://minio:9000
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: common-tools-artifacts
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: common-tools-admin
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-${COMMON_TOOLS_MINIO_PASSWORD:?set MinIO password}}
+    restart: unless-stopped
+    stop_grace_period: 60s
+    cpus: "1.5"
+    mem_limit: 2g
+    pids_limit: 256
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=256m"]
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
 

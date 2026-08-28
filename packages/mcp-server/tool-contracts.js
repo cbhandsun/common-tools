@@ -6,6 +6,7 @@ const { REGISTRATION } = require("../slideclone-core");
 const { CAPABILITY: PROJECT_AUDIT_CAPABILITY } = require("../project-audit-core");
 const { CAPABILITY: PPT_QUALITY_CAPABILITY } = require("../ppt-quality-core");
 const { CAPABILITY: PPT_IMPROVE_CAPABILITY } = require("../ppt-improve-core");
+const { CAPABILITY: PPT_CREATE_CAPABILITY } = require("../ppt-create-core");
 
 /** @typedef {Record<string, unknown>} JsonObject */
 /**
@@ -78,7 +79,9 @@ const TOOLS = Object.freeze([
   tool(PPT_QUALITY_CAPABILITY, "create_ppt_quality_job", "Create a read-only local PPTX quality audit job.", objectInput({ input: STRING, output: STRING, idempotencyKey: STRING }, ["input", "output"]), JOB_SCHEMA, annotations(false, false, false)),
   tool(PPT_QUALITY_CAPABILITY, "get_ppt_quality_report", "Read a verified quality report for a completed PPTX audit.", objectInput({ id: JOB_ID }, ["id"]), REPORT_SCHEMA, annotations(true, false, true)),
   tool(PPT_IMPROVE_CAPABILITY, "create_ppt_improve_job", "Create a report-bound, copy-on-write PPTX improvement job.", objectInput({ input: STRING, report: STRING, output: STRING, idempotencyKey: STRING }, ["input", "report", "output"]), JOB_SCHEMA, annotations(false, false, false)),
-  tool(PPT_IMPROVE_CAPABILITY, "get_ppt_improve_report", "Read a verified report for a completed PPTX improvement job.", objectInput({ id: JOB_ID }, ["id"]), REPORT_SCHEMA, annotations(true, false, true))
+  tool(PPT_IMPROVE_CAPABILITY, "get_ppt_improve_report", "Read a verified report for a completed PPTX improvement job.", objectInput({ id: JOB_ID }, ["id"]), REPORT_SCHEMA, annotations(true, false, true)),
+  tool(PPT_CREATE_CAPABILITY, "create_ppt_create_job", "Create an editable PPTX from a validated PresentationSpec JSON file.", objectInput({ input: STRING, output: STRING, idempotencyKey: STRING }, ["input", "output"]), JOB_SCHEMA, annotations(false, false, false)),
+  tool(PPT_CREATE_CAPABILITY, "get_ppt_create_report", "Read the verified report for a completed PPT creation job.", objectInput({ id: JOB_ID }, ["id"]), REPORT_SCHEMA, annotations(true, false, true))
 ]);
 
 const inputValidators = new Map(TOOLS.map((definition) => [definition.name, compileSchema(definition.inputSchema)]));

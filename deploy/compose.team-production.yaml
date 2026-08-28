@@ -118,6 +118,25 @@ services:
       COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: ${COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID:-}
       COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-}
 
+  ppt-create-worker:
+    build: !reset null
+    image: ${COMMON_TOOLS_IMAGE_WORKER_IMAGE:-}
+    depends_on: !override
+      team-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      COMMON_TOOLS_TEAM_MODE: production
+      COMMON_TOOLS_DATABASE_URL: ${COMMON_TOOLS_DATABASE_URL:?set managed PostgreSQL URL without credentials}
+      COMMON_TOOLS_DATABASE_USER: ${COMMON_TOOLS_DATABASE_USER:-}
+      COMMON_TOOLS_DATABASE_PASSWORD: ${COMMON_TOOLS_DATABASE_PASSWORD:-}
+      COMMON_TOOLS_REDIS_URL: ${COMMON_TOOLS_REDIS_URL:?set managed Redis URL without credentials}
+      COMMON_TOOLS_REDIS_USERNAME: ${COMMON_TOOLS_REDIS_USERNAME:-default}
+      COMMON_TOOLS_REDIS_PASSWORD: ${COMMON_TOOLS_REDIS_PASSWORD:-}
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: ${COMMON_TOOLS_OBJECT_STORE_ENDPOINT:?set HTTPS object-store endpoint}
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: ${COMMON_TOOLS_OBJECT_STORE_BUCKET:?set object-store bucket}
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: ${COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID:-}
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-}
+
   image-to-editable-worker:
     build: !reset null
     # Compose interpolates every declared service before profile selection. Keep

@@ -22,6 +22,11 @@
       "name": "ppt-improve",
       "source": "./plugins/ppt-improve",
       "description": "Apply report-bound, copy-on-write PPTX improvements."
+    },
+    {
+      "name": "ppt-create",
+      "source": "./plugins/ppt-create",
+      "description": "Create a new editable PPTX from validated structured content."
     }
   ]
 }

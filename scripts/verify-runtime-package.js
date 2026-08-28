@@ -8,6 +8,14 @@ const path = require("node:path");
 
 const MAX_PACKAGE_BYTES = 16 * 1024 * 1024;
 const MAX_COMMAND_OUTPUT_BYTES = 8 * 1024 * 1024;
+const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
+  "packages/capability-manifests/image-to-editable/capability.manifest.json",
+  "packages/slideclone-core/team-native-rebuild.js",
+  "packages/slideclone-core/team-worker.js",
+  "packages/remote-mcp-server/bin/common-tools-team-image-worker.js",
+  "skills/pd-hifi-slideclone/scripts/lib/full-slide-native-residual.js",
+  "plugins/common-tools/skills/image-to-editable/SKILL.md"
+]);
 const REQUIRED_FILES = Object.freeze([
   ".agents/plugins/marketplace.json",
   "package.json",
@@ -35,7 +43,8 @@ const REQUIRED_FILES = Object.freeze([
   "scripts/team-runtime-doctor.js",
   "skills/pd-hifi-slideclone/scripts/slideclone.js",
   "skills/pd-hifi-slideclone/schemas/slideclone.config.schema.json",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj"
+  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
+  ...IMAGE_EDITABLE_RELEASE_FILES
 ]);
 const FORBIDDEN_PREFIXES = Object.freeze([
   ".codex-tmp/",
@@ -95,6 +104,12 @@ function run(commandRunner, command, argumentsList, cwd, failureMessage) {
   if (!result || result.error || result.status !== 0 || typeof result.stdout !== "string") throw new Error(failureMessage);
   return result.stdout;
 }
+function runClassifiedProbe(commandRunner, argumentsList, cwd, failureMessage) {
+  const result = commandRunner(process.execPath, argumentsList, { cwd, encoding: "utf8", windowsHide: true, shell: false, timeout: 60 * 1000, maxBuffer: 4096 });
+  if (result && !result.error && result.status === 0 && result.stdout === "ready") return result.stdout;
+  const code = typeof result?.stdout === "string" && /^[a-z-]{3,64}$/.test(result.stdout) ? result.stdout : "unclassified";
+  throw new Error(`${failureMessage} (${code})`);
+}
 
 function npmCliPath() {
   const candidate = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
@@ -117,6 +132,29 @@ function installedCliPath(installRoot) {
   return path.join(installRoot, "node_modules", "common-tools", "packages", "cli", "bin", "common-tools.js");
 }
 
+function imageEditableEnhancementProbe() {
+  return [
+    "let stage='initialization';try{const fs=require('node:fs');const path=require('node:path');",
+    "const root=path.resolve(process.argv[1]);",
+    "stage='manifest-load';",
+    "const manifest=require(path.join(root,'packages','capability-manifests','image-to-editable','capability.manifest.json'));",
+    "const version=String(manifest.version||'').split('.').map(Number);",
+    "stage='core-load';",
+    "const native=require(path.join(root,'packages','slideclone-core','team-native-rebuild.js'));",
+    "const worker=require(path.join(root,'packages','slideclone-core','team-worker.js'));",
+    "const residual=require(path.join(root,'skills','pd-hifi-slideclone','scripts','lib','full-slide-native-residual.js'));",
+    "stage='source-read';",
+    "const nativeSource=fs.readFileSync(path.join(root,'packages','slideclone-core','team-native-rebuild.js'),'utf8');",
+    "const workerSource=fs.readFileSync(path.join(root,'packages','slideclone-core','team-worker.js'),'utf8');",
+    "const remoteSource=fs.readFileSync(path.join(root,'packages','remote-mcp-server','bin','common-tools-team-image-worker.js'),'utf8');",
+    "const skill=fs.readFileSync(path.join(root,'plugins','common-tools','skills','image-to-editable','SKILL.md'),'utf8');",
+    "const versionReady=version.length===3&&version.every(Number.isSafeInteger)&&(version[0]>0||version[1]>1||(version[1]===1&&version[2]>=4));",
+    "const checks=[['capability-version',versionReady],['native-export',typeof native.residualEraseObjects==='function'],['worker-export',typeof worker.residualDeduplicationStatus==='function'],['residual-export',typeof residual.eraseObjectMask==='function'],['remote-worker-wiring',remoteSource.includes('createNativeRebuilder')&&remoteSource.includes('full-slide-native-residual')],['native-strategy',nativeSource.includes('full-slide-object-erased-residual')],['worker-quality-gate',workerSource.includes('residual-native-duplicates-removed')],['marketplace-skill-gate',skill.includes('residual-native-duplicates-removed')]];",
+    "const failed=checks.find((entry)=>!entry[1]);if(failed){process.stdout.write(failed[0]);process.exit(2);}process.stdout.write('ready');",
+    "}catch{process.stdout.write(stage);process.exit(2);}"
+  ].join("");
+}
+
 function verifyInstalledCli({ installRoot, commandRunner }) {
   const cli = installedCliPath(installRoot);
   const packageRoot = path.join(installRoot, "node_modules", "common-tools");
@@ -129,7 +167,10 @@ function verifyInstalledCli({ installRoot, commandRunner }) {
   const probe = "const path=require('node:path');const root=path.resolve(process.argv[1]);const api=require(path.join(root,'packages','cli','slideclone-runner.js'));const result=api.inspectBundledSlideclone({repositoryRoot:root});if(!result.available)process.exit(2);process.stdout.write('ready');";
   const imageEngine = run(commandRunner, process.execPath, ["-e", probe, packageRoot], installRoot, "installed image-to-editable engine check failed");
   if (imageEngine !== "ready") throw new Error("installed image-to-editable engine check failed");
-  return Object.freeze({ capabilityCount: catalog.capabilities.length, imageToEditableEngine: true });
+  const remoteWorker = path.join(packageRoot, "packages", "remote-mcp-server", "bin", "common-tools-team-image-worker.js");
+  run(commandRunner, process.execPath, ["--check", remoteWorker], installRoot, "installed image-to-editable remote worker syntax check failed");
+  runClassifiedProbe(commandRunner, ["-e", imageEditableEnhancementProbe(), packageRoot], installRoot, "installed image-to-editable residual deduplication check failed");
+  return Object.freeze({ capabilityCount: catalog.capabilities.length, imageToEditableEngine: true, residualDeduplication: true });
 }
 
 function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), commandRunner = childProcess.spawnSync, temporaryDirectory = fs.mkdtempSync } = {}) {
@@ -151,7 +192,7 @@ function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), 
     const installInvocation = npmInvocation(["install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", installRoot, tarball]);
     run(commandRunner, installInvocation.command, installInvocation.arguments, root, "runtime package installation failed");
     const installed = verifyInstalledCli({ installRoot, commandRunner });
-    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, imageToEditableEngine: installed.imageToEditableEngine });
+    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, imageToEditableEngine: installed.imageToEditableEngine, residualDeduplication: installed.residualDeduplication });
   } finally {
     if (cleanable) fs.rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
@@ -162,4 +203,4 @@ if (require.main === module) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-module.exports = { FORBIDDEN_PREFIXES, MAX_PACKAGE_BYTES, REQUIRED_FILES, installedCliPath, npmCliPath, npmInvocation, parsePackMetadata, verifyInstalledCli, verifyRuntimePackage };
+module.exports = { FORBIDDEN_PREFIXES, IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, REQUIRED_FILES, imageEditableEnhancementProbe, installedCliPath, npmCliPath, npmInvocation, parsePackMetadata, runClassifiedProbe, verifyInstalledCli, verifyRuntimePackage };

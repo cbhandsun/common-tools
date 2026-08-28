@@ -13,3 +13,4 @@ ADRs freeze decisions that affect contracts, security boundaries, compatibility,
 | [0007](0007-version-distribution-and-release-provenance.md) | Accepted | Runtime/plugin compatibility and signed release provenance |
 | [0008](0008-editable-pptx-generation-engine.md) | Accepted | Deck IR and editable PPTX writer boundary |
 | [0009](0009-plugin-and-mcp-contract-boundary.md) | Accepted | Plugin product surface, host binding and MCP tool contracts |
+| [0010](0010-ppt-create-shared-generation-architecture.md) | Accepted | Shared local/remote PPT creation and clean-room provenance |

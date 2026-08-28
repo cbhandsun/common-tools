@@ -21,7 +21,7 @@ $infraFile = Join-Path $repositoryRoot 'deploy/compose.team-infra.yaml'
 $idpFile = Join-Path $repositoryRoot 'deploy/compose.team-idp.yaml'
 $apiFile = Join-Path $repositoryRoot 'deploy/compose.team-api.yaml'
 $gatewayFile = Join-Path $repositoryRoot 'deploy/compose.team-gateway.yaml'
-$allProfiles = @('team-infra', 'team-idp', 'team-api', 'team-gateway', 'team-maintenance', 'team-worker-audit', 'team-worker-image', 'team-worker-ppt-improve', 'team-worker-ppt-quality')
+$allProfiles = @('team-infra', 'team-idp', 'team-api', 'team-gateway', 'team-maintenance', 'team-worker-audit', 'team-worker-image', 'team-worker-ppt-create', 'team-worker-ppt-improve', 'team-worker-ppt-quality')
 $requiredEnvironment = @(
   'COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD',
   'COMMON_TOOLS_KEYCLOAK_ADMIN', 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD',
@@ -50,7 +50,7 @@ function Set-MissingLocalDefaults {
     COMMON_TOOLS_OIDC_ISSUER = 'http://127.0.0.1:58080/realms/common-tools'
     COMMON_TOOLS_OIDC_JWKS_URL = 'http://keycloak:8080/realms/common-tools/protocol/openid-connect/certs'
     COMMON_TOOLS_OIDC_AUDIENCE = 'common-tools-mcp'
-    COMMON_TOOLS_TEAM_CAPABILITIES = 'image-to-editable,project-audit,ppt-quality,ppt-improve'
+    COMMON_TOOLS_TEAM_CAPABILITIES = 'image-to-editable,project-audit,ppt-create,ppt-quality,ppt-improve'
   }
   foreach ($entry in $defaults.GetEnumerator()) {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($entry.Key, 'Process'))) {
@@ -95,7 +95,7 @@ if ($Mode -eq 'Plan') {
     mode = 'plan'
     project = $Project
     stateVolumes = @("$Project`_common-tools-postgres", "$Project`_common-tools-redis", "$Project`_common-tools-minio", "$Project`_common-tools-keycloak")
-    capabilities = @('image-to-editable', 'project-audit', 'ppt-quality', 'ppt-improve')
+    capabilities = @('image-to-editable', 'project-audit', 'ppt-create', 'ppt-quality', 'ppt-improve')
     localMinioPorts = @{
       api = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_PORT', 'Process')
       console = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_CONSOLE_PORT', 'Process')

@@ -64,6 +64,21 @@ function pluginRuntimeVersion(value) {
   const match = /^((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(value || "");
   return match ? match[1] : null;
 }
+function versionAtLeast(value, minimum) {
+  const left = String(value || "").split(".").map(Number);
+  const right = String(minimum || "").split(".").map(Number);
+  if (left.length !== 3 || right.length !== 3 || [...left, ...right].some((item) => !Number.isSafeInteger(item) || item < 0)) return false;
+  for (let index = 0; index < 3; index += 1) {
+    if (left[index] !== right[index]) return left[index] > right[index];
+  }
+  return true;
+}
+function assertImageToEditableSkill(file) {
+  const skill = fs.readFileSync(file, "utf8");
+  for (const marker of ["residual-native-duplicates-removed", "quality-rendered", "visual-fidelity"]) {
+    if (!skill.includes(marker)) throw new Error("image-to-editable Skill does not protect residual deduplication quality");
+  }
+}
 function assertPluginPackage(root, capability, host, capabilityVersion) {
   if (!CAPABILITY_PATTERN.test(capability)) throw new Error("capability name is invalid");
   const metadataFile = path.join(root, host === "codex" ? ".codex-plugin" : ".claude-plugin", "plugin.json");
@@ -124,14 +139,17 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   const pluginRoot = path.join(root, "plugins", "common-tools");
   const metadata = assertPluginMetadata(path.join(pluginRoot, ".codex-plugin", "plugin.json"), "common-tools", "codex");
   if (metadata.mcpServers !== "./.mcp.json") throw new Error("unified Codex plugin MCP configuration is invalid");
+  if (!versionAtLeast(pluginRuntimeVersion(metadata.version), "0.1.1")) throw new Error("unified Codex plugin version does not include the image residual deduplication release");
   const mcp = assertObject(readJson(path.join(pluginRoot, ".mcp.json"), "unified Codex plugin MCP configuration is invalid"), "unified Codex plugin MCP configuration is invalid");
   const server = mcp.mcpServers?.["common-tools"];
   if (!server || server.type !== "http" || server.url !== "https://plugins.iepose.cn/mcp" || server.oauth?.clientId !== "common-tools-mcp" || Object.keys(server).some((key) => !["type", "url", "oauth"].includes(key))) throw new Error("unified Codex plugin MCP configuration is invalid");
   const hostedCapabilities = [..._capabilities].sort();
   const installedSkills = fs.readdirSync(path.join(pluginRoot, "skills"), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   if (JSON.stringify(installedSkills) !== JSON.stringify(hostedCapabilities)) throw new Error("unified Codex plugin capability surface does not match the hosted service");
-  const imageSkill = fs.readFileSync(path.join(pluginRoot, "skills", "image-to-editable", "SKILL.md"), "utf8");
+  const imageSkillFile = path.join(pluginRoot, "skills", "image-to-editable", "SKILL.md");
+  const imageSkill = fs.readFileSync(imageSkillFile, "utf8");
   if (!imageSkill.includes("hosted Common Tools Runtime") || !imageSkill.includes("create_team_upload_target") || imageSkill.includes("common-tools editable run --input")) throw new Error("unified image-to-editable Skill is not remote-only");
+  assertImageToEditableSkill(imageSkillFile);
   const auditSkill = fs.readFileSync(path.join(pluginRoot, "skills", "project-audit", "SKILL.md"), "utf8");
   if (!auditSkill.includes("Source-code privacy is the default boundary") || !auditSkill.includes("<plugin-root>/runtime/project-audit/") || !auditSkill.includes("contains no SlideClone, OCR, .NET, Docker") || !auditSkill.includes("obtain separate explicit user approval") || !auditSkill.includes("create_team_upload_target")) throw new Error("unified project-audit Skill is not embedded local-first with an explicit remote boundary");
   // This source-only verifier is intentionally loaded lazily. Remote runtime
@@ -141,7 +159,7 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
     const { verifyProjectAuditPluginRuntime } = require(syncVerifier);
     verifyProjectAuditPluginRuntime({ repositoryRoot: root, targetRoot: path.join(pluginRoot, "runtime", "project-audit") });
   }
-  for (const capability of ["ppt-improve", "ppt-quality"]) assertMirroredPackage(path.join(root, "plugins", "codex", capability, "skills", capability), path.join(pluginRoot, "skills", capability));
+  for (const capability of ["ppt-create", "ppt-improve", "ppt-quality"]) assertMirroredPackage(path.join(root, "plugins", "codex", capability, "skills", capability), path.join(pluginRoot, "skills", capability));
   return true;
 }
 function verifyPluginPackaging(root = REPOSITORY_ROOT, capabilities = capabilityNames(root)) {
@@ -162,6 +180,9 @@ function verifyPluginPackaging(root = REPOSITORY_ROOT, capabilities = capability
     assertMirroredPackage(claude, marketplacePlugin);
     assertPluginPackage(codexMarketplacePlugin, capability, "codex", versions.get(capability));
     assertMirroredPackage(codex, codexMarketplacePlugin);
+    if (capability === "image-to-editable") {
+      for (const skill of [codex, claude, marketplacePlugin, codexMarketplacePlugin].map((pluginRoot) => path.join(pluginRoot, "skills", capability, "SKILL.md"))) assertImageToEditableSkill(skill);
+    }
   }
   assertUnifiedGitMarketplace(root, uniqueCapabilities);
   return Object.freeze({ capabilities: Object.freeze(uniqueCapabilities), hosts: Object.freeze(["codex", "claude"]), marketplaces: Object.freeze(["claude", "codex"]) });
@@ -169,4 +190,4 @@ function verifyPluginPackaging(root = REPOSITORY_ROOT, capabilities = capability
 
 if (require.main === module) process.stdout.write(`${JSON.stringify(verifyPluginPackaging(), null, 2)}\n`);
 
-module.exports = { assertCodexMarketplace, assertMirroredPackage, assertPluginPackage, assertSafeSkill, assertUnifiedGitMarketplace, capabilityNames, capabilityVersions, pluginRuntimeVersion, verifyPluginPackaging };
+module.exports = { assertCodexMarketplace, assertImageToEditableSkill, assertMirroredPackage, assertPluginPackage, assertSafeSkill, assertUnifiedGitMarketplace, capabilityNames, capabilityVersions, pluginRuntimeVersion, verifyPluginPackaging, versionAtLeast };

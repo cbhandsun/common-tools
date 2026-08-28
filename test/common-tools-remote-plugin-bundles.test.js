@@ -7,6 +7,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 const { REMOTE_CAPABILITY_CODES, REMOTE_CAPABILITY_SCOPES, REMOTE_PLUGIN_VERSION, connectionVerificationScript, generateRemotePluginBundles, installGuide, installationScript, marketplaceMetadata, mcpConfiguration, parseArguments, parseCapabilities, parseLayout, parseOrigin, pluginName, remoteRouterSkill, remoteSkill } = require("../scripts/generate-remote-plugin-bundles");
+const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
 
 test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-plugin-bundles-"));
@@ -40,14 +41,14 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
       assert.match(localRuntimeInstaller, /Get-FileHash/);
       assert.match(localRuntimeInstaller, /Refusing to replace an unmanaged common-tools command shim/);
       assert.match(localRuntimeInstaller, /Node.js 18 or newer/);
-       assert.deepEqual(fs.readdirSync(path.join(root, "skills")).sort(), ["common-tools", "common-tools-help", "image-to-editable", "ppt-improve", "ppt-quality", "project-audit"]);
+       assert.deepEqual(fs.readdirSync(path.join(root, "skills")).sort(), ["common-tools", "common-tools-help", "image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit"]);
        const skill = fs.readFileSync(path.join(root, "skills", "common-tools", "SKILL.md"), "utf8");
       assert.match(skill, /MCP tools visible in the current session are authoritative/);
       assert.match(skill, /create_team_upload_target/);
       assert.match(skill, /create_team_job/);
       assert.match(skill, /image-to-editable/);
        assert.match(skill, /project-audit/);
-       for (const capability of ["image-to-editable", "project-audit"]) {
+       for (const capability of ["image-to-editable", "ppt-create", "project-audit"]) {
          const capabilitySkill = fs.readFileSync(path.join(root, "skills", capability, "SKILL.md"), "utf8");
          assert.match(capabilitySkill, new RegExp(`name: ${capability}`));
          const chineseGuide = fs.readFileSync(path.join(root, "docs", "zh-CN", `${capability}.md`), "utf8");
@@ -64,6 +65,24 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
     const localAuditPlan = spawnSync(process.execPath, [payloadCli, "audit", "plan", "--instruction", "审计当前项目"], { encoding: "utf8" });
     assert.equal(localAuditPlan.status, 0, `${localAuditPlan.stdout}${localAuditPlan.stderr}`);
     assert.match(localAuditPlan.stdout, /"mode": "enhanced"/);
+    const packagedWorkspace = path.join(parent, "packaged-runtime-workspace");
+    const packagedState = path.join(packagedWorkspace, ".common-tools");
+    const packagedInput = path.join(packagedWorkspace, "presentation.json");
+    const packagedOutput = path.join(packagedWorkspace, "created-presentation");
+    fs.mkdirSync(packagedWorkspace, { recursive: true });
+    fs.copyFileSync(path.join(__dirname, "fixtures", "ppt-create", "basic.presentation.json"), packagedInput);
+    const enablePptCreate = spawnSync(process.execPath, [payloadCli, "plugin", "enable", "--capability", "ppt-create", "--workspace", packagedWorkspace, "--state", packagedState], { encoding: "utf8" });
+    assert.equal(enablePptCreate.status, 0, `${enablePptCreate.stdout}${enablePptCreate.stderr}`);
+    const createPpt = spawnSync(process.execPath, [payloadCli, "ppt", "create", "--input", packagedInput, "--out", packagedOutput, "--workspace", packagedWorkspace, "--state", packagedState], { encoding: "utf8", timeout: 120_000 });
+    assert.equal(createPpt.status, 0, `${createPpt.stdout}${createPpt.stderr}`);
+    assert.match(createPpt.stdout, /"status": "succeeded"/);
+    const packagedDeck = path.join(packagedOutput, "deck.pptx");
+    const entries = listZipEntries(packagedDeck).map((entry) => entry.name);
+    assert.deepEqual(entries.filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name)).sort(), ["ppt/slides/slide1.xml", "ppt/slides/slide2.xml", "ppt/slides/slide3.xml"]);
+    assert.equal(entries.some((name) => /^ppt\/media\//.test(name)), false);
+    const packagedSlide = readZipEntry(packagedDeck, "ppt/slides/slide2.xml").toString("utf8");
+    assert.match(packagedSlide, /<p:sp>/);
+    assert.doesNotMatch(packagedSlide, /<p:pic>/);
     assert.throws(() => generateRemotePluginBundles({ origin: "https://tunnel.example.test", output, hosts: ["codex"] }), /must not already exist/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
@@ -303,7 +322,7 @@ test("unified bundle installer selects capability scopes while installing one pl
   assert.match(bundle, /Read-Host "Select capability codes/);
   assert.match(bundle, /"1" = "image-to-editable"/);
   assert.match(bundle, /"4" = "project-audit"/);
-  assert.deepEqual(REMOTE_CAPABILITY_CODES, { "image-to-editable": "1", "ppt-improve": "2", "ppt-quality": "3", "project-audit": "4" });
+  assert.deepEqual(REMOTE_CAPABILITY_CODES, { "image-to-editable": "1", "ppt-improve": "2", "ppt-quality": "3", "project-audit": "4", "ppt-create": "5" });
   assert.match(bundle, /\$pluginNames = @\(\$plugins\["bundle"\]\)/);
   assert.match(bundle, /\$oauthScopes = \[string\]::Join\(",", @\(\$remoteSelected/);
   assert.doesNotMatch(bundle, /"image-to-editable" = "common-tools-remote-image-to-editable"/);
@@ -326,7 +345,7 @@ test("remote plugin bundle input rejects paths, insecure origins and unknown opt
 });
 
 test("remote capability Skills are self-contained and use the team job protocol", () => {
-  for (const capability of ["image-to-editable", "ppt-improve", "ppt-quality", "project-audit"]) {
+  for (const capability of ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit"]) {
     const skill = remoteSkill(capability);
     assert.match(skill, new RegExp(`name: ${capability}`));
     assert.match(skill, /create_team_upload_target/);
@@ -344,6 +363,10 @@ test("remote capability Skills are self-contained and use the team job protocol"
       assert.match(skill, /confirmed-issue/);
       assert.match(skill, /scenarios remain `not-verified`/);
       assert.match(skill, /explicitly asks for a team\/remote audit/);
+    } else if (capability === "ppt-create") {
+      assert.match(skill, /runtime resolve --capability ppt-create/);
+      assert.match(skill, /common-tools ppt create/);
+      assert.match(skill, /PresentationSpec 1\.0/);
     } else {
       assert.doesNotMatch(skill, /\n.*common-tools plugin enable/);
       assert.doesNotMatch(skill, /\n.*common-tools (?:audit|editable|ppt-quality|ppt-improve)/);

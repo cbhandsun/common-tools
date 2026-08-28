@@ -14,7 +14,8 @@ const REQUIRED_ADRS = Object.freeze([
   "0006-worker-isolation.md",
   "0007-version-distribution-and-release-provenance.md",
   "0008-editable-pptx-generation-engine.md",
-  "0009-plugin-and-mcp-contract-boundary.md"
+  "0009-plugin-and-mcp-contract-boundary.md",
+  "0010-ppt-create-shared-generation-architecture.md"
 ]);
 
 function assertAdrDocuments(directory, { readFile = fs.readFileSync, readDirectory = fs.readdirSync } = {}) {

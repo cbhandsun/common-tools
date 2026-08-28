@@ -4,7 +4,8 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const CAPABILITIES = Object.freeze(["image-to-editable", "ppt-improve", "ppt-quality", "project-audit"]);
+// Keep existing numeric installer codes stable; append new capabilities.
+const CAPABILITIES = Object.freeze(["image-to-editable", "ppt-improve", "ppt-quality", "project-audit", "ppt-create"]);
 const REMOTE_CAPABILITY_CODES = Object.freeze(Object.fromEntries(CAPABILITIES.map((capability, index) => [capability, String(index + 1)])));
 const REMOTE_PLUGIN_VERSION = "0.1.22";
 const REPOSITORY_ROOT = path.resolve(__dirname, "..");
@@ -13,20 +14,21 @@ const REPOSITORY_ROOT = path.resolve(__dirname, "..");
 // while the bundled runtime code changes, which would otherwise leave an old
 // runtime in place after a plugin upgrade.
 const LOCAL_RUNTIME_VERSION = REMOTE_PLUGIN_VERSION;
-const LOCAL_RUNTIME_CAPABILITIES = Object.freeze(["project-audit"]);
+const LOCAL_RUNTIME_CAPABILITIES = Object.freeze(["ppt-create", "project-audit"]);
 const LOCAL_RUNTIME_SOURCE_PATHS = Object.freeze([
-  "packages/capability-contracts", "packages/capability-manifests", "packages/capability-runtime", "packages/cli", "packages/mcp-server", "packages/remote-mcp-server", "packages/project-audit-core", "packages/ppt-improve-core", "packages/ppt-quality-core", "packages/slideclone-core", "packages/team-runtime",
-  "scripts/verify-plugins.js", "scripts/verify-capability-contracts.js", "skills/pd-hifi-slideclone/scripts/lib", "package.json"
+  "packages/capability-contracts", "packages/capability-manifests", "packages/capability-runtime", "packages/cli", "packages/mcp-server", "packages/remote-mcp-server", "packages/project-audit-core", "packages/ppt-create-core", "packages/ppt-improve-core", "packages/ppt-quality-core", "packages/slideclone-core", "packages/team-runtime",
+  "scripts/verify-plugins.js", "scripts/verify-capability-contracts.js", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder", "skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet.js", "skills/pd-hifi-slideclone/scripts/lib", "package.json"
 ]);
 const REMOTE_CAPABILITY_GUIDANCE = Object.freeze({
   "image-to-editable": Object.freeze({ contentType: "application/gzip", input: "a single approved image archive accepted by the service" }),
   "project-audit": Object.freeze({ contentType: "application/gzip", input: "a single approved project archive containing only the intended audit input" }),
   "ppt-quality": Object.freeze({ contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", input: "one approved PPTX file" }),
-  "ppt-improve": Object.freeze({ contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", input: "one approved PPTX file; the service audits it first and only creates a separate improved PPTX when a safe repair is available" })
+  "ppt-improve": Object.freeze({ contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", input: "one approved PPTX file; the service audits it first and only creates a separate improved PPTX when a safe repair is available" }),
+  "ppt-create": Object.freeze({ contentType: "application/json", input: "one approved PresentationSpec 1.0 JSON file" })
 });
 const REMOTE_CAPABILITY_SCOPES = Object.freeze(Object.fromEntries(CAPABILITIES.map((capability) => [capability, `common-tools:capability:${capability}`])));
 
-function usage() { return "usage: node scripts/generate-remote-plugin-bundles.js --origin <https://host> --output <empty-directory> --capabilities image-to-editable,ppt-improve,ppt-quality,project-audit [--host codex|claude|all] [--layout bundle|split]"; }
+function usage() { return "usage: node scripts/generate-remote-plugin-bundles.js --origin <https://host> --output <empty-directory> --capabilities image-to-editable,ppt-create,ppt-improve,ppt-quality,project-audit [--host codex|claude|all] [--layout bundle|split]"; }
 function parseOrigin(value) {
   if (typeof value !== "string" || !value.trim()) throw new Error("--origin is required");
   let url;
@@ -378,7 +380,7 @@ foreach ($legacyPlugin in $legacyPlugins) {
 if ($LASTEXITCODE -ne 0) { throw "${executable} plugin marketplace add failed" }
 
 `;
-  const localRuntimeInstall = capabilities.includes("project-audit")
+  const localRuntimeInstall = capabilities.some((capability) => LOCAL_RUNTIME_CAPABILITIES.includes(capability))
     ? `if ($ExecutionMode -ne "remote-only" -and $selectedLocal.Count -gt 0) {\n  & (Join-Path $root "local-runtime\\install-local-runtime.ps1") -ExecutionMode $ExecutionMode\n  if ($LASTEXITCODE -ne 0) { throw "Common Tools local runtime installation failed" }\n}\n`
     : "";
   const remoteInstall = `if ($remoteSelected.Count -gt 0) {\n  & (Join-Path $root "verify-connection.ps1") -Capabilities $remoteSelected\n${configuredCodexMcpRegistration}}\n`;
@@ -387,6 +389,26 @@ if ($LASTEXITCODE -ne 0) { throw "${executable} plugin marketplace add failed" }
 function remoteSkill(capability) {
   const guidance = REMOTE_CAPABILITY_GUIDANCE[capability];
   if (!guidance) throw new TypeError("remote capability guidance is invalid");
+  if (capability === "image-to-editable") return `---
+name: image-to-editable
+description: Convert an approved image into an editable PPTX using the hosted Common Tools Runtime.
+---
+
+Use only the installed \`common-tools\` remote MCP server and a user-approved PNG or JPEG packaged as the bounded gzip TAR described by the installation guide. Upload it as \`application/gzip\` with \`create_team_upload_target\`, submit \`image-to-editable\` with \`create_team_job\` and a fresh opaque idempotency key, and poll only the returned job. Download only a reported artifact through \`get_team_artifact_target\`. Never expose or reuse signed URLs.
+
+On success, inspect the complete bounded quality result before downloading a reported artifact. When a fidelity residual is present, require \`residual-native-duplicates-removed\`; this proves reconstructed native objects were removed from the raster residual so moving them will not reveal duplicate pixels. Describe the result as visually verified only when this gate, \`quality-rendered\`, and \`visual-fidelity\` pass. The residual may still contain complex details that were not confidently reconstructed, so do not describe every visual as native.
+`;
+  if (capability === "ppt-create") return `---
+name: ppt-create
+description: Create a new editable PPTX locally by default, with an explicit remote team option.
+---
+
+Use the user-facing phrase “创建 PPT”; reserve \`ppt-create\` for the capability ID. Accept only a user-approved PresentationSpec 1.0 JSON file. Do not copy third-party templates, assets, schemas, implementation code, or layout coordinates.
+
+Run \`common-tools runtime resolve --capability ppt-create\` when the Local Runtime is available. For local execution, enable the capability and run \`common-tools ppt create --input <presentation.json> --out <new-directory>\`. The output directory must not exist.
+
+For explicit remote execution, upload the same JSON as \`application/json\` using \`create_team_upload_target\`, then submit capability \`ppt-create\` with \`create_team_job\`. Poll only the returned job and call \`get_team_artifact_target\` only for its reported artifacts. Local and remote paths share the same PresentationSpec, Deck IR planner, OpenXML writer, and artifact contract.
+`;
   if (capability === "project-audit") return `---
 name: project-audit
 description: Audit an approved project locally by default, with an explicit remote team-audit option.
@@ -433,6 +455,8 @@ ${routes}
 For a requested remote capability, accept only its approved input type. First call \`create_team_upload_target\` with the exact \`capability\`, required content type and exact byte length. Upload only that exact file once to the returned short-lived \`uploadUrl\` using HTTP PUT without changing headers. Then call \`create_team_job\` with the returned \`objectKey\` and a newly generated opaque idempotency key. Poll \`get_team_job\` only for that returned job ID until terminal. On success, call \`get_team_artifact_target\` only for an artifact name reported by that job. Do not disclose signed URLs outside the approved user context.
 
 For \`project-audit\`, run \`common-tools runtime resolve --capability project-audit\` first whenever the Local Runtime is available. Default to its resolved local route; if it is unavailable, ask the user to install the Local Runtime unless they explicitly ask for team/remote audit. A requested local code audit remains read-only by default. Do not turn a natural-language request into local gate execution, browser automation, or source upload without the separate explicit authorization required by that mode.
+
+For \`ppt-create\`, run \`common-tools runtime resolve --capability ppt-create\` first whenever the Local Runtime is available. Default to local creation and use remote upload only when the resolved policy or the user's explicit request selects it.
 `;
 }
 function mcpConfiguration(host, origin, serverName = "common-tools") {
@@ -444,6 +468,7 @@ const CHINESE_CAPABILITY_GUIDANCE = Object.freeze({
   "image-to-editable": Object.freeze({ title: "图片转可编辑", purpose: "将已获批准的图片归档转换为可编辑产物。", input: "单个已获批准的图片归档（application/gzip）。" }),
   "ppt-improve": Object.freeze({ title: "PPT 改善", purpose: "先审视 PPTX，再在存在安全可修复项时生成独立改善版。", input: "单个已获批准的 PPTX 文件。" }),
   "ppt-quality": Object.freeze({ title: "PPT 质量审计", purpose: "审视 PPTX 的质量并生成独立质量报告。", input: "单个已获批准的 PPTX 文件。" }),
+  "ppt-create": Object.freeze({ title: "创建 PPT", purpose: "从结构化内容创建新的可编辑 PPTX。", input: "单个已获批准的 PresentationSpec 1.0 JSON 文件。" }),
   "project-audit": Object.freeze({ title: "项目审计", purpose: "默认在本机执行只读项目审计；明确要求团队/远程审计时才上传归档。", input: "远程模式使用单个已获批准的项目归档（application/gzip）。" })
 });
 function chineseCapabilityGuide(capability) {
@@ -464,7 +489,9 @@ function chineseCapabilityGuide(capability) {
     "",
     capability === "project-audit"
       ? "在 Codex 中直接说明审计目标。普通“审计当前项目”会走 `enhanced` 本机只读审视，覆盖产品闭环、视觉交互、数据/权限/可靠性和工程交付四域；“只做代码审计”才走 `code`。若已安装 Local Runtime，先运行 `common-tools runtime resolve --capability project-audit`：只有用户明确要求团队/远程审计且策略允许时才上传归档。未安装 Local Runtime 时，不要把普通请求自动改为远程上传。"
-      : "在 Codex 中直接用自然语言说明目标，并明确所需能力。该能力当前需要远程 MCP；实际可调用范围以当前会话可见的 common-tools MCP 工具、已授权 OAuth scope 和服务端已部署能力为准。",
+      : capability === "ppt-create"
+        ? "在 Codex 中直接说明创建目标并提供 PresentationSpec 1.0 JSON。先运行 `common-tools runtime resolve --capability ppt-create`；默认走本机创建，只有执行策略或用户明确要求时才上传到团队服务。"
+        : "在 Codex 中直接用自然语言说明目标，并明确所需能力。该能力当前需要远程 MCP；实际可调用范围以当前会话可见的 common-tools MCP 工具、已授权 OAuth scope 和服务端已部署能力为准。",
     "",
     "## 结果与限制",
     "",
@@ -536,7 +563,7 @@ function writePluginPackage(host, origin, hostRoot, details) {
   const mcp = mcpConfiguration(host, origin, details.serverName);
   if (mcp) fs.writeFileSync(path.join(pluginRoot, ".mcp.json"), `${JSON.stringify(mcp, null, 2)}\n`, "utf8");
   const localRuntimeNote = capabilities.some((capability) => LOCAL_RUNTIME_CAPABILITIES.includes(capability))
-    ? "`project-audit` can use the optional versioned Local Runtime. In the default `local-preferred` mode it stays on the current machine and never uploads source implicitly; choose `remote-only` or explicitly request remote execution to use the MCP service."
+    ? "`project-audit` and `ppt-create` can use the optional versioned Local Runtime. In the default `local-preferred` mode they stay on the current machine; choose `remote-only` or explicitly request remote execution to use the MCP service."
     : "All selected capabilities require remote execution through the MCP service.";
   fs.writeFileSync(path.join(pluginRoot, "README.md"), `# ${name}\n\nEnabled capabilities: ${capabilities.join(", ")}. ${localRuntimeNote}\n\nRun the host-level \`install.ps1\` to select capabilities and an execution mode. When remote work is selected, it connects to \`${origin}/mcp\` and opens OAuth sign-in. See [中文使用说明](./docs/zh-CN/README.md) for capability navigation, execution boundaries and natural-language examples. The service address, database, workers and object storage remain on the server.\n`, "utf8");
 }

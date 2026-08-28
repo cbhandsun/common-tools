@@ -14,6 +14,7 @@ const TEAM_DEPLOYMENT_CAPABILITIES = Object.freeze(Object.fromEntries(Object.ent
   .map(([capability, definition]) => [capability, definition.deployment])));
 const TEAM_DEPLOYABLE_CAPABILITIES = Object.freeze(Object.keys(TEAM_DEPLOYMENT_CAPABILITIES).sort());
 const UPLOAD_MEDIA_TYPES = Object.freeze(Object.fromEntries(Object.entries(TEAM_CAPABILITY_DEFINITIONS).map(([capability, definition]) => [capability, new Set(definition.acceptedUploadMediaTypes)])));
+const UPLOAD_MAX_BYTES = Object.freeze({ "ppt-create": 1024 * 1024 });
 const OBJECT_KEY_PATTERN = /^[a-z0-9][a-z0-9._/-]{0,511}$/;
 const PROJECT_ID_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
 const TRACE_PARENT_PATTERN = /^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/;
@@ -99,7 +100,8 @@ function ownedInputKey(ownerId, inputObjectKey) {
 function validUploadRequest(capability, contentType, contentLength) {
   const allowed = UPLOAD_MEDIA_TYPES[capability];
   const normalizedType = typeof contentType === "string" ? contentType.trim().toLowerCase() : "";
-  return TEAM_DEPLOYABLE_CAPABILITIES.includes(capability) && !!allowed && allowed.has(normalizedType) && Number.isSafeInteger(contentLength) && contentLength >= 1 && contentLength <= 100 * 1024 * 1024;
+  const maximum = UPLOAD_MAX_BYTES[capability] || 100 * 1024 * 1024;
+  return TEAM_DEPLOYABLE_CAPABILITIES.includes(capability) && !!allowed && allowed.has(normalizedType) && Number.isSafeInteger(contentLength) && contentLength >= 1 && contentLength <= maximum;
 }
 function createTeamJob({ capability, ownerId, projectId, idempotencyKey, inputObjectKey, expiresAt, maxAttempts = 1, traceParent }) {
   if (!TEAM_DEPLOYABLE_CAPABILITIES.includes(capability)) throw new Error("unsupported capability");

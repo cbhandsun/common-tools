@@ -27,7 +27,8 @@ const MCP_OPTIONAL_CLIENT_SCOPE_NAMES = Object.freeze([
   "common-tools:capability:project-audit",
   "common-tools:capability:image-to-editable",
   "common-tools:capability:ppt-quality",
-  "common-tools:capability:ppt-improve"
+  "common-tools:capability:ppt-improve",
+  "common-tools:capability:ppt-create"
 ]);
 
 function mapperDefinition() {

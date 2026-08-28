@@ -137,6 +137,12 @@ function readRawImageDimensions(file, extension) {
   }
   throw new Error("raw editable JPEG dimensions are invalid");
 }
+function residualDeduplicationStatus(deck, residual) {
+  const required = Array.isArray(deck?.pages) && deck.pages.some((page) => (Array.isArray(page?.images) ? page.images : []).some((image) => image?.source?.residualCrop === true));
+  const candidateObjects = Number.isSafeInteger(residual?.candidateObjects) && residual.candidateObjects >= 0 ? residual.candidateObjects : 0;
+  const erasedObjects = Number.isSafeInteger(residual?.erasedObjects) && residual.erasedObjects >= 0 ? residual.erasedObjects : 0;
+  return Object.freeze({ required, passed: !required || (candidateObjects > 0 && erasedObjects === candidateObjects), candidateObjects, erasedObjects });
+}
 function runBuilder({ executable, builderArgs = [], deckFile, outputFile, cwd, timeoutMs }) {
   if (typeof executable !== "string" || !path.isAbsolute(executable)) throw new Error("OpenXML builder executable is invalid");
   if (!Array.isArray(builderArgs) || builderArgs.some((arg) => typeof arg !== "string" || !arg)) throw new TypeError("OpenXML builder arguments are invalid");
@@ -170,7 +176,9 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
         const validated = validateDeckIr(generatedDeck, root);
         const nativeMetrics = nativeObjectMetrics(generatedDeck);
         if (nativeMetrics.graphicalObjects < 1) throw new Error("native image rebuild produced no editable graphical objects");
+        const residualDeduplication = residualDeduplicationStatus(generatedDeck, rebuilt?.residual);
         metadata.pages = validated.pages; metadata.assets = validated.assets; metadata.nativeMetrics = nativeMetrics; metadata.normalizedSourceImage = rebuilt.sourceImage;
+        metadata.residualDeduplication = residualDeduplication;
       }
       const outputFile = path.join(root, "deck.pptx");
       await runBuilder({ executable: builderExecutable, builderArgs, deckFile: metadata.deckFile, outputFile, cwd: root, timeoutMs });
@@ -183,12 +191,16 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
         ? await rawImageQualityVerifier({ root, pptxFile: outputFile, sourceImage: metadata.normalizedSourceImage, isCancellationRequested })
         : null;
       const checks = [{ name: raw ? "raw-image-validated" : "deck-ir-validated", passed: true }, { name: "assets-resolved", passed: true }];
-      if (raw) checks.push({ name: "native-graphics-rebuilt", passed: (metadata.nativeMetrics?.graphicalObjects || 0) > 0 }, ...(visualQuality?.checks || [{ name: "quality-render-not-configured", passed: false }]));
+      if (raw) checks.push(
+        { name: "native-graphics-rebuilt", passed: (metadata.nativeMetrics?.graphicalObjects || 0) > 0 },
+        ...(metadata.residualDeduplication?.required ? [{ name: "residual-native-duplicates-removed", passed: metadata.residualDeduplication.passed }] : []),
+        ...(visualQuality?.checks || [{ name: "quality-render-not-configured", passed: false }])
+      );
       checks.push({ name: "pptx-generated", passed: true });
       await store.putObject({ objectKey: artifact.objectKey, body: artifact.body, contentType: artifact.mediaType });
-      return { artifacts: [{ name: artifact.name, objectKey: artifact.objectKey, mediaType: artifact.mediaType, sha256: sha256(artifact.body) }], quality: assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0, ...(visualQuality?.metrics || {}) } : {}), "pptx-bytes": body.length } }) };
+      return { artifacts: [{ name: artifact.name, objectKey: artifact.objectKey, mediaType: artifact.mediaType, sha256: sha256(artifact.body) }], quality: assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0, "residual-erased-native-objects": metadata.residualDeduplication?.erasedObjects || 0, ...(visualQuality?.metrics || {}) } : {}), "pptx-bytes": body.length } }) };
     } finally { fs.rmSync(root, { recursive: true, force: true, maxRetries: 2 }); }
   };
 }
 
-module.exports = { IMAGE_EXTENSIONS, MAX_DECK_BYTES, createImageToEditableArchiveHandler, readRawImageDimensions, safeAssetPath, validateDeckIr, validatePackage };
+module.exports = { IMAGE_EXTENSIONS, MAX_DECK_BYTES, createImageToEditableArchiveHandler, readRawImageDimensions, residualDeduplicationStatus, safeAssetPath, validateDeckIr, validatePackage };

@@ -16,10 +16,13 @@ Open **Plugins → Add → Add plugin marketplace** and enter:
 
 After adding the Marketplace, complete the OAuth prompt and start a new task so Codex loads the installed Skills and HTTPS MCP declaration. The same `plugins/common-tools` sparse path includes the lightweight local project-audit Runtime; no npm command or separate Runtime installation is needed. It contains no OCR models or `pd-hifi-slideclone` engine. Image conversion uploads only the explicitly approved image in a constrained gzip/TAR transport package; OCR, reconstruction, rendering, and quality work execute in the server-side Docker workers.
 
+The Marketplace commit and the hosted service release are one compatibility boundary, but they are deployed separately. Publishing the Git plugin updates Skills and MCP metadata; it does not rebuild or deploy the server-side Worker image. For `image-to-editable`, release the same reviewed revision as an immutable `image-worker` image and require the `residual-native-duplicates-removed`, `quality-rendered`, and `visual-fidelity` gates before describing an output as visually verified. CI packs and installs the npm Runtime and probes the residual-deduplication implementation so a release cannot silently omit its core files.
+
 | Capability | Default execution | Reason | Remote exception |
 | --- | --- | --- | --- |
 | `image-to-editable` | Remote | OCR, reconstruction, rendering, fonts, and quality gates are heavy and centrally versioned | No local fallback in the Marketplace workflow |
 | `project-audit` | Local | Source privacy, lower transfer cost, direct access to workspace evidence | Only explicit team/isolated execution plus separate upload approval |
+| `ppt-create` | Local when a complete Runtime is already installed; otherwise explicit remote | Semantic input is lightweight, but the sparse Marketplace does not embed the OpenXML builder | Upload only the approved PresentationSpec JSON to the hosted service |
 | `ppt-quality` | Local | The deck remains private and structural inspection is lightweight | Not advertised by the current public service |
 | `ppt-improve` | Local | Copy-on-write repair stays bound to the approved source and audit report | Not advertised by the current public service |
 
@@ -44,5 +47,14 @@ The repository plugin declares an HTTP MCP server at `https://plugins.iepose.cn/
 For project audit, the inverse default applies: run the local CLI against the approved workspace so source stays on the machine. Remote audit is allowed only when the execution policy permits it, the user explicitly requests team/isolated execution or centralized retention, and the user separately approves the bounded source upload. Local audit authorization alone never implies upload authorization.
 
 Developers who intentionally need the local stdio path must use a complete repository clone and run `npm ci` plus `npm run common-tools -- mcp serve`. That development workflow is separate from the sparse Marketplace installation.
+
+## Release checklist
+
+Before publishing a Git ref or immutable release tag:
+
+1. Run `npm run common-tools:verify-plugins` to verify capability/plugin versions, source-to-Marketplace byte identity, the unified Git plugin version, and the image residual quality contract.
+2. Run `npm run common-tools:verify-runtime-package` to execute `npm pack`, install the produced archive, and probe `image-to-editable` residual deduplication from the installed package.
+3. Build the `image-worker` image from the same revision, bind its immutable digest into release evidence, and pass production preflight.
+4. Deploy the Worker/API revision before or together with the Marketplace ref. A Marketplace-only publication changes guidance but does not activate server implementation changes.
 
 OAuth and user permission prompts remain interactive even when plugin installation is automatic.

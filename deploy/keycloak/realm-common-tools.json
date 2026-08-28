@@ -11,7 +11,7 @@
     "attributes": {"pkce.code.challenge.method": "S256", "exclude.issuer.from.auth.response": "false"},
     "redirectUris": ["http://127.0.0.1", "http://127.0.0.1:*"],
     "webOrigins": ["http://127.0.0.1:54000"],
-    "optionalClientScopes": ["offline_access", "common-tools:capability:project-audit", "common-tools:capability:image-to-editable", "common-tools:capability:ppt-quality", "common-tools:capability:ppt-improve"],
+    "optionalClientScopes": ["offline_access", "common-tools:capability:project-audit", "common-tools:capability:image-to-editable", "common-tools:capability:ppt-quality", "common-tools:capability:ppt-improve", "common-tools:capability:ppt-create"],
     "protocolMappers": [{
       "name": "mcp-audience",
       "protocol": "openid-connect",
@@ -38,5 +38,5 @@
       }
     }]
   }],
-  "clientScopes": [{"name": "common-tools:capability:project-audit", "protocol": "openid-connect"}, {"name": "common-tools:capability:image-to-editable", "protocol": "openid-connect"}, {"name": "common-tools:capability:ppt-quality", "protocol": "openid-connect"}, {"name": "common-tools:capability:ppt-improve", "protocol": "openid-connect"}]
+  "clientScopes": [{"name": "common-tools:capability:project-audit", "protocol": "openid-connect"}, {"name": "common-tools:capability:image-to-editable", "protocol": "openid-connect"}, {"name": "common-tools:capability:ppt-quality", "protocol": "openid-connect"}, {"name": "common-tools:capability:ppt-improve", "protocol": "openid-connect"}, {"name": "common-tools:capability:ppt-create", "protocol": "openid-connect"}]
 }

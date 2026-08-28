@@ -6,8 +6,8 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const zlib = require("node:zlib");
-const { createImageToEditableArchiveHandler } = require("../packages/slideclone-core/team-worker");
-const { boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, nativeObjectMetrics } = require("../packages/slideclone-core/team-native-rebuild");
+const { createImageToEditableArchiveHandler, residualDeduplicationStatus } = require("../packages/slideclone-core/team-worker");
+const { boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, nativeObjectMetrics, residualEraseObjects } = require("../packages/slideclone-core/team-native-rebuild");
 const { PROFILE_NAME, sha256File } = require("../packages/slideclone-core/team-ocr-profile");
 const { PROFILE_NAME: PADDLE_PROFILE_NAME } = require("../packages/slideclone-core/team-paddleocr-profile");
 const { startupFailureCode, workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-image-worker");
@@ -62,6 +62,14 @@ test("team image worker validates the optional render quality dependency at comp
     rawImageQualityVerifier: {},
     objectStore: { readObject: async () => Buffer.alloc(0), putObject: async () => {} }
   }), /rawImageQualityVerifier/);
+});
+
+test("residual duplicate-removal gate fails closed when a residual lacks complete erase evidence", () => {
+  const residualDeck = { pages: [{ images: [{ source: { residualCrop: true } }] }] };
+  assert.deepEqual(residualDeduplicationStatus({ pages: [{ images: [] }] }), { required: false, passed: true, candidateObjects: 0, erasedObjects: 0 });
+  assert.deepEqual(residualDeduplicationStatus(residualDeck, { candidateObjects: 3, erasedObjects: 3 }), { required: true, passed: true, candidateObjects: 3, erasedObjects: 3 });
+  assert.equal(residualDeduplicationStatus(residualDeck, { candidateObjects: 3, erasedObjects: 2 }).passed, false);
+  assert.equal(residualDeduplicationStatus(residualDeck, { candidateObjects: Number.NaN, erasedObjects: 0 }).passed, false);
 });
 
 test("team image worker accepts a bounded Deck IR archive and returns an owner-scoped PPTX", async () => {
@@ -124,7 +132,8 @@ test("team image worker requires native graphical reconstruction for a raw image
       rebuilt.pages[0].textBoxes[0].style.opacity = 1;
       rebuilt.pages[0].textBoxes[0].style.visibility = "visible";
       rebuilt.pages[0].shapes.push({ id: "native-card", type: "roundRect", box: { x: 4, y: 4, w: 120, h: 40 }, fill: "#FFFFFF", source: { editable: true, detector: "test-native-card" } });
-      return { deck: rebuilt, metrics: nativeObjectMetrics(rebuilt) };
+      rebuilt.pages[0].images.push({ id: "residual", assetPath: "assets/source.png", box: { x: 0, y: 0, w: 960, h: 540 }, source: { editable: false, residualCrop: true, nativeObjectsErased: true } });
+      return { deck: rebuilt, metrics: nativeObjectMetrics(rebuilt), residual: { candidateObjects: 2, erasedObjects: 2 } };
     },
     objectStore: {
       readObject: async () => archive([tarEntry("assets/source.png", source)]),
@@ -135,9 +144,10 @@ test("team image worker requires native graphical reconstruction for a raw image
     const output = await handler({ job: { capability: "image-to-editable", inputObjectKey: "owners/a/inputs/source.tar.gz", outputPrefix: "owners/a/jobs/job-raw/" }, isCancellationRequested: async () => false });
     assert.equal(output.artifacts[0].name, "deck.pptx");
     assert.equal(output.quality.passed, false);
-    assert.deepEqual(output.quality.checks.map((check) => check.name), ["raw-image-validated", "assets-resolved", "native-graphics-rebuilt", "quality-render-not-configured", "pptx-generated"]);
+    assert.deepEqual(output.quality.checks.map((check) => check.name), ["raw-image-validated", "assets-resolved", "native-graphics-rebuilt", "residual-native-duplicates-removed", "quality-render-not-configured", "pptx-generated"]);
     assert.equal(output.quality.metrics["native-shapes"], 1);
     assert.equal(output.quality.metrics["native-text-boxes"], 1);
+    assert.equal(output.quality.metrics["residual-erased-native-objects"], 2);
     assert.ok(uploads.has("owners/a/jobs/job-raw/deck.pptx"));
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
@@ -176,7 +186,7 @@ test("raw native rebuild adapter materializes a bounded work IR and requires gra
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
 
-test("real native rebuild regression combines native diagram cards with a text-erased fidelity residual", async () => {
+test("real native rebuild removes native diagram objects from its fidelity residual", async () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-native-diagram-"));
   const source = path.join(temporaryRoot, "diagram.png");
   writeThreeCardDiagram(source);
@@ -194,8 +204,18 @@ test("real native rebuild regression combines native diagram cards with a text-e
     });
     assert.ok(result.metrics.shapes >= 3);
     assert.equal(result.metrics.images, 1);
-    assert.equal(result.deck.pages[0].images[0].source.strategy, "full-slide-text-erased-residual");
+    assert.equal(result.deck.pages[0].images[0].source.strategy, "full-slide-object-erased-residual");
+    assert.equal(result.deck.pages[0].images[0].source.nativeObjectsErased, true);
+    assert.equal(result.residual.erasedObjects, result.residual.candidateObjects);
+    assert.ok(result.residual.erasedObjects >= 3);
     assert.ok(fs.existsSync(path.join(temporaryRoot, "assets", "deck-p01-full-residual.png")));
+    const residualImage = readPng(path.join(temporaryRoot, "assets", "deck-p01-full-residual.png"));
+    const nativeCard = result.deck.pages[0].shapes.find((item) => item.type !== "line" && item.box?.w > 50 && item.box?.h > 30);
+    assert.ok(nativeCard);
+    const sampleX = Math.round(nativeCard.box.x + nativeCard.box.w / 2);
+    const sampleY = Math.round(nativeCard.box.y + nativeCard.box.h / 2);
+    const sampleOffset = (sampleY * residualImage.width + sampleX) * 4;
+    assert.ok([...residualImage.rgba.subarray(sampleOffset, sampleOffset + 3)].every((channel) => channel >= 240));
     assert.ok(result.deck.pages[0].shapes.every((item) => !item.style?.nativeComponentGroupId));
     assert.ok(result.deck.pages[0].textBoxes.every((item) => !item.style?.nativeComponentGroupId));
     assert.equal(path.isAbsolute(result.sourceImage), true);
@@ -227,6 +247,35 @@ test("full-slide residual builder validates geometry and erases bounded text reg
       slideSize: { x: 0, y: 0, w: 960, h: 540 }
     }), /geometry/);
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
+});
+
+test("full-slide residual builder erases native objects, bounds volume, and honors cancellation", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-full-residual-objects-"));
+  const source = path.join(temporaryRoot, "source.png");
+  writeThreeCardDiagram(source);
+  try {
+    const objects = [
+      { type: "roundRect", box: { x: 80, y: 200, w: 200, h: 100 } },
+      { type: "line", box: { x: 280, y: 250, w: 100, h: 0 } }
+    ];
+    const result = await createFullSlideResidual({ sourceFile: source, outputFile: path.join(temporaryRoot, "objects.png"), objects, slideSize: { x: 0, y: 0, w: 960, h: 540 } });
+    assert.equal(result.erasedObjects, 2);
+    assert.equal(result.erasedTextBoxes, 0);
+    await assert.rejects(() => createFullSlideResidual({ sourceFile: source, outputFile: path.join(temporaryRoot, "outside.png"), objects: [{ type: "roundRect", box: { x: 950, y: 530, w: 20, h: 20 } }], slideSize: { x: 0, y: 0, w: 960, h: 540 } }), /geometry/);
+    await assert.rejects(() => createFullSlideResidual({ sourceFile: source, outputFile: path.join(temporaryRoot, "extreme.png"), objects: Array.from({ length: 30001 }, () => objects[0]), slideSize: { x: 0, y: 0, w: 960, h: 540 } }), /request/);
+    await assert.rejects(() => createFullSlideResidual({ sourceFile: source, outputFile: path.join(temporaryRoot, "cancelled.png"), objects: [], slideSize: { x: 0, y: 0, w: 960, h: 540 }, isCancellationRequested: async () => true }), /cancelled/);
+  } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
+});
+
+test("residual erase collection deduplicates geometry and excludes explicitly non-editable graphics", () => {
+  const box = { x: 10, y: 10, w: 100, h: 40 };
+  const objects = residualEraseObjects({
+    textBoxes: [{ id: "text-a", box }, { id: "text-b", box }],
+    shapes: [{ id: "native", type: "roundRect", box: { x: 150, y: 10, w: 100, h: 40 }, source: { editable: true } }, { id: "raster", type: "roundRect", box: { x: 300, y: 10, w: 100, h: 40 }, source: { editable: false } }],
+    tables: [], charts: [], icons: []
+  });
+  assert.deepEqual(objects.map((item) => item.id), ["text-a", "native"]);
+  assert.throws(() => residualEraseObjects({ textBoxes: [{ id: "bad", box: { x: 0, y: 0, w: Number.NaN, h: 1 } }] }), /invalid/);
 });
 
 test("team image worker refuses raw images when its pinned OCR profile is not configured", async () => {

@@ -12,6 +12,7 @@ test("CLI declares every workspace package used by its composition root", () => 
   const expected = [
     "@common-tools/capability-runtime",
     "@common-tools/mcp-server",
+    "@common-tools/ppt-create-core",
     "@common-tools/ppt-improve-core",
     "@common-tools/ppt-quality-core",
     "@common-tools/project-audit-core",
@@ -33,9 +34,9 @@ test("workspace packages declare direct sibling dependencies without a team-runt
   const required = {
     "capability-runtime": ["@common-tools/capability-contracts"],
     "project-audit-core": ["@common-tools/capability-contracts", "@common-tools/capability-runtime"],
-    "mcp-server": ["@common-tools/capability-runtime", "@common-tools/ppt-improve-core", "@common-tools/ppt-quality-core", "@common-tools/project-audit-core", "@common-tools/slideclone-core"],
+    "mcp-server": ["@common-tools/capability-runtime", "@common-tools/ppt-create-core", "@common-tools/ppt-improve-core", "@common-tools/ppt-quality-core", "@common-tools/project-audit-core", "@common-tools/slideclone-core"],
     "team-runtime": ["@common-tools/capability-contracts", "@common-tools/capability-runtime"],
-    "remote-mcp-server": ["@common-tools/capability-runtime", "@common-tools/mcp-server", "@common-tools/ppt-improve-core", "@common-tools/ppt-quality-core", "@common-tools/project-audit-core", "@common-tools/slideclone-core", "@common-tools/team-runtime"]
+    "remote-mcp-server": ["@common-tools/capability-runtime", "@common-tools/mcp-server", "@common-tools/ppt-create-core", "@common-tools/ppt-improve-core", "@common-tools/ppt-quality-core", "@common-tools/project-audit-core", "@common-tools/slideclone-core", "@common-tools/team-runtime"]
   };
   for (const [packageName, dependencies] of Object.entries(required)) {
     const manifest = JSON.parse(fs.readFileSync(path.join(root, "packages", packageName, "package.json"), "utf8"));

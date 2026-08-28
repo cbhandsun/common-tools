@@ -94,6 +94,24 @@ function ungroupHybridOverlayObjects(page) {
   }
 }
 
+function residualEraseObjects(page) {
+  if (!page || typeof page !== "object" || Array.isArray(page)) throw new TypeError("native image residual page is invalid");
+  const objects = [];
+  const seen = new Set();
+  for (const [collection, requireEditable] of [["textBoxes", false], ["shapes", true], ["tables", true], ["charts", true], ["icons", true]]) {
+    for (const item of Array.isArray(page[collection]) ? page[collection] : []) {
+      if (!item || typeof item !== "object" || Array.isArray(item) || (requireEditable && item.source?.editable === false)) continue;
+      const box = item.box;
+      if (!box || !["x", "y", "w", "h"].every((key) => Number.isFinite(box[key]))) throw new Error("native image residual object is invalid");
+      const key = [item.type || collection, box.x, box.y, box.w, box.h].join(":");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      objects.push(item);
+    }
+  }
+  return objects;
+}
+
 function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageFile, createFullSlideResidual } = {}) {
   if (typeof rebuildDeckFromWorkDir !== "function") throw new TypeError("native image rebuild implementation is required");
   if (normalizeImageFile !== undefined && typeof normalizeImageFile !== "function") throw new TypeError("native image normalizer is invalid");
@@ -131,36 +149,40 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
       const page = generatedDeck?.pages?.[0];
       const slideSize = generatedDeck?.slideSize;
       if (!page || !Array.isArray(page.textBoxes) || !Number.isFinite(slideSize?.widthPt) || !Number.isFinite(slideSize?.heightPt)) throw new Error("native image rebuild produced an invalid page");
-      await createFullSlideResidual({
+      const eraseObjects = residualEraseObjects(page);
+      const residual = await createFullSlideResidual({
         sourceFile,
         outputFile: path.join(root, ...residualAssetPath.split("/")),
-        textBoxes: page.textBoxes,
+        objects: eraseObjects,
         slideSize: { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt },
         isCancellationRequested
       });
+      if (residual?.erasedObjects !== eraseObjects.length) throw new Error("native image residual deduplication is incomplete");
       ungroupHybridOverlayObjects(page);
       page.images = [{
         id: "full-slide-residual",
         type: "fidelity-crop",
         assetPath: residualAssetPath,
         box: { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt },
-        style: { opacity: 1, assetPath: residualAssetPath, strategy: "full-slide-text-erased-residual" },
+        style: { opacity: 1, assetPath: residualAssetPath, strategy: "full-slide-object-erased-residual" },
         source: {
           pageImage: metadata.assetPath,
           editable: false,
           residualCrop: true,
           textObjectified: true,
-          strategy: "full-slide-text-erased-residual",
-          nonEditableReason: "Complex pictorial details are preserved while OCR text and detected native objects remain independently editable."
+          nativeObjectsErased: true,
+          strategy: "full-slide-object-erased-residual",
+          nonEditableReason: "Complex pictorial details are preserved after independently editable text and native objects are removed from the residual."
         }
       }];
+      generatedDeck.meta = { ...(generatedDeck.meta || {}), residualDeduplication: { candidateObjects: eraseObjects.length, erasedObjects: residual.erasedObjects } };
     }
     normalizeSourceAssetProvenance(generatedDeck, metadata.assetPath);
     const metrics = nativeObjectMetrics(generatedDeck);
     if (metrics.graphicalObjects < 1) throw new Error("native image rebuild produced no editable graphical objects");
     copyDirectoryFiles(path.join(workDir, "ir", "assets"), path.join(root, "assets"));
-    return Object.freeze({ deck: generatedDeck, metrics, sourceImage: sourceFile });
+    return Object.freeze({ deck: generatedDeck, metrics, sourceImage: sourceFile, residual: generatedDeck.meta?.residualDeduplication || null });
   };
 }
 
-module.exports = { boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, nativeObjectMetrics, normalizeSourceAssetProvenance, ungroupHybridOverlayObjects };
+module.exports = { boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, nativeObjectMetrics, normalizeSourceAssetProvenance, residualEraseObjects, ungroupHybridOverlayObjects };

@@ -1,6 +1,6 @@
 {
   "name": "image-to-editable",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Create controlled local image-to-editable jobs with common-tools.",
   "author": { "name": "common-tools" }
 }

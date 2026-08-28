@@ -1,13 +1,15 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 const packageManifest = require("../package.json");
-const { MAX_PACKAGE_BYTES, REQUIRED_FILES, npmInvocation, parsePackMetadata } = require("../scripts/verify-runtime-package");
+const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, REQUIRED_FILES, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, runClassifiedProbe } = require("../scripts/verify-runtime-package");
 
 function metadata(files = REQUIRED_FILES) {
   return JSON.stringify([{
-    filename: "common-tools-0.1.0.tgz",
+    filename: "common-tools-0.1.1.tgz",
     size: 1024,
     files: files.map((file) => ({ path: file, size: 1 }))
   }]);
@@ -15,7 +17,7 @@ function metadata(files = REQUIRED_FILES) {
 
 test("runtime package verifier accepts a bounded release-only file manifest", () => {
   const result = parsePackMetadata(metadata([...REQUIRED_FILES, "README.md"]));
-  assert.equal(result.filename, "common-tools-0.1.0.tgz");
+  assert.equal(result.filename, "common-tools-0.1.1.tgz");
   assert.equal(result.size, 1024);
   assert.deepEqual(result.files, [...REQUIRED_FILES, "README.md"]);
 });
@@ -31,6 +33,27 @@ test("runtime package verifier rejects missing, unsafe, duplicate, and oversized
 test("runtime package verification is an explicit release and CI gate", () => {
   assert.equal(packageManifest.scripts["common-tools:verify-runtime-package"], "node scripts/verify-runtime-package.js");
   assert.match(packageManifest.scripts["verify:ci"], /common-tools:verify-runtime-package/);
+  const workflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "ci.yml"), "utf8");
+  assert.match(workflow, /Pack, install, and verify the release Runtime[\s\S]*npm run common-tools:verify-runtime-package/);
+});
+
+test("runtime package release gate retains and probes the image residual deduplication implementation", () => {
+  for (const file of IMAGE_EDITABLE_RELEASE_FILES) assert.ok(REQUIRED_FILES.includes(file));
+  const probe = imageEditableEnhancementProbe();
+  for (const marker of ["residualEraseObjects", "residualDeduplicationStatus", "eraseObjectMask", "full-slide-object-erased-residual", "residual-native-duplicates-removed"]) assert.match(probe, new RegExp(marker));
+  assert.match(probe, /remote-worker-wiring/);
+});
+
+test("classified Runtime probes expose only bounded safe failure codes", () => {
+  assert.equal(runClassifiedProbe(() => ({ status: 0, stdout: "ready" }), [], process.cwd(), "probe failed"), "ready");
+  assert.throws(
+    () => runClassifiedProbe(() => ({ status: 2, stdout: "remote-worker-wiring" }), [], process.cwd(), "probe failed"),
+    /probe failed \(remote-worker-wiring\)/
+  );
+  assert.throws(
+    () => runClassifiedProbe(() => ({ status: 2, stdout: "secret=value\n" }), [], process.cwd(), "probe failed"),
+    /probe failed \(unclassified\)/
+  );
 });
 
 test("runtime package retains the Git marketplace required by installed plugin commands", () => {

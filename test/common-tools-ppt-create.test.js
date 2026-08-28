@@ -1,0 +1,180 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const test = require("node:test");
+const { createPptCreateJob, pptCreateSummary, runPptCreateJob } = require("../packages/ppt-create-core");
+const { createDeckIr } = require("../packages/ppt-create-core/layout");
+const { MAX_SLIDES, parsePresentationSpec, validatePresentationSpec } = require("../packages/ppt-create-core/spec");
+const { createPptCreateHandler } = require("../packages/ppt-create-core/team-worker");
+const { resolveExecutionRoute, setCapabilityEnabled } = require("../packages/capability-runtime");
+const { validUploadRequest } = require("../packages/team-runtime");
+const { workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker");
+const { callTool } = require("../packages/mcp-server/core");
+
+function temporaryWorkspace() { return fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-create-test-")); }
+function validSpec() {
+  return {
+    version: "1.0",
+    title: "季度经营复盘",
+    subtitle: "从事实到行动",
+    audience: "经营团队",
+    theme: "clean-light-v1",
+    slides: [
+      { id: "cover", role: "cover", title: "季度经营复盘", summary: "聚焦增长质量与下一阶段动作" },
+      { id: "metrics", role: "metrics", title: "核心指标", summary: "收入保持增长，交付效率仍需改善", items: [
+        { id: "revenue", label: "营业收入", value: "¥12.4M", detail: "同比增长 18%" },
+        { id: "margin", label: "毛利率", value: "42%", detail: "较上季度提升 3 个百分点" }
+      ] },
+      { id: "process", role: "process", title: "下一阶段路径", items: [
+        { id: "focus", label: "聚焦", detail: "确认优先客户群" },
+        { id: "pilot", label: "试点", detail: "验证交付方案" },
+        { id: "scale", label: "复制", detail: "形成标准打法" }
+      ] },
+      { id: "closing", role: "closing", title: "以可验证结果推进下一阶段", summary: "所有动作均绑定负责人和完成标准" }
+    ]
+  };
+}
+function writeSpec(root, value = validSpec()) {
+  const file = path.join(root, "presentation.json");
+  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+  return file;
+}
+function fakePptxBuilder({ outFile }) { fs.writeFileSync(outFile, Buffer.concat([Buffer.from("PK\u0003\u0004"), Buffer.alloc(64, 1)]), { flag: "wx" }); }
+
+test("presentation spec validates a bounded semantic deck and creates editable Deck IR", () => {
+  const spec = validatePresentationSpec(validSpec());
+  const ir = createDeckIr(spec);
+  assert.equal(ir.pages.length, 4);
+  assert.equal(ir.pages.every((page) => page.images.length === 0), true);
+  assert.equal(ir.pages.every((page) => page.textBoxes.length + page.shapes.length > 0), true);
+  for (const page of ir.pages) {
+    for (const item of [...page.textBoxes, ...page.shapes]) {
+      assert.ok(item.box.x >= 0 && item.box.y >= 0);
+      assert.ok(item.box.x + item.box.w <= 960.001);
+      assert.ok(item.box.y + item.box.h <= 540.001);
+      assert.equal(item.source.editable, true);
+    }
+  }
+});
+
+test("presentation spec rejects empty, malformed, unknown, placeholder, duplicate, and incompatible content", () => {
+  assert.throws(() => parsePresentationSpec(Buffer.alloc(0)), /file size/);
+  assert.throws(() => parsePresentationSpec(Buffer.from("{")), /invalid JSON/);
+  assert.throws(() => validatePresentationSpec({ ...validSpec(), unexpected: true }), /unsupported fields/);
+  assert.throws(() => validatePresentationSpec({ ...validSpec(), title: "TODO" }), /placeholder/);
+  const duplicate = validSpec(); duplicate.slides[1].id = "cover";
+  assert.throws(() => validatePresentationSpec(duplicate), /unique/);
+  const incompatible = validSpec(); incompatible.slides[1].items = [incompatible.slides[1].items[0]];
+  assert.throws(() => validatePresentationSpec(incompatible), /incompatible/);
+  const lateCover = validSpec(); lateCover.slides[2].role = "cover"; lateCover.slides[2].items = [];
+  assert.throws(() => validatePresentationSpec(lateCover), /only one cover/);
+});
+
+test("presentation spec enforces extreme slide count and string boundaries", () => {
+  const extreme = validSpec();
+  extreme.slides = [extreme.slides[0], ...Array.from({ length: MAX_SLIDES }, (_, index) => ({ id: `content-${index}`, role: "content", title: `Page ${index}`, items: [{ id: "fact", label: "Fact" }] }))];
+  assert.throws(() => validatePresentationSpec(extreme), /slide count/);
+  const longTitle = validSpec(); longTitle.slides[1].title = "x".repeat(121);
+  assert.throws(() => validatePresentationSpec(longTitle), /invalid/);
+});
+
+test("local ppt-create job writes IR, PPTX, and non-content quality reports", () => {
+  const root = temporaryWorkspace();
+  try {
+    const input = writeSpec(root);
+    const output = path.join(root, "out");
+    const stateRoot = path.join(root, "state");
+    const created = createPptCreateJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output });
+    assert.equal(created.status, "queued");
+    const completed = runPptCreateJob({ stateRoot, ownerId: "owner", id: created.id, buildPptx: fakePptxBuilder });
+    assert.equal(completed.status, "succeeded");
+    assert.equal(completed.quality.passed, true);
+    assert.deepEqual(completed.artifacts.map((item) => item.name), ["deck.ir.json", "deck.pptx", "ppt-create-report.json", "ppt-create-report.md"]);
+    const reportText = fs.readFileSync(path.join(output, "ppt-create-report.json"), "utf8");
+    assert.doesNotMatch(reportText, /季度经营复盘|营业收入/);
+    assert.equal(pptCreateSummary(completed, root).pageCount, 4);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("local ppt-create fails closed when input changes or builder fails", () => {
+  const root = temporaryWorkspace();
+  try {
+    const input = writeSpec(root);
+    const stateRoot = path.join(root, "state");
+    const first = createPptCreateJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: path.join(root, "changed") });
+    fs.appendFileSync(input, " ");
+    const changed = runPptCreateJob({ stateRoot, ownerId: "owner", id: first.id, buildPptx: fakePptxBuilder });
+    assert.equal(changed.status, "failed");
+    assert.equal(fs.existsSync(path.join(root, "changed")), false);
+    fs.writeFileSync(input, `${JSON.stringify(validSpec())}\n`);
+    const second = createPptCreateJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: path.join(root, "builder-failure"), idempotencyKey: "second" });
+    const failed = runPptCreateJob({ stateRoot, ownerId: "owner", id: second.id, buildPptx: () => { throw new Error("secret content"); } });
+    assert.equal(failed.status, "failed");
+    assert.equal(failed.error.message, "PPT creation failed");
+    assert.equal(fs.existsSync(path.join(root, "builder-failure")), false);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("local ppt-create rejects output overwrite, traversal, and symbolic input", (t) => {
+  const root = temporaryWorkspace();
+  try {
+    const input = writeSpec(root); const stateRoot = path.join(root, "state");
+    fs.mkdirSync(path.join(root, "existing"));
+    assert.throws(() => createPptCreateJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: path.join(root, "existing") }), /must not already exist/);
+    assert.throws(() => createPptCreateJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: path.join(root, "..", "escape") }), /outside the approved root/);
+    const link = path.join(root, "linked.json");
+    try { fs.symlinkSync(input, link); }
+    catch { t.skip("symbolic links are unavailable"); return; }
+    assert.throws(() => createPptCreateJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input: link, output: path.join(root, "linked-out") }), /non-symbolic/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("team ppt-create worker uses the same spec and emits owner-scoped artifacts", async () => {
+  const stored = new Map(); const input = Buffer.from(JSON.stringify(validSpec()));
+  const objectStore = {
+    readObject: async ({ objectKey, maxBytes }) => { assert.equal(objectKey, "owners/hash/inputs/spec"); assert.ok(input.length <= maxBytes); return input; },
+    putObject: async ({ objectKey, body, contentType }) => { stored.set(objectKey, { body, contentType }); }
+  };
+  const handler = createPptCreateHandler({ objectStore, buildPptx: fakePptxBuilder, temporaryRoot: os.tmpdir() });
+  const result = await handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/spec", outputPrefix: "owners/hash/jobs/1/" }, isCancellationRequested: async () => false });
+  assert.equal(result.quality.passed, true);
+  assert.equal(result.artifacts.length, 4);
+  assert.equal([...stored.keys()].every((key) => key.startsWith("owners/hash/jobs/1/")), true);
+});
+
+test("team ppt-create worker honors cancellation before reading input", async () => {
+  let read = false;
+  const handler = createPptCreateHandler({ objectStore: { readObject: async () => { read = true; }, putObject: async () => {} }, buildPptx: fakePptxBuilder });
+  await assert.rejects(() => handler({ job: { capability: "ppt-create", inputObjectKey: "owners/hash/inputs/spec", outputPrefix: "owners/hash/jobs/1/" }, isCancellationRequested: async () => true }), /cancelled/);
+  assert.equal(read, false);
+});
+
+test("ppt-create routing and remote upload boundaries are explicit", () => {
+  assert.deepEqual(resolveExecutionRoute({ capability: "ppt-create", executionMode: "local-preferred" }), { execution: "local", reason: "local-capability-default", locallySupported: true });
+  assert.deepEqual(resolveExecutionRoute({ capability: "ppt-create", executionMode: "remote-only" }), { execution: "remote", reason: "configured-remote-only", locallySupported: true });
+  assert.equal(validUploadRequest("ppt-create", "application/json", 1024 * 1024), true);
+  assert.equal(validUploadRequest("ppt-create", "application/json", 1024 * 1024 + 1), false);
+  assert.equal(validUploadRequest("ppt-create", "text/json", 100), false);
+  assert.equal(workerSettings({ COMMON_TOOLS_WORKER_CAPABILITIES: "ppt-create" }).pollSeconds, 5);
+  assert.throws(() => workerSettings({ COMMON_TOOLS_WORKER_CAPABILITIES: "ppt-quality" }), /supports only ppt-create/);
+  assert.throws(() => workerSettings({ COMMON_TOOLS_WORKER_CAPABILITIES: "ppt-create", COMMON_TOOLS_WORKER_POLL_SECONDS: "0" }), /between 1 and 60/);
+});
+
+test("local MCP creates a ppt-create job and returns only its verified creation summary", () => {
+  const root = temporaryWorkspace();
+  try {
+    const stateRoot = path.join(root, "state");
+    setCapabilityEnabled(stateRoot, "ppt-create", true);
+    const context = { workspaceRoot: root, stateRoot, ownerId: "owner" };
+    const created = callTool("create_ppt_create_job", { input: writeSpec(root), output: path.join(root, "mcp-out") }, context);
+    assert.equal(created.capability, "ppt-create");
+    runPptCreateJob({ stateRoot, ownerId: "owner", id: created.id, buildPptx: fakePptxBuilder });
+    const report = callTool("get_ppt_create_report", { id: created.id }, context);
+    assert.deepEqual(Object.keys(report).sort(), ["artifacts", "capability", "creation", "id", "quality", "status"]);
+    assert.deepEqual(report.creation, { theme: "clean-light-v1", pageCount: 4, pptxSha256: report.creation.pptxSha256 });
+    assert.doesNotMatch(JSON.stringify(report), /季度经营复盘|营业收入/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

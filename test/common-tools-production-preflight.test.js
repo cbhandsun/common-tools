@@ -166,6 +166,24 @@ test("production preflight supports the PPT improve pipeline without requiring a
   assert.deepEqual(composeInput, { remoteImage: environment.COMMON_TOOLS_REMOTE_IMAGE, imageWorkerImage: undefined, enabledCapabilities: ["ppt-improve"] });
 });
 
+test("production preflight binds ppt-create to the immutable image Worker", () => {
+  const environment = productionEnvironment({ COMMON_TOOLS_TEAM_CAPABILITIES: "ppt-create" });
+  let composeInput = null;
+  const result = runProductionPreflight(environment, {
+    repositoryRoot: path.resolve(__dirname, ".."),
+    composeValidator(_root, _files, input) { composeInput = input; },
+    evidenceVerifier: verifiedEvidence(environment)
+  });
+  assert.deepEqual(result.enabledCapabilities, ["ppt-create"]);
+  assert.deepEqual(result.releaseEvidence.images, [environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE, environment.COMMON_TOOLS_REMOTE_IMAGE].sort());
+  assert.deepEqual(composeInput, { remoteImage: environment.COMMON_TOOLS_REMOTE_IMAGE, imageWorkerImage: environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE, enabledCapabilities: ["ppt-create"] });
+  assert.throws(() => runProductionPreflight({ ...environment, COMMON_TOOLS_IMAGE_WORKER_IMAGE: undefined }, {
+    repositoryRoot: path.resolve(__dirname, ".."),
+    composeValidator() { assert.fail("must not parse Compose"); },
+    evidenceVerifier: verifiedEvidence(environment)
+  }), /IMAGE_WORKER_IMAGE/);
+});
+
 test("production preflight binds an enabled raw image OCR profile to signed release evidence", () => {
   const environment = productionEnvironment({
     COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE: "tesseract-tsv-v1",

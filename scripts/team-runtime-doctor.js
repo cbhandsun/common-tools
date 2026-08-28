@@ -11,7 +11,7 @@ const MAX_METADATA_BYTES = 16 * 1024;
 const CODEX_NATIVE_LOOPBACK_REDIRECT_URI = "http://127.0.0.1:43123/callback/common-tools-mcp";
 const DEFAULT_GATEWAY_URL = "http://127.0.0.1:54000";
 const CORE_SERVICES = Object.freeze(["postgres", "redis", "minio", "keycloak", "remote-mcp", "remote-mcp-gateway"]);
-const ALL_SERVICES = Object.freeze([...CORE_SERVICES, "image-to-editable-worker", "ppt-improve-worker", "ppt-quality-worker", "project-audit-worker", "team-retention"]);
+const ALL_SERVICES = Object.freeze([...CORE_SERVICES, "image-to-editable-worker", "ppt-create-worker", "ppt-improve-worker", "ppt-quality-worker", "project-audit-worker", "team-retention"]);
 const HEALTHY_SERVICES = new Set(["postgres", "redis", "minio", "keycloak", "remote-mcp"]);
 
 function assertProject(value) {

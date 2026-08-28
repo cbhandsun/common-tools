@@ -12,6 +12,7 @@ const CONTRACT_TESTS = new Set([
 const INTEGRATION_TESTS = new Set([
   "chart-native-render-golden.test.js",
   "complex-graphic-golden-smoke.test.js",
+  "common-tools-ppt-create-openxml-smoke.test.js",
   "component-assets-golden-gate.test.js",
   "component-harvest-candidate-rank.test.js",
   "component-harvest-shortlist.test.js",
