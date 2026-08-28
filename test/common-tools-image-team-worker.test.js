@@ -56,6 +56,14 @@ test("contextual OCR correction only repairs AI Agent when the page contains can
   assert.equal(correctContextualOcrLines([{ text: "Al Agent" }, { text: "Al Smith" }])[0].text, "Al Agent");
 });
 
+test("team image worker validates the optional render quality dependency at composition time", () => {
+  assert.throws(() => createImageToEditableArchiveHandler({
+    temporaryRoot: path.resolve(os.tmpdir()),
+    rawImageQualityVerifier: {},
+    objectStore: { readObject: async () => Buffer.alloc(0), putObject: async () => {} }
+  }), /rawImageQualityVerifier/);
+});
+
 test("team image worker accepts a bounded Deck IR archive and returns an owner-scoped PPTX", async () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-"));
   const builderFile = path.join(temporaryRoot, "builder.js");
@@ -190,6 +198,8 @@ test("real native rebuild regression combines native diagram cards with a text-e
     assert.ok(fs.existsSync(path.join(temporaryRoot, "assets", "deck-p01-full-residual.png")));
     assert.ok(result.deck.pages[0].shapes.every((item) => !item.style?.nativeComponentGroupId));
     assert.ok(result.deck.pages[0].textBoxes.every((item) => !item.style?.nativeComponentGroupId));
+    assert.equal(path.isAbsolute(result.sourceImage), true);
+    assert.ok(fs.existsSync(result.sourceImage));
     assert.equal(result.deck.pages[0].sourceImage, "assets/source.png");
     assert.ok(result.deck.pages[0].textBoxes.every((item) => item.source.pageImage === "assets/source.png"));
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
@@ -256,12 +266,15 @@ test("image Worker Docker context contains only runtime sources and OpenXML buil
   assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
   assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
   assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/lib/);
-  assert.match(dockerfile, /apt-get install --yes --no-install-recommends libicu72 libssl3/);
+  assert.match(dockerfile, /apt-get install --yes --no-install-recommends libicu72 libssl3 libreoffice-impress poppler-utils fonts-noto-cjk fonts-liberation/);
+  assert.match(dockerfile, /scripts\/adapters\/render-libreoffice\.js/);
+  assert.match(dockerfile, /scripts\/adapters\/diff-pixel-png\.js/);
   assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone \.\/skills\/pd-hifi-slideclone/);
   assert.match(ignore, /^\*\*$/m);
   assert.match(ignore, /^!packages\/\*\*$/m);
   assert.match(ignore, /^!skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder\/\*\*$/m);
   assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/lib\/\*\*$/m);
+  assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/adapters\/render-libreoffice\.js$/m);
 });
 
 test("optional team OCR Docker profile is separate, version-bounded, and never part of the default Compose file", () => {

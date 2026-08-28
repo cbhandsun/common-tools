@@ -43,6 +43,12 @@ function createNativeRebuilder(settings, { loadImplementation = () => require(".
   const createFullSlideResidual = createFullSlideResidualBuilder({ eraseMasks: implementation.eraseMasks, readPng: implementation.readPng, writePng });
   return createRawImageNativeRebuilder({ rebuildDeckFromWorkDir: implementation.rebuildDeckFromWorkDir, normalizeImageFile, createFullSlideResidual });
 }
+function createRenderQualityVerifier() {
+  const renderPresentation = require("../../../skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice");
+  const { comparePageFiles } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/diff-pixel-png");
+  const { createRawImageRenderQualityVerifier } = require("../../slideclone-core/team-render-quality");
+  return createRawImageRenderQualityVerifier({ renderPresentation, comparePageFiles });
+}
 async function main(environment = process.env) {
   const config = loadTeamConfig(environment);
   if (!config.enabledCapabilities.includes("image-to-editable")) throw new Error("image-to-editable is not enabled for this team deployment");
@@ -69,7 +75,7 @@ async function main(environment = process.env) {
     await workerHeartbeat.ready;
     const worker = new TeamWorker({
       repository: bundle.repository,
-      handlers: { "image-to-editable": createTracedWorkerHandler(createImageToEditableArchiveHandler({ objectStore: bundle.objectStore, builderExecutable: settings.builderExecutable, rawImageOcr, rawImageRebuilder }), { exporter: traceExporter, capability: "image-to-editable" }) },
+      handlers: { "image-to-editable": createTracedWorkerHandler(createImageToEditableArchiveHandler({ objectStore: bundle.objectStore, builderExecutable: settings.builderExecutable, rawImageOcr, rawImageRebuilder, rawImageQualityVerifier: createRenderQualityVerifier() }), { exporter: traceExporter, capability: "image-to-editable" }) },
       leaseSeconds: config.workerLeaseSeconds
     });
     const runner = new TeamWorkerRunner({ queue: bundle.queue, worker, workerId: settings.workerId, capability: "image-to-editable", pollSeconds: settings.pollSeconds });
@@ -88,4 +94,4 @@ async function main(environment = process.env) {
 
 if (require.main === module) main().catch((error) => { process.stderr.write(`team image worker could not start (${startupFailureCode(error)})\n`); process.exitCode = 1; });
 
-module.exports = { createNativeRebuilder, main, pathIsFile, startupFailureCode, workerSettings };
+module.exports = { createNativeRebuilder, createRenderQualityVerifier, main, pathIsFile, startupFailureCode, workerSettings };

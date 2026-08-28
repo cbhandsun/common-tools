@@ -144,10 +144,11 @@ function runBuilder({ executable, builderArgs = [], deckFile, outputFile, cwd, t
     childProcess.execFile(executable, [...builderArgs, "--ir", deckFile, "--out", outputFile, "--powerpoint-safe", "true"], { cwd, windowsHide: true, timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error) => error ? reject(error) : resolve());
   });
 }
-function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.tmpdir(), builderExecutable = process.env.OPENXML_BUILDER_EXE || "/opt/openxml/OpenXmlDeckBuilder", builderArgs = [], rawImageOcr, rawImageRebuilder, timeoutMs = 8 * 60 * 1000 } = {}) {
+function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.tmpdir(), builderExecutable = process.env.OPENXML_BUILDER_EXE || "/opt/openxml/OpenXmlDeckBuilder", builderArgs = [], rawImageOcr, rawImageRebuilder, rawImageQualityVerifier, timeoutMs = 8 * 60 * 1000 } = {}) {
   const store = assertObjectStore(objectStore);
   if (typeof temporaryRoot !== "string" || !path.isAbsolute(temporaryRoot)) throw new TypeError("temporaryRoot must be an absolute path");
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 30000 || timeoutMs > 9 * 60 * 1000) throw new RangeError("editable worker timeout is invalid");
+  if (rawImageQualityVerifier !== undefined && typeof rawImageQualityVerifier !== "function") throw new TypeError("rawImageQualityVerifier must be a function");
   return async ({ job, isCancellationRequested }) => {
     if (!job || job.capability !== "image-to-editable" || typeof job.inputObjectKey !== "string" || typeof job.outputPrefix !== "string") throw new Error("editable worker job is invalid");
     if (await isCancellationRequested()) throw new Error("editable job was cancelled");
@@ -169,7 +170,7 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
         const validated = validateDeckIr(generatedDeck, root);
         const nativeMetrics = nativeObjectMetrics(generatedDeck);
         if (nativeMetrics.graphicalObjects < 1) throw new Error("native image rebuild produced no editable graphical objects");
-        metadata.pages = validated.pages; metadata.assets = validated.assets; metadata.nativeMetrics = nativeMetrics;
+        metadata.pages = validated.pages; metadata.assets = validated.assets; metadata.nativeMetrics = nativeMetrics; metadata.normalizedSourceImage = rebuilt.sourceImage;
       }
       const outputFile = path.join(root, "deck.pptx");
       await runBuilder({ executable: builderExecutable, builderArgs, deckFile: metadata.deckFile, outputFile, cwd: root, timeoutMs });
@@ -177,9 +178,15 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       if (await isCancellationRequested()) throw new Error("editable job was cancelled");
       const body = fs.readFileSync(outputFile);
       const artifact = { name: "deck.pptx", objectKey: `${job.outputPrefix}deck.pptx`, mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", body };
-      await store.putObject({ objectKey: artifact.objectKey, body: artifact.body, contentType: artifact.mediaType });
       const raw = metadata.kind === "raw-image";
-      return { artifacts: [{ name: artifact.name, objectKey: artifact.objectKey, mediaType: artifact.mediaType, sha256: sha256(artifact.body) }], quality: assertQualityReport({ passed: !raw, checks: [{ name: raw ? "raw-image-validated" : "deck-ir-validated", passed: true }, { name: "assets-resolved", passed: true }, ...(raw ? [{ name: "native-graphics-rebuilt", passed: (metadata.nativeMetrics?.graphicalObjects || 0) > 0 }, { name: "quality-render-not-configured", passed: false }] : []), { name: "pptx-generated", passed: true }], metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0 } : {}), "pptx-bytes": body.length } }) };
+      const visualQuality = raw && rawImageQualityVerifier
+        ? await rawImageQualityVerifier({ root, pptxFile: outputFile, sourceImage: metadata.normalizedSourceImage, isCancellationRequested })
+        : null;
+      const checks = [{ name: raw ? "raw-image-validated" : "deck-ir-validated", passed: true }, { name: "assets-resolved", passed: true }];
+      if (raw) checks.push({ name: "native-graphics-rebuilt", passed: (metadata.nativeMetrics?.graphicalObjects || 0) > 0 }, ...(visualQuality?.checks || [{ name: "quality-render-not-configured", passed: false }]));
+      checks.push({ name: "pptx-generated", passed: true });
+      await store.putObject({ objectKey: artifact.objectKey, body: artifact.body, contentType: artifact.mediaType });
+      return { artifacts: [{ name: artifact.name, objectKey: artifact.objectKey, mediaType: artifact.mediaType, sha256: sha256(artifact.body) }], quality: assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0, ...(visualQuality?.metrics || {}) } : {}), "pptx-bytes": body.length } }) };
     } finally { fs.rmSync(root, { recursive: true, force: true, maxRetries: 2 }); }
   };
 }

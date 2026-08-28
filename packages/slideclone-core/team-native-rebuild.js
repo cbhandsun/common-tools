@@ -159,7 +159,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
     const metrics = nativeObjectMetrics(generatedDeck);
     if (metrics.graphicalObjects < 1) throw new Error("native image rebuild produced no editable graphical objects");
     copyDirectoryFiles(path.join(workDir, "ir", "assets"), path.join(root, "assets"));
-    return Object.freeze({ deck: generatedDeck, metrics });
+    return Object.freeze({ deck: generatedDeck, metrics, sourceImage: sourceFile });
   };
 }
 

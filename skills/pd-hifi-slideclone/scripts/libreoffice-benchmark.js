@@ -143,31 +143,43 @@ function runTool(command, args, options = {}) {
   });
 }
 
-function resolveLibreOffice(value) {
-  const candidates = [
-    value,
-    process.env.LIBREOFFICE_BIN,
-    "C:\\Program Files\\LibreOffice\\program\\soffice.com",
-    "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
-    "soffice.com",
-    "soffice"
-  ].filter(Boolean);
-  return candidates.find((candidate) => !path.isAbsolute(candidate) || fs.existsSync(candidate)) || "soffice";
+function isUsableExecutableCandidate(candidate, platform) {
+  if (!candidate) return false;
+  const windowsAbsolute = /^[A-Za-z]:[\\/]/.test(candidate);
+  if (windowsAbsolute && platform !== "win32") return false;
+  const pathLike = windowsAbsolute || path.isAbsolute(candidate) || candidate.includes("/") || candidate.includes("\\");
+  return !pathLike || fs.existsSync(candidate);
 }
 
-function resolvePdfToPpm(value) {
-  const bundled = path.join(process.env.USERPROFILE || "", ".cache", "codex-runtimes", "codex-primary-runtime", "dependencies", "bin", "pdftoppm.cmd");
-  const bundledExe = path.join(process.env.USERPROFILE || "", ".cache", "codex-runtimes", "codex-primary-runtime", "dependencies", "native", "poppler", "Library", "bin", "pdftoppm.exe");
-  const bundledNativeCmd = path.join(process.env.USERPROFILE || "", ".cache", "codex-runtimes", "codex-primary-runtime", "dependencies", "native", "poppler", "bin", "pdftoppm.cmd");
+function resolveLibreOffice(value, { environment = process.env, platform = process.platform } = {}) {
   const candidates = [
     value,
-    process.env.PDFTOPPM_BIN,
-    bundledExe,
-    bundledNativeCmd,
-    bundled,
+    environment.LIBREOFFICE_BIN,
+    ...(platform === "win32" ? [
+      "C:\\Program Files\\LibreOffice\\program\\soffice.com",
+      "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
+      "soffice.com"
+    ] : []),
+    "soffice"
+  ].filter(Boolean);
+  return candidates.find((candidate) => isUsableExecutableCandidate(candidate, platform)) || "soffice";
+}
+
+function resolvePdfToPpm(value, { environment = process.env, platform = process.platform } = {}) {
+  const runtimeRoot = platform === "win32" && environment.USERPROFILE
+    ? path.join(environment.USERPROFILE, ".cache", "codex-runtimes", "codex-primary-runtime", "dependencies")
+    : "";
+  const candidates = [
+    value,
+    environment.PDFTOPPM_BIN,
+    ...(runtimeRoot ? [
+      path.join(runtimeRoot, "native", "poppler", "Library", "bin", "pdftoppm.exe"),
+      path.join(runtimeRoot, "native", "poppler", "bin", "pdftoppm.cmd"),
+      path.join(runtimeRoot, "bin", "pdftoppm.cmd")
+    ] : []),
     "pdftoppm"
   ].filter(Boolean);
-  return candidates.find((candidate) => !path.isAbsolute(candidate) || fs.existsSync(candidate)) || "pdftoppm";
+  return candidates.find((candidate) => isUsableExecutableCandidate(candidate, platform)) || "pdftoppm";
 }
 
 function fileUrl(file) {
