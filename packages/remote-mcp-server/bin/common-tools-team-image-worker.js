@@ -6,6 +6,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { TeamWorker, TeamWorkerRunner, loadTeamConfig, recoverWorkerLeases } = require("../../team-runtime");
 const { createImageToEditableArchiveHandler } = require("../../slideclone-core/team-worker");
+const { createImageDeliveryArtifacts } = require("../../ppt-create-core/image-delivery");
+const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { createPinnedRawImageOcr, readPinnedRawImageOcrProfile, verifyPinnedRawImageOcrProfile } = require("../../slideclone-core/team-ocr-profile");
 const { createRawImageNativeRebuilder } = require("../../slideclone-core/team-native-rebuild");
 const { PROFILE_NAME: PADDLE_PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, readPinnedPaddleOcrProfile, verifyPinnedPaddleOcrProfile } = require("../../slideclone-core/team-paddleocr-profile");
@@ -49,6 +51,17 @@ function createRenderQualityVerifier() {
   const { createRawImageRenderQualityVerifier } = require("../../slideclone-core/team-render-quality");
   return createRawImageRenderQualityVerifier({ renderPresentation, comparePageFiles });
 }
+function createTeamImageDelivery({ root, irFile, pptxFile }) {
+  const reports = path.join(root, "reports"); fs.mkdirSync(reports, { recursive: false });
+  fs.writeFileSync(path.join(reports, "pipeline-result.json"), `${JSON.stringify({ ok: true, irFile, pptx: { pptxFile } })}\n`, { flag: "wx", mode: 0o600 });
+  const result = createImageDeliveryArtifacts({ outputDir: root, buildPdf: buildPdfWithLibreOffice });
+  const descriptors = [
+    ["deck.ir.json", result.files.irFile, "application/json"], ["deck.preview.html", result.files.previewFile, "text/html"],
+    ["deck.html", result.files.htmlFile, "text/html"], ["deck.pptx", result.files.pptxFile, "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+    ["deck.pdf", result.files.pdfFile, "application/pdf"], ["deck.preservation-plan.json", result.files.planFile, "application/json"]
+  ];
+  return Object.freeze({ artifacts: Object.freeze(descriptors.map(([name, file, mediaType]) => Object.freeze({ name, file, mediaType }))), checks: result.checks });
+}
 async function main(environment = process.env) {
   const config = loadTeamConfig(environment);
   if (!config.enabledCapabilities.includes("image-to-editable")) throw new Error("image-to-editable is not enabled for this team deployment");
@@ -75,7 +88,7 @@ async function main(environment = process.env) {
     await workerHeartbeat.ready;
     const worker = new TeamWorker({
       repository: bundle.repository,
-      handlers: { "image-to-editable": createTracedWorkerHandler(createImageToEditableArchiveHandler({ objectStore: bundle.objectStore, builderExecutable: settings.builderExecutable, rawImageOcr, rawImageRebuilder, rawImageQualityVerifier: createRenderQualityVerifier() }), { exporter: traceExporter, capability: "image-to-editable" }) },
+      handlers: { "image-to-editable": createTracedWorkerHandler(createImageToEditableArchiveHandler({ objectStore: bundle.objectStore, builderExecutable: settings.builderExecutable, rawImageOcr, rawImageRebuilder, rawImageQualityVerifier: createRenderQualityVerifier(), createDelivery: createTeamImageDelivery }), { exporter: traceExporter, capability: "image-to-editable" }) },
       leaseSeconds: config.workerLeaseSeconds
     });
     const runner = new TeamWorkerRunner({ queue: bundle.queue, worker, workerId: settings.workerId, capability: "image-to-editable", pollSeconds: settings.pollSeconds });
@@ -94,4 +107,4 @@ async function main(environment = process.env) {
 
 if (require.main === module) main().catch((error) => { process.stderr.write(`team image worker could not start (${startupFailureCode(error)})\n`); process.exitCode = 1; });
 
-module.exports = { createNativeRebuilder, createRenderQualityVerifier, main, pathIsFile, startupFailureCode, workerSettings };
+module.exports = { createNativeRebuilder, createRenderQualityVerifier, createTeamImageDelivery, main, pathIsFile, startupFailureCode, workerSettings };

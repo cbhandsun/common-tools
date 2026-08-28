@@ -10,6 +10,8 @@
     "./data-models": "./data-models.js",
     "./editor": "./editor.js",
     "./export": "./export.js",
+    "./image-delivery": "./image-delivery.js",
+    "./ir-editor": "./ir-editor.js",
     "./libreoffice-pdf": "./libreoffice-pdf.js",
     "./planner": "./planner.js",
     "./layout-registry": "./layout-registry.js",

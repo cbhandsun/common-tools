@@ -150,11 +150,12 @@ function runBuilder({ executable, builderArgs = [], deckFile, outputFile, cwd, t
     childProcess.execFile(executable, [...builderArgs, "--ir", deckFile, "--out", outputFile, "--powerpoint-safe", "true"], { cwd, windowsHide: true, timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error) => error ? reject(error) : resolve());
   });
 }
-function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.tmpdir(), builderExecutable = process.env.OPENXML_BUILDER_EXE || "/opt/openxml/OpenXmlDeckBuilder", builderArgs = [], rawImageOcr, rawImageRebuilder, rawImageQualityVerifier, timeoutMs = 8 * 60 * 1000 } = {}) {
+function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.tmpdir(), builderExecutable = process.env.OPENXML_BUILDER_EXE || "/opt/openxml/OpenXmlDeckBuilder", builderArgs = [], rawImageOcr, rawImageRebuilder, rawImageQualityVerifier, createDelivery, timeoutMs = 8 * 60 * 1000 } = {}) {
   const store = assertObjectStore(objectStore);
   if (typeof temporaryRoot !== "string" || !path.isAbsolute(temporaryRoot)) throw new TypeError("temporaryRoot must be an absolute path");
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 30000 || timeoutMs > 9 * 60 * 1000) throw new RangeError("editable worker timeout is invalid");
   if (rawImageQualityVerifier !== undefined && typeof rawImageQualityVerifier !== "function") throw new TypeError("rawImageQualityVerifier must be a function");
+  if (createDelivery !== undefined && typeof createDelivery !== "function") throw new TypeError("createDelivery must be a function");
   return async ({ job, isCancellationRequested }) => {
     if (!job || job.capability !== "image-to-editable" || typeof job.inputObjectKey !== "string" || typeof job.outputPrefix !== "string") throw new Error("editable worker job is invalid");
     if (await isCancellationRequested()) throw new Error("editable job was cancelled");
@@ -180,12 +181,10 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
         metadata.pages = validated.pages; metadata.assets = validated.assets; metadata.nativeMetrics = nativeMetrics; metadata.normalizedSourceImage = rebuilt.sourceImage;
         metadata.residualDeduplication = residualDeduplication;
       }
-      const outputFile = path.join(root, "deck.pptx");
+      const outputFile = path.join(root, createDelivery ? "source.pptx" : "deck.pptx");
       await runBuilder({ executable: builderExecutable, builderArgs, deckFile: metadata.deckFile, outputFile, cwd: root, timeoutMs });
       if (!fs.existsSync(outputFile) || !fs.statSync(outputFile).isFile() || fs.statSync(outputFile).size < 1 || fs.statSync(outputFile).size > MAX_PPTX_BYTES) throw new Error("editable builder produced an invalid artifact");
       if (await isCancellationRequested()) throw new Error("editable job was cancelled");
-      const body = fs.readFileSync(outputFile);
-      const artifact = { name: "deck.pptx", objectKey: `${job.outputPrefix}deck.pptx`, mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", body };
       const raw = metadata.kind === "raw-image";
       const visualQuality = raw && rawImageQualityVerifier
         ? await rawImageQualityVerifier({ root, pptxFile: outputFile, sourceImage: metadata.normalizedSourceImage, isCancellationRequested })
@@ -197,8 +196,21 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
         ...(visualQuality?.checks || [{ name: "quality-render-not-configured", passed: false }])
       );
       checks.push({ name: "pptx-generated", passed: true });
-      await store.putObject({ objectKey: artifact.objectKey, body: artifact.body, contentType: artifact.mediaType });
-      return { artifacts: [{ name: artifact.name, objectKey: artifact.objectKey, mediaType: artifact.mediaType, sha256: sha256(artifact.body) }], quality: assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0, "residual-erased-native-objects": metadata.residualDeduplication?.erasedObjects || 0, ...(visualQuality?.metrics || {}) } : {}), "pptx-bytes": body.length } }) };
+      const delivered = createDelivery ? await createDelivery({ root, irFile: metadata.deckFile, pptxFile: outputFile }) : null;
+      if (delivered && (!Array.isArray(delivered.artifacts) || !Array.isArray(delivered.checks))) throw new Error("editable delivery adapter returned an invalid result");
+      if (delivered) checks.push(...delivered.checks);
+      const outputArtifacts = delivered?.artifacts || [{ name: "deck.pptx", file: outputFile, mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }];
+      const artifacts = [];
+      for (const item of outputArtifacts) {
+        const allowedMediaTypes = { ".json": "application/json", ".html": "text/html", ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation", ".pdf": "application/pdf" };
+        if (!item || typeof item.name !== "string" || !/^[a-z0-9][a-z0-9.-]{0,127}$/u.test(item.name) || path.posix.basename(item.name) !== item.name || typeof item.file !== "string" || allowedMediaTypes[path.extname(item.name)] !== item.mediaType || path.dirname(path.resolve(item.file)) !== root) throw new Error("editable delivery artifact is invalid");
+        const artifactInfo = fs.lstatSync(item.file);
+        if (!artifactInfo.isFile() || artifactInfo.isSymbolicLink() || artifactInfo.size < 1 || artifactInfo.size > MAX_PPTX_BYTES) throw new Error("editable delivery artifact is invalid");
+        const artifactBody = fs.readFileSync(item.file); const objectKey = `${job.outputPrefix}${item.name}`;
+        await store.putObject({ objectKey, body: artifactBody, contentType: item.mediaType });
+        artifacts.push({ name: item.name, objectKey, mediaType: item.mediaType, sha256: sha256(artifactBody) });
+      }
+      return { artifacts, quality: assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0, "residual-erased-native-objects": metadata.residualDeduplication?.erasedObjects || 0, ...(visualQuality?.metrics || {}) } : {}), "pptx-bytes": fs.statSync(outputFile).size } }) };
     } finally { fs.rmSync(root, { recursive: true, force: true, maxRetries: 2 }); }
   };
 }

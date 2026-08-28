@@ -77,13 +77,14 @@ function cancelJob({ stateRoot, ownerId, id }) {
   return job;
 }
 
-function runEditableJob({ stateRoot, ownerId, id, executeSlideclone }) {
+function runEditableJob({ stateRoot, ownerId, id, executeSlideclone, enhanceArtifacts }) {
   const store = new JobStore({ root: stateRoot, ownerId });
   const job = store.get(id);
   if (!job) throw new Error("job not found");
   if (job.status !== "queued") throw new Error("only queued jobs can be run");
   if (!job.config?.path) throw new Error("job is missing its required slideclone config");
   if (typeof executeSlideclone !== "function") throw new TypeError("an image-to-editable execution adapter is required");
+  if (enhanceArtifacts !== undefined && typeof enhanceArtifacts !== "function") throw new TypeError("image delivery enhancement adapter is invalid");
   store.transition(id, "running", { attempt: job.attempt + 1, lease: { workerId: `host-${process.pid}`, heartbeatAt: new Date().toISOString(), expiresAt: job.expiresAt } });
   let result;
   try {
@@ -92,17 +93,32 @@ function runEditableJob({ stateRoot, ownerId, id, executeSlideclone }) {
     result = null;
   }
   if (!result || result.status !== 0) return store.transition(id, "failed", { error: { code: "SLIDECLONE_FAILED", message: "slideclone execution failed", retryable: false }, lease: undefined });
+  let delivery;
+  if (enhanceArtifacts !== undefined) {
+    try { delivery = enhanceArtifacts({ outputDir: job.output.path }); }
+    catch { return store.transition(id, "failed", { error: { code: "IMAGE_DELIVERY_FAILED", message: "image delivery artifact enhancement failed", retryable: false }, lease: undefined }); }
+  }
   const artifacts = collectArtifacts(job.output.path);
-  const quality = editableQuality(artifacts);
-  if (!quality.passed) return store.transition(id, "failed", { artifacts, quality, error: { code: "SLIDECLONE_ARTIFACT_MISSING", message: "slideclone completed without a PPTX artifact", retryable: false }, lease: undefined });
+  let quality;
+  try { quality = editableQuality(artifacts, delivery); }
+  catch { return store.transition(id, "failed", { artifacts, error: { code: "IMAGE_DELIVERY_QUALITY_INVALID", message: "image delivery quality result is invalid", retryable: false }, lease: undefined }); }
+  if (!quality.passed) {
+    const hasPptx = quality.metrics["pptx-artifacts"] > 0;
+    return store.transition(id, "failed", { artifacts, quality, error: { code: hasPptx ? "IMAGE_DELIVERY_QUALITY_FAILED" : "SLIDECLONE_ARTIFACT_MISSING", message: hasPptx ? "image delivery artifacts did not pass quality gates" : "slideclone completed without a PPTX artifact", retryable: false }, lease: undefined });
+  }
   return store.transition(id, "succeeded", { artifacts, quality, lease: undefined });
 }
 
-function editableQuality(artifacts) {
+function editableQuality(artifacts, delivery) {
   if (!Array.isArray(artifacts)) throw new TypeError("editable artifacts are invalid");
   const pptxArtifacts = artifacts.filter((artifact) => artifact?.mediaType === "application/vnd.openxmlformats-officedocument.presentationml.presentation").length;
-  const passed = pptxArtifacts > 0;
-  return assertQualityReport({ passed, checks: [{ name: "slideclone-completed", passed: true }, { name: "pptx-artifact-present", passed }], metrics: { artifacts: artifacts.length, "pptx-artifacts": pptxArtifacts } });
+  const checks = [{ name: "slideclone-completed", passed: true }, { name: "pptx-artifact-present", passed: pptxArtifacts > 0 }];
+  if (delivery !== undefined) {
+    if (!delivery || !Array.isArray(delivery.checks)) throw new TypeError("image delivery quality is invalid");
+    checks.push(...delivery.checks);
+  }
+  const passed = checks.every((check) => check.passed);
+  return assertQualityReport({ passed, checks, metrics: { artifacts: artifacts.length, "pptx-artifacts": pptxArtifacts, ...(delivery ? { "delivery-pages": delivery.pageCount } : {}) } });
 }
 
 function collectArtifacts(outputPath) {
@@ -116,7 +132,7 @@ function collectArtifacts(outputPath) {
     if (candidates.has(name)) return;
     try {
       const info = fs.lstatSync(file);
-      if (info.isFile() && !info.isSymbolicLink() && /\.(pptx|json)$/i.test(name)) candidates.set(name, file);
+      if (info.isFile() && !info.isSymbolicLink() && /\.(pptx|pdf|html|json)$/i.test(name)) candidates.set(name, file);
     } catch { /* A concurrently removed optional artifact is not a Job failure. */ }
   };
   addCandidate(path.join(outputPath, VISUAL_REPORT_NAME), VISUAL_REPORT_NAME);
@@ -134,7 +150,7 @@ function collectArtifacts(outputPath) {
       else if (entry.isFile()) addCandidate(candidate, relative);
     }
   }
-  const priority = (name) => name === VISUAL_REPORT_NAME ? 0 : name.toLowerCase().endsWith(".pptx") ? 1 : 2;
+  const priority = (name) => name === VISUAL_REPORT_NAME ? 0 : /deck\.(pptx|ir\.json|preview\.html|html|pdf|preservation-plan\.json)$/iu.test(name.replaceAll("\\", "/")) ? 1 : 2;
   return [...candidates.entries()]
     .sort(([left], [right]) => priority(left) - priority(right) || left.localeCompare(right))
     .slice(0, MAX_ARTIFACTS)
@@ -142,7 +158,9 @@ function collectArtifacts(outputPath) {
 }
 
 function artifactForFile(file, name) {
-  return { name, mediaType: file.toLowerCase().endsWith(".pptx") ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : "application/json", uri: file, sha256: sha256File(file) };
+  const extension = path.extname(file).toLowerCase();
+  const mediaType = extension === ".pptx" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : extension === ".pdf" ? "application/pdf" : extension === ".html" ? "text/html" : "application/json";
+  return { name, mediaType, uri: file, sha256: sha256File(file) };
 }
 
 function plainObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }

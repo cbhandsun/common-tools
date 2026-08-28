@@ -14,6 +14,8 @@ const { CAPABILITY: PPT_QUALITY_CAPABILITY, REPORT_JSON_NAME: PPT_QUALITY_REPORT
 const { CAPABILITY: PPT_IMPROVE_CAPABILITY, createPptImproveJob, runPptImproveJob } = require("../../ppt-improve-core");
 const { CAPABILITY: PPT_CREATE_CAPABILITY, createPptCreateJob, runPptCreateJob } = require("../../ppt-create-core");
 const { persistEditorPatch, writeEditorPreview } = require("../../ppt-create-core/editor");
+const { createImageDeliveryArtifacts } = require("../../ppt-create-core/image-delivery");
+const { persistIrEditorPatch } = require("../../ppt-create-core/ir-editor");
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { persistPresentationPlan } = require("../../ppt-create-core/planner");
 const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
@@ -39,7 +41,7 @@ const COMMAND_USAGE = [
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
   "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team raw-image-archive --input <png|jpg> --out <archive.tar.gz> | team production-preflight | team keycloak-mcp-client [--apply --backup-file <new.json>]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
-  "  editable init|create|run | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt plan|create|enqueue|preview|apply-edit | ppt-quality create|run | ppt-improve create|run|pipeline | job get|run|cancel"
+  "  editable init|create|run|apply-edit | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt plan|create|enqueue|preview|apply-edit | ppt-quality create|run | ppt-improve create|run|pipeline | job get|run|cancel"
 ].join("\n");
 
 function parse(argv) { const result = { _: [] }; for (let index = 0; index < argv.length; index += 1) { const item = argv[index]; if (!item.startsWith("--")) { result._.push(item); continue; } const next = argv[index + 1]; if (next && !next.startsWith("--")) { result[item.slice(2)] = next; index += 1; } else result[item.slice(2)] = true; } return result; }
@@ -504,7 +506,7 @@ function runCreatedLocalJob(ctx, job) {
   if (job.capability === PPT_QUALITY_CAPABILITY) return runPptQualityJob({ ...ctx, id: job.id });
   if (job.capability === PPT_IMPROVE_CAPABILITY) return runPptImproveJob({ ...ctx, id: job.id });
   if (job.capability === PPT_CREATE_CAPABILITY) return runPptCreateJob({ ...ctx, id: job.id, buildPptx: buildCreatedPptx, buildPdf: buildPdfWithLibreOffice });
-  if (job.capability === REGISTRATION.capability) return runEditableJob({ ...ctx, id: job.id, executeSlideclone: bundledSlidecloneRunner() });
+  if (job.capability === REGISTRATION.capability) return runEditableJob({ ...ctx, id: job.id, executeSlideclone: bundledSlidecloneRunner(), enhanceArtifacts: ({ outputDir }) => createImageDeliveryArtifacts({ outputDir, buildPdf: buildPdfWithLibreOffice }) });
   throw new Error("job capability cannot be run locally");
 }
 function buildCreatedPptx({ irFile, outFile }) {
@@ -614,6 +616,12 @@ async function main() {
     if (!args.input || !args.out || !args.config) throw new Error("editable create requires --input, --out, and --config");
     requireEnabledCapability(ctx, REGISTRATION.capability);
     process.stdout.write(`${JSON.stringify(createEditableJob({ ...ctx, input: args.input, output: args.out, config: args.config, idempotencyKey: args.idempotencyKey }), null, 2)}\n`);
+    return 0;
+  }
+  if (area === "editable" && action === "apply-edit") {
+    if (!args.input || !args.patch || !args.out) throw new Error("editable apply-edit requires --input, --patch and --out");
+    requireEnabledCapability(ctx, REGISTRATION.capability);
+    process.stdout.write(`${JSON.stringify(persistIrEditorPatch({ workspaceRoot: ctx.workspaceRoot, input: args.input, patch: args.patch, output: args.out }), null, 2)}\n`);
     return 0;
   }
   if (area === "audit" && action === "plan") {

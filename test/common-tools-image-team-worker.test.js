@@ -97,6 +97,31 @@ test("team image worker accepts a bounded Deck IR archive and returns an owner-s
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
 
+test("team image worker can publish the same bounded multi-format delivery contract", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-delivery-"));
+  const builderFile = path.join(temporaryRoot, "builder.js");
+  fs.writeFileSync(builderFile, "const fs=require('node:fs'); const i=process.argv.indexOf('--out'); fs.writeFileSync(process.argv[i + 1], Buffer.from('PK\\x03\\x04'));", "utf8");
+  const uploads = new Map();
+  const handler = createImageToEditableArchiveHandler({
+    temporaryRoot, builderExecutable: process.execPath, builderArgs: [builderFile],
+    createDelivery: ({ root, irFile, pptxFile }) => {
+      assert.equal(path.basename(irFile), "deck.json"); assert.equal(path.basename(pptxFile), "source.pptx");
+      const preview = path.join(root, "deck.preview.html"); const pdf = path.join(root, "deck.pdf");
+      fs.writeFileSync(preview, "<!doctype html><title>preview</title>"); fs.writeFileSync(pdf, "%PDF-1.4\n%%EOF");
+      return { artifacts: [
+        { name: "deck.pptx", file: pptxFile, mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+        { name: "deck.preview.html", file: preview, mediaType: "text/html" }, { name: "deck.pdf", file: pdf, mediaType: "application/pdf" }
+      ], checks: [{ name: "shared-preview-present", passed: true }, { name: "multi-format-artifacts-present", passed: true }] };
+    },
+    objectStore: { readObject: async () => archive([tarEntry("deck.json", JSON.stringify(deck()))]), putObject: async ({ objectKey, body, contentType }) => uploads.set(objectKey, { body, contentType }) }
+  });
+  try {
+    const output = await handler({ job: { capability: "image-to-editable", inputObjectKey: "owners/a/inputs/deck.tar.gz", outputPrefix: "owners/a/jobs/job-delivery/" }, isCancellationRequested: async () => false });
+    assert.deepEqual(output.artifacts.map((artifact) => artifact.name), ["deck.pptx", "deck.preview.html", "deck.pdf"]);
+    assert.equal(output.quality.passed, true); assert.ok(uploads.has("owners/a/jobs/job-delivery/deck.preview.html"));
+  } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
+});
+
 test("team image worker rejects archive resources that can escape the isolated asset package", async () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-invalid-"));
   const invalidDeck = deck({ pages: [{ pageIndex: 0, images: [{ id: "outside", assetPath: "../outside.png", box: { x: 0, y: 0, w: 1, h: 1 } }] }] });
