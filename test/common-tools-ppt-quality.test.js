@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
-const { crc32, createPptQualityJob, pptQualitySummary, runPptQualityJob } = require("../packages/ppt-quality-core");
+const { crc32, createPptQualityJob, extractEntry, pptQualitySummary, readCentralDirectory, runPptQualityJob } = require("../packages/ppt-quality-core");
 const { createPptImproveJob, pptImproveSummary, runPptImproveJob } = require("../packages/ppt-improve-core");
 const { callTool, enabledTools } = require("../packages/mcp-server/core");
 const { setCapabilityEnabled } = require("../packages/capability-runtime");
@@ -72,6 +72,21 @@ function writeCleanFixture(root, name = "clean.pptx") {
     ["ppt/media/image1.png", Buffer.from([137, 80, 78, 71])]
   ]));
   return file;
+}
+
+function writeMetadataRepairFixture(root, name = "metadata-repair.pptx") {
+  const file = path.join(root, name);
+  fs.writeFileSync(file, storedZip([
+    ["[Content_Types].xml", '<Types><Override ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/></Types>'],
+    ["ppt/presentation.xml", '<p:presentation xmlns:p="urn:p"/>'],
+    ["ppt/slides/slide1.xml", '<p:sld xmlns:p="urn:p" xmlns:a="urn:a"><p:sp><p:nvSpPr><p:cNvPr id="2"/></p:nvSpPr><p:txBody><a:p><a:r><a:t>Hello</a:t></a:r></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="2" name="Keep"/></p:nvSpPr><p:txBody><a:p><a:r><a:t>中文</a:t></a:r></a:p></p:txBody></p:sp></p:sld>']
+  ]));
+  return file;
+}
+
+function slideXml(file) {
+  const bytes = fs.readFileSync(file); const entries = readCentralDirectory(bytes);
+  return extractEntry(bytes, entries.get("ppt/slides/slide1.xml")).toString("utf8");
 }
 
 function temporaryWorkspace() { return fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-quality-")); }
@@ -162,6 +177,28 @@ test("PPT improve does not fabricate an output or post-audit when no safe repair
 test("PPT improve audit-only profile identifies safe work without creating a deck", () => {
   const root = temporaryWorkspace();
   try { const input = writeFixture(root); const stateRoot = path.join(root, ".state"); const qualityOutput = path.join(root, "quality"); const qualityJob = createPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: qualityOutput }); runPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: qualityJob.id }); const output = path.join(root, "audit-only"); const job = createPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, report: path.join(qualityOutput, "ppt-quality-report.json"), output, profile: "audit-only" }); const completed = runPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: job.id }); assert.equal(completed.status, "succeeded"); assert.equal(fs.existsSync(path.join(output, "improved.pptx")), false); const report = JSON.parse(fs.readFileSync(path.join(output, "ppt-improve-report.json"))); assert.equal(report.repairProfile, "audit-only"); assert.equal(report.result.eligibleUnusedMediaCount, 1); assert.equal(report.result.removedMediaCount, 0); assert.throws(() => createPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, report: path.join(qualityOutput, "ppt-quality-report.json"), output: path.join(root, "bad"), profile: "unsafe" }), /profile/); } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("PPT improve metadata profiles create re-audited copies with bounded non-visual repairs", () => {
+  const root = temporaryWorkspace();
+  try {
+    const input = writeMetadataRepairFixture(root); const stateRoot = path.join(root, ".state"); const qualityOutput = path.join(root, "quality");
+    const qualityJob = createPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: qualityOutput });
+    assert.equal(runPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: qualityJob.id }).status, "succeeded");
+    const report = path.join(qualityOutput, "ppt-quality-report.json");
+    const expectations = [
+      ["layout-safe", /id="3"/u, "duplicateDrawingIds"],
+      ["typography-safe", /lang="en-US"[\s\S]*lang="zh-CN"/u, "languageTags"],
+      ["editability-safe", /id="2" name="Object 2"/u, "objectNames"]
+    ];
+    for (const [profile, pattern, metric] of expectations) {
+      const output = path.join(root, profile); const job = createPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, report, output, profile });
+      const completed = runPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: job.id });
+      assert.equal(completed.status, "succeeded"); assert.match(slideXml(path.join(output, "improved.pptx")), pattern);
+      const result = JSON.parse(fs.readFileSync(path.join(output, "ppt-improve-report.json"), "utf8")).result;
+      assert.ok(result.repairCounts[metric] > 0); assert.equal(result.repairActionCount, result.repairCounts[metric]); assert.ok(completed.artifacts.some((artifact) => artifact.name === "improved-ppt-quality-report.json"));
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test("PPT improve never overwrites an existing report and rolls back this attempt's output", () => {

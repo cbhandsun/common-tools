@@ -12,7 +12,7 @@ using X = DocumentFormat.OpenXml.Spreadsheet;
 
 internal static class NativeChartWriter
 {
-    public static bool TryCreate(ChartIr chart, SlidePart slidePart, uint shapeId, P.NonVisualDrawingProperties drawingProperties, out P.GraphicFrame graphicFrame)
+    public static bool TryCreate(ChartIr chart, SlidePart slidePart, uint shapeId, P.NonVisualDrawingProperties drawingProperties, out P.GraphicFrame graphicFrame, P.ApplicationNonVisualDrawingProperties? applicationProperties = null)
     {
         graphicFrame = null!;
         if (chart.NativePayload is null || chart.NativePayload.Value.ValueKind != JsonValueKind.Object) return false;
@@ -34,7 +34,7 @@ internal static class NativeChartWriter
         WriteWorkbook(embeddedPart, sheetName, categories, series);
         WriteChartXml(chartPart, chart, chartType, sheetName, categories, series, chartPart.GetIdOfPart(embeddedPart), shapeId);
         graphicFrame = new P.GraphicFrame(
-            new P.NonVisualGraphicFrameProperties(drawingProperties, new P.NonVisualGraphicFrameDrawingProperties(), new P.ApplicationNonVisualDrawingProperties()),
+            new P.NonVisualGraphicFrameProperties(drawingProperties, new P.NonVisualGraphicFrameDrawingProperties(), applicationProperties ?? new P.ApplicationNonVisualDrawingProperties()),
             new P.Transform(new A.Offset { X = ToEmu(chart.Box.X), Y = ToEmu(chart.Box.Y) }, new A.Extents { Cx = ToEmu(chart.Box.W), Cy = ToEmu(chart.Box.H) }),
             new A.Graphic(new A.GraphicData(new DocumentFormat.OpenXml.Drawing.Charts.ChartReference { Id = slidePart.GetIdOfPart(chartPart) })
             { Uri = "http://schemas.openxmlformats.org/drawingml/2006/chart" })

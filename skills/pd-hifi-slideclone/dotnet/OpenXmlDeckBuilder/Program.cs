@@ -73,13 +73,15 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
     }
 
     var boxIndex = BuildBoxIndex(page);
+    var placeholderBindings = TemplatePlaceholderWriter.BuildIndex(page);
+    var usesTemplateBindings = page.Intent?.TemplatePlaceholderBindings is not null;
 
     var overlayUnderlayImages = (page.Images ?? [])
         .Where(IsNativeOverlayUnderlay)
         .ToList();
     foreach (var image in overlayUnderlayImages)
     {
-        if (TryCreatePicture(image, slidePart, shapeId, irDirectory, out var picture))
+        if (TryCreatePicture(image, slidePart, shapeId, irDirectory, out var picture, TemplatePlaceholderWriter.Binding(placeholderBindings, "images", image.Id)))
         {
             shapeTree.Append(picture);
             shapeId++;
@@ -103,13 +105,14 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
         slidePart,
         irDirectory,
         ref shapeId,
-        boxIndex
+        boxIndex,
+        usesTemplateBindings
     );
 
     foreach (var image in componentImages)
     {
         if (groupedComponentIds.ImageIds.Contains(image.Id)) continue;
-        if (TryCreatePicture(image, slidePart, shapeId, irDirectory, out var picture))
+        if (TryCreatePicture(image, slidePart, shapeId, irDirectory, out var picture, TemplatePlaceholderWriter.Binding(placeholderBindings, "images", image.Id)))
         {
             shapeTree.Append(picture);
             shapeId++;
@@ -121,21 +124,21 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
         if (table.Rows is { Count: > 0 })
         {
             var drawingProperties = CreateNonVisualDrawingProperties(shapeId, SafeDrawingName(table.Id, "Table", shapeId), table.Source);
-            shapeTree.Append(NativeTableWriter.Create(table, shapeId++, drawingProperties));
+            shapeTree.Append(NativeTableWriter.Create(table, shapeId++, drawingProperties, TemplatePlaceholderWriter.CreateApplicationProperties(TemplatePlaceholderWriter.Binding(placeholderBindings, "tables", table.Id))));
             foreach (var line in NativeTableWriter.GridOverlays(table))
             {
                 shapeTree.Append(CreateShape(line, shapeId++, boxIndex));
             }
             foreach (var textBox in NativeTableWriter.TextOverlays(table))
             {
-                shapeTree.Append(CreateTextBox(textBox, shapeId++));
+                shapeTree.Append(CreateTextBox(textBox, shapeId++, allowRolePlaceholder: false));
             }
         }
     }
 
     foreach (var image in tableOverlayImages)
     {
-        if (TryCreatePicture(image, slidePart, shapeId, irDirectory, out var picture))
+        if (TryCreatePicture(image, slidePart, shapeId, irDirectory, out var picture, TemplatePlaceholderWriter.Binding(placeholderBindings, "images", image.Id)))
         {
             shapeTree.Append(picture);
             shapeId++;
@@ -145,7 +148,7 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
     foreach (var chart in page.Charts ?? [])
     {
         var drawingProperties = CreateNonVisualDrawingProperties(shapeId, SafeDrawingName(chart.Id, "Chart", shapeId), chart.Source);
-        if (NativeChartWriter.TryCreate(chart, slidePart, shapeId, drawingProperties, out var nativeChart))
+        if (NativeChartWriter.TryCreate(chart, slidePart, shapeId, drawingProperties, out var nativeChart, TemplatePlaceholderWriter.CreateApplicationProperties(TemplatePlaceholderWriter.Binding(placeholderBindings, "charts", chart.Id))))
         {
             shapeTree.Append(nativeChart);
             shapeId++;
@@ -155,7 +158,7 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
         {
             if (element is TextBoxIr textBox)
             {
-                shapeTree.Append(CreateTextBox(textBox, shapeId++));
+                shapeTree.Append(CreateTextBox(textBox, shapeId++, allowRolePlaceholder: false));
             }
             else if (element is VisualElementIr visual)
             {
@@ -167,7 +170,7 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
     foreach (var textBox in page.TextBoxes ?? [])
     {
         if (groupedComponentIds.TextBoxIds.Contains(textBox.Id)) continue;
-        shapeTree.Append(CreateTextBox(textBox, shapeId++));
+        shapeTree.Append(CreateTextBox(textBox, shapeId++, TemplatePlaceholderWriter.Binding(placeholderBindings, "textBoxes", textBox.Id), !usesTemplateBindings));
     }
 
     return new P.Slide(new P.CommonSlideData(shapeTree), new P.ColorMapOverride(new A.MasterColorMapping()));
@@ -210,7 +213,7 @@ static P.Shape CreateBackground(PageIr page, uint shapeId)
     );
 }
 
-static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId)
+static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId, PlaceholderBindingIr? placeholderBinding = null, bool allowRolePlaceholder = true)
 {
     var effectiveFont = ResolveTextBoxFont(textBox);
     var opacity = TextOpacity(textBox);
@@ -292,9 +295,7 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId)
         paragraph.Append(new A.Run(CreateRunProperties(null), new A.Text(textBox.Text ?? string.Empty)));
     }
 
-    var applicationProperties = new P.ApplicationNonVisualDrawingProperties();
-    var placeholderType = PlaceholderType(textBox.Role);
-    if (placeholderType is not null) applicationProperties.Append(new P.PlaceholderShape { Type = placeholderType.Value });
+    var applicationProperties = TemplatePlaceholderWriter.CreateApplicationProperties(placeholderBinding, allowRolePlaceholder ? textBox.Role : null);
     return new P.Shape(
         new P.NonVisualShapeProperties(
             CreateNonVisualDrawingProperties(shapeId, SafeDrawingName(textBox.Id, "TextBox", shapeId), textBox.Source ?? textBox.Style),
@@ -314,20 +315,6 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId)
         )
     );
 }
-
-static P.PlaceholderValues? PlaceholderType(string? role) => role?.Trim().ToLowerInvariant() switch
-{
-    "title" => P.PlaceholderValues.Title,
-    "summary" => P.PlaceholderValues.SubTitle,
-    "page-number" => P.PlaceholderValues.SlideNumber,
-    "section-number" => P.PlaceholderValues.SlideNumber,
-    "body" => P.PlaceholderValues.Body,
-    "item-title" => P.PlaceholderValues.Body,
-    "item-detail" => P.PlaceholderValues.Body,
-    "takeaway" => P.PlaceholderValues.Body,
-    "value" => P.PlaceholderValues.Body,
-    _ => null
-};
 
 static FontIr? ResolveTextBoxFont(TextBoxIr textBox)
 {
@@ -379,7 +366,8 @@ static (HashSet<string> TextBoxIds, HashSet<string> ImageIds) AppendGroupedShape
     SlidePart slidePart,
     string irDirectory,
     ref uint shapeId,
-    IReadOnlyDictionary<string, BoxIr>? boxIndex)
+    IReadOnlyDictionary<string, BoxIr>? boxIndex,
+    bool usesTemplateBindings)
 {
     var nextShapeId = shapeId;
     var groups = shapes
@@ -424,7 +412,8 @@ static (HashSet<string> TextBoxIds, HashSet<string> ImageIds) AppendGroupedShape
             slidePart,
             irDirectory,
             ref nextShapeId,
-            boxIndex
+            boxIndex,
+            usesTemplateBindings
         ));
         foreach (var textBox in textMembers ?? []) groupedTextBoxIds.Add(textBox.Id);
         foreach (var image in imageMembers ?? []) groupedImageIds.Add(image.Id);
@@ -456,7 +445,8 @@ static P.GroupShape CreateComponentGroupShape(
     SlidePart slidePart,
     string irDirectory,
     ref uint shapeId,
-    IReadOnlyDictionary<string, BoxIr>? boxIndex)
+    IReadOnlyDictionary<string, BoxIr>? boxIndex,
+    bool usesTemplateBindings)
 {
     const double groupBoundsPaddingPt = 0.1;
     var groupShapeId = shapeId++;
@@ -490,7 +480,7 @@ static P.GroupShape CreateComponentGroupShape(
     }
     foreach (var textBox in textBoxes)
     {
-        group.Append(CreateTextBox(textBox, shapeId++));
+        group.Append(CreateTextBox(textBox, shapeId++, allowRolePlaceholder: !usesTemplateBindings));
     }
     return group;
 }
@@ -616,7 +606,7 @@ static P.Shape CreateAutoShape(VisualElementIr element, uint shapeId)
     );
 }
 
-static bool TryCreatePicture(VisualElementIr element, SlidePart slidePart, uint shapeId, string irDirectory, out P.Picture picture)
+static bool TryCreatePicture(VisualElementIr element, SlidePart slidePart, uint shapeId, string irDirectory, out P.Picture picture, PlaceholderBindingIr? placeholderBinding = null)
 {
     picture = new P.Picture();
     var assetPath = element.AssetPath ?? GetString(element.Style, "assetPath") ?? GetString(element.Source, "pageImage");
@@ -661,7 +651,7 @@ static bool TryCreatePicture(VisualElementIr element, SlidePart slidePart, uint 
         new P.NonVisualPictureProperties(
             CreateNonVisualDrawingProperties(shapeId, SafeDrawingName(element.Id, "Picture", shapeId), element.Source),
             new P.NonVisualPictureDrawingProperties(new A.PictureLocks { NoChangeAspect = true }),
-            new P.ApplicationNonVisualDrawingProperties()
+            TemplatePlaceholderWriter.CreateApplicationProperties(placeholderBinding)
         ),
         blipFill,
         shapeProperties

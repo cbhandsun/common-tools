@@ -65,6 +65,29 @@ function qualityFor(spec, ir, formats, assetRecords = [], template, variants = [
   const declaredAssets = spec.assets || [];
   const citationCount = spec.slides.reduce((total, slide) => total + (slide.citations?.length || 0), 0);
   const notePageCount = spec.slides.filter((slide) => slide.speakerNotes || slide.citations?.length).length;
+  const validPlaceholderCollections = new Set(["textBoxes", "images", "tables", "charts"]);
+  const placeholderTypesByCollection = Object.freeze({ textBoxes: new Set(["title", "ctrTitle", "subTitle", "body", "obj"]), images: new Set(["pic", "obj"]), tables: new Set(["tbl", "obj"]), charts: new Set(["chart", "obj"]) });
+  const placeholderBindingsValid = ir.pages.every((page) => {
+    const bindings = page.intent?.templatePlaceholderBindings;
+    if (!Array.isArray(bindings)) return false;
+    if (page.intent?.templateLayoutMode === "freeform") return bindings.length === 0;
+    const selectedLayout = template?.layoutMap?.find((layout) => layout.id === page.intent?.templateLayoutId);
+    if (!selectedLayout) return false;
+    const objectKeys = new Set(); const placeholderKeys = new Set();
+    for (const binding of bindings) {
+      if (!binding || !validPlaceholderCollections.has(binding.collection) || typeof binding.objectId !== "string" || !binding.objectId || typeof binding.placeholderType !== "string" || !placeholderTypesByCollection[binding.collection].has(binding.placeholderType) || !Number.isSafeInteger(binding.placeholderIndex) || binding.placeholderIndex < 0) return false;
+      if (!selectedLayout.placeholders.some((placeholder) => placeholder.type === binding.placeholderType && placeholder.index === binding.placeholderIndex)) return false;
+      const objects = page[binding.collection];
+      if (!Array.isArray(objects) || !objects.some((item) => item.id === binding.objectId)) return false;
+      const objectKey = `${binding.collection}:${binding.objectId}`; const placeholderKey = `${binding.placeholderType}:${binding.placeholderIndex}`;
+      if (objectKeys.has(objectKey) || placeholderKeys.has(placeholderKey)) return false;
+      objectKeys.add(objectKey); placeholderKeys.add(placeholderKey);
+    }
+    const nativeDemand = (page.tables?.length || 0) + (page.charts?.length || 0) + (page.images?.length || 0);
+    const hasBodyText = (page.textBoxes || []).some((item) => !["title", "page-number", "section-number", "citation"].includes(item.role));
+    const boundContent = bindings.filter((binding) => !["title", "ctrTitle"].includes(binding.placeholderType)).length;
+    return page.intent?.templateLayoutFit !== "fit" || boundContent >= nativeDemand + (hasBodyText ? 1 : 0);
+  });
   const checks = [
     { name: "presentation-spec-valid", passed: true },
     { name: "required-facts-covered", passed: renderedFacts >= requiredFacts },
@@ -82,7 +105,7 @@ function qualityFor(spec, ir, formats, assetRecords = [], template, variants = [
     { name: "template-license-policy-compliant", passed: !spec.template || sourceCompliance(template.source).verified },
     { name: "template-semantic-layout-mapped", passed: !spec.template || (template?.layoutMap?.length > 0 && ir.pages.every((page) => typeof page.intent?.templateLayoutId === "string")) },
     { name: "template-layout-capacity-respected", passed: !spec.template || ir.pages.every((page) => page.intent?.templateLayoutFit === "fit") },
-    { name: "template-placeholder-bindings-recorded", passed: !spec.template || ir.pages.every((page) => Array.isArray(page.intent?.templatePlaceholderBindings) && page.intent.templatePlaceholderBindings.length === page.textBoxes.length) },
+    { name: "template-placeholder-bindings-recorded", passed: !spec.template || placeholderBindingsValid },
     { name: "deck-variants-generated", passed: deliveredVariants.length === spec.deckVariantCount },
     { name: "deck-variants-distinct", passed: new Set(deliveredVariants.map((variant) => variant.layoutIds.join("\u0000"))).size === deliveredVariants.length },
     { name: "deck-variant-formats-consistent", passed: deliveredVariants.every((variant) => variant.formats?.passed === true) },

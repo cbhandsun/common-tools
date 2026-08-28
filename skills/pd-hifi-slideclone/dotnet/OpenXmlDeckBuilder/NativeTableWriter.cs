@@ -5,7 +5,7 @@ using P = DocumentFormat.OpenXml.Presentation;
 
 internal static class NativeTableWriter
 {
-    public static P.GraphicFrame Create(VisualElementIr table, uint shapeId, P.NonVisualDrawingProperties drawingProperties)
+    public static P.GraphicFrame Create(VisualElementIr table, uint shapeId, P.NonVisualDrawingProperties drawingProperties, P.ApplicationNonVisualDrawingProperties? applicationProperties = null)
     {
         var rows = table.Rows ?? [];
         if (rows.Count == 0 || rows.Count > 10000 || rows.Any(row => row is null || row.Count > 1000))
@@ -72,7 +72,7 @@ internal static class NativeTableWriter
         }
 
         return new P.GraphicFrame(
-            new P.NonVisualGraphicFrameProperties(drawingProperties, new P.NonVisualGraphicFrameDrawingProperties(), new P.ApplicationNonVisualDrawingProperties()),
+            new P.NonVisualGraphicFrameProperties(drawingProperties, new P.NonVisualGraphicFrameDrawingProperties(), applicationProperties ?? new P.ApplicationNonVisualDrawingProperties()),
             new P.Transform(new A.Offset { X = ToEmu(table.Box.X), Y = ToEmu(table.Box.Y) }, new A.Extents { Cx = ToEmu(table.Box.W), Cy = ToEmu(table.Box.H) }),
             new A.Graphic(new A.GraphicData(drawingTable) { Uri = "http://schemas.openxmlformats.org/drawingml/2006/table" })
         );

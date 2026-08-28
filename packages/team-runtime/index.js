@@ -19,7 +19,7 @@ const OBJECT_KEY_PATTERN = /^[a-z0-9][a-z0-9._/-]{0,511}$/;
 const PROJECT_ID_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
 const TRACE_PARENT_PATTERN = /^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/;
 const TERMINAL = new Set(["succeeded", "failed", "cancelled", "expired"]);
-const PPT_IMPROVE_REPAIR_PROFILES = new Set(["safe-package", "audit-only"]);
+const PPT_IMPROVE_REPAIR_PROFILES = new Set(["safe-package", "layout-safe", "typography-safe", "editability-safe", "audit-only"]);
 
 function parseServiceUrl(value, label, protocols) {
   let url;

@@ -3,9 +3,11 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const zlib = require("node:zlib");
 const { JobStore, insideRoot, sha256File } = require("../capability-runtime");
 const { assertNonEmptyString, assertQualityReport } = require("../capability-contracts");
-const { assertSafeExistingPptx, auditPptx, ensureSafeOutputDirectory, inspectPptx, qualityFromReport, readCentralDirectory, renderMarkdown: renderQualityMarkdown } = require("../ppt-quality-core");
+const { assertSafeExistingPptx, auditPptx, crc32, ensureSafeOutputDirectory, inspectPptx, qualityFromReport, readCentralDirectory, renderMarkdown: renderQualityMarkdown } = require("../ppt-quality-core");
+const { planProfileRepairs } = require("./repair-profiles");
 
 const CAPABILITY = "ppt-improve";
 const REGISTRATION = Object.freeze({ capability: CAPABILITY, toolNames: ["create_ppt_improve_job", "get_ppt_improve_report"], minimumRuntimeVersion: ">=0.1.0 <1.0.0", requiredWorkerProfile: "base" });
@@ -18,7 +20,7 @@ const POST_QUALITY_REPORT_MARKDOWN_NAME = "improved-ppt-quality-report.md";
 const ZIP_LOCAL_SIGNATURE = 0x04034b50;
 const ZIP_CENTRAL_SIGNATURE = 0x02014b50;
 const ZIP_EOCD_SIGNATURE = 0x06054b50;
-const REPAIR_PROFILES = Object.freeze(["safe-package", "audit-only"]);
+const REPAIR_PROFILES = Object.freeze(["safe-package", "layout-safe", "typography-safe", "editability-safe", "audit-only"]);
 function normalizeRepairProfile(value = "safe-package") { if (!REPAIR_PROFILES.includes(value)) throw new TypeError("PPT improvement repair profile is invalid"); return value; }
 
 function safeReport(workspaceRoot, report) {
@@ -58,21 +60,26 @@ function compressedData(buffer, entry) {
   return buffer.subarray(start, end);
 }
 
-function rebuildZip(buffer, entries) {
+function rebuildZip(buffer, entries, replacements = new Map()) {
   const localEntries = [];
   const centralEntries = [];
   let offset = 0;
   for (const entry of entries) {
     const name = Buffer.from(entry.name, "utf8");
-    const data = compressedData(buffer, entry);
+    const replacement = replacements.get(entry.name);
+    const uncompressed = replacement === undefined ? undefined : Buffer.from(replacement);
+    const compression = replacement === undefined ? entry.compression : entry.compression === 8 ? 8 : 0;
+    const data = replacement === undefined ? compressedData(buffer, entry) : compression === 8 ? zlib.deflateRawSync(uncompressed) : uncompressed;
+    const checksum = replacement === undefined ? entry.crc32 : crc32(uncompressed);
+    const uncompressedBytes = replacement === undefined ? entry.uncompressedBytes : uncompressed.length;
     const local = Buffer.alloc(30);
     local.writeUInt32LE(ZIP_LOCAL_SIGNATURE, 0);
     local.writeUInt16LE(20, 4);
     local.writeUInt16LE(entry.flags & ~0x0008, 6);
-    local.writeUInt16LE(entry.compression, 8);
-    local.writeUInt32LE(entry.crc32, 14);
-    local.writeUInt32LE(entry.compressedBytes, 18);
-    local.writeUInt32LE(entry.uncompressedBytes, 22);
+    local.writeUInt16LE(compression, 8);
+    local.writeUInt32LE(checksum, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(uncompressedBytes, 22);
     local.writeUInt16LE(name.length, 26);
     const localEntry = Buffer.concat([local, name, data]);
     localEntries.push(localEntry);
@@ -81,10 +88,10 @@ function rebuildZip(buffer, entries) {
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(20, 6);
     central.writeUInt16LE(entry.flags & ~0x0008, 8);
-    central.writeUInt16LE(entry.compression, 10);
-    central.writeUInt32LE(entry.crc32, 16);
-    central.writeUInt32LE(entry.compressedBytes, 20);
-    central.writeUInt32LE(entry.uncompressedBytes, 24);
+    central.writeUInt16LE(compression, 10);
+    central.writeUInt32LE(checksum, 16);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(uncompressedBytes, 24);
     central.writeUInt16LE(name.length, 28);
     central.writeUInt32LE(offset, 42);
     centralEntries.push(Buffer.concat([central, name]));
@@ -121,11 +128,11 @@ function removeCreatedOutputs(files) {
   }
 }
 
-function quality(changed, removedMediaCount, artifactCount, postAuditGenerated) {
-  const checks = [{ name: "audit-report-verified", passed: true }, { name: "safe-repair-applied", passed: changed ? removedMediaCount > 0 : true }, { name: "output-reaudited", passed: !changed || postAuditGenerated === true }, { name: "reports-generated", passed: artifactCount >= 2 }];
-  return assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { "removed-media-count": removedMediaCount, "changed": changed ? 1 : 0, "artifact-count": artifactCount } });
+function quality(changed, repairActionCount, removedMediaCount, artifactCount, postAuditGenerated) {
+  const checks = [{ name: "audit-report-verified", passed: true }, { name: "safe-repair-applied", passed: changed ? repairActionCount > 0 : true }, { name: "output-reaudited", passed: !changed || postAuditGenerated === true }, { name: "reports-generated", passed: artifactCount >= 2 }];
+  return assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { "repair-action-count": repairActionCount, "removed-media-count": removedMediaCount, "changed": changed ? 1 : 0, "artifact-count": artifactCount } });
 }
-function renderMarkdown(report) { return `# PPT improvement report\n\n- Source SHA-256: \`${report.source.sha256}\`\n- Verified quality report SHA-256: \`${report.auditReport.sha256}\`\n- Safe changes applied: ${report.result.changed ? "yes" : "no"}\n- Removed orphaned media: ${report.result.removedMediaCount}\n${report.postAudit ? `- Post-improvement quality report: \`${POST_QUALITY_REPORT_JSON_NAME}\` (${report.postAudit.qualityPassed ? "pass" : "review"})\n` : ""}\n${report.result.changed ? "A new `improved.pptx` was created and independently re-audited." : "No safe automatic repair was applicable; the source PPTX was not copied or modified."}\n`; }
+function renderMarkdown(report) { return `# PPT improvement report\n\n- Source SHA-256: \`${report.source.sha256}\`\n- Verified quality report SHA-256: \`${report.auditReport.sha256}\`\n- Safe changes applied: ${report.result.changed ? "yes" : "no"}\n- Repair actions: ${report.result.repairActionCount}\n- Removed orphaned media: ${report.result.removedMediaCount}\n${report.postAudit ? `- Post-improvement quality report: \`${POST_QUALITY_REPORT_JSON_NAME}\` (${report.postAudit.qualityPassed ? "pass" : "review"})\n` : ""}\n${report.result.changed ? "A new `improved.pptx` was created and independently re-audited." : "No safe automatic repair was applicable; the source PPTX was not copied or modified."}\n`; }
 function writeReports(output, report, includeDeck, createdFiles) {
   const jsonFile = path.join(output, REPORT_JSON_NAME);
   const markdownFile = path.join(output, REPORT_MARKDOWN_NAME);
@@ -159,14 +166,13 @@ function runPptImproveJob({ workspaceRoot, stateRoot, ownerId, id }) {
     const output = ensureSafeOutputDirectory(workspaceRoot, job.output.path);
     const inspection = inspectPptx(source.path);
     if (inspection.unusedMediaCount !== auditReport.unusedMediaCount) throw new Error("PPT quality report is stale for the current source file");
-    const repairProfile = normalizeRepairProfile(job.repairProfile); const shouldRepair = repairProfile === "safe-package" && inspection.unusedMediaCount > 0;
-    const report = { version: "0.2.0", capability: CAPABILITY, generatedAt: new Date().toISOString(), repairProfile, source: { sha256: source.sha256, bytes: source.bytes }, auditReport: { sha256: auditReport.sha256 }, result: { changed: shouldRepair, eligibleUnusedMediaCount: inspection.unusedMediaCount, removedMediaCount: shouldRepair ? inspection.unusedMediaCount : 0 } };
-    if (shouldRepair) {
+    const repairProfile = normalizeRepairProfile(job.repairProfile);
+    const original = fs.readFileSync(source.path); const entries = readCentralDirectory(original);
+    const repairPlan = planProfileRepairs({ profile: repairProfile, input: original, entries, inspection });
+    const report = { version: "0.3.0", capability: CAPABILITY, generatedAt: new Date().toISOString(), repairProfile, source: { sha256: source.sha256, bytes: source.bytes }, auditReport: { sha256: auditReport.sha256 }, result: { changed: repairPlan.changed, eligibleUnusedMediaCount: inspection.unusedMediaCount, removedMediaCount: repairPlan.repairCounts.removedMedia, repairActionCount: repairPlan.actionCount, repairCounts: repairPlan.repairCounts } };
+    if (repairPlan.changed) {
       const destination = path.join(output, IMPROVED_PPTX_NAME);
-      const original = fs.readFileSync(source.path);
-      const entries = readCentralDirectory(original);
-      const removable = new Set(inspection.unusedMediaEntries.map((entry) => entry.name));
-      writeAtomically(destination, rebuildZip(original, [...entries.values()].filter((entry) => !removable.has(entry.name))), createdFiles);
+      writeAtomically(destination, rebuildZip(original, [...entries.values()].filter((entry) => !repairPlan.removableNames.has(entry.name)), repairPlan.replacements), createdFiles);
       const improvedSource = assertSafeExistingPptx(workspaceRoot, destination);
       const improvedReport = auditPptx(improvedSource);
       if (improvedReport.summary.unusedMediaCount !== 0 || improvedReport.summary.mediaCount + inspection.unusedMediaCount !== inspection.mediaCount) throw new Error("PPT improvement re-audit failed");
@@ -174,7 +180,7 @@ function runPptImproveJob({ workspaceRoot, stateRoot, ownerId, id }) {
       report.postAudit = { report: improvedReport, sourceSha256: improvedSource.sha256, sourceBytes: improvedSource.bytes, unusedMediaCount: improvedReport.summary.unusedMediaCount, qualityPassed: improvedQuality.passed };
     }
     const artifacts = writeReports(output, report, report.result.changed, createdFiles);
-    return store.transition(id, "succeeded", { artifacts, quality: quality(report.result.changed, report.result.removedMediaCount, artifacts.length, !!report.postAudit), lease: undefined });
+    return store.transition(id, "succeeded", { artifacts, quality: quality(report.result.changed, report.result.repairActionCount, report.result.removedMediaCount, artifacts.length, !!report.postAudit), lease: undefined });
   } catch (error) {
     removeCreatedOutputs(createdFiles);
     return store.transition(id, "failed", { error: { code: "PPT_IMPROVE_FAILED", message: error instanceof Error ? error.message.slice(0, 4096) : "PPT improvement failed", retryable: false }, lease: undefined });
@@ -189,10 +195,11 @@ function pptImproveSummary(job, workspaceRoot) {
     const stat = fs.lstatSync(file);
     if (!declared || !stat.isFile() || stat.isSymbolicLink() || stat.size < 2 || stat.size > MAX_REPORT_BYTES || sha256File(file) !== declared.sha256) throw new Error("unavailable");
     const report = JSON.parse(fs.readFileSync(file, "utf8"));
-    if (!report || report.capability !== CAPABILITY || !REPAIR_PROFILES.includes(report.repairProfile || "safe-package") || !report.source || !/^[a-f0-9]{64}$/.test(report.source.sha256 || "") || !Number.isSafeInteger(report.source.bytes) || !report.auditReport || !/^[a-f0-9]{64}$/.test(report.auditReport.sha256 || "") || !report.result || typeof report.result.changed !== "boolean" || !Number.isSafeInteger(report.result.removedMediaCount) || report.result.removedMediaCount < 0 || report.result.removedMediaCount > 4096) throw new Error("unavailable");
+    const repairActionCount = report?.result?.repairActionCount ?? report?.result?.removedMediaCount;
+    if (!report || report.capability !== CAPABILITY || !REPAIR_PROFILES.includes(report.repairProfile || "safe-package") || !report.source || !/^[a-f0-9]{64}$/.test(report.source.sha256 || "") || !Number.isSafeInteger(report.source.bytes) || !report.auditReport || !/^[a-f0-9]{64}$/.test(report.auditReport.sha256 || "") || !report.result || typeof report.result.changed !== "boolean" || !Number.isSafeInteger(repairActionCount) || repairActionCount < 0 || repairActionCount > 100000 || !Number.isSafeInteger(report.result.removedMediaCount) || report.result.removedMediaCount < 0 || report.result.removedMediaCount > 4096) throw new Error("unavailable");
     const postAudit = report.postAudit;
     if (report.result.changed !== !!postAudit || (postAudit && (!/^[a-f0-9]{64}$/.test(postAudit.sourceSha256 || "") || !Number.isSafeInteger(postAudit.sourceBytes) || postAudit.sourceBytes < 22 || !Number.isSafeInteger(postAudit.unusedMediaCount) || postAudit.unusedMediaCount !== 0 || typeof postAudit.qualityPassed !== "boolean"))) throw new Error("unavailable");
-    return Object.freeze({ repairProfile: report.repairProfile || "safe-package", source: Object.freeze({ sha256: report.source.sha256, bytes: report.source.bytes }), auditReport: Object.freeze({ sha256: report.auditReport.sha256 }), result: Object.freeze({ changed: report.result.changed, removedMediaCount: report.result.removedMediaCount }), postAudit: postAudit ? Object.freeze({ sourceSha256: postAudit.sourceSha256, sourceBytes: postAudit.sourceBytes, unusedMediaCount: postAudit.unusedMediaCount, qualityPassed: postAudit.qualityPassed }) : null });
+    return Object.freeze({ repairProfile: report.repairProfile || "safe-package", source: Object.freeze({ sha256: report.source.sha256, bytes: report.source.bytes }), auditReport: Object.freeze({ sha256: report.auditReport.sha256 }), result: Object.freeze({ changed: report.result.changed, repairActionCount, removedMediaCount: report.result.removedMediaCount }), postAudit: postAudit ? Object.freeze({ sourceSha256: postAudit.sourceSha256, sourceBytes: postAudit.sourceBytes, unusedMediaCount: postAudit.unusedMediaCount, qualityPassed: postAudit.qualityPassed }) : null });
   } catch { return null; }
 }
 

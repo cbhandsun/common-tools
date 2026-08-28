@@ -68,14 +68,14 @@ test("team PPT improvement produces an initial audit, a safe improved copy, and 
   const improvement = JSON.parse(writes[5].body.toString("utf8"));
   assert.equal(initial.summary.unusedMediaCount, 1);
   assert.equal(postAudit.summary.unusedMediaCount, 0);
-  assert.deepEqual(improvement.result, { changed: true, eligibleUnusedMediaCount: 1, removedMediaCount: 1 }); assert.equal(improvement.repairProfile, "safe-package");
+  assert.equal(improvement.result.changed, true); assert.equal(improvement.result.eligibleUnusedMediaCount, 1); assert.equal(improvement.result.removedMediaCount, 1); assert.equal(improvement.result.repairActionCount, 1); assert.equal(improvement.repairProfile, "safe-package");
   assert.equal(improvement.source.path, undefined);
 });
 
 test("team PPT improvement audit-only profile reports eligible repairs without mutating", async () => {
   const writes = []; const handler = createPptImproveHandler({ objectStore: { async readObject() { return fixture(); }, async putObject(value) { writes.push(value); } } });
   const result = await handler({ job: { capability: "ppt-improve", options: { repairProfile: "audit-only" }, inputObjectKey: "owners/hash/inputs/deck.pptx", outputPrefix: "owners/hash/jobs/job/" }, isCancellationRequested: async () => false });
-  assert.equal(result.artifacts.some((artifact) => artifact.name === "improved.pptx"), false); const report = JSON.parse(writes.at(-2).body.toString("utf8")); assert.equal(report.repairProfile, "audit-only"); assert.deepEqual(report.result, { changed: false, eligibleUnusedMediaCount: 1, removedMediaCount: 0 });
+  assert.equal(result.artifacts.some((artifact) => artifact.name === "improved.pptx"), false); const report = JSON.parse(writes.at(-2).body.toString("utf8")); assert.equal(report.repairProfile, "audit-only"); assert.equal(report.result.changed, false); assert.equal(report.result.eligibleUnusedMediaCount, 1); assert.equal(report.result.removedMediaCount, 0); assert.equal(report.result.repairActionCount, 0);
 });
 
 test("team PPT improvement does not copy a clean source and rejects invalid inputs, cancellation, and settings", async () => {

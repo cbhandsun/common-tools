@@ -7,6 +7,7 @@ const path = require("node:path");
 const { assertQualityReport } = require("../capability-contracts");
 const { auditPptx, inspectPptx, qualityFromReport, readCentralDirectory, renderMarkdown: renderQualityMarkdown } = require("../ppt-quality-core");
 const { IMPROVED_PPTX_NAME, POST_QUALITY_REPORT_JSON_NAME, POST_QUALITY_REPORT_MARKDOWN_NAME, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, normalizeRepairProfile, rebuildZip } = require(".");
+const { planProfileRepairs } = require("./repair-profiles");
 
 const MAX_PPTX_BYTES = 100 * 1024 * 1024;
 
@@ -19,17 +20,17 @@ function assertTemporaryRoot(value) {
   if (typeof value !== "string" || !path.isAbsolute(value)) throw new TypeError("temporaryRoot must be an absolute path");
   return value;
 }
-function improvementQuality(changed, removedMediaCount, artifactCount, postAuditGenerated) {
+function improvementQuality(changed, repairActionCount, removedMediaCount, artifactCount, postAuditGenerated) {
   const checks = [
     { name: "initial-quality-report-generated", passed: true },
-    { name: "safe-repair-applied", passed: changed ? removedMediaCount > 0 : true },
+    { name: "safe-repair-applied", passed: changed ? repairActionCount > 0 : true },
     { name: "output-reaudited", passed: !changed || postAuditGenerated === true },
     { name: "reports-generated", passed: artifactCount >= 4 }
   ];
-  return assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { "removed-media-count": removedMediaCount, changed: changed ? 1 : 0, "artifact-count": artifactCount } });
+  return assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { "repair-action-count": repairActionCount, "removed-media-count": removedMediaCount, changed: changed ? 1 : 0, "artifact-count": artifactCount } });
 }
 function renderImprovementMarkdown(report) {
-  return `# PPT improvement report\n\n- Source SHA-256: \`${report.source.sha256}\`\n- Verified quality report SHA-256: \`${report.auditReport.sha256}\`\n- Safe changes applied: ${report.result.changed ? "yes" : "no"}\n- Removed orphaned media: ${report.result.removedMediaCount}\n${report.postAudit ? `- Post-improvement quality report: \`${POST_QUALITY_REPORT_JSON_NAME}\` (${report.postAudit.qualityPassed ? "pass" : "review"})\n` : ""}\n${report.result.changed ? "A new `improved.pptx` was created and independently re-audited." : "No safe automatic repair was applicable; the source PPTX was not copied or modified."}\n`;
+  return `# PPT improvement report\n\n- Source SHA-256: \`${report.source.sha256}\`\n- Verified quality report SHA-256: \`${report.auditReport.sha256}\`\n- Safe changes applied: ${report.result.changed ? "yes" : "no"}\n- Repair actions: ${report.result.repairActionCount}\n- Removed orphaned media: ${report.result.removedMediaCount}\n${report.postAudit ? `- Post-improvement quality report: \`${POST_QUALITY_REPORT_JSON_NAME}\` (${report.postAudit.qualityPassed ? "pass" : "review"})\n` : ""}\n${report.result.changed ? "A new `improved.pptx` was created and independently re-audited." : "No safe automatic repair was applicable; the source PPTX was not copied or modified."}\n`;
 }
 function reportArtifact(name, mediaType, body, outputPrefix) {
   return Object.freeze({ name, mediaType, body, objectKey: `${outputPrefix}${name}` });
@@ -56,16 +57,15 @@ function createPptImproveHandler({ objectStore, temporaryRoot = os.tmpdir() } = 
       const initialMarkdown = Buffer.from(renderQualityMarkdown(initialReport, initialQuality));
       const inspection = inspectPptx(sourceFile);
       if (inspection.unusedMediaCount !== initialReport.summary.unusedMediaCount) throw new Error("PPT improvement initial audit is inconsistent");
-      const repairProfile = normalizeRepairProfile(job.options?.repairProfile); const shouldRepair = repairProfile === "safe-package" && inspection.unusedMediaCount > 0;
-      const report = { version: "0.2.0", capability: "ppt-improve", generatedAt: new Date().toISOString(), repairProfile, source: { sha256: source.sha256, bytes: source.bytes }, auditReport: { sha256: sha256(initialJson) }, result: { changed: shouldRepair, eligibleUnusedMediaCount: inspection.unusedMediaCount, removedMediaCount: shouldRepair ? inspection.unusedMediaCount : 0 } };
+      const repairProfile = normalizeRepairProfile(job.options?.repairProfile);
+      const entries = readCentralDirectory(input); const repairPlan = planProfileRepairs({ profile: repairProfile, input, entries, inspection });
+      const report = { version: "0.3.0", capability: "ppt-improve", generatedAt: new Date().toISOString(), repairProfile, source: { sha256: source.sha256, bytes: source.bytes }, auditReport: { sha256: sha256(initialJson) }, result: { changed: repairPlan.changed, eligibleUnusedMediaCount: inspection.unusedMediaCount, removedMediaCount: repairPlan.repairCounts.removedMedia, repairActionCount: repairPlan.actionCount, repairCounts: repairPlan.repairCounts } };
       const artifacts = [
         reportArtifact("ppt-quality-report.json", "application/json", initialJson, job.outputPrefix),
         reportArtifact("ppt-quality-report.md", "text/markdown", initialMarkdown, job.outputPrefix)
       ];
-      if (shouldRepair) {
-        const entries = readCentralDirectory(input);
-        const removable = new Set(inspection.unusedMediaEntries.map((entry) => entry.name));
-        const improved = rebuildZip(input, [...entries.values()].filter((entry) => !removable.has(entry.name)));
+      if (repairPlan.changed) {
+        const improved = rebuildZip(input, [...entries.values()].filter((entry) => !repairPlan.removableNames.has(entry.name)), repairPlan.replacements);
         const improvedFile = path.join(root, IMPROVED_PPTX_NAME);
         fs.writeFileSync(improvedFile, improved, { flag: "wx", mode: 0o600 });
         const improvedSource = Object.freeze({ path: improvedFile, bytes: improved.length, sha256: sha256(improved) });
@@ -79,7 +79,7 @@ function createPptImproveHandler({ objectStore, temporaryRoot = os.tmpdir() } = 
           reportArtifact(POST_QUALITY_REPORT_MARKDOWN_NAME, "text/markdown", Buffer.from(renderQualityMarkdown(postAudit, postQuality)), job.outputPrefix)
         );
       }
-      const finalQuality = improvementQuality(report.result.changed, report.result.removedMediaCount, artifacts.length + 2, !!report.postAudit);
+      const finalQuality = improvementQuality(report.result.changed, report.result.repairActionCount, report.result.removedMediaCount, artifacts.length + 2, !!report.postAudit);
       artifacts.push(
         reportArtifact(REPORT_JSON_NAME, "application/json", Buffer.from(`${JSON.stringify(report, null, 2)}\n`), job.outputPrefix),
         reportArtifact(REPORT_MARKDOWN_NAME, "text/markdown", Buffer.from(renderImprovementMarkdown(report)), job.outputPrefix)

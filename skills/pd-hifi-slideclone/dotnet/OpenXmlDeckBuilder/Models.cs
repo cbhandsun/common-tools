@@ -23,7 +23,7 @@ public sealed record PageIr(
     public SlideSizeIr SlideSize { get; set; } = new(960, 540);
 }
 public sealed record PageIntentIr(string? TemplateLayoutId = null, string? TemplateLayoutName = null, int? TemplatePlaceholderCapacity = null, int? TemplateLayoutDemand = null, string? TemplateLayoutFit = null, string? TemplateLayoutMode = null, List<PlaceholderBindingIr>? TemplatePlaceholderBindings = null);
-public sealed record PlaceholderBindingIr(string ObjectId, string? Role = null, string? PlaceholderType = null);
+public sealed record PlaceholderBindingIr(string ObjectId, string? Collection = null, string? Role = null, string? PlaceholderType = null, int? PlaceholderIndex = null);
 public sealed record CitationIr(string Id, string Title, string Locator, string? AccessedAt = null, string? License = null);
 public sealed record TextBoxIr(string Id, string Text, BoxIr Box, FontIr? Font, JsonElement? Style = null, double? Rotation = null, JsonElement? Source = null, bool? Wrap = null, List<TextRunIr>? Runs = null, string? Role = null);
 public sealed record TextRunIr(string Text, FontIr? Font = null);

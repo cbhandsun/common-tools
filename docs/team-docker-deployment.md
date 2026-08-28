@@ -290,7 +290,7 @@ npm run common-tools -- team deployment-plan --capabilities ppt-quality
 
 `npm run common-tools:verify-capabilities` 会进一步验证这份映射在 `compose.team-api.yaml` 中确有匹配的 Worker service、profile、启动命令、专属 capability 设置、迁移门禁和正确的镜像类型；缺失任一项都会阻断插件/能力发布校验。
 
-`ppt-quality` 与 `ppt-improve` 均提供可选的团队 Docker Worker，且只接受 `application/vnd.openxmlformats-officedocument.presentationml.presentation` 的单一 PPTX 输入。质量 Worker 输出 owner/job-scoped JSON/Markdown 审计报告；改善 Worker 会在受限临时目录内先生成同一份独立质量报告，再仅移除经 OOXML 关系证明未被引用的媒体，输出新的 `improved.pptx`、改善报告和独立复审报告。它不接受调用方提供的报告、修复脚本、模板或路径，因此单输入对象协议不会绕过“审视后再改善”的 SHA-256 绑定。两者均沿用队列、lease、对象存储和心跳门禁，且不在默认 allowlist 中；部署时必须同时设置 capability 并启用对应 profile。
+`ppt-quality` 与 `ppt-improve` 均提供可选的团队 Docker Worker，且只接受 `application/vnd.openxmlformats-officedocument.presentationml.presentation` 的单一 PPTX 输入。质量 Worker 输出 owner/job-scoped JSON/Markdown 审计报告；改善 Worker 会在受限临时目录内先生成同一份独立质量报告，再按 Job 的受限 `options.repairProfile` 执行 `safe-package`、`layout-safe`、`typography-safe`、`editability-safe` 或 `audit-only`。前三个元数据类修复分别处理重复 drawing ID、缺失文本语言标记和缺失对象名称，不改变可见版式；发生修改时输出新的 `improved.pptx`、改善报告和独立复审报告。它不接受调用方提供的报告、修复脚本、模板或路径，因此单输入对象协议不会绕过“审视后再改善”的 SHA-256 绑定。两者均沿用队列、lease、对象存储和心跳门禁，且不在默认 allowlist 中；部署时必须同时设置 capability 并启用对应 profile。
 
 ```powershell
 $env:COMMON_TOOLS_TEAM_CAPABILITIES = 'project-audit'

@@ -91,6 +91,40 @@ function templateRecord(template) {
   return Object.freeze({ mode: template.mode, sha256: template.sha256, bytes: template.bytes, entryCount: template.entryCount, slideCount: template.slideCount, semanticLayouts: template.layoutMap?.length || 0, layoutMap: template.layoutMap || [], source: template.source });
 }
 
+const NON_CONTENT_TEXT_ROLES = new Set(["page-number", "section-number", "citation"]);
+
+function bindingCandidates(page, pageRole) {
+  const textBoxes = page.textBoxes || [];
+  const candidates = [];
+  const appendText = (predicate, placeholderTypes) => {
+    for (const item of textBoxes.filter(predicate)) candidates.push(Object.freeze({ objectId: item.id, collection: "textBoxes", role: item.role, placeholderTypes }));
+  };
+  appendText((item) => item.role === "title", pageRole === "cover" ? ["ctrTitle", "title"] : ["title", "ctrTitle"]);
+  appendText((item) => item.role === "summary", pageRole === "cover" ? ["subTitle", "body", "obj"] : ["body", "obj", "subTitle"]);
+  for (const item of page.tables || []) candidates.push(Object.freeze({ objectId: item.id, collection: "tables", placeholderTypes: ["tbl", "obj"] }));
+  for (const item of page.charts || []) candidates.push(Object.freeze({ objectId: item.id, collection: "charts", placeholderTypes: ["chart", "obj"] }));
+  for (const item of page.images || []) candidates.push(Object.freeze({ objectId: item.id, collection: "images", placeholderTypes: ["pic", "obj"] }));
+  appendText((item) => item.role !== "title" && item.role !== "summary" && !NON_CONTENT_TEXT_ROLES.has(item.role), ["body", "obj"]);
+  return candidates;
+}
+
+function bindTemplatePlaceholders(page, layout, pageRole) {
+  if (layout.flexibleCanvas === true) return [];
+  const available = (layout.placeholders || []).map((placeholder, order) => ({ ...placeholder, order, used: false }));
+  const bindings = [];
+  for (const candidate of bindingCandidates(page, pageRole)) {
+    let selected;
+    for (const placeholderType of candidate.placeholderTypes) {
+      selected = available.find((placeholder) => !placeholder.used && placeholder.type === placeholderType);
+      if (selected) break;
+    }
+    if (!selected) continue;
+    selected.used = true;
+    bindings.push(Object.freeze({ objectId: candidate.objectId, collection: candidate.collection, ...(candidate.role ? { role: candidate.role } : {}), placeholderType: selected.type, placeholderIndex: selected.index }));
+  }
+  return bindings;
+}
+
 function applyTemplateLayoutMap(rawIr, template) {
   if (!template?.layoutMap?.length) return rawIr;
   const ir = JSON.parse(JSON.stringify(rawIr));
@@ -105,10 +139,10 @@ function applyTemplateLayoutMap(rawIr, template) {
     const fitting = pool.filter((layout) => layout.flexibleCanvas === true || layout.bodyCapacity >= demand);
     const candidatePool = fitting.length ? fitting : pool;
     const candidate = [...candidatePool].sort((left, right) => Math.abs((left.flexibleCanvas ? demand : left.bodyCapacity) - demand) - Math.abs((right.flexibleCanvas ? demand : right.bodyCapacity) - demand) || left.id.localeCompare(right.id))[0];
-    const placeholderBindings = (page.textBoxes || []).map((item) => ({ objectId: item.id, role: item.role, placeholderType: item.role === "title" ? (role === "cover" ? "ctrTitle" : "title") : item.role === "summary" && role === "cover" ? "subTitle" : "body" }));
+    const placeholderBindings = bindTemplatePlaceholders(page, candidate, role);
     page.intent = { ...(page.intent || {}), templateLayoutId: candidate.id, templateLayoutName: candidate.name, templatePlaceholderCapacity: candidate.bodyCapacity, templateLayoutDemand: demand, templateLayoutFit: candidate.flexibleCanvas === true || candidate.bodyCapacity >= demand ? "fit" : "overflow", templateLayoutMode: candidate.flexibleCanvas === true ? "freeform" : "placeholder", templatePlaceholderBindings: placeholderBindings };
   }
   return Object.freeze(ir);
 }
 
-module.exports = { FORBIDDEN_CONTENT_TYPE, FORBIDDEN_ENTRY, MAX_TEMPLATE_BYTES, applyTemplateLayoutMap, inspectTemplate, materializeTemplate, normalizeTemplate, resolveTemplate, templateRecord };
+module.exports = { FORBIDDEN_CONTENT_TYPE, FORBIDDEN_ENTRY, MAX_TEMPLATE_BYTES, applyTemplateLayoutMap, bindTemplatePlaceholders, inspectTemplate, materializeTemplate, normalizeTemplate, resolveTemplate, templateRecord };

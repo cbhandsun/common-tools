@@ -55,7 +55,8 @@ test("user PPTX template is hash-bound, admitted, passed to the builder, and rep
     assert.equal(completed.status, "succeeded"); assert.equal(path.basename(received), ".template-input.pptx"); assert.equal(fs.existsSync(received), false); assert.ok(completed.artifacts.some((artifact) => artifact.name === "template-manifest.json"));
     const manifest = fs.readFileSync(path.join(output, "template-manifest.json"), "utf8"); assert.match(manifest, /owned-or-authorized/); assert.match(manifest, /semanticLayouts/); assert.match(manifest, /标题与内容/); assert.doesNotMatch(manifest, /brand[.]pptx|common-tools-template/);
     const ir = JSON.parse(fs.readFileSync(path.join(output, "deck.ir.json"), "utf8")); assert.equal(ir.pages[1].intent.templateLayoutId, "slideLayout1");
-    assert.equal(ir.pages[1].intent.templateLayoutFit, "fit"); assert.equal(ir.pages[1].intent.templatePlaceholderBindings.length, ir.pages[1].textBoxes.length);
+    assert.equal(ir.pages[1].intent.templateLayoutFit, "fit");
+    assert.deepEqual(ir.pages[1].intent.templatePlaceholderBindings.map((binding) => [binding.collection, binding.placeholderType, binding.placeholderIndex]), [["textBoxes", "title", 0], ["textBoxes", "body", 1]]);
     const report = JSON.parse(fs.readFileSync(path.join(output, "ppt-create-report.json"))); assert.equal(report.result.template.sha256, sha256); assert.equal(report.quality.checks.find((check) => check.name === "template-admission").passed, true);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
@@ -65,6 +66,21 @@ test("template layout mapping fails closed when no semantic layout has enough re
   const ir = { pages: [{ intent: { role: "comparison" }, textBoxes: [{ id: "a", role: "body" }], tables: [], charts: [], images: [] }] };
   const mapped = applyTemplateLayoutMap(ir, { layoutMap: [{ id: "one", name: "One body", roles: ["comparison"], bodyCapacity: 1 }] });
   assert.equal(mapped.pages[0].intent.templateLayoutFit, "overflow"); assert.equal(mapped.pages[0].intent.templateLayoutDemand, 2);
+});
+
+test("template placeholder allocation binds native images, tables, charts, and text exactly once", () => {
+  const { bindTemplatePlaceholders } = require("../packages/ppt-create-core/template");
+  const page = {
+    textBoxes: [{ id: "title", role: "title" }, { id: "body", role: "body" }, { id: "page", role: "page-number" }],
+    images: [{ id: "image" }], tables: [{ id: "table" }], charts: [{ id: "chart" }]
+  };
+  const layout = { placeholders: [{ type: "title", index: 4 }, { type: "pic", index: 5 }, { type: "tbl", index: 6 }, { type: "chart", index: 7 }, { type: "body", index: 8 }], flexibleCanvas: false };
+  const bindings = bindTemplatePlaceholders(page, layout, "content");
+  assert.deepEqual(bindings.map((binding) => [binding.collection, binding.objectId, binding.placeholderType, binding.placeholderIndex]), [
+    ["textBoxes", "title", "title", 4], ["tables", "table", "tbl", 6], ["charts", "chart", "chart", 7], ["images", "image", "pic", 5], ["textBoxes", "body", "body", 8]
+  ]);
+  assert.equal(new Set(bindings.map((binding) => `${binding.placeholderType}:${binding.placeholderIndex}`)).size, bindings.length);
+  assert.equal(bindings.some((binding) => binding.objectId === "page"), false);
 });
 
 test("template contract rejects traversal, drift, executable content, external relationships, and unsupported rights", () => {

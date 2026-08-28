@@ -32,6 +32,7 @@ const portableImageValidatorFile = path.join(path.dirname(programFile), "Portabl
 const nativeTableWriterFile = path.join(path.dirname(programFile), "NativeTableWriter.cs");
 const editableChartFallbackWriterFile = path.join(path.dirname(programFile), "EditableChartFallbackWriter.cs");
 const nativeChartWriterFile = path.join(path.dirname(programFile), "NativeChartWriter.cs");
+const templatePlaceholderWriterFile = path.join(path.dirname(programFile), "TemplatePlaceholderWriter.cs");
 const projectFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
 const builderDll = path.join(path.dirname(projectFile), "bin", "Debug", "net8.0", "OpenXmlDeckBuilder.dll");
 const pythonBuilderFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "python", "build_pptx.py");
@@ -208,11 +209,20 @@ test("OpenXmlDeckBuilder supports high-fidelity table overlay IR fields", () => 
 
 test("OpenXmlDeckBuilder binds generated semantic text to native PowerPoint placeholders", () => {
   const models = fs.readFileSync(modelsFile, "utf8");
-  const source = fs.readFileSync(programFile, "utf8");
+  const source = fs.readFileSync(programFile, "utf8"); const placeholderWriter = fs.readFileSync(templatePlaceholderWriterFile, "utf8");
   assert.match(models, /string\? Role = null/);
-  assert.match(source, /new P[.]PlaceholderShape/);
-  assert.match(source, /P[.]PlaceholderValues[.]Title/);
-  assert.match(source, /P[.]PlaceholderValues[.]Body/);
+  assert.match(models, /string\? Collection = null/);
+  assert.match(models, /int\? PlaceholderIndex = null/);
+  assert.match(source, /TemplatePlaceholderWriter[.]CreateApplicationProperties/);
+  assert.match(placeholderWriter, /new P[.]PlaceholderShape/);
+  assert.match(placeholderWriter, /placeholder[.]Index = \(uint\)placeholderIndex/);
+  assert.match(placeholderWriter, /P[.]PlaceholderValues[.]Title/);
+  assert.match(placeholderWriter, /P[.]PlaceholderValues[.]Body/);
+  assert.match(placeholderWriter, /P[.]PlaceholderValues[.]Picture/);
+  assert.match(placeholderWriter, /P[.]PlaceholderValues[.]Table/);
+  assert.match(placeholderWriter, /P[.]PlaceholderValues[.]Chart/);
+  assert.match(fs.readFileSync(nativeTableWriterFile, "utf8"), /applicationProperties \?\? new P[.]ApplicationNonVisualDrawingProperties/);
+  assert.match(fs.readFileSync(nativeChartWriterFile, "utf8"), /applicationProperties \?\? new P[.]ApplicationNonVisualDrawingProperties/);
 });
 
 test("both PPTX builders support native table dimensions and per-cell styles", () => {
@@ -984,7 +994,7 @@ test("OpenXmlDeckBuilder emits native visual atoms as grouped PPT components", (
   assert.match(source, /new P\.GroupShapeProperties\(new A\.TransformGroup\(/);
   assert.match(source, /new A\.ChildOffset/);
   assert.match(source, /new A\.ChildExtents/);
-  assert.match(source, /group\.Append\(CreateTextBox\(textBox, shapeId\+\+\)\)/);
+  assert.match(source, /group\.Append\(CreateTextBox\(textBox, shapeId\+\+, allowRolePlaceholder: !usesTemplateBindings\)\)/);
   assert.match(source, /group\.Append\(picture\)/);
 });
 

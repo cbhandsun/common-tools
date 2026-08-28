@@ -55,7 +55,7 @@ function teamToolProperties(name, capabilities = Object.keys(CAPABILITY_SCOPES),
     contentLength: { type: "integer", minimum: 1, maximum: 104857600 },
     inputObjectKey: { type: "string" },
     idempotencyKey: { type: "string" },
-    options: { type: "object", properties: { repairProfile: { type: "string", enum: ["safe-package", "audit-only"] } }, additionalProperties: false },
+    options: { type: "object", properties: { repairProfile: { type: "string", enum: ["safe-package", "layout-safe", "typography-safe", "editability-safe", "audit-only"] } }, additionalProperties: false },
     id: { type: "string" },
     name: { type: "string" },
     projectId: { type: "string", pattern: "^[a-z][a-z0-9-]{2,63}$" }

@@ -85,7 +85,7 @@ test("team MCP forwards only bounded PPT improvement options", async () => {
   ctx.enabledCapabilities = ["ppt-improve"];
   const listed = await handleTeamMcp({ jsonrpc: "2.0", id: 1, method: "tools/list" }, ctx);
   const createJob = listed.result.tools.find((tool) => tool.name === "create_team_job");
-  assert.deepEqual(createJob.inputSchema.properties.options.properties.repairProfile.enum, ["safe-package", "audit-only"]);
+  assert.deepEqual(createJob.inputSchema.properties.options.properties.repairProfile.enum, ["safe-package", "layout-safe", "typography-safe", "editability-safe", "audit-only"]);
   await callTeamTool("create_team_job", { capability: "ppt-improve", inputObjectKey: "owners/hash/inputs/deck.pptx", idempotencyKey: "audit-only", options: { repairProfile: "audit-only" } }, ctx);
   assert.deepEqual(ctx.calls[0][1].options, { repairProfile: "audit-only" });
   await assert.rejects(() => callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/deck", idempotencyKey: "bad", options: { repairProfile: "audit-only" } }, context()), /options/);
