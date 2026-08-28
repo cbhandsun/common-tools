@@ -42,7 +42,7 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.equal(marketplace.plugins[0].source.path, "./plugins/common-tools");
   const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".codex-plugin", "plugin.json"), "utf8"));
   assert.equal(manifest.mcpServers, "./.mcp.json");
-  assert.match(manifest.version, /^0\.1\.6\+codex\./);
+  assert.match(manifest.version, /^0\.1\.7\+codex\./);
   const mcp = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".mcp.json"), "utf8"));
   assert.deepEqual(mcp.mcpServers["common-tools"], { type: "http", url: "https://plugins.iepose.cn/mcp", oauth: { clientId: "common-tools-mcp" } });
   const imageSkill = fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "image-to-editable", "SKILL.md"), "utf8");
@@ -75,7 +75,7 @@ test("Git Marketplace rejects removal of the image residual deduplication releas
     const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
     manifest.version = "0.1.0+codex.legacy";
     fs.writeFileSync(manifestFile, JSON.stringify(manifest), "utf8");
-    assert.throws(() => verifyPluginPackaging(root, capabilities), /does not include the ppt-create planning release/);
+    assert.throws(() => verifyPluginPackaging(root, capabilities), /does not include the ppt-create enhancement release/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -92,7 +92,7 @@ test("Git Marketplace rejects removal of the ppt-create layout candidate contrac
     const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
     manifest.version = "0.1.1+codex.legacy";
     fs.writeFileSync(manifestFile, JSON.stringify(manifest), "utf8");
-    assert.throws(() => verifyPluginPackaging(root, capabilities), /does not include the ppt-create planning release/);
+    assert.throws(() => verifyPluginPackaging(root, capabilities), /does not include the ppt-create enhancement release/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -104,6 +104,21 @@ test("Git Marketplace rejects removal of the ppt-create planning contract", () =
     const skill = path.join(root, "plugins", "common-tools", "skills", "ppt-create", "SKILL.md");
     fs.writeFileSync(skill, fs.readFileSync(skill, "utf8").replaceAll("planning-source-covered", "legacy-planning-check"), "utf8");
     assert.throws(() => verifyPluginPackaging(root, capabilities), /clean-room creation contract/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Git Marketplace rejects removal of the ppt-create enhancement release contract", () => {
+  const root = copiedPluginRoot();
+  try {
+    const skill = path.join(root, "plugins", "common-tools", "skills", "ppt-create", "SKILL.md");
+    for (const marker of ["asset-provenance-verified", "template-package-safe", "deckVariantCount", "citations-editable", "speaker-notes-native", "ppt ingest", "ppt apply-ir-edit", "deck.variants.json", "asset-manifest.json"]) {
+      const original = fs.readFileSync(skill, "utf8");
+      fs.writeFileSync(skill, original.replaceAll(marker, "legacy-enhancement-check"), "utf8");
+      assert.throws(() => verifyPluginPackaging(root, capabilities), /clean-room creation contract/);
+      fs.writeFileSync(skill, original, "utf8");
+    }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

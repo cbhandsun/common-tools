@@ -18,6 +18,17 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
 ]);
 const PPT_CREATE_RELEASE_FILES = Object.freeze([
   "packages/capability-manifests/ppt-create/capability.manifest.json",
+  "packages/ppt-create-core/index.js",
+  "packages/ppt-create-core/spec.js",
+  "packages/ppt-create-core/assets.js",
+  "packages/ppt-create-core/image-delivery.js",
+  "packages/ppt-create-core/ir-editor.js",
+  "packages/ppt-create-core/document-ingest.js",
+  "packages/ppt-create-core/pdf-text.js",
+  "packages/ppt-create-core/template.js",
+  "packages/ppt-create-core/variants.js",
+  "packages/ppt-create-core/content-metadata.js",
+  "packages/ppt-create-core/team-worker.js",
   "packages/ppt-create-core/theme-registry.js",
   "packages/ppt-create-core/layout-registry.js",
   "packages/ppt-create-core/data-models.js",
@@ -28,6 +39,10 @@ const PPT_CREATE_RELEASE_FILES = Object.freeze([
   "packages/ppt-create-core/layout.js",
   "packages/ppt-create-core/presentation-brief.schema.json",
   "packages/ppt-create-core/presentation-spec.schema.json",
+  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/DeckPackageWriter.cs",
+  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/Models.cs",
+  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/PptxPackageAdmissionValidator.cs",
+  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/SpeakerNotesWriter.cs",
   "plugins/common-tools/skills/ppt-create/SKILL.md"
 ]);
 const REQUIRED_FILES = Object.freeze([
@@ -191,6 +206,24 @@ function pptCreateLayoutProbe() {
   ].join("");
 }
 
+function pptCreateEnhancementProbe() {
+  return [
+    "let stage='initialization';try{const fs=require('node:fs');const path=require('node:path');",
+    "const root=path.resolve(process.argv[1]);",
+    "stage='manifest-load';const manifest=require(path.join(root,'packages','capability-manifests','ppt-create','capability.manifest.json'));const version=String(manifest.version||'').split('.').map(Number);",
+    "stage='module-load';const layout=require(path.join(root,'packages','ppt-create-core','layout.js'));const variants=require(path.join(root,'packages','ppt-create-core','variants.js'));const assets=require(path.join(root,'packages','ppt-create-core','assets.js'));const delivery=require(path.join(root,'packages','ppt-create-core','image-delivery.js'));const irEditor=require(path.join(root,'packages','ppt-create-core','ir-editor.js'));const ingest=require(path.join(root,'packages','ppt-create-core','document-ingest.js'));const pdfText=require(path.join(root,'packages','ppt-create-core','pdf-text.js'));const template=require(path.join(root,'packages','ppt-create-core','template.js'));const metadata=require(path.join(root,'packages','ppt-create-core','content-metadata.js'));const worker=require(path.join(root,'packages','ppt-create-core','team-worker.js'));const schema=require(path.join(root,'packages','ppt-create-core','presentation-spec.schema.json'));const briefSchema=require(path.join(root,'packages','ppt-create-core','presentation-brief.schema.json'));",
+    "stage='asset-provenance';const assetManifest=assets.normalizeAssetManifest([{id:'hero',path:'assets/hero.png',sha256:'a'.repeat(64),source:{kind:'customer-provided',locator:'customer-upload',license:'customer-owned'}}]);",
+    "stage='document-ingest';const outline=ingest.extractMarkdownOutline('# Probe\\n\\n## Facts\\n\\n- Verified point');const brief=ingest.outlineToBrief(outline,{audience:'Reviewers',purpose:'Approve direction',theme:'clean-light-v1',deckVariantCount:2,maxSlides:4});",
+    "stage='template-safety';let generatedTemplateRejected=false;try{template.normalizeTemplate({path:'template.pptx',sha256:'b'.repeat(64),source:{kind:'generated',locator:'probe',license:'generated'},mode:'master-and-theme'});}catch{generatedTemplateRejected=true;}",
+    "stage='variants';const spec={version:'1.0',title:'Enhancement probe',theme:'clean-light-v1',seed:'enhancement-probe',variantCount:2,deckVariantCount:2,slides:[{id:'cover',role:'cover',title:'Enhancement probe'},{id:'facts',role:'content',title:'Facts',items:[{id:'fact',label:'Verified point'}],citations:[{id:'source-1',title:'Primary source',locator:'https://example.com/source'}],speakerNotes:'Explain the verified point.'},{id:'close',role:'closing',title:'Next step'}]};const deckVariants=layout.createDeckVariants(spec);const variantRecords=variants.describeVariants(deckVariants);const notes=metadata.composeSpeakerNotes(spec.slides[1].speakerNotes,spec.slides[1].citations);",
+    "stage='source-read';const skill=fs.readFileSync(path.join(root,'plugins','common-tools','skills','ppt-create','SKILL.md'),'utf8');const packageWriter=fs.readFileSync(path.join(root,'skills','pd-hifi-slideclone','dotnet','OpenXmlDeckBuilder','DeckPackageWriter.cs'),'utf8');const admission=fs.readFileSync(path.join(root,'skills','pd-hifi-slideclone','dotnet','OpenXmlDeckBuilder','PptxPackageAdmissionValidator.cs'),'utf8');const notesWriter=fs.readFileSync(path.join(root,'skills','pd-hifi-slideclone','dotnet','OpenXmlDeckBuilder','SpeakerNotesWriter.cs'),'utf8');",
+    "const versionReady=version.length===3&&version.every(Number.isSafeInteger)&&(version[0]>0||version[1]>1||(version[1]===1&&version[2]>=7));",
+    "const checks=[['capability-version',versionReady],['asset-provenance',assetManifest.length===1&&assetManifest[0].source.kind==='customer-provided'],['image-delivery',typeof delivery.createImageDeliveryArtifacts==='function'&&typeof delivery.createPreservationPlan==='function'],['ir-editor',typeof irEditor.applyIrEditorPatch==='function'&&typeof irEditor.createIrPreviewHtml==='function'],['document-ingest',brief.deckVariantCount===2&&brief.sections.length===1&&typeof pdfText.extractPdfText==='function'],['template-safety',generatedTemplateRejected&&typeof template.inspectTemplate==='function'],['deck-variants',deckVariants.length===2&&variantRecords.length===2],['citations-notes',notes.includes('Explain the verified point.')&&notes.includes('https://example.com/source')],['team-worker',typeof worker.createPptCreateHandler==='function'],['spec-schema',schema.properties&&schema.properties.deckVariantCount&&schema.properties.template&&schema.$defs&&schema.$defs.citation&&schema.$defs.slide.properties.speakerNotes],['brief-schema',briefSchema.properties&&briefSchema.properties.deckVariantCount],['openxml-template',admission.includes('ValidateTemplate')&&packageWriter.includes('ValidateTemplate')],['openxml-notes',notesWriter.includes('class SpeakerNotesWriter')&&packageWriter.includes('SpeakerNotesWriter.Add')],['marketplace-skill',skill.includes('asset-provenance-verified')&&skill.includes('template-package-safe')&&skill.includes('deckVariantCount')&&skill.includes('citations-editable')&&skill.includes('speaker-notes-native')&&skill.includes('ppt ingest')&&skill.includes('ppt apply-ir-edit')&&skill.includes('deck.variants.json')&&skill.includes('asset-manifest.json')]];",
+    "const failed=checks.find((entry)=>!entry[1]);if(failed){process.stdout.write(failed[0]);process.exit(2);}process.stdout.write('ready');",
+    "}catch{process.stdout.write(stage);process.exit(2);}"
+  ].join("");
+}
+
 function verifyInstalledCli({ installRoot, commandRunner }) {
   const cli = installedCliPath(installRoot);
   const packageRoot = path.join(installRoot, "node_modules", "common-tools");
@@ -207,7 +240,8 @@ function verifyInstalledCli({ installRoot, commandRunner }) {
   run(commandRunner, process.execPath, ["--check", remoteWorker], installRoot, "installed image-to-editable remote worker syntax check failed");
   runClassifiedProbe(commandRunner, ["-e", imageEditableEnhancementProbe(), packageRoot], installRoot, "installed image-to-editable residual deduplication check failed");
   runClassifiedProbe(commandRunner, ["-e", pptCreateLayoutProbe(), packageRoot], installRoot, "installed ppt-create layout candidate check failed");
-  return Object.freeze({ capabilityCount: catalog.capabilities.length, imageToEditableEngine: true, residualDeduplication: true, pptCreateLayoutCandidates: true, pptCreatePlanning: true });
+  runClassifiedProbe(commandRunner, ["-e", pptCreateEnhancementProbe(), packageRoot], installRoot, "installed ppt-create enhancement check failed");
+  return Object.freeze({ capabilityCount: catalog.capabilities.length, imageToEditableEngine: true, residualDeduplication: true, pptCreateLayoutCandidates: true, pptCreatePlanning: true, pptCreateEnhancements: true });
 }
 
 function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), commandRunner = childProcess.spawnSync, temporaryDirectory = fs.mkdtempSync } = {}) {
@@ -229,7 +263,7 @@ function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), 
     const installInvocation = npmInvocation(["install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", installRoot, tarball]);
     run(commandRunner, installInvocation.command, installInvocation.arguments, root, "runtime package installation failed");
     const installed = verifyInstalledCli({ installRoot, commandRunner });
-    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, imageToEditableEngine: installed.imageToEditableEngine, residualDeduplication: installed.residualDeduplication, pptCreateLayoutCandidates: installed.pptCreateLayoutCandidates, pptCreatePlanning: installed.pptCreatePlanning });
+    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, imageToEditableEngine: installed.imageToEditableEngine, residualDeduplication: installed.residualDeduplication, pptCreateLayoutCandidates: installed.pptCreateLayoutCandidates, pptCreatePlanning: installed.pptCreatePlanning, pptCreateEnhancements: installed.pptCreateEnhancements });
   } finally {
     if (cleanable) fs.rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
@@ -240,4 +274,4 @@ if (require.main === module) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-module.exports = { FORBIDDEN_PREFIXES, IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, installedCliPath, npmCliPath, npmInvocation, parsePackMetadata, pptCreateLayoutProbe, runClassifiedProbe, verifyInstalledCli, verifyRuntimePackage };
+module.exports = { FORBIDDEN_PREFIXES, IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, installedCliPath, npmCliPath, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe, verifyInstalledCli, verifyRuntimePackage };

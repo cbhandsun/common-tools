@@ -400,16 +400,20 @@ On success, inspect the complete bounded quality result before downloading a rep
 `;
   if (capability === "ppt-create") return `---
 name: ppt-create
-description: Create a new editable PPTX locally by default, with an explicit remote team option.
+description: Create a new editable presentation from structured content or a bounded local document, with provenance-aware assets, safe user-owned templates, alternatives, citations, and notes.
 ---
 
-Use the user-facing phrase “创建 PPT”; reserve \`ppt-create\` for the capability ID. Accept only a user-approved PresentationSpec 1.0 JSON file. Do not copy third-party templates, assets, schemas, implementation code, or layout coordinates.
+Use the user-facing phrase “创建 PPT”; reserve \`ppt-create\` for the capability ID. Use the repository-owned PresentationSpec 1.0 schema and independent themes. Accept an approved spec directly, or locally run \`common-tools ppt ingest\` for bounded Markdown, DOCX, or PDF input. Do not copy Dashi or any third-party template, asset, schema, implementation code, prompt, or layout coordinate.
 
-For long structured material, use the repository-owned PresentationBrief 1.0 contract and run \`common-tools ppt plan --input <brief.json> --out <presentation.json>\` locally. Preserve every source and required point, enforce the slide budget, and never silently truncate content.
+For long structured material, use the repository-owned PresentationBrief 1.0 contract and run \`common-tools ppt plan --input <brief.json> --out <presentation.json>\` locally. Preserve every source and required point, enforce the slide budget, pass \`planning-source-covered\` and \`planning-required-points-covered\`, and Never silently truncate content. \`variantCount\` controls per-slide candidates; \`deckVariantCount\` controls up to three structurally distinct whole-deck alternatives. Require \`layout-candidates-available\` and \`layout-selection-resolved\`.
+
+Local media uses a hash-bound PNG/JPEG asset manifest with provenance and license; require \`asset-provenance-verified\`, \`semantic-visuals-resolved\`, and \`native-data-editable\`. Local user-owned PPTX templates may import only safe master/theme data after rejecting macros, embedded objects, external relationships, invalid packages, and generated or unlicensed provenance; require \`template-package-safe\`. Slides may include bounded citations and speaker notes; require \`citations-editable\` and \`speaker-notes-native\`.
 
 Run \`common-tools runtime resolve --capability ppt-create\` when the Local Runtime is available. For local execution, enable the capability and run \`common-tools ppt create --input <presentation.json> --out <new-directory>\`. The output directory must not exist.
 
-For explicit remote execution, upload the same JSON as \`application/json\` using \`create_team_upload_target\`, then submit capability \`ppt-create\` with \`create_team_job\`. Poll only the returned job and call \`get_team_artifact_target\` only for its reported artifacts. Local and remote paths share the same PresentationSpec, Deck IR planner, OpenXML writer, and seven-file artifact contract, including printable HTML and PDF bound to the same source fingerprint and page count.
+The local \`deck.preview.html\` editor persists spec edits only through \`ppt apply-edit\` and direct Deck IR edits only through revision-bound \`ppt apply-ir-edit\`. For explicit remote execution, upload only the approved JSON as \`application/json\` using \`create_team_upload_target\`, then submit capability \`ppt-create\` with \`create_team_job\`. Remote JSON intentionally rejects local asset and template paths. Poll only the returned job and call \`get_team_artifact_target\` only for reported artifacts.
+
+Every run reports \`deck.ir.json\`, \`deck.preview.html\`, \`deck.html\`, \`deck.pptx\`, \`deck.pdf\`, both reports, and \`asset-manifest.json\`. Add \`template-manifest.json\` only for an applied template. For multiple whole-deck alternatives, add \`deck.variants.json\` and numbered secondary deck artifacts. This bounded dynamic artifact contract must pass \`multi-format-page-count-matches\` and \`multi-format-source-fingerprint-matches\`.
 `;
   if (capability === "project-audit") return `---
 name: project-audit

@@ -5,11 +5,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const packageManifest = require("../package.json");
-const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, pptCreateLayoutProbe, runClassifiedProbe } = require("../scripts/verify-runtime-package");
+const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe } = require("../scripts/verify-runtime-package");
 
 function metadata(files = REQUIRED_FILES) {
   return JSON.stringify([{
-    filename: "common-tools-0.1.6.tgz",
+    filename: `common-tools-${packageManifest.version}.tgz`,
     size: 1024,
     files: files.map((file) => ({ path: file, size: 1 }))
   }]);
@@ -17,7 +17,7 @@ function metadata(files = REQUIRED_FILES) {
 
 test("runtime package verifier accepts a bounded release-only file manifest", () => {
   const result = parsePackMetadata(metadata([...REQUIRED_FILES, "README.md"]));
-  assert.equal(result.filename, "common-tools-0.1.6.tgz");
+  assert.equal(result.filename, `common-tools-${packageManifest.version}.tgz`);
   assert.equal(result.size, 1024);
   assert.deepEqual(result.files, [...REQUIRED_FILES, "README.md"]);
 });
@@ -48,6 +48,12 @@ test("runtime package release gate retains and probes the ppt-create layout cand
   for (const file of PPT_CREATE_RELEASE_FILES) assert.ok(REQUIRED_FILES.includes(file));
   const probe = pptCreateLayoutProbe();
   for (const marker of ["THEME_REGISTRY", "LAYOUT_REGISTRY", "createLayoutPlan", "candidate-bounds", "deterministic-plan", "schema-semantic-visuals", "native-chart-payload", "editor-preview", "editor-persistence", "deck.preview.html", "ppt apply-edit", "layout-candidates-available", "layout-selection-resolved", "semantic-visuals-resolved", "native-data-editable", "presentation-brief.schema.json", "planPresentation", "brief-planning", "planning-source-covered", "ppt plan"]) assert.match(probe, new RegExp(marker));
+});
+
+test("runtime package release gate retains and functionally probes the complete ppt-create enhancement set", () => {
+  for (const file of ["packages/ppt-create-core/assets.js", "packages/ppt-create-core/image-delivery.js", "packages/ppt-create-core/ir-editor.js", "packages/ppt-create-core/document-ingest.js", "packages/ppt-create-core/pdf-text.js", "packages/ppt-create-core/template.js", "packages/ppt-create-core/variants.js", "packages/ppt-create-core/content-metadata.js", "packages/ppt-create-core/team-worker.js", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/DeckPackageWriter.cs", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/PptxPackageAdmissionValidator.cs", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/SpeakerNotesWriter.cs"]) assert.ok(PPT_CREATE_RELEASE_FILES.includes(file));
+  const probe = pptCreateEnhancementProbe();
+  for (const marker of ["asset-provenance", "createImageDeliveryArtifacts", "applyIrEditorPatch", "extractMarkdownOutline", "extractPdfText", "generatedTemplateRejected", "createDeckVariants", "describeVariants", "composeSpeakerNotes", "createPptCreateHandler", "deckVariantCount", "ValidateTemplate", "SpeakerNotesWriter.Add", "asset-provenance-verified", "template-package-safe", "citations-editable", "speaker-notes-native", "ppt ingest", "ppt apply-ir-edit", "deck.variants.json", "asset-manifest.json"]) assert.match(probe, new RegExp(marker.replaceAll(".", "\\.")));
 });
 
 test("classified Runtime probes expose only bounded safe failure codes", () => {

@@ -1,6 +1,6 @@
 {
   "name": "common-tools",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "description": "Reusable engineering tools and Codex skills.",
   "type": "commonjs",
@@ -16,7 +16,7 @@
     "skills/pd-hifi-slideclone/schemas/",
     "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
     "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/packages.lock.json",
-    "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/Program.cs",
+    "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/*.cs",
     "scripts/verify-capability-contracts.js",
     "scripts/verify-plugins.js",
     "scripts/generate-sbom.js",
