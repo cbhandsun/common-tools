@@ -8,6 +8,7 @@ const path = require("node:path");
 const PROFILE_NAME = "paddleocr-ppocrv6-v1";
 const EXPECTED_VERSIONS = Object.freeze({ paddlepaddle: "3.3.1", paddleocr: "3.7.0" });
 const MAX_LINES = 10000;
+const MIN_TEXT_CONFIDENCE = 0.6;
 
 function sha256File(file) {
   return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
@@ -81,10 +82,11 @@ function normalizeLines(items, dimensions) {
   if (!Array.isArray(items) || items.length > MAX_LINES) throw new Error("PaddleOCR result exceeds limits");
   const lines = items.map((item) => {
     if (!item || typeof item.text !== "string" || !item.text.trim() || item.text.length > 512) throw new Error("PaddleOCR result text is invalid");
+    if (!Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 1) throw new Error("PaddleOCR result confidence is invalid");
     const box = polygonBox(item.polygon);
     if (box.x < 0 || box.y < 0 || box.w <= 0 || box.h <= 0 || box.x + box.w > dimensions.widthPx || box.y + box.h > dimensions.heightPx) throw new Error("PaddleOCR result geometry is invalid");
-    return Object.freeze({ text: item.text.trim(), box: Object.freeze(box) });
-  });
+    return Object.freeze({ text: item.text.trim(), confidence: item.confidence, box: Object.freeze(box) });
+  }).filter((item) => item.confidence >= MIN_TEXT_CONFIDENCE);
   return Object.freeze({ lines: Object.freeze(lines) });
 }
 function createPinnedPaddleRawImageOcr(profile, { loadAdapter = require } = {}) {
@@ -124,4 +126,4 @@ async function verifyPinnedPaddleOcrProfile(profile, ocr) {
   return true;
 }
 
-module.exports = { EXPECTED_VERSIONS, PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile };
+module.exports = { EXPECTED_VERSIONS, MIN_TEXT_CONFIDENCE, PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile };

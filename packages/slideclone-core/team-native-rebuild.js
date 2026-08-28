@@ -5,6 +5,14 @@ const path = require("node:path");
 
 const MAX_OCR_LINES = 10000;
 
+function correctContextualOcrLines(lines) {
+  const hasCanonicalAiAgent = lines.some((line) => typeof line?.text === "string" && /\bAI\s*Agent\b/.test(line.text));
+  if (!hasCanonicalAiAgent) return lines;
+  return lines.map((line) => typeof line?.text === "string" && /\bAl\s+Agent\b/.test(line.text)
+    ? { ...line, text: line.text.replace(/\bAl(?=\s+Agent\b)/g, "AI") }
+    : line);
+}
+
 function boundedOcrSourceDeck({ metadata, ocr, sourceImage }) {
   if (!metadata?.dimensions || !Number.isSafeInteger(metadata.dimensions.widthPx) || !Number.isSafeInteger(metadata.dimensions.heightPx)) {
     throw new TypeError("native image rebuild dimensions are invalid");
@@ -12,7 +20,7 @@ function boundedOcrSourceDeck({ metadata, ocr, sourceImage }) {
   if (typeof sourceImage !== "string" || !sourceImage || path.isAbsolute(sourceImage) || sourceImage.includes("\0")) {
     throw new TypeError("native image rebuild source path is invalid");
   }
-  const lines = Array.isArray(ocr?.lines) ? ocr.lines : [];
+  const lines = correctContextualOcrLines(Array.isArray(ocr?.lines) ? ocr.lines : []);
   if (lines.length > MAX_OCR_LINES) throw new Error("native image rebuild OCR result exceeds limits");
   const widthPt = 960;
   const heightPt = Math.max(72, Math.min(4000, Math.round(widthPt * metadata.dimensions.heightPx / metadata.dimensions.widthPx)));
@@ -34,7 +42,7 @@ function boundedOcrSourceDeck({ metadata, ocr, sourceImage }) {
       box,
       font: { family: "Microsoft YaHei", sizePt: Math.max(6, Math.min(36, box.h * 0.72)), color: "#111111", opacity: 0, weight: "regular", align: "left", valign: "middle" },
       style: { visibility: "hidden", opacity: 0, marginLeftPt: 0, marginRightPt: 0, marginTopPt: 0, marginBottomPt: 0 },
-      source: { pageImage: sourceImage, ocrProvider: "team-pinned-ocr", confidence: 1, evidenceBox: box, editable: true, overlayVisibility: "hidden" }
+      source: { pageImage: sourceImage, ocrProvider: "team-pinned-ocr", confidence: Number.isFinite(line.confidence) ? line.confidence : 1, evidenceBox: box, editable: true, overlayVisibility: "hidden" }
     };
   });
   return {
@@ -76,9 +84,20 @@ function normalizeSourceAssetProvenance(deck, assetPath) {
   return deck;
 }
 
-function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageFile } = {}) {
+function ungroupHybridOverlayObjects(page) {
+  for (const item of [...(Array.isArray(page?.shapes) ? page.shapes : []), ...(Array.isArray(page?.textBoxes) ? page.textBoxes : [])]) {
+    if (item?.style && typeof item.style === "object") delete item.style.nativeComponentGroupId;
+    if (!item?.source || typeof item.source !== "object") continue;
+    for (const key of Object.keys(item.source)) {
+      if (key.startsWith("nativeComponent")) delete item.source[key];
+    }
+  }
+}
+
+function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageFile, createFullSlideResidual } = {}) {
   if (typeof rebuildDeckFromWorkDir !== "function") throw new TypeError("native image rebuild implementation is required");
   if (normalizeImageFile !== undefined && typeof normalizeImageFile !== "function") throw new TypeError("native image normalizer is invalid");
+  if (createFullSlideResidual !== undefined && typeof createFullSlideResidual !== "function") throw new TypeError("native image residual builder is invalid");
   return async ({ root, metadata, ocr, isCancellationRequested }) => {
     if (typeof root !== "string" || !path.isAbsolute(root) || !metadata || typeof metadata.inputFile !== "string") throw new TypeError("native image rebuild request is invalid");
     const workDir = path.join(root, "native-work");
@@ -107,6 +126,35 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
       assetDir: path.join(root, "assets"),
       deckName: "deck"
     });
+    if (createFullSlideResidual) {
+      const residualAssetPath = "assets/deck-p01-full-residual.png";
+      const page = generatedDeck?.pages?.[0];
+      const slideSize = generatedDeck?.slideSize;
+      if (!page || !Array.isArray(page.textBoxes) || !Number.isFinite(slideSize?.widthPt) || !Number.isFinite(slideSize?.heightPt)) throw new Error("native image rebuild produced an invalid page");
+      await createFullSlideResidual({
+        sourceFile,
+        outputFile: path.join(root, ...residualAssetPath.split("/")),
+        textBoxes: page.textBoxes,
+        slideSize: { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt },
+        isCancellationRequested
+      });
+      ungroupHybridOverlayObjects(page);
+      page.images = [{
+        id: "full-slide-residual",
+        type: "fidelity-crop",
+        assetPath: residualAssetPath,
+        box: { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt },
+        style: { opacity: 1, assetPath: residualAssetPath, strategy: "full-slide-text-erased-residual" },
+        source: {
+          pageImage: metadata.assetPath,
+          editable: false,
+          residualCrop: true,
+          textObjectified: true,
+          strategy: "full-slide-text-erased-residual",
+          nonEditableReason: "Complex pictorial details are preserved while OCR text and detected native objects remain independently editable."
+        }
+      }];
+    }
     normalizeSourceAssetProvenance(generatedDeck, metadata.assetPath);
     const metrics = nativeObjectMetrics(generatedDeck);
     if (metrics.graphicalObjects < 1) throw new Error("native image rebuild produced no editable graphical objects");
@@ -115,4 +163,4 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
   };
 }
 
-module.exports = { boundedOcrSourceDeck, createRawImageNativeRebuilder, nativeObjectMetrics, normalizeSourceAssetProvenance };
+module.exports = { boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, nativeObjectMetrics, normalizeSourceAssetProvenance, ungroupHybridOverlayObjects };

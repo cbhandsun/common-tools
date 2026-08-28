@@ -37,8 +37,11 @@ function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolv
 function createNativeRebuilder(settings, { loadImplementation = () => require("../../../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native") } = {}) {
   const implementation = loadImplementation();
   if (typeof implementation?.rebuildDeckFromWorkDir !== "function") throw new Error("native image rebuild implementation is unavailable");
+  const { writePng } = require("../../../skills/pd-hifi-slideclone/scripts/lib/png");
+  const { createFullSlideResidualBuilder } = require("../../../skills/pd-hifi-slideclone/scripts/lib/full-slide-native-residual");
   const normalizeImageFile = settings.rawImageOcrProfile.kind === "paddleocr" ? createPinnedPaddleImageNormalizer(settings.rawImageOcrProfile) : undefined;
-  return createRawImageNativeRebuilder({ rebuildDeckFromWorkDir: implementation.rebuildDeckFromWorkDir, normalizeImageFile });
+  const createFullSlideResidual = createFullSlideResidualBuilder({ eraseMasks: implementation.eraseMasks, readPng: implementation.readPng, writePng });
+  return createRawImageNativeRebuilder({ rebuildDeckFromWorkDir: implementation.rebuildDeckFromWorkDir, normalizeImageFile, createFullSlideResidual });
 }
 async function main(environment = process.env) {
   const config = loadTeamConfig(environment);

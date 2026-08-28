@@ -7,12 +7,15 @@ const path = require("node:path");
 const test = require("node:test");
 const zlib = require("node:zlib");
 const { createImageToEditableArchiveHandler } = require("../packages/slideclone-core/team-worker");
-const { boundedOcrSourceDeck, createRawImageNativeRebuilder, nativeObjectMetrics } = require("../packages/slideclone-core/team-native-rebuild");
+const { boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, nativeObjectMetrics } = require("../packages/slideclone-core/team-native-rebuild");
 const { PROFILE_NAME, sha256File } = require("../packages/slideclone-core/team-ocr-profile");
 const { PROFILE_NAME: PADDLE_PROFILE_NAME } = require("../packages/slideclone-core/team-paddleocr-profile");
 const { startupFailureCode, workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-image-worker");
-const { rebuildDeckFromWorkDir } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+const { eraseMasks, readPng, rebuildDeckFromWorkDir } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+const { createFullSlideResidualBuilder } = require("../skills/pd-hifi-slideclone/scripts/lib/full-slide-native-residual");
 const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+
+const createFullSlideResidual = createFullSlideResidualBuilder({ eraseMasks, readPng, writePng });
 
 function field(buffer, offset, length, value) { buffer.write(value.slice(0, length), offset, length, "utf8"); }
 function tarEntry(name, content) {
@@ -47,6 +50,11 @@ function deck(overrides = {}) {
     ...overrides
   };
 }
+
+test("contextual OCR correction only repairs AI Agent when the page contains canonical evidence", () => {
+  assert.equal(correctContextualOcrLines([{ text: "Al Agent" }, { text: "AIAgent pipeline" }])[0].text, "AI Agent");
+  assert.equal(correctContextualOcrLines([{ text: "Al Agent" }, { text: "Al Smith" }])[0].text, "Al Agent");
+});
 
 test("team image worker accepts a bounded Deck IR archive and returns an owner-scoped PPTX", async () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-"));
@@ -160,11 +168,11 @@ test("raw native rebuild adapter materializes a bounded work IR and requires gra
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
 
-test("real native rebuild regression reconstructs diagram cards without a full-slide image", async () => {
+test("real native rebuild regression combines native diagram cards with a text-erased fidelity residual", async () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-native-diagram-"));
   const source = path.join(temporaryRoot, "diagram.png");
   writeThreeCardDiagram(source);
-  const rebuild = createRawImageNativeRebuilder({ rebuildDeckFromWorkDir });
+  const rebuild = createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, createFullSlideResidual });
   try {
     const result = await rebuild({
       root: temporaryRoot,
@@ -177,9 +185,37 @@ test("real native rebuild regression reconstructs diagram cards without a full-s
       isCancellationRequested: async () => false
     });
     assert.ok(result.metrics.shapes >= 3);
-    assert.equal(result.metrics.images, 0);
+    assert.equal(result.metrics.images, 1);
+    assert.equal(result.deck.pages[0].images[0].source.strategy, "full-slide-text-erased-residual");
+    assert.ok(fs.existsSync(path.join(temporaryRoot, "assets", "deck-p01-full-residual.png")));
+    assert.ok(result.deck.pages[0].shapes.every((item) => !item.style?.nativeComponentGroupId));
+    assert.ok(result.deck.pages[0].textBoxes.every((item) => !item.style?.nativeComponentGroupId));
     assert.equal(result.deck.pages[0].sourceImage, "assets/source.png");
     assert.ok(result.deck.pages[0].textBoxes.every((item) => item.source.pageImage === "assets/source.png"));
+  } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
+});
+
+test("full-slide residual builder validates geometry and erases bounded text regions", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-full-residual-"));
+  const source = path.join(temporaryRoot, "source.png");
+  const output = path.join(temporaryRoot, "assets", "residual.png");
+  writeThreeCardDiagram(source);
+  try {
+    const result = await createFullSlideResidual({
+      sourceFile: source,
+      outputFile: output,
+      textBoxes: [{ box: { x: 120, y: 220, w: 100, h: 30 } }],
+      slideSize: { x: 0, y: 0, w: 960, h: 540 },
+      isCancellationRequested: async () => false
+    });
+    assert.equal(result.erasedTextBoxes, 1);
+    assert.ok(fs.statSync(output).size > 24);
+    await assert.rejects(() => createFullSlideResidual({
+      sourceFile: source,
+      outputFile: path.join(temporaryRoot, "bad.png"),
+      textBoxes: [{ box: { x: 950, y: 530, w: 20, h: 20 } }],
+      slideSize: { x: 0, y: 0, w: 960, h: 540 }
+    }), /geometry/);
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
 
