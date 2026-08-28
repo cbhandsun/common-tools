@@ -64,7 +64,7 @@ function outlineToBrief(records, options) {
     }
   }
   const populated = sections.filter((section) => section.points.length > 0); if (populated.length < 1) throw new Error("document contains no presentation points");
-  return validatePresentationBrief({ version: "1.0", title, audience: options.audience, purpose: options.purpose, language: options.language || "zh-CN", theme: options.theme, maxSlides: options.maxSlides, sections: populated, closing: options.closing || [] });
+  return validatePresentationBrief({ version: "1.0", title, audience: options.audience, purpose: options.purpose, language: options.language || "zh-CN", theme: options.theme, maxSlides: options.maxSlides, deckVariantCount: options.deckVariantCount, sections: populated, closing: options.closing || [] });
 }
 function documentToPresentation(inputFile, options = {}) {
   const info = fs.lstatSync(inputFile); const extension = path.extname(inputFile).toLowerCase();

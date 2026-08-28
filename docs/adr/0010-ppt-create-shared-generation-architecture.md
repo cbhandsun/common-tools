@@ -19,6 +19,10 @@ The local `ppt ingest` entry converts bounded Markdown, DOCX, or PDF source mate
 
 A local PresentationSpec may reference one user-controlled PPTX template by a relative path, exact SHA-256, reuse mode, and source/license record. Admission requires a bounded regular PPTX with a slide master and layout, valid internal relationships, and no macros, VBA, ActiveX, OLE/embedded packages, signatures, custom UI, or external relationships. The builder copies the admitted package to a new output and consumes its master/theme; the source is never overwritten or bundled into the product. Team execution rejects filesystem template references until a separately bounded archive protocol is approved.
 
+`variantCount` remains the bounded number of per-slide layout candidates. `deckVariantCount` separately requests one to three complete deck alternatives. Each alternative selects a deterministic, structurally distinct layout sequence and receives its own editable IR, preview, HTML, PPTX, and PDF. `deck.variants.json` binds variant IDs, fingerprints, and repository-owned layout IDs without copying slide content.
+
+Slides may carry bounded source citations and speaker notes. Citations are normalized and rendered as editable footer text; citations and explicit notes are also composed into the Deck IR speaker-notes field. The HTML exporter retains them in hidden semantic note blocks and the OpenXML builder creates native notes-master/notes-slide parts. Reports retain aggregate citation and note counts rather than their text, while the editable IR and presentation artifacts intentionally contain the authored material.
+
 Both execution modes use this pipeline:
 
 `PresentationSpec -> validation -> semantic layout -> Deck IR -> HTML / OpenXML PPTX -> controlled PDF export -> quality report`

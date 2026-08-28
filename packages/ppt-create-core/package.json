@@ -9,6 +9,7 @@
     "./layout": "./layout.js",
     "./data-models": "./data-models.js",
     "./assets": "./assets.js",
+    "./content-metadata": "./content-metadata.js",
     "./document-ingest": "./document-ingest.js",
     "./editor": "./editor.js",
     "./export": "./export.js",
@@ -21,6 +22,7 @@
     "./theme-registry": "./theme-registry.js",
     "./team-worker": "./team-worker.js",
     "./template": "./template.js",
+    "./variants": "./variants.js",
     "./presentation-spec.schema.json": "./presentation-spec.schema.json",
     "./presentation-brief.schema.json": "./presentation-brief.schema.json"
   },

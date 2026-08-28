@@ -44,7 +44,7 @@ test("multi-format gate rejects page and source mismatches", () => {
     writePdf(pdfFile, 2); writePptx(pptxFile); fs.writeFileSync(htmlFile, createPrintableHtml(model));
     const result = multiFormatQuality(model, { htmlFile, pptxFile, pdfFile }, { sourceFingerprint: "0".repeat(64) });
     assert.equal(result.passed, false);
-    assert.deepEqual(result.checks.map((item) => item.passed), [true, false, false]);
+    assert.deepEqual(result.checks.map((item) => item.passed), [true, false, false, true]);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 

@@ -44,7 +44,7 @@ function normalizeSection(value, index) {
 }
 function validatePresentationBrief(value) {
   if (!plainObject(value)) throw new TypeError("presentation brief must be an object");
-  exactKeys(value, ["version", "title", "subtitle", "audience", "purpose", "language", "theme", "seed", "variantCount", "maxSlides", "sections", "closing"], "presentation brief");
+  exactKeys(value, ["version", "title", "subtitle", "audience", "purpose", "language", "theme", "seed", "variantCount", "deckVariantCount", "maxSlides", "sections", "closing"], "presentation brief");
   if (value.version !== BRIEF_VERSION) throw new TypeError("presentation brief version is unsupported");
   if (!Array.isArray(value.sections) || value.sections.length < 1 || value.sections.length > 24) throw new RangeError("presentation brief sections are invalid");
   const sections = value.sections.map(normalizeSection);
@@ -57,9 +57,11 @@ function validatePresentationBrief(value) {
   if (!Number.isSafeInteger(maxSlides) || maxSlides < 2 || maxSlides > 100) throw new RangeError("presentation brief maxSlides is invalid");
   const variantCount = value.variantCount === undefined ? 3 : value.variantCount;
   if (!Number.isSafeInteger(variantCount) || variantCount < 1 || variantCount > 3) throw new RangeError("presentation brief variantCount is invalid");
+  const deckVariantCount = value.deckVariantCount === undefined ? 1 : value.deckVariantCount;
+  if (!Number.isSafeInteger(deckVariantCount) || deckVariantCount < 1 || deckVariantCount > 3) throw new RangeError("presentation brief deckVariantCount is invalid");
   const closing = value.closing === undefined ? [] : value.closing;
   if (!Array.isArray(closing) || closing.length > 3) throw new RangeError("presentation brief closing actions are invalid");
-  return Object.freeze({ version: BRIEF_VERSION, title: text(value.title, "presentation brief title", 160), ...(value.subtitle === undefined ? {} : { subtitle: text(value.subtitle, "presentation brief subtitle", 320) }), audience: text(value.audience, "presentation brief audience", 160), purpose: text(value.purpose, "presentation brief purpose", 320), language: value.language === undefined ? "zh-CN" : text(value.language, "presentation brief language", 32), theme, seed: value.seed === undefined ? crypto.createHash("sha256").update(value.title).digest("hex").slice(0, 16) : safeId(value.seed, "presentation brief seed"), variantCount, maxSlides, sections: Object.freeze(sections), closing: Object.freeze(closing.map((item, index) => text(item, `closing action ${index + 1}`, 80))) });
+  return Object.freeze({ version: BRIEF_VERSION, title: text(value.title, "presentation brief title", 160), ...(value.subtitle === undefined ? {} : { subtitle: text(value.subtitle, "presentation brief subtitle", 320) }), audience: text(value.audience, "presentation brief audience", 160), purpose: text(value.purpose, "presentation brief purpose", 320), language: value.language === undefined ? "zh-CN" : text(value.language, "presentation brief language", 32), theme, seed: value.seed === undefined ? crypto.createHash("sha256").update(value.title).digest("hex").slice(0, 16) : safeId(value.seed, "presentation brief seed"), variantCount, deckVariantCount, maxSlides, sections: Object.freeze(sections), closing: Object.freeze(closing.map((item, index) => text(item, `closing action ${index + 1}`, 80))) });
 }
 function parsePresentationBrief(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 1 || buffer.length > MAX_BRIEF_BYTES) throw new TypeError("presentation brief file size is invalid");
@@ -75,7 +77,7 @@ function planPresentation(rawBrief) {
   }
   if (brief.closing.length) slides.push({ id: "closing", role: "closing", title: brief.language.toLowerCase().startsWith("zh") ? "下一步行动" : "Next steps", summary: brief.purpose, items: brief.closing.map((label, index) => ({ id: `action-${index + 1}`, label, required: true })) });
   if (slides.length > brief.maxSlides) throw new RangeError(`presentation brief requires at least ${slides.length} slides but maxSlides is ${brief.maxSlides}`);
-  const spec = validatePresentationSpec({ version: "1.0", title: brief.title, ...(brief.subtitle ? { subtitle: brief.subtitle } : {}), audience: brief.audience, language: brief.language, theme: brief.theme, seed: brief.seed, variantCount: brief.variantCount, slides });
+  const spec = validatePresentationSpec({ version: "1.0", title: brief.title, ...(brief.subtitle ? { subtitle: brief.subtitle } : {}), audience: brief.audience, language: brief.language, theme: brief.theme, seed: brief.seed, variantCount: brief.variantCount, deckVariantCount: brief.deckVariantCount, slides });
   const plannedPoints = spec.slides.reduce((total, slide) => total + slide.items.length, 0) - brief.closing.length;
   const sourcePoints = brief.sections.reduce((total, section) => total + section.points.length, 0);
   const requiredPoints = brief.sections.reduce((total, section) => total + section.points.filter((point) => point.required).length, 0);

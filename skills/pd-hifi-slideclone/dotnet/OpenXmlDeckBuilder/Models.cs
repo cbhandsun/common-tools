@@ -14,11 +14,14 @@ public sealed record PageIr(
     List<VisualElementIr>? Tables,
     List<ChartIr>? Charts,
     JsonElement? Background,
-    bool? PreserveTemplateSlide = null
+    bool? PreserveTemplateSlide = null,
+    string? SpeakerNotes = null,
+    List<CitationIr>? Citations = null
 )
 {
     public SlideSizeIr SlideSize { get; set; } = new(960, 540);
 }
+public sealed record CitationIr(string Id, string Title, string Locator, string? AccessedAt = null, string? License = null);
 public sealed record TextBoxIr(string Id, string Text, BoxIr Box, FontIr? Font, JsonElement? Style = null, double? Rotation = null, JsonElement? Source = null, bool? Wrap = null, List<TextRunIr>? Runs = null);
 public sealed record TextRunIr(string Text, FontIr? Font = null);
 public sealed record BoxIr(double X, double Y, double W, double H);

@@ -93,6 +93,7 @@ public static class DeckPackageWriter
                         slidePart.AddPart(layoutPart, "rIdLayout");
                         slidePart.Slide = createSlide(page, slidePart, irDirectory);
                     }
+                    if (!string.IsNullOrWhiteSpace(page.SpeakerNotes)) SpeakerNotesWriter.Add(presentationPart, slidePart, page.SpeakerNotes, page.PageIndex);
                     slideIdList.Append(new P.SlideId { Id = slideId++, RelationshipId = presentationPart.GetIdOfPart(slidePart) });
                 }
                 presentationPart.Presentation.Save();

@@ -4,6 +4,7 @@ const { containsControlCharacter } = require("../capability-contracts");
 const { normalizeVisual } = require("./data-models");
 const { normalizeAssetManifest } = require("./assets");
 const { normalizeTemplate } = require("./template");
+const { normalizeCitations, normalizeSpeakerNotes } = require("./content-metadata");
 const { LAYOUT_REGISTRY, MAX_VARIANTS, PRIORITIES, getLayout } = require("./layout-registry");
 const { THEME_REGISTRY } = require("./theme-registry");
 
@@ -56,7 +57,7 @@ function validateRoleCapacity(role, items, slideIndex) {
 }
 function normalizedSlide(value, index, seenIds) {
   if (!plainObject(value)) throw new TypeError(`slide ${index + 1} must be an object`);
-  exactKeys(value, ["id", "role", "title", "summary", "items", "priority", "layout", "visual"], `slide ${index + 1}`);
+  exactKeys(value, ["id", "role", "title", "summary", "items", "priority", "layout", "visual", "citations", "speakerNotes"], `slide ${index + 1}`);
   const id = normalizedId(value.id, `slide-${index + 1}`, `slide ${index + 1} id`);
   if (seenIds.has(id)) throw new TypeError("slide ids must be unique");
   seenIds.add(id);
@@ -70,6 +71,8 @@ function normalizedSlide(value, index, seenIds) {
   if (typeof priority !== "string" || !PRIORITIES.includes(priority)) throw new TypeError(`slide ${index + 1} priority is invalid`);
   const layout = value.layout === undefined ? undefined : boundedString(value.layout, `slide ${index + 1} layout`, { maximum: 80 });
   const visual = value.visual === undefined ? undefined : normalizeVisual(value.visual, `slide ${index + 1} visual`);
+  const citations = normalizeCitations(value.citations, index);
+  const speakerNotes = normalizeSpeakerNotes(value.speakerNotes, index);
   if (layout !== undefined && !LAYOUTS.includes(layout)) throw new TypeError(`slide ${index + 1} layout is invalid`);
   if (layout !== undefined) {
     const selected = getLayout(layout);
@@ -83,6 +86,8 @@ function normalizedSlide(value, index, seenIds) {
     priority,
     ...(layout === undefined ? {} : { layout }),
     ...(visual === undefined ? {} : { visual }),
+    ...(citations.length ? { citations } : {}),
+    ...(speakerNotes === undefined ? {} : { speakerNotes }),
     items: Object.freeze(normalizedItems)
   });
 }
@@ -93,7 +98,7 @@ function assertNarrativeOrder(slides) {
 }
 function validatePresentationSpec(value) {
   if (!plainObject(value)) throw new TypeError("presentation spec must be an object");
-  exactKeys(value, ["version", "title", "subtitle", "audience", "language", "theme", "seed", "variantCount", "assets", "template", "slides"], "presentation spec");
+  exactKeys(value, ["version", "title", "subtitle", "audience", "language", "theme", "seed", "variantCount", "deckVariantCount", "assets", "template", "slides"], "presentation spec");
   if (value.version !== SPEC_VERSION) throw new TypeError("presentation spec version is unsupported");
   if (!Array.isArray(value.slides) || value.slides.length < 1 || value.slides.length > MAX_SLIDES) throw new RangeError("presentation spec slide count is invalid");
   const theme = value.theme === undefined ? THEMES[0] : value.theme;
@@ -101,6 +106,9 @@ function validatePresentationSpec(value) {
   const seed = value.seed === undefined ? normalizedId(undefined, "presentation", "presentation seed") : normalizedId(value.seed, "presentation", "presentation seed");
   const variantCount = value.variantCount === undefined ? MAX_VARIANTS : value.variantCount;
   if (!Number.isSafeInteger(variantCount) || variantCount < 1 || variantCount > MAX_VARIANTS) throw new TypeError("presentation variant count is invalid");
+  const deckVariantCount = value.deckVariantCount === undefined ? 1 : value.deckVariantCount;
+  if (!Number.isSafeInteger(deckVariantCount) || deckVariantCount < 1 || deckVariantCount > MAX_VARIANTS) throw new TypeError("presentation deck variant count is invalid");
+  if (deckVariantCount > variantCount) throw new TypeError("presentation deck variant count cannot exceed per-slide layout candidates");
   const seenIds = new Set();
   const slides = value.slides.map((slide, index) => normalizedSlide(slide, index, seenIds));
   const assets = normalizeAssetManifest(value.assets);
@@ -118,6 +126,7 @@ function validatePresentationSpec(value) {
     theme,
     seed,
     variantCount,
+    deckVariantCount,
     ...(assets.length ? { assets } : {}),
     ...(template ? { template } : {}),
     slides: Object.freeze(slides)

@@ -43,7 +43,7 @@ const COMMAND_USAGE = [
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
   "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team raw-image-archive --input <png|jpg> --out <archive.tar.gz> | team production-preflight | team keycloak-mcp-client [--apply --backup-file <new.json>]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
-  "  editable init|create|run|apply-edit | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt ingest|plan|create|enqueue|preview|apply-edit | ppt-quality create|run | ppt-improve create|run|pipeline | job get|run|cancel"
+  "  editable init|create|run|apply-edit | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt ingest [--deck-variants 1|2|3]|plan|create|enqueue|preview|apply-edit | ppt-quality create|run | ppt-improve create|run|pipeline | job get|run|cancel"
 ].join("\n");
 
 function parse(argv) { const result = { _: [] }; for (let index = 0; index < argv.length; index += 1) { const item = argv[index]; if (!item.startsWith("--")) { result._.push(item); continue; } const next = argv[index + 1]; if (next && !next.startsWith("--")) { result[item.slice(2)] = next; index += 1; } else result[item.slice(2)] = true; } return result; }
@@ -722,8 +722,9 @@ async function mainWithPptQuality() {
     if (!args.input || !args.out || !args.audience || !args.purpose) throw new Error("ppt ingest requires --input, --out, --audience and --purpose");
     requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);
     const maxSlides = args["max-slides"] === undefined ? undefined : Number(args["max-slides"]);
+    const deckVariantCount = args["deck-variants"] === undefined ? undefined : Number(args["deck-variants"]);
     const closing = args.closing === undefined ? [] : String(args.closing).split("|").map((item) => item.trim()).filter(Boolean);
-    const result = persistDocumentPlan({ workspaceRoot: ctx.workspaceRoot, input: args.input, output: args.out, audience: args.audience, purpose: args.purpose, language: args.language, theme: args.theme, maxSlides, closing, outputFormat: args["output-format"], extractPdfText });
+    const result = persistDocumentPlan({ workspaceRoot: ctx.workspaceRoot, input: args.input, output: args.out, audience: args.audience, purpose: args.purpose, language: args.language, theme: args.theme, maxSlides, deckVariantCount, closing, outputFormat: args["output-format"], extractPdfText });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return 0;
   }

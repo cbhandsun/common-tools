@@ -4,6 +4,7 @@ const { nativeChartPayload } = require("./data-models");
 const { getLayout, selectLayoutCandidates } = require("./layout-registry");
 const { validatePresentationSpec } = require("./spec");
 const { getTheme } = require("./theme-registry");
+const { citationFooter, composeSpeakerNotes } = require("./content-metadata");
 
 const WIDTH = 960;
 const HEIGHT = 540;
@@ -204,16 +205,22 @@ function analysisSteps(slide, index, theme, plan) {
 
 const RENDERERS = Object.freeze({ "cover-signal-v1": coverSignal, "cover-band-v1": coverBand, "section-band-v1": sectionBand, "section-index-v1": sectionIndex, "content-cards-v1": contentCards, "content-editorial-v1": contentEditorial, "metrics-row-v1": metricsRow, "metrics-focus-v1": metricsFocus, "comparison-split-v1": comparisonSplit, "comparison-axis-v1": comparisonAxis, "process-linear-v1": processLinear, "process-stages-v1": processStages, "closing-centered-v1": closingCentered, "closing-actions-v1": closingActions, "media-frame-v1": mediaFrame, "media-caption-v1": mediaCaption, "table-focus-v1": tableFocus, "table-compact-v1": tableCompact, "chart-focus-v1": chartFocus, "chart-insight-v1": chartInsight, "analysis-canvas-v1": analysisCanvas, "analysis-steps-v1": analysisSteps });
 
-function createLayoutPlanFromSpec(spec) {
+function createLayoutPlanFromSpec(spec, variantIndex = 0) {
+  if (!Number.isSafeInteger(variantIndex) || variantIndex < 0 || variantIndex >= spec.deckVariantCount) throw new RangeError("presentation deck variant index is invalid");
   let previousSilhouette;
-  const pages = spec.slides.map((slide) => { const candidates = selectLayoutCandidates(slide, { seed: spec.seed, variantCount: spec.variantCount, previousSilhouette }); const selected = candidates[0]; previousSilhouette = selected.silhouette; return Object.freeze({ slideId: slide.id, selectedLayout: selected.id, family: selected.family, silhouette: selected.silhouette, candidates: Object.freeze(candidates.map((candidate) => Object.freeze({ id: candidate.id, family: candidate.family, silhouette: candidate.silhouette }))) }); });
-  return Object.freeze({ version: "1.0", seed: spec.seed, variantCount: spec.variantCount, pages: Object.freeze(pages) });
+  const pages = spec.slides.map((slide) => { const candidates = selectLayoutCandidates(slide, { seed: spec.seed, variantCount: spec.variantCount, previousSilhouette }); const selected = slide.layout ? candidates[0] : candidates[Math.min(variantIndex, candidates.length - 1)]; previousSilhouette = selected.silhouette; return Object.freeze({ slideId: slide.id, selectedLayout: selected.id, family: selected.family, silhouette: selected.silhouette, candidates: Object.freeze(candidates.map((candidate) => Object.freeze({ id: candidate.id, family: candidate.family, silhouette: candidate.silhouette }))) }); });
+  return Object.freeze({ version: "1.0", seed: spec.seed, variantCount: spec.variantCount, deckVariantIndex: variantIndex, pages: Object.freeze(pages) });
 }
 function createLayoutPlan(rawSpec) { return createLayoutPlanFromSpec(validatePresentationSpec(rawSpec)); }
 function createDeckIr(rawSpec, options = {}) {
-  const spec = validatePresentationSpec(rawSpec); const theme = getTheme(spec.theme); const plan = createLayoutPlanFromSpec(spec);
-  const pages = spec.slides.map((slide, index) => { const pagePlan = plan.pages[index]; const renderer = RENDERERS[pagePlan.selectedLayout]; if (typeof renderer !== "function") throw new Error("presentation layout renderer is unavailable"); getLayout(pagePlan.selectedLayout); return Object.freeze(applyResolvedMedia(renderer(slide, index, theme, pagePlan), slide, options.assetPaths, options.assetInfo)); });
+  const spec = validatePresentationSpec(rawSpec); const theme = getTheme(spec.theme); const plan = createLayoutPlanFromSpec(spec, options.variantIndex || 0);
+  const pages = spec.slides.map((slide, index) => { const pagePlan = plan.pages[index]; const renderer = RENDERERS[pagePlan.selectedLayout]; if (typeof renderer !== "function") throw new Error("presentation layout renderer is unavailable"); getLayout(pagePlan.selectedLayout); const page = applyResolvedMedia(renderer(slide, index, theme, pagePlan), slide, options.assetPaths, options.assetInfo); const citations = slide.citations || []; if (citations.length) page.textBoxes.push(text(`${slide.id}-citations`, citationFooter(citations), box(56, 510, 848, 18), { family: theme.font, sizePt: 8, color: theme.muted, align: "left" }, "citation")); if (citations.length || slide.speakerNotes) { page.citations = citations; page.speakerNotes = composeSpeakerNotes(slide.speakerNotes, citations); } return Object.freeze(page); });
   return Object.freeze({ version: "1.0", slideSize: Object.freeze({ widthPt: WIDTH, heightPt: HEIGHT }), pages: Object.freeze(pages) });
 }
 
-module.exports = { HEIGHT, RENDERERS, WIDTH, createDeckIr, createLayoutPlan };
+function createDeckVariants(rawSpec, options = {}) {
+  const spec = validatePresentationSpec(rawSpec);
+  return Object.freeze(Array.from({ length: spec.deckVariantCount }, (_, variantIndex) => Object.freeze({ id: `variant-${variantIndex + 1}`, variantIndex, ir: createDeckIr(spec, { ...options, variantIndex }) })));
+}
+
+module.exports = { HEIGHT, RENDERERS, WIDTH, createDeckIr, createDeckVariants, createLayoutPlan };

@@ -6,9 +6,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { ARTIFACT_NAMES, CAPABILITY, PDF_MEDIA_TYPE, PPTX_MEDIA_TYPE, creationReport, qualityFor, renderMarkdown } = require(".");
 const { createPrintableHtml, deckIrFingerprint, multiFormatQuality } = require("./export");
-const { createDeckIr } = require("./layout");
+const { createDeckVariants } = require("./layout");
 const { createPreviewHtml } = require("./editor");
 const { MAX_SPEC_BYTES, parsePresentationSpec } = require("./spec");
+const { describeVariants, variantManifest, variantNames } = require("./variants");
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function assertObjectStore(value) {
@@ -28,38 +29,25 @@ function createPptCreateHandler({ objectStore, buildPptx, buildPdf, temporaryRoo
     if (spec.assets?.length || spec.template) throw new Error("remote ppt-create does not accept local asset or template paths; use the local Runtime for these inputs");
     const root = fs.mkdtempSync(path.join(temporaryRoot, "common-tools-ppt-create-"));
     try {
-      const ir = createDeckIr(spec);
-      const irFile = path.join(root, ARTIFACT_NAMES.ir);
-      const htmlFile = path.join(root, ARTIFACT_NAMES.html);
-      const pptxFile = path.join(root, ARTIFACT_NAMES.pptx);
-      const pdfFile = path.join(root, ARTIFACT_NAMES.pdf);
-      fs.writeFileSync(irFile, `${JSON.stringify(ir, null, 2)}\n`, { flag: "wx", mode: 0o600 });
-      fs.writeFileSync(htmlFile, createPrintableHtml(ir), { flag: "wx", mode: 0o600 });
-      if (await isCancellationRequested()) throw new Error("PPT creation was cancelled");
-      buildPptx(Object.freeze({ irFile, outFile: pptxFile }));
-      const pptx = fs.readFileSync(pptxFile);
-      if (pptx.length < 22) throw new Error("OpenXML builder did not create a valid PPTX artifact");
-      const sourceFingerprint = deckIrFingerprint(ir);
-      const pdfResult = await buildPdf(Object.freeze({ pptxFile, htmlFile, outFile: pdfFile, sourceFingerprint, pageCount: ir.pages.length }));
-      const formats = multiFormatQuality(ir, { htmlFile, pptxFile, pdfFile }, pdfResult);
-      const quality = qualityFor(spec, ir, formats);
+      const deckVariants = createDeckVariants(spec); const records = describeVariants(deckVariants); const bodies = {}; const mediaTypes = {}; const uploadNames = []; const deliveries = [];
+      for (const variant of deckVariants) {
+        const names = variantNames(variant.variantIndex); const files = Object.fromEntries(Object.entries(names).map(([key, name]) => [key, path.join(root, name)]));
+        fs.writeFileSync(files.ir, `${JSON.stringify(variant.ir, null, 2)}\n`, { flag: "wx", mode: 0o600 }); fs.writeFileSync(files.html, createPrintableHtml(variant.ir), { flag: "wx", mode: 0o600 });
+        if (await isCancellationRequested()) throw new Error("PPT creation was cancelled");
+        buildPptx(Object.freeze({ irFile: files.ir, outFile: files.pptx })); const pptx = fs.readFileSync(files.pptx); if (pptx.length < 22) throw new Error("OpenXML builder did not create a valid PPTX artifact");
+        const sourceFingerprint = deckIrFingerprint(variant.ir); const pdfResult = await buildPdf(Object.freeze({ pptxFile: files.pptx, htmlFile: files.html, outFile: files.pdf, sourceFingerprint, pageCount: variant.ir.pages.length })); const formats = multiFormatQuality(variant.ir, { htmlFile: files.html, pptxFile: files.pptx, pdfFile: files.pdf }, pdfResult);
+        deliveries.push(Object.freeze({ ...records[variant.variantIndex], formats }));
+        Object.assign(bodies, { [names.ir]: Buffer.from(`${JSON.stringify(variant.ir, null, 2)}\n`), [names.preview]: Buffer.from(createPreviewHtml(spec, variant.ir)), [names.html]: fs.readFileSync(files.html), [names.pptx]: pptx, [names.pdf]: fs.readFileSync(files.pdf) });
+        Object.assign(mediaTypes, { [names.ir]: "application/json", [names.preview]: "text/html", [names.html]: "text/html", [names.pptx]: PPTX_MEDIA_TYPE, [names.pdf]: PDF_MEDIA_TYPE }); uploadNames.push(names.ir, names.preview, names.html, names.pptx, names.pdf);
+      }
+      const primary = deliveries[0]; const ir = deckVariants[0].ir; const primaryNames = variantNames(0); const quality = qualityFor(spec, ir, primary.formats, [], undefined, deliveries);
       if (!quality.passed) throw new Error("multi-format consistency gate failed");
-      const pdf = fs.readFileSync(pdfFile);
-      const report = creationReport(spec, quality, sha256(input), sha256(pptx), formats);
+      const report = creationReport(spec, quality, sha256(input), sha256(bodies[primaryNames.pptx]), primary.formats, undefined, deliveries);
       const assetManifest = Buffer.from(`${JSON.stringify({ version: "1.0", assets: [] }, null, 2)}\n`);
-      const bodies = Object.freeze({
-        [ARTIFACT_NAMES.ir]: Buffer.from(`${JSON.stringify(ir, null, 2)}\n`),
-        [ARTIFACT_NAMES.preview]: Buffer.from(createPreviewHtml(spec, ir)),
-        [ARTIFACT_NAMES.html]: fs.readFileSync(htmlFile),
-        [ARTIFACT_NAMES.pptx]: pptx,
-        [ARTIFACT_NAMES.pdf]: pdf,
-        [ARTIFACT_NAMES.assetManifest]: assetManifest,
-        [ARTIFACT_NAMES.json]: Buffer.from(`${JSON.stringify(report, null, 2)}\n`),
-        [ARTIFACT_NAMES.markdown]: Buffer.from(renderMarkdown(report))
-      });
-      const mediaTypes = Object.freeze({ [ARTIFACT_NAMES.ir]: "application/json", [ARTIFACT_NAMES.preview]: "text/html", [ARTIFACT_NAMES.html]: "text/html", [ARTIFACT_NAMES.pptx]: PPTX_MEDIA_TYPE, [ARTIFACT_NAMES.pdf]: PDF_MEDIA_TYPE, [ARTIFACT_NAMES.assetManifest]: "application/json", [ARTIFACT_NAMES.json]: "application/json", [ARTIFACT_NAMES.markdown]: "text/markdown" });
+      Object.assign(bodies, { [ARTIFACT_NAMES.assetManifest]: assetManifest, ...(deckVariants.length > 1 ? { [ARTIFACT_NAMES.variants]: Buffer.from(`${JSON.stringify(variantManifest(records), null, 2)}\n`) } : {}), [ARTIFACT_NAMES.json]: Buffer.from(`${JSON.stringify(report, null, 2)}\n`), [ARTIFACT_NAMES.markdown]: Buffer.from(renderMarkdown(report)) });
+      Object.assign(mediaTypes, { [ARTIFACT_NAMES.assetManifest]: "application/json", ...(deckVariants.length > 1 ? { [ARTIFACT_NAMES.variants]: "application/json" } : {}), [ARTIFACT_NAMES.json]: "application/json", [ARTIFACT_NAMES.markdown]: "text/markdown" }); uploadNames.push(ARTIFACT_NAMES.assetManifest, ...(deckVariants.length > 1 ? [ARTIFACT_NAMES.variants] : []), ARTIFACT_NAMES.json, ARTIFACT_NAMES.markdown);
       const artifacts = [];
-      for (const name of [ARTIFACT_NAMES.ir, ARTIFACT_NAMES.preview, ARTIFACT_NAMES.html, ARTIFACT_NAMES.pptx, ARTIFACT_NAMES.pdf, ARTIFACT_NAMES.assetManifest, ARTIFACT_NAMES.json, ARTIFACT_NAMES.markdown]) {
+      for (const name of uploadNames) {
         if (await isCancellationRequested()) throw new Error("PPT creation was cancelled");
         const objectKey = `${job.outputPrefix}${name}`;
         await store.putObject({ objectKey, body: bodies[name], contentType: mediaTypes[name] });

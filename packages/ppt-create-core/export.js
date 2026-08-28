@@ -73,7 +73,8 @@ function createPrintableHtml(ir, options = {}) {
     const text = (page.textBoxes || []).map((item) => textHtml(item, slideSize)).join("");
     const tables = (page.tables || []).map((item) => tableHtml(item, slideSize)).join("");
     const charts = (page.charts || []).map((item) => chartHtml(item, slideSize)).join("");
-    return `<section class="slide" data-page-index="${page.pageIndex}" style="background:${cssColor(page.background?.fill, "#FFFFFF")}">${shapes}${images}${tables}${charts}${text}</section>`;
+    const notes = page.speakerNotes ? `<aside class="speaker-notes" data-page-index="${page.pageIndex}" hidden>${escapeHtml(page.speakerNotes)}</aside>` : "";
+    return `<section class="slide" data-page-index="${page.pageIndex}" style="background:${cssColor(page.background?.fill, "#FFFFFF")}">${shapes}${images}${tables}${charts}${text}${notes}</section>`;
   }).join("");
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="common-tools-deck-ir-sha256" content="${fingerprint}"><meta name="common-tools-page-count" content="${ir.pages.length}"><title>Presentation</title><style>*{box-sizing:border-box}body{margin:0;background:#d1d5db;font-family:Arial,sans-serif}.slide{position:relative;width:13.333in;height:7.5in;margin:20px auto;overflow:hidden;page-break-after:always}.shape,.image-clip,.image,.text,.native,.chart{position:absolute}.image-clip{overflow:hidden}.image{display:block}.text{white-space:pre-wrap;overflow:hidden;line-height:1.15}.native{border-collapse:collapse;font-size:14pt;background:#fff}.native td{border:1px solid #94a3b8;padding:6px}.chart{display:flex;flex-direction:column;gap:12px;padding:18px;border:1px solid #94a3b8;background:#fff;overflow:hidden}.chart span{font-size:13pt}@page{size:13.333in 7.5in;margin:0}@media print{body{background:#fff}.slide{margin:0}}</style></head><body data-source-fingerprint="${fingerprint}" data-page-count="${ir.pages.length}">${pages}</body></html>`;
 }
@@ -91,6 +92,7 @@ function inspectHtml(file, fingerprint, pageCount) {
   if (!info.isFile() || info.isSymbolicLink() || info.size < 100 || info.size > 10 * 1024 * 1024) throw new Error("HTML exporter did not create a bounded regular file");
   const html = fs.readFileSync(file, "utf8");
   if (!html.includes(`<meta name="common-tools-deck-ir-sha256" content="${fingerprint}">`) || !html.includes(`<meta name="common-tools-page-count" content="${pageCount}">`) || (html.match(/class="slide"/g) || []).length !== pageCount) throw new Error("HTML export metadata is inconsistent");
+  return Object.freeze({ notesCount: (html.match(/class="speaker-notes"/g) || []).length });
 }
 function inspectPptx(file) {
   const info = fs.lstatSync(file); const header = Buffer.alloc(4); const descriptor = fs.openSync(file, "r");
@@ -100,13 +102,14 @@ function inspectPptx(file) {
 function multiFormatQuality(ir, files, adapterResult) {
   const fingerprint = deckIrFingerprint(ir);
   if (!files || typeof files !== "object") throw new TypeError("multi-format files are required");
-  inspectHtml(files.htmlFile, fingerprint, ir.pages.length);
+  const html = inspectHtml(files.htmlFile, fingerprint, ir.pages.length);
   inspectPptx(files.pptxFile);
   const pdf = inspectPdf(files.pdfFile);
   const checks = [
     { name: "multi-format-artifacts-present", passed: true },
     { name: "multi-format-page-count-matches", passed: pdf.pageCount === ir.pages.length },
-    { name: "multi-format-source-fingerprint-matches", passed: adapterResult?.sourceFingerprint === fingerprint }
+    { name: "multi-format-source-fingerprint-matches", passed: adapterResult?.sourceFingerprint === fingerprint },
+    { name: "html-speaker-notes-match", passed: html.notesCount === ir.pages.filter((page) => page.speakerNotes).length }
   ];
   return Object.freeze({ fingerprint, pdfPageCount: pdf.pageCount, checks: Object.freeze(checks), passed: checks.every((check) => check.passed) });
 }
