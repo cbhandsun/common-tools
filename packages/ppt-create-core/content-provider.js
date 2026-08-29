@@ -1,7 +1,18 @@
 "use strict";
 
 const MAX_PROVIDER_RESPONSE_BYTES = 512 * 1024;
+const MAX_PROVIDER_REQUEST_BYTES = 256 * 1024;
 const PROVIDER_ID = /^[a-z][a-z0-9._-]{1,79}$/u;
+
+class ContentProviderError extends Error {
+  constructor(message, { code, providerId, retryable = false } = {}) {
+    super(message);
+    this.name = "ContentProviderError";
+    this.code = code;
+    this.providerId = providerId;
+    this.retryable = retryable;
+  }
+}
 
 function boundedString(value, label, maximum) {
   const hasControlCharacter = typeof value === "string"
@@ -11,6 +22,37 @@ function boundedString(value, label, maximum) {
     });
   if (typeof value !== "string" || !value.trim() || value.length > maximum || hasControlCharacter) throw new TypeError(`${label} is invalid`);
   return value.trim();
+}
+
+function encodeProviderRequest(request) {
+  if (!request || typeof request !== "object" || Array.isArray(request)) throw new ContentProviderError("content provider request is invalid", { code: "CONTENT_PROVIDER_REQUEST_INVALID" });
+  let body;
+  try { body = JSON.stringify(request); } catch { throw new ContentProviderError("content provider request is invalid", { code: "CONTENT_PROVIDER_REQUEST_INVALID" }); }
+  if (!body || Buffer.byteLength(body) > MAX_PROVIDER_REQUEST_BYTES) throw new ContentProviderError("content provider request is invalid", { code: "CONTENT_PROVIDER_REQUEST_INVALID" });
+  return body;
+}
+
+async function readBoundedResponse(response) {
+  if (response.body && typeof response.body.getReader === "function") {
+    const reader = response.body.getReader(); const chunks = []; let total = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = Buffer.from(value); total += chunk.length;
+        if (total > MAX_PROVIDER_RESPONSE_BYTES) throw new ContentProviderError("content provider returned an invalid response", { code: "CONTENT_PROVIDER_RESPONSE_INVALID" });
+        chunks.push(chunk);
+      }
+      return Buffer.concat(chunks, total);
+    } catch (error) {
+      try { await reader.cancel?.(); } catch { /* Preserve the classified read failure. */ }
+      throw error;
+    } finally { reader.releaseLock?.(); }
+  }
+  if (typeof response.arrayBuffer !== "function") throw new ContentProviderError("content provider returned an invalid response", { code: "CONTENT_PROVIDER_RESPONSE_INVALID" });
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length > MAX_PROVIDER_RESPONSE_BYTES) throw new ContentProviderError("content provider returned an invalid response", { code: "CONTENT_PROVIDER_RESPONSE_INVALID" });
+  return bytes;
 }
 
 function normalizeProvider(provider) {
@@ -39,12 +81,15 @@ class ContentProviderRegistry {
   async generate(providerId, request) {
     const id = boundedString(providerId, "content provider id", 80);
     const provider = this.#providers.get(id);
-    if (!provider) throw new Error("requested content provider is unavailable");
+    if (!provider) throw new ContentProviderError("requested content provider is unavailable", { code: "CONTENT_PROVIDER_UNAVAILABLE", providerId: id });
     let result;
-    try { result = await provider.generate(request); } catch (error) { throw new Error("content provider request failed", { cause: error }); }
+    try { result = await provider.generate(request); } catch (error) {
+      if (error instanceof ContentProviderError) throw error;
+      throw new ContentProviderError("content provider request failed", { code: "CONTENT_PROVIDER_REQUEST_FAILED", providerId: id, retryable: true });
+    }
     let encoded;
-    try { encoded = JSON.stringify(result); } catch (error) { throw new Error("content provider response is invalid", { cause: error }); }
-    if (!encoded || Buffer.byteLength(encoded) > MAX_PROVIDER_RESPONSE_BYTES) throw new Error("content provider response is invalid");
+    try { encoded = JSON.stringify(result); } catch { throw new ContentProviderError("content provider response is invalid", { code: "CONTENT_PROVIDER_RESPONSE_INVALID", providerId: id }); }
+    if (!encoded || Buffer.byteLength(encoded) > MAX_PROVIDER_RESPONSE_BYTES) throw new ContentProviderError("content provider response is invalid", { code: "CONTENT_PROVIDER_RESPONSE_INVALID", providerId: id });
     return result;
   }
 }
@@ -57,17 +102,25 @@ function createHttpsJsonContentProvider({ id, endpoint, model, token, fetchImpl 
   return normalizeProvider({ id: providerId, async generate(request) {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetchImpl(url.href, { method: "POST", redirect: "error", signal: controller.signal, headers: { accept: "application/json", authorization: `Bearer ${bearerToken}`, "content-type": "application/json" }, body: JSON.stringify({ version: "1.0", model: modelId, request }) });
-      if (!response || response.ok !== true || typeof response.arrayBuffer !== "function") throw new Error("provider rejected the request");
+      const body = encodeProviderRequest({ version: "1.0", model: modelId, request });
+      const response = await fetchImpl(url.href, { method: "POST", redirect: "error", signal: controller.signal, headers: { accept: "application/json", authorization: `Bearer ${bearerToken}`, "content-type": "application/json" }, body });
+      if (!response || response.ok !== true) throw new ContentProviderError("content provider rejected the request", { code: "CONTENT_PROVIDER_REJECTED", providerId, retryable: Number(response?.status) === 429 || Number(response?.status) >= 500 });
       const contentType = response.headers?.get?.("content-type") || ""; const declaredLength = Number(response.headers?.get?.("content-length") || 0);
-      if (!/^application\/json(?:\s*;|$)/iu.test(contentType) || !Number.isFinite(declaredLength) || declaredLength < 0 || declaredLength > MAX_PROVIDER_RESPONSE_BYTES) throw new Error("provider returned an invalid response");
-      const bytes = Buffer.from(await response.arrayBuffer());
-      if (bytes.length < 2 || bytes.length > MAX_PROVIDER_RESPONSE_BYTES) throw new Error("provider returned an invalid response");
-      let value; try { value = JSON.parse(bytes.toString("utf8")); } catch { throw new Error("provider returned an invalid response"); }
-      if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((key) => !["brief", "citationsBySection", "requestId", "sources"].includes(key))) throw new Error("provider returned an invalid response");
+      if (!/^application\/json(?:\s*;|$)/iu.test(contentType) || !Number.isFinite(declaredLength) || declaredLength < 0 || declaredLength > MAX_PROVIDER_RESPONSE_BYTES) throw new ContentProviderError("content provider returned an invalid response", { code: "CONTENT_PROVIDER_RESPONSE_INVALID", providerId });
+      const bytes = await readBoundedResponse(response);
+      if (bytes.length < 2 || bytes.length > MAX_PROVIDER_RESPONSE_BYTES) throw new ContentProviderError("content provider returned an invalid response", { code: "CONTENT_PROVIDER_RESPONSE_INVALID", providerId });
+      let value; try { value = JSON.parse(bytes.toString("utf8")); } catch { throw new ContentProviderError("content provider returned an invalid response", { code: "CONTENT_PROVIDER_RESPONSE_INVALID", providerId }); }
+      if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((key) => !["brief", "citationsBySection", "requestId", "sources"].includes(key))) throw new ContentProviderError("content provider returned an invalid response", { code: "CONTENT_PROVIDER_RESPONSE_INVALID", providerId });
       return { brief: value.brief, provenance: { providerId, model: modelId, requestId: boundedString(value.requestId, "content provider request id", 160), retrievedAt: new Date().toISOString(), sources: value.sources }, citationsBySection: value.citationsBySection };
+    } catch (error) {
+      if (error instanceof ContentProviderError) {
+        if (error.providerId) throw error;
+        throw new ContentProviderError(error.message, { code: error.code, providerId, retryable: error.retryable });
+      }
+      if (controller.signal.aborted) throw new ContentProviderError("content provider request timed out", { code: "CONTENT_PROVIDER_TIMEOUT", providerId, retryable: true });
+      throw new ContentProviderError("content provider request failed", { code: "CONTENT_PROVIDER_REQUEST_FAILED", providerId, retryable: true });
     } finally { clearTimeout(timeout); }
   } });
 }
 
-module.exports = { ContentProviderRegistry, MAX_PROVIDER_RESPONSE_BYTES, createHttpsJsonContentProvider, normalizeProvider };
+module.exports = { ContentProviderError, ContentProviderRegistry, MAX_PROVIDER_REQUEST_BYTES, MAX_PROVIDER_RESPONSE_BYTES, createHttpsJsonContentProvider, normalizeProvider, readBoundedResponse };

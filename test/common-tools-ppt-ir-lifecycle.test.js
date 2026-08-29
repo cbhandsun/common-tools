@@ -47,6 +47,9 @@ test("editable page lifecycle rejects last-page deletion and invalid positions",
   assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "delete-page", pageIndex: 0 }])), /retain one page/u);
   assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "add-blank-page", insertAt: 2 }])), /insertion/u);
   assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-image-asset", pageIndex: 0, objectId: "title", assetPath: "https://example.test/x.png" }])), /image asset/u);
+  source.pages[0].images.push({ id: "hero", type: "image", assetPath: "assets/old.png", box: { x: 500, y: 100, w: 300, h: 220 } });
+  assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-image-asset", pageIndex: 0, objectId: "hero", assetPath: "assets/vector.svg" }])), /image asset/u);
+  assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-image-asset", pageIndex: 0, objectId: "hero", assetPath: "file:///tmp/image.png" }])), /image asset/u);
 });
 
 test("editable IR lifecycle rejects duplicate ids, unsafe ids, missing targets, and out-of-slide copies", () => {
@@ -57,15 +60,29 @@ test("editable IR lifecycle rejects duplicate ids, unsafe ids, missing targets, 
   assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "duplicate-object", pageIndex: 0, objectId: "title", newObjectId: "copy", offsetXPt: 700, offsetYPt: 0 }])), /slide boundary/);
 });
 
+test("editable IR rejects oversized pages and control characters before applying edits", () => {
+  const source = deck();
+  source.pages[0].textBoxes = Array.from({ length: 2001 }, (_, index) => ({ id: `text-${index}`, text: "x", box: { x: 1, y: 1, w: 10, h: 10 } }));
+  assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-text", pageIndex: 0, objectId: "text-0", value: "y" }])), /object limit/u);
+  const unsafe = deck(); unsafe.pages[0].textBoxes[0].id = "title\u0007";
+  assert.throws(() => applyIrEditorPatch(unsafe, patch(unsafe, [{ type: "set-text", pageIndex: 0, objectId: "title\u0007", value: "y" }])), /object id/u);
+});
+
 test("editable IR preview blocks network access and refuses empty or oversized downloads", () => {
   const html = createIrPreviewHtml(deck());
   assert.match(html, /Content-Security-Policy/);
   assert.match(html, /default-src 'none'/);
   assert.match(html, /connect-src 'none'/);
+  assert.match(html, /style-src-attr 'unsafe-inline'/);
   assert.match(html, /nonce="[A-Za-z0-9+/=]+"/u);
   assert.match(html, /TextEncoder/);
   assert.match(html, /补丁为空或超出安全限制/u);
+  assert.match(html, /beforeunload/u);
+  assert.match(html, /aria-live="polite"/u);
+  assert.match(html, /aria-keyshortcuts="Control\+S Meta\+S"/u);
+  assert.match(html, /已达到.*条安全上限/u);
+  assert.match(html, /aspect-ratio:960\/540/u);
   for (const marker of ["addText", "addShape", "duplicateObject", "deleteObject", "replaceImage", "addPage", "duplicatePage", "deletePage", "pageUp", "pageDown"]) assert.match(html, new RegExp(marker));
   assert.match(html, /page\+":"\+id/u);
-  assert.doesNotMatch(html, /unsafe-inline/u);
+  assert.doesNotMatch(html, /script-src[^;]*unsafe-inline/u);
 });

@@ -296,6 +296,8 @@ npm run common-tools -- team deployment-plan --capabilities ppt-quality
 
 需要注册多个内容 Provider 时，改用 `COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDERS_FILE` 指向只读 JSON 配置，并且不得同时设置旧的单 Provider 环境变量。配置格式为 `{ "version": "1.0", "providers": [{ "id": "research-a", "endpoint": "https://provider.example/generate", "model": "approved-model", "tokenFile": "/run/secrets/research-a-token", "timeoutMs": 30000 }] }`；最多八项，`tokenFile` 必须指向普通非符号链接文件，配置中不得内联 token。Local Runtime 的 `ppt draft` / `ppt compose` 也可通过成对的 `--provider-config <workspace-json> --provider-id <id>` 使用同一合同，配置和 token 文件必须位于已批准工作区内。
 
+运行时会解析配置与 token 的真实路径，拒绝借助父目录符号链接或 junction 逃逸批准根目录。Provider 请求和解压后的流式 JSON 响应均有独立字节上限；重定向、非 HTTPS、URL 凭据/查询参数、超时、超限及非 JSON 响应都会失败关闭。对外错误仅使用 `CONTENT_PROVIDER_UNAVAILABLE`、`CONTENT_PROVIDER_REQUEST_INVALID`、`CONTENT_PROVIDER_REQUEST_FAILED`、`CONTENT_PROVIDER_TIMEOUT`、`CONTENT_PROVIDER_REJECTED` 或 `CONTENT_PROVIDER_RESPONSE_INVALID`，并提供 `retryable` 判断；日志和 Job 失败信息不得序列化原始上游异常、token、请求正文或响应正文。
+
 ```powershell
 $env:COMMON_TOOLS_TEAM_CAPABILITIES = 'project-audit'
 docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml --profile team-infra --profile team-api --profile team-worker-audit up -d --build --wait

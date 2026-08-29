@@ -135,7 +135,25 @@ test("IR edit finalization applies a revision-bound patch and exports in one ope
     fs.writeFileSync(patchFile, JSON.stringify({ version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [{ type: "set-text", pageIndex: 0, objectId: "title", value: "Final title" }] }));
     const result = applyAndExportIrArtifacts({ workspaceRoot: root, input, patch: patchFile, output: path.join(root, "final"), buildPptx: ({ outFile }) => fs.writeFileSync(outFile, Buffer.concat([Buffer.from("PK\u0003\u0004"), Buffer.alloc(64, 1)])), buildPdf: fakePdf });
     assert.equal(result.operationCount, 1); assert.equal(result.report.passed, true);
+    assert.equal(result.finalizationReport.inputRevision, deckIrFingerprint(ir)); assert.equal(result.finalizationReport.operationCount, 1); assert.equal(result.finalizationReport.passed, true);
+    assert.match(result.finalizationReport.patchSha256, /^[a-f0-9]{64}$/u); assert.equal(fs.statSync(result.files.finalizationReportFile).isFile(), true);
     assert.equal(JSON.parse(fs.readFileSync(result.files.irFile, "utf8")).pages[0].textBoxes[0].text, "Final title");
     assert.equal(fs.readdirSync(root).some((name) => name.startsWith(".common-tools-ir-edit-")), false);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("edited IR export blocks parent-symlink asset and output escapes", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ir-root-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ir-outside-"));
+  try {
+    fs.writeFileSync(path.join(outside, "pixel.png"), Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(24, 1)]));
+    fs.symlinkSync(outside, path.join(root, "linked"), process.platform === "win32" ? "junction" : "dir");
+    const input = path.join(root, "deck.json"); fs.writeFileSync(input, JSON.stringify(sampleIr("linked/pixel.png")));
+    assert.throws(() => exportEditedIrArtifacts({ workspaceRoot: root, input, output: path.join(root, "export"), buildPptx() {}, buildPdf() {} }), /unavailable|outside the approved root/u);
+    assert.equal(fs.existsSync(path.join(root, "export")), false);
+    assert.throws(() => exportEditedIrArtifacts({ workspaceRoot: root, input, output: path.join(root, "linked", "export"), buildPptx() {}, buildPdf() {} }), /output parent is unavailable|outside the approved root/u);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
 });

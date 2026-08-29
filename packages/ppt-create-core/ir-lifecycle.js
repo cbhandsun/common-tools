@@ -1,5 +1,7 @@
 "use strict";
 
+const path = require("node:path");
+
 const MAX_OBJECTS_PER_PAGE = 2_000;
 const NEW_OBJECT_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 
@@ -67,11 +69,12 @@ function applyObjectLifecycleOperation(ir, operation, index, { collections, vali
   if (operation.type === "set-image-asset") {
     exactKeys(operation, ["type", "pageIndex", "objectId", "assetPath"], label);
     const page = targetPage(ir, operation.pageIndex); const target = location(page, collections, operation.objectId);
-    if (target.collection !== "images" || typeof operation.assetPath !== "string" || !operation.assetPath.trim() || operation.assetPath.length > 1024 || operation.assetPath.includes("\0") || /^(?:data|https?):/iu.test(operation.assetPath)) throw new TypeError("editable image asset path is invalid");
-    target.item.assetPath = operation.assetPath;
+    const assetPath = typeof operation.assetPath === "string" ? operation.assetPath.trim() : "";
+    if (target.collection !== "images" || !assetPath || assetPath.length > 1024 || [...assetPath].some((character) => { const code = character.codePointAt(0); return code <= 0x1f || code === 0x7f; }) || /^(?:data|file|https?|javascript):/iu.test(assetPath) || ![".png", ".jpg", ".jpeg"].includes(path.extname(assetPath).toLowerCase())) throw new TypeError("editable image asset path is invalid");
+    target.item.assetPath = assetPath;
     return true;
   }
   return false;
 }
 
-module.exports = { MAX_OBJECTS_PER_PAGE, applyObjectLifecycleOperation };
+module.exports = { MAX_OBJECTS_PER_PAGE, NEW_OBJECT_ID, applyObjectLifecycleOperation };

@@ -7,7 +7,7 @@ const { insideRoot } = require("../capability-runtime");
 const { createPrintableHtml, deckIrFingerprint, inspectHtml, inspectPdf, inspectPptx } = require("./export");
 const { inspectImageAsset } = require("./assets");
 const { createIrEditorClientSource } = require("./ir-editor-client");
-const { applyObjectLifecycleOperation } = require("./ir-lifecycle");
+const { MAX_OBJECTS_PER_PAGE, applyObjectLifecycleOperation } = require("./ir-lifecycle");
 const { applyPageLifecycleOperation } = require("./ir-page-lifecycle");
 const { inspectTemplate } = require("./template");
 
@@ -66,10 +66,12 @@ function validateEditableIr(ir) {
   const ids = new Set();
   ir.pages.forEach((page, pageIndex) => {
     if (!plainObject(page) || !Number.isSafeInteger(page.pageIndex) || page.pageIndex !== pageIndex) throw new TypeError("editable Deck IR page indexes are invalid");
+    const objectCount = COLLECTIONS.reduce((total, collection) => total + (Array.isArray(page[collection]) ? page[collection].length : 0), 0);
+    if (objectCount > MAX_OBJECTS_PER_PAGE) throw new TypeError("editable Deck IR page object limit exceeded");
     for (const collection of COLLECTIONS) {
       if (page[collection] !== undefined && !Array.isArray(page[collection])) throw new TypeError(`editable Deck IR ${collection} is invalid`);
       for (const item of page[collection] || []) {
-        if (!plainObject(item) || typeof item.id !== "string" || !item.id || item.id.length > 256 || ids.has(`${pageIndex}\0${item.id}`)) throw new TypeError("editable Deck IR object id is invalid");
+        if (!plainObject(item) || typeof item.id !== "string" || !item.id || item.id.length > 256 || containsUnsafeText(item.id) || ids.has(`${pageIndex}\0${item.id}`)) throw new TypeError("editable Deck IR object id is invalid");
         ids.add(`${pageIndex}\0${item.id}`); validateBox(item.box, ir.slideSize);
         if (collection === "textBoxes") boundedText(item.text);
       }
@@ -148,15 +150,28 @@ function parseJson(buffer, maximum, label) {
   try { return JSON.parse(buffer.toString("utf8")); } catch { throw new TypeError(`${label} is invalid JSON`); }
 }
 function checkedInput(workspaceRoot, value, maximum, label) {
-  const file = insideRoot(workspaceRoot, value); const info = fs.lstatSync(file);
-  if (!info.isFile() || info.isSymbolicLink() || info.size < 1 || info.size > maximum || path.extname(file).toLowerCase() !== ".json") throw new Error(`${label} is invalid`);
+  const candidate = insideRoot(workspaceRoot, value); let info;
+  try { info = fs.lstatSync(candidate); } catch { throw new Error(`${label} is unavailable`); }
+  if (!info.isFile() || info.isSymbolicLink() || info.size < 1 || info.size > maximum || path.extname(candidate).toLowerCase() !== ".json") throw new Error(`${label} is invalid`);
+  let file; try { file = insideRoot(workspaceRoot, fs.realpathSync.native(candidate)); } catch { throw new Error(`${label} is unavailable`); }
+  if (path.extname(file).toLowerCase() !== ".json") throw new Error(`${label} is invalid`);
   return file;
 }
 function checkedNewOutput(workspaceRoot, value) {
-  const file = insideRoot(workspaceRoot, value);
+  const candidate = insideRoot(workspaceRoot, value); const parentCandidate = path.dirname(candidate);
+  let parent; try { parent = insideRoot(workspaceRoot, fs.realpathSync.native(parentCandidate)); } catch { throw new Error("editable IR output parent is unavailable"); }
+  const file = insideRoot(workspaceRoot, path.join(parent, path.basename(candidate)));
   if (path.extname(file).toLowerCase() !== ".json" || fs.existsSync(file)) throw new Error("editable IR output must be a new JSON file");
-  if (!fs.existsSync(path.dirname(file)) || !fs.statSync(path.dirname(file)).isDirectory()) throw new Error("editable IR output parent is unavailable");
+  if (!fs.statSync(parent).isDirectory()) throw new Error("editable IR output parent is unavailable");
   return file;
+}
+function checkedNewDirectory(workspaceRoot, value) {
+  const candidate = insideRoot(workspaceRoot, value); const parentCandidate = path.dirname(candidate);
+  let parent; try { parent = insideRoot(workspaceRoot, fs.realpathSync.native(parentCandidate)); } catch { throw new Error("editable IR export output parent is unavailable"); }
+  const output = insideRoot(workspaceRoot, path.join(parent, path.basename(candidate)));
+  if (fs.existsSync(output) || output === path.resolve(workspaceRoot)) throw new Error("editable IR export output must be a new child directory");
+  if (!fs.statSync(parent).isDirectory()) throw new Error("editable IR export output parent is unavailable");
+  return output;
 }
 function persistIrEditorPatch({ workspaceRoot, input, patch, output }) {
   const inputFile = checkedInput(workspaceRoot, input, MAX_IR_BYTES, "editable IR input");
@@ -169,7 +184,8 @@ function materializeEditedIr(rawIr, inputFile, workspaceRoot, outputRoot) {
   const ir = clone(validateEditableIr(rawIr)); const assets = new Map();
   for (const page of ir.pages) for (const image of page.images || []) {
     if (typeof image.assetPath !== "string" || !image.assetPath || image.assetPath.includes("\0")) throw new Error("editable IR image asset path is invalid");
-    const sourceFile = insideRoot(workspaceRoot, path.isAbsolute(image.assetPath) ? image.assetPath : path.resolve(path.dirname(inputFile), image.assetPath));
+    const candidate = insideRoot(workspaceRoot, path.isAbsolute(image.assetPath) ? image.assetPath : path.resolve(path.dirname(inputFile), image.assetPath));
+    let sourceFile; try { sourceFile = insideRoot(workspaceRoot, fs.realpathSync.native(candidate)); } catch { throw new Error("editable IR image asset is unavailable"); }
     const info = inspectImageAsset(sourceFile); const extension = path.extname(sourceFile).toLowerCase(); const name = `${info.sha256}${extension}`;
     if (!assets.has(name)) assets.set(name, sourceFile); image.assetPath = `assets/${name}`;
   }
@@ -178,11 +194,13 @@ function materializeEditedIr(rawIr, inputFile, workspaceRoot, outputRoot) {
 }
 function exportEditedIrArtifacts({ workspaceRoot, input, output, template, buildPptx, buildPdf }) {
   if (typeof buildPptx !== "function" || typeof buildPdf !== "function") throw new TypeError("editable IR export requires PPTX and PDF adapters");
-  const inputFile = checkedInput(workspaceRoot, input, MAX_IR_BYTES, "editable IR input"); const outputRoot = insideRoot(workspaceRoot, output);
-  if (fs.existsSync(outputRoot) || outputRoot === path.resolve(workspaceRoot)) throw new Error("editable IR export output must be a new child directory");
-  const parent = insideRoot(workspaceRoot, path.dirname(outputRoot)); if (!fs.existsSync(parent) || !fs.statSync(parent).isDirectory()) throw new Error("editable IR export output parent is unavailable");
+  const inputFile = checkedInput(workspaceRoot, input, MAX_IR_BYTES, "editable IR input"); const outputRoot = checkedNewDirectory(workspaceRoot, output);
   let templateFile;
-  if (template !== undefined) { templateFile = insideRoot(workspaceRoot, template); if (path.extname(templateFile).toLowerCase() !== ".pptx") throw new Error("editable IR export template must be PPTX"); inspectTemplate(templateFile); }
+  if (template !== undefined) {
+    const templateCandidate = insideRoot(workspaceRoot, template);
+    try { templateFile = insideRoot(workspaceRoot, fs.realpathSync.native(templateCandidate)); } catch { throw new Error("editable IR export template is unavailable"); }
+    if (path.extname(templateFile).toLowerCase() !== ".pptx") throw new Error("editable IR export template must be PPTX"); inspectTemplate(templateFile);
+  }
   fs.mkdirSync(outputRoot);
   try {
     const ir = materializeEditedIr(parseJson(fs.readFileSync(inputFile), MAX_IR_BYTES, "editable IR input"), inputFile, workspaceRoot, outputRoot); const fingerprint = deckIrFingerprint(ir);
@@ -196,12 +214,26 @@ function exportEditedIrArtifacts({ workspaceRoot, input, output, template, build
   } catch (error) { fs.rmSync(outputRoot, { recursive: true, force: true, maxRetries: 2 }); throw error; }
 }
 function applyAndExportIrArtifacts({ workspaceRoot, input, patch, output, template, buildPptx, buildPdf }) {
-  const temporary = insideRoot(workspaceRoot, path.join(workspaceRoot, `.common-tools-ir-edit-${crypto.randomUUID()}.json`));
+  const inputFile = checkedInput(workspaceRoot, input, MAX_IR_BYTES, "editable IR input");
+  const patchFile = checkedInput(workspaceRoot, patch, MAX_PATCH_BYTES, "editable IR patch");
+  const outputRoot = checkedNewDirectory(workspaceRoot, output);
+  const inputRevision = deckIrFingerprint(validateEditableIr(parseJson(fs.readFileSync(inputFile), MAX_IR_BYTES, "editable IR input")));
+  const patchBytes = fs.readFileSync(patchFile); const patchSha256 = crypto.createHash("sha256").update(patchBytes).digest("hex");
+  const temporary = checkedNewOutput(workspaceRoot, path.join(workspaceRoot, `.common-tools-ir-edit-${crypto.randomUUID()}.json`));
+  let ownsOutput = false; let ownsTemporary = false;
   try {
-    const applied = persistIrEditorPatch({ workspaceRoot, input, patch, output: temporary });
-    const exported = exportEditedIrArtifacts({ workspaceRoot, input: temporary, output, template, buildPptx, buildPdf });
-    return Object.freeze({ output: exported.output, operationCount: applied.operationCount, revision: applied.revision, files: exported.files, report: exported.report });
-  } finally { fs.rmSync(temporary, { force: true }); }
+    const applied = persistIrEditorPatch({ workspaceRoot, input: inputFile, patch: patchFile, output: temporary });
+    ownsTemporary = true;
+    const exported = exportEditedIrArtifacts({ workspaceRoot, input: temporary, output: outputRoot, template, buildPptx, buildPdf });
+    ownsOutput = true;
+    const finalizationReportFile = path.join(outputRoot, "edit-finalization-report.json");
+    const finalizationReport = Object.freeze({ version: "1.0", inputRevision, patchSha256, outputRevision: applied.revision, operationCount: applied.operationCount, checks: Object.freeze([{ name: "edit-input-revision-bound", passed: true }, { name: "edit-patch-fingerprint-recorded", passed: true }, { name: "edit-export-quality-passed", passed: exported.report.passed }]), passed: exported.report.passed });
+    fs.writeFileSync(finalizationReportFile, `${JSON.stringify(finalizationReport, null, 2)}\n`, { flag: "wx", mode: 0o600 });
+    return Object.freeze({ output: exported.output, operationCount: applied.operationCount, revision: applied.revision, files: Object.freeze({ ...exported.files, finalizationReportFile }), report: exported.report, finalizationReport });
+  } catch (error) {
+    if (ownsOutput && fs.existsSync(outputRoot)) fs.rmSync(outputRoot, { recursive: true, force: true, maxRetries: 2 });
+    throw error;
+  } finally { if (ownsTemporary) fs.rmSync(temporary, { force: true }); }
 }
 function embeddedJson(value) { return JSON.stringify(value).replace(/[<>&]/gu, (character) => ({ "<": "\\u003c", ">": "\\u003e", "&": "\\u0026" })[character]); }
 function createIrPreviewHtml(rawIr, options = {}) {
@@ -210,8 +242,8 @@ function createIrPreviewHtml(rawIr, options = {}) {
   const model = { version: "1.0", revision, slideSize: ir.slideSize, pages: ir.pages.map((page) => ({ pageIndex: page.pageIndex, objects: COLLECTIONS.flatMap((collection) => (page[collection] || []).map((item, index) => ({ id: item.id, collection, index, type: item.type, assetPath: item.assetPath, box: item.box, rotation: item.rotation || 0, font: item.font || {}, style: item.style || {}, text: item.text }))) })) };
   const nonce = crypto.randomBytes(18).toString("base64");
   const script = createIrEditorClientSource({ maxOperations: MAX_OPERATIONS, maxPatchBytes: MAX_PATCH_BYTES });
-  const policy = `default-src 'none'; img-src 'self' data: blob:; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer"><meta name="common-tools-deck-ir-sha256" content="${revision}"><meta name="common-tools-page-count" content="${ir.pages.length}"><title>Editable deck preview</title><style nonce="${nonce}">*{box-sizing:border-box}body{margin:0;background:#0b1220;font-family:Arial,"Microsoft YaHei",sans-serif}.toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:10px 16px;background:#111c2ef5;color:#e5edf7;flex-wrap:wrap}.toolbar button,.toolbar input,.toolbar select{border:0;border-radius:6px;padding:7px 10px}.toolbar button{background:#38bdf8;color:#082033;cursor:pointer}.toolbar button:disabled{opacity:.35}.toolbar input[type=color]{width:42px;height:32px;padding:3px}.toolbar input[type=number]{width:70px}.toolbar input[type=text]{width:110px}.toolbar span,.toolbar label{font-size:12px;color:#a8bad0}.slide{position:relative;width:960px;height:540px;margin:24px auto;overflow:hidden;background:#fff;box-shadow:0 18px 50px #0008;background-image:linear-gradient(#94a3b822 1px,transparent 1px),linear-gradient(90deg,#94a3b822 1px,transparent 1px);background-size:4px 4px}.shape,.image,.text,.native,.chart{position:absolute;touch-action:none}.selected-object{outline:2px solid #38bdf8!important;outline-offset:2px}.resize-handle{display:none;position:absolute;width:12px;height:12px;border:2px solid #fff;background:#0284c7;cursor:nwse-resize;z-index:999}.resize-handle.active{display:block}.image{display:block}.text{white-space:pre-wrap;overflow:hidden;line-height:1.15}.text[contenteditable]:focus{outline:2px solid #38bdf8;background:#e0f2fe22}.native{border-collapse:collapse;background:#fff}.native td{border:1px solid #94a3b8;padding:6px}.chart{padding:18px;border:1px solid #94a3b8;background:#fff}</style></head><body><header class="toolbar"><strong>图片转 PPT · 可编辑预览</strong><span id="selection">第 1 页</span><span id="count">0 项待保存变更</span><button id="undo" type="button">撤销</button><button id="redo" type="button">重做</button><button id="addText" type="button">新增文字</button><button id="addShape" type="button">新增形状</button><button id="duplicateObject" type="button">复制对象</button><button id="deleteObject" type="button">删除对象</button><button id="replaceImage" type="button">替换图片</button><button id="addPage" type="button">新增页</button><button id="duplicatePage" type="button">复制页</button><button id="deletePage" type="button">删除页</button><button id="pageUp" type="button">页面前移</button><button id="pageDown" type="button">页面后移</button><button id="alignLeft" type="button">左对齐</button><button id="alignTop" type="button">顶对齐</button><button id="distribute" type="button">水平分布</button><button id="back" type="button">置底</button><button id="front" type="button">置顶</button><label>文字色 <input id="color" type="color" value="#111827"></label><label>填充 <input id="fill" type="color" value="#ffffff"></label><label>描边 <input id="stroke" type="color" value="#94a3b8"></label><label>透明度 <input id="opacity" type="number" min="0" max="1" step="0.05" value="1"></label><label>字号 <input id="size" type="number" min="6" max="200" value="16"></label><label>字体 <input id="family" type="text" maxlength="120" value="Arial"></label><label>字重 <select id="weight"><option value="normal">常规</option><option value="bold">粗体</option></select></label><label>对齐 <select id="align"><option value="left">左</option><option value="center">中</option><option value="right">右</option></select></label><button id="style" type="button">应用样式</button><label>旋转 <input id="rotate" type="number" min="-360" max="360" value="0"></label><button id="download" type="button">下载校验补丁</button><span>推荐一步完成：common-tools ppt finalize-ir-edit；也可分步使用 common-tools ppt apply-ir-edit 与 common-tools ppt export-ir。图片路径必须位于工作区。</span></header>${rendered}<script id="ir-model" type="application/json" nonce="${nonce}">${embeddedJson(model)}</script><script nonce="${nonce}">${script}</script></body></html>`;
+  const policy = `default-src 'none'; img-src 'self' data: blob:; style-src 'nonce-${nonce}'; style-src-attr 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer"><meta name="common-tools-deck-ir-sha256" content="${revision}"><meta name="common-tools-page-count" content="${ir.pages.length}"><title>Editable deck preview</title><style nonce="${nonce}">*{box-sizing:border-box}body{margin:0;background:#0b1220;font-family:Arial,"Microsoft YaHei",sans-serif}.toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:10px 16px;background:#111c2ef5;color:#e5edf7;flex-wrap:wrap}.toolbar button,.toolbar input,.toolbar select{border:0;border-radius:6px;padding:7px 10px}.toolbar button{background:#38bdf8;color:#082033;cursor:pointer}.toolbar button:disabled{cursor:not-allowed;opacity:.35}.toolbar button:focus-visible,.toolbar input:focus-visible,.toolbar select:focus-visible,[data-object-id]:focus-visible{outline:3px solid #fbbf24;outline-offset:2px}.toolbar input[type=color]{width:42px;height:32px;padding:3px}.toolbar input[type=number]{width:70px}.toolbar input[type=text]{width:110px}.toolbar span,.toolbar label{font-size:12px;color:#a8bad0}.slide{position:relative;width:min(960px,calc(100vw - 32px));height:auto;aspect-ratio:${ir.slideSize.widthPt}/${ir.slideSize.heightPt};margin:24px auto;overflow:hidden;background:#fff;box-shadow:0 18px 50px #0008;background-image:linear-gradient(#94a3b822 1px,transparent 1px),linear-gradient(90deg,#94a3b822 1px,transparent 1px);background-size:4px 4px}.shape,.image,.text,.native,.chart{position:absolute;touch-action:none}.selected-object{outline:2px solid #38bdf8!important;outline-offset:2px}.resize-handle{display:none;position:absolute;width:12px;height:12px;border:2px solid #fff;background:#0284c7;cursor:nwse-resize;z-index:999}.resize-handle.active{display:block}.image{display:block}.text{white-space:pre-wrap;overflow:hidden;line-height:1.15}.text[contenteditable]:focus{outline:2px solid #38bdf8;background:#e0f2fe22}.native{border-collapse:collapse;background:#fff}.native td{border:1px solid #94a3b8;padding:6px}.chart{padding:18px;border:1px solid #94a3b8;background:#fff}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}</style></head><body><header class="toolbar" role="toolbar" aria-label="可编辑演示文稿工具栏"><strong>图片转 PPT · 可编辑预览</strong><span id="selection">第 1 页</span><span id="count" role="status" aria-live="polite">0 项待保存变更</span><button id="undo" type="button" aria-keyshortcuts="Control+Z Meta+Z">撤销</button><button id="redo" type="button" aria-keyshortcuts="Control+Y Meta+Shift+Z">重做</button><button id="addText" type="button">新增文字</button><button id="addShape" type="button">新增形状</button><button id="duplicateObject" type="button">复制对象</button><button id="deleteObject" type="button">删除对象</button><button id="replaceImage" type="button">替换图片</button><button id="addPage" type="button">新增页</button><button id="duplicatePage" type="button">复制页</button><button id="deletePage" type="button">删除页</button><button id="pageUp" type="button">页面前移</button><button id="pageDown" type="button">页面后移</button><button id="alignLeft" type="button">左对齐</button><button id="alignTop" type="button">顶对齐</button><button id="distribute" type="button">水平分布</button><button id="back" type="button">置底</button><button id="front" type="button">置顶</button><label>文字色 <input id="color" type="color" value="#111827"></label><label>填充 <input id="fill" type="color" value="#ffffff"></label><label>描边 <input id="stroke" type="color" value="#94a3b8"></label><label>透明度 <input id="opacity" type="number" min="0" max="1" step="0.05" value="1"></label><label>字号 <input id="size" type="number" min="6" max="200" value="16"></label><label>字体 <input id="family" type="text" maxlength="120" value="Arial"></label><label>字重 <select id="weight"><option value="normal">常规</option><option value="bold">粗体</option></select></label><label>对齐 <select id="align"><option value="left">左</option><option value="center">中</option><option value="right">右</option></select></label><button id="style" type="button">应用样式</button><label>旋转 <input id="rotate" type="number" min="-360" max="360" value="0"></label><button id="download" type="button" aria-keyshortcuts="Control+S Meta+S">下载校验补丁</button><span>推荐一步完成：common-tools ppt finalize-ir-edit；也可分步使用 common-tools ppt apply-ir-edit 与 common-tools ppt export-ir。图片路径必须位于工作区。</span></header>${rendered}<script id="ir-model" type="application/json" nonce="${nonce}">${embeddedJson(model)}</script><script nonce="${nonce}">${script}</script></body></html>`;
 }
 
 module.exports = { MAX_IR_BYTES, MAX_OPERATIONS, MAX_PATCH_BYTES, applyAndExportIrArtifacts, applyIrEditorPatch, createIrPreviewHtml, exportEditedIrArtifacts, materializeEditedIr, persistIrEditorPatch, validateEditableIr };
