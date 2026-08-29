@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { classifyVisualLayer } = require("./layer-classifier");
@@ -180,12 +181,46 @@ function evaluateChartGolden(input = {}) {
 function renderWithLibreOffice(options = {}) {
   const benchmarkScript = path.resolve(__dirname, "..", "libreoffice-benchmark.js");
   const runtimeNode = process.env.RUNTIME_NODE ? path.resolve(process.env.RUNTIME_NODE) : process.execPath;
-  const args = [benchmarkScript, "--pptx", options.pptxFile, "--out", options.outputDir, "--max-pages", String(options.maxPages), "--dpi", String(options.dpi), "--convert-timeout-ms", String(options.timeoutMs), "--render-timeout-ms", String(options.timeoutMs)];
-  const result = spawnSync(runtimeNode, args, { encoding: "utf8", windowsHide: true, timeout: options.timeoutMs * 2 + 10000, maxBuffer: 20 * 1024 * 1024 });
-  if (result.status !== 0) {
-    throw new Error(`LibreOffice chart golden render failed: ${String(result.stderr || result.stdout || result.error?.message || `exit ${result.status}`).trim()}`);
+  const outputDir = path.resolve(requiredPath(options.outputDir, "outputDir"));
+  const isolatedOutputDir = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-chart-render-"));
+  try {
+    const args = [benchmarkScript, "--pptx", requiredPath(options.pptxFile, "pptxFile"), "--out", isolatedOutputDir, "--max-pages", String(boundedInteger(options.maxPages, 1, 1, 128)), "--dpi", String(boundedInteger(options.dpi, 72, 36, 600)), "--convert-timeout-ms", String(options.timeoutMs), "--render-timeout-ms", String(options.timeoutMs)];
+    const result = spawnSync(runtimeNode, args, { encoding: "utf8", windowsHide: true, timeout: options.timeoutMs * 2 + 10000, maxBuffer: 20 * 1024 * 1024 });
+    if (result.status !== 0) {
+      throw new Error(`LibreOffice chart golden render failed: ${String(result.stderr || result.stdout || result.error?.message || `exit ${result.status}`).trim()}`);
+    }
+    return materializeLibreOfficeReport(parseLastJsonObject(result.stdout), outputDir);
+  } finally {
+    fs.rmSync(isolatedOutputDir, { recursive: true, force: true });
   }
-  return parseLastJsonObject(result.stdout);
+}
+
+function materializeLibreOfficeReport(report, outputDir) {
+  if (!report || typeof report !== "object" || Array.isArray(report)) throw new TypeError("LibreOffice report must be an object");
+  const stableOutputDir = path.resolve(requiredPath(outputDir, "outputDir"));
+  const renderDir = path.join(stableOutputDir, "render");
+  fs.mkdirSync(renderDir, { recursive: true });
+  const renderedPages = (Array.isArray(report.renderedPages) ? report.renderedPages : []).map((page, index) => {
+    const pageIndex = boundedInteger(page?.pageIndex, index, 0, 127);
+    const sourceImage = path.resolve(requiredPath(page?.image, `renderedPages[${index}].image`));
+    if (!fs.existsSync(sourceImage) || !fs.statSync(sourceImage).isFile()) {
+      throw new Error(`LibreOffice rendered page is missing: ${sourceImage}`);
+    }
+    const targetImage = path.join(renderDir, `lo-page-${String(pageIndex + 1).padStart(3, "0")}.png`);
+    fs.copyFileSync(sourceImage, targetImage);
+    return { ...page, pageIndex, image: targetImage };
+  });
+  const reportFile = path.join(stableOutputDir, "libreoffice-benchmark.report.json");
+  const materialized = {
+    ...report,
+    stagedPptxFile: null,
+    pdf: null,
+    renderedPageCount: renderedPages.length,
+    renderedPages,
+    reportFile
+  };
+  fs.writeFileSync(reportFile, `${JSON.stringify(materialized, null, 2)}\n`, "utf8");
+  return materialized;
 }
 
 function normalizeRenderer(value) {
@@ -725,6 +760,7 @@ module.exports = {
   createChartFixtures,
   chartRequirements,
   evaluateChartGolden,
+  materializeLibreOfficeReport,
   normalizeThresholds,
   parseLastJsonObject,
   reconstructFixture,

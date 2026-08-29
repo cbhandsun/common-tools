@@ -242,6 +242,7 @@ function fitHighConfidenceSingleLineOcrToEvidence(textBoxes = [], options = {}) 
     const evidence = textBox?.source?.evidenceBox;
     const confidence = Number(textBox?.source?.confidence);
     const currentSizePt = Number(textBox?.font?.sizePt);
+    const hasCurrentSize = Number.isFinite(currentSizePt) && currentSizePt >= 6 && currentSizePt <= 60;
     const family = String(textBox?.font?.family || "");
     const text = String(textBox?.text || "");
     if (!isEvidenceFitCandidate(textBox, evidence)
@@ -249,16 +250,27 @@ function fitHighConfidenceSingleLineOcrToEvidence(textBoxes = [], options = {}) 
       || textBox?.source?.overlayVisibility !== "visible"
       || textBox?.source?.detector
       || !Number.isFinite(confidence) || confidence < minConfidence
-      || !Number.isFinite(currentSizePt) || currentSizePt < 6 || currentSizePt > 60
-      || !/Microsoft YaHei|SimHei/i.test(family)) return textBox;
+      || (family && !/Microsoft YaHei|SimHei|DengXian/i.test(family))) return textBox;
 
     const widthRatio = evidence.w / Math.max(1, textBox.box.w);
-    if (widthRatio > 0.97 || widthRatio < 0.72) return textBox;
+    if (widthRatio > 1.25 || widthRatio < 0.65) return textBox;
     const units = estimatedTextWidthUnits(text);
     if (units <= 0) return textBox;
     const weight = String(textBox?.font?.weight || "").toLowerCase();
-    const metricFactor = weight === "bold" || Number(weight) >= 600 ? 1.05 : 1.1;
-    const fittedSizePt = clamp(round(evidence.w / (units * metricFactor)), currentSizePt * 0.88, currentSizePt * 1.02);
+    // LibreOffice does not consistently honor DrawingML shrink-to-fit. Keep a
+    // measured safety edge for mixed CJK/Latin runs so an explicit no-wrap box
+    // remains single-line in both PowerPoint and LibreOffice.
+    const metricFactor = weight === "bold" || Number(weight) >= 600 ? 1.18 : 1.15;
+    const evidenceSizePt = clamp(Math.min(
+      evidence.w / (units * metricFactor),
+      evidence.h * 1.1
+    ), 6, 60);
+    const fittedSizePt = hasCurrentSize
+      ? clamp(round(evidenceSizePt), currentSizePt * 0.75, currentSizePt * 1.02)
+      : round(evidenceSizePt);
+    const geometryNeedsFit = widthRatio <= 0.97;
+    const fontNeedsFit = !hasCurrentSize || fittedSizePt < currentSizePt * 0.98;
+    if (!geometryNeedsFit && !fontNeedsFit) return textBox;
     return {
       ...textBox,
       box: {
@@ -267,13 +279,19 @@ function fitHighConfidenceSingleLineOcrToEvidence(textBoxes = [], options = {}) 
         w: round(Math.max(1, evidence.w + paddingPt * 2)),
         h: round(Math.max(1, evidence.h + paddingPt * 2))
       },
-      font: { ...(textBox.font || {}), sizePt: fittedSizePt, valign: "middle" },
+      font: {
+        ...(textBox.font || {}),
+        family: family || "Microsoft YaHei",
+        sizePt: fittedSizePt,
+        valign: "middle"
+      },
+      style: { ...(textBox.style || {}), wrap: false, fit: "shrink" },
       source: {
         ...(textBox.source || {}),
         ocrEvidenceFit: {
           provider: "single-line-ocr-evidence-fit-v1",
           originalBox: { ...textBox.box },
-          originalSizePt: currentSizePt,
+          originalSizePt: hasCurrentSize ? currentSizePt : null,
           fittedSizePt
         }
       }

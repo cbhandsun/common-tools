@@ -2,10 +2,14 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const { parseArgs, usage } = require("../skills/pd-hifi-slideclone/scripts/chart-native-render-golden-smoke");
 const {
   createChartFixtures,
   evaluateChartGolden,
+  materializeLibreOfficeReport,
   normalizeThresholds,
   parseLastJsonObject
 } = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-render-golden");
@@ -68,6 +72,37 @@ test("chart native render golden sanitizes threshold boundaries", () => {
 test("chart native render golden parses noisy PowerPoint output", () => {
   assert.deepEqual(parseLastJsonObject(`build output\n${JSON.stringify({ passed: true, renderedPages: [] })}`), { passed: true, renderedPages: [] });
   assert.throws(() => parseLastJsonObject("no report"), /no JSON report/);
+});
+
+test("chart native render golden materializes isolated LibreOffice images", (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-chart-report-test-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const isolatedImage = path.join(root, "isolated", "lo-page-1.png");
+  const outputDir = path.join(root, "stable-output");
+  fs.mkdirSync(path.dirname(isolatedImage), { recursive: true });
+  fs.writeFileSync(isolatedImage, Buffer.from([1, 2, 3, 4]));
+
+  const report = materializeLibreOfficeReport({
+    passed: true,
+    stagedPptxFile: path.join(root, "isolated", "office-input.pptx"),
+    pdf: path.join(root, "isolated", "office-input.pdf"),
+    renderedPages: [{ pageIndex: 0, image: isolatedImage, width: 560, height: 340 }]
+  }, outputDir);
+
+  assert.equal(report.stagedPptxFile, null);
+  assert.equal(report.pdf, null);
+  assert.equal(report.renderedPageCount, 1);
+  assert.equal(report.renderedPages[0].image, path.join(outputDir, "render", "lo-page-001.png"));
+  assert.deepEqual(fs.readFileSync(report.renderedPages[0].image), Buffer.from([1, 2, 3, 4]));
+  assert.equal(report.reportFile, path.join(outputDir, "libreoffice-benchmark.report.json"));
+  assert.equal(JSON.parse(fs.readFileSync(report.reportFile, "utf8")).renderedPages[0].image, report.renderedPages[0].image);
+});
+
+test("chart native render golden rejects a missing isolated render", () => {
+  assert.throws(
+    () => materializeLibreOfficeReport({ renderedPages: [{ pageIndex: 0, image: "missing-page.png" }] }, path.join(os.tmpdir(), "slideclone-missing-chart-report")),
+    /rendered page is missing/
+  );
 });
 
 test("chart native render golden fails incomplete native chart evidence", () => {

@@ -170,7 +170,8 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
     foreach (var textBox in page.TextBoxes ?? [])
     {
         if (groupedComponentIds.TextBoxIds.Contains(textBox.Id)) continue;
-        shapeTree.Append(CreateTextBox(textBox, shapeId++, TemplatePlaceholderWriter.Binding(placeholderBindings, "textBoxes", textBox.Id), !usesTemplateBindings));
+        var allowRolePlaceholder = !usesTemplateBindings && !IsAbsoluteOcrTextBox(textBox);
+        shapeTree.Append(CreateTextBox(textBox, shapeId++, TemplatePlaceholderWriter.Binding(placeholderBindings, "textBoxes", textBox.Id), allowRolePlaceholder));
     }
 
     return new P.Slide(new P.CommonSlideData(shapeTree), new P.ColorMapOverride(new A.MasterColorMapping()));
@@ -191,6 +192,9 @@ static bool IsNativeOverlayUnderlay(VisualElementIr image)
 static bool IsTableOverlayElement(VisualElementIr element) => IsTableOverlaySource(element.Source);
 
 static bool IsTableOverlaySource(JsonElement? source) => GetBoolean(source, "tableOverlay") == true;
+
+static bool IsAbsoluteOcrTextBox(TextBoxIr textBox)
+    => !string.IsNullOrWhiteSpace(GetString(textBox.Source, "ocrProvider"));
 
 static P.Shape CreateBackground(PageIr page, uint shapeId)
 {
@@ -254,11 +258,15 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId, PlaceholderBinding
             new A.SpacingPercent { Val = (int)Math.Round(lineHeightMultiple * 100000) }
         ));
     }
+    var applicationProperties = TemplatePlaceholderWriter.CreateApplicationProperties(placeholderBinding, allowRolePlaceholder ? textBox.Role : null);
     // A semantic role can intentionally expose this text box as a PowerPoint
     // placeholder. Explicitly disable inherited bullets so a body placeholder
     // remains visually equivalent to the source when rendered against a master
     // whose body style enables bullets by default (notably in LibreOffice).
-    paragraphProperties.Append(new A.NoBullet());
+    if (applicationProperties.GetFirstChild<P.PlaceholderShape>() is not null)
+    {
+        paragraphProperties.Append(new A.NoBullet());
+    }
     var transform = new A.Transform2D(
         new A.Offset { X = ToEmu(textBox.Box.X), Y = ToEmu(textBox.Box.Y) },
         new A.Extents { Cx = ToEmu(textBox.Box.W), Cy = ToEmu(textBox.Box.H) }
@@ -300,7 +308,6 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId, PlaceholderBinding
         paragraph.Append(new A.Run(CreateRunProperties(null), new A.Text(textBox.Text ?? string.Empty)));
     }
 
-    var applicationProperties = TemplatePlaceholderWriter.CreateApplicationProperties(placeholderBinding, allowRolePlaceholder ? textBox.Role : null);
     return new P.Shape(
         new P.NonVisualShapeProperties(
             CreateNonVisualDrawingProperties(shapeId, SafeDrawingName(textBox.Id, "TextBox", shapeId), textBox.Source ?? textBox.Style),

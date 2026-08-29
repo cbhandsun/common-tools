@@ -303,9 +303,53 @@ test("high-confidence OCR evidence fit tightens one-line title geometry and font
   const result = fitHighConfidenceSingleLineOcrToEvidence([title, lowConfidence]);
 
   assert.deepEqual(result[0].box, title.source.evidenceBox);
-  assert.ok(result[0].font.sizePt < 31 && result[0].font.sizePt > 30);
+  assert.ok(result[0].font.sizePt < 30 && result[0].font.sizePt > 26);
   assert.equal(result[0].source.ocrEvidenceFit.provider, "single-line-ocr-evidence-fit-v1");
   assert.equal(result[1], lowConfidence);
+});
+
+test("high-confidence OCR evidence fit prevents same-width title overflow", () => {
+  const title = {
+    id: "title",
+    text: "产研资产的中枢操作系统",
+    box: { x: 199.8, y: 51.38, w: 558.91, h: 40.88 },
+    font: { family: "Microsoft YaHei", sizePt: 51.8, weight: "bold" },
+    style: { wrap: false },
+    source: {
+      ocrProvider: "umi-paddleocr-json",
+      overlayVisibility: "visible",
+      confidence: 0.94,
+      evidenceBox: { x: 199.8, y: 51.38, w: 558.91, h: 40.88 }
+    }
+  };
+
+  const [result] = fitHighConfidenceSingleLineOcrToEvidence([title]);
+
+  assert.ok(result.font.sizePt < title.font.sizePt);
+  assert.equal(result.style.wrap, false);
+  assert.equal(result.style.fit, "shrink");
+  assert.equal(result.source.ocrEvidenceFit.originalSizePt, 51.8);
+});
+
+test("high-confidence OCR evidence fit supplies bounded typography when OCR omitted font metadata", () => {
+  const title = {
+    id: "title-without-font",
+    text: "终极远景：构建企业级「数字化产品大脑」",
+    box: { x: 181.8, y: 21.23, w: 576.9, h: 42 },
+    style: { wrap: false },
+    source: {
+      ocrProvider: "umi-paddleocr-json",
+      overlayVisibility: "visible",
+      confidence: 0.95,
+      evidenceBox: { x: 181.8, y: 26.63, w: 576.9, h: 31.88 }
+    }
+  };
+
+  const [result] = fitHighConfidenceSingleLineOcrToEvidence([title]);
+
+  assert.equal(result.font.family, "Microsoft YaHei");
+  assert.ok(result.font.sizePt >= 6 && result.font.sizePt <= 60);
+  assert.equal(result.source.ocrEvidenceFit.originalSizePt, null);
 });
 
 function makeInkImage(width, height, bounds) {
