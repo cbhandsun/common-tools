@@ -38,9 +38,23 @@ function finalizePrdSegmentedFlowComponents(page = {}, options = {}) {
       return true;
     })
     .map((textBox) => /PRD\s*自动生成/.test(String(textBox?.text || ""))
-      ? withComponent(textBox, component("title", "label"), true)
+      ? withComponent(normalizeTitleTypography(textBox), component("title", "label"), true)
       : textBox);
   return page;
+}
+
+function normalizeTitleTypography(textBox) {
+  const sourceSizePt = Number(textBox.font?.sizePt);
+  return {
+    ...textBox,
+    font: {
+      ...(textBox.font || {}),
+      weight: "regular",
+      ...(Number.isFinite(sourceSizePt) && sourceSizePt > 0
+        ? { sizePt: Math.round(sourceSizePt * 1.12 * 100) / 100 }
+        : {})
+    }
+  };
 }
 
 function applyComponent(image, role, subtype, textBakedInCrop) {

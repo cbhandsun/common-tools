@@ -336,6 +336,7 @@ test("OpenXmlDeckBuilder can rebuild content on a trusted PPTX template without 
   assert.equal(countMatches(presentation, /<p:sldId\b/g), 1);
   assert.match(slide, /rebuilt/);
   assert.match(slide, /<p:ph[^>]*type="title"/u);
+  assert.match(slide, /<a:buNone\s*\/>/u);
 });
 
 test("OpenXmlDeckBuilder consumes each page semantic template layout selection", { timeout: 60_000 }, () => {

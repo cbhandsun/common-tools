@@ -31,7 +31,7 @@ function fixture(root) {
         { id: "skill-route", box: { x: 479, y: 283, w: 145, h: 2 }, source: { detector: "prd-generation-flow-native-connector" } }
       ],
       textBoxes: [
-        { text: "Skill 3 PRD 自动生成：融合推导与标准沉淀", box: { x: 55, y: 48, w: 540, h: 23 } },
+        { text: "Skill 3 PRD 自动生成：融合推导与标准沉淀", box: { x: 55, y: 48, w: 540, h: 23 }, font: { weight: "bold", sizePt: 23.6 } },
         { text: "PRD", box: { x: 642, y: 128, w: 42, h: 18 } },
         { text: "业务背景", box: { x: 641, y: 159, w: 70, h: 23 } },
         { text: "字段规则", box: { x: 643, y: 234, w: 70, h: 22 } },
@@ -57,6 +57,7 @@ test("segmented PRD flow keeps screenshots intact and emits four semantic groups
 
     assert.deepEqual(groups, ["prd-segmented-flow-input", "prd-segmented-flow-output", "prd-segmented-flow-skill", "prd-segmented-flow-title"]);
     assert.deepEqual(page.textBoxes.map((item) => item.text), ["Skill 3 PRD 自动生成：融合推导与标准沉淀", "告别重复撰写"]);
+    assert.deepEqual(page.textBoxes[0].font, { weight: "regular", sizePt: 26.43 });
     assert.ok(page.images.every((item) => item.source.intentionalMinimumUnitCrop === true));
     assert.equal(page.images[1].source.expressionForm, "icon-or-illustration");
     assert.equal(readPng(path.join(root, "output.png")).width, 300);

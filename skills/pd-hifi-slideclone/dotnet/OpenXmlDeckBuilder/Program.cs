@@ -254,6 +254,11 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId, PlaceholderBinding
             new A.SpacingPercent { Val = (int)Math.Round(lineHeightMultiple * 100000) }
         ));
     }
+    // A semantic role can intentionally expose this text box as a PowerPoint
+    // placeholder. Explicitly disable inherited bullets so a body placeholder
+    // remains visually equivalent to the source when rendered against a master
+    // whose body style enables bullets by default (notably in LibreOffice).
+    paragraphProperties.Append(new A.NoBullet());
     var transform = new A.Transform2D(
         new A.Offset { X = ToEmu(textBox.Box.X), Y = ToEmu(textBox.Box.Y) },
         new A.Extents { Cx = ToEmu(textBox.Box.W), Cy = ToEmu(textBox.Box.H) }
