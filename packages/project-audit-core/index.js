@@ -120,8 +120,14 @@ function safeEvidence(value) {
 function projectAuditSummary(job, workspaceRoot) {
   try {
     if (!job || job.capability !== CAPABILITY || job.status !== "succeeded" || !job.output || typeof job.output.path !== "string" || typeof workspaceRoot !== "string") throw new Error("unavailable");
-    const reportFile = insideRoot(workspaceRoot, path.join(job.output.path, "project-audit-report.json"));
-    const artifact = Array.isArray(job.artifacts) ? job.artifacts.find((item) => item && item.name === "project-audit-report.json" && item.mediaType === "application/json" && item.uri === reportFile && typeof item.sha256 === "string") : null;
+    const requestedReportFile = path.resolve(job.output.path, "project-audit-report.json");
+    const requestedStat = fs.lstatSync(requestedReportFile);
+    if (!requestedStat.isFile() || requestedStat.isSymbolicLink()) throw new Error("unavailable");
+    const reportFile = insideRoot(workspaceRoot, requestedReportFile);
+    const artifact = Array.isArray(job.artifacts) ? job.artifacts.find((item) => {
+      if (!item || item.name !== "project-audit-report.json" || item.mediaType !== "application/json" || typeof item.uri !== "string" || typeof item.sha256 !== "string") return false;
+      try { return insideRoot(workspaceRoot, item.uri) === reportFile; } catch { return false; }
+    }) : null;
     const stat = fs.lstatSync(reportFile);
     const realWorkspaceRoot = fs.realpathSync(workspaceRoot);
     const realReportFile = fs.realpathSync(reportFile);

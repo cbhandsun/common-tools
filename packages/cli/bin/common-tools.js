@@ -26,7 +26,7 @@ const { persistDocumentPlan } = require("../../ppt-create-core/document-ingest")
 const { extractPdfLayout, extractPdfText } = require("../../ppt-create-core/pdf-text");
 const { createPptCreateArchive } = require("../../ppt-create-core/team-archive");
 const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
-const { CAPABILITY_MANIFESTS, effectivePluginConfig, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
+const { CAPABILITY_MANIFESTS, effectivePluginConfig, insideRoot, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
 const { TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig, teamDeploymentPlan } = require("../../team-runtime");
 const { runKeycloakMcpClientCommand, runKeycloakProjectMapperCommand } = require("../keycloak-project-mapper");
 const { serveStdio } = require("../../mcp-server/core");
@@ -169,13 +169,14 @@ function optionalPaddleOcr(args = {}, environment = process.env, fileSystem = fs
 }
 function resolveWorkspaceChild(workspaceRoot, value, label) {
   if (typeof value !== "string" || !value.trim()) throw new Error(`${label} is required`);
-  const root = fs.realpathSync.native(workspaceRoot);
-  const candidate = path.isAbsolute(value) ? path.resolve(value) : path.resolve(root, value);
-  const relative = path.relative(root, candidate);
-  if (relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+  const candidate = path.isAbsolute(value) ? path.resolve(value) : path.resolve(workspaceRoot, value);
+  try {
+    const approved = insideRoot(workspaceRoot, candidate);
+    if (approved === fs.realpathSync.native(workspaceRoot)) throw new Error("root is not a child");
+    return approved;
+  } catch {
     throw new Error(`${label} must be inside the workspace root`);
   }
-  return candidate;
 }
 function editableProfileProvider(value) {
   const provider = typeof value === "string" && value.trim() ? value.trim() : "paddleocr-local";

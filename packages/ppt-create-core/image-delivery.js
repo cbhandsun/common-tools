@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { insideRoot } = require("../capability-runtime");
 const { createPrintableHtml, deckIrFingerprint, inspectHtml, inspectPdf, inspectPptx } = require("./export");
 const { createIrPreviewHtml, validateEditableIr } = require("./ir-editor");
 
@@ -17,11 +18,14 @@ function readBoundedJson(file, maximum, label) {
 }
 function checkedExistingFile(root, value, extension, label) {
   if (typeof value !== "string" || !value || value.includes("\0")) throw new Error(`${label} path is invalid`);
-  const approvedRoot = fs.realpathSync.native(path.resolve(root)); const candidate = path.isAbsolute(value) ? path.resolve(value) : path.resolve(approvedRoot, value);
-  const relative = path.relative(approvedRoot, candidate);
-  if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative) || path.extname(candidate).toLowerCase() !== extension) throw new Error(`${label} must stay inside the output directory`);
-  const info = fs.lstatSync(candidate);
-  if (!info.isFile() || info.isSymbolicLink() || fs.realpathSync.native(candidate) !== candidate) throw new Error(`${label} is invalid`);
+  const approvedRoot = fs.realpathSync.native(path.resolve(root));
+  const requested = path.isAbsolute(value) ? path.resolve(value) : path.resolve(approvedRoot, value);
+  let candidate;
+  try { candidate = insideRoot(approvedRoot, requested); }
+  catch { throw new Error(`${label} must stay inside the output directory`); }
+  if (candidate === approvedRoot || path.extname(candidate).toLowerCase() !== extension) throw new Error(`${label} must stay inside the output directory`);
+  const requestedInfo = fs.lstatSync(requested);
+  if (!requestedInfo.isFile() || requestedInfo.isSymbolicLink()) throw new Error(`${label} is invalid`);
   return candidate;
 }
 function locateImageDeliveryInputs(outputDir) {
@@ -35,11 +39,13 @@ function rewriteDeliveredAssets(ir, irFile, outputRoot) {
   for (const page of draft.pages) {
     for (const image of page.images || []) {
       if (typeof image.assetPath !== "string" || !image.assetPath || image.assetPath.includes("\0")) throw new Error("Deck IR image asset path is invalid");
-      const candidate = path.isAbsolute(image.assetPath) ? path.resolve(image.assetPath) : path.resolve(irRoot, image.assetPath);
+      const requested = path.isAbsolute(image.assetPath) ? path.resolve(image.assetPath) : path.resolve(irRoot, image.assetPath);
+      let candidate;
+      try { candidate = insideRoot(root, requested); } catch { throw new Error("Deck IR image asset must stay inside the output directory"); }
+      const requestedInfo = fs.lstatSync(requested);
+      if (!requestedInfo.isFile() || requestedInfo.isSymbolicLink()) throw new Error("Deck IR image asset is invalid");
       const relative = path.relative(root, candidate);
       if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error("Deck IR image asset must stay inside the output directory");
-      const info = fs.lstatSync(candidate);
-      if (!info.isFile() || info.isSymbolicLink() || fs.realpathSync.native(candidate) !== candidate) throw new Error("Deck IR image asset is invalid");
       image.assetPath = relative.split(path.sep).join("/");
     }
   }

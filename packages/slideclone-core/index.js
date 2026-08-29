@@ -213,10 +213,16 @@ function reportMetric(metrics, name, maximum, integer = false) {
 function verifiedJsonArtifact(job, outputReal, name, file) {
   try {
     if (typeof name !== "string" || !name || typeof file !== "string") return null;
-    const candidate = insideRoot(outputReal, file);
+    const requested = path.resolve(file);
+    const requestedInfo = fs.lstatSync(requested);
+    if (!requestedInfo.isFile() || requestedInfo.isSymbolicLink()) return null;
+    const candidate = insideRoot(outputReal, requested);
     const relative = path.relative(outputReal, candidate);
     if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
-    const artifact = job.artifacts.find((item) => plainObject(item) && item.name === name && item.mediaType === "application/json" && item.uri === candidate && /^[a-f0-9]{64}$/.test(item.sha256 || ""));
+    const artifact = job.artifacts.find((item) => {
+      if (!plainObject(item) || item.name !== name || item.mediaType !== "application/json" || typeof item.uri !== "string" || !/^[a-f0-9]{64}$/.test(item.sha256 || "")) return false;
+      try { return insideRoot(outputReal, item.uri) === candidate; } catch { return false; }
+    });
     if (!artifact) return null;
     const info = fs.lstatSync(candidate);
     if (!info.isFile() || info.isSymbolicLink() || info.size < 2 || info.size > MAX_VISUAL_REPORT_BYTES || sha256File(candidate) !== artifact.sha256) return null;
@@ -257,7 +263,10 @@ function editableVisualSummary(job, workspaceRoot) {
   try {
     if (!plainObject(job) || job.capability !== CAPABILITY || job.status !== "succeeded" || !plainObject(job.output) || typeof job.output.path !== "string" || !Array.isArray(job.artifacts)) return null;
     const approvedWorkspace = path.resolve(workspaceRoot);
-    const output = insideRoot(approvedWorkspace, job.output.path);
+    const requestedOutput = path.resolve(job.output.path);
+    const requestedOutputInfo = fs.lstatSync(requestedOutput);
+    if (!requestedOutputInfo.isDirectory() || requestedOutputInfo.isSymbolicLink()) return null;
+    const output = insideRoot(approvedWorkspace, requestedOutput);
     const outputInfo = fs.lstatSync(output);
     if (!outputInfo.isDirectory() || outputInfo.isSymbolicLink()) return null;
     const outputReal = fs.realpathSync.native(output);

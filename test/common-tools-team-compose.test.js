@@ -6,7 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 function serviceBlock(source, name) {
-  const lines = source.split("\n");
+  const lines = source.replaceAll("\r\n", "\n").split("\n");
   const start = lines.indexOf(`  ${name}:`);
   if (start < 0) throw new Error(`service ${name} was not found`);
   const output = [];

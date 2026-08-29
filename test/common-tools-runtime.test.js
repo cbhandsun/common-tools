@@ -388,7 +388,7 @@ test("image-to-editable admits a bounded PDF only with the approved page-limited
     fs.writeFileSync(config, JSON.stringify(base), "utf8");
     const job = createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "state"), ownerId: "test-user", input, output, config });
     assert.equal(job.status, "queued");
-    assert.equal(job.input.path, input);
+    assert.equal(job.input.path, fs.realpathSync.native(input));
 
     fs.writeFileSync(config, JSON.stringify({ ...base, adapters: { ...base.adapters, normalize: "scripts/adapters/normalize-placeholder.js" } }), "utf8");
     assert.throws(() => createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "other-state"), ownerId: "test-user", input, output, config }), /approved PDF\/PPTX normalizer/);
@@ -441,11 +441,12 @@ test("image-to-editable local batch preserves explicit input order through its J
     fs.copyFileSync(fixture, first); fs.copyFileSync(fixture, second);
     fs.writeFileSync(config, JSON.stringify({ inputDir: root, outputDir: output, adapters: { ocr: "scripts/adapters/ocr-placeholder.js", vision: "scripts/adapters/vision-placeholder.js", pptx: "scripts/adapters/pptx-openxml-dotnet.js", render: "scripts/adapters/render-placeholder.js", diff: "scripts/adapters/diff-placeholder.js" } }), "utf8");
     const job = createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "state"), ownerId: "test-user", inputs: [first, second], output, config });
-    assert.deepEqual(job.input.paths, [first, second]);
+    const canonicalInputs = [first, second].map((file) => fs.realpathSync.native(file));
+    assert.deepEqual(job.input.paths, canonicalInputs);
     let invocation;
     const runner = createBundledSlidecloneRunner({ repositoryRoot: path.join(__dirname, ".."), spawn: (_command, args) => { invocation = args; return { status: 0 }; } });
-    runner({ configPath: config, inputPath: first, inputPaths: job.input.paths });
-    assert.deepEqual(invocation.filter((_item, index) => invocation[index - 1] === "--input-file"), [first, second]);
+    runner({ configPath: config, inputPath: canonicalInputs[0], inputPaths: job.input.paths });
+    assert.deepEqual(invocation.filter((_item, index) => invocation[index - 1] === "--input-file"), canonicalInputs);
     assert.throws(() => createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "other-state"), ownerId: "test-user", inputs: [first, first], output, config }), /duplicates/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

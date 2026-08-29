@@ -300,8 +300,9 @@ test("stdio MCP creates an ordered multi-image editable job and rejects mixed in
     const result = spawnSync(process.execPath, [server], { input: `${requests.map(JSON.stringify).join("\n")}\n`, encoding: "utf8", timeout: 15000, windowsHide: true, env: { ...process.env, COMMON_TOOLS_WORKSPACE: workspace, COMMON_TOOLS_STATE: state } });
     assert.equal(result.status, 0, result.stderr);
     const [created, rejected] = result.stdout.trim().split(/\r?\n/).map(JSON.parse);
-    assert.deepEqual(created.result.structuredContent.input.paths, [first, second]);
-    assert.equal(created.result.structuredContent.input.path, first);
+    const canonicalInputs = [first, second].map((file) => fs.realpathSync.native(file));
+    assert.deepEqual(created.result.structuredContent.input.paths, canonicalInputs);
+    assert.equal(created.result.structuredContent.input.path, canonicalInputs[0]);
     assert.equal(rejected.result.isError, true);
     assert.match(rejected.result.content[0].text, /declared input schema/u);
   } finally {
