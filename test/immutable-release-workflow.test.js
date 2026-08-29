@@ -6,7 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 test("immutable release workflow binds Marketplace source and both deployable images to one signed tag", () => {
-  const workflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "release.yml"), "utf8");
+  const workflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "release.yml"), "utf8").replaceAll("\r\n", "\n");
   for (const marker of [
     'tags:\n      - "v*.*.*"',
     'test "${GITHUB_REF_NAME}" = "v${version}"',

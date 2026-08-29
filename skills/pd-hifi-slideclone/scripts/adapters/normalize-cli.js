@@ -58,10 +58,6 @@ function resolveRequestedFiles(inputDir, requestedFiles) {
   for (const requested of requestedFiles) {
     if (typeof requested !== "string" || !requested) throw new Error("requested input files are invalid");
     const candidate = path.resolve(requested);
-    const relative = path.relative(root, candidate);
-    if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-      throw new Error("requested input file is outside input directory");
-    }
     const info = fs.lstatSync(candidate);
     if (!info.isFile() || info.isSymbolicLink()) throw new Error("requested input file is invalid");
     const actual = fs.realpathSync.native(candidate);
