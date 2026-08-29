@@ -72,7 +72,9 @@ function validateLimits(value, label, requireAll) {
 }
 
 function measureFile(file) {
-  const source = fs.readFileSync(file, "utf8");
+  // Git may materialize the same source with CRLF on Windows. Architecture
+  // budgets measure logical UTF-8 source, not checkout-specific line endings.
+  const source = fs.readFileSync(file, "utf8").replace(/\r\n?/gu, "\n");
   const relativeImports = file.endsWith(".js")
     ? new Set([...source.matchAll(/require\s*\(\s*["'](\.{1,2}\/[^"']+)["']\s*\)/gu)].map((match) => match[1])).size
     : 0;

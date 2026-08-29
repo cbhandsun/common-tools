@@ -34,9 +34,13 @@ test("architecture budget config accepts bounded defaults and rejects unsafe exc
 test("architecture measurement counts lines, bytes and unique relative imports", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "architecture-budget-"));
   const file = path.join(directory, "fixture.js");
-  fs.writeFileSync(file, 'require("./one");\nrequire("./one");\nrequire("../two");\n');
-  const metrics = measureFile(file);
-  assert.equal(metrics.lines, 4);
-  assert.equal(metrics.relativeImports, 2);
-  assert.equal(metrics.bytes, fs.statSync(file).size);
+  const source = 'require("./one");\nrequire("./one");\nrequire("../two");\n';
+  fs.writeFileSync(file, source);
+  const lfMetrics = measureFile(file);
+  fs.writeFileSync(file, source.replaceAll("\n", "\r\n"));
+  const crlfMetrics = measureFile(file);
+  assert.equal(lfMetrics.lines, 4);
+  assert.equal(lfMetrics.relativeImports, 2);
+  assert.equal(lfMetrics.bytes, Buffer.byteLength(source));
+  assert.deepEqual(crlfMetrics, lfMetrics);
 });
