@@ -8734,7 +8734,7 @@ test("component template native shapes use structure-aligned iSlide cycle-loop c
   assert.equal(image.source.componentTemplateAssetMotifReady, true);
   assert.deepEqual(image.source.componentTemplateTargetMotifs, ["arc-arrow"]);
   assert.ok(generated.some((shape) => shape.source.componentTemplatePart === "cycle-ring-segment"));
-  assert.ok(generated.some((shape) => shape.source.componentTemplatePart === "cycle-arrowhead"));
+  assert.equal(generated.some((shape) => shape.source.componentTemplatePart === "cycle-arrowhead"), false);
   assert.ok(generated.every((shape) => shape.source.matchedComponentAssetProvider === "islide"));
   assert.ok(generated.every((shape) => shape.source.matchedComponentTargetMotifs.includes("arc-arrow")));
 });
@@ -8935,10 +8935,10 @@ test("component template cycle-loop shells preserve detected node layout", () =>
   const generated = createComponentTemplateNativeShapes([image], { widthPt: 960, heightPt: 540 });
   const nodes = generated.filter((shape) => shape.source.componentTemplatePart === "cycle-node");
   const center = generated.find((shape) => shape.source.componentTemplatePart === "cycle-center");
-  const arrowheads = generated.filter((shape) => shape.source.componentTemplatePart === "cycle-arrowhead");
+  const arcs = generated.filter((shape) => shape.source.componentTemplatePart === "cycle-ring-segment");
 
   assert.equal(nodes.length, 4);
-  assert.equal(arrowheads.length, 4);
+  assert.equal(arcs.length, 4);
   assert.equal(center.box.x, 374);
   assert.equal(center.box.y, 238);
   assert.ok(nodes.some((shape) => shape.box.x === 382 && shape.box.y === 142));
@@ -9000,10 +9000,10 @@ test("component template cycle-loop shells preserve detected connector order", (
 
   const generated = createComponentTemplateNativeShapes([image], { widthPt: 960, heightPt: 540 });
   const nodes = generated.filter((shape) => shape.source.componentTemplatePart === "cycle-node");
-  const arrows = generated.filter((shape) => shape.source.componentTemplatePart === "cycle-arrowhead");
+  const arcs = generated.filter((shape) => shape.source.componentTemplatePart === "cycle-ring-segment");
 
   assert.deepEqual(nodes.map((shape) => shape.source.sourceVisualNodeId), ["top", "bottom", "right", "left"]);
-  assert.deepEqual(arrows.map((shape) => shape.source.sourceVisualConnectorId), ["top-bottom", "bottom-right", "right-left", "left-top"]);
+  assert.deepEqual(arcs.map((shape) => shape.source.sourceVisualConnectorId), ["top-bottom", "bottom-right", "right-left", "left-top"]);
 });
 
 test("component template native shapes use structure-aligned process-chain candidates", () => {

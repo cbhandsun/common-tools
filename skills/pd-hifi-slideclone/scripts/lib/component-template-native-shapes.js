@@ -7,6 +7,7 @@ const { readZipEntry } = require("./pptx-inventory");
 const { summarizeLocalComponentAsset } = require("./component-asset-learning");
 const { evaluateComponentGroupsForLayer } = require("./component-template-group-matcher");
 const { classifyGraphicExpressionPolicy } = require("./graphic-expression-policy");
+const { resolveConnectorComponent } = require("./connector-component-library");
 const {
   firstTemplateConnectorStyle,
   mergeTemplateStyle,
@@ -3242,47 +3243,34 @@ function cycleLoopShapes(image = {}, match = {}, slideSize = DEFAULT_SLIDE) {
   const arcH = Math.max(54, box.h * 0.56);
   const nodeW = Math.max(46, Math.min(96, box.w * 0.18));
   const nodeH = Math.max(24, Math.min(44, box.h * 0.12));
-  const arrowSize = Math.max(9, Math.min(18, Math.min(box.w, box.h) * 0.045));
   const fidelityOverlay = isFidelityCropOverlay(image);
   const shapes = [];
 
   for (let index = 0; index < count; index += 1) {
     const angleDeg = -90 + (360 * index / count);
     const angle = angleDeg * Math.PI / 180;
-    const nextAngleDeg = -90 + (360 * (index + 0.76) / count);
-    const nextAngle = nextAngleDeg * Math.PI / 180;
     const stroke = palette.accents[index % palette.accents.length];
+    const connector = resolveConnectorComponent({ role: "cycle-fixed", stroke, strokeWidthPt: 2.1 });
     shapes.push(nativeShape(image, match, "cycle-ring-segment", index, "arc", {
       x: cx - arcW / 2,
       y: cy - arcH / 2,
       w: arcW,
       h: arcH
     }, {
+      ...connector.style,
       fill: "none",
-      stroke,
-      strokeWidthPt: 2.1,
       rotationDeg: angleDeg,
       adjustments: [0.08, 0.76]
     }, {
+      ...connector.source,
       cycleLoopItemCount: count,
-      cycleLoopAngleDeg: angleDeg
-    }));
-
-    const arrowCx = cx + Math.cos(nextAngle) * radiusX;
-    const arrowCy = cy + Math.sin(nextAngle) * radiusY;
-    shapes.push(nativeShape(image, match, "cycle-arrowhead", index, "triangle", {
-      x: arrowCx - arrowSize / 2,
-      y: arrowCy - arrowSize / 2,
-      w: arrowSize,
-      h: arrowSize
-    }, {
-      fill: stroke,
-      stroke,
-      strokeWidthPt: 0,
-      rotationDeg: nextAngleDeg + 90
-    }, {
-      cycleLoopItemCount: count,
-      cycleLoopAngleDeg: nextAngleDeg
+      cycleLoopAngleDeg: angleDeg,
+      semanticConnector: {
+        fromId: `cycle-node-${index}`,
+        toId: `cycle-node-${(index + 1) % count}`,
+        direction: "forward",
+        axis: "free"
+      }
     }));
 
     const nodeCx = cx + Math.cos(angle) * radiusX;
@@ -3436,51 +3424,25 @@ function cycleLoopShapesFromVisualNodes(image = {}, match = {}, targetBox = {}, 
     w: Math.max(54, (right - left) * 1.24),
     h: Math.max(54, (bottom - top) * 1.24)
   }, slideSize);
-  const arrowSize = Math.max(9, Math.min(18, Math.min(targetBox.w, targetBox.h) * 0.045));
   const shapes = [];
   peripherals.forEach((node, index) => {
     const current = boxCenter(node.box);
-    const next = boxCenter(peripherals[(index + 1) % peripherals.length].box);
     const edge = edgeByNodeId.get(node.id) || null;
     const angleDeg = angleAround(centerPoint, current) * 180 / Math.PI;
-    const nextAngleDeg = angleAround(centerPoint, next) * 180 / Math.PI;
-    const midAngle = angleAround(centerPoint, {
-      x: (current.x + next.x) / 2,
-      y: (current.y + next.y) / 2
-    });
     const stroke = palette.accents?.[index % Math.max(1, palette.accents.length)] || "#2563EB";
+    const connector = resolveConnectorComponent({ role: "cycle-fixed", stroke, strokeWidthPt: 2.1 });
     shapes.push(nativeShape(image, match, "cycle-ring-segment", index, "arc", arcBox, {
+      ...connector.style,
       fill: "none",
-      stroke,
-      strokeWidthPt: 2.1,
       rotationDeg: angleDeg,
       adjustments: [0.08, 0.76]
     }, {
+      ...connector.source,
       cycleLoopItemCount: peripherals.length,
       cycleLoopAngleDeg: angleDeg,
       sourceVisualConnectorId: edge?.id,
       sourceVisualNodeId: node.id,
-      layoutPreservation: "visual-node"
-    }));
-    const arrowRadiusX = Math.max(1, Math.abs(current.x - centerPoint.x) + Math.abs(next.x - centerPoint.x)) / 2;
-    const arrowRadiusY = Math.max(1, Math.abs(current.y - centerPoint.y) + Math.abs(next.y - centerPoint.y)) / 2;
-    const arrowCx = centerPoint.x + Math.cos(midAngle) * arrowRadiusX;
-    const arrowCy = centerPoint.y + Math.sin(midAngle) * arrowRadiusY;
-    shapes.push(nativeShape(image, match, "cycle-arrowhead", index, "triangle", {
-      x: arrowCx - arrowSize / 2,
-      y: arrowCy - arrowSize / 2,
-      w: arrowSize,
-      h: arrowSize
-    }, {
-      fill: stroke,
-      stroke,
-      strokeWidthPt: 0,
-      rotationDeg: nextAngleDeg + 90
-    }, {
-      cycleLoopItemCount: peripherals.length,
-      cycleLoopAngleDeg: nextAngleDeg,
-      sourceVisualConnectorId: edge?.id,
-      sourceVisualNodeId: node.id,
+      semanticConnector: { fromId: node.id, toId: peripherals[(index + 1) % peripherals.length].id, direction: "forward", axis: "free" },
       layoutPreservation: "visual-node"
     }));
     shapes.push(nativeShape(image, match, "cycle-node", index, "roundRect", node.box, {
@@ -4859,11 +4821,27 @@ function sanitizeExtraSource(source = {}) {
   const out = {};
   for (const [key, value] of Object.entries(source || {})) {
     if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(key)) continue;
+    if (key === "semanticConnector") {
+      const semanticConnector = sanitizeSemanticConnector(value);
+      if (semanticConnector) out.semanticConnector = semanticConnector;
+      continue;
+    }
     if (typeof value === "number") out[key] = clampNumber(value, -10000, 10000, 0);
     else if (typeof value === "string") out[key] = safeText(value);
     else if (typeof value === "boolean") out[key] = value;
   }
   return out;
+}
+
+function sanitizeSemanticConnector(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const fromId = safeText(value.fromId);
+  const toId = safeText(value.toId);
+  const direction = safeText(value.direction);
+  const axis = safeText(value.axis);
+  if (!fromId || !toId || !["forward", "bidirectional", "undirected"].includes(direction)) return null;
+  if (!["horizontal", "vertical", "free"].includes(axis)) return null;
+  return { fromId, toId, direction, axis };
 }
 
 function markImageApplied(image, match, family, shapeCount) {

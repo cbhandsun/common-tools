@@ -1683,12 +1683,11 @@ test("component template native shapes rebuilds OfficePLUS cycle-loop candidates
   assert.equal(selectComponentGroupMatch(image, { minScore: 58 }).id, "cycle-loop-template");
   assert.equal(image.source.componentTemplateFamilyApplied, "cycle-loop");
   assert.equal(parts.filter((part) => part === "cycle-ring-segment").length, 6);
-  assert.equal(parts.filter((part) => part === "cycle-arrowhead").length, 6);
+  assert.equal(parts.filter((part) => part === "cycle-arrowhead").length, 0);
   assert.equal(parts.filter((part) => part === "cycle-node").length, 6);
   assert.equal(parts.filter((part) => part === "cycle-center").length, 1);
   assert.equal(shapes.some((shape) => shape.source.componentTemplatePart === "hub-spoke"), false);
-  assert.ok(shapes.filter((shape) => shape.source.componentTemplatePart === "cycle-ring-segment").every((shape) => shape.type === "arc"));
-  assert.ok(shapes.filter((shape) => shape.source.componentTemplatePart === "cycle-arrowhead").every((shape) => shape.type === "triangle" && Number.isFinite(shape.style.rotationDeg)));
+  assert.ok(shapes.filter((shape) => shape.source.componentTemplatePart === "cycle-ring-segment").every((shape) => shape.type === "arc" && shape.style.shapeType === "arc" && shape.style.endArrow === "triangle" && shape.source.routeStability === "fixed-geometry" && shape.source.semanticConnector?.direction === "forward"));
 });
 
 test("component template native shapes uses remote OfficePLUS cycle-loop candidates when download is unavailable", () => {

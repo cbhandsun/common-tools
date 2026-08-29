@@ -1,7 +1,8 @@
 ---
 name: "pd-hifi-slideclone"
-alias: "@slideclone"
 description: "Codex/工程化高仿方案自动流水线：从图片版 PPT、PDF、逐页截图提取 OCR 与视觉结构，生成可编辑 PPTX，并通过截图 diff 迭代校验。"
+metadata:
+  alias: "@slideclone"
 ---
 
 # Slide Clone 高保真可编辑 PPT 还原
@@ -74,7 +75,13 @@ node skills/pd-hifi-slideclone/scripts/detect-regions.js --input ./input/page-00
 - 图标优先匹配可编辑矢量图形；无法匹配时裁剪为图片并标注。
 - 对宝石、品牌标识、复杂工具图标、相机/魔棒等难以稳定矢量化的小图标，可做局部透明裁片，避免用过度简化的菱形/线条造成高 diff；裁片必须标记 `editable=false` 与原因。
 - 图表优先还原为数据驱动 chart；缺少数据时用形状和文本近似，并保留截图证据。
-- 连线和箭头必须优先使用 PowerPoint 原生 connector 与 arrowhead。直线用 `connectorType=straight`，折线用 `connectorType=elbow`，曲线用 `connectorType=curve`；不用独立线段/三角形拼接箭头，除非目标形状无法用原生连接线表达。
+- 连线和箭头通常优先使用 PowerPoint 原生 connector 与 arrowhead。直线用 `connectorType=straight`，折线用 `connectorType=elbow`。曲线 connector 只有在真实 PowerPoint 导出验证路径稳定时才能交付；PowerPoint 可能在打开文件时对绑定到形状的曲线重新路由，生成 S 形或改变切线。
+- 闭环、环形流程等必须保持固定曲率的路径，如果曲线 connector 在 PowerPoint 中发生自动重路由，改用 Office 原生 `arc` 几何形状，并把箭头写入弧线自身的 `a:headEnd` 或 `a:tailEnd` 线端属性。主 OpenXML 生成器直接从 `style.endArrow`/`style.startArrow` 写入原生线端；只有兼容生成器确实丢弃弧线箭头时，才对新输出文件调用 `scripts/lib/arc-line-end-ooxml.js` 的受限 PPTX 修补接口，且不得覆盖源文件。不得用独立三角形模拟箭头，因为它不会随弧线端点移动并容易错位。
+- 连接线必须先记录语义起点、语义终点和方向，再映射到具体生成库的端点字段；不能根据字段名猜测 `head`/`tail`。至少用一张实际导出的页面确认“箭头落在语义终点”。对流程图可调用 `scripts/lib/connector-semantic-audit.js`，按源图定义的有向边检查端点、单向/双向箭头和水平/垂直轴偏移；失败必须进入 findings，不能只靠肉眼忽略。
+- 源图要求水平或垂直的跨容器连接时，优先在容器边缘建立显式锚点，不直接依赖整个容器的自动连接点选择；自动路由造成斜线、交叉或多个关系汇聚到同一点时必须修复。
+- 连接线应位于大背景容器之上、节点填充和文字之下。调整 z-order 后必须重新渲染检查文字是否被卡片填充遮住；不要把节点整体 `bringToFront` 当作通用修复。
+- 重建常见关系时优先复用 `scripts/lib/connector-component-library.js` 的语义组件：`flow`、`feedback`、`cycle-fixed`、`bidirectional`、`support`、`memory`、`hierarchy`、`bus`。`cycle-fixed` 表示固定几何弧线与附着式 Office 原生线端箭头，专用于会被 PowerPoint 自动重路由的闭环。组件统一圆角端点、线宽和箭头规则，同时允许基于源图证据做受约束的颜色、线宽、虚线和路由覆盖；不要为每张图重新发明一套不一致的连线样式。
+- 任何包含曲线 connector、弧线或自由曲线的页面，最终验收必须至少包含一次桌面 PowerPoint COM 导出；仅凭 artifact-tool、LibreOffice 或缩略图渲染不能证明 PowerPoint 打开后的路径稳定。
 - 卡片、按钮、横幅等有层次的容器应优先使用 Office 原生外阴影 `style.shadow`，包括 `color`、`alpha`、`blurPt`、`distancePt`、`angleDeg`；不要用额外灰色图片模拟阴影。
 - 卡片、按钮、横幅、连线等关键色块应优先从原图对应区域做安全采样；采样色与基准色偏差过大时必须回退到规则色，避免阴影、抗锯齿或文字污染导致整体变色。
 - 大块 UI 截图、文档页、复杂流程图、照片和短期无法稳定对象化的视觉区域，应先裁剪为图片保证外观，再叠加 OCR/视觉识别出的可编辑文本、形状、表格或标注。

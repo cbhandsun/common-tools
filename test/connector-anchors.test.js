@@ -13,11 +13,12 @@ const flowAdapterFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone
 const pythonGeneratorFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "python", "build_pptx.py");
 
 test("flow adapter emits semantic connector anchors for key flow lines", async () => {
+  const metrics = {};
   const result = await visionFlowDiagramRules({
     pageIndex: 0,
     page: { widthPx: 2667, heightPx: 1488, regionProposals: [] },
     slideSize: { widthPt: 960, heightPt: 540 }
-  });
+  }, { metrics });
 
   assert.equal(result.ok, true);
   const shapes = result.data.shapes;
@@ -37,6 +38,14 @@ test("flow adapter emits semantic connector anchors for key flow lines", async (
   assert.equal(byId.get("engine-to-ui-arrow").style.endAnchor.elementId, "ui-card");
   assert.equal(byId.get("card-lower-to-portal").style.connectorType, "elbow");
   assert.equal(byId.get("card-lower-to-portal").style.endAnchor.elementId, "portal-button");
+  assert.equal(byId.get("card-lower-to-portal").source.component, "connector-component-library");
+  assert.deepEqual(byId.get("card-lower-to-portal").source.semanticConnector, {
+    fromId: "doc-card",
+    toId: "portal-button",
+    direction: "forward",
+    axis: "free"
+  });
+  assert.deepEqual(metrics.connectorSemantics, { connectors: 6, expectations: 6, findings: 0, axisTolerance: 1 });
   assert.deepEqual(
     byId.get("engine-to-doc-lower-arrow").source.connectorAnchors,
     {
