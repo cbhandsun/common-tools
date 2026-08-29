@@ -6,6 +6,7 @@ const SUITES = Object.freeze(["all", "unit", "contract", "integration"]);
 const CONTRACT_TESTS = new Set([
   "cli-scaffold-generator.test.js",
   "openxml-dotnet-contract.test.js",
+  "openxml-native-arc-contract.test.js",
   "package-scripts.test.js",
   "test-sharded.test.js"
 ]);

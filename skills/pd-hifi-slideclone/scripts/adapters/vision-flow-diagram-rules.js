@@ -3,6 +3,8 @@
 const fs = require("fs");
 const path = require("path");
 const { readPng, writePng, cropPng } = require("../lib/png");
+const { resolveConnectorComponent } = require("../lib/connector-component-library");
+const { auditConnectorShapes } = require("../lib/connector-semantic-audit");
 
 module.exports = async function visionFlowDiagramRules(input, context = {}) {
   const pageWidth = input.page?.widthPx || input.page?.width || 2667;
@@ -57,6 +59,13 @@ module.exports = async function visionFlowDiagramRules(input, context = {}) {
     scaleVisual(elbow("card-lower-to-portal", 2096, 996, 2188, 856, palette.greenLine, 5, "triangle", "greenLine", palette, connectorAnchors("doc-card", "right", 0.76, "portal-button", "left", 0.62)), sourceScale),
     ...iconPlan.shapes
   ];
+  const connectorAudit = auditConnectorShapes(shapes, { axisTolerance: 1 });
+  if (!connectorAudit.passed) {
+    throw new Error(`flow connector semantic audit failed: ${connectorAudit.findings.map((finding) => finding.code).join(", ")}`);
+  }
+  if (context.metrics && typeof context.metrics === "object") {
+    context.metrics.connectorSemantics = connectorAudit.metrics;
+  }
 
   const textBoxes = [
     scaleText(text("title", "视觉还原与操作同步：彻底消灭文档与界面的割裂", { x: 112, y: 90, w: 1700, h: 70 }, 26, "#000000", "bold", "left", "top", "title"), sourceScale),
@@ -519,35 +528,33 @@ function rightTriangle(id, box, fill) {
   return { id, type: "right-triangle", box, style: { fill, stroke: "none" }, source: source(box, true) };
 }
 
-function line(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = null, palette = null, anchors = null) {
+function line(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = null, palette = null, anchors = null, connectorType = "straight") {
+  const direction = endArrow ? "forward" : "undirected";
+  const component = resolveConnectorComponent({ role: "flow", connectorType, direction, stroke, strokeWidthPt: widthPt });
+  const semanticConnector = anchors ? {
+    fromId: anchors.startAnchor.elementId,
+    toId: anchors.endAnchor.elementId,
+    direction,
+    axis: Math.abs(y2 - y1) < 0.001 ? "horizontal" : Math.abs(x2 - x1) < 0.001 ? "vertical" : "free"
+  } : null;
   return {
     id,
     type: "line",
     box: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 },
     style: {
-      stroke,
-      strokeWidthPt: widthPt,
-      ...(endArrow ? { endArrow } : {}),
+      ...component.style,
       ...anchorStyle(anchors)
     },
     source: source({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, true, {
+      ...component.source,
       ...sampledStyle(sampleKey, palette),
-      ...(anchors ? { connectorAnchors: anchors } : {})
+      ...(anchors ? { connectorAnchors: anchors, semanticConnector } : {})
     })
   };
 }
 
 function elbow(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = null, palette = null, anchors = null) {
-  return {
-    ...line(id, x1, y1, x2, y2, stroke, widthPt, endArrow, sampleKey, palette, anchors),
-    style: {
-      stroke,
-      strokeWidthPt: widthPt,
-      connectorType: "elbow",
-      ...(endArrow ? { endArrow } : {}),
-      ...anchorStyle(anchors)
-    }
-  };
+  return line(id, x1, y1, x2, y2, stroke, widthPt, endArrow, sampleKey, palette, anchors, "elbow");
 }
 
 function lineGroup(prefix, items) {
