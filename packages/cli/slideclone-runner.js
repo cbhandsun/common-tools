@@ -7,7 +7,13 @@ const path = require("node:path");
 const SLIDECLONE_TIMEOUT_MS = 30 * 60 * 1000;
 
 function inspectBundledSlideclone({ repositoryRoot } = {}) {
-  const root = path.resolve(repositoryRoot || path.resolve(__dirname, "..", ".."));
+  const requestedRoot = path.resolve(repositoryRoot || path.resolve(__dirname, "..", ".."));
+  let root;
+  try {
+    root = fs.realpathSync.native(requestedRoot);
+  } catch {
+    return Object.freeze({ available: false, reason: "entry-point-missing" });
+  }
   const script = path.join(root, "skills", "pd-hifi-slideclone", "scripts", "slideclone.js");
   let info;
   try {

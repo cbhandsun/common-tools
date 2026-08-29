@@ -15,6 +15,8 @@ test("slideclone core depends on an execution port instead of the skill or proce
 
 test("bundled slideclone runner executes a fixed entry point with bounded arguments", (t) => {
   const fixture = makeFixture(t);
+  const inspection = inspectBundledSlideclone({ repositoryRoot: path.join(fixture.root, ".") });
+  assert.equal(inspection.root, fs.realpathSync.native(fixture.root));
   let invocation;
   const execute = createBundledSlidecloneRunner({
     repositoryRoot: fixture.root,
