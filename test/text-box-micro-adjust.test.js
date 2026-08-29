@@ -303,7 +303,7 @@ test("high-confidence OCR evidence fit tightens one-line title geometry and font
   const result = fitHighConfidenceSingleLineOcrToEvidence([title, lowConfidence]);
 
   assert.deepEqual(result[0].box, title.source.evidenceBox);
-  assert.ok(result[0].font.sizePt < 30 && result[0].font.sizePt > 26);
+  assert.ok(result[0].font.sizePt <= 31 && result[0].font.sizePt > 26);
   assert.equal(result[0].source.ocrEvidenceFit.provider, "single-line-ocr-evidence-fit-v1");
   assert.equal(result[1], lowConfidence);
 });
@@ -350,6 +350,27 @@ test("high-confidence OCR evidence fit supplies bounded typography when OCR omit
   assert.equal(result.font.family, "Microsoft YaHei");
   assert.ok(result.font.sizePt >= 6 && result.font.sizePt <= 60);
   assert.equal(result.source.ocrEvidenceFit.originalSizePt, null);
+});
+
+test("high-confidence OCR evidence fit preserves a source-sized pure CJK title", () => {
+  const title = {
+    id: "cjk-title",
+    text: "产品经理日常工作中的高频摩擦",
+    box: { x: 219.66, y: 43.5, w: 518.05, h: 32.63 },
+    font: { family: "Microsoft YaHei", sizePt: 34.26, weight: "bold" },
+    style: { wrap: false },
+    source: {
+      ocrProvider: "umi-paddleocr-json",
+      overlayVisibility: "visible",
+      confidence: 0.94,
+      evidenceBox: { x: 219.66, y: 43.5, w: 518.05, h: 32.63 }
+    }
+  };
+
+  const [result] = fitHighConfidenceSingleLineOcrToEvidence([title]);
+
+  assert.equal(result.font.sizePt, 34.26);
+  assert.equal(result.source.ocrEvidenceFit, undefined);
 });
 
 function makeInkImage(width, height, bounds) {

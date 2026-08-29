@@ -259,14 +259,19 @@ function fitHighConfidenceSingleLineOcrToEvidence(textBoxes = [], options = {}) 
     const weight = String(textBox?.font?.weight || "").toLowerCase();
     // LibreOffice does not consistently honor DrawingML shrink-to-fit. Keep a
     // measured safety edge for mixed CJK/Latin runs so an explicit no-wrap box
-    // remains single-line in both PowerPoint and LibreOffice.
-    const metricFactor = weight === "bold" || Number(weight) >= 600 ? 1.18 : 1.15;
+    // remains single-line in both PowerPoint and LibreOffice. Pure CJK glyphs
+    // already consume one full em in estimatedTextWidthUnits; applying the
+    // Latin safety edge to them visibly undersizes otherwise well-fitted text.
+    const containsLatinOrDigits = /[A-Za-z0-9]/.test(text);
+    const metricFactor = containsLatinOrDigits
+      ? (weight === "bold" || Number(weight) >= 600 ? 1.18 : 1.15)
+      : 1;
     const evidenceSizePt = clamp(Math.min(
       evidence.w / (units * metricFactor),
       evidence.h * 1.1
     ), 6, 60);
     const fittedSizePt = hasCurrentSize
-      ? clamp(round(evidenceSizePt), currentSizePt * 0.75, currentSizePt * 1.02)
+      ? clamp(round(evidenceSizePt), currentSizePt * 0.75, currentSizePt)
       : round(evidenceSizePt);
     const geometryNeedsFit = widthRatio <= 0.97;
     const fontNeedsFit = !hasCurrentSize || fittedSizePt < currentSizePt * 0.98;
