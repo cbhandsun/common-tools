@@ -29,6 +29,7 @@ const {
   writeOpenXmlBuildCache
 } = require("../skills/pd-hifi-slideclone/scripts/lib/openxml-build-cache");
 const { writeStoredZipAtomic } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+const nativeBuilderFileName = process.platform === "win32" ? "OpenXmlDeckBuilder.exe" : "OpenXmlDeckBuilder";
 
 test("OpenXML adapter prefers an explicitly configured builder executable", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-builder-command-"));
@@ -44,17 +45,17 @@ test("OpenXML adapter prefers an explicitly configured builder executable", () =
 });
 
 test("OpenXML adapter uses the prebuilt executable before dotnet run", () => {
-  const projectDir = makeProjectWithBinary("OpenXmlDeckBuilder.exe");
+  const projectDir = makeProjectWithBinary(nativeBuilderFileName);
 
   const command = resolveOpenXmlBuilderCommand({ skillRoot: projectDir, config: {} }, projectDir);
 
-  assert.equal(command.command, path.join(projectDir, "bin", "Debug", "net8.0", "OpenXmlDeckBuilder.exe"));
+  assert.equal(command.command, path.join(projectDir, "bin", "Debug", "net8.0", nativeBuilderFileName));
   assert.deepEqual(command.args, []);
 });
 
 test("OpenXML adapter ignores stale prebuilt executables when source changed", () => {
-  const projectDir = makeProjectWithBinary("OpenXmlDeckBuilder.exe");
-  const exe = path.join(projectDir, "bin", "Debug", "net8.0", "OpenXmlDeckBuilder.exe");
+  const projectDir = makeProjectWithBinary(nativeBuilderFileName);
+  const exe = path.join(projectDir, "bin", "Debug", "net8.0", nativeBuilderFileName);
   const programFile = path.join(projectDir, "Program.cs");
   fs.writeFileSync(programFile, "newer source");
   const stale = new Date(Date.now() - 60_000);
