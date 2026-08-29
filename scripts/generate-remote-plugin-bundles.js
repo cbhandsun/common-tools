@@ -19,8 +19,9 @@ const LOCAL_RUNTIME_SOURCE_PATHS = Object.freeze([
   "packages/capability-contracts", "packages/capability-manifests", "packages/capability-runtime", "packages/cli", "packages/mcp-server", "packages/remote-mcp-server", "packages/project-audit-core", "packages/ppt-create-core", "packages/ppt-improve-core", "packages/ppt-quality-core", "packages/slideclone-core", "packages/team-runtime",
   "scripts/verify-plugins.js", "scripts/verify-capability-contracts.js", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder", "skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet.js", "skills/pd-hifi-slideclone/scripts/lib", "package.json"
 ]);
+const OPENXML_BUILDER_ROOT = path.join(REPOSITORY_ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder");
 const REMOTE_CAPABILITY_GUIDANCE = Object.freeze({
-  "image-to-editable": Object.freeze({ contentType: "application/gzip", input: "one approved image archive containing one image or an explicitly ordered batch accepted by the service" }),
+  "image-to-editable": Object.freeze({ contentType: "application/gzip", input: "one approved source archive containing one image, an explicitly ordered image batch, one PDF, or one image-based PPTX accepted by the service" }),
   "project-audit": Object.freeze({ contentType: "application/gzip", input: "a single approved project archive containing only the intended audit input" }),
   "ppt-quality": Object.freeze({ contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", input: "one approved PPTX file" }),
   "ppt-improve": Object.freeze({ contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", input: "one approved PPTX file; the service audits it first and only creates a separate improved PPTX when a safe repair is available" }),
@@ -73,6 +74,12 @@ function pluginName(capability) {
   return capability ? `common-tools-remote-${capability}` : "common-tools-remote";
 }
 function sha256File(file) { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
+function localRuntimeCopyFilter(file) {
+  const name = path.basename(file);
+  if (["node_modules", ".git", ".codex", ".common-tools", "runs"].includes(name)) return false;
+  const relativeToBuilder = path.relative(OPENXML_BUILDER_ROOT, path.resolve(file));
+  return relativeToBuilder === "" || relativeToBuilder === ".." || relativeToBuilder.startsWith(`..${path.sep}`) || !["bin", "obj"].includes(name);
+}
 function listFiles(root) {
   const files = [];
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -154,7 +161,7 @@ function writeLocalRuntimePayload(hostRoot) {
     if (!fs.existsSync(source)) throw new Error(`local runtime source is unavailable: ${relative}`);
     const destination = path.join(payloadRoot, relative);
     fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.cpSync(source, destination, { recursive: true, force: false, filter: (file) => !["node_modules", ".git", ".codex", ".common-tools", "runs"].includes(path.basename(file)) });
+    fs.cpSync(source, destination, { recursive: true, force: false, filter: localRuntimeCopyFilter });
   }
   const files = listFiles(payloadRoot).map((file) => ({ path: path.relative(payloadRoot, file).split(path.sep).join("/"), sha256: sha256File(file) })).sort((left, right) => left.path.localeCompare(right.path));
   fs.writeFileSync(path.join(payloadRoot, "payload-manifest.json"), `${JSON.stringify({ schemaVersion: 1, runtimeVersion: LOCAL_RUNTIME_VERSION, files }, null, 2)}\n`, "utf8");
@@ -391,12 +398,12 @@ function remoteSkill(capability) {
   if (!guidance) throw new TypeError("remote capability guidance is invalid");
   if (capability === "image-to-editable") return `---
 name: image-to-editable
-description: Convert an approved image into an editable PPTX using the hosted Common Tools Runtime.
+description: Convert approved images, a PDF, or an image-based PPTX into an editable PPTX using the hosted Common Tools Runtime.
 ---
 
-Use only the installed \`common-tools\` remote MCP server and user-approved PNG or JPEG inputs packaged as the bounded gzip TAR described by the installation guide. The archive may contain one \`assets/source.<ext>\` entry or a contiguous, explicitly ordered batch named \`assets/source-001.<ext>\` through \`assets/source-020.<ext>\`. Upload it as \`application/gzip\` with \`create_team_upload_target\`, submit \`image-to-editable\` with \`create_team_job\` and a fresh opaque idempotency key, and poll only the returned job. Download only a reported artifact through \`get_team_artifact_target\`. Never expose or reuse signed URLs.
+Use only the installed \`common-tools\` remote MCP server and user-approved PNG/JPEG images, one PDF, or one image-based PPTX packaged as the bounded gzip TAR described by the installation guide. The archive may contain one \`assets/source.<ext>\` image entry, a contiguous image batch named \`assets/source-001.<ext>\` through \`assets/source-020.<ext>\`, or exactly one \`assets/source.pdf\` or \`assets/source.pptx\`. Upload it as \`application/gzip\` with \`create_team_upload_target\`, submit \`image-to-editable\` with \`create_team_job\` and a fresh opaque idempotency key, and poll only the returned job. Download only a reported artifact through \`get_team_artifact_target\`. Never expose or reuse signed URLs.
 
-On success, inspect the complete bounded quality result before downloading a reported artifact. A batch must pass \`raw-image-batch-validated\`; pages are rebuilt in declared order and fidelity metrics report the worst compared page. When a fidelity residual is present, require \`residual-native-duplicates-removed\`; this proves reconstructed native objects were removed from the raster residual so moving them will not reveal duplicate pixels. Describe the result as visually verified only when this gate, \`quality-rendered\`, and \`visual-fidelity\` pass. The residual may still contain complex details that were not confidently reconstructed, so do not describe every visual as native.
+On success, inspect the complete bounded quality result before downloading a reported artifact. An image batch must pass \`raw-image-batch-validated\`; a PDF/PPTX must pass \`document-pages-normalized\`. Pages are rebuilt in declared/source order and fidelity metrics report the worst compared page. When a fidelity residual is present, require \`residual-native-duplicates-removed\`; this proves reconstructed native objects were removed from the raster residual so moving them will not reveal duplicate pixels. Describe the result as visually verified only when this gate, \`quality-rendered\`, and \`visual-fidelity\` pass. The residual may still contain complex details that were not confidently reconstructed, so do not describe every visual as native.
 `;
   if (capability === "ppt-create") return `---
 name: ppt-create
@@ -473,7 +480,7 @@ function mcpConfiguration(host, origin, serverName = "common-tools") {
   return { mcpServers: { [serverName]: { ...server, oauth: { clientId: "common-tools-mcp" } } } };
 }
 const CHINESE_CAPABILITY_GUIDANCE = Object.freeze({
-  "image-to-editable": Object.freeze({ title: "图片转可编辑", purpose: "将已获批准的图片归档转换为可编辑产物。", input: "单个已获批准的图片归档（application/gzip）。" }),
+  "image-to-editable": Object.freeze({ title: "图片/文档转可编辑", purpose: "将已获批准的图片、PDF 或图片版 PPTX 归档转换为可编辑产物。", input: "单个已获批准的来源归档（application/gzip）。" }),
   "ppt-improve": Object.freeze({ title: "PPT 改善", purpose: "先审视 PPTX，再在存在安全可修复项时生成独立改善版。", input: "单个已获批准的 PPTX 文件。" }),
   "ppt-quality": Object.freeze({ title: "PPT 质量审计", purpose: "审视 PPTX 的质量并生成独立质量报告。", input: "单个已获批准的 PPTX 文件。" }),
   "ppt-create": Object.freeze({ title: "创建 PPT", purpose: "从结构化内容创建新的可编辑 PPTX。", input: "无本地文件时使用已批准的 PresentationSpec 1.0 JSON；包含素材或用户自有模板时使用 `common-tools ppt archive` 生成的哈希绑定归档（application/gzip）。" }),
@@ -613,4 +620,4 @@ function main(argv = process.argv.slice(2)) {
 
 if (require.main === module) main();
 
-module.exports = { CAPABILITIES, LOCAL_RUNTIME_CAPABILITIES, LOCAL_RUNTIME_VERSION, REMOTE_CAPABILITY_CODES, REMOTE_CAPABILITY_GUIDANCE, REMOTE_CAPABILITY_SCOPES, REMOTE_PLUGIN_VERSION, connectionVerificationScript, generateRemotePluginBundles, installGuide, installationScript, localRuntimeInstaller, marketplaceMetadata, mcpConfiguration, parseArguments, parseCapabilities, parseLayout, parseOrigin, pluginName, remoteRouterSkill, remoteSkill, writeLocalRuntimePayload };
+module.exports = { CAPABILITIES, LOCAL_RUNTIME_CAPABILITIES, LOCAL_RUNTIME_VERSION, REMOTE_CAPABILITY_CODES, REMOTE_CAPABILITY_GUIDANCE, REMOTE_CAPABILITY_SCOPES, REMOTE_PLUGIN_VERSION, connectionVerificationScript, generateRemotePluginBundles, installGuide, installationScript, localRuntimeCopyFilter, localRuntimeInstaller, marketplaceMetadata, mcpConfiguration, parseArguments, parseCapabilities, parseLayout, parseOrigin, pluginName, remoteRouterSkill, remoteSkill, writeLocalRuntimePayload };

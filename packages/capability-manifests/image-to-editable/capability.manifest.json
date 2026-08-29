@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
   "capability": "image-to-editable",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "toolNames": ["create_editable_job", "get_job", "cancel_job", "list_job_artifacts"],
   "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
   "requiredWorkerProfile": "image-to-editable",
@@ -15,5 +15,5 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-image-worker.js"
     }
   },
-  "contentSha256": "321a1e57866035afac7ef47f285eaa4c092ef84f596482670569061cbfef1eaf"
+  "contentSha256": "54d4b782d6e05f315689c067958c937a5a509890063ffb521c407d68b6ca71dd"
 }

@@ -7,6 +7,7 @@ const { JobStore, insideRoot, sha256File } = require("../capability-runtime");
 const { assertNonEmptyString, assertQualityReport } = require("../capability-contracts");
 const { assertValidConfig } = require("./config-validation");
 const { hasCompleteImageContainer, readImageSizeBuffer } = require("./image-size");
+const { EDITABLE_DOCUMENT_EXTENSIONS, MAX_EDITABLE_DOCUMENT_BYTES, MAX_EDITABLE_DOCUMENT_PAGES, assertEditableInputDocument } = require("./document-input");
 
 const CAPABILITY = "image-to-editable";
 const REGISTRATION = Object.freeze({ capability: CAPABILITY, toolNames: ["create_editable_job", "get_job", "cancel_job", "list_job_artifacts"], minimumRuntimeVersion: ">=0.1.0 <1.0.0", requiredWorkerProfile: "base" });
@@ -20,6 +21,7 @@ const MAX_EDITABLE_BATCH_INPUTS = 20;
 const MAX_EDITABLE_BATCH_PIXELS = 200_000_000;
 const MAX_EDITABLE_IMAGE_DIMENSION = 16384;
 const MAX_EDITABLE_IMAGE_PIXELS = 40_000_000;
+const EDITABLE_IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);
 
 function resolvedConfigPath(configFile, value, label) {
   if (typeof value !== "string" || !value.trim()) throw new Error(`slideclone config ${label} is invalid`);
@@ -40,11 +42,18 @@ function assertEditableConfig({ workspaceRoot, input, output, configFile }) {
     configOutput = insideRoot(workspaceRoot, resolvedConfigPath(configFile, parsed.outputDir, "outputDir"));
   } catch { throw new Error("slideclone config paths must stay inside the workspace root"); }
   if (configInput !== path.dirname(input) || configOutput !== output) throw new Error("slideclone config inputDir and outputDir must match the requested input and output");
+  const extension = path.extname(input).toLowerCase();
+  if (EDITABLE_DOCUMENT_EXTENSIONS.has(extension)) {
+    const normalizer = path.basename(String(parsed.adapters.normalize || "")).toLowerCase();
+    const allowed = extension === ".pdf" ? ["normalize-cli.js"] : ["normalize-cli.js", "normalize-powerpoint-com.js"];
+    if (!allowed.includes(normalizer)) throw new Error("document image-to-editable input requires an approved PDF/PPTX normalizer");
+    if (!Number.isSafeInteger(parsed.normalize?.maxPages) || parsed.normalize.maxPages < 1 || parsed.normalize.maxPages > MAX_EDITABLE_DOCUMENT_PAGES) throw new Error("document image-to-editable input requires normalize.maxPages between one and twenty");
+  }
 }
 function assertEditableInputImage(file) {
   const info = fs.lstatSync(file);
   const extension = path.extname(file).toLowerCase();
-  if (!info.isFile() || info.isSymbolicLink() || info.size < 24 || info.size > MAX_EDITABLE_INPUT_BYTES || ![".png", ".jpg", ".jpeg"].includes(extension)) throw new Error("image-to-editable input must be a bounded PNG or JPEG image");
+  if (!info.isFile() || info.isSymbolicLink() || info.size < 24 || info.size > MAX_EDITABLE_INPUT_BYTES || !EDITABLE_IMAGE_EXTENSIONS.has(extension)) throw new Error("image-to-editable input must be a bounded PNG or JPEG image");
   const buffer = fs.readFileSync(file);
   const isPng = extension === ".png" && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
   const isJpeg = (extension === ".jpg" || extension === ".jpeg") && buffer[0] === 0xff && buffer[1] === 0xd8;
@@ -55,10 +64,14 @@ function assertEditableInputImage(file) {
   return Object.freeze({ bytes: info.size, pixels });
 }
 
+function assertEditableInput(file) {
+  return EDITABLE_DOCUMENT_EXTENSIONS.has(path.extname(file).toLowerCase()) ? assertEditableInputDocument(file) : assertEditableInputImage(file);
+}
+
 function resolveEditableInputPaths(workspaceRoot, input, inputs) {
   if (input !== undefined && inputs !== undefined) throw new Error("image-to-editable accepts either input or inputs, not both");
   const requested = inputs === undefined ? [input] : inputs;
-  if (!Array.isArray(requested) || requested.length < 1 || requested.length > MAX_EDITABLE_BATCH_INPUTS || requested.some((file) => typeof file !== "string" || !file.trim())) throw new Error("image-to-editable inputs must contain one to twenty image paths");
+  if (!Array.isArray(requested) || requested.length < 1 || requested.length > MAX_EDITABLE_BATCH_INPUTS || requested.some((file) => typeof file !== "string" || !file.trim())) throw new Error("image-to-editable inputs must contain one document path or one to twenty image paths");
   const approved = requested.map((file) => insideRoot(workspaceRoot, file));
   const realFiles = approved.map((file) => {
     if (!fs.existsSync(file)) throw new Error("input must be an existing file inside the workspace root");
@@ -66,12 +79,13 @@ function resolveEditableInputPaths(workspaceRoot, input, inputs) {
   });
   if (new Set(realFiles).size !== realFiles.length) throw new Error("image-to-editable inputs must not contain duplicates");
   if (new Set(realFiles.map((file) => path.dirname(file))).size !== 1) throw new Error("image-to-editable batch inputs must share one directory");
+  if (realFiles.length > 1 && realFiles.some((file) => !EDITABLE_IMAGE_EXTENSIONS.has(path.extname(file).toLowerCase()))) throw new Error("image-to-editable batch inputs may contain PNG or JPEG images only");
   return Object.freeze(realFiles);
 }
 
 function approvedEditableInputs(workspaceRoot, input, inputs, resolvedInputs) {
   const approved = resolvedInputs || resolveEditableInputPaths(workspaceRoot, input, inputs);
-  const realFiles = approved.map((file) => Object.freeze({ file, ...assertEditableInputImage(file) }));
+  const realFiles = approved.map((file) => Object.freeze({ file, ...assertEditableInput(file) }));
   if (realFiles.length > 1) {
     const bytes = realFiles.reduce((sum, item) => sum + item.bytes, 0); const pixels = realFiles.reduce((sum, item) => sum + item.pixels, 0);
     if (!Number.isSafeInteger(bytes) || bytes > MAX_EDITABLE_BATCH_INPUT_BYTES) throw new Error("image-to-editable batch inputs exceed the total byte limit");
@@ -199,10 +213,16 @@ function reportMetric(metrics, name, maximum, integer = false) {
 function verifiedJsonArtifact(job, outputReal, name, file) {
   try {
     if (typeof name !== "string" || !name || typeof file !== "string") return null;
-    const candidate = insideRoot(outputReal, file);
+    const requested = path.resolve(file);
+    const requestedInfo = fs.lstatSync(requested);
+    if (!requestedInfo.isFile() || requestedInfo.isSymbolicLink()) return null;
+    const candidate = insideRoot(outputReal, requested);
     const relative = path.relative(outputReal, candidate);
     if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
-    const artifact = job.artifacts.find((item) => plainObject(item) && item.name === name && item.mediaType === "application/json" && item.uri === candidate && /^[a-f0-9]{64}$/.test(item.sha256 || ""));
+    const artifact = job.artifacts.find((item) => {
+      if (!plainObject(item) || item.name !== name || item.mediaType !== "application/json" || typeof item.uri !== "string" || !/^[a-f0-9]{64}$/.test(item.sha256 || "")) return false;
+      try { return insideRoot(outputReal, item.uri) === candidate; } catch { return false; }
+    });
     if (!artifact) return null;
     const info = fs.lstatSync(candidate);
     if (!info.isFile() || info.isSymbolicLink() || info.size < 2 || info.size > MAX_VISUAL_REPORT_BYTES || sha256File(candidate) !== artifact.sha256) return null;
@@ -216,10 +236,12 @@ function verifiedJsonArtifact(job, outputReal, name, file) {
 function perPageVisualSummary(job, outputReal, delivery, pageCount) {
   const diffPath = plainObject(delivery.artifacts) && typeof delivery.artifacts.diffReport === "string" ? delivery.artifacts.diffReport : null;
   if (!diffPath) return null;
-  const resolvedDiffPath = path.isAbsolute(diffPath) ? diffPath : path.resolve(outputReal, diffPath);
+  const requestedDiffPath = path.isAbsolute(diffPath) ? path.resolve(diffPath) : path.resolve(outputReal, diffPath);
+  let resolvedDiffPath;
+  try { resolvedDiffPath = insideRoot(outputReal, requestedDiffPath); } catch { return null; }
   const diffName = path.relative(outputReal, resolvedDiffPath);
   if (!diffName || diffName === ".." || diffName.startsWith(`..${path.sep}`) || path.isAbsolute(diffName)) return null;
-  const diff = verifiedJsonArtifact(job, outputReal, diffName, resolvedDiffPath);
+  const diff = verifiedJsonArtifact(job, outputReal, diffName, requestedDiffPath);
   if (!diff || !Array.isArray(diff.document.metrics) || diff.document.metrics.length === 0 || diff.document.metrics.length > 100) return null;
   const seen = new Set();
   const pages = [];
@@ -243,7 +265,10 @@ function editableVisualSummary(job, workspaceRoot) {
   try {
     if (!plainObject(job) || job.capability !== CAPABILITY || job.status !== "succeeded" || !plainObject(job.output) || typeof job.output.path !== "string" || !Array.isArray(job.artifacts)) return null;
     const approvedWorkspace = path.resolve(workspaceRoot);
-    const output = insideRoot(approvedWorkspace, job.output.path);
+    const requestedOutput = path.resolve(job.output.path);
+    const requestedOutputInfo = fs.lstatSync(requestedOutput);
+    if (!requestedOutputInfo.isDirectory() || requestedOutputInfo.isSymbolicLink()) return null;
+    const output = insideRoot(approvedWorkspace, requestedOutput);
     const outputInfo = fs.lstatSync(output);
     if (!outputInfo.isDirectory() || outputInfo.isSymbolicLink()) return null;
     const outputReal = fs.realpathSync.native(output);
@@ -268,4 +293,4 @@ function editableVisualSummary(job, workspaceRoot) {
   } catch { return null; }
 }
 
-module.exports = { CAPABILITY, REGISTRATION, VISUAL_REPORT_NAME, cancelJob, collectArtifacts, createEditableJob, editableQuality, editableVisualSummary, getJob, runEditableJob };
+module.exports = { CAPABILITY, EDITABLE_DOCUMENT_EXTENSIONS, EDITABLE_IMAGE_EXTENSIONS, MAX_EDITABLE_DOCUMENT_BYTES, MAX_EDITABLE_DOCUMENT_PAGES, REGISTRATION, VISUAL_REPORT_NAME, assertEditableInput, assertEditableInputDocument, cancelJob, collectArtifacts, createEditableJob, editableQuality, editableVisualSummary, getJob, runEditableJob };

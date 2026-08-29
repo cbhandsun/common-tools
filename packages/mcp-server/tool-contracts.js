@@ -71,7 +71,7 @@ const REPORT_SCHEMA = Object.freeze({
 /** @type {ReadonlyArray<Readonly<ToolDefinition>>} */
 const TOOLS = Object.freeze([
   tool(null, "health_check", "Inspect locally available common-tools capability metadata.", objectInput({}, []), Object.freeze({ type: "object", required: ["runtime", "enabledCapabilities", "registrations"], properties: { runtime: STRING, enabledCapabilities: { type: "array", items: STRING }, registrations: { type: "array", items: { type: "object", additionalProperties: true } } }, additionalProperties: false }), annotations(true, false, true)),
-  tool(REGISTRATION.capability, "create_editable_job", "Create a controlled local image-to-editable job from either one input or an ordered batch of inputs, with an explicit workspace-contained slideclone config.", Object.freeze({
+  tool(REGISTRATION.capability, "create_editable_job", "Create a controlled local image-to-editable job from one PNG/JPEG/PDF/PPTX source or an ordered image batch, with an explicit workspace-contained slideclone config.", Object.freeze({
     ...objectInput({ input: STRING, inputs: EDITABLE_INPUTS, output: STRING, config: STRING, idempotencyKey: STRING }, ["output", "config"]),
     oneOf: Object.freeze([
       Object.freeze({ type: "object", required: Object.freeze(["input"]), properties: Object.freeze({ input: STRING }), additionalProperties: true }),

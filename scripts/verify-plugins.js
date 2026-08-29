@@ -78,11 +78,11 @@ function versionAtLeast(value, minimum) {
 }
 function assertImageToEditableSkill(file) {
   const skill = fs.readFileSync(file, "utf8");
-  for (const marker of ["raw-image-batch-validated", "residual-native-duplicates-removed", "quality-rendered", "visual-fidelity"]) {
+  for (const marker of ["raw-image-batch-validated", "document-pages-normalized", "residual-native-duplicates-removed", "quality-rendered", "visual-fidelity"]) {
     if (!skill.includes(marker)) throw new Error("image-to-editable Skill does not protect residual deduplication quality");
   }
   if (!file.includes(path.join("plugins", "common-tools"))) {
-    for (const marker of ["common-tools editable batch", "60 MiB", "200,000,000 decoded pixels", "inputs: [<ordered paths>]", "never pass both"]) if (!skill.includes(marker)) throw new Error("image-to-editable Skill does not protect the local batch contract");
+    for (const marker of ["common-tools editable batch", "PDF/PPTX", "normalize.maxPages", "60 MiB", "200,000,000 decoded pixels", "inputs: [<ordered image paths>]", "never pass both"]) if (!skill.includes(marker)) throw new Error("image-to-editable Skill does not protect the local batch and document contract");
   }
 }
 function assertPptCreateSkill(file) {

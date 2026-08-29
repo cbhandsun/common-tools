@@ -6,7 +6,7 @@
   },
   "legacyExceptions": {
     "skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js": { "maxLines": 50381, "maxBytes": 2423398, "maxRelativeImports": 63 },
-    "skills/pd-hifi-slideclone/scripts/lib/component-template-native-shapes.js": { "maxLines": 5154, "maxBytes": 239082 },
+    "skills/pd-hifi-slideclone/scripts/lib/component-template-native-shapes.js": { "maxLines": 5154, "maxBytes": 234729 },
     "skills/pd-hifi-slideclone/scripts/lib/diagram-understanding.js": { "maxLines": 3403, "maxBytes": 187847 },
     "skills/pd-hifi-slideclone/scripts/lib/visual-atoms.js": { "maxLines": 3150 },
     "skills/pd-hifi-slideclone/scripts/component-strategy-rebuild.js": { "maxLines": 2299 },

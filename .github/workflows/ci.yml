@@ -73,6 +73,12 @@ jobs:
       - name: Verify architecture decision records
         run: npm run common-tools:verify-adrs
 
+      - name: Restore locked and audit NuGet dependencies
+        run: npm run audit:dotnet
+
+      - name: Build with warnings treated as errors
+        run: npm run build:dotnet:locked
+
       - name: Run common-tools contract tests
         run: npm run common-tools:test
 
@@ -92,12 +98,6 @@ jobs:
             artifacts/common-tools.release.json
           if-no-files-found: error
           retention-days: 30
-
-      - name: Restore locked and audit NuGet dependencies
-        run: npm run audit:dotnet
-
-      - name: Build with warnings treated as errors
-        run: npm run build:dotnet:locked
 
       - name: Run unit tests
         run: npm run test:unit

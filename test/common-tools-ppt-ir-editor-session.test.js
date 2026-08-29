@@ -24,6 +24,6 @@ test("local IR editor session is loopback-only, token-bound, and finalizes one o
     const patch = { version: "1.0", expectedRevision: deckIrFingerprint(ir), operations: [{ type: "set-text", pageIndex: 0, objectId: "title", value: "Edited" }] };
     const response = await fetch(`${origin}${endpoint}`, { method: "POST", headers: { "Content-Type": "application/json", Origin: origin, "X-Common-Tools-Session": token }, body: JSON.stringify(patch) });
     assert.equal(response.status, 200); assert.equal((await response.json()).code, "EXPORT_COMPLETED");
-    assert.equal((await session.completion).status, "completed"); assert.equal(invocation.output, path.join(root, "result")); assert.equal(invocation.patchExists, true); assert.equal(fs.existsSync(invocation.patch), false);
+    assert.equal((await session.completion).status, "completed"); assert.equal(invocation.output, path.join(fs.realpathSync.native(root), "result")); assert.equal(invocation.patchExists, true); assert.equal(fs.existsSync(invocation.patch), false);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

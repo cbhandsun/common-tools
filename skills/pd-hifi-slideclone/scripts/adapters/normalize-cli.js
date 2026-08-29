@@ -58,10 +58,6 @@ function resolveRequestedFiles(inputDir, requestedFiles) {
   for (const requested of requestedFiles) {
     if (typeof requested !== "string" || !requested) throw new Error("requested input files are invalid");
     const candidate = path.resolve(requested);
-    const relative = path.relative(root, candidate);
-    if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-      throw new Error("requested input file is outside input directory");
-    }
     const info = fs.lstatSync(candidate);
     if (!info.isFile() || info.isSymbolicLink()) throw new Error("requested input file is invalid");
     const actual = fs.realpathSync.native(candidate);
@@ -134,18 +130,28 @@ function enrichLibreOfficeError(error, file, attempts) {
   return new Error(details);
 }
 
-async function renderPdf(pdf, outDir, startIndex, context = {}) {
-  const pdftoppm = resolvePdfToPpm();
+async function renderPdf(pdf, outDir, startIndex, context = {}, dependencies = {}) {
+  const resolvePdfTool = dependencies.resolvePdfToPpm || resolvePdfToPpm;
+  const runTool = dependencies.run || run;
+  const pdftoppm = resolvePdfTool();
   const prefix = path.join(outDir, `pdf-${Date.now()}-${Math.random().toString(16).slice(2)}`);
   const dpi = String(context.config?.normalize?.dpi || process.env.SLIDECLONE_DPI || "144");
   const maxPages = Number(context.config?.normalize?.maxPages || 0);
   const args = ["-png", "-r", dpi];
-  if (Number.isFinite(maxPages) && maxPages > 0) args.push("-f", "1", "-l", String(Math.floor(maxPages)));
+  const boundedMaxPages = Number.isFinite(maxPages) && maxPages > 0 ? Math.floor(maxPages) : 0;
+  // Render one sentinel page beyond the admitted range so oversized documents
+  // fail explicitly instead of being silently truncated.
+  if (boundedMaxPages > 0) args.push("-f", "1", "-l", String(boundedMaxPages + 1));
   args.push(pdf, prefix);
-  await run(pdftoppm, args, { timeout: context.config?.normalize?.renderTimeoutMs || 120000 });
-  return fs.readdirSync(outDir)
+  await runTool(pdftoppm, args, { timeout: context.config?.normalize?.renderTimeoutMs || 120000 });
+  const generatedNames = fs.readdirSync(outDir)
     .filter((name) => name.startsWith(path.basename(prefix)) && name.endsWith(".png"))
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  if (boundedMaxPages > 0 && generatedNames.length > boundedMaxPages) {
+    for (const name of generatedNames) fs.rmSync(path.join(outDir, name), { force: true });
+    throw new Error(`document exceeds the ${boundedMaxPages}-page normalization limit`);
+  }
+  return generatedNames
     .map((name, index) => {
       const generated = path.join(outDir, name);
       const target = path.join(outDir, `${String(startIndex + index + 1).padStart(3, "0")}.png`);
@@ -154,3 +160,5 @@ async function renderPdf(pdf, outDir, startIndex, context = {}) {
       return { sourceImage: target, originalSource: pdf, ...readImageSize(target) };
     });
 }
+
+module.exports.renderPdf = renderPdf;

@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { TeamWorker, TeamWorkerRunner, loadTeamConfig, recoverWorkerLeases } = require("../../team-runtime");
 const { createImageToEditableArchiveHandler } = require("../../slideclone-core/team-worker");
+const { createTeamDocumentNormalizer } = require("../../slideclone-core/team-document-normalizer");
 const { createImageDeliveryArtifacts } = require("../../ppt-create-core/image-delivery");
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { createPinnedRawImageOcr, readPinnedRawImageOcrProfile, verifyPinnedRawImageOcrProfile } = require("../../slideclone-core/team-ocr-profile");
@@ -88,7 +89,7 @@ async function main(environment = process.env) {
     await workerHeartbeat.ready;
     const worker = new TeamWorker({
       repository: bundle.repository,
-      handlers: { "image-to-editable": createTracedWorkerHandler(createImageToEditableArchiveHandler({ objectStore: bundle.objectStore, builderExecutable: settings.builderExecutable, rawImageOcr, rawImageRebuilder, rawImageQualityVerifier: createRenderQualityVerifier(), createDelivery: createTeamImageDelivery }), { exporter: traceExporter, capability: "image-to-editable" }) },
+      handlers: { "image-to-editable": createTracedWorkerHandler(createImageToEditableArchiveHandler({ objectStore: bundle.objectStore, builderExecutable: settings.builderExecutable, documentNormalizer: createTeamDocumentNormalizer(), rawImageOcr, rawImageRebuilder, rawImageQualityVerifier: createRenderQualityVerifier(), createDelivery: createTeamImageDelivery }), { exporter: traceExporter, capability: "image-to-editable" }) },
       leaseSeconds: config.workerLeaseSeconds
     });
     const runner = new TeamWorkerRunner({ queue: bundle.queue, worker, workerId: settings.workerId, capability: "image-to-editable", pollSeconds: settings.pollSeconds });

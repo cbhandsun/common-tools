@@ -23,7 +23,8 @@ function assertAdrDocuments(directory, { readFile = fs.readFileSync, readDirecto
   const files = readDirectory(directory, { withFileTypes: true }).filter((entry) => entry.isFile() && /^\d{4}-[a-z0-9-]+\.md$/.test(entry.name)).map((entry) => entry.name).sort();
   if (JSON.stringify(files) !== JSON.stringify(REQUIRED_ADRS)) throw new Error("ADR files are incomplete");
   for (const file of files) {
-    const content = readFile(path.join(directory, file), "utf8");
+    const rawContent = readFile(path.join(directory, file), "utf8");
+    const content = typeof rawContent === "string" ? rawContent.replace(/\r\n?/gu, "\n") : rawContent;
     if (typeof content !== "string" || content.length > 64 * 1024 || !new RegExp(`^# ADR ${file.slice(0, 4)}: .+\n`, "m").test(content) || !/^## Decision\n[\s\S]*\S/m.test(content) || !/^## Consequences\n[\s\S]*\S/m.test(content)) throw new Error(`ADR is invalid: ${file}`);
   }
   return Object.freeze({ count: files.length, files: Object.freeze(files) });

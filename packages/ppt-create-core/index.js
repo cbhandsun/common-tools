@@ -22,7 +22,10 @@ const ARTIFACT_NAMES = Object.freeze({ ir: "deck.ir.json", preview: "deck.previe
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function assertInputFile(workspaceRoot, input) {
+  const requested = path.resolve(input);
   const file = insideRoot(workspaceRoot, input);
+  const requestedInfo = fs.lstatSync(requested);
+  if (requestedInfo.isSymbolicLink()) throw new Error("ppt-create input must be a bounded, non-symbolic JSON file");
   const info = fs.lstatSync(file);
   if (!info.isFile() || info.isSymbolicLink() || info.size < 1 || info.size > MAX_SPEC_BYTES || path.extname(file).toLowerCase() !== ".json") throw new Error("ppt-create input must be a bounded, non-symbolic JSON file");
   return file;

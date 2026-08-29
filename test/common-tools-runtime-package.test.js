@@ -40,7 +40,7 @@ test("runtime package verification is an explicit release and CI gate", () => {
 test("runtime package release gate retains and probes the image residual deduplication implementation", () => {
   for (const file of IMAGE_EDITABLE_RELEASE_FILES) assert.ok(REQUIRED_FILES.includes(file));
   const probe = imageEditableEnhancementProbe();
-  for (const marker of ["residualEraseObjects", "residualDeduplicationStatus", "createRawImageArchive", "MAX_RAW_IMAGE_ARCHIVE_PAGES", "createRawImageRenderQualityVerifier", "raw-image-batch-validated", "MAX_RAW_IMAGE_PAGES", "MAX_EDITABLE_BATCH_INPUTS", "editable batch", "200,000,000 decoded pixels", "eraseObjectMask", "full-slide-object-erased-residual", "residual-native-duplicates-removed"]) assert.match(probe, new RegExp(marker));
+  for (const marker of ["residualEraseObjects", "residualDeduplicationStatus", "createEditableSourceArchive", "MAX_RAW_IMAGE_ARCHIVE_PAGES", "createTeamDocumentNormalizer", "MAX_DOCUMENT_PAGES", "createRawImageRenderQualityVerifier", "raw-image-batch-validated", "document-pages-normalized", "MAX_RAW_IMAGE_PAGES", "MAX_EDITABLE_BATCH_INPUTS", "editable batch", "editable-source-archive", "200,000,000 decoded pixels", "eraseObjectMask", "full-slide-object-erased-residual", "residual-native-duplicates-removed"]) assert.match(probe, new RegExp(marker));
   assert.match(probe, /remote-worker-wiring/);
 });
 

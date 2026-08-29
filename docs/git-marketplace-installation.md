@@ -14,13 +14,13 @@ Open **Plugins → Add → Add plugin marketplace** and enter:
   - `.agents/plugins`
   - `plugins/common-tools`
 
-After adding the Marketplace, complete the OAuth prompt and start a new task so Codex loads the installed Skills and HTTPS MCP declaration. The same `plugins/common-tools` sparse path includes the lightweight local project-audit Runtime; no npm command or separate Runtime installation is needed. It contains no OCR models or `pd-hifi-slideclone` engine. Image conversion uploads only the explicitly approved image in a constrained gzip/TAR transport package; OCR, reconstruction, rendering, and quality work execute in the server-side Docker workers.
+After adding the Marketplace, complete the OAuth prompt and start a new task so Codex loads the installed Skills and HTTPS MCP declaration. The same `plugins/common-tools` sparse path includes the lightweight local project-audit Runtime; no npm command or separate Runtime installation is needed. It contains no OCR models or `pd-hifi-slideclone` engine. Image conversion uploads only explicitly approved PNG/JPEG images, one PDF, or one image-based PPTX in a constrained gzip/TAR transport package; fixed document normalization, OCR, reconstruction, rendering, and quality work execute in the server-side Docker workers.
 
 The Marketplace commit and the hosted service release are one compatibility boundary, but they are deployed separately. Publishing the Git plugin updates Skills and MCP metadata; it does not rebuild or deploy the server-side Worker image. For `image-to-editable`, release the same reviewed revision as an immutable `image-worker` image and require the `residual-native-duplicates-removed`, `quality-rendered`, and `visual-fidelity` gates before describing an output as visually verified. CI packs and installs the npm Runtime and functionally probes image residual deduplication plus PPT asset provenance, image delivery, IR editing, document ingestion, safe templates, whole-deck variants, citations, and native notes so a release cannot silently omit those modules.
 
 | Capability | Default execution | Reason | Remote exception |
 | --- | --- | --- | --- |
-| `image-to-editable` | Remote | OCR, reconstruction, rendering, fonts, and quality gates are heavy and centrally versioned | No local fallback in the Marketplace workflow |
+| `image-to-editable` | Remote | PDF/PPTX normalization, OCR, reconstruction, rendering, fonts, and quality gates are heavy and centrally versioned | Accepts one source document or up to 20 ordered images; no local fallback in the Marketplace workflow |
 | `project-audit` | Local | Source privacy, lower transfer cost, direct access to workspace evidence | Only explicit team/isolated execution plus separate upload approval |
 | `ppt-create` | Local when a complete Runtime is already installed; otherwise explicit remote | Semantic input is lightweight, but the sparse Marketplace does not embed the OpenXML builder | Upload file-free specs as JSON; use `common-tools ppt archive` and `application/gzip` for hash-bound assets or one user-owned template |
 | `ppt-quality` | Local | The deck remains private and structural inspection is lightweight | Not advertised by the current public service |
@@ -56,5 +56,7 @@ Before publishing a Git ref or immutable release tag:
 2. Run `npm run common-tools:verify-runtime-package` to execute `npm pack`, install the produced archive, and probe `image-to-editable` residual deduplication from the installed package.
 3. Build the `image-worker` image from the same revision, bind its immutable digest into release evidence, and pass production preflight.
 4. Deploy the Worker/API revision before or together with the Marketplace ref. A Marketplace-only publication changes guidance but does not activate server implementation changes.
+
+The repository's `immutable-release` workflow enforces the repository side of this boundary for a tag that exactly matches `package.json` (`v<version>`). It reruns release contract gates, builds the Remote MCP and image-to-editable Worker from the tagged checkout, pushes both images to GHCR under version and source-revision tags, signs and verifies their immutable digests with keyless Cosign, publishes GitHub/Sigstore attestations, creates a deployable release-evidence manifest containing both digests, signs that manifest, packs the private Runtime for controlled distribution, and refuses to overwrite an existing GitHub Release. Production deployment and Marketplace ref promotion remain separate operator actions and must consume the recorded digests; the workflow does not silently deploy or change the Marketplace source.
 
 OAuth and user permission prompts remain interactive even when plugin installation is automatic.

@@ -203,6 +203,31 @@ test("team image worker rebuilds an ordered raw-image batch into one page per so
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
 
+test("team image worker normalizes a bounded document before native reconstruction", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-document-"));
+  const builderFile = path.join(temporaryRoot, "builder.js");
+  fs.writeFileSync(builderFile, "const fs=require('node:fs'); const i=process.argv.indexOf('--out'); fs.writeFileSync(process.argv[i + 1], Buffer.from('PK\\x03\\x04'));", "utf8");
+  const sourcePng = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"));
+  const pdf = Buffer.from("%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n");
+  const calls = [];
+  const handler = createImageToEditableArchiveHandler({
+    temporaryRoot, builderExecutable: process.execPath, builderArgs: [builderFile],
+    documentNormalizer: async ({ root, metadata }) => {
+      calls.push(metadata.documentKind); const file = path.join(root, "assets", "source-001.png"); fs.writeFileSync(file, sourcePng);
+      return { pages: 1, assets: 1, sources: [{ inputFile: file, assetPath: "assets/source-001.png", dimensions: { widthPx: 960, heightPx: 540 }, pageIndex: 0 }] };
+    },
+    rawImageOcr: async () => ({ lines: [] }),
+    rawImageRebuilder: async ({ metadata }) => { const rebuilt = boundedOcrSourceDeck({ metadata, ocr: { lines: [] }, sourceImage: metadata.assetPath }); rebuilt.pages[0].shapes.push({ id: "document-shape", type: "roundRect", box: { x: 4, y: 4, w: 120, h: 40 }, fill: "#FFFFFF", source: { editable: true } }); return { deck: rebuilt }; },
+    rawImageQualityVerifier: async () => ({ checks: [{ name: "quality-rendered", passed: true }, { name: "visual-fidelity", passed: true }], metrics: { "pixel-diff-ratio": 0.01 } }),
+    objectStore: { readObject: async () => archive([tarEntry("assets/source.pdf", pdf)]), putObject: async () => {} }
+  });
+  try {
+    const output = await handler({ job: { capability: "image-to-editable", inputObjectKey: "owners/a/inputs/document.tar.gz", outputPrefix: "owners/a/jobs/job-document/" }, isCancellationRequested: async () => false });
+    assert.deepEqual(calls, ["pdf"]); assert.equal(output.quality.passed, true); assert.equal(output.quality.metrics.pages, 1);
+    assert.equal(output.quality.checks[0].name, "document-pages-normalized");
+  } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
+});
+
 test("team image worker rejects OCR-only raw-image output instead of claiming graphical editability", async () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-overlay-only-"));
   const source = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"));

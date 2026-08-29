@@ -43,9 +43,26 @@ test("JobStore persists a complete job body after an atomic update", () => {
 test("insideRoot rejects path traversal", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-root-"));
   try {
+    assert.equal(
+      insideRoot(root, path.join(root, "missing", "output.json")),
+      path.join(fs.realpathSync.native(root), "missing", "output.json")
+    );
     assert.throws(() => insideRoot(root, path.join(root, "..", "outside")), /outside/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("insideRoot resolves existing parent links before admitting a missing output", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-linked-root-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-linked-outside-"));
+  try {
+    const linked = path.join(root, "linked");
+    fs.symlinkSync(outside, linked, process.platform === "win32" ? "junction" : "dir");
+    assert.throws(() => insideRoot(root, path.join(linked, "output.json")), /outside/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
   }
 });
 
@@ -244,7 +261,7 @@ test("manifest changes require an explicit version-increasing plugin upgrade", (
     assert.throws(() => loadPluginConfig(root), /manifest changed/);
     const upgraded = upgradePluginConfig(root, "image-to-editable");
     assert.equal(upgraded.generation, 5);
-    assert.equal(upgraded.manifests["image-to-editable"].version, "0.1.6");
+    assert.equal(upgraded.manifests["image-to-editable"].version, "0.1.7");
     assert.equal(fs.existsSync(path.join(root, "plugins.history", "4.json")), true);
     assert.equal(upgradePluginConfig(root, "image-to-editable").generation, 5);
     assert.equal(compareManifestVersions("0.1.1", "0.1.0"), 1);
@@ -360,6 +377,43 @@ test("image-to-editable accepts a complete bounded JPEG container", () => {
   }
 });
 
+test("image-to-editable admits a bounded PDF only with the approved page-limited normalizer", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-editable-pdf-"));
+  try {
+    const input = path.join(root, "input.pdf");
+    const output = path.join(root, "output");
+    const config = path.join(root, "slideclone.config.json");
+    fs.writeFileSync(input, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n", "utf8");
+    const base = { inputDir: root, outputDir: output, adapters: { normalize: "scripts/adapters/normalize-cli.js", ocr: "scripts/adapters/ocr-placeholder.js", vision: "scripts/adapters/vision-placeholder.js", pptx: "scripts/adapters/pptx-openxml-dotnet.js", render: "scripts/adapters/render-placeholder.js", diff: "scripts/adapters/diff-placeholder.js" }, normalize: { maxPages: 20 } };
+    fs.writeFileSync(config, JSON.stringify(base), "utf8");
+    const job = createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "state"), ownerId: "test-user", input, output, config });
+    assert.equal(job.status, "queued");
+    assert.equal(job.input.path, fs.realpathSync.native(input));
+
+    fs.writeFileSync(config, JSON.stringify({ ...base, adapters: { ...base.adapters, normalize: "scripts/adapters/normalize-placeholder.js" } }), "utf8");
+    assert.throws(() => createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "other-state"), ownerId: "test-user", input, output, config }), /approved PDF\/PPTX normalizer/);
+    fs.writeFileSync(config, JSON.stringify({ ...base, normalize: { maxPages: 21 } }), "utf8");
+    assert.throws(() => createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "third-state"), ownerId: "test-user", input, output, config }), /slideclone config is invalid|one and twenty/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("image-to-editable rejects incomplete PDFs and document/image batches before creating state", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-editable-document-invalid-"));
+  try {
+    const input = path.join(root, "input.pdf");
+    const image = path.join(root, "page.png");
+    const output = path.join(root, "output");
+    const config = path.join(root, "slideclone.config.json");
+    fs.writeFileSync(input, "%PDF-1.4\nmissing trailer", "utf8");
+    fs.copyFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"), image);
+    fs.writeFileSync(config, JSON.stringify({ inputDir: root, outputDir: output, adapters: { normalize: "scripts/adapters/normalize-cli.js", ocr: "scripts/adapters/ocr-placeholder.js", vision: "scripts/adapters/vision-placeholder.js", pptx: "scripts/adapters/pptx-openxml-dotnet.js", render: "scripts/adapters/render-placeholder.js", diff: "scripts/adapters/diff-placeholder.js" }, normalize: { maxPages: 20 } }), "utf8");
+    assert.throws(() => createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "state"), ownerId: "test-user", input, output, config }), /invalid or incomplete/);
+    assert.throws(() => createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "batch-state"), ownerId: "test-user", inputs: [input, image], output, config }), /batch inputs may contain PNG or JPEG/);
+    assert.equal(fs.existsSync(path.join(root, "state")), false);
+    assert.equal(fs.existsSync(path.join(root, "batch-state")), false);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("image-to-editable binds provider config paths to the requested workspace input and output", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-editable-config-paths-"));
   try {
@@ -387,11 +441,12 @@ test("image-to-editable local batch preserves explicit input order through its J
     fs.copyFileSync(fixture, first); fs.copyFileSync(fixture, second);
     fs.writeFileSync(config, JSON.stringify({ inputDir: root, outputDir: output, adapters: { ocr: "scripts/adapters/ocr-placeholder.js", vision: "scripts/adapters/vision-placeholder.js", pptx: "scripts/adapters/pptx-openxml-dotnet.js", render: "scripts/adapters/render-placeholder.js", diff: "scripts/adapters/diff-placeholder.js" } }), "utf8");
     const job = createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "state"), ownerId: "test-user", inputs: [first, second], output, config });
-    assert.deepEqual(job.input.paths, [first, second]);
+    const canonicalInputs = [first, second].map((file) => fs.realpathSync.native(file));
+    assert.deepEqual(job.input.paths, canonicalInputs);
     let invocation;
     const runner = createBundledSlidecloneRunner({ repositoryRoot: path.join(__dirname, ".."), spawn: (_command, args) => { invocation = args; return { status: 0 }; } });
-    runner({ configPath: config, inputPath: first, inputPaths: job.input.paths });
-    assert.deepEqual(invocation.filter((_item, index) => invocation[index - 1] === "--input-file"), [first, second]);
+    runner({ configPath: config, inputPath: canonicalInputs[0], inputPaths: job.input.paths });
+    assert.deepEqual(invocation.filter((_item, index) => invocation[index - 1] === "--input-file"), canonicalInputs);
     assert.throws(() => createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "other-state"), ownerId: "test-user", inputs: [first, first], output, config }), /duplicates/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

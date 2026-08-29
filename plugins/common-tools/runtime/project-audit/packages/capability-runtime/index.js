@@ -13,10 +13,22 @@ const CAPABILITY_ID_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
 
 function insideRoot(root, candidate) {
   const resolvedRoot = fs.realpathSync.native(root);
-  const resolvedCandidate = path.resolve(candidate);
+  const resolvedCandidate = resolveFromRealAncestor(candidate);
   const relative = path.relative(resolvedRoot, resolvedCandidate);
   if (relative === "" || (!relative.startsWith(".." + path.sep) && relative !== ".." && !path.isAbsolute(relative))) return resolvedCandidate;
   throw new Error("path is outside the approved root");
+}
+
+function resolveFromRealAncestor(candidate) {
+  let cursor = path.resolve(candidate);
+  const missingSegments = [];
+  while (!fs.existsSync(cursor)) {
+    const parent = path.dirname(cursor);
+    if (parent === cursor) throw new Error("path has no resolvable ancestor");
+    missingSegments.unshift(path.basename(cursor));
+    cursor = parent;
+  }
+  return path.resolve(fs.realpathSync.native(cursor), ...missingSegments);
 }
 
 function sha256File(file) {

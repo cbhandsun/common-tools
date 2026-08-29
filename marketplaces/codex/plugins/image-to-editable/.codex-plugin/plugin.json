@@ -1,7 +1,7 @@
 {
   "name": "image-to-editable",
-  "version": "0.1.6+codex.20260829090000",
-  "description": "Create controlled local image-to-editable jobs with common-tools.",
+  "version": "0.1.7+codex.20260829090000",
+  "description": "Create controlled local image/document-to-editable jobs with common-tools.",
   "author": {
     "name": "common-tools"
   },
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "Image to Editable",
     "shortDescription": "Create controlled editable-deck jobs.",
-    "longDescription": "Creates local, bounded image-to-editable jobs through the common-tools runtime.",
+    "longDescription": "Creates local, bounded image/PDF/PPTX-to-editable jobs through the common-tools runtime.",
     "developerName": "common-tools",
     "category": "Productivity",
     "capabilities": [
@@ -17,7 +17,7 @@
       "Write"
     ],
     "defaultPrompt": [
-      "Convert this approved image input into an editable deck and report the quality checks."
+      "Convert this approved image, PDF, or image-based PPTX into an editable deck and report the quality checks."
     ]
   }
 }

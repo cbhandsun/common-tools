@@ -89,7 +89,9 @@ function slideXml(file) {
   return extractEntry(bytes, entries.get("ppt/slides/slide1.xml")).toString("utf8");
 }
 
-function temporaryWorkspace() { return fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-quality-")); }
+function temporaryWorkspace() {
+  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-quality-")));
+}
 
 function writeBrokenRelationshipFixture(root, name = "broken.pptx") {
   const file = path.join(root, name);
