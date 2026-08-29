@@ -47,3 +47,32 @@ test("built-in image normalizer rejects a requested file outside its input direc
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("PDF normalization probes one extra page and rejects oversized documents", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-normalize-page-limit-"));
+  try {
+    const pdf = path.join(root, "source.pdf");
+    fs.writeFileSync(pdf, "%PDF-1.7\n%%EOF\n");
+    let observedArgs = [];
+    await assert.rejects(
+      normalizeCli.renderPdf(pdf, root, 0, {
+        config: { normalize: { maxPages: 20 } }
+      }, {
+        resolvePdfToPpm: () => "pdftoppm",
+        run: async (_command, args) => {
+          observedArgs = args;
+          const prefix = args.at(-1);
+          for (let page = 1; page <= 21; page += 1) {
+            fs.copyFileSync(fixture, `${prefix}-${page}.png`);
+          }
+        }
+      }),
+      /exceeds the 20-page normalization limit/
+    );
+    assert.deepEqual(observedArgs.slice(0, 6), ["-png", "-r", "144", "-f", "1", "-l"]);
+    assert.equal(observedArgs[6], "21");
+    assert.equal(fs.readdirSync(root).some((name) => name.startsWith("pdf-") && name.endsWith(".png")), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

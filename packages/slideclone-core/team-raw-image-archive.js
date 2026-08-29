@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { readRawImageDimensions } = require("./team-worker");
+const { EDITABLE_DOCUMENT_EXTENSIONS, assertEditableInputDocument } = require("./document-input");
 
 const MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES = 20 * 1024 * 1024;
 const MAX_RAW_IMAGE_ARCHIVE_TOTAL_BYTES = 60 * 1024 * 1024;
@@ -73,4 +74,19 @@ function createRawImageArchive({ inputFile, inputFiles, outputFile }) {
   return Object.freeze({ archive: outputFile, contentType: "application/gzip", contentLength: archive.length, sha256: sha256(archive), pages: sources.length, sources: Object.freeze(sourceDetails), ...(sources.length === 1 ? { source: sourceDetails[0] } : {}) });
 }
 
-module.exports = { MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES, MAX_RAW_IMAGE_ARCHIVE_PAGES, MAX_RAW_IMAGE_ARCHIVE_TOTAL_BYTES, RAW_IMAGE_EXTENSIONS, createRawImageArchive, tarEntry };
+function createEditableSourceArchive({ inputFile, inputFiles, outputFile }) {
+  if (inputFiles !== undefined || !EDITABLE_DOCUMENT_EXTENSIONS.has(path.extname(String(inputFile || "")).toLowerCase())) return createRawImageArchive({ inputFile, inputFiles, outputFile });
+  if (typeof inputFile !== "string" || !path.isAbsolute(inputFile)) throw new TypeError("editable source archive input must be an absolute path");
+  const admitted = assertEditableInputDocument(inputFile);
+  assertNewOutput(outputFile);
+  const assetPath = `assets/source${admitted.extension}`;
+  const archive = require("node:zlib").gzipSync(Buffer.concat([tarEntry(assetPath, fs.readFileSync(inputFile)), Buffer.alloc(1024)]), { level: 9 });
+  const temporary = `${outputFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temporary, archive, { mode: 0o600, flag: "wx" });
+    fs.renameSync(temporary, outputFile);
+  } catch (error) { try { fs.rmSync(temporary, { force: true }); } catch { /* Preserve the primary archive creation failure. */ } throw error; }
+  return Object.freeze({ archive: outputFile, contentType: "application/gzip", contentLength: archive.length, sha256: sha256(archive), pages: admitted.pages, source: Object.freeze({ assetPath, bytes: admitted.bytes, kind: admitted.kind }) });
+}
+
+module.exports = { MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES, MAX_RAW_IMAGE_ARCHIVE_PAGES, MAX_RAW_IMAGE_ARCHIVE_TOTAL_BYTES, RAW_IMAGE_EXTENSIONS, createEditableSourceArchive, createRawImageArchive, tarEntry };

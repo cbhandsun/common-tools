@@ -8,7 +8,7 @@ const path = require("node:path");
 const test = require("node:test");
 const zlib = require("node:zlib");
 const { extractProjectArchive } = require("../packages/project-audit-core/team-worker");
-const { createRawImageArchive } = require("../packages/slideclone-core/team-raw-image-archive");
+const { createEditableSourceArchive, createRawImageArchive } = require("../packages/slideclone-core/team-raw-image-archive");
 const { validatePackage } = require("../packages/slideclone-core/team-worker");
 
 function workspaceFixture() {
@@ -70,5 +70,32 @@ test("raw image archive CLI confines inputs and outputs to its workspace", () =>
     const rejected = childProcess.spawnSync(process.execPath, [cli, "team", "raw-image-archive", "--workspace", fixture.root, "--input", outside, "--out", "second.tar.gz"], { encoding: "utf8", windowsHide: true });
     assert.notEqual(rejected.status, 0);
     assert.match(rejected.stderr, /workspace root/);
+  } finally { fs.rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test("editable source archive admits one bounded PDF and preserves its document kind", () => {
+  const fixture = workspaceFixture();
+  const pdf = path.join(fixture.root, "source.pdf");
+  const extracted = path.join(fixture.root, "document-extracted");
+  fs.writeFileSync(pdf, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n", "utf8");
+  try {
+    const result = createEditableSourceArchive({ inputFile: pdf, outputFile: fixture.archive });
+    assert.equal(result.source.kind, "pdf"); assert.equal(result.source.assetPath, "assets/source.pdf"); assert.equal(result.pages, null);
+    fs.mkdirSync(extracted); extractProjectArchive(fs.readFileSync(fixture.archive), extracted, { label: "editable" });
+    const packageInfo = validatePackage(extracted);
+    assert.equal(packageInfo.kind, "raw-document"); assert.equal(packageInfo.documentKind, "pdf");
+  } finally { fs.rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test("editable source archive CLI supports documents without weakening the legacy raw-image command", () => {
+  const fixture = workspaceFixture();
+  const pdf = path.join(fixture.root, "source.pdf");
+  const cli = path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
+  fs.writeFileSync(pdf, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n", "utf8");
+  try {
+    const accepted = childProcess.spawnSync(process.execPath, [cli, "team", "editable-source-archive", "--workspace", fixture.root, "--input", "source.pdf", "--out", "document.tar.gz"], { encoding: "utf8", windowsHide: true });
+    assert.equal(accepted.status, 0, accepted.stderr); assert.equal(JSON.parse(accepted.stdout).source.kind, "pdf");
+    const rejected = childProcess.spawnSync(process.execPath, [cli, "team", "raw-image-archive", "--workspace", fixture.root, "--input", "source.pdf", "--out", "legacy.tar.gz"], { encoding: "utf8", windowsHide: true });
+    assert.notEqual(rejected.status, 0); assert.match(rejected.stderr, /PNG or JPEG/);
   } finally { fs.rmSync(fixture.root, { recursive: true, force: true }); }
 });

@@ -8,6 +8,7 @@ const path = require("node:path");
 const { MAX_ARCHIVE_BYTES, extractProjectArchive } = require("../project-audit-core/team-worker");
 const { assertQualityReport } = require("../capability-contracts");
 const { nativeObjectMetrics } = require("./team-native-rebuild");
+const { assertEditableInputDocument } = require("./document-input");
 
 const MAX_DECK_BYTES = 1024 * 1024;
 const MAX_PAGES = 50;
@@ -89,6 +90,8 @@ function validatePackage(root) {
   return { kind: "deck-ir", deckFile, ...validateDeckIr(ir, root) };
 }
 function validateRawImagePackage(root) {
+  const documentFiles = ["source.pdf", "source.pptx"].map((name) => path.join(root, "assets", name)).filter((file) => fs.existsSync(file));
+  if (documentFiles.length > 0) return validateDocumentPackage(root, documentFiles);
   const files = [];
   const queue = [root];
   while (queue.length) {
@@ -121,6 +124,15 @@ function validateRawImagePackage(root) {
     throw new Error("raw editable image pixels exceed the batch limit");
   }
   return { kind: "raw-image", sources, inputFile: sources[0].inputFile, assetPath: sources[0].assetPath, dimensions: sources[0].dimensions, pages: sources.length, assets: sources.length };
+}
+function validateDocumentPackage(root, documentFiles) {
+  const assets = path.join(root, "assets");
+  const rootEntries = fs.readdirSync(root, { withFileTypes: true });
+  const assetEntries = fs.existsSync(assets) ? fs.readdirSync(assets, { withFileTypes: true }) : [];
+  if (documentFiles.length !== 1 || rootEntries.length !== 1 || rootEntries[0].name !== "assets" || !rootEntries[0].isDirectory() || assetEntries.length !== 1 || !assetEntries[0].isFile()) throw new Error("document editable archive requires exactly one assets/source.pdf or assets/source.pptx file");
+  const inputFile = documentFiles[0];
+  const admitted = assertEditableInputDocument(inputFile);
+  return { kind: "raw-document", documentKind: admitted.kind, inputFile, assetPath: `assets/source${admitted.extension}`, pages: admitted.pages, assets: 1 };
 }
 function readRawImageDimensions(file, extension) {
   const buffer = fs.readFileSync(file);
@@ -205,10 +217,11 @@ function runBuilder({ executable, builderArgs = [], deckFile, outputFile, cwd, t
     childProcess.execFile(executable, [...builderArgs, "--ir", deckFile, "--out", outputFile, "--powerpoint-safe", "true"], { cwd, windowsHide: true, timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error) => error ? reject(error) : resolve());
   });
 }
-function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.tmpdir(), builderExecutable = process.env.OPENXML_BUILDER_EXE || "/opt/openxml/OpenXmlDeckBuilder", builderArgs = [], rawImageOcr, rawImageRebuilder, rawImageQualityVerifier, createDelivery, timeoutMs = 8 * 60 * 1000 } = {}) {
+function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.tmpdir(), builderExecutable = process.env.OPENXML_BUILDER_EXE || "/opt/openxml/OpenXmlDeckBuilder", builderArgs = [], documentNormalizer, rawImageOcr, rawImageRebuilder, rawImageQualityVerifier, createDelivery, timeoutMs = 8 * 60 * 1000 } = {}) {
   const store = assertObjectStore(objectStore);
   if (typeof temporaryRoot !== "string" || !path.isAbsolute(temporaryRoot)) throw new TypeError("temporaryRoot must be an absolute path");
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 30000 || timeoutMs > 9 * 60 * 1000) throw new RangeError("editable worker timeout is invalid");
+  if (documentNormalizer !== undefined && typeof documentNormalizer !== "function") throw new TypeError("documentNormalizer must be a function");
   if (rawImageQualityVerifier !== undefined && typeof rawImageQualityVerifier !== "function") throw new TypeError("rawImageQualityVerifier must be a function");
   if (createDelivery !== undefined && typeof createDelivery !== "function") throw new TypeError("createDelivery must be a function");
   return async ({ job, isCancellationRequested }) => {
@@ -220,7 +233,13 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       extractProjectArchive(archive, root, { label: "editable" });
       const metadata = validatePackage(root);
       if (await isCancellationRequested()) throw new Error("editable job was cancelled");
-      if (metadata.kind === "raw-image") {
+      if (metadata.kind === "raw-document") {
+        if (typeof documentNormalizer !== "function") throw new Error("document editable normalization profile is not enabled for this worker");
+        const normalized = await documentNormalizer({ root, metadata, isCancellationRequested });
+        if (!normalized || !Array.isArray(normalized.sources) || normalized.sources.length < 1 || normalized.sources.length > MAX_RAW_IMAGE_PAGES) throw new Error("document normalization returned an invalid page set");
+        metadata.sources = normalized.sources; metadata.pages = normalized.pages; metadata.assets = normalized.assets;
+      }
+      if (metadata.kind === "raw-image" || metadata.kind === "raw-document") {
         if (typeof rawImageOcr !== "function") throw new Error("raw editable image profile is not enabled for this worker");
         if (typeof rawImageRebuilder !== "function") throw new Error("raw editable native rebuild profile is not enabled for this worker");
         const rebuilt = await rebuildRawImages({ root, metadata, rawImageOcr, rawImageRebuilder, isCancellationRequested });
@@ -238,11 +257,12 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       await runBuilder({ executable: builderExecutable, builderArgs, deckFile: metadata.deckFile, outputFile, cwd: root, timeoutMs });
       if (!fs.existsSync(outputFile) || !fs.statSync(outputFile).isFile() || fs.statSync(outputFile).size < 1 || fs.statSync(outputFile).size > MAX_PPTX_BYTES) throw new Error("editable builder produced an invalid artifact");
       if (await isCancellationRequested()) throw new Error("editable job was cancelled");
-      const raw = metadata.kind === "raw-image";
+      const raw = metadata.kind === "raw-image" || metadata.kind === "raw-document";
       const visualQuality = raw && rawImageQualityVerifier
         ? await rawImageQualityVerifier({ root, pptxFile: outputFile, sourceImage: metadata.normalizedSourceImages[0], sourceImages: metadata.normalizedSourceImages, isCancellationRequested })
         : null;
-      const checks = [{ name: raw ? (metadata.pages > 1 ? "raw-image-batch-validated" : "raw-image-validated") : "deck-ir-validated", passed: true }, { name: "assets-resolved", passed: true }];
+      const sourceCheck = metadata.kind === "raw-document" ? "document-pages-normalized" : metadata.kind === "raw-image" ? (metadata.pages > 1 ? "raw-image-batch-validated" : "raw-image-validated") : "deck-ir-validated";
+      const checks = [{ name: sourceCheck, passed: true }, { name: "assets-resolved", passed: true }];
       if (raw) checks.push(
         { name: "native-graphics-rebuilt", passed: (metadata.nativeMetrics?.graphicalObjects || 0) > 0 },
         ...(metadata.residualDeduplication?.required ? [{ name: "residual-native-duplicates-removed", passed: metadata.residualDeduplication.passed }] : []),
@@ -268,4 +288,4 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
   };
 }
 
-module.exports = { IMAGE_EXTENSIONS, MAX_DECK_BYTES, createImageToEditableArchiveHandler, readRawImageDimensions, residualDeduplicationStatus, safeAssetPath, validateDeckIr, validatePackage };
+module.exports = { IMAGE_EXTENSIONS, MAX_DECK_BYTES, createImageToEditableArchiveHandler, readRawImageDimensions, residualDeduplicationStatus, safeAssetPath, validateDeckIr, validateDocumentPackage, validatePackage };

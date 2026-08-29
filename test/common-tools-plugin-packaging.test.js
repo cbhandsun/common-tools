@@ -42,14 +42,15 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.equal(marketplace.plugins[0].source.path, "./plugins/common-tools");
   const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".codex-plugin", "plugin.json"), "utf8"));
   assert.equal(manifest.mcpServers, "./.mcp.json");
-  assert.match(manifest.version, /^0\.1\.13\+codex\./);
+  assert.match(manifest.version, /^0\.1\.14\+codex\./);
   const mcp = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".mcp.json"), "utf8"));
   assert.deepEqual(mcp.mcpServers["common-tools"], { type: "http", url: "https://plugins.iepose.cn/mcp", oauth: { clientId: "common-tools-mcp" } });
   const imageSkill = fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "image-to-editable", "SKILL.md"), "utf8");
-  assert.match(imageSkill, /heavy OCR, reconstruction, rendering, and quality work runs on the server/);
+  assert.match(imageSkill, /heavy document normalization, OCR, reconstruction, rendering, and quality work runs on the server/);
   assert.match(imageSkill, /create_team_upload_target/);
   assert.match(imageSkill, /residual-native-duplicates-removed/);
   assert.match(imageSkill, /raw-image-batch-validated/);
+  assert.match(imageSkill, /document-pages-normalized/);
   assert.match(imageSkill, /quality-rendered/);
   assert.match(imageSkill, /visual-fidelity/);
   assert.doesNotMatch(imageSkill, /common-tools doctor --capability image-to-editable/);
@@ -175,7 +176,7 @@ test("Codex plugin manifests require install-page metadata and accept cachebuste
   try {
     const manifest = path.join(root, "plugins", "codex", "image-to-editable", ".codex-plugin", "plugin.json");
     const parsed = JSON.parse(fs.readFileSync(manifest, "utf8"));
-    assert.match(parsed.version, /^0\.1\.6\+codex\./);
+    assert.match(parsed.version, /^0\.1\.7\+codex\./);
     delete parsed.interface;
     fs.writeFileSync(manifest, JSON.stringify(parsed), "utf8");
     assert.throws(() => verifyPluginPackaging(root, capabilities), /Codex plugin interface/);
@@ -270,7 +271,7 @@ test("CLI upgrades only an explicitly version-increasing capability manifest", (
     assert.equal(upgraded.status, 0, upgraded.stderr);
     const config = JSON.parse(upgraded.stdout);
     assert.equal(config.generation, 3);
-    assert.equal(config.manifests["image-to-editable"].version, "0.1.6");
+    assert.equal(config.manifests["image-to-editable"].version, "0.1.7");
     assert.equal(fs.existsSync(path.join(state, "plugins.history", "2.json")), true);
   } finally {
     fs.rmSync(state, { recursive: true, force: true });

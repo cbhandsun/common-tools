@@ -473,6 +473,15 @@ For an explicitly ordered multi-page conversion, provide 2–20 workspace-contai
 common-tools team raw-image-archive --workspace . --inputs .\page-01.png,.\page-02.png --out .\upload-pages.tar.gz
 ```
 
+PDF 或图片版 PPTX 使用统一来源归档命令；服务端只接受一个受限文档，并以固定 LibreOffice/Poppler 参数规范化为最多 20 页后进入同一 OCR、native-hybrid 重建、残留去重和视觉门禁：
+
+```powershell
+common-tools team editable-source-archive --workspace . --input .\source.pdf --out .\upload-source.tar.gz
+common-tools team editable-source-archive --workspace . --input .\image-only.pptx --out .\upload-source.tar.gz
+```
+
+`raw-image-archive` 保留为兼容命令且继续只接受 PNG/JPEG；新接入应使用 `editable-source-archive`。文档不得与图片批次混合，PDF/PPTX 不得超过 60 MiB，PPTX 在归档前执行受限 OOXML admission，Worker 会渲染第 21 页用于可靠拒绝超页输入。
+
 The Worker processes pages in that declared order, requires a native graphical reconstruction on every page, isolates generated assets per page, and compares every rendered page with its normalized source. `raw-image-batch-validated`, `quality-rendered`, and `visual-fidelity` must pass before describing a batch as visually verified; fidelity metrics are the worst values across the batch. Source images in one batch must resolve to a consistent slide aspect ratio.
 
 将该 JSON 中的 `contentType` / `contentLength` 传给 `create_team_upload_target`，上传生成的 `.tar.gz` 到返回的受限 URL，再将返回的 `inputObjectKey` 与新的幂等键传给 `create_team_job`。本地归档命令不会上传文件、读取 token 或创建团队 Job。
