@@ -43,9 +43,26 @@ test("JobStore persists a complete job body after an atomic update", () => {
 test("insideRoot rejects path traversal", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-root-"));
   try {
+    assert.equal(
+      insideRoot(root, path.join(root, "missing", "output.json")),
+      path.join(fs.realpathSync.native(root), "missing", "output.json")
+    );
     assert.throws(() => insideRoot(root, path.join(root, "..", "outside")), /outside/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("insideRoot resolves existing parent links before admitting a missing output", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-linked-root-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-linked-outside-"));
+  try {
+    const linked = path.join(root, "linked");
+    fs.symlinkSync(outside, linked, process.platform === "win32" ? "junction" : "dir");
+    assert.throws(() => insideRoot(root, path.join(linked, "output.json")), /outside/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
   }
 });
 
