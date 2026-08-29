@@ -9,6 +9,27 @@ const test = require("node:test");
 const { REMOTE_CAPABILITY_CODES, REMOTE_CAPABILITY_SCOPES, REMOTE_PLUGIN_VERSION, connectionVerificationScript, generateRemotePluginBundles, installGuide, installationScript, marketplaceMetadata, mcpConfiguration, parseArguments, parseCapabilities, parseLayout, parseOrigin, pluginName, remoteRouterSkill, remoteSkill } = require("../scripts/generate-remote-plugin-bundles");
 const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
 
+function createFakeLibreOffice(root) {
+  const source = path.join(root, "FakeLibreOffice.cs");
+  const executable = path.join(root, "fake-libreoffice.exe");
+  const compiler = path.join(root, "compile-fake-libreoffice.ps1");
+  fs.writeFileSync(source, `using System; using System.IO;
+public static class Program {
+  public static int Main(string[] args) {
+    string output = null;
+    for (int index = 0; index < args.Length - 1; index += 1) if (args[index] == "--outdir") output = args[index + 1];
+    if (output == null || args.Length == 0) return 2;
+    string pdf = Path.Combine(output, Path.GetFileNameWithoutExtension(args[args.Length - 1]) + ".pdf");
+    File.WriteAllText(pdf, "%PDF-1.4\\n1 0 obj <</Type /Page>> endobj\\n2 0 obj <</Type /Page>> endobj\\n3 0 obj <</Type /Page>> endobj\\n%%EOF\\n");
+    return 0;
+  }
+}`, "utf8");
+  fs.writeFileSync(compiler, "param([string]$Source, [string]$Output)\nAdd-Type -Path $Source -OutputAssembly $Output -OutputType ConsoleApplication\n", "utf8");
+  const compiled = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-File", compiler, source, executable], { encoding: "utf8", windowsHide: true, timeout: 30_000 });
+  assert.equal(compiled.status, 0, `${compiled.stdout}${compiled.stderr}`);
+  return executable;
+}
+
 test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-plugin-bundles-"));
   const output = path.join(parent, "bundle");
@@ -70,11 +91,12 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
     const packagedState = path.join(packagedWorkspace, ".common-tools");
     const packagedInput = path.join(packagedWorkspace, "presentation.json");
     const packagedOutput = path.join(packagedWorkspace, "created-presentation");
+    const fakeLibreOffice = createFakeLibreOffice(parent);
     fs.mkdirSync(packagedWorkspace, { recursive: true });
     fs.copyFileSync(path.join(__dirname, "fixtures", "ppt-create", "basic.presentation.json"), packagedInput);
     const enablePptCreate = spawnSync(process.execPath, [payloadCli, "plugin", "enable", "--capability", "ppt-create", "--workspace", packagedWorkspace, "--state", packagedState], { encoding: "utf8" });
     assert.equal(enablePptCreate.status, 0, `${enablePptCreate.stdout}${enablePptCreate.stderr}`);
-    const createPpt = spawnSync(process.execPath, [payloadCli, "ppt", "create", "--input", packagedInput, "--out", packagedOutput, "--workspace", packagedWorkspace, "--state", packagedState], { encoding: "utf8", timeout: 120_000 });
+    const createPpt = spawnSync(process.execPath, [payloadCli, "ppt", "create", "--input", packagedInput, "--out", packagedOutput, "--workspace", packagedWorkspace, "--state", packagedState], { encoding: "utf8", timeout: 120_000, env: { ...process.env, COMMON_TOOLS_LIBREOFFICE_BIN: fakeLibreOffice } });
     assert.equal(createPpt.status, 0, `${createPpt.stdout}${createPpt.stderr}`);
     assert.match(createPpt.stdout, /"status": "succeeded"/);
     const packagedDeck = path.join(packagedOutput, "deck.pptx");
