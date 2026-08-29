@@ -275,6 +275,35 @@ test("stdio MCP lists only the scoped local image-to-editable tools", () => {
     const response = JSON.parse(result.stdout.trim());
     assert.deepEqual(response.result.tools.map((tool) => tool.name), ["health_check", "create_editable_job", "get_job", "cancel_job", "list_job_artifacts"]);
     assert.equal(response.result.tools.find((tool) => tool.name === "create_editable_job").inputSchema.properties.config.type, "string");
+    assert.equal(response.result.tools.find((tool) => tool.name === "create_editable_job").inputSchema.properties.inputs.maxItems, 20);
+  } finally {
+    fs.rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("stdio MCP creates an ordered multi-image editable job and rejects mixed input modes", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-mcp-editable-batch-"));
+  const state = path.join(workspace, "state");
+  try {
+    const fixture = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png");
+    const first = path.join(workspace, "page-02.png");
+    const second = path.join(workspace, "page-01.png");
+    const output = path.join(workspace, "output");
+    const config = path.join(workspace, "slideclone.config.json");
+    fs.copyFileSync(fixture, first);
+    fs.copyFileSync(fixture, second);
+    fs.writeFileSync(config, JSON.stringify({ inputDir: workspace, outputDir: output, adapters: { ocr: "scripts/adapters/ocr-placeholder.js", vision: "scripts/adapters/vision-placeholder.js", pptx: "scripts/adapters/pptx-openxml-dotnet.js", render: "scripts/adapters/render-placeholder.js", diff: "scripts/adapters/diff-placeholder.js" } }), "utf8");
+    const requests = [
+      { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "create_editable_job", arguments: { inputs: [first, second], output, config } } },
+      { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "create_editable_job", arguments: { input: first, inputs: [second], output, config } } }
+    ];
+    const result = spawnSync(process.execPath, [server], { input: `${requests.map(JSON.stringify).join("\n")}\n`, encoding: "utf8", timeout: 15000, windowsHide: true, env: { ...process.env, COMMON_TOOLS_WORKSPACE: workspace, COMMON_TOOLS_STATE: state } });
+    assert.equal(result.status, 0, result.stderr);
+    const [created, rejected] = result.stdout.trim().split(/\r?\n/).map(JSON.parse);
+    assert.deepEqual(created.result.structuredContent.input.paths, [first, second]);
+    assert.equal(created.result.structuredContent.input.path, first);
+    assert.equal(rejected.result.isError, true);
+    assert.match(rejected.result.content[0].text, /declared input schema/u);
   } finally {
     fs.rmSync(workspace, { recursive: true, force: true });
   }

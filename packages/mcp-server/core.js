@@ -38,7 +38,7 @@ function callTool(name, rawArgs, context = settings()) {
   const enabled = enabledCapabilities(context);
   if (definition.capability && !enabled.includes(definition.capability)) throw new Error("capability is not enabled for this principal");
   if (name === "health_check") return validateToolOutput(name, { runtime: RUNTIME_VERSION, enabledCapabilities: enabled, registrations: [REGISTRATION, PROJECT_AUDIT_REGISTRATION, PPT_QUALITY_REGISTRATION, PPT_IMPROVE_REGISTRATION, PPT_CREATE_REGISTRATION] });
-  if (name === "create_editable_job") return validateToolOutput(name, createEditableJob({ ...context, input: args.input, output: args.output, config: args.config, idempotencyKey: args.idempotencyKey }));
+  if (name === "create_editable_job") return validateToolOutput(name, createEditableJob({ ...context, input: args.input, inputs: args.inputs, output: args.output, config: args.config, idempotencyKey: args.idempotencyKey }));
   if (name === "create_project_audit_job") return validateToolOutput(name, createProjectAuditJob({ ...context, projectRoot: args.projectRoot || context.workspaceRoot, output: args.output, level: args.level, scope: args.scope, idempotencyKey: args.idempotencyKey }));
   if (name === "create_ppt_quality_job") return validateToolOutput(name, createPptQualityJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey }));
   if (name === "create_ppt_improve_job") return validateToolOutput(name, createPptImproveJob({ ...context, input: args.input, report: args.report, output: args.output, idempotencyKey: args.idempotencyKey, profile: args.profile }));

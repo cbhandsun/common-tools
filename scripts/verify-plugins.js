@@ -78,15 +78,19 @@ function versionAtLeast(value, minimum) {
 }
 function assertImageToEditableSkill(file) {
   const skill = fs.readFileSync(file, "utf8");
-  for (const marker of ["residual-native-duplicates-removed", "quality-rendered", "visual-fidelity"]) {
+  for (const marker of ["raw-image-batch-validated", "residual-native-duplicates-removed", "quality-rendered", "visual-fidelity"]) {
     if (!skill.includes(marker)) throw new Error("image-to-editable Skill does not protect residual deduplication quality");
+  }
+  if (!file.includes(path.join("plugins", "common-tools"))) {
+    for (const marker of ["common-tools editable batch", "60 MiB", "200,000,000 decoded pixels", "inputs: [<ordered paths>]", "never pass both"]) if (!skill.includes(marker)) throw new Error("image-to-editable Skill does not protect the local batch contract");
   }
 }
 function assertPptCreateSkill(file) {
   const skill = fs.readFileSync(file, "utf8");
-  for (const marker of ["layout-candidates-available", "layout-selection-resolved", "semantic-visuals-resolved", "semantic-component-plan-resolved", "native-data-editable", "deck.preview.html", "ppt apply-edit", "ppt apply-ir-edit", "ppt finalize-ir-edit", "ppt export-ir", "edit-finalization-report.json", "CONTENT_PROVIDER_*", "real paths", "streamed responses", "batch-style", "ppt draft", "ppt compose", "--provider-config", "--provider-id", "prompt-source-hash-recorded", "document-visual-structure-preserved", "template-semantic-layout-mapped", "template-layout-capacity-respected", "template-placeholder-bindings-recorded", "complex-graphic-native-gate", "ir-batch-style-validated", "ir-object-lifecycle-validated", "ir-page-lifecycle-validated", "deck.html", "deck.pdf", "multi-format-page-count-matches", "multi-format-source-fingerprint-matches", "ppt plan", "ppt ingest", "ppt archive", "application/gzip", "planning-source-covered", "planning-required-points-covered", "Never silently truncate", "Do not copy Dashi", "asset-provenance-verified", "asset-license-policy-compliant", "template-package-safe", "deckVariantCount", "citations-editable", "speaker-notes-native", "deck.variants.json", "asset-manifest.json", "template-manifest.json", "generation-manifest.json", "presentation.generated.json", "bounded dynamic artifact contract"]) {
+  for (const marker of ["layout-candidates-available", "layout-selection-resolved", "semantic-visuals-resolved", "semantic-component-plan-resolved", "native-data-editable", "deck.preview.html", "ppt apply-edit", "ppt edit-session", "loopback-editor-session-bound", "semantic-table-data-editable", "semantic-chart-data-editable", "ppt apply-ir-edit", "ppt finalize-ir-edit", "ppt export-ir", "edit-finalization-report.json", "CONTENT_PROVIDER_*", "real paths", "streamed responses", "batch-style", "ppt draft", "ppt compose", "--provider-config", "--provider-id", "prompt-source-hash-recorded", "document-visual-structure-preserved", "template-semantic-layout-mapped", "template-layout-capacity-respected", "template-placeholder-bindings-recorded", "complex-graphic-native-gate", "ir-batch-style-validated", "ir-object-lifecycle-validated", "ir-page-lifecycle-validated", "deck.html", "deck.pdf", "multi-format-page-count-matches", "multi-format-source-fingerprint-matches", "ppt plan", "ppt ingest", "ppt archive", "application/gzip", "planning-source-covered", "planning-required-points-covered", "Never silently truncate", "Do not copy Dashi", "asset-provenance-verified", "asset-license-policy-compliant", "template-package-safe", "deckVariantCount", "citations-editable", "speaker-notes-native", "deck.variants.json", "asset-manifest.json", "template-manifest.json", "generation-manifest.json", "presentation.generated.json", "bounded dynamic artifact contract"]) {
     if (!skill.includes(marker)) throw new Error("ppt-create Skill does not protect the clean-room creation contract");
   }
+  if (!skill.includes("controlled visual panels")) throw new Error("ppt-create Skill does not protect controlled semantic editing");
 }
 function assertPluginPackage(root, capability, host, capabilityVersion) {
   if (!CAPABILITY_PATTERN.test(capability)) throw new Error("capability name is invalid");
@@ -148,7 +152,7 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   const pluginRoot = path.join(root, "plugins", "common-tools");
   const metadata = assertPluginMetadata(path.join(pluginRoot, ".codex-plugin", "plugin.json"), "common-tools", "codex");
   if (metadata.mcpServers !== "./.mcp.json") throw new Error("unified Codex plugin MCP configuration is invalid");
-  if (!versionAtLeast(pluginRuntimeVersion(metadata.version), "0.1.12")) throw new Error("unified Codex plugin version does not include the current ppt-create release");
+  if (!versionAtLeast(pluginRuntimeVersion(metadata.version), "0.1.13")) throw new Error("unified Codex plugin version does not include the current ppt-create release");
   const mcp = assertObject(readJson(path.join(pluginRoot, ".mcp.json"), "unified Codex plugin MCP configuration is invalid"), "unified Codex plugin MCP configuration is invalid");
   const server = mcp.mcpServers?.["common-tools"];
   if (!server || server.type !== "http" || server.url !== "https://plugins.iepose.cn/mcp" || server.oauth?.clientId !== "common-tools-mcp" || Object.keys(server).some((key) => !["type", "url", "oauth"].includes(key))) throw new Error("unified Codex plugin MCP configuration is invalid");

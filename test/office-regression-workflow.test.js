@@ -152,6 +152,12 @@ test("Office workflow is scheduled, manually selectable, serialized and isolated
   assert.match(workflow, /ppt-create-smoke\/[*][.]json/u);
   assert.match(workflow, /retention-days: 90/u);
   assert.doesNotMatch(workflow, /secrets\./u);
+  const officeSmoke = fs.readFileSync(path.join(root, "scripts", "ppt-create-office-smoke.js"), "utf8");
+  assert.match(officeSmoke, /buildImageBatchOfficeDeck/u);
+  assert.match(officeSmoke, /imageBatchOfficeRoundTripValidated/u);
+  assert.match(officeSmoke, /page-02[.]png[\s\S]*page-01[.]png/u);
+  assert.match(officeSmoke, /file: imageBatchPptx, mode: "auto"/u);
+  assert.doesNotMatch(officeSmoke, /file: imageBatchPptx, mode: "shape-text"/u);
 });
 
 test("GitHub workflows pin every action to an immutable commit", () => {

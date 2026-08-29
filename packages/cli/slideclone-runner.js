@@ -38,7 +38,12 @@ function createBundledSlidecloneRunner({ repositoryRoot, spawn = childProcess.sp
     if (!request || typeof request !== "object" || Array.isArray(request)) throw new TypeError("slideclone execution request is invalid");
     const configPath = boundedAbsoluteFile(request.configPath, "configPath");
     const inputPath = boundedAbsoluteFile(request.inputPath, "inputPath");
-    return spawn(process.execPath, [inspection.script, "run", "--config", configPath, "--input-file", inputPath], {
+    const inputPaths = request.inputPaths === undefined ? [inputPath] : request.inputPaths;
+    if (!Array.isArray(inputPaths) || inputPaths.length < 1 || inputPaths.length > 20 || inputPaths[0] !== request.inputPath || inputPaths.some((file) => typeof file !== "string")) throw new TypeError("slideclone inputPaths must be a bounded ordered file list");
+    const approvedInputs = inputPaths.map((file) => boundedAbsoluteFile(file, "inputPaths"));
+    if (new Set(approvedInputs).size !== approvedInputs.length || approvedInputs[0] !== inputPath) throw new TypeError("slideclone inputPaths must be a unique ordered file list");
+    const inputArguments = approvedInputs.flatMap((file) => ["--input-file", file]);
+    return spawn(process.execPath, [inspection.script, "run", "--config", configPath, ...inputArguments], {
       encoding: "utf8",
       windowsHide: true,
       timeout: SLIDECLONE_TIMEOUT_MS

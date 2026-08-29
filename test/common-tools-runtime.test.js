@@ -244,7 +244,7 @@ test("manifest changes require an explicit version-increasing plugin upgrade", (
     assert.throws(() => loadPluginConfig(root), /manifest changed/);
     const upgraded = upgradePluginConfig(root, "image-to-editable");
     assert.equal(upgraded.generation, 5);
-    assert.equal(upgraded.manifests["image-to-editable"].version, "0.1.4");
+    assert.equal(upgraded.manifests["image-to-editable"].version, "0.1.6");
     assert.equal(fs.existsSync(path.join(root, "plugins.history", "4.json")), true);
     assert.equal(upgradePluginConfig(root, "image-to-editable").generation, 5);
     assert.equal(compareManifestVersions("0.1.1", "0.1.0"), 1);
@@ -379,13 +379,32 @@ test("image-to-editable binds provider config paths to the requested workspace i
   }
 });
 
-test("slideclone jobs produce a verifiable OpenXML PPTX artifact", { timeout: 120000 }, () => {
+test("image-to-editable local batch preserves explicit input order through its Job and runner boundary", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-editable-local-batch-"));
+  try {
+    const first = path.join(root, "page-02.png"); const second = path.join(root, "page-01.png"); const output = path.join(root, "output"); const config = path.join(root, "slideclone.config.json");
+    const fixture = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png");
+    fs.copyFileSync(fixture, first); fs.copyFileSync(fixture, second);
+    fs.writeFileSync(config, JSON.stringify({ inputDir: root, outputDir: output, adapters: { ocr: "scripts/adapters/ocr-placeholder.js", vision: "scripts/adapters/vision-placeholder.js", pptx: "scripts/adapters/pptx-openxml-dotnet.js", render: "scripts/adapters/render-placeholder.js", diff: "scripts/adapters/diff-placeholder.js" } }), "utf8");
+    const job = createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "state"), ownerId: "test-user", inputs: [first, second], output, config });
+    assert.deepEqual(job.input.paths, [first, second]);
+    let invocation;
+    const runner = createBundledSlidecloneRunner({ repositoryRoot: path.join(__dirname, ".."), spawn: (_command, args) => { invocation = args; return { status: 0 }; } });
+    runner({ configPath: config, inputPath: first, inputPaths: job.input.paths });
+    assert.deepEqual(invocation.filter((_item, index) => invocation[index - 1] === "--input-file"), [first, second]);
+    assert.throws(() => createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "other-state"), ownerId: "test-user", inputs: [first, first], output, config }), /duplicates/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("slideclone batch jobs produce a verifiable multi-page OpenXML PPTX artifact", { timeout: 120000 }, () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-openxml-"));
   try {
     const inputDir = path.join(root, "input");
     const output = path.join(root, "output");
     fs.mkdirSync(inputDir);
-    fs.copyFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"), path.join(inputDir, "page.png"));
+    const fixture = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png");
+    fs.copyFileSync(fixture, path.join(inputDir, "page-02.png"));
+    fs.copyFileSync(fixture, path.join(inputDir, "page-01.png"));
     const config = path.join(root, "slideclone.config.json");
     fs.writeFileSync(config, `${JSON.stringify({
       inputDir,
@@ -407,8 +426,8 @@ test("slideclone jobs produce a verifiable OpenXML PPTX artifact", { timeout: 12
       openXmlBuilder: { configuration: "Release", targetFramework: "net8.0-windows", powerPointSafe: false },
       postprocess: { compare: false, polish: false, compress: false }
     }, null, 2)}\n`);
-    const input = path.join(inputDir, "page.png");
-    const job = createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "state"), ownerId: "test-user", input, output, config });
+    const inputs = [path.join(inputDir, "page-02.png"), path.join(inputDir, "page-01.png")];
+    const job = createEditableJob({ workspaceRoot: root, stateRoot: path.join(root, "state"), ownerId: "test-user", inputs, output, config });
     assert.throws(
       () => runEditableJob({ stateRoot: path.join(root, "state"), ownerId: "test-user", id: job.id }),
       /execution adapter is required/,
@@ -437,7 +456,7 @@ test("slideclone jobs produce a verifiable OpenXML PPTX artifact", { timeout: 12
     assert.equal(deliverySummary.inputDir, undefined);
     assert.equal(deliverySummary.outputDir, undefined);
     assert.equal(Object.values(deliverySummary.artifacts).flat().filter((value) => typeof value === "string").some(path.isAbsolute), false);
-    assert.equal(editableVisualSummary(completed, root)?.pages.count, 1);
+    assert.equal(editableVisualSummary(completed, root)?.pages.count, 2);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

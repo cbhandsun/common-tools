@@ -13,7 +13,7 @@
     "skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx.js": { "maxLines": 2123 },
     "skills/pd-hifi-slideclone/scripts/lib/component-asset-learning.js": { "maxLines": 2224 },
     "skills/pd-hifi-slideclone/scripts/lib/relationship-native-shell.js": { "maxLines": 2186 },
-    "skills/pd-hifi-slideclone/scripts/slideclone.js": { "maxLines": 1715 },
+    "skills/pd-hifi-slideclone/scripts/slideclone.js": { "maxLines": 1712 },
     "skills/pd-hifi-slideclone/scripts/component-plugin-action-queue.js": { "maxLines": 1578 },
     "test/native-rebuild.test.js": { "maxLines": 27165, "maxBytes": 1230637 },
     "test/component-template-native-shapes.test.js": { "maxLines": 3176 },

@@ -15,6 +15,9 @@ const MAX_ARTIFACT_CANDIDATES = 512;
 const MAX_VISUAL_REPORT_BYTES = 1024 * 1024;
 const VISUAL_REPORT_NAME = path.join("reports", "delivery-summary.json");
 const MAX_EDITABLE_INPUT_BYTES = 100 * 1024 * 1024;
+const MAX_EDITABLE_BATCH_INPUT_BYTES = 60 * 1024 * 1024;
+const MAX_EDITABLE_BATCH_INPUTS = 20;
+const MAX_EDITABLE_BATCH_PIXELS = 200_000_000;
 const MAX_EDITABLE_IMAGE_DIMENSION = 16384;
 const MAX_EDITABLE_IMAGE_PIXELS = 40_000_000;
 
@@ -39,9 +42,9 @@ function assertEditableConfig({ workspaceRoot, input, output, configFile }) {
   if (configInput !== path.dirname(input) || configOutput !== output) throw new Error("slideclone config inputDir and outputDir must match the requested input and output");
 }
 function assertEditableInputImage(file) {
-  const info = fs.statSync(file);
+  const info = fs.lstatSync(file);
   const extension = path.extname(file).toLowerCase();
-  if (!info.isFile() || info.size < 24 || info.size > MAX_EDITABLE_INPUT_BYTES || ![".png", ".jpg", ".jpeg"].includes(extension)) throw new Error("image-to-editable input must be a bounded PNG or JPEG image");
+  if (!info.isFile() || info.isSymbolicLink() || info.size < 24 || info.size > MAX_EDITABLE_INPUT_BYTES || ![".png", ".jpg", ".jpeg"].includes(extension)) throw new Error("image-to-editable input must be a bounded PNG or JPEG image");
   const buffer = fs.readFileSync(file);
   const isPng = extension === ".png" && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
   const isJpeg = (extension === ".jpg" || extension === ".jpeg") && buffer[0] === 0xff && buffer[1] === 0xd8;
@@ -49,21 +52,45 @@ function assertEditableInputImage(file) {
   const pixels = Number.isSafeInteger(size.widthPx) && Number.isSafeInteger(size.heightPx) ? size.widthPx * size.heightPx : 0;
   if ((!isPng && !isJpeg) || !Number.isSafeInteger(size.widthPx) || !Number.isSafeInteger(size.heightPx) || size.widthPx < 1 || size.heightPx < 1 || size.widthPx > MAX_EDITABLE_IMAGE_DIMENSION || size.heightPx > MAX_EDITABLE_IMAGE_DIMENSION || !Number.isSafeInteger(pixels) || pixels > MAX_EDITABLE_IMAGE_PIXELS) throw new Error("image-to-editable input image dimensions exceed the processing boundary");
   if (!hasCompleteImageContainer(buffer, extension)) throw new Error("image-to-editable input image is invalid");
+  return Object.freeze({ bytes: info.size, pixels });
 }
 
-function createEditableJob({ workspaceRoot, stateRoot, ownerId, input, output, config, idempotencyKey }) {
-  const approvedInput = insideRoot(workspaceRoot, input);
-  if (!fs.existsSync(approvedInput) || !fs.statSync(approvedInput).isFile()) throw new Error("input must be an existing file inside the workspace root");
+function resolveEditableInputPaths(workspaceRoot, input, inputs) {
+  if (input !== undefined && inputs !== undefined) throw new Error("image-to-editable accepts either input or inputs, not both");
+  const requested = inputs === undefined ? [input] : inputs;
+  if (!Array.isArray(requested) || requested.length < 1 || requested.length > MAX_EDITABLE_BATCH_INPUTS || requested.some((file) => typeof file !== "string" || !file.trim())) throw new Error("image-to-editable inputs must contain one to twenty image paths");
+  const approved = requested.map((file) => insideRoot(workspaceRoot, file));
+  const realFiles = approved.map((file) => {
+    if (!fs.existsSync(file)) throw new Error("input must be an existing file inside the workspace root");
+    return insideRoot(workspaceRoot, fs.realpathSync.native(file));
+  });
+  if (new Set(realFiles).size !== realFiles.length) throw new Error("image-to-editable inputs must not contain duplicates");
+  if (new Set(realFiles.map((file) => path.dirname(file))).size !== 1) throw new Error("image-to-editable batch inputs must share one directory");
+  return Object.freeze(realFiles);
+}
+
+function approvedEditableInputs(workspaceRoot, input, inputs, resolvedInputs) {
+  const approved = resolvedInputs || resolveEditableInputPaths(workspaceRoot, input, inputs);
+  const realFiles = approved.map((file) => Object.freeze({ file, ...assertEditableInputImage(file) }));
+  if (realFiles.length > 1) {
+    const bytes = realFiles.reduce((sum, item) => sum + item.bytes, 0); const pixels = realFiles.reduce((sum, item) => sum + item.pixels, 0);
+    if (!Number.isSafeInteger(bytes) || bytes > MAX_EDITABLE_BATCH_INPUT_BYTES) throw new Error("image-to-editable batch inputs exceed the total byte limit");
+    if (!Number.isSafeInteger(pixels) || pixels > MAX_EDITABLE_BATCH_PIXELS) throw new Error("image-to-editable batch inputs exceed the total pixel limit");
+  }
+  return Object.freeze(realFiles.map((item) => item.file));
+}
+function createEditableJob({ workspaceRoot, stateRoot, ownerId, input, inputs, output, config, idempotencyKey }) {
+  const resolvedInputs = resolveEditableInputPaths(workspaceRoot, input, inputs); const approvedInput = resolvedInputs[0];
   const approvedOutput = insideRoot(workspaceRoot, output);
   if (typeof config !== "string" || !config.trim()) throw new Error("image-to-editable requires a slideclone config inside the workspace root");
   const approvedConfig = insideRoot(workspaceRoot, config);
   if (!fs.existsSync(approvedConfig) || !fs.statSync(approvedConfig).isFile()) throw new Error("config must be an existing file inside the workspace root");
   assertEditableConfig({ workspaceRoot, input: approvedInput, output: approvedOutput, configFile: approvedConfig });
-  assertEditableInputImage(approvedInput);
+  const approvedInputs = approvedEditableInputs(workspaceRoot, input, inputs, resolvedInputs);
   const store = new JobStore({ root: stateRoot, ownerId });
-  const key = idempotencyKey || crypto.createHash("sha256").update(`${approvedInput}\u0000${approvedOutput}`).digest("hex");
+  const key = idempotencyKey || crypto.createHash("sha256").update(`${approvedInputs.join("\u0000")}\u0000${approvedOutput}`).digest("hex");
   const job = store.create({ id: crypto.randomUUID(), capability: CAPABILITY, idempotencyKey: assertNonEmptyString(key, "idempotencyKey"), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() });
-  if (!job.input) store.write({ ...job, input: { path: approvedInput }, output: { path: approvedOutput }, config: approvedConfig ? { path: approvedConfig } : null });
+  if (!job.input) store.write({ ...job, input: { path: approvedInput, ...(approvedInputs.length > 1 ? { paths: approvedInputs } : {}) }, output: { path: approvedOutput }, config: approvedConfig ? { path: approvedConfig } : null });
   return store.get(job.id);
 }
 
@@ -88,7 +115,7 @@ function runEditableJob({ stateRoot, ownerId, id, executeSlideclone, enhanceArti
   store.transition(id, "running", { attempt: job.attempt + 1, lease: { workerId: `host-${process.pid}`, heartbeatAt: new Date().toISOString(), expiresAt: job.expiresAt } });
   let result;
   try {
-    result = executeSlideclone(Object.freeze({ configPath: job.config.path, inputPath: job.input.path }));
+    result = executeSlideclone(Object.freeze({ configPath: job.config.path, inputPath: job.input.path, ...(Array.isArray(job.input.paths) ? { inputPaths: Object.freeze([...job.input.paths]) } : {}) }));
   } catch {
     result = null;
   }

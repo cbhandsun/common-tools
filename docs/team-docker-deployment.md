@@ -467,6 +467,14 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 common-tools team raw-image-archive --workspace . --input .\source.png --out .\upload-source.tar.gz
 ```
 
+For an explicitly ordered multi-page conversion, provide 2–20 workspace-contained PNG/JPEG paths as a comma-separated list. The archive writer assigns contiguous page names and enforces per-page and aggregate byte/pixel limits:
+
+```powershell
+common-tools team raw-image-archive --workspace . --inputs .\page-01.png,.\page-02.png --out .\upload-pages.tar.gz
+```
+
+The Worker processes pages in that declared order, requires a native graphical reconstruction on every page, isolates generated assets per page, and compares every rendered page with its normalized source. `raw-image-batch-validated`, `quality-rendered`, and `visual-fidelity` must pass before describing a batch as visually verified; fidelity metrics are the worst values across the batch. Source images in one batch must resolve to a consistent slide aspect ratio.
+
 将该 JSON 中的 `contentType` / `contentLength` 传给 `create_team_upload_target`，上传生成的 `.tar.gz` 到返回的受限 URL，再将返回的 `inputObjectKey` 与新的幂等键传给 `create_team_job`。本地归档命令不会上传文件、读取 token 或创建团队 Job。
 
 默认的团队图片 Worker 只接受下列 Deck IR 归档：

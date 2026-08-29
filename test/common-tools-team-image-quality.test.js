@@ -41,6 +41,20 @@ test("raw image visual quality fails closed for renderer failure without exposin
   } finally { fs.rmSync(files.root, { recursive: true, force: true }); }
 });
 
+test("raw image visual quality compares every batch page and reports worst-case metrics", async () => {
+  const files = fixture(); const second = path.join(files.root, "source-2.png"); fs.writeFileSync(second, "png2");
+  const compared = [];
+  const verify = createRawImageRenderQualityVerifier({
+    renderPresentation: async (_input, context) => ({ ok: true, data: { renderedPages: [{ image: path.join(context.outputDir, "page-1.png") }, { image: path.join(context.outputDir, "page-2.png") }] } }),
+    comparePageFiles: ({ pageIndex, sourceImage }) => { compared.push([pageIndex, path.basename(sourceImage)]); return { ok: true, pixelDiffRatio: pageIndex ? 0.1 : 0.02, foregroundMissingRatio: 0.01, meanAbsoluteDelta: 3 }; }
+  });
+  try {
+    const result = await verify({ root: files.root, pptxFile: files.pptxFile, sourceImages: [files.sourceImage, second], isCancellationRequested: async () => false });
+    assert.deepEqual(compared, [[0, "source.png"], [1, "source-2.png"]]);
+    assert.equal(result.passed, false); assert.equal(result.metrics["pixel-diff-ratio"], 0.1); assert.equal(result.metrics["quality-pages-compared"], 2);
+  } finally { fs.rmSync(files.root, { recursive: true, force: true }); }
+});
+
 test("raw image visual quality rejects invalid boundaries and preserves cancellation", async () => {
   assert.throws(() => createRawImageRenderQualityVerifier({ renderPresentation: async () => ({}), comparePageFiles: () => ({}), thresholds: { maximumPixelDiffRatio: 2 } }), /threshold/);
   const files = fixture();

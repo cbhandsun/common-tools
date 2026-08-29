@@ -55,8 +55,10 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.throws(() => parseSuite(["--suite", "slow"], {}), /one of/);
   assert.equal(classifyTestResource("test/font-fit.test.js"), "standard");
   assert.equal(classifyTestResource("test/real-pptx-native-network.test.js"), "memory-heavy");
+  assert.equal(classifyTestResource("test/common-tools-ppt-ir-editor-browser.test.js"), "memory-heavy");
   assert.equal(classifyTestResource("test/openxml-native-chart-smoke.test.js"), "external-process");
   assert.equal(classifyTestResource("test/common-tools-team-ocr-profile.test.js"), "external-process");
+  assert.equal(classifyTestResource("test/common-tools-mcp.test.js"), "external-process");
 });
 
 test("resource-aware execution isolates heavy shards while retaining standard parallelism", () => {

@@ -19,6 +19,9 @@ const IMAGE_EXTENSIONS = new Set([".bmp", ".gif", ".jpeg", ".jpg", ".png", ".tif
 const RAW_IMAGE_EXTENSIONS = new Set([".jpeg", ".jpg", ".png"]);
 const MAX_RAW_IMAGE_DIMENSION = 16384;
 const MAX_RAW_IMAGE_PIXELS = 40000000;
+const MAX_RAW_IMAGE_PAGES = 20;
+const MAX_RAW_IMAGE_TOTAL_BYTES = 60 * 1024 * 1024;
+const MAX_RAW_IMAGE_TOTAL_PIXELS = 200000000;
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function assertObjectStore(objectStore) {
@@ -86,7 +89,6 @@ function validatePackage(root) {
   return { kind: "deck-ir", deckFile, ...validateDeckIr(ir, root) };
 }
 function validateRawImagePackage(root) {
-  const expected = new Set(["assets", "assets/source.png", "assets/source.jpg", "assets/source.jpeg"]);
   const files = [];
   const queue = [root];
   while (queue.length) {
@@ -94,21 +96,31 @@ function validateRawImagePackage(root) {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const absolute = path.join(directory, entry.name);
       const relative = path.relative(root, absolute).split(path.sep).join("/");
-      if (!expected.has(relative)) throw new Error("raw editable archive contains an unsupported entry");
+      if (relative !== "assets" && !/^assets\/source(?:-\d{3})?\.(?:png|jpe?g)$/u.test(relative)) throw new Error("raw editable archive contains an unsupported entry");
       if (entry.isDirectory()) { if (relative !== "assets") throw new Error("raw editable archive contains an unsupported directory"); queue.push(absolute); continue; }
-      if (!entry.isFile() || !relative.startsWith("assets/source.")) throw new Error("raw editable archive contains an unsupported file");
+      if (!entry.isFile()) throw new Error("raw editable archive contains an unsupported file");
       files.push({ file: absolute, relative, extension: path.extname(entry.name).toLowerCase(), bytes: fs.statSync(absolute).size });
     }
   }
-  if (files.length !== 1 || !RAW_IMAGE_EXTENSIONS.has(files[0].extension) || files[0].bytes < 1 || files[0].bytes > MAX_ASSET_BYTES) {
-    throw new Error("raw editable archive requires exactly one bounded PNG or JPEG source image");
+  files.sort((left, right) => left.relative.localeCompare(right.relative, "en"));
+  const single = files.length === 1 && /^assets\/source\.(?:png|jpe?g)$/u.test(files[0]?.relative || "");
+  const batchNames = files.every((item, index) => item.relative === `assets/source-${String(index + 1).padStart(3, "0")}${item.extension}`);
+  const totalBytes = files.reduce((sum, item) => sum + item.bytes, 0);
+  if (files.length < 1 || files.length > MAX_RAW_IMAGE_PAGES || (!single && !batchNames) || !Number.isSafeInteger(totalBytes) || totalBytes > MAX_RAW_IMAGE_TOTAL_BYTES || files.some((item) => !RAW_IMAGE_EXTENSIONS.has(item.extension) || item.bytes < 1 || item.bytes > MAX_ASSET_BYTES)) {
+    throw new Error("raw editable archive requires one to twenty bounded, contiguously ordered PNG or JPEG source images");
   }
-  const dimensions = readRawImageDimensions(files[0].file, files[0].extension);
-  const pixels = dimensions.widthPx * dimensions.heightPx;
-  if (dimensions.widthPx > MAX_RAW_IMAGE_DIMENSION || dimensions.heightPx > MAX_RAW_IMAGE_DIMENSION || !Number.isSafeInteger(pixels) || pixels > MAX_RAW_IMAGE_PIXELS) {
-    throw new Error("raw editable image dimensions exceed worker limits");
+  let totalPixels = 0;
+  const sources = files.map((item, index) => {
+    const dimensions = readRawImageDimensions(item.file, item.extension);
+    const pixels = dimensions.widthPx * dimensions.heightPx;
+    totalPixels += pixels;
+    if (dimensions.widthPx > MAX_RAW_IMAGE_DIMENSION || dimensions.heightPx > MAX_RAW_IMAGE_DIMENSION || !Number.isSafeInteger(pixels) || pixels > MAX_RAW_IMAGE_PIXELS) throw new Error("raw editable image dimensions exceed worker limits");
+    return Object.freeze({ inputFile: item.file, assetPath: item.relative, dimensions, pageIndex: index });
+  });
+  if (!Number.isSafeInteger(totalPixels) || totalPixels > MAX_RAW_IMAGE_TOTAL_PIXELS) {
+    throw new Error("raw editable image pixels exceed the batch limit");
   }
-  return { kind: "raw-image", inputFile: files[0].file, assetPath: files[0].relative, dimensions, pages: 1, assets: 1 };
+  return { kind: "raw-image", sources, inputFile: sources[0].inputFile, assetPath: sources[0].assetPath, dimensions: sources[0].dimensions, pages: sources.length, assets: sources.length };
 }
 function readRawImageDimensions(file, extension) {
   const buffer = fs.readFileSync(file);
@@ -143,6 +155,49 @@ function residualDeduplicationStatus(deck, residual) {
   const erasedObjects = Number.isSafeInteger(residual?.erasedObjects) && residual.erasedObjects >= 0 ? residual.erasedObjects : 0;
   return Object.freeze({ required, passed: !required || (candidateObjects > 0 && erasedObjects === candidateObjects), candidateObjects, erasedObjects });
 }
+function namespaceRawPageAssets(deck, pageRoot, root, pageNumber) {
+  const sourceAssets = path.join(pageRoot, "assets");
+  const namespace = `page-${String(pageNumber).padStart(3, "0")}`;
+  const destinationAssets = path.join(root, "assets", namespace);
+  const replacements = new Map();
+  for (const entry of fs.readdirSync(sourceAssets, { withFileTypes: true })) {
+    if (!entry.isFile()) throw new Error("raw image rebuild produced an invalid asset tree");
+    const original = `assets/${entry.name}`; const replacement = `assets/${namespace}/${entry.name}`;
+    fs.mkdirSync(destinationAssets, { recursive: true }); fs.copyFileSync(path.join(sourceAssets, entry.name), path.join(destinationAssets, entry.name)); replacements.set(original, replacement);
+  }
+  function rewrite(value) {
+    if (Array.isArray(value)) { for (let index = 0; index < value.length; index += 1) value[index] = rewrite(value[index]); return value; }
+    if (!value || typeof value !== "object") return typeof value === "string" && replacements.has(value) ? replacements.get(value) : value;
+    for (const [key, item] of Object.entries(value)) value[key] = rewrite(item);
+    return value;
+  }
+  return rewrite(deck);
+}
+async function rebuildRawImages({ root, metadata, rawImageOcr, rawImageRebuilder, isCancellationRequested }) {
+  const pageDecks = []; const sourceImages = []; let slideSize; let candidateObjects = 0; let erasedObjects = 0;
+  for (const source of metadata.sources) {
+    if (await isCancellationRequested()) throw new Error("editable job was cancelled");
+    const pageRoot = path.join(root, ".raw-pages", String(source.pageIndex + 1).padStart(3, "0"));
+    fs.mkdirSync(path.join(pageRoot, "assets"), { recursive: true });
+    fs.copyFileSync(source.inputFile, path.join(pageRoot, ...source.assetPath.split("/")));
+    const ocr = await rawImageOcr({ inputFile: source.inputFile, dimensions: source.dimensions, pageIndex: source.pageIndex, isCancellationRequested });
+    if (await isCancellationRequested()) throw new Error("editable job was cancelled");
+    const rebuilt = await rawImageRebuilder({ root: pageRoot, metadata: source, ocr, pageIndex: source.pageIndex, isCancellationRequested });
+    const deck = rebuilt?.deck;
+    if (!deck || !Array.isArray(deck.pages) || deck.pages.length !== 1) throw new Error("raw image rebuild must produce exactly one page per source image");
+    if (!slideSize) slideSize = deck.slideSize;
+    else if (deck.slideSize?.widthPt !== slideSize.widthPt || deck.slideSize?.heightPt !== slideSize.heightPt) throw new Error("raw image batch sources must have a consistent slide aspect ratio");
+    namespaceRawPageAssets(deck, pageRoot, root, source.pageIndex + 1);
+    deck.pages[0].pageIndex = source.pageIndex; pageDecks.push(deck.pages[0]); sourceImages.push(rebuilt.sourceImage || source.inputFile);
+    const pageMetrics = nativeObjectMetrics(deck);
+    if (pageMetrics.graphicalObjects < 1) throw new Error(`native image rebuild produced no editable graphical objects for page ${source.pageIndex + 1}`);
+    const residual = residualDeduplicationStatus(deck, rebuilt?.residual);
+    if (residual.required && !residual.passed) throw new Error(`native image residual deduplication is incomplete for page ${source.pageIndex + 1}`);
+    candidateObjects += residual.candidateObjects; erasedObjects += residual.erasedObjects;
+  }
+  const deck = { version: "1.0", meta: { source: "team-raw-image-batch", reconstructionMode: "native-hybrid", sourceCount: metadata.sources.length }, slideSize, pages: pageDecks };
+  return { deck, sourceImages, residual: { candidateObjects, erasedObjects } };
+}
 function runBuilder({ executable, builderArgs = [], deckFile, outputFile, cwd, timeoutMs }) {
   if (typeof executable !== "string" || !path.isAbsolute(executable)) throw new Error("OpenXML builder executable is invalid");
   if (!Array.isArray(builderArgs) || builderArgs.some((arg) => typeof arg !== "string" || !arg)) throw new TypeError("OpenXML builder arguments are invalid");
@@ -168,9 +223,7 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       if (metadata.kind === "raw-image") {
         if (typeof rawImageOcr !== "function") throw new Error("raw editable image profile is not enabled for this worker");
         if (typeof rawImageRebuilder !== "function") throw new Error("raw editable native rebuild profile is not enabled for this worker");
-        const ocr = await rawImageOcr({ inputFile: metadata.inputFile, dimensions: metadata.dimensions, isCancellationRequested });
-        if (await isCancellationRequested()) throw new Error("editable job was cancelled");
-        const rebuilt = await rawImageRebuilder({ root, metadata, ocr, isCancellationRequested });
+        const rebuilt = await rebuildRawImages({ root, metadata, rawImageOcr, rawImageRebuilder, isCancellationRequested });
         const generatedDeck = rebuilt?.deck;
         metadata.deckFile = path.join(root, "deck.json");
         fs.writeFileSync(metadata.deckFile, `${JSON.stringify(generatedDeck)}\n`, "utf8");
@@ -178,7 +231,7 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
         const nativeMetrics = nativeObjectMetrics(generatedDeck);
         if (nativeMetrics.graphicalObjects < 1) throw new Error("native image rebuild produced no editable graphical objects");
         const residualDeduplication = residualDeduplicationStatus(generatedDeck, rebuilt?.residual);
-        metadata.pages = validated.pages; metadata.assets = validated.assets; metadata.nativeMetrics = nativeMetrics; metadata.normalizedSourceImage = rebuilt.sourceImage;
+        metadata.pages = validated.pages; metadata.assets = validated.assets; metadata.nativeMetrics = nativeMetrics; metadata.normalizedSourceImages = rebuilt.sourceImages;
         metadata.residualDeduplication = residualDeduplication;
       }
       const outputFile = path.join(root, createDelivery ? "source.pptx" : "deck.pptx");
@@ -187,9 +240,9 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       if (await isCancellationRequested()) throw new Error("editable job was cancelled");
       const raw = metadata.kind === "raw-image";
       const visualQuality = raw && rawImageQualityVerifier
-        ? await rawImageQualityVerifier({ root, pptxFile: outputFile, sourceImage: metadata.normalizedSourceImage, isCancellationRequested })
+        ? await rawImageQualityVerifier({ root, pptxFile: outputFile, sourceImage: metadata.normalizedSourceImages[0], sourceImages: metadata.normalizedSourceImages, isCancellationRequested })
         : null;
-      const checks = [{ name: raw ? "raw-image-validated" : "deck-ir-validated", passed: true }, { name: "assets-resolved", passed: true }];
+      const checks = [{ name: raw ? (metadata.pages > 1 ? "raw-image-batch-validated" : "raw-image-validated") : "deck-ir-validated", passed: true }, { name: "assets-resolved", passed: true }];
       if (raw) checks.push(
         { name: "native-graphics-rebuilt", passed: (metadata.nativeMetrics?.graphicalObjects || 0) > 0 },
         ...(metadata.residualDeduplication?.required ? [{ name: "residual-native-duplicates-removed", passed: metadata.residualDeduplication.passed }] : []),

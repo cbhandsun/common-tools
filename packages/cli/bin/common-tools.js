@@ -17,6 +17,7 @@ const { CAPABILITY: PPT_CREATE_CAPABILITY, createPptCreateJob, runPptCreateJob }
 const { persistEditorPatch, writeEditorPreview } = require("../../ppt-create-core/editor");
 const { createImageDeliveryArtifacts } = require("../../ppt-create-core/image-delivery");
 const { applyAndExportIrArtifacts, exportEditedIrArtifacts, persistIrEditorPatch } = require("../../ppt-create-core/ir-editor");
+const { startIrEditorSession } = require("../../ppt-create-core/ir-editor-session");
 const { loadContentProviderConfig } = require("../../ppt-create-core/content-provider-config");
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { persistPresentationPlan } = require("../../ppt-create-core/planner");
@@ -45,9 +46,9 @@ function bundledSlidecloneRunner() {
 const COMMAND_USAGE = [
   "usage: common-tools <command>",
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
-  "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team raw-image-archive --input <png|jpg> --out <archive.tar.gz> | team production-preflight | team keycloak-mcp-client [--apply --backup-file <new.json>]",
+  "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) --out <archive.tar.gz> | team production-preflight | team keycloak-mcp-client [--apply --backup-file <new.json>]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
-  "  editable init|create|run|apply-edit | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose [--provider-config <json> --provider-id <id>]|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|apply-edit|apply-ir-edit|finalize-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|layout-safe|typography-safe|editability-safe|audit-only] | job get|run|cancel"
+  "  editable init|create|run|batch|apply-edit | editable batch --inputs <ordered,csv> --out <directory> --config <json> | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose [--provider-config <json> --provider-id <id>]|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|edit-session|apply-edit|apply-ir-edit|finalize-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|layout-safe|typography-safe|editability-safe|audit-only] | job get|run|cancel"
 ].join("\n");
 
 function parse(argv) { const result = { _: [] }; for (let index = 0; index < argv.length; index += 1) { const item = argv[index]; if (!item.startsWith("--")) { result._.push(item); continue; } const next = argv[index + 1]; if (next && !next.startsWith("--")) { result[item.slice(2)] = next; index += 1; } else result[item.slice(2)] = true; } return result; }
@@ -551,8 +552,13 @@ async function main() {
     return report.exitCode;
   }
   if (area === "team" && action === "raw-image-archive") {
-    if (!args.input || !args.out) throw new Error("team raw-image-archive requires --input and --out");
-    const result = createRawImageArchive({ inputFile: resolveWorkspaceChild(ctx.workspaceRoot, args.input, "raw image archive input"), outputFile: resolveWorkspaceChild(ctx.workspaceRoot, args.out, "raw image archive output") });
+    if ((!args.input && !args.inputs) || (args.input && args.inputs) || !args.out) throw new Error("team raw-image-archive requires exactly one of --input or --inputs, plus --out");
+    const listedInputs = args.inputs === undefined ? undefined : String(args.inputs).split(",").map((item) => item.trim());
+    if (listedInputs && (listedInputs.some((item) => !item) || new Set(listedInputs).size !== listedInputs.length)) throw new Error("--inputs must be an ordered comma-separated list without empty or duplicate paths");
+    const result = createRawImageArchive({
+      ...(listedInputs ? { inputFiles: listedInputs.map((item) => resolveWorkspaceChild(ctx.workspaceRoot, item, "raw image archive input")) } : { inputFile: resolveWorkspaceChild(ctx.workspaceRoot, args.input, "raw image archive input") }),
+      outputFile: resolveWorkspaceChild(ctx.workspaceRoot, args.out, "raw image archive output")
+    });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return 0;
   }
@@ -615,6 +621,15 @@ async function main() {
     if (!args.input || !args.out || !args.config) throw new Error("editable run requires --input, --out, and --config");
     requireEnabledCapability(ctx, REGISTRATION.capability);
     const job = runCreatedLocalJob(ctx, createEditableJob({ ...ctx, input: args.input, output: args.out, config: args.config, idempotencyKey: args.idempotencyKey }));
+    process.stdout.write(`${JSON.stringify(job, null, 2)}\n`);
+    return 0;
+  }
+  if (area === "editable" && action === "batch") {
+    if (!args.inputs || !args.out || !args.config) throw new Error("editable batch requires --inputs, --out, and --config");
+    const inputs = String(args.inputs).split(",").map((item) => item.trim());
+    if (inputs.length < 2 || inputs.length > 20 || inputs.some((item) => !item) || new Set(inputs).size !== inputs.length) throw new Error("editable batch --inputs must contain two to twenty ordered, unique paths");
+    requireEnabledCapability(ctx, REGISTRATION.capability);
+    const job = runCreatedLocalJob(ctx, createEditableJob({ ...ctx, inputs: inputs.map((item) => resolveWorkspaceChild(ctx.workspaceRoot, item, "editable batch input")), output: args.out, config: args.config, idempotencyKey: args.idempotencyKey }));
     process.stdout.write(`${JSON.stringify(job, null, 2)}\n`);
     return 0;
   }
@@ -809,6 +824,15 @@ async function mainWithPptQuality() {
     const result = applyAndExportIrArtifacts({ workspaceRoot: ctx.workspaceRoot, input: args.input, patch: args.patch, output: args.out, template: args.template, buildPptx: buildCreatedPptx, buildPdf: buildPdfWithLibreOffice });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return 0;
+  }
+  if (area === "ppt" && action === "edit-session") {
+    if (!args.input || !args.out) throw new Error("ppt edit-session requires --input and --out");
+    requireEnabledCapability(ctx, PPT_CREATE_CAPABILITY);
+    const session = await startIrEditorSession({ workspaceRoot: ctx.workspaceRoot, input: args.input, output: args.out, template: args.template, buildPptx: buildCreatedPptx, buildPdf: buildPdfWithLibreOffice, openBrowser: args["no-open"] !== true });
+    process.stdout.write(`${JSON.stringify({ status: "ready", url: session.url }, null, 2)}\n`);
+    const completion = await session.completion;
+    process.stdout.write(`${JSON.stringify({ status: completion.status, ...(completion.result ? { output: completion.result.output, revision: completion.result.revision } : {}) }, null, 2)}\n`);
+    return completion.status === "completed" ? 0 : 1;
   }
   if (area === "ppt" && ["create", "enqueue"].includes(action)) {
     if (!args.input || !args.out) throw new Error(`ppt ${action} requires --input and --out`);

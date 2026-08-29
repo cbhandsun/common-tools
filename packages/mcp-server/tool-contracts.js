@@ -20,6 +20,7 @@ const { CAPABILITY: PPT_CREATE_CAPABILITY } = require("../ppt-create-core");
  */
 
 const STRING = Object.freeze({ type: "string", minLength: 1, maxLength: 4096 });
+const EDITABLE_INPUTS = Object.freeze({ type: "array", minItems: 1, maxItems: 20, uniqueItems: true, items: STRING });
 const JOB_ID = Object.freeze({ type: "string", minLength: 1, maxLength: 256 });
 const JOB_SCHEMA = Object.freeze({
   type: "object",
@@ -70,7 +71,13 @@ const REPORT_SCHEMA = Object.freeze({
 /** @type {ReadonlyArray<Readonly<ToolDefinition>>} */
 const TOOLS = Object.freeze([
   tool(null, "health_check", "Inspect locally available common-tools capability metadata.", objectInput({}, []), Object.freeze({ type: "object", required: ["runtime", "enabledCapabilities", "registrations"], properties: { runtime: STRING, enabledCapabilities: { type: "array", items: STRING }, registrations: { type: "array", items: { type: "object", additionalProperties: true } } }, additionalProperties: false }), annotations(true, false, true)),
-  tool(REGISTRATION.capability, "create_editable_job", "Create a controlled local image-to-editable job with an explicit workspace-contained slideclone config.", objectInput({ input: STRING, output: STRING, config: STRING, idempotencyKey: STRING }, ["input", "output", "config"]), JOB_SCHEMA, annotations(false, false, false)),
+  tool(REGISTRATION.capability, "create_editable_job", "Create a controlled local image-to-editable job from either one input or an ordered batch of inputs, with an explicit workspace-contained slideclone config.", Object.freeze({
+    ...objectInput({ input: STRING, inputs: EDITABLE_INPUTS, output: STRING, config: STRING, idempotencyKey: STRING }, ["output", "config"]),
+    oneOf: Object.freeze([
+      Object.freeze({ type: "object", required: Object.freeze(["input"]), properties: Object.freeze({ input: STRING }), additionalProperties: true }),
+      Object.freeze({ type: "object", required: Object.freeze(["inputs"]), properties: Object.freeze({ inputs: EDITABLE_INPUTS }), additionalProperties: true })
+    ])
+  }), JOB_SCHEMA, annotations(false, false, false)),
   tool(REGISTRATION.capability, "get_job", "Read a previously created job.", objectInput({ id: JOB_ID }, ["id"]), JOB_SCHEMA, annotations(true, false, true)),
   tool(REGISTRATION.capability, "cancel_job", "Request cooperative cancellation of a local job.", objectInput({ id: JOB_ID }, ["id"]), JOB_SCHEMA, annotations(false, false, true)),
   tool(REGISTRATION.capability, "list_job_artifacts", "List verified artifacts for a local job.", objectInput({ id: JOB_ID }, ["id"]), Object.freeze({ type: "object", required: ["id", "artifacts"], properties: { id: JOB_ID, artifacts: { type: "array", maxItems: 64, items: { type: "object", additionalProperties: true } } }, additionalProperties: false }), annotations(true, false, true)),

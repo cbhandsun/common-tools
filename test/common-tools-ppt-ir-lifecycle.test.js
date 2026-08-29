@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { deckIrFingerprint } = require("../packages/ppt-create-core/export");
+const { createIrEditorClientSource } = require("../packages/ppt-create-core/ir-editor-client");
 const { applyIrEditorPatch, createIrPreviewHtml } = require("../packages/ppt-create-core/ir-editor");
 
 function deck() {
@@ -40,6 +41,21 @@ test("editable IR lifecycle adds shapes, replaces local image paths, and manages
   assert.equal(result.ir.pages[0].images[0].assetPath, "assets/new.png");
   assert.equal(result.ir.pages[1].textBoxes.length, 0);
   assert.ok(result.checks.some((check) => check.name === "ir-page-lifecycle-validated"));
+});
+
+test("editable IR lifecycle safely edits native table cells and chart data", () => {
+  const source = deck();
+  source.pages[0].tables.push({ id: "table", type: "table", box: { x: 40, y: 140, w: 400, h: 180 }, rows: [["Metric", "Value"], ["Revenue", "12"]], style: {} });
+  source.pages[0].charts.push({ id: "chart", type: "column", box: { x: 480, y: 140, w: 400, h: 180 }, categories: ["Q1", "Q2"], series: [{ name: "Revenue", values: [12, 18] }], style: {} });
+  const result = applyIrEditorPatch(source, patch(source, [
+    { type: "set-table-cell", pageIndex: 0, objectId: "table", rowIndex: 1, columnIndex: 1, value: "24" },
+    { type: "set-chart-data", pageIndex: 0, objectId: "chart", chartType: "line", categories: ["Q1", "Q2", "Q3"], series: [{ name: "Revenue", values: [12, 18, 24] }] }
+  ]));
+  assert.equal(result.ir.pages[0].tables[0].rows[1][1], "24");
+  assert.equal(result.ir.pages[0].charts[0].type, "line");
+  assert.equal(result.ir.pages[0].charts[0].nativePayload.dataVerified, true);
+  assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-table-cell", pageIndex: 0, objectId: "table", rowIndex: 9, columnIndex: 0, value: "x" }])), /table cell target/u);
+  assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-chart-data", pageIndex: 0, objectId: "chart", chartType: "pie", categories: ["A", "B"], series: [{ name: "A", values: [1, 2] }, { name: "B", values: [3, 4] }] }])), /chart series/u);
 });
 
 test("editable page lifecycle rejects last-page deletion and invalid positions", () => {
@@ -82,7 +98,12 @@ test("editable IR preview blocks network access and refuses empty or oversized d
   assert.match(html, /aria-keyshortcuts="Control\+S Meta\+S"/u);
   assert.match(html, /已达到.*条安全上限/u);
   assert.match(html, /aspect-ratio:960\/540/u);
-  for (const marker of ["addText", "addShape", "duplicateObject", "deleteObject", "replaceImage", "addPage", "duplicatePage", "deletePage", "pageUp", "pageDown"]) assert.match(html, new RegExp(marker));
+  for (const marker of ["addText", "addShape", "duplicateObject", "deleteObject", "replaceImage", "editTable", "editChart", "addPage", "duplicatePage", "deletePage", "pageUp", "pageDown"]) assert.match(html, new RegExp(marker));
   assert.match(html, /page\+":"\+id/u);
+  assert.match(html, /semantic-editor/u);
+  assert.match(html, /showModal/u);
+  assert.match(html, /分类（每行一个，2–12 项）/u);
+  assert.doesNotMatch(html, /编辑图表 JSON|行号（从 1 开始）/u);
   assert.doesNotMatch(html, /script-src[^;]*unsafe-inline/u);
+  assert.doesNotThrow(() => new Function(createIrEditorClientSource({ maxOperations: 100, maxPatchBytes: 64 * 1024 })));
 });

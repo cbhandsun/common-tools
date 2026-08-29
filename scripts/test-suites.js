@@ -43,7 +43,9 @@ const INTEGRATION_TESTS = new Set([
 ]);
 const INTEGRATION_NAME_HINT = /(smoke|golden|benchmark|quality-gate|real-pptx|render|libreoffice|watch|harvest)/;
 const EXTERNAL_PROCESS_HINT = /(libreoffice|powerpoint-com|openxml.*(?:smoke|contract)|render|quality-gate|ocr)/;
+const EXTERNAL_PROCESS_TESTS = new Set(["common-tools-mcp.test.js"]);
 const MEMORY_HEAVY_HINT = /^(?:real-pptx-native|component-template-native-shapes|diagram-understanding|visual-atoms)/;
+const MEMORY_HEAVY_TESTS = new Set(["common-tools-ppt-ir-editor-browser.test.js"]);
 
 function parseSuite(argv = process.argv.slice(2), env = process.env) {
   const index = argv.indexOf("--suite");
@@ -83,8 +85,8 @@ function includesSuite(file, suite) {
 
 function classifyTestResource(file) {
   const name = path.basename(file);
-  if (EXTERNAL_PROCESS_HINT.test(name)) return "external-process";
-  if (MEMORY_HEAVY_HINT.test(name)) return "memory-heavy";
+  if (EXTERNAL_PROCESS_TESTS.has(name) || EXTERNAL_PROCESS_HINT.test(name)) return "external-process";
+  if (MEMORY_HEAVY_TESTS.has(name) || MEMORY_HEAVY_HINT.test(name)) return "memory-heavy";
   return "standard";
 }
 

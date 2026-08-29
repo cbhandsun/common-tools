@@ -697,7 +697,7 @@ MVP 截止在 **I3**：用户只安装 `image-to-editable-plugin`，在本地 Do
 
 ## 15. 当前实现状态（v0.1 基础设施）
 
-截至当前版本，I0、I1 和 I3 的**基础设施面**已经落地：npm workspace/锁文件与 CI 入口、任务状态机和受限路径、CLI、stdio MCP、能力启停、Codex/Claude 插件骨架、最小 Docker Worker 以及本地 Compose profile 都已存在。MCP 边界会拒绝未知参数；任务写入采用原子替换；容器以非 root 用户、只读根文件系统和受控 bind mount 运行。MCP 的 `create_editable_job` 同时暴露 `config` 参数，避免出现“能创建但无法交给 runner”的接口断层。
+截至当前版本，I0、I1 和 I3 的**基础设施面**已经落地：npm workspace/锁文件与 CI 入口、任务状态机和受限路径、CLI、stdio MCP、能力启停、Codex/Claude 插件骨架、最小 Docker Worker 以及本地 Compose profile 都已存在。MCP 边界会拒绝未知参数；任务写入采用原子替换；容器以非 root 用户、只读根文件系统和受控 bind mount 运行。MCP 的 `create_editable_job` 同时暴露 `config` 参数，并以互斥的 `input` 或有序 `inputs` 支持单图及 1–20 图本地任务，避免出现“能创建但无法交给 runner”或 CLI/MCP 批量能力不一致的接口断层。
 
 已在本机验证：锁文件安装、静态检查、通用能力回归、既有单元/契约/集成测试、Claude 插件与 marketplace 校验、Docker 镜像构建及 Compose Worker smoke。Docker 构建必须保留根目录的 `.dockerignore` 白名单，禁止把运行目录、用户文档或本地配置打进镜像。
 

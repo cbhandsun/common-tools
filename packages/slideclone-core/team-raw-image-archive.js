@@ -6,6 +6,8 @@ const path = require("node:path");
 const { readRawImageDimensions } = require("./team-worker");
 
 const MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES = 20 * 1024 * 1024;
+const MAX_RAW_IMAGE_ARCHIVE_TOTAL_BYTES = 60 * 1024 * 1024;
+const MAX_RAW_IMAGE_ARCHIVE_PAGES = 20;
 const MAX_RAW_IMAGE_DIMENSION = 16384;
 const MAX_RAW_IMAGE_PIXELS = 40000000;
 const RAW_IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);
@@ -46,21 +48,29 @@ function assertNewOutput(outputFile) {
   try { parentStat = fs.lstatSync(parent); } catch { throw new Error("raw image archive output directory is unavailable"); }
   if (!parentStat.isDirectory() || parentStat.isSymbolicLink()) throw new Error("raw image archive output directory is invalid");
 }
-function createRawImageArchive({ inputFile, outputFile }) {
-  const input = assertRegularInput(inputFile);
+function createRawImageArchive({ inputFile, inputFiles, outputFile }) {
+  const files = inputFiles === undefined ? [inputFile] : inputFiles;
+  if (!Array.isArray(files) || files.length < 1 || files.length > MAX_RAW_IMAGE_ARCHIVE_PAGES || files.some((file) => typeof file !== "string") || new Set(files).size !== files.length) throw new TypeError("raw image archive inputs must contain one to twenty unique files");
+  const inputs = files.map((file) => ({ file, ...assertRegularInput(file) }));
+  const totalBytes = inputs.reduce((sum, input) => sum + input.bytes, 0);
+  if (!Number.isSafeInteger(totalBytes) || totalBytes > MAX_RAW_IMAGE_ARCHIVE_TOTAL_BYTES) throw new Error("raw image archive inputs exceed the total byte limit");
   assertNewOutput(outputFile);
-  const body = fs.readFileSync(inputFile);
-  const dimensions = readRawImageDimensions(inputFile, input.extension);
-  const pixels = dimensions.widthPx * dimensions.heightPx;
-  if (dimensions.widthPx > MAX_RAW_IMAGE_DIMENSION || dimensions.heightPx > MAX_RAW_IMAGE_DIMENSION || !Number.isSafeInteger(pixels) || pixels > MAX_RAW_IMAGE_PIXELS) throw new Error("raw image archive input dimensions exceed team limits");
-  const assetPath = `assets/source${input.extension === ".png" ? ".png" : input.extension === ".jpg" ? ".jpg" : ".jpeg"}`;
-  const archive = require("node:zlib").gzipSync(Buffer.concat([tarEntry(assetPath, body), Buffer.alloc(1024)]), { level: 9 });
+  const sources = inputs.map((input, index) => {
+    const dimensions = readRawImageDimensions(input.file, input.extension);
+    const pixels = dimensions.widthPx * dimensions.heightPx;
+    if (dimensions.widthPx > MAX_RAW_IMAGE_DIMENSION || dimensions.heightPx > MAX_RAW_IMAGE_DIMENSION || !Number.isSafeInteger(pixels) || pixels > MAX_RAW_IMAGE_PIXELS) throw new Error("raw image archive input dimensions exceed team limits");
+    const suffix = inputs.length === 1 ? "" : `-${String(index + 1).padStart(3, "0")}`;
+    const extension = input.extension === ".png" ? ".png" : input.extension === ".jpg" ? ".jpg" : ".jpeg";
+    return Object.freeze({ file: input.file, assetPath: `assets/source${suffix}${extension}`, bytes: input.bytes, widthPx: dimensions.widthPx, heightPx: dimensions.heightPx });
+  });
+  const archive = require("node:zlib").gzipSync(Buffer.concat([...sources.map((source) => tarEntry(source.assetPath, fs.readFileSync(source.file))), Buffer.alloc(1024)]), { level: 9 });
   const temporary = `${outputFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
   try {
     fs.writeFileSync(temporary, archive, { mode: 0o600, flag: "wx" });
     fs.renameSync(temporary, outputFile);
   } catch (error) { try { fs.rmSync(temporary, { force: true }); } catch { /* Preserve the primary archive creation failure. */ } throw error; }
-  return Object.freeze({ archive: outputFile, contentType: "application/gzip", contentLength: archive.length, sha256: sha256(archive), source: Object.freeze({ bytes: input.bytes, widthPx: dimensions.widthPx, heightPx: dimensions.heightPx }) });
+  const sourceDetails = sources.map(({ assetPath, bytes, widthPx, heightPx }) => Object.freeze({ assetPath, bytes, widthPx, heightPx }));
+  return Object.freeze({ archive: outputFile, contentType: "application/gzip", contentLength: archive.length, sha256: sha256(archive), pages: sources.length, sources: Object.freeze(sourceDetails), ...(sources.length === 1 ? { source: sourceDetails[0] } : {}) });
 }
 
-module.exports = { MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES, RAW_IMAGE_EXTENSIONS, createRawImageArchive, tarEntry };
+module.exports = { MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES, MAX_RAW_IMAGE_ARCHIVE_PAGES, MAX_RAW_IMAGE_ARCHIVE_TOTAL_BYTES, RAW_IMAGE_EXTENSIONS, createRawImageArchive, tarEntry };

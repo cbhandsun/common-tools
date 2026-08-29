@@ -177,6 +177,32 @@ test("team image worker requires native graphical reconstruction for a raw image
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
 
+test("team image worker rebuilds an ordered raw-image batch into one page per source", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-batch-"));
+  const builderFile = path.join(temporaryRoot, "builder.js");
+  fs.writeFileSync(builderFile, "const fs=require('node:fs'); const i=process.argv.indexOf('--out'); fs.writeFileSync(process.argv[i + 1], Buffer.from('PK\\x03\\x04'));", "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"));
+  const calls = [];
+  const handler = createImageToEditableArchiveHandler({
+    temporaryRoot, builderExecutable: process.execPath, builderArgs: [builderFile],
+    rawImageOcr: async ({ pageIndex }) => { calls.push(`ocr-${pageIndex}`); return { lines: [] }; },
+    rawImageRebuilder: async ({ metadata, pageIndex }) => {
+      calls.push(`rebuild-${pageIndex}`);
+      const rebuilt = boundedOcrSourceDeck({ metadata, ocr: { lines: [] }, sourceImage: metadata.assetPath });
+      rebuilt.pages[0].shapes.push({ id: `shape-${pageIndex}`, type: "roundRect", box: { x: 4, y: 4, w: 120, h: 40 }, fill: "#FFFFFF", source: { editable: true, pageImage: metadata.assetPath } });
+      return { deck: rebuilt };
+    },
+    objectStore: { readObject: async () => archive([tarEntry("assets/source-001.png", source), tarEntry("assets/source-002.png", source)]), putObject: async () => {} }
+  });
+  try {
+    const output = await handler({ job: { capability: "image-to-editable", inputObjectKey: "owners/a/inputs/batch.tar.gz", outputPrefix: "owners/a/jobs/job-batch/" }, isCancellationRequested: async () => false });
+    assert.deepEqual(calls, ["ocr-0", "rebuild-0", "ocr-1", "rebuild-1"]);
+    assert.equal(output.quality.metrics.pages, 2);
+    assert.equal(output.quality.metrics["native-shapes"], 2);
+    assert.equal(output.quality.checks[0].name, "raw-image-batch-validated");
+  } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
+});
+
 test("team image worker rejects OCR-only raw-image output instead of claiming graphical editability", async () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-overlay-only-"));
   const source = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"));

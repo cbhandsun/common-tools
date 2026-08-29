@@ -53,7 +53,8 @@ function parseArgs(argv) {
     if (!next || next.startsWith("--")) {
       args[key] = true;
     } else {
-      args[key] = next;
+      if (key === "input-file" && args[key] !== undefined) args[key] = [...(Array.isArray(args[key]) ? args[key] : [args[key]]), next];
+      else args[key] = next;
       i += 1;
     }
   }
@@ -694,26 +695,22 @@ function matchingFinalRender(iterations, finalPptxFile) {
 
 function resolveRequestedInputFiles(value, inputDir) {
   if (value === undefined) return undefined;
-  if (typeof value !== "string" || !value.trim()) throw new Error("--input-file must be a non-empty file path");
+  const requested = Array.isArray(value) ? value : [value];
+  if (requested.length < 1 || requested.length > 20 || requested.some((file) => typeof file !== "string" || !file.trim())) throw new Error("--input-file must contain one to twenty file paths");
   const root = fs.realpathSync.native(inputDir);
-  const candidate = path.isAbsolute(value) ? path.resolve(value) : path.resolve(inputDir, value);
-  const relative = path.relative(root, candidate);
-  if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-    throw new Error("--input-file must be an existing child file of config.inputDir");
-  }
-  let info;
-  try {
-    info = fs.lstatSync(candidate);
-  } catch {
-    throw new Error("--input-file must be an existing child file of config.inputDir");
-  }
-  if (!info.isFile() || info.isSymbolicLink()) throw new Error("--input-file must be an existing non-symbolic child file of config.inputDir");
-  const actual = fs.realpathSync.native(candidate);
-  const actualRelative = path.relative(root, actual);
-  if (!actualRelative || actualRelative === ".." || actualRelative.startsWith(`..${path.sep}`) || path.isAbsolute(actualRelative)) {
-    throw new Error("--input-file must resolve inside config.inputDir");
-  }
-  return [actual];
+  const approved = requested.map((file) => {
+    const candidate = path.isAbsolute(file) ? path.resolve(file) : path.resolve(inputDir, file);
+    const relative = path.relative(root, candidate);
+    if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error("--input-file must be an existing child file of config.inputDir");
+    let info;
+    try { info = fs.lstatSync(candidate); } catch { throw new Error("--input-file must be an existing child file of config.inputDir"); }
+    if (!info.isFile() || info.isSymbolicLink()) throw new Error("--input-file must be an existing non-symbolic child file of config.inputDir");
+    const actual = fs.realpathSync.native(candidate); const actualRelative = path.relative(root, actual);
+    if (!actualRelative || actualRelative === ".." || actualRelative.startsWith(`..${path.sep}`) || path.isAbsolute(actualRelative)) throw new Error("--input-file must resolve inside config.inputDir");
+    return actual;
+  });
+  if (new Set(approved).size !== approved.length) throw new Error("--input-file must not contain duplicates");
+  return approved;
 }
 
 function hasTextMicroPolishOpportunity(compare, config = {}) {

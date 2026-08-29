@@ -105,6 +105,21 @@ test("CLI editable run creates and returns a bounded failed local Job when its r
   }
 });
 
+test("CLI editable batch admits an ordered local image list and keeps adapter failures bounded", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-cli-editable-batch-"));
+  try {
+    const fixture = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png");
+    const first = path.join(workspace, "first.png"); const second = path.join(workspace, "second.png"); const output = path.join(workspace, "output"); const config = path.join(workspace, "slideclone.config.json");
+    fs.copyFileSync(fixture, first); fs.copyFileSync(fixture, second);
+    fs.writeFileSync(config, JSON.stringify({ inputDir: workspace, outputDir: output, adapters: { ocr: "scripts/adapters/does-not-exist.js", vision: "scripts/adapters/vision-placeholder.js", pptx: "scripts/adapters/pptx-openxml-dotnet.js", render: "scripts/adapters/render-placeholder.js", diff: "scripts/adapters/diff-placeholder.js" } }), "utf8");
+    const result = spawnSync(process.execPath, [cli, "editable", "batch", "--workspace", workspace, "--state", path.join(workspace, "state"), "--inputs", "second.png,first.png", "--out", output, "--config", config], { encoding: "utf8", timeout: 30000, windowsHide: true });
+    assert.equal(result.status, 0, result.stderr); const job = JSON.parse(result.stdout);
+    assert.equal(job.status, "failed"); assert.deepEqual(job.input.paths.map((item) => path.basename(item)), ["second.png", "first.png"]); assert.equal(job.error.message.includes(workspace), false);
+    const rejected = spawnSync(process.execPath, [cli, "editable", "batch", "--workspace", workspace, "--inputs", "first.png,first.png", "--out", path.join(workspace, "other"), "--config", config], { encoding: "utf8", timeout: 30000, windowsHide: true });
+    assert.notEqual(rejected.status, 0); assert.match(rejected.stderr, /unique/);
+  } finally { fs.rmSync(workspace, { recursive: true, force: true }); }
+});
+
 test("CLI editable commands reject a malformed image before creating state", () => {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-cli-editable-image-invalid-"));
   try {

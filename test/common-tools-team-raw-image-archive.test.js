@@ -31,8 +31,26 @@ test("raw image archive writer creates the exact bounded team input profile", ()
     const packageInfo = validatePackage(extracted);
     assert.equal(packageInfo.kind, "raw-image");
     assert.equal(packageInfo.assetPath, "assets/source.png");
+    assert.equal(packageInfo.sources.length, 1);
     assert.throws(() => createRawImageArchive({ inputFile: fixture.image, outputFile: fixture.archive }), /already exists/);
     assert.equal(zlib.gunzipSync(fs.readFileSync(fixture.archive)).length > 512, true);
+  } finally { fs.rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test("raw image archive writer preserves explicit batch order and bounded page names", () => {
+  const fixture = workspaceFixture();
+  const second = path.join(fixture.root, "second.png");
+  const extracted = path.join(fixture.root, "batch-extracted");
+  fs.copyFileSync(fixture.image, second);
+  try {
+    const result = createRawImageArchive({ inputFiles: [second, fixture.image], outputFile: fixture.archive });
+    assert.equal(result.pages, 2); assert.equal(result.source, undefined);
+    assert.deepEqual(result.sources.map((source) => source.assetPath), ["assets/source-001.png", "assets/source-002.png"]);
+    fs.mkdirSync(extracted); extractProjectArchive(fs.readFileSync(fixture.archive), extracted, { label: "editable" });
+    const packageInfo = validatePackage(extracted);
+    assert.equal(packageInfo.pages, 2);
+    assert.deepEqual(packageInfo.sources.map((source) => source.assetPath), ["assets/source-001.png", "assets/source-002.png"]);
+    assert.throws(() => createRawImageArchive({ inputFiles: Array(21).fill(fixture.image), outputFile: path.join(fixture.root, "too-many.tar.gz") }), /one to twenty unique/);
   } finally { fs.rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -46,6 +64,8 @@ test("raw image archive CLI confines inputs and outputs to its workspace", () =>
     assert.equal(output.contentType, "application/gzip");
     assert.equal(path.basename(output.archive), "upload.tar.gz");
     assert.equal(fs.existsSync(path.join(fixture.root, "upload.tar.gz")), true);
+    const batch = childProcess.spawnSync(process.execPath, [cli, "team", "raw-image-archive", "--workspace", fixture.root, "--inputs", "source.png,source.png", "--out", "batch.tar.gz"], { encoding: "utf8", windowsHide: true });
+    assert.notEqual(batch.status, 0); assert.match(batch.stderr, /duplicate/);
     const outside = path.join(os.tmpdir(), `common-tools-outside-${process.pid}.png`);
     const rejected = childProcess.spawnSync(process.execPath, [cli, "team", "raw-image-archive", "--workspace", fixture.root, "--input", outside, "--out", "second.tar.gz"], { encoding: "utf8", windowsHide: true });
     assert.notEqual(rejected.status, 0);

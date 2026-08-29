@@ -17,6 +17,7 @@
     "./export": "./export.js",
     "./image-delivery": "./image-delivery.js",
     "./ir-editor": "./ir-editor.js",
+    "./ir-editor-session": "./ir-editor-session.js",
     "./ir-lifecycle": "./ir-lifecycle.js",
     "./ir-page-lifecycle": "./ir-page-lifecycle.js",
     "./libreoffice-pdf": "./libreoffice-pdf.js",

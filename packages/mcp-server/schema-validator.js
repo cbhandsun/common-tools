@@ -10,6 +10,9 @@ function isObject(value) {
 
 /** @param {unknown} value @param {JsonSchema} schema @returns {boolean} */
 function matchesSchema(value, schema) {
+  if (Array.isArray(schema.oneOf)) {
+    if (schema.oneOf.length < 1 || schema.oneOf.filter((candidate) => isObject(candidate) && matchesSchema(value, candidate)).length !== 1) return false;
+  }
   if (Array.isArray(schema.enum) && !schema.enum.includes(value)) return false;
   if (schema.type === "string") {
     if (typeof value !== "string") return false;
@@ -26,7 +29,9 @@ function matchesSchema(value, schema) {
   }
   if (schema.type === "array") {
     if (!Array.isArray(value)) return false;
+    if (typeof schema.minItems === "number" && value.length < schema.minItems) return false;
     if (typeof schema.maxItems === "number" && value.length > schema.maxItems) return false;
+    if (schema.uniqueItems === true && new Set(value).size !== value.length) return false;
     const itemSchema = schema.items;
     return !isObject(itemSchema) || value.every((item) => matchesSchema(item, itemSchema));
   }

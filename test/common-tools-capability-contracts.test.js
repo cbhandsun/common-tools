@@ -22,10 +22,22 @@ test("capability manifests exactly match local MCP registrations", () => {
   assert.deepEqual(assertCapabilityToolContracts({ manifests: CAPABILITY_MANIFESTS, tools: TOOLS }), expected);
 });
 
-test("image-to-editable MCP admission requires an explicit provider config", () => {
+test("image-to-editable MCP admission requires one input mode and an explicit provider config", () => {
   const tool = TOOLS.find((candidate) => candidate.name === "create_editable_job");
   assert.ok(tool);
-  assert.deepEqual(tool.inputSchema.required, ["input", "output", "config"]);
+  assert.deepEqual(tool.inputSchema.required, ["output", "config"]);
+  assert.equal(tool.inputSchema.properties.inputs.minItems, 1);
+  assert.equal(tool.inputSchema.properties.inputs.maxItems, 20);
+  assert.equal(tool.inputSchema.properties.inputs.uniqueItems, true);
+  const validate = compileSchema(tool.inputSchema);
+  const common = { output: "output", config: "slideclone.config.json" };
+  assert.equal(validate({ ...common, input: "page.png" }), true);
+  assert.equal(validate({ ...common, inputs: ["page-02.png", "page-01.png"] }), true);
+  assert.equal(validate(common), false);
+  assert.equal(validate({ ...common, input: "page.png", inputs: ["page.png"] }), false);
+  assert.equal(validate({ ...common, inputs: [] }), false);
+  assert.equal(validate({ ...common, inputs: ["page.png", "page.png"] }), false);
+  assert.equal(validate({ ...common, inputs: Array.from({ length: 21 }, (_, index) => `page-${index}.png`) }), false);
 });
 
 test("every local MCP tool publishes a closed input contract, output contract, and complete safety annotations", () => {
@@ -39,12 +51,13 @@ test("every local MCP tool publishes a closed input contract, output contract, a
 });
 
 test("portable schema validation covers empty, invalid, extreme, and undeclared values", () => {
-  const validate = compileSchema({ type: "object", required: ["name", "count", "items"], properties: { name: { type: "string", minLength: 1, maxLength: 4, pattern: "^[a-z]+$" }, count: { type: "integer", minimum: 1, maximum: 2 }, items: { type: "array", maxItems: 1, items: { type: "string", minLength: 1 } } }, additionalProperties: false });
+  const validate = compileSchema({ type: "object", required: ["name", "count", "items"], properties: { name: { type: "string", minLength: 1, maxLength: 4, pattern: "^[a-z]+$" }, count: { type: "integer", minimum: 1, maximum: 2 }, items: { type: "array", minItems: 1, maxItems: 1, uniqueItems: true, items: { type: "string", minLength: 1 } } }, additionalProperties: false });
   assert.equal(validate({ name: "safe", count: 2, items: ["x"] }), true);
-  assert.equal(validate({ name: "", count: 1, items: [] }), false);
-  assert.equal(validate({ name: "SAFE", count: 1, items: [] }), false);
-  assert.equal(validate({ name: "toolong", count: 1, items: [] }), false);
-  assert.equal(validate({ name: "safe", count: Number.MAX_SAFE_INTEGER, items: [] }), false);
+  assert.equal(validate({ name: "", count: 1, items: ["x"] }), false);
+  assert.equal(validate({ name: "SAFE", count: 1, items: ["x"] }), false);
+  assert.equal(validate({ name: "toolong", count: 1, items: ["x"] }), false);
+  assert.equal(validate({ name: "safe", count: Number.MAX_SAFE_INTEGER, items: ["x"] }), false);
+  assert.equal(validate({ name: "safe", count: 1, items: [] }), false);
   assert.equal(validate({ name: "safe", count: 1, items: ["x", "y"] }), false);
   assert.equal(validate({ name: "safe", count: 1, items: [], secret: "unexpected" }), false);
   assert.equal(validate(null), false);
