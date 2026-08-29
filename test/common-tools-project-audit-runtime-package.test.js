@@ -14,7 +14,7 @@ const {
   parseArguments,
   parsePackResult
 } = require("../scripts/build-project-audit-runtime-package");
-const { verifyProjectAuditPluginRuntime } = require("../scripts/sync-project-audit-plugin-runtime");
+const { mirrorDigest, verifyProjectAuditPluginRuntime } = require("../scripts/sync-project-audit-plugin-runtime");
 
 const repositoryRoot = path.resolve(__dirname, "..");
 const cli = path.join(repositoryRoot, "packages", "project-audit-runtime", "bin", "common-tools-audit.js");
@@ -81,5 +81,21 @@ test("Git Marketplace embeds a byte-synchronized runnable audit Runtime", () => 
     const diagnosis = JSON.parse(result.stdout);
     assert.equal(diagnosis.healthy, true);
     assert.equal(diagnosis.runtime, "project-audit-local");
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("project audit text mirror digests ignore checkout line endings without weakening binary checks", () => {
+  const root = temporaryRoot();
+  try {
+    const lf = path.join(root, "lf.js");
+    const crlf = path.join(root, "crlf.js");
+    const leftBinary = path.join(root, "left.bin");
+    const rightBinary = path.join(root, "right.bin");
+    fs.writeFileSync(lf, "one\ntwo\n");
+    fs.writeFileSync(crlf, "one\r\ntwo\r\n");
+    fs.writeFileSync(leftBinary, Buffer.from([0, 10, 1]));
+    fs.writeFileSync(rightBinary, Buffer.from([0, 13, 10, 1]));
+    assert.equal(mirrorDigest(lf), mirrorDigest(crlf));
+    assert.notEqual(mirrorDigest(leftBinary), mirrorDigest(rightBinary));
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

@@ -27,12 +27,19 @@ function listFiles(root) {
 function sourceFiles(repositoryRoot = REPOSITORY_ROOT) {
   return INCLUDED_DIRECTORIES.flatMap((directory) => listFiles(path.join(repositoryRoot, directory)).map((file) => `${directory}/${file}`)).sort();
 }
-function digest(file) { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
+const TEXT_EXTENSIONS = new Set([".js", ".json", ".md"]);
+function mirrorDigest(file) {
+  const bytes = fs.readFileSync(file);
+  const content = TEXT_EXTENSIONS.has(path.extname(file).toLowerCase())
+    ? bytes.toString("utf8").replace(/\r\n?/gu, "\n")
+    : bytes;
+  return crypto.createHash("sha256").update(content).digest("hex");
+}
 function verifyProjectAuditPluginRuntime({ repositoryRoot = REPOSITORY_ROOT, targetRoot = path.join(repositoryRoot, "plugins", "common-tools", "runtime", "project-audit") } = {}) {
   const expected = sourceFiles(repositoryRoot);
   const observed = listFiles(targetRoot);
   if (JSON.stringify(observed) !== JSON.stringify(expected)) throw new Error("embedded project audit Runtime file set is stale");
-  for (const relative of expected) if (digest(path.join(repositoryRoot, relative)) !== digest(path.join(targetRoot, relative))) throw new Error(`embedded project audit Runtime is stale: ${relative}`);
+  for (const relative of expected) if (mirrorDigest(path.join(repositoryRoot, relative)) !== mirrorDigest(path.join(targetRoot, relative))) throw new Error(`embedded project audit Runtime is stale: ${relative}`);
   return Object.freeze({ fileCount: expected.length, synchronized: true });
 }
 function syncProjectAuditPluginRuntime({ repositoryRoot = REPOSITORY_ROOT, targetRoot = path.join(repositoryRoot, "plugins", "common-tools", "runtime", "project-audit"), temporaryDirectory = fs.mkdtempSync } = {}) {
@@ -73,4 +80,4 @@ if (require.main === module) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-module.exports = { TARGET_ROOT, listFiles, parseArguments, sourceFiles, syncProjectAuditPluginRuntime, verifyProjectAuditPluginRuntime };
+module.exports = { TARGET_ROOT, listFiles, mirrorDigest, parseArguments, sourceFiles, syncProjectAuditPluginRuntime, verifyProjectAuditPluginRuntime };
