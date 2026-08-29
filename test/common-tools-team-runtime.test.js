@@ -68,7 +68,10 @@ test("team doctor redacts configuration values when configuration is invalid", (
 
 test("team doctor reports metrics enablement without exposing its secret", () => {
   const cli = path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
-  const environment = { ...process.env, COMMON_TOOLS_DATABASE_URL: "postgresql://database.internal/common_tools?sslmode=verify-full", COMMON_TOOLS_REDIS_URL: "rediss://redis.internal:6380", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "https://objects.internal", COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts" };
+  const inheritedEnvironment = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.toUpperCase().startsWith("COMMON_TOOLS_"))
+  );
+  const environment = { ...inheritedEnvironment, COMMON_TOOLS_DATABASE_URL: "postgresql://database.internal/common_tools?sslmode=verify-full", COMMON_TOOLS_REDIS_URL: "rediss://redis.internal:6380", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "https://objects.internal", COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts" };
   const disabled = spawnSync(process.execPath, [cli, "team", "doctor"], { encoding: "utf8", env: environment, windowsHide: true });
   assert.equal(disabled.status, 0);
   assert.equal(JSON.parse(disabled.stdout).metrics.enabled, false);
