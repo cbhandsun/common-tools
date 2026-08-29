@@ -37,6 +37,7 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
       assert.equal(payloadManifest.schemaVersion, 1);
       assert.equal(payloadManifest.runtimeVersion, REMOTE_PLUGIN_VERSION, "a plugin release must install a fresh local runtime revision");
       assert.ok(payloadManifest.files.some((entry) => entry.path === "packages/cli/bin/common-tools.js"));
+      assert.equal(payloadManifest.files.some((entry) => /OpenXmlDeckBuilder\/(?:bin|obj)\//u.test(entry.path)), false);
       const localRuntimeInstaller = fs.readFileSync(path.join(localRuntimeRoot, "install-local-runtime.ps1"), "utf8");
       assert.match(localRuntimeInstaller, /Get-FileHash/);
       assert.match(localRuntimeInstaller, /Refusing to replace an unmanaged common-tools command shim/);

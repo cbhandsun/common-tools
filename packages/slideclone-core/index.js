@@ -236,10 +236,12 @@ function verifiedJsonArtifact(job, outputReal, name, file) {
 function perPageVisualSummary(job, outputReal, delivery, pageCount) {
   const diffPath = plainObject(delivery.artifacts) && typeof delivery.artifacts.diffReport === "string" ? delivery.artifacts.diffReport : null;
   if (!diffPath) return null;
-  const resolvedDiffPath = path.isAbsolute(diffPath) ? diffPath : path.resolve(outputReal, diffPath);
+  const requestedDiffPath = path.isAbsolute(diffPath) ? path.resolve(diffPath) : path.resolve(outputReal, diffPath);
+  let resolvedDiffPath;
+  try { resolvedDiffPath = insideRoot(outputReal, requestedDiffPath); } catch { return null; }
   const diffName = path.relative(outputReal, resolvedDiffPath);
   if (!diffName || diffName === ".." || diffName.startsWith(`..${path.sep}`) || path.isAbsolute(diffName)) return null;
-  const diff = verifiedJsonArtifact(job, outputReal, diffName, resolvedDiffPath);
+  const diff = verifiedJsonArtifact(job, outputReal, diffName, requestedDiffPath);
   if (!diff || !Array.isArray(diff.document.metrics) || diff.document.metrics.length === 0 || diff.document.metrics.length > 100) return null;
   const seen = new Set();
   const pages = [];

@@ -19,6 +19,7 @@ const LOCAL_RUNTIME_SOURCE_PATHS = Object.freeze([
   "packages/capability-contracts", "packages/capability-manifests", "packages/capability-runtime", "packages/cli", "packages/mcp-server", "packages/remote-mcp-server", "packages/project-audit-core", "packages/ppt-create-core", "packages/ppt-improve-core", "packages/ppt-quality-core", "packages/slideclone-core", "packages/team-runtime",
   "scripts/verify-plugins.js", "scripts/verify-capability-contracts.js", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder", "skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet.js", "skills/pd-hifi-slideclone/scripts/lib", "package.json"
 ]);
+const OPENXML_BUILDER_ROOT = path.join(REPOSITORY_ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder");
 const REMOTE_CAPABILITY_GUIDANCE = Object.freeze({
   "image-to-editable": Object.freeze({ contentType: "application/gzip", input: "one approved source archive containing one image, an explicitly ordered image batch, one PDF, or one image-based PPTX accepted by the service" }),
   "project-audit": Object.freeze({ contentType: "application/gzip", input: "a single approved project archive containing only the intended audit input" }),
@@ -73,6 +74,12 @@ function pluginName(capability) {
   return capability ? `common-tools-remote-${capability}` : "common-tools-remote";
 }
 function sha256File(file) { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
+function localRuntimeCopyFilter(file) {
+  const name = path.basename(file);
+  if (["node_modules", ".git", ".codex", ".common-tools", "runs"].includes(name)) return false;
+  const relativeToBuilder = path.relative(OPENXML_BUILDER_ROOT, path.resolve(file));
+  return relativeToBuilder === "" || relativeToBuilder === ".." || relativeToBuilder.startsWith(`..${path.sep}`) || !["bin", "obj"].includes(name);
+}
 function listFiles(root) {
   const files = [];
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -154,7 +161,7 @@ function writeLocalRuntimePayload(hostRoot) {
     if (!fs.existsSync(source)) throw new Error(`local runtime source is unavailable: ${relative}`);
     const destination = path.join(payloadRoot, relative);
     fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.cpSync(source, destination, { recursive: true, force: false, filter: (file) => !["node_modules", ".git", ".codex", ".common-tools", "runs"].includes(path.basename(file)) });
+    fs.cpSync(source, destination, { recursive: true, force: false, filter: localRuntimeCopyFilter });
   }
   const files = listFiles(payloadRoot).map((file) => ({ path: path.relative(payloadRoot, file).split(path.sep).join("/"), sha256: sha256File(file) })).sort((left, right) => left.path.localeCompare(right.path));
   fs.writeFileSync(path.join(payloadRoot, "payload-manifest.json"), `${JSON.stringify({ schemaVersion: 1, runtimeVersion: LOCAL_RUNTIME_VERSION, files }, null, 2)}\n`, "utf8");
@@ -613,4 +620,4 @@ function main(argv = process.argv.slice(2)) {
 
 if (require.main === module) main();
 
-module.exports = { CAPABILITIES, LOCAL_RUNTIME_CAPABILITIES, LOCAL_RUNTIME_VERSION, REMOTE_CAPABILITY_CODES, REMOTE_CAPABILITY_GUIDANCE, REMOTE_CAPABILITY_SCOPES, REMOTE_PLUGIN_VERSION, connectionVerificationScript, generateRemotePluginBundles, installGuide, installationScript, localRuntimeInstaller, marketplaceMetadata, mcpConfiguration, parseArguments, parseCapabilities, parseLayout, parseOrigin, pluginName, remoteRouterSkill, remoteSkill, writeLocalRuntimePayload };
+module.exports = { CAPABILITIES, LOCAL_RUNTIME_CAPABILITIES, LOCAL_RUNTIME_VERSION, REMOTE_CAPABILITY_CODES, REMOTE_CAPABILITY_GUIDANCE, REMOTE_CAPABILITY_SCOPES, REMOTE_PLUGIN_VERSION, connectionVerificationScript, generateRemotePluginBundles, installGuide, installationScript, localRuntimeCopyFilter, localRuntimeInstaller, marketplaceMetadata, mcpConfiguration, parseArguments, parseCapabilities, parseLayout, parseOrigin, pluginName, remoteRouterSkill, remoteSkill, writeLocalRuntimePayload };

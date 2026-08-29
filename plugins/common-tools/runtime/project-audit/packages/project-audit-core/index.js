@@ -129,8 +129,8 @@ function projectAuditSummary(job, workspaceRoot) {
       try { return insideRoot(workspaceRoot, item.uri) === reportFile; } catch { return false; }
     }) : null;
     const stat = fs.lstatSync(reportFile);
-    const realWorkspaceRoot = fs.realpathSync(workspaceRoot);
-    const realReportFile = fs.realpathSync(reportFile);
+    const realWorkspaceRoot = fs.realpathSync.native(workspaceRoot);
+    const realReportFile = fs.realpathSync.native(reportFile);
     const reportRelative = path.relative(realWorkspaceRoot, realReportFile);
     if (!artifact || !stat.isFile() || stat.isSymbolicLink() || !reportRelative || reportRelative === ".." || reportRelative.startsWith(`..${path.sep}`) || path.isAbsolute(reportRelative) || stat.size < 2 || stat.size > MAX_REPORT_BYTES || sha256File(reportFile) !== artifact.sha256) throw new Error("unavailable");
     const report = JSON.parse(fs.readFileSync(reportFile, "utf8"));

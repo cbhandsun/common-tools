@@ -24,8 +24,9 @@ test("editable init writes a non-overwriting PaddleOCR text-overlay profile with
     assert.equal(result.profile, "editable-text-overlay-v1");
     assert.equal(result.ocrProvider, "paddleocr-local");
     const config = JSON.parse(fs.readFileSync(result.config, "utf8"));
-    assert.equal(config.inputDir, workspace);
-    assert.equal(config.outputDir, path.join(workspace, "output"));
+    const canonicalWorkspace = fs.realpathSync.native(workspace);
+    assert.equal(config.inputDir, canonicalWorkspace);
+    assert.equal(config.outputDir, path.join(canonicalWorkspace, "output"));
     assert.equal(config.adapters.normalize, "scripts/adapters/normalize-cli.js");
     assert.equal(config.adapters.ocr, "scripts/adapters/ocr-paddleocr-local.js");
     assert.equal(config.adapters.vision, "scripts/adapters/vision-editable-overlay.js");
