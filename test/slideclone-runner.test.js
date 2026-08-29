@@ -49,7 +49,7 @@ test("bundled slideclone runner fails closed when its fixed entry point is absen
 });
 
 function makeFixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-runner-test-"));
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-runner-test-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const script = path.join(root, "skills", "pd-hifi-slideclone", "scripts", "slideclone.js");
   const config = path.join(root, "slideclone.config.json");

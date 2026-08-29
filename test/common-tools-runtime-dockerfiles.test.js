@@ -16,6 +16,6 @@ test("runtime Dockerfiles load slideclone-core without skill-layer initializatio
 
 test("single-ingress gateway replaces rather than resets its nginx config mount", () => {
   const overlay = fs.readFileSync(path.join(ROOT, "deploy", "compose.team-single-ingress.yaml"), "utf8");
-  assert.match(overlay, /remote-mcp-gateway:[\s\S]*?\n    volumes:\n[\s\S]*?team-mcp-single-ingress\.conf/);
+  assert.match(overlay, /remote-mcp-gateway:[\s\S]*?\r?\n    volumes:\r?\n[\s\S]*?team-mcp-single-ingress\.conf/);
   assert.doesNotMatch(overlay, /remote-mcp-gateway:[\s\S]*?volumes:\s*!reset/);
 });
