@@ -289,6 +289,11 @@ test("production deployment script requires the read-only release preflight and 
   assert.match(script, /Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds/);
   assert.match(script, /Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds\s+\$preflight = Invoke-ProductionPreflight/s);
   assert.match(script, /team production-preflight/);
+  assert.match(script, /function Resolve-PreflightComposeFiles/);
+  assert.match(script, /\$composeFiles = @\(Resolve-PreflightComposeFiles @\(\$preflight\.composeFiles\)\)/);
+  assert.match(script, /compose\.team-siyuan-secret\.yaml/);
+  assert.match(script, /Production deployment preflight returned duplicate Compose files/);
+  assert.match(script, /Production deployment preflight returned an unsupported Compose file/);
   assert.match(script, /function Invoke-OidcDiscoveryPreflight/);
   assert.match(script, /common-tools-oidc-preflight\.js/);
   assert.match(script, /OIDC discovery preflight failed/);

@@ -16,10 +16,7 @@ $repositoryRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'team-runtime-operation-lock.ps1')
 $operationLock = Enter-CommonToolsTeamRuntimeOperationLock -Project $Project
 try {
-$composeFiles = @(
-  (Join-Path $repositoryRoot 'deploy/compose.team-api.yaml'),
-  (Join-Path $repositoryRoot 'deploy/compose.team-production.yaml')
-)
+$composeFiles = @()
 $profiles = @('team-api', 'team-maintenance')
 
 function Invoke-Compose([string[]]$Arguments) {
@@ -42,6 +39,36 @@ function Invoke-ProductionPreflight {
   catch { throw 'Production deployment preflight returned an invalid result' }
 }
 
+function Resolve-PreflightComposeFiles([object[]]$ReportedFiles) {
+  $allowedFiles = @(
+    'deploy/compose.team-api.yaml',
+    'deploy/compose.team-production.yaml',
+    'deploy/compose.team-siyuan-secret.yaml'
+  )
+  $relativeFiles = @($ReportedFiles)
+  if ($relativeFiles.Count -lt 2 -or $relativeFiles.Count -gt $allowedFiles.Count) {
+    throw 'Production deployment preflight returned an invalid Compose file set'
+  }
+  if (@($relativeFiles | Select-Object -Unique).Count -ne $relativeFiles.Count) {
+    throw 'Production deployment preflight returned duplicate Compose files'
+  }
+  foreach ($requiredFile in @('deploy/compose.team-api.yaml', 'deploy/compose.team-production.yaml')) {
+    if ($requiredFile -notin $relativeFiles) { throw 'Production deployment preflight omitted a required Compose file' }
+  }
+  $resolvedFiles = @()
+  foreach ($relativeFile in $relativeFiles) {
+    if ($relativeFile -isnot [string] -or $relativeFile -notin $allowedFiles) {
+      throw 'Production deployment preflight returned an unsupported Compose file'
+    }
+    $resolvedFile = Join-Path $repositoryRoot $relativeFile
+    if (-not (Test-Path -LiteralPath $resolvedFile -PathType Leaf)) {
+      throw 'Production deployment preflight returned a missing Compose file'
+    }
+    $resolvedFiles += $resolvedFile
+  }
+  return $resolvedFiles
+}
+
 function Invoke-OidcDiscoveryPreflight {
   $preflight = Join-Path $repositoryRoot 'packages/remote-mcp-server/bin/common-tools-oidc-preflight.js'
   # Keep Plan mode's stdout machine-readable. The OIDC helper intentionally
@@ -62,6 +89,7 @@ function Read-DeploymentPlan([string[]]$Capabilities) {
 
 Assert-DockerEngineAvailable -TimeoutSeconds $DockerEngineTimeoutSeconds
 $preflight = Invoke-ProductionPreflight
+$composeFiles = @(Resolve-PreflightComposeFiles @($preflight.composeFiles))
 if ($preflight.credentialSource -eq 'files') {
   $composeFiles += (Join-Path $repositoryRoot 'deploy/compose.team-production-secrets.yaml')
 } elseif ($preflight.credentialSource -ne 'direct') {
@@ -83,6 +111,7 @@ if ($Mode -eq 'Plan') {
     project = $Project
     credentialSource = $preflight.credentialSource
     enabledCapabilities = @($preflight.enabledCapabilities)
+    composeFiles = @($preflight.composeFiles)
     releaseEvidenceRevision = $preflight.releaseEvidence.revision
     releaseImages = @($preflight.releaseEvidence.images)
     releaseSignatureRequired = ($preflight.releaseSignature.required -eq $true)

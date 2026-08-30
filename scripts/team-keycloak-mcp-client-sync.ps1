@@ -33,11 +33,20 @@ $operationLock = Enter-CommonToolsTeamRuntimeOperationLock -Project $Project
 try {
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' 'Keycloak admin username'
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD' 'Keycloak admin password' -Secret
-  $backupDirectory = Join-Path $repositoryRoot 'artifacts/keycloak-mcp-client-backups'
-  New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
-  $backupFile = Join-Path $backupDirectory ("before-loopback-redirect-$(Get-Date -Format 'yyyyMMddTHHmmss')-$([Guid]::NewGuid().ToString('N')).json")
+  $timestamp = Get-Date -Format 'yyyyMMddTHHmmss'
+  $realmBackupDirectory = Join-Path $repositoryRoot 'artifacts/keycloak-realm-backups'
+  $realmEvidenceDirectory = Join-Path $repositoryRoot 'artifacts/keycloak-realm-evidence'
+  $clientBackupDirectory = Join-Path $repositoryRoot 'artifacts/keycloak-mcp-client-backups'
+  New-Item -ItemType Directory -Path $realmBackupDirectory -Force | Out-Null
+  New-Item -ItemType Directory -Path $realmEvidenceDirectory -Force | Out-Null
+  New-Item -ItemType Directory -Path $clientBackupDirectory -Force | Out-Null
+  $realmBackupFile = Join-Path $realmBackupDirectory ("before-hardening-$timestamp-$([Guid]::NewGuid().ToString('N')).json")
+  $realmEvidenceFile = Join-Path $realmEvidenceDirectory ("closed-realm-$timestamp-$([Guid]::NewGuid().ToString('N')).json")
+  $clientBackupFile = Join-Path $clientBackupDirectory ("before-loopback-redirect-$timestamp-$([Guid]::NewGuid().ToString('N')).json")
   $cli = Join-Path $repositoryRoot 'packages/cli/bin/common-tools.js'
-  & node $cli team keycloak-mcp-client --base-url "http://127.0.0.1:$KeycloakPort/id" --apply --backup-file $backupFile
+  & node $cli team keycloak-realm --base-url "http://127.0.0.1:$KeycloakPort/id" --apply --backup-file $realmBackupFile --evidence-file $realmEvidenceFile
+  if ($LASTEXITCODE -ne 0) { throw 'Keycloak closed realm synchronization failed' }
+  & node $cli team keycloak-mcp-client --base-url "http://127.0.0.1:$KeycloakPort/id" --apply --backup-file $clientBackupFile
   if ($LASTEXITCODE -ne 0) { throw 'Keycloak MCP OAuth client synchronization failed' }
 } finally {
   foreach ($name in $promptedEnvironmentNames) { [Environment]::SetEnvironmentVariable($name, $null, 'Process') }

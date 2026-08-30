@@ -15,7 +15,9 @@ test("standalone Keycloak MCP client sync is lock-protected, credential-minimal,
   assert.match(script, /COMMON_TOOLS_KEYCLOAK_ADMIN/);
   assert.match(script, /COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD/);
   assert.doesNotMatch(script, /COMMON_TOOLS_POSTGRES_PASSWORD|COMMON_TOOLS_REDIS_PASSWORD|COMMON_TOOLS_MINIO_PASSWORD/);
-  assert.match(script, /team keycloak-mcp-client --base-url "http:\/\/127\.0\.0\.1:\$KeycloakPort\/id" --apply --backup-file \$backupFile/);
+  assert.match(script, /team keycloak-realm --base-url "http:\/\/127\.0\.0\.1:\$KeycloakPort\/id" --apply --backup-file \$realmBackupFile --evidence-file \$realmEvidenceFile/);
+  assert.match(script, /team keycloak-mcp-client --base-url "http:\/\/127\.0\.0\.1:\$KeycloakPort\/id" --apply --backup-file \$clientBackupFile/);
+  assert.match(script, /artifacts\/keycloak-realm-evidence/);
   assert.match(script, /artifacts\/keycloak-mcp-client-backups/);
   assert.match(script, /foreach \(\$name in \$promptedEnvironmentNames\) \{ \[Environment\]::SetEnvironmentVariable\(\$name, \$null, 'Process'\) \}/);
   assert.doesNotMatch(script, /docker compose|Remove-Item|docker volume/);

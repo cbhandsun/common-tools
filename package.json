@@ -56,6 +56,7 @@
     "common-tools:sbom": "node scripts/generate-sbom.js",
     "common-tools:release-evidence": "node scripts/release-evidence.js",
     "common-tools:verify-release-evidence": "node scripts/release-evidence.js --verify",
+    "canary:remote-access-negative": "node scripts/remote-access-negative-canary.js",
     "slideclone:run": "node scripts/slideclone-profile.js run",
     "slideclone:validate": "node scripts/slideclone-profile.js validate",
     "slideclone:demo": "node scripts/slideclone-profile.js demo",

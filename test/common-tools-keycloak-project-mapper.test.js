@@ -27,8 +27,8 @@ function keycloakFetch(initial = []) {
   return { calls, fetchImpl, mappers };
 }
 
-function mcpClientFetch(redirectUris = ["http://127.0.0.1:54000/*"], attributes = {}, optionalScopeNames = MCP_OPTIONAL_CLIENT_SCOPE_NAMES, availableScopeNames = MCP_OPTIONAL_CLIENT_SCOPE_NAMES) {
-  let client = { id: "client-123", clientId: "common-tools-mcp", redirectUris: [...redirectUris], attributes: { ...attributes }, publicClient: true };
+function mcpClientFetch(redirectUris = ["http://127.0.0.1:54000/*"], attributes = {}, optionalScopeNames = MCP_OPTIONAL_CLIENT_SCOPE_NAMES, availableScopeNames = MCP_OPTIONAL_CLIENT_SCOPE_NAMES, clientOverrides = {}) {
+  let client = { id: "client-123", clientId: "common-tools-mcp", redirectUris: [...redirectUris], attributes: { ...attributes }, publicClient: true, standardFlowEnabled: true, directAccessGrantsEnabled: false, implicitFlowEnabled: false, serviceAccountsEnabled: false, authorizationServicesEnabled: false, fullScopeAllowed: false, ...clientOverrides };
   const availableScopes = availableScopeNames.map((name, index) => ({ id: `scope-${index + 1}`, name }));
   let optionalScopes = availableScopes.filter((scope) => optionalScopeNames.includes(scope.name));
   const calls = [];
@@ -144,14 +144,20 @@ test("Keycloak MCP client configuration apply snapshots the old state and preser
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-keycloak-client-"));
   try {
     const backupFile = path.join(temporary, "client-before.json");
-    const mock = mcpClientFetch(undefined, { "pkce.code.challenge.method": "S256", unrelated: "preserved" });
+    const mock = mcpClientFetch(undefined, { "pkce.code.challenge.method": "S256", unrelated: "preserved" }, MCP_OPTIONAL_CLIENT_SCOPE_NAMES, MCP_OPTIONAL_CLIENT_SCOPE_NAMES, { publicClient: false, standardFlowEnabled: false, directAccessGrantsEnabled: true, implicitFlowEnabled: true, serviceAccountsEnabled: true, authorizationServicesEnabled: true, fullScopeAllowed: true });
     assert.deepEqual(await synchronizeMcpClientRedirectUris({ ...credentials, apply: true, backupFile, fetchImpl: mock.fetchImpl }), { status: "updated", changed: true });
     const snapshot = JSON.parse(fs.readFileSync(backupFile, "utf8"));
-    assert.deepEqual(snapshot.client, { id: "client-123", clientId: "common-tools-mcp", redirectUris: ["http://127.0.0.1:54000/*"], issuerResponseExcluded: null, mcpScopeBindings: MCP_OPTIONAL_CLIENT_SCOPE_NAMES.map((name) => ({ name, binding: "optional" })) });
+    assert.deepEqual(snapshot.client, { id: "client-123", clientId: "common-tools-mcp", redirectUris: ["http://127.0.0.1:54000/*"], issuerResponseExcluded: null, flowSettings: { publicClient: false, standardFlowEnabled: false, directAccessGrantsEnabled: true, implicitFlowEnabled: true, serviceAccountsEnabled: true, authorizationServicesEnabled: true, fullScopeAllowed: true }, mcpScopeBindings: MCP_OPTIONAL_CLIENT_SCOPE_NAMES.map((name) => ({ name, binding: "optional" })) });
     assert.deepEqual(mock.client().redirectUris, MCP_NATIVE_LOOPBACK_REDIRECT_URIS);
     assert.equal(mock.client().attributes[MCP_ISSUER_RESPONSE_ATTRIBUTE], MCP_ISSUER_RESPONSE_VALUE);
     assert.equal(mock.client().attributes.unrelated, "preserved");
     assert.equal(mock.client().publicClient, true);
+    assert.equal(mock.client().standardFlowEnabled, true);
+    assert.equal(mock.client().directAccessGrantsEnabled, false);
+    assert.equal(mock.client().implicitFlowEnabled, false);
+    assert.equal(mock.client().serviceAccountsEnabled, false);
+    assert.equal(mock.client().authorizationServicesEnabled, false);
+    assert.equal(mock.client().fullScopeAllowed, false);
     assert.equal(redirectUrisMatch(mock.client()), true);
     assert.equal(mcpClientConfigurationMatches(mock.client()), true);
     assert.equal(mcpClientScopeConfigurationMatches(mock.scopeState()), true);
