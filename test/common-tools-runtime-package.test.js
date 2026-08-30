@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const packageManifest = require("../package.json");
@@ -87,4 +88,38 @@ test("runtime package verifier invokes npm through the current Node installation
   assert.equal(invocation.command, process.execPath);
   assert.equal(invocation.arguments.slice(1).join(" "), "pack --json");
   assert.match(invocation.arguments[0], /node_modules[\\/]npm[\\/]bin[\\/]npm-cli\.js$/);
+});
+
+test("runtime package verifier resolves hosted Linux and direct Node npm layouts", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-npm-layout-"));
+  try {
+    const hostedNode = path.join(root, "hosted", "bin", "node");
+    const hostedCli = path.join(root, "hosted", "lib", "node_modules", "npm", "bin", "npm-cli.js");
+    const directNode = path.join(root, "direct", "node.exe");
+    const directCli = path.join(root, "direct", "node_modules", "npm", "bin", "npm-cli.js");
+    for (const file of [hostedNode, hostedCli, directNode, directCli]) {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, "probe\n");
+    }
+    assert.equal(npmInvocation(["pack"], { execPath: hostedNode, npmExecPath: undefined }).arguments[0], hostedCli);
+    assert.equal(npmInvocation(["pack"], { execPath: directNode, npmExecPath: undefined }).arguments[0], directCli);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime package verifier rejects npm CLI paths outside the active Node installation", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-npm-boundary-"));
+  try {
+    const node = path.join(root, "active", "bin", "node");
+    const outsideCli = path.join(root, "outside", "node_modules", "npm", "bin", "npm-cli.js");
+    fs.mkdirSync(path.dirname(node), { recursive: true });
+    fs.mkdirSync(path.dirname(outsideCli), { recursive: true });
+    fs.writeFileSync(node, "probe\n");
+    fs.writeFileSync(outsideCli, "probe\n");
+    assert.throws(() => npmInvocation(["pack"], { execPath: node, npmExecPath: outsideCli }), /Node npm CLI is unavailable/);
+    assert.throws(() => npmInvocation(["pack"], { execPath: "relative-node", npmExecPath: outsideCli }), /Node executable path is invalid/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
