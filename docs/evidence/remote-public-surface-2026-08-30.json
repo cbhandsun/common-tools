@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-30T09:01:50.8386677Z",
+  "origin": "https://plugins.iepose.cn",
+  "checks": {
+    "health": {
+      "status": 200,
+      "minimalProductionResponse": false
+    },
+    "readiness": {
+      "status": 200,
+      "ready": true
+    },
+    "protectedResourceMetadata": {
+      "status": 200,
+      "capabilities": [
+        "image-to-editable",
+        "project-audit",
+        "siyuan-note"
+      ]
+    },
+    "anonymousMcp": {
+      "status": 401,
+      "rejected": true
+    }
+  },
+  "redaction": {
+    "containsToken": false,
+    "containsCookie": false,
+    "containsHeader": false,
+    "containsUserContent": false,
+    "containsObjectUrl": false,
+    "containsInstanceIdentifier": false
+  }
+}

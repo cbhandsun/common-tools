@@ -28,7 +28,7 @@ function keycloakFetch(initial = []) {
 }
 
 function mcpClientFetch(redirectUris = ["http://127.0.0.1:54000/*"], attributes = {}, optionalScopeNames = MCP_OPTIONAL_CLIENT_SCOPE_NAMES, availableScopeNames = MCP_OPTIONAL_CLIENT_SCOPE_NAMES) {
-  let client = { id: "client-123", clientId: "common-tools-mcp", redirectUris: [...redirectUris], attributes: { ...attributes }, publicClient: true };
+  let client = { id: "client-123", clientId: "common-tools-mcp", redirectUris: [...redirectUris], attributes: { ...attributes }, publicClient: true, standardFlowEnabled: true, directAccessGrantsEnabled: false, implicitFlowEnabled: false, serviceAccountsEnabled: false, authorizationServicesEnabled: false, fullScopeAllowed: false };
   const availableScopes = availableScopeNames.map((name, index) => ({ id: `scope-${index + 1}`, name }));
   let optionalScopes = availableScopes.filter((scope) => optionalScopeNames.includes(scope.name));
   const calls = [];
@@ -152,6 +152,12 @@ test("Keycloak MCP client configuration apply snapshots the old state and preser
     assert.equal(mock.client().attributes[MCP_ISSUER_RESPONSE_ATTRIBUTE], MCP_ISSUER_RESPONSE_VALUE);
     assert.equal(mock.client().attributes.unrelated, "preserved");
     assert.equal(mock.client().publicClient, true);
+    assert.equal(mock.client().standardFlowEnabled, true);
+    assert.equal(mock.client().directAccessGrantsEnabled, false);
+    assert.equal(mock.client().implicitFlowEnabled, false);
+    assert.equal(mock.client().serviceAccountsEnabled, false);
+    assert.equal(mock.client().authorizationServicesEnabled, false);
+    assert.equal(mock.client().fullScopeAllowed, false);
     assert.equal(redirectUrisMatch(mock.client()), true);
     assert.equal(mcpClientConfigurationMatches(mock.client()), true);
     assert.equal(mcpClientScopeConfigurationMatches(mock.scopeState()), true);
