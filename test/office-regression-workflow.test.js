@@ -170,8 +170,7 @@ test("Office workflow is scheduled, manually selectable, serialized and isolated
   assert.match(workflow, /PYTHON_BIN=\$pythonPath/u);
   assert.doesNotMatch(workflow, /actions\/setup-python/u);
   assert.match(workflow, /RUNNER_TOOL_CACHE: \$\{\{ runner[.]tool_cache \}\}/u);
-  assert.match(workflow, /cache: npm/u);
-  assert.match(workflow, /cache-dependency-path: package-lock[.]json/u);
+  assert.doesNotMatch(workflow, /cache: npm/u);
   assert.match(workflow, /Prepare cached Python runtimes/u);
   assert.match(workflow, /Validate cached runtimes and build locked [.]NET dependencies/u);
   assert.match(workflow, /slideclone:bootstrap-paddleocr/u);
