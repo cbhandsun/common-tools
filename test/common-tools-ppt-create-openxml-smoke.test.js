@@ -10,6 +10,7 @@ const { parsePresentationSpec } = require("../packages/ppt-create-core/spec");
 const { buildPptx } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker");
 const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
 const { inspectPptx } = require("../packages/ppt-quality-core");
+const { buildUserTemplateArchiveCase, writeCorpusTemplate } = require("../scripts/lib/ppt-create-template-archive-corpus");
 
 test("ppt-create OpenXML output contains native editable content without raster media", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-create-openxml-"));
@@ -37,11 +38,31 @@ test("production ppt-create worker forwards an admitted user template to OpenXML
   try {
     const input = fs.readFileSync(path.join(__dirname, "fixtures", "ppt-create", "basic.presentation.json"));
     const ir = createDeckIr(parsePresentationSpec(input)); const irFile = path.join(root, "deck.ir.json");
-    const templatePptx = path.join(root, "template.pptx"); const outFile = path.join(root, "templated.pptx");
+    const basePptx = path.join(root, "base.pptx"); const templatePptx = path.join(root, "template.pptx"); const outFile = path.join(root, "templated.pptx");
     fs.writeFileSync(irFile, `${JSON.stringify(ir, null, 2)}\n`, { flag: "wx", mode: 0o600 });
-    buildPptx({ irFile, outFile: templatePptx }); buildPptx({ irFile, outFile, templatePptx });
+    buildPptx({ irFile, outFile: basePptx }); writeCorpusTemplate(basePptx, templatePptx); buildPptx({ irFile, outFile, templatePptx });
+    assert.notDeepEqual(readZipEntry(basePptx, "ppt/slideMasters/slideMaster1.xml"), readZipEntry(templatePptx, "ppt/slideMasters/slideMaster1.xml"));
+    assert.match(readZipEntry(outFile, "ppt/slideMasters/slideMaster1.xml").toString("utf8"), /Controlled User Template Corpus/u);
     assert.deepEqual(readZipEntry(outFile, "ppt/slideMasters/slideMaster1.xml"), readZipEntry(templatePptx, "ppt/slideMasters/slideMaster1.xml"));
+    assert.notDeepEqual(readZipEntry(basePptx, "ppt/theme/theme1.xml"), readZipEntry(templatePptx, "ppt/theme/theme1.xml"));
+    assert.deepEqual(readZipEntry(outFile, "ppt/theme/theme1.xml"), readZipEntry(templatePptx, "ppt/theme/theme1.xml"));
     assert.equal(inspectPptx(outFile).slideCount, ir.pages.length);
+    const before = fs.readFileSync(templatePptx);
+    assert.throws(() => writeCorpusTemplate(basePptx, templatePptx), /already exists/u);
+    assert.deepEqual(fs.readFileSync(templatePptx), before);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("template archive corpus rejects valid but template-free builder output", { timeout: 60_000 }, async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-template-negative-"));
+  try {
+    const ir = createDeckIr(parsePresentationSpec(fs.readFileSync(path.join(__dirname, "fixtures", "ppt-create", "basic.presentation.json"))));
+    const irFile = path.join(root, "base.ir.json"); const templatePptx = path.join(root, "base.pptx");
+    fs.writeFileSync(irFile, JSON.stringify(ir), { flag: "wx" }); buildPptx({ irFile, outFile: templatePptx });
+    await assert.rejects(() => buildUserTemplateArchiveCase(root, templatePptx, {
+      buildPptx: ({ outFile }) => fs.copyFileSync(templatePptx, outFile, fs.constants.COPYFILE_EXCL),
+      renderLibreOffice: () => assert.fail("a dropped template must fail before renderer validation")
+    }), /template master was not preserved/u);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
