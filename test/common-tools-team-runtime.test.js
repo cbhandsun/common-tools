@@ -2,6 +2,8 @@
 
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
+const fs = require("node:fs");
+const os = require("node:os");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
@@ -82,26 +84,59 @@ test("team doctor redacts configuration values when configuration is invalid", (
   assert.match(result.stdout, /valid/);
 });
 
-test("team doctor reports metrics enablement without exposing its secret", () => {
+function dockerProbeFixture(t, state) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "team-doctor-metrics-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const preload = path.join(directory, "docker-probe.cjs");
+  const result = state === "available" ? { status: 0, stdout: "29.0.0", stderr: "" }
+    : state === "missing" ? { status: null, error: { code: "ENOENT" }, stdout: "", stderr: "" }
+      : { status: 1, stdout: "", stderr: "Docker daemon unavailable" };
+  fs.writeFileSync(preload, [
+    'const childProcess = require("node:child_process");',
+    "const original = childProcess.spawnSync; let probes = 0;",
+    "childProcess.spawnSync = function(command, args, options) {",
+    '  if (command !== "docker") return original.call(this, command, args, options);',
+    '  if (args.join(" ") !== "version --format {{.Server.Version}}") throw new Error("Unexpected Docker probe");',
+    `  probes += 1; return ${JSON.stringify(result)};`,
+    "};",
+    "process.on('exit', () => { if (probes !== 1) process.exitCode = 98; });"
+  ].join("\n"));
+  return preload;
+}
+
+for (const dockerState of ["available", "unavailable", "missing"]) test(`team doctor reports metrics without secrets when Docker is ${dockerState}`, (t) => {
   const cli = path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
   const inheritedEnvironment = Object.fromEntries(
     Object.entries(process.env).filter(([name]) => !name.toUpperCase().startsWith("COMMON_TOOLS_"))
   );
   const environment = { ...inheritedEnvironment, COMMON_TOOLS_DATABASE_URL: "postgresql://database.internal/common_tools?sslmode=verify-full", COMMON_TOOLS_REDIS_URL: "rediss://redis.internal:6380", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "https://objects.internal", COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts" };
-  const disabled = spawnSync(process.execPath, [cli, "team", "doctor"], { encoding: "utf8", env: environment, windowsHide: true });
-  assert.equal(disabled.status, 0);
-  assert.equal(JSON.parse(disabled.stdout).metrics.enabled, false);
+  const args = ["--require", dockerProbeFixture(t, dockerState), cli, "team", "doctor"];
+  const available = dockerState === "available";
+  const runDoctor = (overrides = {}) => spawnSync(process.execPath, args, {
+    encoding: "utf8", env: { ...environment, ...overrides }, windowsHide: true, timeout: 30000, maxBuffer: 1024 * 1024
+  });
+  const assertValidMetrics = (result, enabled) => {
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, available ? 0 : 2);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.valid, true);
+    assert.equal(report.docker.available, available);
+    assert.equal(report.metrics.enabled, enabled);
+  };
+  const disabled = runDoctor();
+  assertValidMetrics(disabled, false);
   const token = "metrics-token-abcdefghijklmnopqrstuvwxyz";
-  const enabled = spawnSync(process.execPath, [cli, "team", "doctor"], { encoding: "utf8", env: { ...environment, COMMON_TOOLS_METRICS_TOKEN: token }, windowsHide: true });
-  assert.equal(enabled.status, 0);
-  assert.equal(JSON.parse(enabled.stdout).metrics.enabled, true);
-  assert.equal(enabled.stdout.includes(token), false);
-  const fileEnabled = spawnSync(process.execPath, [cli, "team", "doctor"], { encoding: "utf8", env: { ...environment, COMMON_TOOLS_METRICS_TOKEN_FILE: "/run/secrets/metrics-token" }, windowsHide: true });
-  assert.equal(fileEnabled.status, 0);
-  assert.equal(JSON.parse(fileEnabled.stdout).metrics.enabled, true);
-  const invalid = spawnSync(process.execPath, [cli, "team", "doctor"], { encoding: "utf8", env: { ...environment, COMMON_TOOLS_METRICS_TOKEN: "invalid token" }, windowsHide: true });
+  const enabled = runDoctor({ COMMON_TOOLS_METRICS_TOKEN: token });
+  assertValidMetrics(enabled, true);
+  assert.equal((enabled.stdout + enabled.stderr).includes(token), false);
+  const fileEnabled = runDoctor({ COMMON_TOOLS_METRICS_TOKEN_FILE: "/run/secrets/metrics-token" });
+  assertValidMetrics(fileEnabled, true);
+  const invalid = runDoctor({ COMMON_TOOLS_METRICS_TOKEN: "invalid token" });
+  assert.equal(invalid.error, undefined);
   assert.equal(invalid.status, 2);
-  assert.equal(invalid.stdout.includes("invalid token"), false);
+  assert.equal(JSON.parse(invalid.stdout).valid, false);
+  assert.equal(JSON.parse(invalid.stdout).docker.available, available);
+  assert.equal((invalid.stdout + invalid.stderr).includes("invalid token"), false);
   assert.match(invalid.stdout, /COMMON_TOOLS_METRICS_TOKEN/);
 });
 
