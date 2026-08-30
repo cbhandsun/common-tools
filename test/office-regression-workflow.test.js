@@ -142,6 +142,8 @@ test("Office workflow is scheduled, manually selectable, serialized and isolated
   assert.doesNotMatch(workflow, /pull_request:\s*\n\s+paths:/u);
   assert.match(workflow, /detect-office-scope:/u);
   assert.match(workflow, /scripts\/office-regression-scope[.]js/u);
+  assert.match(workflow, /EVENT_NAME -eq 'pull_request'[\s\S]*BASE_SHA\)\.\.\.\$\(\$env:HEAD_SHA/u);
+  assert.match(workflow, /git diff --name-only \$env:BASE_SHA \$env:HEAD_SHA/u);
   assert.match(workflow, /office-regression-required:/u);
   assert.match(workflow, /if: always\(\)/u);
   assert.match(workflow, /OFFICE_RESULT[\s\S]*skipped/u);
