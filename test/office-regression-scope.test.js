@@ -17,6 +17,8 @@ test("Office regression scope selects PowerPoint implementation and dependency c
     "scripts/ppt-create-office-smoke.js",
     "scripts/lib/ppt-create-office-corpus.js",
     "scripts/lib/ppt-create-template-archive-corpus.js",
+    "scripts/lib/office-node-dependencies.js",
+    "scripts/office-node-dependencies.js",
     "packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker.js",
     "package-lock.json"
   ]) {
