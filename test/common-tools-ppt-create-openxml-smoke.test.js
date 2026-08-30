@@ -40,5 +40,8 @@ test("ppt-create writes citations as editable footer text and speaker notes as n
     const entries = listZipEntries(outFile).map((entry) => entry.name); assert.ok(entries.includes("ppt/notesSlides/notesSlide1.xml")); assert.ok(entries.includes("ppt/notesMasters/notesMaster1.xml")); assert.equal(inspectPptx(outFile).notesCount, 1);
     const slide = readZipEntry(outFile, "ppt/slides/slide2.xml").toString("utf8"); assert.match(slide, /\[1\] Primary measurement report/);
     const notes = readZipEntry(outFile, "ppt/notesSlides/notesSlide1.xml").toString("utf8"); assert.match(notes, /Explain the measurement boundary/); assert.match(notes, /https:\/\/example.com\/report/);
+    assert.match(notes, /ph type="sldImg"/); assert.match(notes, /ph type="body" idx="3"/); assert.match(notes, /ph type="sldNum"[^>]*idx="5"/);
+    const notesMaster = readZipEntry(outFile, "ppt/notesMasters/notesMaster1.xml").toString("utf8"); assert.match(notesMaster, /ph type="hdr"/); assert.match(notesMaster, /ph type="dt" idx="1"/); assert.match(notesMaster, /ph type="body"[^>]*idx="3"/); assert.match(notesMaster, /ph type="ftr"[^>]*idx="4"/);
+    const notesMasterRelationships = readZipEntry(outFile, "ppt/notesMasters/_rels/notesMaster1.xml.rels").toString("utf8"); assert.match(notesMasterRelationships, /Target="[^"]*theme2.xml"/); assert.doesNotMatch(notesMasterRelationships, /Target="[^"]*theme1.xml"/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

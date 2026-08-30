@@ -12,6 +12,7 @@ const OFFICE_PATHS = Object.freeze([
   "packages/ppt-improve-core/",
   "packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker.js",
   "scripts/cross-renderer-corpus-audit.js",
+  "scripts/lib/ppt-create-office-corpus.js",
   "scripts/lib/office-regression-evidence.js",
   "scripts/office-regression-scope.js",
   "scripts/ppt-create-office-smoke.js",

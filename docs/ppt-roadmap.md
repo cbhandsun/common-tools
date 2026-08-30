@@ -25,7 +25,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | P0 | 稳定的仓库门禁 | 已完成 | 保护 `main`；强制通过跨平台 CI、完整 verify 和稳定 Office 检查；要求解决审查会话；禁止强推和删除 | PR #10–#13 已验证 Branch Protection 和 Auto-merge | 仓库所有者 | 已完成 |
 | P0 | 稳定发布基线 | 已完成 | 存在可用于回滚的已知绿色源码 revision、安装包、SBOM、签名证据和镜像 digest | `v0.1.15`，Release run `33300262845`；后续 Release 可选 | 仓库所有者 | 已完成 |
-| P0 | 部署来源一致性 | 受阻 | 远程入口宣告的每项能力都存在于实际部署的 Git revision；记录部署 revision 和镜像 digest；未经 CI 的本地能力不得直接部署 | `siyuan-note` 源码和测试已进入待合入分支；线上仍需从通过 CI 的 `main` revision 重建并记录 digest，见 `docs/evidence/remote-public-surface-2026-08-30.json` | 服务所有者 | 下次部署 |
+| P0 | 部署来源一致性 | 受阻 | 远程入口宣告的每项能力都存在于实际部署的 Git revision；记录部署 revision 和镜像 digest；未经 CI 的本地能力不得直接部署 | `siyuan-note` 源码和测试已通过 PR #14 合入 `main`；线上仍需从通过 CI 的 `main` revision 重建并记录 digest，见 `docs/evidence/remote-public-surface-2026-08-30.json` | 服务所有者 | 下次部署 |
 | P0 | 封闭式身份创建 | 进行中 | 禁用自行注册、密码找回和外部身份提供商；只保留管理员创建的账号；删除账号后不能再获取新的访问权限 | realm 模板、同步命令和脱敏用户总数证据已实现并有回归测试；仍需对线上 realm 执行并保存证据 | 身份系统所有者 | 下次部署 |
 | P0 | OAuth 与能力访问门禁 | 进行中 | 匿名、格式错误、过期、issuer 错误、audience 错误、缺少 scope 和能力未启用的请求均失败；强制 Authorization Code + PKCE S256；禁用密码和 implicit grant；回调地址限制在受控 loopback 范围 | 客户端同步已显式禁用密码、implicit、service account 和 authorization service；`npm run canary:remote-access-negative` 已覆盖全部正负路径，待使用短期 canary token 对线上执行 | 身份系统所有者 | 下次部署 |
 | P0 | 不使用 MFA 的登录防滥用 | 进行中 | 启用有界的登录失败保护和入口限流；记录锁定与恢复方法；告警不得包含身份 Secret 或请求内容 | realm 模板已启用 5 次失败阈值、递增等待和 15 分钟上限；应用层主体限流已有测试，仍需验证线上 realm 和入口层未认证限流 | 身份系统所有者 | 下次部署 |
@@ -33,7 +33,7 @@
 | P0 | 远程图片转换 canary | 受阻 | 从所有者授权设备完成 OAuth、上传、创建 Job、等待完成、下载、PPTX 验证和清理；脱敏报告不得包含 token、对象 URL 或用户内容 | 尚无远程端到端 canary 报告 | 发布验收 | 下次部署 |
 | P1 | 远程 `ppt-create` 能力 | 受阻 | 远程 allowlist 启用 Worker；资源 metadata 宣告对应 scope；JSON Spec、素材归档和一个用户模板归档均可远程完成 | Worker 代码已存在，但远程资源 metadata 尚未宣告 `ppt-create`；三类远程 canary 待完成 | 服务所有者 | P0 canary 后 |
 | P1 | 授权设备安装 canary | 计划中 | 在所有者控制的干净设备上，通过固定 Marketplace 引用或固定客户端安装包完成安装、OAuth 和有效 PPTX 下载；不依赖仓库 clone 或未声明的 Runtime | 安装说明已固定到 `v0.1.15`；设备验收报告待完成 | 发布验收 | P0 canary 后 |
-| P1 | 独立的新建 PPT 语料 | 进行中 | 覆盖 4 套主题和全部 22 个布局；中文、英文和中英混排；表格、图表、模板、素材、备注、引用；空值、非法值、长内容和容量边界；具备 PowerPoint 与 LibreOffice 证据 | 当前新建 PPT smoke 仅覆盖 5 页、4 个语义组件和 2 页图片批次；需独立于 31 例图片重建 corpus 继续扩展 | PPT 质量验收 | 持续推进 |
+| P1 | 独立的新建 PPT 语料 | 进行中 | 覆盖 4 套主题和全部 22 个布局；中文、英文和中英混排；表格、图表、模板、素材、备注、引用；空值、非法值、长内容和容量边界；具备 PowerPoint 与 LibreOffice 证据 | 独立 corpus 已覆盖 4 套主题、22 个布局、30 页中文/英文/中英混排、表格、图表、受控素材、备注、引用及 8 类输入边界（含最大正文与容量），并已接入 PowerPoint 与 LibreOffice 门禁；仍需加入一个用户模板归档 | PPT 质量验收 | 持续推进 |
 | P1 | 三次兼容质量快照 | 进行中 | 相同环境 fingerprint 下连续 3 次通过，并且没有质量回退 | 当前已有 2 次兼容快照；还需 1 次兼容环境完整运行 | PPT 质量验收 | 下一次兼容运行 |
 | P2 | 经批准的内容与素材 Provider | 计划中 | 配置所有者批准的 Provider；具备有界失败、重试分类、素材来源与许可证证据以及安全测试 | 安全的内容 Provider 适配器已存在；Provider 选择、素材服务和验收证据仍待完成 | 服务所有者 | 可选 |
 | P2 | 自用运维闭环 | 进行中 | 具备基础 Job 容量限制、安全重试与恢复、加密 Secret 处理、备份恢复演练、就绪与 Worker 告警，以及明确的回滚联系人和路径 | quota、lease 恢复、备份脚本、指标和告警模板已存在；受管告警接收器、生产演练证据和回滚手册仍待完成 | 服务所有者 | 生产部署后 |
