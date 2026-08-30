@@ -3,6 +3,13 @@ runs/
 /ppt文档/
 /.codex/
 /.codex-temp/
+/.ci-state/
+/.codex-artifacts/
+/.codex-build/
+/.codex-remote-attachments/
+/.codex-tmp/
+/artifacts/
+*.pptx.inspect.ndjson
 .common-tools*/
 node_modules/
 *.log
