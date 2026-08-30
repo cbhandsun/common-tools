@@ -88,6 +88,8 @@ Keycloak 单入口同步会先固化封闭 realm，再同步 public OAuth client
 $env:COMMON_TOOLS_CANARY_URL = 'https://plugins.iepose.cn'
 $env:COMMON_TOOLS_CANARY_CAPABILITY = 'image-to-editable'
 $env:COMMON_TOOLS_CANARY_DISABLED_CAPABILITY = 'ppt-create'
+$env:COMMON_TOOLS_CANARY_PROJECT_ID = 'canary-project'
+$env:COMMON_TOOLS_CANARY_INPUT_OBJECT_KEY = 'owners/<valid-token-subject-sha256>/inputs/<existing-canary-object>'
 npm run canary:remote-access-negative
 ```
 

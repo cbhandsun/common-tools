@@ -153,6 +153,15 @@ function safeClientRedirectSnapshot(client, scopeState) {
     clientId: client.clientId === "common-tools-mcp" ? client.clientId : null,
     redirectUris: Array.isArray(client.redirectUris) ? client.redirectUris.filter((uri) => typeof uri === "string" && uri.length <= 2048).sort() : [],
     issuerResponseExcluded: clientAttributes(client)?.[MCP_ISSUER_RESPONSE_ATTRIBUTE] ?? null,
+    flowSettings: {
+      publicClient: typeof client.publicClient === "boolean" ? client.publicClient : null,
+      standardFlowEnabled: typeof client.standardFlowEnabled === "boolean" ? client.standardFlowEnabled : null,
+      directAccessGrantsEnabled: typeof client.directAccessGrantsEnabled === "boolean" ? client.directAccessGrantsEnabled : null,
+      implicitFlowEnabled: typeof client.implicitFlowEnabled === "boolean" ? client.implicitFlowEnabled : null,
+      serviceAccountsEnabled: typeof client.serviceAccountsEnabled === "boolean" ? client.serviceAccountsEnabled : null,
+      authorizationServicesEnabled: typeof client.authorizationServicesEnabled === "boolean" ? client.authorizationServicesEnabled : null,
+      fullScopeAllowed: typeof client.fullScopeAllowed === "boolean" ? client.fullScopeAllowed : null
+    },
     mcpScopeBindings: safeMcpScopeBindings(scopeState)
   };
 }

@@ -12,7 +12,8 @@ function response(status, body) {
 }
 
 const tokens = Object.freeze({ valid: "valid-token-value", expired: "expired-token-value", wrongIssuer: "wrong-issuer-token", wrongAudience: "wrong-audience-token", missingScope: "missing-scope-token" });
-const options = Object.freeze({ origin: "https://plugins.example.test", capability: "image-to-editable", disabledCapability: "ppt-create", tokens, timeoutMs: 1000 });
+const ownedInputObjectKey = `owners/${"a".repeat(64)}/inputs/canary.png`;
+const options = Object.freeze({ origin: "https://plugins.example.test", capability: "image-to-editable", disabledCapability: "ppt-create", projectId: "canary-project", inputObjectKey: ownedInputObjectKey, tokens, timeoutMs: 1000 });
 
 test("remote access canary covers all authorization boundaries and emits only redacted evidence", async () => {
   const seen = [];
@@ -21,15 +22,16 @@ test("remote access canary covers all authorization boundaries and emits only re
     const token = request.headers.Authorization?.replace(/^Bearer /, "");
     if (!token || ["malformed-fixed-token", tokens.expired, tokens.wrongIssuer, tokens.wrongAudience].includes(token)) return response(401, { error: "unauthorized" });
     if (token === tokens.valid && seen.at(-1).body.method === "initialize") return response(200, { jsonrpc: "2.0", id: 1, result: { serverInfo: { name: "common-tools" } } });
-    return response(200, { jsonrpc: "2.0", id: 2, result: { isError: true, content: [{ type: "text", text: "not authorized" }] } });
+    return response(200, { jsonrpc: "2.0", id: 2, result: { isError: true, content: [{ type: "text", text: "capability is not authorized for this principal" }] } });
   };
   const report = await runRemoteAccessCanary(options, fetchImpl);
   assert.equal(report.passed, true);
   assert.deepEqual(report.cases.map((entry) => entry.name), ["anonymous", "malformed", "expired", "wrongIssuer", "wrongAudience", "valid", "missingScope", "disabledCapability"]);
   const serialized = JSON.stringify(report);
   for (const token of Object.values(tokens)) assert.equal(serialized.includes(token), false);
-  assert.equal(serialized.includes("canary/not-used"), false);
+  assert.equal(serialized.includes(ownedInputObjectKey), false);
   assert.equal(seen.every((entry) => entry.url === "https://plugins.example.test/mcp"), true);
+  assert.equal(seen.slice(-2).every((entry) => entry.body.params.arguments.projectId === "canary-project" && entry.body.params.arguments.inputObjectKey === ownedInputObjectKey), true);
 });
 
 test("remote access canary fails closed on status drift, unsafe origins, invalid tokens, and oversized responses", async () => {
@@ -39,6 +41,22 @@ test("remote access canary fails closed on status drift, unsafe origins, invalid
   assert.throws(() => canaryOptions({ COMMON_TOOLS_CANARY_URL: "https://plugins.example.test", COMMON_TOOLS_CANARY_CAPABILITY: "image-to-editable", COMMON_TOOLS_CANARY_DISABLED_CAPABILITY: "ppt-create" }), /token/);
   const oversized = { status: 401, headers: { get() { return String(MAX_RESPONSE_BYTES + 1); } }, async text() { return "{}"; } };
   await assert.rejects(() => runRemoteAccessCanary(options, async () => oversized), /request failed/);
+});
+
+test("remote access canary rejects generic, validation, and project authorization errors as capability evidence", async () => {
+  for (const message of ["team tool failed", "tool argument projectId is required", "project access is not authorized for this principal"]) {
+    const fetchImpl = async (_url, request) => {
+      const body = JSON.parse(request.body);
+      if (body.method === "initialize") return response(200, { jsonrpc: "2.0", id: body.id, result: { serverInfo: { name: "common-tools" } } });
+      return response(200, { jsonrpc: "2.0", id: body.id, result: { isError: true, content: [{ type: "text", text: message }] } });
+    };
+    const report = await runRemoteAccessCanary(options, fetchImpl);
+    assert.equal(report.passed, false);
+    assert.equal(report.cases.find((entry) => entry.name === "missingScope").passed, false);
+    assert.equal(report.cases.find((entry) => entry.name === "disabledCapability").passed, false);
+  }
+  await assert.rejects(() => runRemoteAccessCanary({ ...options, projectId: "INVALID" }, async () => response(401, {})), /project ID/);
+  await assert.rejects(() => runRemoteAccessCanary({ ...options, inputObjectKey: "canary/not-owned" }, async () => response(401, {})), /input object key/);
 });
 
 test("committed public-surface evidence is aggregate-only and records the production health blocker", () => {
