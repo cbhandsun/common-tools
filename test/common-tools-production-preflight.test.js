@@ -153,6 +153,29 @@ test("production preflight supports the ppt-quality-only Worker without requirin
   assert.deepEqual(composeInput, { remoteImage: environment.COMMON_TOOLS_REMOTE_IMAGE, imageWorkerImage: undefined, enabledCapabilities: ["ppt-quality"] });
 });
 
+test("production preflight supports direct SiYuan access without requiring a Worker image", () => {
+  const environment = productionEnvironment({
+    COMMON_TOOLS_TEAM_CAPABILITIES: "siyuan-note",
+    COMMON_TOOLS_SIYUAN_URL: "http://host.docker.internal:6806",
+    COMMON_TOOLS_SIYUAN_TOKEN: "local-token-kept-out-of-reports"
+  });
+  delete environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE;
+  const report = inspectProductionRelease(environment);
+  assert.deepEqual(report.enabledCapabilities, ["siyuan-note"]);
+  assert.deepEqual(report.composeFiles, ["deploy/compose.team-api.yaml", "deploy/compose.team-production.yaml"]);
+  assert.equal(JSON.stringify(report).includes(environment.COMMON_TOOLS_SIYUAN_TOKEN), false);
+
+  const fileReport = inspectProductionRelease({
+    ...environment,
+    COMMON_TOOLS_SIYUAN_TOKEN: undefined,
+    COMMON_TOOLS_SIYUAN_TOKEN_FILE: "C:\\secure\\siyuan-token"
+  });
+  assert.deepEqual(fileReport.composeFiles, ["deploy/compose.team-api.yaml", "deploy/compose.team-production.yaml", "deploy/compose.team-siyuan-secret.yaml"]);
+  assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_TOKEN: undefined }), /exactly one SiYuan token source/);
+  assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_TOKEN_FILE: "C:\\secure\\siyuan-token" }), /exactly one SiYuan token source/);
+  assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_URL: "" }), /COMMON_TOOLS_SIYUAN_URL/);
+});
+
 test("production preflight supports the PPT improve pipeline without requiring an unused image Worker image", () => {
   const environment = productionEnvironment({ COMMON_TOOLS_TEAM_CAPABILITIES: "ppt-improve" });
   delete environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE;
@@ -239,4 +262,10 @@ test("resolved production Compose cannot regain build paths, local ports, or loc
     "ppt-improve-worker": service(remoteImage)
   } };
   assert.equal(validateResolvedProductionCompose(pptImproveOnly, { remoteImage, enabledCapabilities: ["ppt-improve"] }), true);
+  const siyuanOnly = { services: {
+    "team-migrate": { image: remoteImage, environment },
+    "remote-mcp": { ...service(remoteImage), environment: { ...environment, COMMON_TOOLS_REMOTE_BACKEND: "postgres-redis-s3", COMMON_TOOLS_REQUIRE_PROJECT_RBAC: "true", COMMON_TOOLS_REMOTE_HOST: "0.0.0.0" } },
+    "team-retention": service(remoteImage)
+  } };
+  assert.equal(validateResolvedProductionCompose(siyuanOnly, { remoteImage, enabledCapabilities: ["siyuan-note"] }), true);
 });

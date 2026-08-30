@@ -198,7 +198,7 @@ test("CLI lists separately installable capabilities only after package verificat
     const catalog = JSON.parse(listed.stdout);
     assert.equal(catalog.distributionVerified, true);
     assert.deepEqual(catalog.capabilities.map((item) => item.capability), capabilities);
-    assert.deepEqual(catalog.capabilities.map((item) => item.runtimeEnabled), [true, false, false, false, false]);
+    assert.deepEqual(catalog.capabilities.map((item) => item.runtimeEnabled), [true, false, false, false, false, false]);
     assert.deepEqual(catalog.capabilities.map((item) => item.lifecycle), Array.from({ length: capabilities.length }, () => ({ status: "active" })));
     assert.equal(catalog.capabilities[0].team.oauthScope, "common-tools:capability:image-to-editable");
     const improvement = catalog.capabilities.find((item) => item.capability === "ppt-improve");
@@ -212,7 +212,7 @@ test("CLI lists separately installable capabilities only after package verificat
     assert.equal(verified.status, 0, verified.stderr);
     const verification = JSON.parse(verified.stdout);
     assert.deepEqual(verification.capabilities, capabilities);
-    assert.deepEqual(verification.capabilityContracts, { capabilities, toolCount: 13 });
+    assert.deepEqual(verification.capabilityContracts, { capabilities, toolCount: 18 });
 
     const enabledAudit = spawnSync(process.execPath, [cli, "plugin", "enable", "--workspace", path.dirname(state), "--state", state, "--capability", "project-audit"], { encoding: "utf8", windowsHide: true });
     assert.equal(enabledAudit.status, 0, enabledAudit.stderr);
@@ -220,7 +220,7 @@ test("CLI lists separately installable capabilities only after package verificat
     fs.writeFileSync(path.join(path.dirname(state), ".common-tools", "runtime.json"), JSON.stringify({ allowedCapabilities: ["project-audit"] }), "utf8");
     const scoped = spawnSync(process.execPath, [cli, "plugin", "list", "--workspace", path.dirname(state), "--state", state], { encoding: "utf8", windowsHide: true });
     assert.equal(scoped.status, 0, scoped.stderr);
-    assert.deepEqual(JSON.parse(scoped.stdout).capabilities.map((item) => item.runtimeEnabled), [false, false, false, false, true]);
+    assert.deepEqual(JSON.parse(scoped.stdout).capabilities.map((item) => item.runtimeEnabled), [false, false, false, false, true, false]);
     const status = spawnSync(process.execPath, [cli, "plugin", "status", "--workspace", path.dirname(state), "--state", state], { encoding: "utf8", windowsHide: true });
     assert.equal(status.status, 0, status.stderr);
     assert.deepEqual(JSON.parse(status.stdout).effectiveCapabilities, ["project-audit"]);

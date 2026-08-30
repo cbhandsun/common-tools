@@ -8,6 +8,7 @@ const { normalizeTeamJobOptions } = require("../team-runtime");
 
 // Kept local to avoid a cyclic import with the HTTP transport module.
 const CAPABILITY_SCOPES = Object.freeze(Object.fromEntries(Object.entries(TEAM_CAPABILITY_DEFINITIONS).map(([capability, definition]) => [capability, definition.oauthScope])));
+const JOB_CAPABILITIES = Object.freeze(Object.keys(TEAM_CAPABILITY_DEFINITIONS).filter((capability) => TEAM_CAPABILITY_DEFINITIONS[capability].mode !== "direct"));
 
 function result(id, value) { return { jsonrpc: "2.0", id, result: value }; }
 function failure(id, code, message) { return { jsonrpc: "2.0", id, error: { code, message } }; }
@@ -43,9 +44,11 @@ function toolsFor(principal, requireProjectRbac = false, enabledCapabilities = O
   if (typeof tasksEnabled !== "boolean") throw new TypeError("team Tasks availability is invalid");
   const configured = configuredCapabilities(enabledCapabilities);
   const capabilities = Object.keys(CAPABILITY_SCOPES).filter((capability) => configured.has(capability) && principal.capabilities.has(capability));
-  return TEAM_TOOLS.filter((tool) => capabilities.length > 0 || !["create_team_upload_target", "create_team_job"].includes(tool.name)).map((tool) => {
+  const jobCapabilities = capabilities.filter((capability) => JOB_CAPABILITIES.includes(capability));
+  return TEAM_TOOLS.filter((tool) => tool.capability ? capabilities.includes(tool.capability) : jobCapabilities.length > 0 || !["create_team_upload_target", "create_team_job"].includes(tool.name)).map((tool) => {
     const execution = teamToolExecution(tool.name, tasksEnabled);
-    return withQualityReportApp({ name: tool.name, description: tool.description, inputSchema: { type: "object", properties: teamToolProperties(tool.name, capabilities, requireProjectRbac), required: requireProjectRbac ? [...tool.required, "projectId"] : tool.required, additionalProperties: false }, outputSchema: tool.outputSchema, annotations: tool.annotations, ...(execution ? { execution } : {}) }, appEnabled);
+    const needsProject = requireProjectRbac && tool.capability === null;
+    return withQualityReportApp({ name: tool.name, description: tool.description, inputSchema: { type: "object", properties: teamToolProperties(tool.name, tool.capability ? capabilities : jobCapabilities, needsProject), required: needsProject ? [...tool.required, "projectId"] : tool.required, additionalProperties: false }, outputSchema: tool.outputSchema, annotations: tool.annotations, ...(execution ? { execution } : {}) }, appEnabled);
   });
 }
 function teamToolProperties(name, capabilities = Object.keys(CAPABILITY_SCOPES), requireProjectRbac = false) {
@@ -54,18 +57,32 @@ function teamToolProperties(name, capabilities = Object.keys(CAPABILITY_SCOPES),
     contentType: { type: "string" },
     contentLength: { type: "integer", minimum: 1, maximum: 104857600 },
     inputObjectKey: { type: "string" },
-    idempotencyKey: { type: "string" },
+    idempotencyKey: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9._:-]+$" },
     options: { type: "object", properties: { repairProfile: { type: "string", enum: ["safe-package", "layout-safe", "typography-safe", "editability-safe", "audit-only"] } }, additionalProperties: false },
     id: { type: "string" },
     name: { type: "string" },
     projectId: { type: "string", pattern: "^[a-z][a-z0-9-]{2,63}$" }
   };
+  Object.assign(properties, {
+    notebookId: { type: "string", pattern: "^[0-9]{14}-[a-z0-9]{7}$" },
+    documentId: { type: "string", pattern: "^[0-9]{14}-[a-z0-9]{7}$" },
+    title: { type: "string", minLength: 1, maxLength: 128 },
+    markdown: { type: "string", minLength: 1, maxLength: 262144 },
+    folder: { type: "string", maxLength: 256 },
+    query: { type: "string", minLength: 1, maxLength: 128 },
+    limit: { type: "integer", minimum: 1, maximum: 20 }
+  });
   const byTool = {
     create_team_upload_target: ["capability", "contentType", "contentLength"],
     create_team_job: ["capability", "inputObjectKey", "idempotencyKey", "options"],
     get_team_job: ["id"],
     cancel_team_job: ["id"],
-    get_team_artifact_target: ["id", "name"]
+    get_team_artifact_target: ["id", "name"],
+    siyuan_list_notebooks: [],
+    siyuan_save_note: ["notebookId", "title", "markdown", "folder", "idempotencyKey"],
+    siyuan_append_note: ["documentId", "markdown", "idempotencyKey"],
+    siyuan_search_notes: ["query", "limit"],
+    siyuan_get_note: ["documentId"]
   };
   const keys = byTool[name];
   return Object.fromEntries((requireProjectRbac ? [...keys, "projectId"] : keys).map((key) => [key, properties[key]]));
@@ -81,6 +98,17 @@ async function callTeamTool(name, rawArgs, { principal, services, now = () => Da
   if (!services || typeof services !== "object") throw new TypeError("team services are required");
   if (typeof requireProjectRbac !== "boolean") throw new TypeError("project RBAC requirement is invalid");
   const enabledCapabilities = configuredCapabilities(rawEnabledCapabilities);
+  const directTool = TEAM_TOOLS.find((tool) => tool.name === name && tool.capability === "siyuan-note");
+  if (directTool) {
+    authorizedCapability(principal, directTool.capability, enabledCapabilities);
+    if (!services.siyuan || typeof services.siyuan.forOwner !== "function") throw new Error("SiYuan service is unavailable");
+    const siyuan = services.siyuan.forOwner(principal.subject);
+    const args = assertKeys(rawArgs, Object.keys(teamToolProperties(name, [], false)), directTool.required);
+    const methods = { siyuan_list_notebooks: "listNotebooks", siyuan_save_note: "saveNote", siyuan_append_note: "appendNote", siyuan_search_notes: "searchNotes", siyuan_get_note: "getNote" };
+    const method = methods[name];
+    if (!method || typeof siyuan[method] !== "function") throw new Error("SiYuan service is unavailable");
+    return validateTeamToolOutput(name, await siyuan[method](args));
+  }
   if (name === "create_team_upload_target") {
     const args = teamArgs(rawArgs, ["capability", "contentType", "contentLength"], ["capability", "contentType", "contentLength"], requireProjectRbac);
     const capability = authorizedCapability(principal, args.capability, enabledCapabilities);
@@ -144,4 +172,4 @@ async function handleTeamMcp(request, context) {
   return failure(request.id, -32601, "method not found");
 }
 
-module.exports = { CAPABILITY_SCOPES, TEAM_TOOLS, callTeamTool, handleTeamMcp, teamServerCapabilities, toolsFor };
+module.exports = { CAPABILITY_SCOPES, TEAM_TOOLS, callTeamTool, handleTeamMcp, teamServerCapabilities, teamToolProperties, toolsFor };

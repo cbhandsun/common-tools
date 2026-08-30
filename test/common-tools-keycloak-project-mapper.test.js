@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { MCP_ISSUER_RESPONSE_ATTRIBUTE, MCP_ISSUER_RESPONSE_VALUE, MCP_NATIVE_LOOPBACK_REDIRECT_URIS, MCP_OPTIONAL_CLIENT_SCOPE_NAMES, PROJECT_MAPPER_CONFIG, PROJECT_MAPPER_NAME, keycloakProjectMapperOptions, mapperDefinition, mapperMatches, mcpClientConfigurationMatches, mcpClientScopeConfigurationMatches, redirectUrisMatch, synchronizeMcpClientRedirectUris, synchronizeProjectMapper } = require("../packages/cli/keycloak-project-mapper");
+const { MCP_CAPABILITY_CLIENT_SCOPE_NAMES, MCP_ISSUER_RESPONSE_ATTRIBUTE, MCP_ISSUER_RESPONSE_VALUE, MCP_NATIVE_LOOPBACK_REDIRECT_URIS, MCP_OPTIONAL_CLIENT_SCOPE_NAMES, PROJECT_MAPPER_CONFIG, PROJECT_MAPPER_NAME, capabilityClientScopeDefinition, keycloakProjectMapperOptions, mapperDefinition, mapperMatches, mcpClientConfigurationMatches, mcpClientScopeConfigurationMatches, redirectUrisMatch, synchronizeMcpClientRedirectUris, synchronizeProjectMapper } = require("../packages/cli/keycloak-project-mapper");
 
 function response(body) { return { ok: true, async json() { return body; } }; }
 
@@ -27,16 +27,24 @@ function keycloakFetch(initial = []) {
   return { calls, fetchImpl, mappers };
 }
 
-function mcpClientFetch(redirectUris = ["http://127.0.0.1:54000/*"], attributes = {}, optionalScopeNames = MCP_OPTIONAL_CLIENT_SCOPE_NAMES) {
+function mcpClientFetch(redirectUris = ["http://127.0.0.1:54000/*"], attributes = {}, optionalScopeNames = MCP_OPTIONAL_CLIENT_SCOPE_NAMES, availableScopeNames = MCP_OPTIONAL_CLIENT_SCOPE_NAMES) {
   let client = { id: "client-123", clientId: "common-tools-mcp", redirectUris: [...redirectUris], attributes: { ...attributes }, publicClient: true };
-  const availableScopes = MCP_OPTIONAL_CLIENT_SCOPE_NAMES.map((name, index) => ({ id: `scope-${index + 1}`, name }));
+  const availableScopes = availableScopeNames.map((name, index) => ({ id: `scope-${index + 1}`, name }));
   let optionalScopes = availableScopes.filter((scope) => optionalScopeNames.includes(scope.name));
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url: String(url), method: options.method || "GET", body: options.body });
     if (String(url).endsWith("/realms/master/protocol/openid-connect/token")) return response({ access_token: "temporary-test-token" });
     if (String(url).includes("/clients?clientId=common-tools-mcp")) return response([{ id: client.id, clientId: client.clientId }]);
-    if (String(url).endsWith("/client-scopes")) return response(availableScopes);
+    if (String(url).endsWith("/client-scopes")) {
+      if ((options.method || "GET") === "GET") return response(availableScopes);
+      if (options.method === "POST") {
+        const definition = JSON.parse(options.body);
+        if (definition.protocol !== "openid-connect" || typeof definition.name !== "string" || availableScopes.some((scope) => scope.name === definition.name)) return { ok: false };
+        availableScopes.push({ id: `scope-${availableScopes.length + 1}`, name: definition.name });
+        return { ok: true };
+      }
+    }
     if (String(url).endsWith(`/clients/${client.id}/optional-client-scopes`)) return response(optionalScopes);
     if (String(url).endsWith(`/clients/${client.id}/default-client-scopes`)) return response([]);
     if (String(url).includes(`/clients/${client.id}/optional-client-scopes/`) && options.method === "PUT") {
@@ -162,6 +170,23 @@ test("Keycloak MCP client scope apply associates missing capability scopes witho
     assert.equal(mcpClientScopeConfigurationMatches(mock.scopeState()), true);
     const snapshot = JSON.parse(fs.readFileSync(backupFile, "utf8"));
     assert.deepEqual(snapshot.client.mcpScopeBindings, MCP_OPTIONAL_CLIENT_SCOPE_NAMES.map((name) => ({ name, binding: "none" })));
+  } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
+});
+
+test("Keycloak MCP client scope apply creates only fixed missing capability scopes before association", async () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-keycloak-client-scope-create-"));
+  try {
+    const missing = "common-tools:capability:ppt-create";
+    const available = MCP_OPTIONAL_CLIENT_SCOPE_NAMES.filter((name) => name !== missing);
+    const backupFile = path.join(temporary, "client-before.json");
+    const mock = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE }, available, available);
+    assert.deepEqual(await synchronizeMcpClientRedirectUris({ ...credentials, apply: true, backupFile, fetchImpl: mock.fetchImpl }), { status: "updated", changed: true });
+    const creates = mock.calls.filter((call) => call.method === "POST" && call.url.endsWith("/client-scopes"));
+    assert.equal(creates.length, 1);
+    assert.deepEqual(JSON.parse(creates[0].body), capabilityClientScopeDefinition(missing));
+    assert.equal(mcpClientScopeConfigurationMatches(mock.scopeState()), true);
+    assert.equal(MCP_CAPABILITY_CLIENT_SCOPE_NAMES.includes("common-tools:capability:siyuan-note"), true);
+    assert.throws(() => capabilityClientScopeDefinition("offline_access"), /invalid/);
   } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 });
 

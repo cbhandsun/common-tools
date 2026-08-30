@@ -17,9 +17,10 @@ function contractTool(name, capability) {
 }
 
 test("capability manifests exactly match local MCP registrations", () => {
-  const expected = { capabilities: ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit"], toolCount: 13 };
+  const expected = { capabilities: ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit", "siyuan-note"], toolCount: 18 };
   assert.deepEqual(verifyCapabilityToolContracts(), expected);
-  assert.deepEqual(assertCapabilityToolContracts({ manifests: CAPABILITY_MANIFESTS, tools: TOOLS }), expected);
+  const localManifests = new Map([...CAPABILITY_MANIFESTS].filter(([, manifest]) => manifest.team.mode !== "direct"));
+  assert.deepEqual(assertCapabilityToolContracts({ manifests: localManifests, tools: TOOLS }), { capabilities: ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit"], toolCount: 13 });
 });
 
 test("image-to-editable MCP admission requires one input mode and an explicit provider config", () => {
@@ -97,10 +98,10 @@ test("team deployment plan is verified against the actual Compose Worker service
   assert.throws(() => assertTeamDeploymentComposeContracts({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerCommand: "packages/remote-mcp-server/bin/common-tools-team-missing-worker.js" } }, composeSource }), /command does not match/);
 });
 
-test("local Keycloak realm exposes every Docker-deployable capability as an optional scope", () => {
+test("local Keycloak realm exposes every remote capability as an optional scope", () => {
   const root = path.resolve(__dirname, "..");
   const realm = JSON.parse(fs.readFileSync(path.join(root, "deploy", "keycloak", "realm-common-tools.json"), "utf8"));
-  const expectedScopes = TEAM_DEPLOYABLE_CAPABILITIES.map((capability) => CAPABILITY_MANIFESTS.get(capability).team.oauthScope).sort();
+  const expectedScopes = [...CAPABILITY_MANIFESTS.values()].map((manifest) => manifest.team.oauthScope).sort();
   // offline_access is required by the desktop OAuth client to retain the
   // capability-scoped session across a client restart. It is not a capability
   // declaration and must remain distinct from the manifest-derived scopes.

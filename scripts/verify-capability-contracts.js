@@ -90,12 +90,18 @@ function assertTeamDeploymentComposeContracts({ deploymentCapabilities, composeS
 function verifyCapabilityToolContracts(root = REPOSITORY_ROOT) {
   const { loadCapabilityManifests } = require(path.join(root, "packages", "capability-runtime"));
   const { TOOLS } = require(path.join(root, "packages", "mcp-server", "core"));
+  const { TEAM_TOOLS } = require(path.join(root, "packages", "remote-mcp-server", "team-tool-contracts"));
+  const { teamToolProperties } = require(path.join(root, "packages", "remote-mcp-server", "team-mcp"));
   const { TEAM_DEPLOYMENT_CAPABILITIES } = require(path.join(root, "packages", "team-runtime"));
   const manifests = loadCapabilityManifests(path.join(root, "packages", "capability-manifests"));
   const composeSource = require("node:fs").readFileSync(path.join(root, "deploy", "compose.team-api.yaml"), "utf8");
   assertTeamDeploymentManifestContracts({ manifests, deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES });
   assertTeamDeploymentComposeContracts({ deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES, composeSource });
-  return assertCapabilityToolContracts({ manifests, tools: TOOLS });
+  const teamTools = TEAM_TOOLS.filter((tool) => tool.capability !== null).map((tool) => ({
+    ...tool,
+    inputSchema: { type: "object", properties: teamToolProperties(tool.name), required: tool.required, additionalProperties: false }
+  }));
+  return assertCapabilityToolContracts({ manifests, tools: [...TOOLS, ...teamTools] });
 }
 
 if (require.main === module) process.stdout.write(`${JSON.stringify(verifyCapabilityToolContracts(), null, 2)}\n`);

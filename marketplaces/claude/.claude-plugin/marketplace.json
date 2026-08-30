@@ -27,6 +27,11 @@
       "name": "ppt-create",
       "source": "./plugins/ppt-create",
       "description": "Create a new editable PPTX from validated structured content."
+    },
+    {
+      "name": "siyuan-note",
+      "source": "./plugins/siyuan-note",
+      "description": "通过托管的 Common Tools MCP 服务保存和读取私有思源笔记。"
     }
   ]
 }

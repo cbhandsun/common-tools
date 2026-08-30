@@ -30,15 +30,16 @@ function parseServiceUrl(value, label, protocols) {
 }
 function parseEnabledCapabilities(value, name = "COMMON_TOOLS_TEAM_CAPABILITIES") {
   const source = value === undefined ? [...TEAM_DEFAULT_CAPABILITIES] : typeof value === "string" ? value.split(",").map((item) => item.trim()) : [];
-  if (!source.length || source.some((capability) => !TEAM_DEPLOYABLE_CAPABILITIES.includes(capability)) || new Set(source).size !== source.length) throw new Error(`${name} is invalid`);
+  if (!source.length || source.some((capability) => !CAPABILITIES.has(capability)) || new Set(source).size !== source.length) throw new Error(`${name} is invalid`);
   return Object.freeze([...source].sort());
 }
 function teamDeploymentPlan(value) {
   const capabilities = parseEnabledCapabilities(value);
+  const workerCapabilities = capabilities.filter((capability) => Object.prototype.hasOwnProperty.call(TEAM_DEPLOYMENT_CAPABILITIES, capability));
   return Object.freeze({
     capabilities,
-    workerProfiles: Object.freeze(capabilities.map((capability) => TEAM_DEPLOYMENT_CAPABILITIES[capability].workerProfile)),
-    workerServices: Object.freeze(capabilities.map((capability) => TEAM_DEPLOYMENT_CAPABILITIES[capability].workerService))
+    workerProfiles: Object.freeze(workerCapabilities.map((capability) => TEAM_DEPLOYMENT_CAPABILITIES[capability].workerProfile)),
+    workerServices: Object.freeze(workerCapabilities.map((capability) => TEAM_DEPLOYMENT_CAPABILITIES[capability].workerService))
   });
 }
 function loadTeamConfig(environment = process.env) {

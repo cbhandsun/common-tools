@@ -4,6 +4,7 @@ const childProcess = require("node:child_process");
 const path = require("node:path");
 const { loadRemoteConfig } = require("../remote-mcp-server");
 const { TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig } = require("../team-runtime");
+const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 const { verifyReleaseEvidenceFile } = require("../../scripts/release-evidence");
 const { verifyReleaseSignature } = require("../../scripts/verify-release-signature");
 const { parsePinnedRawImageOcrProfile } = require("../slideclone-core/team-ocr-profile");
@@ -23,6 +24,21 @@ const PRODUCTION_COMPOSE_FILES = Object.freeze([
 ]);
 const WORKER_PROFILES = Object.freeze(Object.fromEntries(Object.entries(TEAM_DEPLOYMENT_CAPABILITIES).map(([capability, definition]) => [capability, definition.workerProfile])));
 const WORKER_SERVICES = Object.freeze(Object.fromEntries(Object.entries(TEAM_DEPLOYMENT_CAPABILITIES).map(([capability, definition]) => [capability, definition.workerService])));
+const REMOTE_CAPABILITIES = Object.freeze(Object.keys(TEAM_CAPABILITY_DEFINITIONS));
+const SIYUAN_SECRET_COMPOSE_FILE = "deploy/compose.team-siyuan-secret.yaml";
+
+function deployedWorkerCapabilities(capabilities) {
+  return capabilities.filter((capability) => Object.hasOwn(TEAM_DEPLOYMENT_CAPABILITIES, capability));
+}
+
+function siyuanSecretConfiguration(environment, capabilities) {
+  if (!capabilities.includes("siyuan-note")) return Object.freeze({ composeFiles: Object.freeze([]) });
+  nonEmpty(environment.COMMON_TOOLS_SIYUAN_URL, "COMMON_TOOLS_SIYUAN_URL");
+  const direct = typeof environment.COMMON_TOOLS_SIYUAN_TOKEN === "string" && Boolean(environment.COMMON_TOOLS_SIYUAN_TOKEN.trim());
+  const file = typeof environment.COMMON_TOOLS_SIYUAN_TOKEN_FILE === "string" && Boolean(environment.COMMON_TOOLS_SIYUAN_TOKEN_FILE.trim());
+  if (direct === file) throw new Error("exactly one SiYuan token source is required");
+  return Object.freeze({ composeFiles: Object.freeze(file ? [SIYUAN_SECRET_COMPOSE_FILE] : []) });
+}
 
 function nonEmpty(value, name) {
   if (typeof value !== "string" || !value.trim()) throw new Error(`${name} is required`);
@@ -81,15 +97,16 @@ function inspectProductionRelease(environment = process.env) {
   if (!remote.production || remote.backend !== "postgres-redis-s3" || !remote.requireProjectRbac || team.mode !== "production") {
     throw new Error("production runtime configuration is invalid");
   }
-  if (team.enabledCapabilities.some((capability) => TEAM_DEPLOYMENT_CAPABILITIES[capability].imageKind === "image-worker")) {
+  if (deployedWorkerCapabilities(team.enabledCapabilities).some((capability) => TEAM_DEPLOYMENT_CAPABILITIES[capability].imageKind === "image-worker")) {
     immutableImageReference(environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE, "COMMON_TOOLS_IMAGE_WORKER_IMAGE");
   }
   parsePinnedRawImageOcrProfile(environment);
+  const siyuan = siyuanSecretConfiguration(environment, team.enabledCapabilities);
   return Object.freeze({
     production: true,
     credentialSource: mode,
     enabledCapabilities: team.enabledCapabilities,
-    composeFiles: Object.freeze([...PRODUCTION_COMPOSE_FILES, ...(mode === "files" ? ["deploy/compose.team-production-secrets.yaml"] : [])])
+    composeFiles: Object.freeze([...PRODUCTION_COMPOSE_FILES, ...(mode === "files" ? ["deploy/compose.team-production-secrets.yaml"] : []), ...siyuan.composeFiles])
   });
 }
 
@@ -108,7 +125,7 @@ function verifyProductionReleaseEvidence(repositoryRoot, environment, { evidence
   const resolved = productionEnvironment(environment);
   const enabledCapabilities = loadTeamConfig(resolved).enabledCapabilities;
   const expectedImages = new Set([immutableImageReference(environment.COMMON_TOOLS_REMOTE_IMAGE, "COMMON_TOOLS_REMOTE_IMAGE")]);
-  if (enabledCapabilities.some((capability) => TEAM_DEPLOYMENT_CAPABILITIES[capability].imageKind === "image-worker")) {
+  if (deployedWorkerCapabilities(enabledCapabilities).some((capability) => TEAM_DEPLOYMENT_CAPABILITIES[capability].imageKind === "image-worker")) {
     expectedImages.add(immutableImageReference(environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE, "COMMON_TOOLS_IMAGE_WORKER_IMAGE"));
   }
   const actualImages = new Set(verified.evidence.images);
@@ -158,7 +175,7 @@ function validateResolvedProductionCompose(configuration, { remoteImage, imageWo
     throw new Error("Docker Compose production configuration is invalid");
   }
   const services = configuration.services;
-  if (!Array.isArray(enabledCapabilities) || !enabledCapabilities.length || enabledCapabilities.some((capability) => !Object.hasOwn(WORKER_SERVICES, capability))) {
+  if (!Array.isArray(enabledCapabilities) || !enabledCapabilities.length || enabledCapabilities.some((capability) => !REMOTE_CAPABILITIES.includes(capability))) {
     throw new Error("Docker Compose production capabilities are invalid");
   }
   const expectedImages = {
@@ -166,7 +183,8 @@ function validateResolvedProductionCompose(configuration, { remoteImage, imageWo
     "remote-mcp": remoteImage,
     "team-retention": remoteImage
   };
-  for (const capability of enabledCapabilities) expectedImages[WORKER_SERVICES[capability]] = TEAM_DEPLOYMENT_CAPABILITIES[capability].imageKind === "image-worker" ? imageWorkerImage : remoteImage;
+  const workerCapabilities = deployedWorkerCapabilities(enabledCapabilities);
+  for (const capability of workerCapabilities) expectedImages[WORKER_SERVICES[capability]] = TEAM_DEPLOYMENT_CAPABILITIES[capability].imageKind === "image-worker" ? imageWorkerImage : remoteImage;
   for (const [name, image] of Object.entries(expectedImages)) {
     const service = services[name];
     if (!service || typeof service !== "object" || Array.isArray(service) || service.image !== image || Object.hasOwn(service, "build") || !service.environment || typeof service.environment !== "object" || Array.isArray(service.environment) || service.environment.NODE_ENV !== "production" || service.environment.COMMON_TOOLS_TEAM_MODE !== "production") {
@@ -182,7 +200,7 @@ function validateResolvedProductionCompose(configuration, { remoteImage, imageWo
   if (migrationDependencies && (typeof migrationDependencies !== "object" || Array.isArray(migrationDependencies) || Object.keys(migrationDependencies).length !== 0)) {
     throw new Error("Docker Compose production migration dependencies are invalid");
   }
-  for (const name of ["remote-mcp", "team-retention", ...enabledCapabilities.map((capability) => WORKER_SERVICES[capability])]) {
+  for (const name of ["remote-mcp", "team-retention", ...workerCapabilities.map((capability) => WORKER_SERVICES[capability])]) {
     const dependencies = services[name].depends_on;
     if (!dependencies || typeof dependencies !== "object" || Array.isArray(dependencies) || Object.keys(dependencies).length !== 1 || !Object.hasOwn(dependencies, "team-migrate")) {
       throw new Error("Docker Compose production dependency gate is invalid");
@@ -193,18 +211,18 @@ function validateResolvedProductionCompose(configuration, { remoteImage, imageWo
 
 function validateProductionCompose(repositoryRoot, files, expectedImages) {
   if (typeof repositoryRoot !== "string" || !path.isAbsolute(repositoryRoot)) throw new TypeError("production preflight repository root is invalid");
-  if (!Array.isArray(files) || !files.length || files.some((file) => typeof file !== "string" || !PRODUCTION_COMPOSE_FILES.includes(file) && file !== "deploy/compose.team-production-secrets.yaml")) {
+  if (!Array.isArray(files) || !files.length || files.some((file) => typeof file !== "string" || !PRODUCTION_COMPOSE_FILES.includes(file) && file !== "deploy/compose.team-production-secrets.yaml" && file !== SIYUAN_SECRET_COMPOSE_FILE)) {
     throw new TypeError("production preflight Compose files are invalid");
   }
   const enabledCapabilities = expectedImages?.enabledCapabilities;
-  if (!Array.isArray(enabledCapabilities) || !enabledCapabilities.length || enabledCapabilities.some((capability) => !Object.hasOwn(WORKER_PROFILES, capability))) {
+  if (!Array.isArray(enabledCapabilities) || !enabledCapabilities.length || enabledCapabilities.some((capability) => !REMOTE_CAPABILITIES.includes(capability))) {
     throw new TypeError("production preflight capabilities are invalid");
   }
   const args = ["compose", "--project-directory", repositoryRoot];
   for (const file of files) args.push("--file", path.join(repositoryRoot, file));
   args.push("--profile", "team-api");
   args.push("--profile", "team-maintenance");
-  for (const capability of enabledCapabilities) args.push("--profile", WORKER_PROFILES[capability]);
+  for (const capability of deployedWorkerCapabilities(enabledCapabilities)) args.push("--profile", WORKER_PROFILES[capability]);
   args.push("config", "--format", "json");
   const result = childProcess.spawnSync("docker", args, { encoding: "utf8", windowsHide: true, cwd: repositoryRoot });
   if (result.error || result.status !== 0) throw new Error("Docker Compose production configuration preflight failed");

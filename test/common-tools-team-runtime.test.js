@@ -5,7 +5,7 @@ const crypto = require("node:crypto");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
-const { PostgresJobRepository, TeamWorker, TeamWorkerRunner, assertTraceParent, createTeamJob, createTeamServices, fromRow, loadTeamConfig, normalizeTeamJobOptions, recoverWorkerLeases, retentionObjectKeys, runTeamRetention } = require("../packages/team-runtime");
+const { PostgresJobRepository, TeamWorker, TeamWorkerRunner, assertTraceParent, createTeamJob, createTeamServices, fromRow, loadTeamConfig, normalizeTeamJobOptions, parseEnabledCapabilities, recoverWorkerLeases, retentionObjectKeys, runTeamRetention, teamDeploymentPlan } = require("../packages/team-runtime");
 const { assertQualityReport } = require("../packages/capability-contracts");
 const { retentionSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-retention");
 const { retentionScheduleSettings, runRetentionSchedule } = require("../packages/team-runtime/retention-scheduler");
@@ -29,6 +29,22 @@ test("team configuration fails closed for insecure storage and embedded credenti
   assert.throws(() => loadTeamConfig({ ...base, COMMON_TOOLS_ARTIFACT_RETENTION_DAYS: "0" }), /between 1 and 3650/);
   assert.throws(() => loadTeamConfig({ ...base, COMMON_TOOLS_RETENTION_INTERVAL_SECONDS: "299" }), /between 300 and 604800/);
   assert.throws(() => loadTeamConfig({ ...base, COMMON_TOOLS_PROJECT_ACTIVE_JOB_LIMIT: "0" }), /between 1 and 10000/);
+});
+
+test("direct SiYuan capability is enabled without inventing a Worker service", () => {
+  assert.deepEqual(parseEnabledCapabilities("siyuan-note"), ["siyuan-note"]);
+  assert.deepEqual(teamDeploymentPlan("project-audit,siyuan-note"), {
+    capabilities: ["project-audit", "siyuan-note"],
+    workerProfiles: ["team-worker-audit"],
+    workerServices: ["project-audit-worker"]
+  });
+  assert.deepEqual(teamDeploymentPlan("siyuan-note"), {
+    capabilities: ["siyuan-note"],
+    workerProfiles: [],
+    workerServices: []
+  });
+  assert.throws(() => teamDeploymentPlan("siyuan-note,siyuan-note"), /invalid/);
+  assert.throws(() => teamDeploymentPlan("siyuan-note,unknown"), /invalid/);
 });
 
 test("retention scheduler bounds its cadence, stops cleanly, and never overlaps runs", async () => {
