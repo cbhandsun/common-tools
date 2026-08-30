@@ -49,9 +49,12 @@ jobs:
             if ($env:BASE_SHA -notmatch '^[a-f0-9]{40}$' -or $env:HEAD_SHA -notmatch '^[a-f0-9]{40}$') { throw 'Git comparison identity is invalid' }
             if ($env:BASE_SHA -eq ('0' * 40)) {
               $changedFiles = @('package.json')
+            } elseif ($env:EVENT_NAME -eq 'pull_request') {
+              $changedFiles = @(git diff --name-only "$($env:BASE_SHA)...$($env:HEAD_SHA)")
+              if ($LASTEXITCODE -ne 0) { throw 'Unable to determine pull request changed files' }
             } else {
               $changedFiles = @(git diff --name-only $env:BASE_SHA $env:HEAD_SHA)
-              if ($LASTEXITCODE -ne 0) { throw 'Unable to determine changed files' }
+              if ($LASTEXITCODE -ne 0) { throw 'Unable to determine pushed changed files' }
             }
           }
           $changedFiles | node scripts/office-regression-scope.js --event $env:EVENT_NAME --github-output $env:GITHUB_OUTPUT
