@@ -51,11 +51,34 @@ function canaryOptions(environment = process.env) {
 }
 
 async function boundedJson(response) {
-  const declared = Number(response.headers?.get?.("content-length"));
-  if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) throw new Error("remote canary response is too large");
-  const text = await response.text();
-  if (Buffer.byteLength(text, "utf8") > MAX_RESPONSE_BYTES) throw new Error("remote canary response is too large");
-  try { return JSON.parse(text); } catch { throw new Error("remote canary response is invalid"); }
+  if (typeof response?.body?.getReader !== "function") throw new Error("remote canary response is invalid");
+  const reader = response.body.getReader();
+  let complete = false;
+  try {
+    const declared = response.headers?.get?.("content-length");
+    if (declared != null && !/^[0-9]{1,20}$/.test(declared)) throw new Error("remote canary response is invalid");
+    if (declared != null && Number(declared) > MAX_RESPONSE_BYTES) throw new Error("remote canary response is too large");
+    const bytes = Buffer.alloc(MAX_RESPONSE_BYTES);
+    let length = 0; let reads = 0;
+    while (true) {
+      if (++reads > MAX_RESPONSE_BYTES + 1) throw new Error("remote canary response is invalid");
+      const chunk = await reader.read().catch(() => { throw new Error("remote canary response is invalid"); });
+      if (chunk.done) break;
+      if (!(chunk.value instanceof Uint8Array)) throw new Error("remote canary response is invalid");
+      if (chunk.value.byteLength > MAX_RESPONSE_BYTES - length) throw new Error("remote canary response is too large");
+      bytes.set(chunk.value, length);
+      length += chunk.value.byteLength;
+    }
+    let parsed;
+    try { parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, length))); }
+    catch { throw new Error("remote canary response is invalid"); }
+    complete = true;
+    return parsed;
+  } finally {
+    // A failed read stays failed even if transport cleanup rejects or stalls.
+    if (!complete) void reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
 }
 
 async function request(fetchImpl, origin, token, body, timeoutMs) {
