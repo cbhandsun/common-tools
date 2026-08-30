@@ -80,7 +80,7 @@ test("Python bootstrap reuses a content-addressed Runner tool cache", (t) => {
 
   assert.equal(second, first);
   assert.equal(installs, 1);
-  assert.match(first, /common-tools[\\/]python-site[\\/][a-f0-9]{64}$/u);
+  assert.match(first, /ct[\\/]p[\\/][a-f0-9]{32}$/u);
   assert.match(fs.readFileSync(githubEnvironmentFile, "utf8"), /SLIDECLONE_PYTHON_SITE_DIR=/u);
 });
 
@@ -98,8 +98,8 @@ test("Python bootstrap keeps a valid cache completed by a concurrent run", (t) =
       const targetIndex = args.indexOf("--target");
       if (targetIndex >= 0) fs.writeFileSync(path.join(args[targetIndex + 1], "candidate.txt"), "candidate");
       const pythonPath = commandOptions?.env?.PYTHONPATH;
-      if (typeof pythonPath === "string" && pythonPath.includes("-staging-") && !winnerDir) {
-        winnerDir = pythonPath.slice(0, pythonPath.indexOf("-staging-"));
+      if (typeof pythonPath === "string" && /-s-[^\\/]+$/u.test(pythonPath) && !winnerDir) {
+        winnerDir = pythonPath.slice(0, pythonPath.lastIndexOf("-s-"));
         fs.mkdirSync(winnerDir, { recursive: true });
         fs.writeFileSync(path.join(winnerDir, "winner.txt"), "winner");
       }

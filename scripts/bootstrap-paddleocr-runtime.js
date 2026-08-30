@@ -26,15 +26,15 @@ function bootstrapPaddleOcrRuntime(options = {}) {
   });
   const toolsDir = location.managedRoot;
   const runtimeDir = location.targetDir;
-  const stagingDir = path.join(toolsDir, `${path.basename(runtimeDir)}-staging-${process.pid}-${Date.now()}`);
   fs.mkdirSync(toolsDir, { recursive: true });
-  assertManagedPath(toolsDir, stagingDir);
   assertManagedPath(toolsDir, runtimeDir);
   if (runtimeMatches(run, runtimeDir, workspaceRoot)) {
     const resolvedPython = pythonInVenv(runtimeDir);
     exportGitHubEnvironment("SLIDECLONE_PADDLEOCR_PYTHON", resolvedPython, options.githubEnvironmentFile);
     return resolvedPython;
   }
+  const stagingDir = fs.mkdtempSync(path.join(toolsDir, `${path.basename(runtimeDir)}-s-`));
+  assertManagedPath(toolsDir, stagingDir);
   try {
     runChecked(run, python, ["-m", "venv", stagingDir], { cwd: workspaceRoot });
     const runtimePython = pythonInVenv(stagingDir);
@@ -47,7 +47,7 @@ function bootstrapPaddleOcrRuntime(options = {}) {
       return resolvedPython;
     }
     if (fs.existsSync(runtimeDir)) {
-      const backupDir = path.join(toolsDir, `paddleocr-venv-backup-${process.pid}-${Date.now()}`);
+      const backupDir = path.join(toolsDir, `${path.basename(runtimeDir)}-b-${process.pid}`);
       assertManagedPath(toolsDir, backupDir);
       fs.renameSync(runtimeDir, backupDir);
       try {

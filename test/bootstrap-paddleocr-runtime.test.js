@@ -50,7 +50,7 @@ test("PaddleOCR bootstrap installs once and reuses the Runner tool cache", (t) =
 
   assert.equal(second, first);
   assert.equal(venvCreates, 1);
-  assert.match(first, /common-tools[\\/]paddleocr-venv[\\/][a-f0-9]{64}[\\/](Scripts[\\/]python[.]exe|bin[\\/]python)$/u);
+  assert.match(first, /ct[\\/]o[\\/][a-f0-9]{32}[\\/](Scripts[\\/]python[.]exe|bin[\\/]python)$/u);
   assert.match(fs.readFileSync(githubEnvironmentFile, "utf8"), /SLIDECLONE_PADDLEOCR_PYTHON=/u);
 });
 
@@ -68,9 +68,9 @@ test("PaddleOCR bootstrap keeps a valid cache completed by a concurrent run", (t
       fs.mkdirSync(path.dirname(executable), { recursive: true });
       fs.writeFileSync(executable, "candidate");
     }
-    if (args[0] === "-c" && command.includes("-staging-") && !winnerPython) {
+    if (args[0] === "-c" && /-s-[^\\/]+[\\/](Scripts|bin)[\\/]python(?:[.]exe)?$/u.test(command) && !winnerPython) {
       const stagingDir = path.dirname(path.dirname(command));
-      const marker = stagingDir.indexOf("-staging-");
+      const marker = stagingDir.lastIndexOf("-s-");
       const winnerDir = stagingDir.slice(0, marker);
       winnerPython = pythonInVenv(winnerDir);
       fs.mkdirSync(path.dirname(winnerPython), { recursive: true });

@@ -37,8 +37,8 @@ function installPythonDeps(options = {}) {
     exportGitHubEnvironment("SLIDECLONE_PYTHON_SITE_DIR", siteDir, options.githubEnvironmentFile);
     return siteDir;
   }
-  const stagingDir = fs.mkdtempSync(path.join(toolsDir, `${path.basename(siteDir)}-staging-`));
-  const backupDir = path.join(toolsDir, `${path.basename(siteDir)}-backup-${process.pid}-${Date.now()}`);
+  const stagingDir = fs.mkdtempSync(path.join(toolsDir, `${path.basename(siteDir)}-s-`));
+  const backupDir = path.join(toolsDir, `${path.basename(siteDir)}-b-${process.pid}`);
   assertManagedPath(toolsDir, stagingDir);
   assertManagedPath(toolsDir, backupDir);
 

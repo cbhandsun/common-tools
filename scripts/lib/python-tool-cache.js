@@ -31,7 +31,7 @@ function resolvePythonToolLocation(options) {
     options.runIdentityCommand
   );
   const digest = crypto.createHash("sha256")
-    .update("common-tools-python-cache-v1\0")
+    .update("common-tools-python-cache-v2\0")
     .update(toolName)
     .update("\0")
     .update(process.platform)
@@ -42,8 +42,9 @@ function resolvePythonToolLocation(options) {
     .update("\0")
     .update(fs.readFileSync(requirementsFile))
     .digest("hex");
-  const managedRoot = path.join(cacheRoot, "common-tools", toolName);
-  const targetDir = path.join(managedRoot, digest);
+  const cacheNamespace = toolName === "python-site" ? "p" : "o";
+  const managedRoot = path.join(cacheRoot, "ct", cacheNamespace);
+  const targetDir = path.join(managedRoot, digest.slice(0, 32));
   assertManagedCachePath(managedRoot, targetDir);
   return Object.freeze({ managedRoot, targetDir, persistent: true, digest });
 }

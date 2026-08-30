@@ -38,6 +38,8 @@ test("Python tool cache key changes with the lock and runtime identity", (t) => 
   assert.notEqual(newRuntime.targetDir, first.targetDir);
   assert.notEqual(newLock.targetDir, first.targetDir);
   assert.equal(first.persistent, true);
+  assert.match(first.targetDir, /ct[\\/]p[\\/][a-f0-9]{32}$/u);
+  assert.ok(path.relative(runnerToolCache, first.targetDir).length <= 40, "cache suffix must stay Windows DLL-safe");
 });
 
 test("Python tool cache rejects relative and filesystem-root cache paths", (t) => {
