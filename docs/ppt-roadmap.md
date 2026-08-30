@@ -27,7 +27,7 @@
 | P0 | 稳定发布基线 | 已完成 | 存在可用于回滚的已知绿色源码 revision、安装包、SBOM、签名证据和镜像 digest | `v0.1.15`，Release run `33300262845`；后续 Release 可选 | 仓库所有者 | 已完成 |
 | P0 | 部署来源一致性 | 受阻 | 远程入口宣告的每项能力都存在于实际部署的 Git revision；记录部署 revision 和镜像 digest；未经 CI 的本地能力不得直接部署 | `siyuan-note` 源码和测试已通过 PR #14 合入 `main`；线上仍需从通过 CI 的 `main` revision 重建并记录 digest，见 `docs/evidence/remote-public-surface-2026-08-30.json` | 服务所有者 | 下次部署 |
 | P0 | 封闭式身份创建 | 进行中 | 禁用自行注册、密码找回和外部身份提供商；只保留管理员创建的账号；删除账号后不能再获取新的访问权限 | realm 模板、同步命令和脱敏用户总数证据已实现并有回归测试；仍需对线上 realm 执行并保存证据 | 身份系统所有者 | 下次部署 |
-| P0 | OAuth 与能力访问门禁 | 进行中 | 匿名、格式错误、过期、issuer 错误、audience 错误、缺少 scope 和能力未启用的请求均失败；强制 Authorization Code + PKCE S256；禁用密码和 implicit grant；回调地址限制在受控 loopback 范围 | 客户端同步已显式禁用密码、implicit、service account 和 authorization service；`npm run canary:remote-access-negative` 已覆盖全部正负路径，待使用短期 canary token 对线上执行 | 身份系统所有者 | 下次部署 |
+| P0 | OAuth 与能力访问门禁 | 进行中 | 匿名、格式错误、过期、issuer 错误、audience 错误、缺少 scope 和能力未启用的请求均失败；强制 Authorization Code + PKCE S256；禁用密码和 implicit grant；回调地址限制在受控 loopback 范围 | 客户端同步已显式禁用密码、implicit、service account 和 authorization service；`npm run canary:remote-access-negative` 已覆盖全部正负路径，并补充真实流式响应的 16 KiB 限额、读取超时、取消及安全失败回归，待使用短期 canary token 对线上执行 | 身份系统所有者 | 下次部署 |
 | P0 | 不使用 MFA 的登录防滥用 | 进行中 | 启用有界的登录失败保护和入口限流；记录锁定与恢复方法；告警不得包含身份 Secret 或请求内容 | realm 模板已启用 5 次失败阈值、递增等待和 15 分钟上限；应用层主体限流已有测试，仍需验证线上 realm 和入口层未认证限流 | 身份系统所有者 | 下次部署 |
 | P0 | 生产模式远程部署 | 受阻 | 使用通过测试的 commit 和 digest 固定镜像；`NODE_ENV=production`；使用生产 backend 和受管 Secret；不直接暴露 API 端口；`/healthz` 只返回 `{"status":"ok"}`；由 `/readyz` 控制流量接入 | production overlay 和 preflight 已存在；2026-08-30 脱敏探测确认 `/readyz` 为 200，但 `/healthz` 仍不是最小生产响应 | 服务所有者 | 下次部署 |
 | P0 | 远程图片转换 canary | 受阻 | 从所有者授权设备完成 OAuth、上传、创建 Job、等待完成、下载、PPTX 验证和清理；脱敏报告不得包含 token、对象 URL 或用户内容 | 尚无远程端到端 canary 报告 | 发布验收 | 下次部署 |
@@ -82,7 +82,7 @@ Keycloak 单入口同步会先固化封闭 realm，再同步 public OAuth client
 .\scripts\team-keycloak-mcp-client-sync.ps1 -Project common-tools -KeycloakPort 58080 -PromptForAdmin
 ```
 
-远程 OAuth 负向 canary 从当前进程环境读取 5 个短期 token，并且报告中只保留用例名、期望/实际状态码和布尔结果。token 必须分别对应有效、过期、错误 issuer、错误 audience 和缺少目标 capability scope；执行后应立即撤销测试会话：
+远程 OAuth 负向 canary 从当前进程环境读取 5 个短期 token，并且报告中只保留用例名、期望/实际状态码和布尔结果。token 必须分别对应有效、过期、错误 issuer、错误 audience 和缺少目标 capability scope；执行后应立即撤销测试会话。响应按流式实际字节限制为 16 KiB，不依赖 `Content-Length`；读取正文期间仍受 8 秒请求超时约束，超限或失败会取消读取，取消异常不会使失败变成成功，日志不回显响应内容：
 
 ```powershell
 $env:COMMON_TOOLS_CANARY_URL = 'https://plugins.iepose.cn'

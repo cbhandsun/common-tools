@@ -4,12 +4,111 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { MAX_RESPONSE_BYTES, canaryOptions, httpsOrigin, runRemoteAccessCanary } = require("../packages/cli/remote-access-canary");
+const { MAX_RESPONSE_BYTES, boundedJson, canaryOptions, httpsOrigin, runRemoteAccessCanary } = require("../packages/cli/remote-access-canary");
 
 function response(status, body) {
   const text = JSON.stringify(body);
-  return { status, headers: { get(name) { return name.toLowerCase() === "content-length" ? String(Buffer.byteLength(text)) : null; } }, async text() { return text; } };
+  return new Response(text, { status, headers: { "content-length": String(Buffer.byteLength(text)) } });
 }
+
+test("remote canary stops streaming at the byte limit without trusting content length", async () => {
+  for (const declared of [null, "2"]) {
+    let reads = 0; let cancelled = false;
+    const stream = new ReadableStream({
+      pull(controller) {
+        reads += 1;
+        controller.enqueue(Buffer.alloc(reads === 1 ? MAX_RESPONSE_BYTES : 1, 32));
+      },
+      cancel() { cancelled = true; }
+    }, { highWaterMark: 0 });
+    const value = new Response(stream, { headers: declared === null ? {} : { "content-length": declared } });
+    value.text = async () => { throw new Error("unbounded response.text must not run"); };
+    await assert.rejects(() => boundedJson(value), /response is too large/);
+    assert.equal(reads, 2);
+    assert.equal(cancelled, true);
+    assert.equal(stream.locked, false);
+  }
+});
+
+test("remote canary accepts exact byte limits and split UTF-8, rejecting invalid or empty bodies", async () => {
+  const exact = "x".repeat(MAX_RESPONSE_BYTES - 2);
+  assert.equal(await boundedJson(new Response(JSON.stringify(exact))), exact);
+  for (const value of [{ text: "中文" }, exact]) {
+    const bytes = Buffer.from(JSON.stringify(value));
+    let offset = 0;
+    const stream = new ReadableStream({ pull(controller) {
+      if (offset === bytes.length) controller.close();
+      else controller.enqueue(bytes.subarray(offset, ++offset));
+    } }, { highWaterMark: 0 });
+    assert.deepEqual(await boundedJson(new Response(stream)), value);
+    assert.equal(stream.locked, false);
+  }
+  for (const body of ["", "not-json", Buffer.from([34, 255, 34])]) {
+    await assert.rejects(() => boundedJson(new Response(body)), /response is invalid/);
+  }
+  await assert.rejects(() => boundedJson(new Response(JSON.stringify("中".repeat(MAX_RESPONSE_BYTES / 2)))), /response is too large/);
+});
+
+test("remote canary rejects declared oversized bodies before reading and preserves failure when cancellation fails", async () => {
+  let reads = 0; let cancelled = false;
+  const stream = new ReadableStream({
+    pull(controller) { reads += 1; controller.enqueue(Buffer.from("{}")); },
+    cancel() { cancelled = true; return Promise.reject(new Error("private-cancel-content")); }
+  }, { highWaterMark: 0 });
+  await assert.rejects(() => boundedJson(new Response(stream, { headers: { "content-length": String(MAX_RESPONSE_BYTES + 1) } })), /response is too large/);
+  assert.equal(reads, 0);
+  assert.equal(cancelled, true);
+  assert.equal(stream.locked, false);
+});
+
+test("remote canary response stream failures emit fixed diagnostics without private content", async () => {
+  const fetchImpl = async () => new Response(new ReadableStream({
+    pull(controller) { controller.error(new Error("private-token-and-response-content")); }
+  }, { highWaterMark: 0 }));
+  await assert.rejects(() => runRemoteAccessCanary(options, fetchImpl), /^Error: remote canary request failed$/);
+});
+
+test("remote canary bounds empty chunks and rejects malformed stream or length metadata", async () => {
+  let reads = 0; let cancelled = false;
+  const stream = new ReadableStream({
+    pull(controller) { reads += 1; controller.enqueue(new Uint8Array()); },
+    cancel() { cancelled = true; }
+  }, { highWaterMark: 0 });
+  await assert.rejects(() => boundedJson(new Response(stream)), /response is invalid/);
+  assert.equal(reads, MAX_RESPONSE_BYTES + 1);
+  assert.equal(cancelled, true);
+  for (const declared of ["-1", "NaN", "1e2", "1.5", "9".repeat(21)]) {
+    await assert.rejects(() => boundedJson(new Response("{}", { headers: { "content-length": declared } })), /response is invalid/);
+  }
+  await assert.rejects(() => boundedJson(new Response(new ReadableStream({
+    start(controller) { controller.enqueue("private-non-byte-content"); controller.close(); }
+  }))), /^Error: remote canary response is invalid$/);
+  for (const value of [null, {}, new Response(null)]) await assert.rejects(() => boundedJson(value), /response is invalid/);
+});
+
+test("remote canary failed responses do not wait for stalled transport cancellation", { timeout: 1000 }, async () => {
+  let cancelled = false;
+  const stream = new ReadableStream({
+    cancel() { cancelled = true; return new Promise(() => {}); }
+  }, { highWaterMark: 0 });
+  await assert.rejects(() => boundedJson(new Response(stream, { headers: { "content-length": String(MAX_RESPONSE_BYTES + 1) } })), /response is too large/);
+  assert.equal(cancelled, true);
+  assert.equal(stream.locked, false);
+});
+
+test("remote canary request timeout stays active while consuming a stalled body", { timeout: 5000 }, async () => {
+  let signal;
+  const fetchImpl = async (_url, request) => {
+    signal = request.signal;
+    return new Response(new ReadableStream({
+      start(controller) {
+        signal.addEventListener("abort", () => controller.error(new Error("private-abort-details")), { once: true });
+      }
+    }, { highWaterMark: 0 }));
+  };
+  await assert.rejects(() => runRemoteAccessCanary(options, fetchImpl), /^Error: remote canary request failed$/);
+  assert.equal(signal.aborted, true);
+});
 
 const tokens = Object.freeze({ valid: "valid-token-value", expired: "expired-token-value", wrongIssuer: "wrong-issuer-token", wrongAudience: "wrong-audience-token", missingScope: "missing-scope-token" });
 const ownedInputObjectKey = `owners/${"a".repeat(64)}/inputs/canary.png`;
@@ -39,7 +138,7 @@ test("remote access canary fails closed on status drift, unsafe origins, invalid
   assert.equal(report.passed, false);
   assert.throws(() => httpsOrigin("http://plugins.example.test"), /HTTPS origin/);
   assert.throws(() => canaryOptions({ COMMON_TOOLS_CANARY_URL: "https://plugins.example.test", COMMON_TOOLS_CANARY_CAPABILITY: "image-to-editable", COMMON_TOOLS_CANARY_DISABLED_CAPABILITY: "ppt-create" }), /token/);
-  const oversized = { status: 401, headers: { get() { return String(MAX_RESPONSE_BYTES + 1); } }, async text() { return "{}"; } };
+  const oversized = new Response("{}", { status: 401, headers: { "content-length": String(MAX_RESPONSE_BYTES + 1) } });
   await assert.rejects(() => runRemoteAccessCanary(options, async () => oversized), /request failed/);
 });
 
