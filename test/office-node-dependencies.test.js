@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
-const { dependencyCacheKey, parseCacheHit, prepareNodeDependencies, workspaceLinksMatch } = require("../scripts/lib/office-node-dependencies");
+const { dependencyCacheKey, lockedPackagesMatch, parseCacheHit, prepareNodeDependencies, workspaceLinksMatch } = require("../scripts/lib/office-node-dependencies");
 
 const identity = Object.freeze({ node: "v22.18.0", npm: "10.9.3", platform: "win32", arch: "x64" });
 
@@ -92,6 +92,41 @@ test("Office Node cache requires live workspace links rather than stale copied w
 test("Office Node CLI fails safely for invalid commands without exposing arguments", () => {
   const result = spawnSync(process.execPath, [path.join(__dirname, "..", "scripts", "office-node-dependencies.js"), "secret-value"], { encoding: "utf8", windowsHide: true });
   assert.equal(result.status, 1); assert.doesNotMatch(result.stdout + result.stderr, /secret-value/u);
+});
+
+test("Office Node cache rejects compatible but unlocked versions and repairs before reuse", (t) => {
+  const root = fixture(t); const packageDir = path.join(root, "node_modules", "demo-dependency");
+  fs.mkdirSync(packageDir, { recursive: true });
+  fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ packages: { "node_modules/demo-dependency": { version: "1.0.0" } } }));
+  const manifestFile = path.join(packageDir, "package.json");
+  fs.writeFileSync(manifestFile, JSON.stringify({ version: "1.1.0" }));
+  assert.equal(lockedPackagesMatch(root), false);
+  const commands = [];
+  const report = prepareNodeDependencies(root, "true", (_command, args) => {
+    commands.push(args[1]);
+    if (args[1] === "ci") fs.writeFileSync(manifestFile, JSON.stringify({ version: "1.0.0" }));
+    return { status: 0 };
+  });
+  assert.equal(report.reused, false); assert.equal(report.reason, "cache-validation-failed");
+  assert.deepEqual(commands, ["ci", "ls"]); assert.equal(lockedPackagesMatch(root), true);
+  fs.writeFileSync(manifestFile, "not-json"); assert.equal(lockedPackagesMatch(root), false);
+  fs.unlinkSync(manifestFile); assert.equal(lockedPackagesMatch(root), false);
+});
+
+test("Office Node lock validation handles optional omissions and rejects escaped or malformed entries", (t) => {
+  const root = fixture(t);
+  const writeLock = (packages) => fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ packages }));
+  writeLock({ "node_modules/optional": { version: "1.0.0", optional: true } });
+  assert.equal(lockedPackagesMatch(root), true);
+  writeLock({ "node_modules/required": { version: "1.0.0" } });
+  assert.equal(lockedPackagesMatch(root), false);
+  for (const relative of ["../node_modules/escape", "node_modules/../../escape", "C:/node_modules/escape", "node_modules/a\\b"]) {
+    writeLock({ [relative]: { version: "1.0.0" } }); assert.throws(() => lockedPackagesMatch(root), /entry is invalid/u);
+  }
+  for (const version of [null, "", 1, "x".repeat(257)]) {
+    writeLock({ "node_modules/invalid": { version } }); assert.throws(() => lockedPackagesMatch(root), /entry is invalid/u);
+  }
+  writeLock([]); assert.throws(() => lockedPackagesMatch(root), /inventory/u);
 });
 
 test("Office Node workflow restores exact caches only and retains validation and Office gates", () => {

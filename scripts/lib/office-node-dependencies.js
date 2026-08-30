@@ -84,11 +84,40 @@ function workspaceLinksMatch(root) {
   return true;
 }
 
+function lockedPackagesMatch(root) {
+  const lock = JSON.parse(readManifest(root, "package-lock.json").toString("utf8"));
+  if (!lock.packages || typeof lock.packages !== "object" || Array.isArray(lock.packages)) throw new Error("Office Node lock package inventory is invalid");
+  for (const [relative, entry] of Object.entries(lock.packages)) {
+    if (!relative || entry?.link || !relative.split("/").includes("node_modules")) continue;
+    const segments = relative.split("/");
+    if (relative.length > 1024 || segments.some((segment) => !/^[a-zA-Z0-9@_.-]+$/u.test(segment) || [".", ".."].includes(segment))
+      || typeof entry?.version !== "string" || entry.version.length < 1 || entry.version.length > 256) throw new Error("Office Node locked package entry is invalid");
+    const directory = path.join(root, relative);
+    try {
+      const stat = fs.lstatSync(directory);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) return false;
+    } catch (error) {
+      // npm may omit optional dependencies that do not support this OS/CPU.
+      if (error.code === "ENOENT" && entry.optional === true) continue;
+      if (["ENOENT", "ENOTDIR"].includes(error.code)) return false;
+      throw new Error("Office Node locked package validation failed", { cause: error });
+    }
+    try {
+      const manifest = JSON.parse(readManifest(root, path.join(relative, "package.json")).toString("utf8"));
+      if (manifest?.version !== entry.version) return false;
+    } catch (error) {
+      if (error instanceof SyntaxError || ["ENOENT", "ENOTDIR"].includes(error.code) || error.message === "Office Node cache manifest is invalid") return false;
+      throw new Error("Office Node installed manifest validation failed", { cause: error });
+    }
+  }
+  return true;
+}
+
 function prepareNodeDependencies(rootValue, cacheHitValue, run = spawnSync) {
   const root = repositoryRoot(rootValue);
   const cacheHit = parseCacheHit(cacheHitValue);
   if (typeof run !== "function") throw new TypeError("Office Node command adapter is invalid");
-  const healthy = () => workspaceLinksMatch(root) && succeeded(runNpm(CHECK_ARGS, root, 60_000, run));
+  const healthy = () => workspaceLinksMatch(root) && lockedPackagesMatch(root) && succeeded(runNpm(CHECK_ARGS, root, 60_000, run));
   if (cacheHit && healthy()) return Object.freeze({ reused: true, installed: false, reason: "validated-cache-hit" });
   if (!succeeded(runNpm(INSTALL_ARGS, root, 300_000, run))) throw new Error("Office Node locked dependency installation failed");
   if (!healthy()) throw new Error("Office Node installed dependency validation failed");
@@ -102,4 +131,4 @@ function runtimeIdentity() {
   return { node: process.version, npm: result.stdout.trim(), platform: process.platform, arch: process.arch };
 }
 
-module.exports = { CHECK_ARGS, INSTALL_ARGS, dependencyCacheKey, parseCacheHit, prepareNodeDependencies, runtimeIdentity, workspaceLinksMatch };
+module.exports = { CHECK_ARGS, INSTALL_ARGS, dependencyCacheKey, lockedPackagesMatch, parseCacheHit, prepareNodeDependencies, runtimeIdentity, workspaceLinksMatch };

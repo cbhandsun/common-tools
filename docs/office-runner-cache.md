@@ -18,7 +18,8 @@ Office 和 Python 解释器由专用 Windows Runner 预装，不在每次工作�
 GitHub Actions 仅恢复精确匹配的 `node_modules` 和 `packages/*/node_modules`，不配置旧版本前缀回退。即使命中，也必须同时满足：
 
 1. 锁文件中的工作区链接确实指向当前 checkout，而不是复制的旧源码目录。
-2. `npm ls --all --offline --include=dev --include=optional --json` 成功。
+2. 每个已安装依赖的 `package.json` 版本与锁文件逐项一致；必需依赖缺失会拒绝复用。允许 npm 省略可选依赖（例如当前系统不支持的依赖），但已存在的可选依赖也必须版本一致。
+3. `npm ls --all --offline --include=dev --include=optional --json` 成功。
 
 不满足时执行 `npm ci --ignore-scripts --include=dev --include=optional`，随后再次验证。安装或验证失败会终止任务；子进程输出不进入日志，工作流仅报告固定分类。缓存不是依赖文件逐字节完整性或供应链签名证明，正式 CI 和 Office 验收仍必须运行。
 
@@ -26,7 +27,7 @@ GitHub Actions 仅恢复精确匹配的 `node_modules` 和 `packages/*/node_modu
 
 ## 验证与测量范围
 
-2026-08-30 本机真实准备验证：冷安装加检查约 35.3 秒，已安装目录的复用检查约 4.2 秒，后者报告 `reused=true`、`installed=false`。这不包含 Actions 缓存上传、下载、解压时间，不能据此声称完整 CI 已提速同等比例。
+2026-08-30 本机真实准备验证：初版冷安装加检查约 35.3 秒，已安装目录的复用检查约 4.2 秒；补充逐项锁定版本检查后，热准备约 5.3 秒，仍报告 `reused=true`、`installed=false`。这不包含 Actions 缓存上传、下载、解压时间，不能据此声称完整 CI 已提速同等比例。
 
 合入前需在专用 Runner 验证一次冷运行和一次同标识热运行，确认缓存恢复后的 workspace 链接、依赖检查和 Office 门禁均通过，并比较完整环境准备耗时。若缓存传输抵消收益，应依据实际数据调整策略。
 
