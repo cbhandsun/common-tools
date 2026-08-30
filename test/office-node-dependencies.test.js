@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
-const { dependencyCacheKey, lockedPackagesMatch, parseCacheHit, prepareNodeDependencies, workspaceLinksMatch } = require("../scripts/lib/office-node-dependencies");
+const { dependencyCacheKey, lockedPackagesMatch, parseCacheHit, prepareNodeDependencies, restoreCachedWorkspaceLinks, workspaceLinksMatch } = require("../scripts/lib/office-node-dependencies");
 
 const identity = Object.freeze({ node: "v22.18.0", npm: "10.9.3", platform: "win32", arch: "x64" });
 
@@ -92,6 +92,89 @@ test("Office Node cache requires live workspace links rather than stale copied w
 test("Office Node CLI fails safely for invalid commands without exposing arguments", () => {
   const result = spawnSync(process.execPath, [path.join(__dirname, "..", "scripts", "office-node-dependencies.js"), "secret-value"], { encoding: "utf8", windowsHide: true });
   assert.equal(result.status, 1); assert.doesNotMatch(result.stdout + result.stderr, /secret-value/u);
+});
+
+function cachedWorkspace(t, name = "demo") {
+  const root = fixture(t);
+  const relative = `node_modules/${name}`;
+  fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ packages: { [relative]: { link: true, resolved: "packages/demo" } } }));
+  const target = path.join(root, relative);
+  fs.mkdirSync(target, { recursive: true });
+  fs.writeFileSync(path.join(target, "stale-source.txt"), "cached workspace content must not be executed");
+  return { root, target, source: path.join(root, "packages", "demo") };
+}
+
+test("Office Node cache recreates tar-expanded workspace junctions before reuse", (t) => {
+  for (const name of ["demo", "@scope/demo"]) {
+    const { root, target, source } = cachedWorkspace(t, name);
+    assert.equal(workspaceLinksMatch(root), false);
+    const calls = [];
+    const report = prepareNodeDependencies(root, "true", (_command, args) => {
+      calls.push(args[1]);
+      assert.equal(fs.realpathSync(target), fs.realpathSync(source));
+      assert.equal(fs.existsSync(path.join(target, "stale-source.txt")), false);
+      return { status: 0 };
+    });
+    assert.deepEqual(report, { reused: true, installed: false, reason: "validated-cache-hit" });
+    assert.deepEqual(calls, ["ls"]);
+    assert.equal(workspaceLinksMatch(root), true);
+    assert.equal(restoreCachedWorkspaceLinks(root), true);
+  }
+});
+
+test("Office Node link recreation preserves workspace sources and nested external link targets", (t) => {
+  const { root, target, source } = cachedWorkspace(t);
+  const external = fixture(t);
+  const externalManifest = fs.readFileSync(path.join(external, "package.json"));
+  const sourceManifest = fs.readFileSync(path.join(source, "package.json"));
+  fs.symlinkSync(external, path.join(target, "nested-link"), "junction");
+  assert.equal(restoreCachedWorkspaceLinks(root), true);
+  assert.deepEqual(fs.readFileSync(path.join(source, "package.json")), sourceManifest);
+  assert.deepEqual(fs.readFileSync(path.join(external, "package.json")), externalManifest);
+});
+
+test("Office Node cache inspects all workspace boundaries before replacing any directory", (t) => {
+  const { root, target } = cachedWorkspace(t);
+  fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ packages: {
+    "node_modules/demo": { link: true, resolved: "packages/demo" },
+    "node_modules/escape": { link: true, resolved: "../escape" }
+  } }));
+  assert.throws(() => restoreCachedWorkspaceLinks(root), /link is invalid/u);
+  assert.equal(fs.lstatSync(target).isSymbolicLink(), false);
+  assert.equal(fs.existsSync(path.join(target, "stale-source.txt")), true);
+  fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ packages: Object.fromEntries(
+    Array.from({ length: 257 }, (_, index) => [`node_modules/demo-${index}`, { link: true, resolved: "packages/demo" }])
+  ) }));
+  assert.throws(() => restoreCachedWorkspaceLinks(root), /exceeds its bound/u);
+  assert.equal(fs.existsSync(path.join(target, "stale-source.txt")), true);
+});
+
+test("Office Node cache refuses linked source or target parents without installing", (t) => {
+  for (const parent of ["packages", "node_modules", "node_modules/@scope"]) {
+    const { root } = cachedWorkspace(t, "@scope/demo");
+    const original = path.join(root, parent);
+    const moved = `${original}-original`;
+    fs.renameSync(original, moved);
+    fs.symlinkSync(moved, original, "junction");
+    let commands = 0;
+    assert.throws(() => prepareNodeDependencies(root, "true", () => { commands += 1; return { status: 0 }; }), /inspection failed/u);
+    assert.equal(commands, 0);
+    assert.equal(fs.existsSync(path.join(root, "node_modules/@scope/demo/stale-source.txt")), true);
+  }
+});
+
+test("Office Node link recreation handles missing entries and retains post-repair failures", (t) => {
+  const { root, target } = cachedWorkspace(t);
+  fs.rmSync(target, { recursive: true });
+  assert.equal(restoreCachedWorkspaceLinks(root), true);
+  const calls = [];
+  assert.throws(() => prepareNodeDependencies(root, "true", (_command, args) => {
+    calls.push(args[1]); return { status: args[1] === "ci" ? 0 : 1 };
+  }), /validation failed/u);
+  assert.deepEqual(calls, ["ls", "ci", "ls"]);
+  fs.unlinkSync(target);
+  fs.rmdirSync(path.join(root, "node_modules"));
+  assert.equal(restoreCachedWorkspaceLinks(root), false);
 });
 
 test("Office Node cache rejects compatible but unlocked versions and repairs before reuse", (t) => {

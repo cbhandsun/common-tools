@@ -65,14 +65,24 @@ function runNpm(args, root, timeout, run = spawnSync) {
 
 function succeeded(result) { return Boolean(result && !result.error && result.status === 0); }
 
-function workspaceLinksMatch(root) {
+function workspaceLinkEntries(root) {
   const lock = JSON.parse(readManifest(root, "package-lock.json").toString("utf8"));
   if (!lock.packages || typeof lock.packages !== "object" || Array.isArray(lock.packages)) throw new Error("Office Node lock package inventory is invalid");
+  const entries = [];
   for (const [relative, entry] of Object.entries(lock.packages)) {
     if (!entry?.link) continue;
     if (!/^node_modules\/(?:@[a-z0-9_.-]+\/)?[a-z0-9_.-]+$/u.test(relative)
       || relative.split("/").some((segment) => [".", ".."].includes(segment))
       || typeof entry.resolved !== "string" || !/^packages\/[a-z0-9][a-z0-9_-]*$/u.test(entry.resolved)) throw new Error("Office Node workspace link is invalid");
+    entries.push({ relative, resolved: entry.resolved });
+    if (entries.length > 256) throw new Error("Office Node workspace link inventory exceeds its bound");
+  }
+  return entries;
+}
+
+function workspaceLinksMatch(root) {
+  for (const entry of workspaceLinkEntries(root)) {
+    const { relative } = entry;
     const link = path.join(root, relative);
     try {
       if (!fs.lstatSync(link).isSymbolicLink() || fs.realpathSync(link) !== fs.realpathSync(path.join(root, entry.resolved))) return false;
@@ -80,6 +90,44 @@ function workspaceLinksMatch(root) {
       if (["ENOENT", "ENOTDIR"].includes(error.code)) return false;
       throw new Error("Office Node workspace link validation failed", { cause: error });
     }
+  }
+  return true;
+}
+
+function restoreCachedWorkspaceLinks(rootValue) {
+  const root = repositoryRoot(rootValue);
+  const repairs = [];
+  // Windows bsdtar expands junctions into directories. Only replace the exact
+  // lock-declared cache entries, never workspace sources or linked parents.
+  for (const { relative, resolved } of workspaceLinkEntries(root)) {
+    const source = path.join(root, resolved);
+    const target = path.join(root, relative);
+    const sourceParents = [path.join(root, "packages"), source];
+    const targetParents = [path.join(root, "node_modules")];
+    if (relative.split("/").length === 3) targetParents.push(path.dirname(target));
+    try {
+      for (const directory of [...sourceParents, ...targetParents]) {
+        const stat = fs.lstatSync(directory);
+        if (!stat.isDirectory() || stat.isSymbolicLink() || fs.realpathSync(directory) !== directory) throw new Error("Unsafe cached workspace boundary");
+      }
+      readManifest(root, path.join(resolved, "package.json"));
+      let stat;
+      try { stat = fs.lstatSync(target); } catch (error) { if (error.code !== "ENOENT") throw error; }
+      if (stat?.isSymbolicLink()) {
+        if (fs.realpathSync(target) !== source) return false;
+        continue;
+      }
+      if (stat && (!stat.isDirectory() || fs.realpathSync(target) !== target)) return false;
+      repairs.push({ source, target, exists: Boolean(stat) });
+    } catch (error) {
+      if (["ENOENT", "ENOTDIR"].includes(error.code)) return false;
+      throw new Error("Office Node cached workspace inspection failed", { cause: error });
+    }
+  }
+  // Inspect every entry before mutating any cache directory.
+  for (const { source, target, exists } of repairs) {
+    if (exists) fs.rmSync(target, { recursive: true });
+    fs.symlinkSync(source, target, process.platform === "win32" ? "junction" : "dir");
   }
   return true;
 }
@@ -118,7 +166,7 @@ function prepareNodeDependencies(rootValue, cacheHitValue, run = spawnSync) {
   const cacheHit = parseCacheHit(cacheHitValue);
   if (typeof run !== "function") throw new TypeError("Office Node command adapter is invalid");
   const healthy = () => workspaceLinksMatch(root) && lockedPackagesMatch(root) && succeeded(runNpm(CHECK_ARGS, root, 60_000, run));
-  if (cacheHit && healthy()) return Object.freeze({ reused: true, installed: false, reason: "validated-cache-hit" });
+  if (cacheHit && restoreCachedWorkspaceLinks(root) && healthy()) return Object.freeze({ reused: true, installed: false, reason: "validated-cache-hit" });
   if (!succeeded(runNpm(INSTALL_ARGS, root, 300_000, run))) throw new Error("Office Node locked dependency installation failed");
   if (!healthy()) throw new Error("Office Node installed dependency validation failed");
   return Object.freeze({ reused: false, installed: true, reason: cacheHit ? "cache-validation-failed" : "cache-miss" });
@@ -131,4 +179,4 @@ function runtimeIdentity() {
   return { node: process.version, npm: result.stdout.trim(), platform: process.platform, arch: process.arch };
 }
 
-module.exports = { CHECK_ARGS, INSTALL_ARGS, dependencyCacheKey, lockedPackagesMatch, parseCacheHit, prepareNodeDependencies, runtimeIdentity, workspaceLinksMatch };
+module.exports = { CHECK_ARGS, INSTALL_ARGS, dependencyCacheKey, lockedPackagesMatch, parseCacheHit, prepareNodeDependencies, restoreCachedWorkspaceLinks, runtimeIdentity, workspaceLinksMatch };
