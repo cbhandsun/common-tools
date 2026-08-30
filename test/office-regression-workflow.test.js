@@ -139,6 +139,12 @@ test("Office workflow is scheduled, manually selectable, serialized and isolated
   assert.match(workflow, /schedule:/u);
   assert.match(workflow, /pull_request:/u);
   assert.match(workflow, /push:[\s\S]*branches:[\s\S]*- main/u);
+  assert.doesNotMatch(workflow, /pull_request:\s*\n\s+paths:/u);
+  assert.match(workflow, /detect-office-scope:/u);
+  assert.match(workflow, /scripts\/office-regression-scope[.]js/u);
+  assert.match(workflow, /office-regression-required:/u);
+  assert.match(workflow, /if: always\(\)/u);
+  assert.match(workflow, /OFFICE_RESULT[\s\S]*skipped/u);
   assert.match(workflow, /github[.]event_name == 'pull_request' && 'smoke'/u);
   assert.match(workflow, /workflow_dispatch:/u);
   assert.match(workflow, /runs-on: \[self-hosted, Windows, X64, slideclone-office\]/u);
@@ -154,10 +160,12 @@ test("Office workflow is scheduled, manually selectable, serialized and isolated
   assert.match(workflow, /slideclone:bootstrap-paddleocr/u);
   assert.match(workflow, /slideclone:smoke-paddleocr/u);
   assert.match(workflow, /Upload bounded regression reports/u);
-  assert.match(workflow, /scripts\/ppt-create-office-smoke[.]js/u);
+  assert.match(workflow, /scripts\/run-office-ppt-regression[.]js/u);
   assert.match(workflow, /ppt-create-smoke\/[*][.]json/u);
   assert.match(workflow, /retention-days: 90/u);
   assert.doesNotMatch(workflow, /secrets\./u);
+  const officeRunner = fs.readFileSync(path.join(root, "scripts", "run-office-ppt-regression.js"), "utf8");
+  assert.match(officeRunner, /scripts\/ppt-create-office-smoke[.]js/u);
   const officeSmoke = fs.readFileSync(path.join(root, "scripts", "ppt-create-office-smoke.js"), "utf8");
   assert.match(officeSmoke, /buildImageBatchOfficeDeck/u);
   assert.match(officeSmoke, /imageBatchOfficeRoundTripValidated/u);

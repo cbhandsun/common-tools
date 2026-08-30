@@ -4,23 +4,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "packages/ppt-create-core/**"
-      - "packages/ppt-improve-core/**"
-      - "skills/pd-hifi-slideclone/**"
-      - "scripts/run-office-ppt-regression.js"
-      - "scripts/cross-renderer-corpus-audit.js"
-      - "scripts/ppt-create-office-smoke.js"
-      - ".github/workflows/ppt-office-regression.yml"
   pull_request:
-    paths:
-      - "packages/ppt-create-core/**"
-      - "packages/ppt-improve-core/**"
-      - "skills/pd-hifi-slideclone/**"
-      - "scripts/run-office-ppt-regression.js"
-      - "scripts/cross-renderer-corpus-audit.js"
-      - "scripts/ppt-create-office-smoke.js"
-      - ".github/workflows/ppt-office-regression.yml"
   schedule:
     - cron: "17 3 * * 0"
   workflow_dispatch:
@@ -42,7 +26,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  detect-office-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run_office: ${{ steps.scope.outputs.run_office }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Select the bounded Office regression scope
+        id: scope
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          $changedFiles = @()
+          if ($env:EVENT_NAME -in @('pull_request', 'push')) {
+            if ($env:BASE_SHA -notmatch '^[a-f0-9]{40}$' -or $env:HEAD_SHA -notmatch '^[a-f0-9]{40}$') { throw 'Git comparison identity is invalid' }
+            if ($env:BASE_SHA -eq ('0' * 40)) {
+              $changedFiles = @('package.json')
+            } else {
+              $changedFiles = @(git diff --name-only $env:BASE_SHA $env:HEAD_SHA)
+              if ($LASTEXITCODE -ne 0) { throw 'Unable to determine changed files' }
+            }
+          }
+          $changedFiles | node scripts/office-regression-scope.js --event $env:EVENT_NAME --github-output $env:GITHUB_OUTPUT
+
   real-pptx-quality:
+    needs: detect-office-scope
+    if: needs.detect-office-scope.outputs.run_office == 'true'
     runs-on: [self-hosted, Windows, X64, slideclone-office]
     timeout-minutes: 180
     env:
@@ -114,3 +130,25 @@ jobs:
         with:
           path: .ci-state/ppt-quality-history-${{ env.CORPUS_SUITE }}.json
           key: ppt-quality-history-${{ runner.name }}-${{ env.CORPUS_SUITE }}-${{ github.run_id }}
+
+  office-regression-required:
+    name: office-regression-required
+    needs: [detect-office-scope, real-pptx-quality]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Enforce the stable required-check result
+        shell: bash
+        env:
+          DETECTION_RESULT: ${{ needs.detect-office-scope.result }}
+          RUN_OFFICE: ${{ needs.detect-office-scope.outputs.run_office }}
+          OFFICE_RESULT: ${{ needs.real-pptx-quality.result }}
+        run: |
+          set -euo pipefail
+          test "${DETECTION_RESULT}" = "success"
+          if test "${RUN_OFFICE}" = "true"; then
+            test "${OFFICE_RESULT}" = "success"
+          else
+            test "${OFFICE_RESULT}" = "skipped"
+          fi
