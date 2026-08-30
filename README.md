@@ -57,7 +57,7 @@ common-tools editable init --workspace . --input .\source.png --out .\editable-o
 common-tools editable run --workspace . --input .\source.png --out .\editable-output --config .\.common-tools-editable-source.config.json
 ```
 
-该 profile 默认使用官方 PaddleOCR、原图底图与隐藏的可编辑文字叠层；视觉外观由原图保留，文本可重新编辑，但图形、图表和版式尚未转换为原生 PowerPoint 对象。首次使用先运行 `npm run slideclone:bootstrap-paddleocr`。它交付 PPTX 工件但不自动执行渲染比对，所以 `delivery-summary` 会标记为未验证，不能作为质量门禁通过的依据。需要兼容旧环境时，可显式传入 `--ocr-provider umi-paddle` 或 `--ocr-provider tesseract`。
+该 profile 默认使用官方 PaddleOCR，并通过共享 Deck IR/OpenXML 引擎重建原生文本、形状、表格、图表、层级/网络图和连接线；只有无法可靠重建的复杂区域才保留去重后的保真残差。首次使用先运行 `npm run slideclone:bootstrap-paddleocr`。未启用渲染验证时，`delivery-summary` 会标记为未验证，不能作为质量门禁通过的依据。需要兼容旧环境时，可显式传入 `--ocr-provider umi-paddle` 或 `--ocr-provider tesseract`。
 
 在 Windows 且已安装 Microsoft PowerPoint 时，可为 PNG 输入增加 `--verify-render`。该 profile 会用 PowerPoint 导出页面并执行像素、文字覆盖、布局与边界检查，只有 `delivery-summary.status=passed` 才代表质量门禁通过：
 
