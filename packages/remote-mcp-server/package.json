@@ -17,6 +17,7 @@
     "@common-tools/ppt-quality-core": "0.1.0",
     "@common-tools/project-audit-core": "0.1.0",
     "@common-tools/slideclone-core": "0.1.0",
+    "@common-tools/siyuan-note-core": "0.1.0",
     "@common-tools/team-runtime": "0.1.0",
     "pg": "^8.22.0",
     "redis": "^6.2.0"

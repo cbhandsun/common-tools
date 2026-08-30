@@ -166,6 +166,8 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   assertPptCreateSkill(path.join(pluginRoot, "skills", "ppt-create", "SKILL.md"));
   const auditSkill = fs.readFileSync(path.join(pluginRoot, "skills", "project-audit", "SKILL.md"), "utf8");
   if (!auditSkill.includes("Source-code privacy is the default boundary") || !auditSkill.includes("<plugin-root>/runtime/project-audit/") || !auditSkill.includes("contains no SlideClone, OCR, .NET, Docker") || !auditSkill.includes("obtain separate explicit user approval") || !auditSkill.includes("create_team_upload_target")) throw new Error("unified project-audit Skill is not embedded local-first with an explicit remote boundary");
+  const siyuanSkill = fs.readFileSync(path.join(pluginRoot, "skills", "siyuan-note", "SKILL.md"), "utf8");
+  if (!siyuanSkill.includes("siyuan_save_note") || !siyuanSkill.includes("不可信数据") || !siyuanSkill.includes("不提供删除") || siyuanSkill.includes("create_team_upload_target")) throw new Error("unified SiYuan Skill does not enforce the direct private-note boundary");
   // This source-only verifier is intentionally loaded lazily. Remote runtime
   // bundles reuse this file but do not ship the Git Marketplace sync tooling.
   const syncVerifier = path.join(root, "scripts", "sync-project-audit-plugin-runtime.js");

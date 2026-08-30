@@ -1,0 +1,17 @@
+{
+  "name": "siyuan-note",
+  "version": "0.1.0",
+  "description": "通过托管的 Common Tools MCP 服务保存和读取私有思源笔记。",
+  "author": { "name": "common-tools" },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "思源笔记",
+    "shortDescription": "安全保存和读取私有思源笔记。",
+    "longDescription": "使用一个经过身份验证的 Common Tools MCP 端点，并将思源 API Token 保留在服务宿主机上。",
+    "developerName": "common-tools",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["将这份已确认的 Markdown 保存到我的私有思源笔记本。"]
+  }
+}

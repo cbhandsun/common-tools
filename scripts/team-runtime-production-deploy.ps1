@@ -56,7 +56,7 @@ function Read-DeploymentPlan([string[]]$Capabilities) {
   if ($LASTEXITCODE -ne 0) { throw 'Production deployment plan is invalid' }
   try { $plan = ($raw | Out-String | ConvertFrom-Json -ErrorAction Stop) }
   catch { throw 'Production deployment plan returned an invalid result' }
-  if ($null -eq $plan -or $null -eq $plan.workerProfiles -or @($plan.workerProfiles).Count -eq 0) { throw 'Production deployment plan returned an invalid result' }
+  if ($null -eq $plan -or $null -eq $plan.workerProfiles -or $null -eq $plan.capabilities) { throw 'Production deployment plan returned an invalid result' }
   return $plan
 }
 

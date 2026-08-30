@@ -41,7 +41,12 @@ function canonicalManifest(value) { return JSON.stringify(Object.fromEntries(Obj
 function manifestDigest(value) { return crypto.createHash("sha256").update(canonicalManifest(value)).digest("hex"); }
 function validateTeamDefinition(value, capability) {
   const keys = value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value).sort() : [];
-  if (!value || typeof value !== "object" || Array.isArray(value) || !["acceptedUploadMediaTypes,oauthScope", "acceptedUploadMediaTypes,deployment,oauthScope"].includes(keys.join(",")) || typeof value.oauthScope !== "string" || value.oauthScope !== `common-tools:capability:${capability}` || !Array.isArray(value.acceptedUploadMediaTypes) || !value.acceptedUploadMediaTypes.length || value.acceptedUploadMediaTypes.some((mediaType) => typeof mediaType !== "string" || !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(mediaType)) || new Set(value.acceptedUploadMediaTypes).size !== value.acceptedUploadMediaTypes.length) throw new Error("capability team definition is invalid");
+  if (!value || typeof value !== "object" || Array.isArray(value) || typeof value.oauthScope !== "string" || value.oauthScope !== `common-tools:capability:${capability}`) throw new Error("capability team definition is invalid");
+  if (keys.join(",") === "mode,oauthScope") {
+    if (value.mode !== "direct") throw new Error("capability team definition is invalid");
+    return Object.freeze({ mode: "direct", oauthScope: value.oauthScope, acceptedUploadMediaTypes: Object.freeze([]) });
+  }
+  if (!["acceptedUploadMediaTypes,oauthScope", "acceptedUploadMediaTypes,deployment,oauthScope"].includes(keys.join(",")) || !Array.isArray(value.acceptedUploadMediaTypes) || !value.acceptedUploadMediaTypes.length || value.acceptedUploadMediaTypes.some((mediaType) => typeof mediaType !== "string" || !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(mediaType)) || new Set(value.acceptedUploadMediaTypes).size !== value.acceptedUploadMediaTypes.length) throw new Error("capability team definition is invalid");
   let deployment;
   if (value.deployment !== undefined) {
     const candidate = value.deployment;

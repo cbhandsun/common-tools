@@ -3,7 +3,8 @@
 
 const { createOidcVerifier, createRemoteMcpServer, loadRemoteConfig } = require("..");
 const { loadTeamConfig } = require("../../team-runtime");
-const { createTeamProviderBundle, loadTeamSecrets, optionalSecretFromEnvironment } = require("../team-providers");
+const { createSiyuanClient, createSiyuanNoteService, loadSiyuanConfig } = require("../../siyuan-note-core");
+const { createTeamProviderBundle, loadTeamSecrets, optionalSecretFromEnvironment, secretFromEnvironment } = require("../team-providers");
 const { createOtlpTraceExporter, loadOtlpTraceConfig } = require("../telemetry");
 
 function startupFailureCode(error) {
@@ -21,8 +22,18 @@ async function main() {
     if (JSON.stringify(teamConfig.enabledCapabilities) !== JSON.stringify(config.enabledCapabilities)) throw new Error("remote and team enabled capabilities do not match");
     bundle = await createTeamProviderBundle({ config: teamConfig, secrets: loadTeamSecrets(), allowCreateBucket: process.env.COMMON_TOOLS_TEAM_MODE === "development", rateLimit: config.rateLimit });
   }
+  let siyuan;
+  if (config.enabledCapabilities.includes("siyuan-note")) {
+    if (!bundle || typeof bundle.createIdempotencyStore !== "function") throw new Error("COMMON_TOOLS_SIYUAN_URL requires the postgres-redis-s3 backend");
+    const siyuanConfig = loadSiyuanConfig();
+    const client = createSiyuanClient({ ...siyuanConfig, token: secretFromEnvironment(process.env, "COMMON_TOOLS_SIYUAN_TOKEN") });
+    siyuan = Object.freeze({
+      check: () => client.check(),
+      forOwner: (ownerId) => createSiyuanNoteService({ client, inboxPath: siyuanConfig.inboxPath, idempotencyStore: bundle.createIdempotencyStore(ownerId) })
+    });
+  }
   const metricsToken = optionalSecretFromEnvironment(process.env, "COMMON_TOOLS_METRICS_TOKEN");
-  const serverOptions = bundle ? { teamServices: bundle.services, readinessCheck: bundle.readinessCheck, rateLimiter: bundle.rateLimiter } : {};
+  const serverOptions = bundle ? { teamServices: { ...bundle.services, ...(siyuan ? { siyuan } : {}) }, readinessCheck: async () => { await bundle.readinessCheck(); await siyuan?.check(); }, rateLimiter: bundle.rateLimiter } : {};
   const telemetryConfig = loadOtlpTraceConfig();
   if (telemetryConfig) serverOptions.traceExporter = createOtlpTraceExporter(telemetryConfig);
   if (metricsToken !== undefined) {

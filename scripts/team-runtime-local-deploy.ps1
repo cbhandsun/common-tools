@@ -63,6 +63,21 @@ function Set-MissingDeploymentSecretsFromPrompt {
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD' 'Keycloak admin password' -Secret
 }
 
+function Test-SiyuanCapabilityEnabled {
+  $value = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_TEAM_CAPABILITIES', 'Process')
+  if ([string]::IsNullOrWhiteSpace($value)) { return $false }
+  return @($value.Split(',') | ForEach-Object { $_.Trim() }) -contains 'siyuan-note'
+}
+
+function Set-MissingSiyuanConfigurationFromPrompt {
+  $url = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_SIYUAN_URL', 'Process')
+  if ([string]::IsNullOrWhiteSpace($url)) {
+    [Environment]::SetEnvironmentVariable('COMMON_TOOLS_SIYUAN_URL', 'http://host.docker.internal:6806', 'Process')
+    $script:promptedEnvironmentNames.Add('COMMON_TOOLS_SIYUAN_URL')
+  }
+  Set-MissingPromptedEnvironment 'COMMON_TOOLS_SIYUAN_TOKEN' 'SiYuan API token' -Secret
+}
+
 $operationLock = Enter-CommonToolsTeamRuntimeOperationLock -Project $Project
 try {
 $composeFiles = @(
@@ -162,7 +177,7 @@ function Read-DeploymentPlan([string]$Capabilities) {
   if ($LASTEXITCODE -ne 0) { throw 'Team deployment plan is invalid' }
   try { $plan = ($raw | Out-String | ConvertFrom-Json -ErrorAction Stop) }
   catch { throw 'Team deployment plan returned an invalid result' }
-  if ($null -eq $plan -or $null -eq $plan.workerProfiles -or @($plan.workerProfiles).Count -eq 0) { throw 'Team deployment plan returned an invalid result' }
+  if ($null -eq $plan -or $null -eq $plan.workerProfiles -or $null -eq $plan.capabilities) { throw 'Team deployment plan returned an invalid result' }
   return $plan
 }
 
@@ -270,10 +285,16 @@ if ($EnableSingleIngress) {
   $composeFiles += (Join-Path $repositoryRoot 'deploy/compose.team-single-ingress.yaml')
   $profiles += 'team-idp'
 }
-if ($PromptForSecrets) { Set-MissingDeploymentSecretsFromPrompt }
 if (-not [string]::IsNullOrWhiteSpace($Capabilities)) {
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_TEAM_CAPABILITIES', $Capabilities.Trim(), 'Process')
   $restoreCapabilities = $true
+}
+if ($PromptForSecrets) {
+  Set-MissingDeploymentSecretsFromPrompt
+  if (Test-SiyuanCapabilityEnabled) { Set-MissingSiyuanConfigurationFromPrompt }
+}
+if (Test-SiyuanCapabilityEnabled) {
+  $requiredEnvironment += @('COMMON_TOOLS_SIYUAN_URL', 'COMMON_TOOLS_SIYUAN_TOKEN')
 }
 
 $missingEnvironment = @()

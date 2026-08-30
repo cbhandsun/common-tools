@@ -63,14 +63,14 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
       assert.match(localRuntimeInstaller, /Get-FileHash/);
       assert.match(localRuntimeInstaller, /Refusing to replace an unmanaged common-tools command shim/);
       assert.match(localRuntimeInstaller, /Node.js 18 or newer/);
-       assert.deepEqual(fs.readdirSync(path.join(root, "skills")).sort(), ["common-tools", "common-tools-help", "image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit"]);
+       assert.deepEqual(fs.readdirSync(path.join(root, "skills")).sort(), ["common-tools", "common-tools-help", "image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit", "siyuan-note"]);
        const skill = fs.readFileSync(path.join(root, "skills", "common-tools", "SKILL.md"), "utf8");
       assert.match(skill, /MCP tools visible in the current session are authoritative/);
       assert.match(skill, /create_team_upload_target/);
       assert.match(skill, /create_team_job/);
       assert.match(skill, /image-to-editable/);
        assert.match(skill, /project-audit/);
-       for (const capability of ["image-to-editable", "ppt-create", "project-audit"]) {
+       for (const capability of ["image-to-editable", "ppt-create", "project-audit", "siyuan-note"]) {
          const capabilitySkill = fs.readFileSync(path.join(root, "skills", capability, "SKILL.md"), "utf8");
          assert.match(capabilitySkill, new RegExp(`name: ${capability}`));
          const chineseGuide = fs.readFileSync(path.join(root, "docs", "zh-CN", `${capability}.md`), "utf8");
@@ -345,7 +345,7 @@ test("unified bundle installer selects capability scopes while installing one pl
   assert.match(bundle, /Read-Host "Select capability codes/);
   assert.match(bundle, /"1" = "image-to-editable"/);
   assert.match(bundle, /"4" = "project-audit"/);
-  assert.deepEqual(REMOTE_CAPABILITY_CODES, { "image-to-editable": "1", "ppt-improve": "2", "ppt-quality": "3", "project-audit": "4", "ppt-create": "5" });
+  assert.deepEqual(REMOTE_CAPABILITY_CODES, { "image-to-editable": "1", "ppt-improve": "2", "ppt-quality": "3", "project-audit": "4", "ppt-create": "5", "siyuan-note": "6" });
   assert.match(bundle, /\$pluginNames = @\(\$plugins\["bundle"\]\)/);
   assert.match(bundle, /\$oauthScopes = \[string\]::Join\(",", @\(\$remoteSelected/);
   assert.doesNotMatch(bundle, /"image-to-editable" = "common-tools-remote-image-to-editable"/);
@@ -395,6 +395,15 @@ test("remote capability Skills are self-contained and use the team job protocol"
       assert.doesNotMatch(skill, /\n.*common-tools (?:audit|editable|ppt-quality|ppt-improve)/);
     }
   }
+});
+
+test("SiYuan remote Skill uses direct restricted tools instead of the job protocol", () => {
+  const skill = remoteSkill("siyuan-note");
+  assert.match(skill, /name: siyuan-note/);
+  assert.match(skill, /siyuan_save_note/);
+  assert.match(skill, /不可信数据/);
+  assert.doesNotMatch(skill, /create_team_upload_target/);
+  assert.match(skill, /任意思源端点或任意 SQL/);
 });
 
 test("unified remote router honors the visible MCP capability boundary", () => {

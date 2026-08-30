@@ -8,12 +8,15 @@ const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { Pool } = require("pg");
 const { createClient } = require("redis");
 const { PostgresJobRepository, TEAM_DEFAULT_CAPABILITIES, createTeamServices } = require("../team-runtime");
+const { TEAM_DEPLOYMENT_CAPABILITIES } = require("../team-runtime");
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
+const { idempotencyStorageKey } = require("../siyuan-note-core");
 
 const TEAM_CAPABILITIES = Object.freeze(Object.keys(TEAM_CAPABILITY_DEFINITIONS));
 const JOB_STATUSES = Object.freeze(["queued", "running", "input_required", "cancel_requested", "succeeded", "failed", "cancelled", "expired"]);
 const LEASE_RECOVERY_METRIC_WINDOW_SECONDS = 900;
 const WORKER_ID_PATTERN = /^[a-zA-Z0-9._-]{3,128}$/;
+const DELETE_OWNED_IDEMPOTENCY_LOCK = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end";
 
 function secret(value, name) { if (typeof value !== "string" || !value.trim()) throw new Error(`${name} is required`); return value; }
 function secretFileRoot(root) {
@@ -210,13 +213,42 @@ function createReadinessCheck({ pool, redis, objectStore, workerHeartbeats, requ
     for (const capability of requiredCapabilities) if (!await workerHeartbeats.hasActive(capability)) throw new Error("capability worker is unavailable");
   };
 }
+function createRedisIdempotencyStore(redis, ownerId, { pendingTtlSeconds = 60, completedTtlSeconds = 604800 } = {}) {
+  if (!redis || typeof redis.set !== "function" || typeof redis.get !== "function" || typeof redis.eval !== "function" || typeof ownerId !== "string" || !ownerId || !Number.isSafeInteger(pendingTtlSeconds) || pendingTtlSeconds < 10 || !Number.isSafeInteger(completedTtlSeconds) || completedTtlSeconds < pendingTtlSeconds) throw new TypeError("idempotency store configuration is invalid");
+  return Object.freeze({
+    async run(scope, key, operation) {
+      if (typeof operation !== "function") throw new TypeError("idempotent operation is invalid");
+      const storageKey = idempotencyStorageKey(ownerId, scope, key);
+      const pending = `pending:${crypto.randomUUID()}`;
+      const acquired = await redis.set(storageKey, pending, { NX: true, EX: pendingTtlSeconds });
+      if (acquired !== "OK") {
+        const existing = await redis.get(storageKey);
+        if (typeof existing === "string" && existing.startsWith("done:")) {
+          try { return Object.freeze({ replay: true, value: JSON.parse(existing.slice(5)) }); }
+          catch { throw new Error("stored idempotency result is invalid"); }
+        }
+        throw new Error("idempotent request is already in progress");
+      }
+      try {
+        const value = await operation();
+        const encoded = JSON.stringify(value);
+        if (typeof encoded !== "string" || Buffer.byteLength(encoded, "utf8") > 65536) throw new Error("idempotency result exceeds storage limit");
+        if (await redis.set(storageKey, `done:${encoded}`, { EX: completedTtlSeconds }) !== "OK") throw new Error("idempotency result could not be stored");
+        return Object.freeze({ replay: false, value });
+      } catch (error) {
+        await redis.eval(DELETE_OWNED_IDEMPOTENCY_LOCK, { keys: [storageKey], arguments: [pending] });
+        throw error;
+      }
+    }
+  });
+}
 function metricInteger(value) {
   if ((typeof value !== "string" && typeof value !== "number") || !/^[0-9]+$/.test(String(value))) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
 function createMetricsProvider({ pool, redis, workerHeartbeats: heartbeatProvider, maintenanceHeartbeat, queuePrefix = "common-tools", capabilities = TEAM_DEFAULT_CAPABILITIES }) {
-  if (!pool || typeof pool.query !== "function" || !redis || typeof redis.lLen !== "function" || !heartbeatProvider || typeof heartbeatProvider.hasActive !== "function" || !maintenanceHeartbeat || typeof maintenanceHeartbeat.status !== "function" || typeof queuePrefix !== "string" || !/^[a-z][a-z0-9-]{0,63}$/.test(queuePrefix) || !Array.isArray(capabilities) || !capabilities.length || capabilities.some((capability) => !TEAM_CAPABILITIES.includes(capability)) || new Set(capabilities).size !== capabilities.length) throw new TypeError("team metrics dependencies are incomplete");
+  if (!pool || typeof pool.query !== "function" || !redis || typeof redis.lLen !== "function" || !heartbeatProvider || typeof heartbeatProvider.hasActive !== "function" || !maintenanceHeartbeat || typeof maintenanceHeartbeat.status !== "function" || typeof queuePrefix !== "string" || !/^[a-z][a-z0-9-]{0,63}$/.test(queuePrefix) || !Array.isArray(capabilities) || capabilities.some((capability) => !TEAM_CAPABILITIES.includes(capability)) || new Set(capabilities).size !== capabilities.length) throw new TypeError("team metrics dependencies are incomplete");
   const enabledCapabilities = Object.freeze([...capabilities].sort());
   return async function collectMetrics() {
     const [jobResult, oldestQueuedResult, leaseRecoveryResult] = await Promise.all([
@@ -276,7 +308,8 @@ async function createTeamProviderBundle({ config, secrets, allowCreateBucket = f
   const queue = createRedisQueue(redis);
   const workerHeartbeats = createWorkerHeartbeats(redis);
   const maintenanceHeartbeat = createMaintenanceHeartbeat(redis, { ttlSeconds: Math.max(600, config.retentionIntervalSeconds * 2) });
-  return Object.freeze({ services: createTeamServices({ repository, queue, objectStore, projectActiveJobLimit: config.projectActiveJobLimit }), repository, queue, objectStore, workerHeartbeats, maintenanceHeartbeat, readinessCheck: createReadinessCheck({ pool, redis, objectStore, workerHeartbeats, requiredCapabilities: config.enabledCapabilities }), metricsProvider: createMetricsProvider({ pool, redis, workerHeartbeats, maintenanceHeartbeat, capabilities: config.enabledCapabilities }), rateLimiter: createRedisRateLimiter(redis, rateLimit), async close() { await Promise.allSettled([redis.quit(), pool.end()]); } });
+  const workerCapabilities = config.enabledCapabilities.filter((capability) => Object.prototype.hasOwnProperty.call(TEAM_DEPLOYMENT_CAPABILITIES, capability));
+  return Object.freeze({ services: createTeamServices({ repository, queue, objectStore, projectActiveJobLimit: config.projectActiveJobLimit }), repository, queue, objectStore, workerHeartbeats, maintenanceHeartbeat, readinessCheck: createReadinessCheck({ pool, redis, objectStore, workerHeartbeats, requiredCapabilities: workerCapabilities }), metricsProvider: createMetricsProvider({ pool, redis, workerHeartbeats, maintenanceHeartbeat, capabilities: workerCapabilities }), rateLimiter: createRedisRateLimiter(redis, rateLimit), createIdempotencyStore: (ownerId) => createRedisIdempotencyStore(redis, ownerId), async close() { await Promise.allSettled([redis.quit(), pool.end()]); } });
 }
 
-module.exports = { createMaintenanceHeartbeat, createMetricsProvider, createObjectStore, createReadinessCheck, createRedisQueue, createRedisRateLimiter, createTeamProviderBundle, createWorkerHeartbeats, loadTeamSecrets, optionalSecretFromEnvironment, secretFromEnvironment, startWorkerHeartbeat };
+module.exports = { createMaintenanceHeartbeat, createMetricsProvider, createObjectStore, createReadinessCheck, createRedisIdempotencyStore, createRedisQueue, createRedisRateLimiter, createTeamProviderBundle, createWorkerHeartbeats, loadTeamSecrets, optionalSecretFromEnvironment, secretFromEnvironment, startWorkerHeartbeat };

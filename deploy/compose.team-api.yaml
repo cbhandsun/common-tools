@@ -123,10 +123,17 @@ services:
       COMMON_TOOLS_OBJECT_STORE_BUCKET: common-tools-artifacts
       COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: common-tools-admin
       COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: ${COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY:-${COMMON_TOOLS_MINIO_PASSWORD:?set MinIO password}}
+      # Required only when `siyuan-note` is included in COMMON_TOOLS_TEAM_CAPABILITIES.
+      COMMON_TOOLS_SIYUAN_URL: ${COMMON_TOOLS_SIYUAN_URL:-http://host.docker.internal:6806}
+      COMMON_TOOLS_SIYUAN_INBOX_PATH: ${COMMON_TOOLS_SIYUAN_INBOX_PATH:-/Agent Inbox}
+      COMMON_TOOLS_SIYUAN_TIMEOUT_MS: ${COMMON_TOOLS_SIYUAN_TIMEOUT_MS:-10000}
+      COMMON_TOOLS_SIYUAN_TOKEN: ${COMMON_TOOLS_SIYUAN_TOKEN:-}
     ports:
       # 53000 is commonly reserved by Windows/Hyper-V. 54000 avoids that range
       # on standard Docker Desktop installations; override if the host reserves it.
       - "127.0.0.1:${COMMON_TOOLS_REMOTE_PORT:-54000}:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/readyz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s

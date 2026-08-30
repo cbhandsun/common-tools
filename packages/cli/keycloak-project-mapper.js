@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 
 const PROJECT_MAPPER_NAME = "common-tools-project-membership";
 const PROJECT_MAPPER_CONFIG = Object.freeze({
@@ -22,14 +23,8 @@ const MCP_NATIVE_LOOPBACK_REDIRECT_URIS = Object.freeze(["http://127.0.0.1", "ht
 // optional Keycloak parameter enabled for the public native client.
 const MCP_ISSUER_RESPONSE_ATTRIBUTE = "exclude.issuer.from.auth.response";
 const MCP_ISSUER_RESPONSE_VALUE = "false";
-const MCP_OPTIONAL_CLIENT_SCOPE_NAMES = Object.freeze([
-  "offline_access",
-  "common-tools:capability:project-audit",
-  "common-tools:capability:image-to-editable",
-  "common-tools:capability:ppt-quality",
-  "common-tools:capability:ppt-improve",
-  "common-tools:capability:ppt-create"
-]);
+const MCP_CAPABILITY_CLIENT_SCOPE_NAMES = Object.freeze(Object.values(TEAM_CAPABILITY_DEFINITIONS).map((definition) => definition.oauthScope).sort());
+const MCP_OPTIONAL_CLIENT_SCOPE_NAMES = Object.freeze(["offline_access", ...MCP_CAPABILITY_CLIENT_SCOPE_NAMES]);
 
 function mapperDefinition() {
   return {
@@ -118,7 +113,14 @@ function validClientScope(scope) {
 
 function scopeNames(scopes) {
   if (!Array.isArray(scopes) || scopes.some((scope) => !validClientScope(scope))) throw new Error("Keycloak client scope response is invalid");
-  return new Set(scopes.map((scope) => scope.name));
+  const names = new Set(scopes.map((scope) => scope.name));
+  if (names.size !== scopes.length) throw new Error("Keycloak client scope response is duplicated");
+  return names;
+}
+
+function capabilityClientScopeDefinition(name) {
+  if (!MCP_CAPABILITY_CLIENT_SCOPE_NAMES.includes(name)) throw new Error("Keycloak capability client scope name is invalid");
+  return Object.freeze({ name, protocol: "openid-connect" });
 }
 
 function mcpClientScopeConfigurationMatches({ available, optional, defaults }) {
@@ -233,7 +235,7 @@ async function synchronizeMcpClientRedirectUris({ baseUrl, realm, adminUsername,
   const token = await adminAccessToken(fetchImpl, baseUrl, adminUsername, adminPassword);
   const headers = { authorization: `Bearer ${token}`, accept: "application/json" };
   const current = await readMcpClient(fetchImpl, baseUrl, realm, headers);
-  const scopeState = await readMcpClientScopeState(fetchImpl, current.clientUrl, headers);
+  let scopeState = await readMcpClientScopeState(fetchImpl, current.clientUrl, headers);
   if (mcpClientConfigurationMatches(current.client) && mcpClientScopeConfigurationMatches(scopeState)) return Object.freeze({ status: "current", changed: false });
   if (!apply) return Object.freeze({ status: "drift", changed: false });
   if (!backupFile) throw new Error("--backup-file is required before applying a Keycloak MCP client change");
@@ -241,6 +243,12 @@ async function synchronizeMcpClientRedirectUris({ baseUrl, realm, adminUsername,
   if (attributes === null) throw new Error("Keycloak MCP client attributes are invalid");
   writeClientRedirectSnapshot(backupFile, { realm, client: current.client, scopeState });
   if (!mcpClientConfigurationMatches(current.client)) await requestOk(fetchImpl, current.clientUrl, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ ...current.client, redirectUris: [...MCP_NATIVE_LOOPBACK_REDIRECT_URIS], attributes: { ...attributes, [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE } }) });
+  const clientScopesUrl = current.clientUrl.replace(/\/clients\/[^/]+$/, "/client-scopes");
+  const availableNames = scopeNames(scopeState.available);
+  for (const name of MCP_CAPABILITY_CLIENT_SCOPE_NAMES) {
+    if (!availableNames.has(name)) await requestOk(fetchImpl, clientScopesUrl, { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify(capabilityClientScopeDefinition(name)) });
+  }
+  if (MCP_CAPABILITY_CLIENT_SCOPE_NAMES.some((name) => !availableNames.has(name))) scopeState = await readMcpClientScopeState(fetchImpl, current.clientUrl, headers);
   const availableByName = new Map(scopeState.available.map((scope) => [scope.name, scope]));
   const associated = new Set([...scopeState.optional, ...scopeState.defaults].map((scope) => scope.name));
   for (const name of MCP_OPTIONAL_CLIENT_SCOPE_NAMES) {
@@ -281,4 +289,4 @@ async function runKeycloakMcpClientCommand(args, environment = process.env, opti
   return synchronizeMcpClientRedirectUris({ ...input, fetchImpl: options.fetchImpl || globalThis.fetch });
 }
 
-module.exports = { MCP_ISSUER_RESPONSE_ATTRIBUTE, MCP_ISSUER_RESPONSE_VALUE, MCP_NATIVE_LOOPBACK_REDIRECT_URIS, MCP_OPTIONAL_CLIENT_SCOPE_NAMES, PROJECT_MAPPER_CONFIG, PROJECT_MAPPER_NAME, clientAttributes, keycloakProjectMapperOptions, mapperDefinition, mapperMatches, mcpClientConfigurationMatches, mcpClientScopeConfigurationMatches, redirectUrisMatch, runKeycloakMcpClientCommand, runKeycloakProjectMapperCommand, safeClientRedirectSnapshot, safeMapperSnapshot, safeMcpScopeBindings, synchronizeMcpClientRedirectUris, synchronizeProjectMapper };
+module.exports = { MCP_CAPABILITY_CLIENT_SCOPE_NAMES, MCP_ISSUER_RESPONSE_ATTRIBUTE, MCP_ISSUER_RESPONSE_VALUE, MCP_NATIVE_LOOPBACK_REDIRECT_URIS, MCP_OPTIONAL_CLIENT_SCOPE_NAMES, PROJECT_MAPPER_CONFIG, PROJECT_MAPPER_NAME, capabilityClientScopeDefinition, clientAttributes, keycloakProjectMapperOptions, mapperDefinition, mapperMatches, mcpClientConfigurationMatches, mcpClientScopeConfigurationMatches, redirectUrisMatch, runKeycloakMcpClientCommand, runKeycloakProjectMapperCommand, safeClientRedirectSnapshot, safeMapperSnapshot, safeMcpScopeBindings, synchronizeMcpClientRedirectUris, synchronizeProjectMapper };

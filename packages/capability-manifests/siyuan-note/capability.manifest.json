@@ -1,0 +1,19 @@
+{
+  "manifestVersion": 1,
+  "capability": "siyuan-note",
+  "version": "0.1.0",
+  "toolNames": [
+    "siyuan_list_notebooks",
+    "siyuan_save_note",
+    "siyuan_append_note",
+    "siyuan_search_notes",
+    "siyuan_get_note"
+  ],
+  "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
+  "requiredWorkerProfile": "direct",
+  "team": {
+    "mode": "direct",
+    "oauthScope": "common-tools:capability:siyuan-note"
+  },
+  "contentSha256": "6dfb22a9f008a8ef4da890e0a3edbc290113ee24cb702e7f822d32d651ba4851"
+}
