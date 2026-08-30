@@ -46,7 +46,7 @@ Windows 自带的 bsdtar 会把 workspace junction 打包并还原为普通目�
 
 同一提交的 attempt 2 命中缓存，但记录 `reused=false`、`installed=true`、`reason=cache-validation-failed`：标识计算 12 秒、恢复 17 秒、回退安装及验证 50 秒，缓存保存跳过。因此初版方案没有实现热复用。使用相同 Windows tar 参数的隔离实验确认 junction 恢复为普通目录；补充链接重建后，该实验通过。修复后的专用 Runner 准备阶段测量见下文，不能沿用初版本机的 5.3 秒作为最终 CI 结论。
 
-链接修复后的 run `33338360905`（提交 `38028cc`）已在准备阶段记录 `reused=true`、`installed=false`、`reason=validated-cache-hit`，确认没有重新安装：标识计算 13 秒、恢复 18 秒、链接重建及验证 19 秒，保存缓存跳过。但合计 50 秒仍慢于此前 main/模板 PR 的直接安装步骤（约 29～30 秒），不能据此宣称整体提速。
+链接修复后的 run `33338360905`（提交 `38028cc`）全部门禁通过，官方归档日志记录 `reused=true`、`installed=false`、`reason=validated-cache-hit`，确认没有重新安装：标识计算 13 秒、恢复 18 秒、链接重建及验证 19 秒，保存缓存跳过。但合计 50 秒仍慢于此前 main/模板 PR 的直接安装步骤（约 29～30 秒），不能据此宣称整体提速。
 
 ## 避免重复加载个人 PowerShell 配置
 
@@ -54,7 +54,19 @@ Windows 自带的 bsdtar 会把 workspace junction 打包并还原为普通目�
 
 Office job 的全部脚本步骤统一继承 `pwsh -NoProfile -NonInteractive -Command ". '{0}'"`，不修改用户的 profile 文件。Node/.NET 由固定 setup action 提供，Python 使用显式配置；工作流不再依赖个人终端初始化。仍使用 Runner 的 PowerShell 错误处理，每条 bootstrap、OCR、audit 和 build 原生命令还显式检查退出码，避免前一条失败被后一条成功覆盖。配置及失败传播约束纳入统一工作流测试。最终收益需以这一版本的 Runner 准备总耗时和完整门禁为准。
 
-合入前需在专用 Runner 验证一次冷运行和一次同标识热运行，确认缓存恢复后的 workspace 链接、依赖检查和 Office 门禁均通过，并比较完整环境准备耗时。若缓存传输抵消收益，应依据实际数据调整策略。
+专用 Runner 最终热运行 [33340660117](https://github.com/cbhandsun/common-tools/actions/runs/33340660117)（提交 `09b3732`）及两组常规 CI 均通过。官方日志确认 `reused=true`、`installed=false`；归档报告证明 4/4 smoke 用例、跨渲染器、独立新建 PPT 和趋势门禁均通过。各准备步骤与前一版比较如下：
+
+| 准备步骤 | 链接修复版 `38028cc` | 无配置启动版 `09b3732` |
+| --- | --- | --- |
+| Node 缓存标识 | 13 秒 | 2 秒 |
+| Node 缓存恢复 | 18 秒 | 18 秒 |
+| Node 链接重建及验证 | 19 秒 | 7 秒 |
+| Node 准备合计 | 50 秒 | 27 秒 |
+| Python 环境准备 | 26 秒 | 16 秒 |
+
+以上为单轮 Actions 步骤时间，包含 Node 缓存传输和恢复，但不是整条 CI 耗时。最终 Node 准备相较原先直接安装约 29～30 秒仅小幅提速；更明确的收益是健康缓存无需重装，以及多个脚本不再重复加载个人配置。Office 验收仍完整执行。
+
+PR #20 已以 `c02047d0ab6efe56e15d970b11ba9db3ae055b40` 合入 main。新缓存作用域或依赖/运行时标识变化时仍可能首次安装并上传，不能承诺永不安装。合入后的 main 全量回归与连续三次质量验收仍独立跟踪。脱敏运行证据与归档报告 SHA-256 见 `docs/evidence/office-cache-and-quality-2026-08-30.json`。
 
 统一单元测试入口自动包含 `test/office-node-dependencies.test.js`；相关工作流和变更范围测试分别在 `test/office-regression-workflow.test.js`、`test/office-regression-scope.test.js` 中。
 

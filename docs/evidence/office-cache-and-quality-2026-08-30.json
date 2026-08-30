@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-30T23:19:25.6131275Z",
+  "scope": "Office Runner dependency preparation and full-corpus acceptance evidence",
+  "cacheOptimizationMerge": {
+    "pullRequest": "https://github.com/cbhandsun/common-tools/pull/20",
+    "revision": "c02047d0ab6efe56e15d970b11ba9db3ae055b40",
+    "mergedAt": "2026-08-30T23:17:35Z",
+    "verifiedHead": "09b3732970b9e9c97e17c0f454396d3177fdc6a9",
+    "exactTreeMatch": true
+  },
+  "fullCorpusBaseline": {
+    "runId": "33337908795",
+    "runUrl": "https://github.com/cbhandsun/common-tools/actions/runs/33337908795",
+    "revision": "37b4f5cff795168a4f0d2af92d2715c6a38c2b9f",
+    "conclusion": "success",
+    "suite": "full",
+    "environmentFingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+    "totalCases": 31,
+    "passingCases": 31,
+    "crossRendererPassed": true,
+    "independentPptCreatePassed": true,
+    "trendPassed": true,
+    "compatiblePriorSnapshots": 0,
+    "comparedTargets": 0,
+    "baselineBootstrap": true,
+    "artifactName": "ppt-office-regression-33337908795",
+    "artifactSha256": {
+      "office-environment.json": "bb49edc603b57dda42c633bfc36be088e590aaa139a0a63504e350a59b2bb206",
+      "real-pptx-corpus.report.json": "deeb267cf94b179ed3111a29a837b34223aa6345cf287e3640607927a55d2562",
+      "quality-trend-report.json": "963a5d8fd288e1c51661b9f3938f95a02cc01a198247dd2aa35e2a8a1292a15c",
+      "cross-renderer/cross-renderer-report.json": "3b762cb927e8d8d8eb472fa3c30efba4d6cf2b0ae009d6b8ccb051ce73914926",
+      "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969"
+    }
+  },
+  "nodeCacheWarmRuns": [
+    {
+      "runId": "33338360905",
+      "runUrl": "https://github.com/cbhandsun/common-tools/actions/runs/33338360905",
+      "revision": "38028cc9c111484ce83dae1d0489dfe30599e74d",
+      "conclusion": "success",
+      "suite": "smoke",
+      "profileFreeShell": false,
+      "reused": true,
+      "installed": false,
+      "reason": "validated-cache-hit",
+      "identitySeconds": 13,
+      "restoreSeconds": 18,
+      "validateSeconds": 19,
+      "totalNodePreparationSeconds": 50,
+      "pythonPreparationSeconds": 26,
+      "cacheSaveSkipped": true,
+      "totalCases": 4,
+      "passingCases": 4,
+      "crossRendererPassed": true,
+      "independentPptCreatePassed": true,
+      "trendPassed": true,
+      "artifactName": "ppt-office-regression-33338360905",
+      "artifactSha256": {
+        "office-environment.json": "74f914b5a8824aedea60dbbda0c46fbf68a1317ef2a4179fd3acb934896045f6",
+        "real-pptx-corpus.report.json": "e8e46c9018e247558fb7d8b24f657a80e42ff52fe2008445700197389a90e031",
+        "quality-trend-report.json": "9ddcfd0ac46e560fbb2560acd9024213ca147733d3cc8aca31a21dfc69eee77a",
+        "cross-renderer/cross-renderer-report.json": "e3d89f02cc66c6fad5e8b98eb44897056f77208d27ca49181ab3f9eea1199042",
+        "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969"
+      }
+    },
+    {
+      "runId": "33340660117",
+      "runUrl": "https://github.com/cbhandsun/common-tools/actions/runs/33340660117",
+      "revision": "09b3732970b9e9c97e17c0f454396d3177fdc6a9",
+      "conclusion": "success",
+      "suite": "smoke",
+      "profileFreeShell": true,
+      "reused": true,
+      "installed": false,
+      "reason": "validated-cache-hit",
+      "identitySeconds": 2,
+      "restoreSeconds": 18,
+      "validateSeconds": 7,
+      "totalNodePreparationSeconds": 27,
+      "pythonPreparationSeconds": 16,
+      "cacheSaveSkipped": true,
+      "functionalAcceptanceComplete": true,
+      "totalCases": 4,
+      "passingCases": 4,
+      "crossRendererPassed": true,
+      "independentPptCreatePassed": true,
+      "trendPassed": true,
+      "artifactName": "ppt-office-regression-33340660117",
+      "artifactSha256": {
+        "office-environment.json": "7c5672d99ff7aca8d7382442c61e2ec0a61eeff93e253706e8cbdf88a7f25ba6",
+        "real-pptx-corpus.report.json": "9dfe446e1ab76433420d34fbc2100e66565bdab494288e3e71e09c8501559df4",
+        "quality-trend-report.json": "338d47271182b60ae3f6fb78a8fb58e51104587035c4a56291a8e50420de50b8",
+        "cross-renderer/cross-renderer-report.json": "4f7b56264173c6df4bede1a371dcceb478262d1ddf1c01690f6065d1e2614653",
+        "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969"
+      }
+    }
+  ],
+  "limitations": [
+    "Step timings are rounded GitHub Actions timestamps, not repeated benchmarks or total workflow durations.",
+    "Earlier direct Node installations took approximately 29-30 seconds; the final warm preparation improvement over that baseline is modest.",
+    "A new cache scope or dependency/runtime identity may require one cold installation and cache upload.",
+    "Successful PR smoke runs do not establish three consecutive full-corpus passes.",
+    "The full baseline has no compatible prior snapshots and does not establish a no-regression comparison by itself.",
+    "Three consecutive compatible full runs and owner-authorized remote production canaries remain unproven."
+  ]
+}
