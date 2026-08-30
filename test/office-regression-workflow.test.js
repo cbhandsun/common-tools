@@ -13,6 +13,7 @@ const {
   prepareQualityHistory,
   readHistoryCohort,
   readHistoryCount,
+  requiresCohortBootstrap,
   safeWorkspacePath,
   snapshotId,
   verifyPowerPointInstallation
@@ -82,6 +83,15 @@ test("Office regression history is mirrored atomically and grouped by environmen
   assert.equal(archiveQualityHistory(plan), true);
   assert.equal(JSON.parse(fs.readFileSync(historyArchiveFile, "utf8")).snapshots[0].id, "current");
   assert.deepEqual(readHistoryCohort(historyFile, fingerprint), { total: 1, compatible: 1, fingerprinted: 1, legacyOnly: false });
+});
+
+test("Office regression bootstraps a new environment cohort without mixing incompatible history", () => {
+  assert.equal(requiresCohortBootstrap({ total: 0, compatible: 0, fingerprinted: 0, legacyOnly: false }), true);
+  assert.equal(requiresCohortBootstrap({ total: 10, compatible: 0, fingerprinted: 10, legacyOnly: false }), true);
+  assert.equal(requiresCohortBootstrap({ total: 10, compatible: 1, fingerprinted: 10, legacyOnly: false }), false);
+  assert.equal(requiresCohortBootstrap({ total: 2, compatible: 0, fingerprinted: 0, legacyOnly: true }), true);
+  assert.throws(() => requiresCohortBootstrap(null), /cohort is invalid/);
+  assert.throws(() => requiresCohortBootstrap({ total: 1, compatible: 2, fingerprinted: 1, legacyOnly: false }), /cohort is invalid/);
 });
 
 test("Office environment evidence is path-free, deterministic and hash-bound to dependencies", () => {

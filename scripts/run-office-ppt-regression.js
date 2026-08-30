@@ -49,7 +49,7 @@ function main() {
     "--record",
     "--out", path.join(plan.outDir, "quality-trend-report.json")
   ];
-  const baselineBootstrap = historyCohort.total === 0 || historyCohort.legacyOnly;
+  const baselineBootstrap = requiresCohortBootstrap(historyCohort);
   if (baselineBootstrap) trendArgs.push("--minimum-history", "0", "--required-target-ratio", "0");
   runNode(trendArgs, plan.environment);
   archiveQualityHistory(plan);
@@ -182,6 +182,16 @@ function readHistoryCohort(file, environmentFingerprint) {
   };
 }
 
+function requiresCohortBootstrap(cohort) {
+  if (!cohort || typeof cohort !== "object") throw new TypeError("quality history cohort is invalid");
+  const { total, compatible, fingerprinted, legacyOnly } = cohort;
+  if (![total, compatible, fingerprinted].every((value) => Number.isInteger(value) && value >= 0)
+    || compatible > total || fingerprinted > total || typeof legacyOnly !== "boolean") {
+    throw new TypeError("quality history cohort is invalid");
+  }
+  return total === 0 || compatible === 0 || legacyOnly;
+}
+
 function safeWorkspacePath(cwd, value, label) {
   if (typeof value !== "string" || value.length === 0 || value.length > 2048) throw new TypeError(`${label} is invalid`);
   const root = path.resolve(cwd);
@@ -264,6 +274,7 @@ module.exports = {
   prepareQualityHistory,
   readHistoryCohort,
   readHistoryCount,
+  requiresCohortBootstrap,
   safeWorkspacePath,
   snapshotId,
   verifyPowerPointInstallation
