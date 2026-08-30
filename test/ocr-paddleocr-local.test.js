@@ -138,6 +138,31 @@ test("official PaddleOCR adapter validates config, input, timeout, cancellation,
   }
 });
 
+test("PaddleOCR adapter consumes only an available absolute cached runtime path", (t) => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "paddleocr-runtime-env-"));
+  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const cachedPython = path.join(tempDir, "python.exe");
+  fs.writeFileSync(cachedPython, "runtime");
+  const previous = process.env.SLIDECLONE_PADDLEOCR_PYTHON;
+  try {
+    process.env.SLIDECLONE_PADDLEOCR_PYTHON = cachedPython;
+    assert.equal(paddleOcr._private.resolveSettings(context(tempDir, { pythonBin: undefined })).pythonBin, cachedPython);
+    process.env.SLIDECLONE_PADDLEOCR_PYTHON = "relative-python";
+    assert.throws(
+      () => paddleOcr._private.resolveSettings(context(tempDir, { pythonBin: undefined })),
+      /absolute executable/u
+    );
+    process.env.SLIDECLONE_PADDLEOCR_PYTHON = path.join(tempDir, "missing.exe");
+    assert.throws(
+      () => paddleOcr._private.resolveSettings(context(tempDir, { pythonBin: undefined })),
+      /unavailable/u
+    );
+  } finally {
+    if (previous === undefined) delete process.env.SLIDECLONE_PADDLEOCR_PYTHON;
+    else process.env.SLIDECLONE_PADDLEOCR_PYTHON = previous;
+  }
+});
+
 test("PaddleOCR batch broker reuses one local engine and preserves the adapter result contract", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "paddleocr-broker-"));
   let broker;

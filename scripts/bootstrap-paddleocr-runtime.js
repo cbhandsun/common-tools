@@ -4,25 +4,48 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const { exportGitHubEnvironment, resolvePythonToolLocation } = require("./lib/python-tool-cache");
 
 function bootstrapPaddleOcrRuntime(options = {}) {
   const workspaceRoot = path.resolve(options.workspaceRoot || path.resolve(__dirname, ".."));
-  const toolsDir = path.join(workspaceRoot, ".tools");
-  const runtimeDir = path.join(toolsDir, "paddleocr-venv");
-  const stagingDir = path.join(toolsDir, `paddleocr-venv-staging-${process.pid}-${Date.now()}`);
+  const fallbackToolsDir = path.join(workspaceRoot, ".tools");
+  const fallbackRuntimeDir = path.join(fallbackToolsDir, "paddleocr-venv");
   const requirementsFile = path.resolve(options.requirementsFile || path.join(workspaceRoot, "scripts", "paddleocr-requirements.lock.txt"));
   const python = options.python || process.env.PYTHON_BIN || "python";
   const run = options.run || spawnSync;
   if (!fs.existsSync(requirementsFile) || !fs.statSync(requirementsFile).isFile()) throw new Error("PaddleOCR requirements file is unavailable");
+  const location = resolvePythonToolLocation({
+    workspaceRoot,
+    fallbackDir: fallbackRuntimeDir,
+    requirementsFile,
+    toolName: "paddleocr-venv",
+    python,
+    runnerToolCache: options.runnerToolCache ?? process.env.RUNNER_TOOL_CACHE,
+    runtimeIdentity: options.runtimeIdentity,
+    runIdentityCommand: options.runIdentityCommand
+  });
+  const toolsDir = location.managedRoot;
+  const runtimeDir = location.targetDir;
+  const stagingDir = path.join(toolsDir, `${path.basename(runtimeDir)}-staging-${process.pid}-${Date.now()}`);
   fs.mkdirSync(toolsDir, { recursive: true });
   assertManagedPath(toolsDir, stagingDir);
   assertManagedPath(toolsDir, runtimeDir);
-  if (runtimeMatches(run, runtimeDir, workspaceRoot)) return pythonInVenv(runtimeDir);
+  if (runtimeMatches(run, runtimeDir, workspaceRoot)) {
+    const resolvedPython = pythonInVenv(runtimeDir);
+    exportGitHubEnvironment("SLIDECLONE_PADDLEOCR_PYTHON", resolvedPython, options.githubEnvironmentFile);
+    return resolvedPython;
+  }
   try {
     runChecked(run, python, ["-m", "venv", stagingDir], { cwd: workspaceRoot });
     const runtimePython = pythonInVenv(stagingDir);
     runChecked(run, runtimePython, ["-m", "pip", "install", "--disable-pip-version-check", "--requirement", requirementsFile], { cwd: workspaceRoot });
     runChecked(run, runtimePython, versionProbeArgs(), { cwd: workspaceRoot });
+    if (runtimeMatches(run, runtimeDir, workspaceRoot)) {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+      const resolvedPython = pythonInVenv(runtimeDir);
+      exportGitHubEnvironment("SLIDECLONE_PADDLEOCR_PYTHON", resolvedPython, options.githubEnvironmentFile);
+      return resolvedPython;
+    }
     if (fs.existsSync(runtimeDir)) {
       const backupDir = path.join(toolsDir, `paddleocr-venv-backup-${process.pid}-${Date.now()}`);
       assertManagedPath(toolsDir, backupDir);
@@ -37,7 +60,9 @@ function bootstrapPaddleOcrRuntime(options = {}) {
     } else {
       fs.renameSync(stagingDir, runtimeDir);
     }
-    return pythonInVenv(runtimeDir);
+    const resolvedPython = pythonInVenv(runtimeDir);
+    exportGitHubEnvironment("SLIDECLONE_PADDLEOCR_PYTHON", resolvedPython, options.githubEnvironmentFile);
+    return resolvedPython;
   } catch (error) {
     if (fs.existsSync(stagingDir)) fs.rmSync(stagingDir, { recursive: true, force: true });
     throw error;
@@ -71,7 +96,7 @@ function assertManagedPath(toolsDir, targetDir) {
 
 function main() {
   try {
-    process.stdout.write(`PaddleOCR runtime installed: ${bootstrapPaddleOcrRuntime()}\n`);
+    process.stdout.write(`PaddleOCR runtime ready: ${bootstrapPaddleOcrRuntime()}\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : "PaddleOCR runtime setup failed"}\n`);
     process.exitCode = 1;

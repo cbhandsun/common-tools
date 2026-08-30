@@ -23,6 +23,7 @@
     "scripts/release-evidence.js",
     "scripts/generate-image-ocr-release-input.js",
     "scripts/bootstrap-paddleocr-runtime.js",
+    "scripts/lib/python-tool-cache.js",
     "scripts/paddleocr-requirements.lock.txt",
     "scripts/smoke-paddleocr-local.js",
     "scripts/generate-remote-plugin-bundles.js",

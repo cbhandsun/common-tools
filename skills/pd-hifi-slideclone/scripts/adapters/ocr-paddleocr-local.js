@@ -657,6 +657,17 @@ function resolvePath(context, value) {
 }
 
 function resolvePaddlePython(explicit, skillRoot) {
+  const cached = process.env.SLIDECLONE_PADDLEOCR_PYTHON;
+  if (!explicit && cached !== undefined && cached !== "") {
+    if (cached.length > 32_768 || /[\r\n\0]/u.test(cached) || !path.isAbsolute(cached)) {
+      throw new Error("SLIDECLONE_PADDLEOCR_PYTHON must be an absolute executable path");
+    }
+    const resolved = path.resolve(cached);
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+      throw new Error("SLIDECLONE_PADDLEOCR_PYTHON is unavailable");
+    }
+    return resolved;
+  }
   const workspaceRoot = path.resolve(skillRoot, "..", "..");
   const managed = process.platform === "win32"
     ? path.join(workspaceRoot, ".tools", "paddleocr-venv", "Scripts", "python.exe")

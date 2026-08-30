@@ -1,6 +1,9 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const test = require("node:test");
 
 const {
@@ -53,6 +56,25 @@ test("pythonEnv skips local python-site for bundled Python executable", () => {
     assert.deepEqual(pythonEnv("skills/pd-hifi-slideclone", { python: bundled }), {});
   } finally {
     restoreEnv("SLIDECLONE_SKIP_LOCAL_PYTHON_SITE", previousSkip);
+    restoreEnv("PYTHONPATH", previousPythonPath);
+  }
+});
+
+test("pythonEnv consumes only an available absolute Runner cache path", (t) => {
+  const cachedSite = fs.mkdtempSync(path.join(os.tmpdir(), "python-site-env-test-"));
+  t.after(() => fs.rmSync(cachedSite, { recursive: true, force: true }));
+  const previousSite = process.env.SLIDECLONE_PYTHON_SITE_DIR;
+  const previousPythonPath = process.env.PYTHONPATH;
+  try {
+    process.env.SLIDECLONE_PYTHON_SITE_DIR = cachedSite;
+    process.env.PYTHONPATH = "existing-site";
+    assert.equal(pythonEnv("skills/pd-hifi-slideclone").PYTHONPATH, `${cachedSite}${path.delimiter}existing-site`);
+    process.env.SLIDECLONE_PYTHON_SITE_DIR = "relative-cache";
+    assert.throws(() => pythonEnv("skills/pd-hifi-slideclone"), /absolute directory/u);
+    process.env.SLIDECLONE_PYTHON_SITE_DIR = path.join(cachedSite, "missing");
+    assert.throws(() => pythonEnv("skills/pd-hifi-slideclone"), /unavailable/u);
+  } finally {
+    restoreEnv("SLIDECLONE_PYTHON_SITE_DIR", previousSite);
     restoreEnv("PYTHONPATH", previousPythonPath);
   }
 });

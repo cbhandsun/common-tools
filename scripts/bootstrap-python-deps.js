@@ -4,11 +4,12 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const { exportGitHubEnvironment, resolvePythonToolLocation } = require("./lib/python-tool-cache");
 
 function installPythonDeps(options = {}) {
   const workspaceRoot = path.resolve(options.workspaceRoot || path.resolve(__dirname, ".."));
-  const toolsDir = path.join(workspaceRoot, ".tools");
-  const siteDir = path.join(toolsDir, "python-site");
+  const fallbackToolsDir = path.join(workspaceRoot, ".tools");
+  const fallbackSiteDir = path.join(fallbackToolsDir, "python-site");
   const requirementsFile = path.resolve(
     options.requirementsFile || path.join(workspaceRoot, "scripts", "python-requirements.lock.txt")
   );
@@ -19,9 +20,25 @@ function installPythonDeps(options = {}) {
     throw new Error(`Python dependency lock file was not found: ${requirementsFile}`);
   }
 
+  const location = resolvePythonToolLocation({
+    workspaceRoot,
+    fallbackDir: fallbackSiteDir,
+    requirementsFile,
+    toolName: "python-site",
+    python,
+    runnerToolCache: options.runnerToolCache ?? process.env.RUNNER_TOOL_CACHE,
+    runtimeIdentity: options.runtimeIdentity,
+    runIdentityCommand: options.runIdentityCommand
+  });
+  const toolsDir = location.managedRoot;
+  const siteDir = location.targetDir;
   fs.mkdirSync(toolsDir, { recursive: true });
-  const stagingDir = fs.mkdtempSync(path.join(toolsDir, "python-site-staging-"));
-  const backupDir = path.join(toolsDir, `python-site-backup-${process.pid}-${Date.now()}`);
+  if (pythonDepsMatch(runCommand, python, siteDir, workspaceRoot)) {
+    exportGitHubEnvironment("SLIDECLONE_PYTHON_SITE_DIR", siteDir, options.githubEnvironmentFile);
+    return siteDir;
+  }
+  const stagingDir = fs.mkdtempSync(path.join(toolsDir, `${path.basename(siteDir)}-staging-`));
+  const backupDir = path.join(toolsDir, `${path.basename(siteDir)}-backup-${process.pid}-${Date.now()}`);
   assertManagedPath(toolsDir, stagingDir);
   assertManagedPath(toolsDir, backupDir);
 
@@ -51,6 +68,11 @@ function installPythonDeps(options = {}) {
       throw new Error(`Python dependency import probe failed with exit code ${probe.status ?? "unknown"}`);
     }
 
+    if (pythonDepsMatch(runCommand, python, siteDir, workspaceRoot)) {
+      removeManagedDirectory(toolsDir, stagingDir);
+      exportGitHubEnvironment("SLIDECLONE_PYTHON_SITE_DIR", siteDir, options.githubEnvironmentFile);
+      return siteDir;
+    }
     if (fs.existsSync(siteDir)) renameWithRetry(siteDir, backupDir);
     try {
       renameWithRetry(stagingDir, siteDir);
@@ -61,11 +83,23 @@ function installPythonDeps(options = {}) {
       throw error;
     }
     removeManagedDirectory(toolsDir, backupDir);
+    exportGitHubEnvironment("SLIDECLONE_PYTHON_SITE_DIR", siteDir, options.githubEnvironmentFile);
     return siteDir;
   } catch (error) {
     removeManagedDirectory(toolsDir, stagingDir);
     throw error;
   }
+}
+
+function pythonDepsMatch(runCommand, python, siteDir, workspaceRoot) {
+  if (!fs.existsSync(siteDir) || !fs.statSync(siteDir).isDirectory()) return false;
+  const result = runCommand(python, ["-c", "import lxml, PIL, pptx, typing_extensions, xlsxwriter"], {
+    cwd: workspaceRoot,
+    windowsHide: true,
+    stdio: "ignore",
+    env: { ...process.env, PYTHONPATH: siteDir }
+  });
+  return Boolean(result && result.status === 0);
 }
 
 function buildPipArgs(targetDir, requirementsFile) {
@@ -132,7 +166,7 @@ function assertManagedPath(toolsDir, targetDir) {
 function main() {
   try {
     const siteDir = installPythonDeps();
-    process.stdout.write(`Python dependencies installed at ${siteDir}\n`);
+    process.stdout.write(`Python dependencies ready at ${siteDir}\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;
@@ -145,5 +179,6 @@ module.exports = {
   assertManagedPath,
   buildPipArgs,
   installPythonDeps,
+  pythonDepsMatch,
   renameWithRetry
 };
