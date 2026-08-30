@@ -14,6 +14,8 @@ const OFFICE_PATHS = Object.freeze([
   "scripts/cross-renderer-corpus-audit.js",
   "scripts/lib/ppt-create-office-corpus.js",
   "scripts/lib/ppt-create-template-archive-corpus.js",
+  "scripts/lib/office-node-dependencies.js",
+  "scripts/office-node-dependencies.js",
   "scripts/lib/office-regression-evidence.js",
   "scripts/office-regression-scope.js",
   "scripts/ppt-create-office-smoke.js",
