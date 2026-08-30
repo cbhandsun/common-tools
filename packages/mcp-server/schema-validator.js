@@ -10,7 +10,8 @@ function isObject(value) {
 
 /** @param {unknown} value @param {JsonSchema} schema @returns {boolean} */
 function matchesSchema(value, schema) {
-  if (Object.prototype.hasOwnProperty.call(schema, "const") && value !== schema.const) return false;
+  const hasConst = Object.prototype.hasOwnProperty.call(schema, "const");
+  if (hasConst && value !== schema.const) return false;
   if (Array.isArray(schema.oneOf)) {
     if (schema.oneOf.length < 1 || schema.oneOf.filter((candidate) => isObject(candidate) && matchesSchema(value, candidate)).length !== 1) return false;
   }
@@ -50,12 +51,13 @@ function matchesSchema(value, schema) {
     }
     return true;
   }
+  if (schema.type === undefined && hasConst) return true;
   return false;
 }
 
 /** @param {unknown} schema @returns {(value: unknown) => boolean} */
 function compileSchema(schema) {
-  if (!isObject(schema) || !["object", "array", "string", "integer", "boolean"].includes(String(schema.type))) throw new TypeError("JSON schema is invalid");
+  if (!isObject(schema) || (!Object.prototype.hasOwnProperty.call(schema, "const") && !["object", "array", "string", "integer", "boolean"].includes(String(schema.type)))) throw new TypeError("JSON schema is invalid");
   return (value) => matchesSchema(value, schema);
 }
 

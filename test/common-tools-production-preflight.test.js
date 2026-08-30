@@ -174,6 +174,9 @@ test("production preflight supports direct SiYuan access without requiring a Wor
   assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_TOKEN: undefined }), /exactly one SiYuan token source/);
   assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_TOKEN_FILE: "C:\\secure\\siyuan-token" }), /exactly one SiYuan token source/);
   assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_URL: "" }), /COMMON_TOOLS_SIYUAN_URL/);
+  assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_URL: "http://10.0.0.9:6806" }), /approved internal HTTP host/);
+  assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_INBOX_PATH: "/Agent Inbox/" }), /SIYUAN_INBOX_PATH/);
+  assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_TIMEOUT_MS: "0" }), /SIYUAN_TIMEOUT_MS/);
 });
 
 test("production preflight supports the PPT improve pipeline without requiring an unused image Worker image", () => {

@@ -5,6 +5,7 @@ const path = require("node:path");
 const { loadRemoteConfig } = require("../remote-mcp-server");
 const { TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig } = require("../team-runtime");
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
+const { loadSiyuanConfig } = require("../siyuan-note-core");
 const { verifyReleaseEvidenceFile } = require("../../scripts/release-evidence");
 const { verifyReleaseSignature } = require("../../scripts/verify-release-signature");
 const { parsePinnedRawImageOcrProfile } = require("../slideclone-core/team-ocr-profile");
@@ -33,7 +34,7 @@ function deployedWorkerCapabilities(capabilities) {
 
 function siyuanSecretConfiguration(environment, capabilities) {
   if (!capabilities.includes("siyuan-note")) return Object.freeze({ composeFiles: Object.freeze([]) });
-  nonEmpty(environment.COMMON_TOOLS_SIYUAN_URL, "COMMON_TOOLS_SIYUAN_URL");
+  loadSiyuanConfig(environment);
   const direct = typeof environment.COMMON_TOOLS_SIYUAN_TOKEN === "string" && Boolean(environment.COMMON_TOOLS_SIYUAN_TOKEN.trim());
   const file = typeof environment.COMMON_TOOLS_SIYUAN_TOKEN_FILE === "string" && Boolean(environment.COMMON_TOOLS_SIYUAN_TOKEN_FILE.trim());
   if (direct === file) throw new Error("exactly one SiYuan token source is required");
