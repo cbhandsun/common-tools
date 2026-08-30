@@ -50,7 +50,7 @@ test("Python bootstrap atomically replaces a validated environment", (t) => {
 
   assert.equal(fs.readFileSync(path.join(siteDir, "new.txt"), "utf8"), "new");
   assert.equal(fs.existsSync(path.join(siteDir, "old.txt")), false);
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 2);
 });
 
 test("Python bootstrap reuses a content-addressed Runner tool cache", (t) => {
@@ -97,13 +97,17 @@ test("Python bootstrap keeps a valid cache completed by a concurrent run", (t) =
     runCommand(_command, args, commandOptions) {
       const targetIndex = args.indexOf("--target");
       if (targetIndex >= 0) fs.writeFileSync(path.join(args[targetIndex + 1], "candidate.txt"), "candidate");
-      const pythonPath = commandOptions?.env?.PYTHONPATH;
-      if (typeof pythonPath === "string" && /-s-[^\\/]+$/u.test(pythonPath) && !winnerDir) {
-        winnerDir = pythonPath.slice(0, pythonPath.lastIndexOf("-s-"));
+      assert.ok(commandOptions);
+      return { status: 0 };
+    },
+    renamePath(source, destination) {
+      if (path.basename(source).includes("-s-") && !winnerDir) {
+        winnerDir = destination;
         fs.mkdirSync(winnerDir, { recursive: true });
         fs.writeFileSync(path.join(winnerDir, "winner.txt"), "winner");
+        throw Object.assign(new Error("destination exists"), { code: "EEXIST" });
       }
-      return { status: 0 };
+      fs.renameSync(source, destination);
     }
   });
 

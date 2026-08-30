@@ -15,6 +15,7 @@ function installPythonDeps(options = {}) {
   );
   const python = options.python || process.env.PYTHON_BIN || "python";
   const runCommand = options.runCommand || defaultRunCommand;
+  const renamePath = options.renamePath || ((source, destination) => renameWithRetry(source, destination));
 
   if (!fs.existsSync(requirementsFile)) {
     throw new Error(`Python dependency lock file was not found: ${requirementsFile}`);
@@ -33,7 +34,7 @@ function installPythonDeps(options = {}) {
   const toolsDir = location.managedRoot;
   const siteDir = location.targetDir;
   fs.mkdirSync(toolsDir, { recursive: true });
-  if (pythonDepsMatch(runCommand, python, siteDir, workspaceRoot)) {
+  if (location.persistent && pythonDepsMatch(runCommand, python, siteDir, workspaceRoot)) {
     exportGitHubEnvironment("SLIDECLONE_PYTHON_SITE_DIR", siteDir, options.githubEnvironmentFile);
     return siteDir;
   }
@@ -68,17 +69,23 @@ function installPythonDeps(options = {}) {
       throw new Error(`Python dependency import probe failed with exit code ${probe.status ?? "unknown"}`);
     }
 
-    if (pythonDepsMatch(runCommand, python, siteDir, workspaceRoot)) {
+    if (location.persistent && pythonDepsMatch(runCommand, python, siteDir, workspaceRoot)) {
       removeManagedDirectory(toolsDir, stagingDir);
       exportGitHubEnvironment("SLIDECLONE_PYTHON_SITE_DIR", siteDir, options.githubEnvironmentFile);
       return siteDir;
     }
-    if (fs.existsSync(siteDir)) renameWithRetry(siteDir, backupDir);
+    if (fs.existsSync(siteDir)) renamePath(siteDir, backupDir);
     try {
-      renameWithRetry(stagingDir, siteDir);
+      renamePath(stagingDir, siteDir);
     } catch (error) {
+      if (location.persistent && pythonDepsMatch(runCommand, python, siteDir, workspaceRoot)) {
+        removeManagedDirectory(toolsDir, stagingDir);
+        removeManagedDirectory(toolsDir, backupDir);
+        exportGitHubEnvironment("SLIDECLONE_PYTHON_SITE_DIR", siteDir, options.githubEnvironmentFile);
+        return siteDir;
+      }
       if (fs.existsSync(backupDir) && !fs.existsSync(siteDir)) {
-        renameWithRetry(backupDir, siteDir);
+        renamePath(backupDir, siteDir);
       }
       throw error;
     }

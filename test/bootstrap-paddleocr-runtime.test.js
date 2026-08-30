@@ -62,19 +62,11 @@ test("PaddleOCR bootstrap keeps a valid cache completed by a concurrent run", (t
   fs.mkdirSync(path.join(workspaceRoot, "scripts"), { recursive: true });
   fs.writeFileSync(path.join(workspaceRoot, "scripts", "paddleocr-requirements.lock.txt"), "locked\n");
   let winnerPython;
-  const run = (command, args) => {
+  const run = (_command, args) => {
     if (args[0] === "-m" && args[1] === "venv") {
       const executable = pythonInVenv(args[2]);
       fs.mkdirSync(path.dirname(executable), { recursive: true });
       fs.writeFileSync(executable, "candidate");
-    }
-    if (args[0] === "-c" && /-s-[^\\/]+[\\/](Scripts|bin)[\\/]python(?:[.]exe)?$/u.test(command) && !winnerPython) {
-      const stagingDir = path.dirname(path.dirname(command));
-      const marker = stagingDir.lastIndexOf("-s-");
-      const winnerDir = stagingDir.slice(0, marker);
-      winnerPython = pythonInVenv(winnerDir);
-      fs.mkdirSync(path.dirname(winnerPython), { recursive: true });
-      fs.writeFileSync(winnerPython, "winner");
     }
     return { status: 0 };
   };
@@ -83,7 +75,16 @@ test("PaddleOCR bootstrap keeps a valid cache completed by a concurrent run", (t
     runnerToolCache,
     runtimeIdentity: "CPython|3.12.9|cpython-312|win-amd64",
     githubEnvironmentFile: "",
-    run
+    run,
+    rename(source, destination) {
+      if (path.basename(source).includes("-s-") && !winnerPython) {
+        winnerPython = pythonInVenv(destination);
+        fs.mkdirSync(path.dirname(winnerPython), { recursive: true });
+        fs.writeFileSync(winnerPython, "winner");
+        throw Object.assign(new Error("destination exists"), { code: "EEXIST" });
+      }
+      fs.renameSync(source, destination);
+    }
   });
 
   assert.equal(resolved, winnerPython);

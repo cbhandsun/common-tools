@@ -13,6 +13,7 @@ function bootstrapPaddleOcrRuntime(options = {}) {
   const requirementsFile = path.resolve(options.requirementsFile || path.join(workspaceRoot, "scripts", "paddleocr-requirements.lock.txt"));
   const python = options.python || process.env.PYTHON_BIN || "python";
   const run = options.run || spawnSync;
+  const rename = options.rename || fs.renameSync;
   if (!fs.existsSync(requirementsFile) || !fs.statSync(requirementsFile).isFile()) throw new Error("PaddleOCR requirements file is unavailable");
   const location = resolvePythonToolLocation({
     workspaceRoot,
@@ -49,16 +50,33 @@ function bootstrapPaddleOcrRuntime(options = {}) {
     if (fs.existsSync(runtimeDir)) {
       const backupDir = path.join(toolsDir, `${path.basename(runtimeDir)}-b-${process.pid}`);
       assertManagedPath(toolsDir, backupDir);
-      fs.renameSync(runtimeDir, backupDir);
+      rename(runtimeDir, backupDir);
       try {
-        fs.renameSync(stagingDir, runtimeDir);
+        rename(stagingDir, runtimeDir);
         fs.rmSync(backupDir, { recursive: true, force: true });
       } catch (error) {
-        if (!fs.existsSync(runtimeDir) && fs.existsSync(backupDir)) fs.renameSync(backupDir, runtimeDir);
+        if (location.persistent && runtimeMatches(run, runtimeDir, workspaceRoot)) {
+          fs.rmSync(stagingDir, { recursive: true, force: true });
+          fs.rmSync(backupDir, { recursive: true, force: true });
+          const resolvedPython = pythonInVenv(runtimeDir);
+          exportGitHubEnvironment("SLIDECLONE_PADDLEOCR_PYTHON", resolvedPython, options.githubEnvironmentFile);
+          return resolvedPython;
+        }
+        if (!fs.existsSync(runtimeDir) && fs.existsSync(backupDir)) rename(backupDir, runtimeDir);
         throw error;
       }
     } else {
-      fs.renameSync(stagingDir, runtimeDir);
+      try {
+        rename(stagingDir, runtimeDir);
+      } catch (error) {
+        if (location.persistent && runtimeMatches(run, runtimeDir, workspaceRoot)) {
+          fs.rmSync(stagingDir, { recursive: true, force: true });
+          const resolvedPython = pythonInVenv(runtimeDir);
+          exportGitHubEnvironment("SLIDECLONE_PADDLEOCR_PYTHON", resolvedPython, options.githubEnvironmentFile);
+          return resolvedPython;
+        }
+        throw error;
+      }
     }
     const resolvedPython = pythonInVenv(runtimeDir);
     exportGitHubEnvironment("SLIDECLONE_PADDLEOCR_PYTHON", resolvedPython, options.githubEnvironmentFile);
