@@ -32,6 +32,19 @@ test("ppt-create OpenXML output contains native editable content without raster 
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test("production ppt-create worker forwards an admitted user template to OpenXML", { timeout: 60_000 }, () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-create-template-worker-"));
+  try {
+    const input = fs.readFileSync(path.join(__dirname, "fixtures", "ppt-create", "basic.presentation.json"));
+    const ir = createDeckIr(parsePresentationSpec(input)); const irFile = path.join(root, "deck.ir.json");
+    const templatePptx = path.join(root, "template.pptx"); const outFile = path.join(root, "templated.pptx");
+    fs.writeFileSync(irFile, `${JSON.stringify(ir, null, 2)}\n`, { flag: "wx", mode: 0o600 });
+    buildPptx({ irFile, outFile: templatePptx }); buildPptx({ irFile, outFile, templatePptx });
+    assert.deepEqual(readZipEntry(outFile, "ppt/slideMasters/slideMaster1.xml"), readZipEntry(templatePptx, "ppt/slideMasters/slideMaster1.xml"));
+    assert.equal(inspectPptx(outFile).slideCount, ir.pages.length);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("ppt-create writes citations as editable footer text and speaker notes as native notes slides", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-notes-"));
   try {

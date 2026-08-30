@@ -13,6 +13,7 @@ const { buildPptx } = require("../packages/remote-mcp-server/bin/common-tools-te
 const { validatePowerPointEditableRoundTrip } = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip");
 const renderLibreOffice = require("../skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice");
 const { buildPptCreateBoundaryCases, buildPptCreateOfficeCorpus } = require("./lib/ppt-create-office-corpus");
+const { buildUserTemplateArchiveCase } = require("./lib/ppt-create-template-archive-corpus");
 
 function entry(id, label) { return { id, label, detail: `${label} detail` }; }
 function buildSemanticOfficeSpec() {
@@ -56,6 +57,9 @@ async function buildIndependentOfficeCorpus(outputRoot) {
     if (!libreOffice.ok || libreOffice.renderedPageCount !== entry.spec.slides.length) throw new Error("PPT creation corpus LibreOffice validation failed");
     decks.push({ id: entry.id, pptxFile, pageCount: entry.spec.slides.length, theme: entry.spec.theme, language: entry.spec.language, layouts: entry.spec.slides.map((slide) => slide.layout) });
   }
+  const templateSource = decks.find((entry) => entry.id === "mixed-warm")?.pptxFile;
+  if (!templateSource) throw new Error("PPT creation corpus template source is unavailable");
+  const userTemplateArchive = await buildUserTemplateArchiveCase(corpusRoot, templateSource, { buildPptx, renderLibreOffice }); decks.push(userTemplateArchive.deck);
   const powerPoint = await validatePowerPointEditableRoundTrip(decks.map((entry) => ({ file: entry.pptxFile, mode: "auto" })), { outputDir: corpusRoot, timeoutMs: 600_000 });
   if (powerPoint.passed !== true) throw new Error("PPT creation corpus PowerPoint validation failed");
   const boundaryCases = buildPptCreateBoundaryCases(corpus[0].spec).map((entry) => {
@@ -65,12 +69,14 @@ async function buildIndependentOfficeCorpus(outputRoot) {
   if (boundaryCases.some((entry) => !entry.passed)) throw new Error("PPT creation corpus boundary validation failed");
   return {
     deckCount: decks.length,
+    baseDeckCount: corpus.length,
     pageCount: decks.reduce((sum, entry) => sum + entry.pageCount, 0),
     themes: [...new Set(decks.map((entry) => entry.theme))].sort(),
     languages: [...new Set(decks.map((entry) => entry.language))].sort(),
     layouts: [...new Set(decks.flatMap((entry) => entry.layouts))].sort(),
     mediaDeckCount: corpus.filter((entry) => entry.spec.assets?.length).length,
     sourceBackedSlideCount: corpus.flatMap((entry) => entry.spec.slides).filter((slide) => slide.citations?.length && slide.speakerNotes).length,
+    userTemplateArchive: userTemplateArchive.report,
     boundaryCases,
     powerPointValidated: true,
     libreOfficeValidated: true

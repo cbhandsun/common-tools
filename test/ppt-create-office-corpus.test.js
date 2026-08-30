@@ -7,7 +7,8 @@ const { createDeckIr } = require("../packages/ppt-create-core/layout");
 const { LAYOUT_REGISTRY } = require("../packages/ppt-create-core/layout-registry");
 const { validatePresentationSpec } = require("../packages/ppt-create-core/spec");
 const { THEME_REGISTRY } = require("../packages/ppt-create-core/theme-registry");
-const { buildPptCreateBoundaryCases, buildPptCreateOfficeCorpus } = require("../scripts/lib/ppt-create-office-corpus");
+const { buildPptCreateBoundaryCases, buildPptCreateOfficeCorpus, buildPptCreateUserTemplateArchiveSpec } = require("../scripts/lib/ppt-create-office-corpus");
+const { buildUserTemplateArchiveCase } = require("../scripts/lib/ppt-create-template-archive-corpus");
 
 const assetFile = path.resolve(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png");
 
@@ -34,4 +35,21 @@ test("independent ppt-create corpus exercises accepted extremes and rejects empt
     if (entry.accepted) assert.doesNotThrow(() => validatePresentationSpec(entry.spec), entry.id);
     else assert.throws(() => validatePresentationSpec(entry.spec), undefined, entry.id);
   }
+});
+
+test("independent ppt-create corpus defines one hash-bound customer template archive case", () => {
+  const spec = validatePresentationSpec(buildPptCreateUserTemplateArchiveSpec(path.resolve(__filename)));
+  assert.equal(spec.template.path, "templates/user-template.pptx");
+  assert.equal(spec.template.source.kind, "customer-provided");
+  assert.equal(spec.template.source.license, "customer-owned-or-authorized");
+  assert.equal(spec.template.sha256.length, 64);
+  assert.equal(spec.slides.length, 3);
+  assert.throws(() => buildPptCreateUserTemplateArchiveSpec(path.resolve(__dirname, "missing-template.pptx")), /unavailable/);
+});
+
+test("user template archive corpus rejects empty, relative, missing, and adapter-free boundaries", async () => {
+  await assert.rejects(() => buildUserTemplateArchiveCase("", path.resolve(__filename), {}), /root is unavailable/);
+  await assert.rejects(() => buildUserTemplateArchiveCase(path.resolve(__dirname), "relative.pptx", {}), /source is unavailable/);
+  await assert.rejects(() => buildUserTemplateArchiveCase(path.resolve(__dirname), path.resolve(__dirname, "missing-template.pptx"), {}), /source is unavailable/);
+  await assert.rejects(() => buildUserTemplateArchiveCase(path.resolve(__dirname), path.resolve(__filename), {}), /adapters are unavailable/);
 });

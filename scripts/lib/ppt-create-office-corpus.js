@@ -41,6 +41,29 @@ function deck({ id, title, language, theme, slides, asset }) {
   return { id, spec: { version: "1.0", title, language, theme, seed: `${id}-seed`, variantCount: 2, ...(slides.some((slide) => slide.visual?.kind === "media") ? { assets: [asset] } : {}), slides } };
 }
 
+function buildPptCreateUserTemplateArchiveSpec(templateFile) {
+  if (typeof templateFile !== "string" || !fs.statSync(templateFile, { throwIfNoEntry: false })?.isFile()) throw new TypeError("PPT creation user template is unavailable");
+  const bytes = fs.readFileSync(templateFile);
+  return Object.freeze({
+    version: "1.0",
+    title: "用户模板归档验证",
+    language: "zh-CN",
+    theme: "clean-light-v1",
+    seed: "user-template-archive-corpus",
+    template: Object.freeze({
+      path: "templates/user-template.pptx",
+      sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+      source: Object.freeze({ kind: "customer-provided", locator: "controlled-corpus:user-template", license: "customer-owned-or-authorized", attributionRequired: false }),
+      mode: "master-and-theme"
+    }),
+    slides: Object.freeze([
+      Object.freeze({ ...baseSlide("template-cover", "cover", "用户模板安全归档", "cover-band-v1"), summary: "模板、内容与来源证据保持绑定" }),
+      Object.freeze({ ...baseSlide("template-process", "process", "归档经过验证后再生成", "process-stages-v1", [item("archive", "创建归档"), item("admit", "安全准入"), item("build", "应用模板")]), summary: "每一步均为可重复门禁" }),
+      Object.freeze({ ...baseSlide("template-close", "closing", "模板交付已验证", "closing-centered-v1", [item("result", "PowerPoint 与 LibreOffice 均通过")]) })
+    ])
+  });
+}
+
 function buildPptCreateOfficeCorpus(assetFile) {
   if (typeof assetFile !== "string" || !fs.statSync(assetFile, { throwIfNoEntry: false })?.isFile()) throw new TypeError("PPT creation corpus asset is unavailable");
   const asset = assetRecord(assetFile);
@@ -111,4 +134,4 @@ function buildPptCreateBoundaryCases(validSpec) {
   ]);
 }
 
-module.exports = { buildPptCreateBoundaryCases, buildPptCreateOfficeCorpus };
+module.exports = { buildPptCreateBoundaryCases, buildPptCreateOfficeCorpus, buildPptCreateUserTemplateArchiveSpec };

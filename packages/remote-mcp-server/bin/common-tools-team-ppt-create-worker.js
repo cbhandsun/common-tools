@@ -37,9 +37,9 @@ function loadContentProviderRegistry(environment = process.env) {
   const token = optionalSecretFromEnvironment(environment, "COMMON_TOOLS_PPT_CREATE_CONTENT_PROVIDER_TOKEN");
   return new ContentProviderRegistry([createHttpsJsonContentProvider({ id, endpoint, model, token, timeoutMs })]);
 }
-function buildPptx({ irFile, outFile }) {
+function buildPptx({ irFile, outFile, templatePptx }) {
   const skillRoot = path.resolve(__dirname, "../../../skills/pd-hifi-slideclone");
-  buildOpenXmlDecksSync([{ irFile, outFile }], { skillRoot, config: { openXmlBuilder: { cache: false, configuration: "Release", targetFramework: "net8.0" } }, metrics: {} }, path.join(skillRoot, "dotnet", "OpenXmlDeckBuilder"), { powerPointSafe: true });
+  buildOpenXmlDecksSync([{ irFile, outFile, ...(templatePptx ? { templatePptx } : {}) }], { skillRoot, config: { openXmlBuilder: { cache: false, configuration: "Release", targetFramework: "net8.0" } }, metrics: {} }, path.join(skillRoot, "dotnet", "OpenXmlDeckBuilder"), { powerPointSafe: true });
 }
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
 async function main(environment = process.env) {
