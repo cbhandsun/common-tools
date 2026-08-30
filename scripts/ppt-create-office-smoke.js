@@ -3,12 +3,16 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { inspectImageAsset } = require("../packages/ppt-create-core/assets");
 const { createDeckIr } = require("../packages/ppt-create-core/layout");
+const { validatePresentationSpec } = require("../packages/ppt-create-core/spec");
 const { inspectPptx } = require("../packages/ppt-create-core/export");
 const { createBundledSlidecloneRunner } = require("../packages/cli/slideclone-runner");
 const { createEditableJob, runEditableJob } = require("../packages/slideclone-core");
 const { buildPptx } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker");
 const { validatePowerPointEditableRoundTrip } = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip");
+const renderLibreOffice = require("../skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice");
+const { buildPptCreateBoundaryCases, buildPptCreateOfficeCorpus } = require("./lib/ppt-create-office-corpus");
 
 function entry(id, label) { return { id, label, detail: `${label} detail` }; }
 function buildSemanticOfficeSpec() {
@@ -39,15 +43,48 @@ function buildImageBatchOfficeDeck(outputRoot) {
   if (!deck) throw new Error("image batch Office smoke produced no PPTX");
   inspectPptx(deck.uri); return deck.uri;
 }
+async function buildIndependentOfficeCorpus(outputRoot) {
+  const assetFile = path.resolve(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png");
+  const inspectedAsset = inspectImageAsset(assetFile); const corpus = buildPptCreateOfficeCorpus(assetFile); const corpusRoot = path.join(outputRoot, "independent-corpus");
+  fs.mkdirSync(corpusRoot); const decks = [];
+  for (const entry of corpus) {
+    const deckRoot = path.join(corpusRoot, entry.id); fs.mkdirSync(deckRoot); const asset = entry.spec.assets?.[0];
+    const ir = createDeckIr(entry.spec, asset ? { assetPaths: { [asset.id]: assetFile }, assetInfo: { [asset.id]: { ...inspectedAsset, source: asset.source } } } : {});
+    const irFile = path.join(deckRoot, `${entry.id}.ir.json`); const pptxFile = path.join(deckRoot, `${entry.id}.pptx`);
+    fs.writeFileSync(irFile, `${JSON.stringify(ir, null, 2)}\n`, { flag: "wx", mode: 0o600 }); buildPptx({ irFile, outFile: pptxFile }); inspectPptx(pptxFile);
+    const libreOffice = await renderLibreOffice({ pptx: { pptxFile }, iteration: 0 }, { outputDir: deckRoot, config: { render: { maxPages: entry.spec.slides.length } } });
+    if (!libreOffice.ok || libreOffice.renderedPageCount !== entry.spec.slides.length) throw new Error("PPT creation corpus LibreOffice validation failed");
+    decks.push({ id: entry.id, pptxFile, pageCount: entry.spec.slides.length, theme: entry.spec.theme, language: entry.spec.language, layouts: entry.spec.slides.map((slide) => slide.layout) });
+  }
+  const powerPoint = await validatePowerPointEditableRoundTrip(decks.map((entry) => ({ file: entry.pptxFile, mode: "auto" })), { outputDir: corpusRoot, timeoutMs: 600_000 });
+  if (powerPoint.passed !== true) throw new Error("PPT creation corpus PowerPoint validation failed");
+  const boundaryCases = buildPptCreateBoundaryCases(corpus[0].spec).map((entry) => {
+    let accepted = true; try { validatePresentationSpec(entry.spec); } catch { accepted = false; }
+    return { id: entry.id, passed: accepted === entry.accepted };
+  });
+  if (boundaryCases.some((entry) => !entry.passed)) throw new Error("PPT creation corpus boundary validation failed");
+  return {
+    deckCount: decks.length,
+    pageCount: decks.reduce((sum, entry) => sum + entry.pageCount, 0),
+    themes: [...new Set(decks.map((entry) => entry.theme))].sort(),
+    languages: [...new Set(decks.map((entry) => entry.language))].sort(),
+    layouts: [...new Set(decks.flatMap((entry) => entry.layouts))].sort(),
+    mediaDeckCount: corpus.filter((entry) => entry.spec.assets?.length).length,
+    sourceBackedSlideCount: corpus.flatMap((entry) => entry.spec.slides).filter((slide) => slide.citations?.length && slide.speakerNotes).length,
+    boundaryCases,
+    powerPointValidated: true,
+    libreOfficeValidated: true
+  };
+}
 async function main(argumentsList = process.argv.slice(2)) {
   const outputIndex = argumentsList.indexOf("--out"); const value = outputIndex >= 0 ? argumentsList[outputIndex + 1] : undefined;
   if (!value || outputIndex !== argumentsList.length - 2) throw new Error("Usage: node scripts/ppt-create-office-smoke.js --out <new-directory>");
   const outputRoot = newWorkspaceOutput(process.cwd(), value);
   fs.mkdirSync(outputRoot); const ir = createDeckIr(buildSemanticOfficeSpec()); const irFile = path.join(outputRoot, "semantic-office-smoke.ir.json"); const pptxFile = path.join(outputRoot, "semantic-office-smoke.pptx");
-  fs.writeFileSync(irFile, `${JSON.stringify(ir, null, 2)}\n`, { flag: "wx", mode: 0o600 }); buildPptx({ irFile, outFile: pptxFile }); inspectPptx(pptxFile); const imageBatchPptx = buildImageBatchOfficeDeck(outputRoot);
+  fs.writeFileSync(irFile, `${JSON.stringify(ir, null, 2)}\n`, { flag: "wx", mode: 0o600 }); buildPptx({ irFile, outFile: pptxFile }); inspectPptx(pptxFile); const imageBatchPptx = buildImageBatchOfficeDeck(outputRoot); const independentCorpus = await buildIndependentOfficeCorpus(outputRoot);
   const report = await validatePowerPointEditableRoundTrip([{ file: pptxFile, mode: "shape-text" }, { file: imageBatchPptx, mode: "auto" }], { outputDir: outputRoot, timeoutMs: 300_000 });
-  fs.writeFileSync(path.join(outputRoot, "ppt-create-office-smoke-report.json"), `${JSON.stringify({ version: "1.0", passed: report.passed === true, packageValidated: true, pageCount: ir.pages.length, semanticComponentCount: ir.pages.reduce((sum, page) => sum + (page.semanticComponents || []).length, 0), imageBatchPageCount: 2, imageBatchOfficeRoundTripValidated: report.passed === true }, null, 2)}\n`, { flag: "wx", mode: 0o600 });
+  fs.writeFileSync(path.join(outputRoot, "ppt-create-office-smoke-report.json"), `${JSON.stringify({ version: "1.0", passed: report.passed === true && independentCorpus.powerPointValidated && independentCorpus.libreOfficeValidated, packageValidated: true, pageCount: ir.pages.length, semanticComponentCount: ir.pages.reduce((sum, page) => sum + (page.semanticComponents || []).length, 0), imageBatchPageCount: 2, imageBatchOfficeRoundTripValidated: report.passed === true, independentCorpus }, null, 2)}\n`, { flag: "wx", mode: 0o600 });
 }
 if (require.main === module) main().catch((error) => { process.stderr.write(`${error instanceof Error ? error.message : "PPT creation Office smoke failed"}\n`); process.exitCode = 1; });
 
-module.exports = { buildImageBatchOfficeDeck, buildSemanticOfficeSpec, main, newWorkspaceOutput };
+module.exports = { buildImageBatchOfficeDeck, buildIndependentOfficeCorpus, buildSemanticOfficeSpec, main, newWorkspaceOutput };
