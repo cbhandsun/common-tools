@@ -190,6 +190,23 @@ test("Office workflow is scheduled, manually selectable, serialized and isolated
   assert.doesNotMatch(officeSmoke, /file: imageBatchPptx, mode: "shape-text"/u);
 });
 
+test("Office CI uses profile-free PowerShell and propagates every bootstrap and build failure", () => {
+  const workflow = fs.readFileSync(path.join(root, ".github", "workflows", "ppt-office-regression.yml"), "utf8");
+  const job = workflow.slice(workflow.indexOf("  real-pptx-quality:"), workflow.indexOf("  office-regression-required:"));
+  assert.match(job, /defaults:\r?\n      run:\r?\n        shell: pwsh -NoProfile -NonInteractive -Command "\. '\{0\}'"/u);
+  assert.equal([...job.matchAll(/\bshell:/gu)].length, 1, "steps must not override the deterministic job shell");
+  const commands = [...job.matchAll(/^ {10}(npm run [^\r\n]+)\r?\n {10}([^\r\n]+)/gmu)];
+  assert.deepEqual(commands.map((match) => match[1]), [
+    "npm run slideclone:bootstrap-python",
+    "npm run slideclone:bootstrap-paddleocr",
+    "npm run slideclone:smoke-paddleocr",
+    "npm run audit:dotnet",
+    "npm run build:dotnet:locked"
+  ]);
+  for (const match of commands) assert.equal(match[2], "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }");
+  assert.doesNotMatch(job, /continue-on-error:|\$ErrorActionPreference\s*=\s*["'](?:continue|silentlycontinue)/iu);
+});
+
 test("GitHub workflows pin every action to an immutable commit", () => {
   const workflowRoot = path.join(root, ".github", "workflows");
   for (const file of fs.readdirSync(workflowRoot).filter((name) => /\.ya?ml$/u.test(name))) {
