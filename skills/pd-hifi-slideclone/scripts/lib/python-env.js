@@ -4,6 +4,10 @@ const path = require("path");
 const fs = require("fs");
 
 function localPythonSiteDir(skillRoot) {
+  const configured = process.env.SLIDECLONE_PYTHON_SITE_DIR;
+  if (configured !== undefined && configured !== "") {
+    return validatedDirectory(configured, "SLIDECLONE_PYTHON_SITE_DIR");
+  }
   return path.resolve(skillRoot, "..", "..", ".tools", "python-site");
 }
 
@@ -45,9 +49,21 @@ function isTruthy(value) {
   return value === true || ["1", "true", "yes"].includes(String(value || "").trim().toLowerCase());
 }
 
+function validatedDirectory(value, name) {
+  if (typeof value !== "string" || value.length > 32_768 || /[\r\n\0]/u.test(value) || !path.isAbsolute(value)) {
+    throw new Error(`${name} must be an absolute directory path`);
+  }
+  const resolved = path.resolve(value);
+  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+    throw new Error(`${name} is unavailable`);
+  }
+  return resolved;
+}
+
 module.exports = {
   localPythonSiteDir,
   pythonEnv,
   resolvePythonExecutable,
+  validatedDirectory,
   usesBundledPython
 };

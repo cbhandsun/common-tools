@@ -344,7 +344,7 @@ npm run slideclone:quality-gate-ocr-batch-umi-representative -- \
 npm run slideclone:bootstrap-paddleocr
 ```
 
-运行时安装到 `.tools/paddleocr-venv`，不会把 PaddlePaddle 导入 Node 主进程。首次推理可能按 PaddleOCR 的模型策略下载模型；离线或生产环境应预置模型目录并固定镜像/SBOM。配置示例：
+本地运行时安装到 `.tools/paddleocr-venv`，不会把 PaddlePaddle 导入 Node 主进程。在 CI Runner 提供 `RUNNER_TOOL_CACHE` 时，运行时会按 Python 版本、平台/架构和依赖锁文件内容保存到持久化内容寻址目录；后续运行只做版本/import 探针，锁文件或运行环境变化时才重建。缓存路径通过 `SLIDECLONE_PADDLEOCR_PYTHON` 和 `SLIDECLONE_PYTHON_SITE_DIR` 传给后续步骤，非法、相对或不存在的路径会直接拒绝。首次推理可能按 PaddleOCR 的模型策略下载模型；离线或生产环境应预置模型目录并固定镜像/SBOM。配置示例：
 
 ```json
 {

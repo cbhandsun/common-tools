@@ -32,15 +32,19 @@ test("Python dependency lock covers supported Windows CPython 3.12 and 3.13 whee
 test("Python bootstrap atomically replaces a validated environment", (t) => {
   const workspaceRoot = makeWorkspace(t, "old");
   const calls = [];
+  let installed = false;
   const siteDir = installPythonDeps({
     workspaceRoot,
-    runCommand(_command, args) {
+    runnerToolCache: "",
+    runCommand(_command, args, commandOptions) {
       calls.push(args);
       const targetIndex = args.indexOf("--target");
       if (targetIndex >= 0) {
         fs.writeFileSync(path.join(args[targetIndex + 1], "new.txt"), "new");
+        installed = true;
       }
-      return { status: 0 };
+      const pythonPath = args[0] === "-c" ? commandOptions?.env?.PYTHONPATH : null;
+      return { status: installed && pythonPath !== path.join(workspaceRoot, ".tools", "python-site") ? 0 : 1 };
     }
   });
 
@@ -49,10 +53,74 @@ test("Python bootstrap atomically replaces a validated environment", (t) => {
   assert.equal(calls.length, 2);
 });
 
+test("Python bootstrap reuses a content-addressed Runner tool cache", (t) => {
+  const workspaceRoot = makeWorkspace(t, "old");
+  const runnerToolCache = fs.mkdtempSync(path.join(os.tmpdir(), "runner-tool-cache-test-"));
+  const githubEnvironmentFile = path.join(workspaceRoot, "github-env.txt");
+  t.after(() => fs.rmSync(runnerToolCache, { recursive: true, force: true }));
+  let installs = 0;
+  const runCommand = (_command, args) => {
+    const targetIndex = args.indexOf("--target");
+    if (targetIndex >= 0) {
+      installs += 1;
+      fs.writeFileSync(path.join(args[targetIndex + 1], "installed.txt"), "ok");
+    }
+    return { status: 0 };
+  };
+  const options = {
+    workspaceRoot,
+    runnerToolCache,
+    runtimeIdentity: "CPython|3.12.9|cpython-312|win-amd64",
+    githubEnvironmentFile,
+    runCommand
+  };
+
+  const first = installPythonDeps(options);
+  const second = installPythonDeps(options);
+
+  assert.equal(second, first);
+  assert.equal(installs, 1);
+  assert.match(first, /ct[\\/]p[\\/][a-f0-9]{32}$/u);
+  assert.match(fs.readFileSync(githubEnvironmentFile, "utf8"), /SLIDECLONE_PYTHON_SITE_DIR=/u);
+});
+
+test("Python bootstrap keeps a valid cache completed by a concurrent run", (t) => {
+  const workspaceRoot = makeWorkspace(t, "old");
+  const runnerToolCache = fs.mkdtempSync(path.join(os.tmpdir(), "runner-tool-cache-race-"));
+  t.after(() => fs.rmSync(runnerToolCache, { recursive: true, force: true }));
+  let winnerDir;
+  const siteDir = installPythonDeps({
+    workspaceRoot,
+    runnerToolCache,
+    runtimeIdentity: "CPython|3.12.9|cpython-312|win-amd64",
+    githubEnvironmentFile: "",
+    runCommand(_command, args, commandOptions) {
+      const targetIndex = args.indexOf("--target");
+      if (targetIndex >= 0) fs.writeFileSync(path.join(args[targetIndex + 1], "candidate.txt"), "candidate");
+      assert.ok(commandOptions);
+      return { status: 0 };
+    },
+    renamePath(source, destination) {
+      if (path.basename(source).includes("-s-") && !winnerDir) {
+        winnerDir = destination;
+        fs.mkdirSync(winnerDir, { recursive: true });
+        fs.writeFileSync(path.join(winnerDir, "winner.txt"), "winner");
+        throw Object.assign(new Error("destination exists"), { code: "EEXIST" });
+      }
+      fs.renameSync(source, destination);
+    }
+  });
+
+  assert.equal(siteDir, winnerDir);
+  assert.equal(fs.readFileSync(path.join(siteDir, "winner.txt"), "utf8"), "winner");
+  assert.equal(fs.existsSync(path.join(siteDir, "candidate.txt")), false);
+});
+
 test("Python bootstrap preserves the previous environment when installation fails", (t) => {
   const workspaceRoot = makeWorkspace(t, "old");
   assert.throws(() => installPythonDeps({
     workspaceRoot,
+    runnerToolCache: "",
     runCommand() {
       return { status: 1 };
     }
