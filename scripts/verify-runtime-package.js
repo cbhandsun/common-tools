@@ -157,17 +157,37 @@ function runClassifiedProbe(commandRunner, argumentsList, cwd, failureMessage) {
   throw new Error(`${failureMessage} (${code})`);
 }
 
-function npmCliPath() {
-  const candidate = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
-  let details;
-  try { details = fs.lstatSync(candidate); } catch { throw new Error("Node npm CLI is unavailable"); }
-  if (!details.isFile() || details.isSymbolicLink()) throw new Error("Node npm CLI is unavailable");
-  return candidate;
+function npmCliPath(options = {}) {
+  if (!options || typeof options !== "object" || Array.isArray(options) || Object.keys(options).some((key) => !["execPath", "npmExecPath"].includes(key))) throw new TypeError("npm CLI options are invalid");
+  const execPath = options.execPath ?? process.execPath;
+  const npmExecPath = options.npmExecPath ?? process.env.npm_execpath;
+  if (typeof execPath !== "string" || !path.isAbsolute(execPath)) throw new TypeError("Node executable path is invalid");
+  const executableDirectory = path.dirname(execPath);
+  const installationRoot = path.basename(executableDirectory).toLowerCase() === "bin" ? path.dirname(executableDirectory) : executableDirectory;
+  const candidates = [
+    npmExecPath,
+    path.join(installationRoot, "node_modules", "npm", "bin", "npm-cli.js"),
+    path.join(installationRoot, "lib", "node_modules", "npm", "bin", "npm-cli.js")
+  ];
+  for (const candidate of [...new Set(candidates)]) {
+    if (typeof candidate !== "string" || !path.isAbsolute(candidate)) continue;
+    const relative = path.relative(installationRoot, candidate);
+    if (relative === "" || path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) continue;
+    if (!candidate.endsWith(path.join("node_modules", "npm", "bin", "npm-cli.js"))) continue;
+    try {
+      const details = fs.lstatSync(candidate);
+      if (details.isFile() && !details.isSymbolicLink()) return candidate;
+    } catch {
+      // Continue through the bounded Node installation layouts.
+    }
+  }
+  throw new Error("Node npm CLI is unavailable");
 }
 
-function npmInvocation(argumentsList) {
+function npmInvocation(argumentsList, options) {
   if (!Array.isArray(argumentsList) || argumentsList.some((value) => typeof value !== "string")) throw new TypeError("npm invocation is invalid");
-  return Object.freeze({ command: process.execPath, arguments: Object.freeze([npmCliPath(), ...argumentsList]) });
+  const command = options?.execPath ?? process.execPath;
+  return Object.freeze({ command, arguments: Object.freeze([npmCliPath(options), ...argumentsList]) });
 }
 
 function installedCliPath(installRoot) {
