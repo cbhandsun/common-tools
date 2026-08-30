@@ -35,6 +35,7 @@ test("Python bootstrap atomically replaces a validated environment", (t) => {
   let installed = false;
   const siteDir = installPythonDeps({
     workspaceRoot,
+    runnerToolCache: "",
     runCommand(_command, args, commandOptions) {
       calls.push(args);
       const targetIndex = args.indexOf("--target");
@@ -115,6 +116,7 @@ test("Python bootstrap preserves the previous environment when installation fail
   const workspaceRoot = makeWorkspace(t, "old");
   assert.throws(() => installPythonDeps({
     workspaceRoot,
+    runnerToolCache: "",
     runCommand() {
       return { status: 1 };
     }
