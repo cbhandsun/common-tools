@@ -44,3 +44,27 @@ test("render LibreOffice stages long PDF paths before Poppler reads them", () =>
   assert.ok(staged.file.length < path.resolve(pdf).length);
   fs.rmSync(staged.cleanupDir, { recursive: true, force: true });
 });
+
+test("render LibreOffice stages conversion input, output, and profile outside a deep workspace", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "render-lo-convert-stage-"));
+  let dir = tmp;
+  while (path.join(dir, "render", "iteration-0", "lo-profile").length < 185) {
+    dir = path.join(dir, "nested-long-segment");
+  }
+  const renderDir = path.join(dir, "render", "iteration-0");
+  fs.mkdirSync(renderDir, { recursive: true });
+  const pptx = path.join(dir, "deck.pptx");
+  fs.writeFileSync(pptx, Buffer.alloc(16));
+
+  const staged = renderLibreOffice._private.stageLibreOfficeConversion(pptx, renderDir);
+
+  try {
+    assert.notEqual(path.resolve(staged.pptxFile), path.resolve(pptx));
+    assert.equal(fs.existsSync(staged.pptxFile), true);
+    assert.ok(staged.profileDir.length < path.join(renderDir, "lo-profile").length);
+    assert.ok(staged.renderDir.length < renderDir.length);
+  } finally {
+    renderLibreOffice._private.cleanupStagedConversion(staged);
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

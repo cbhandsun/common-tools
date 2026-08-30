@@ -20,26 +20,30 @@ module.exports = async function renderLibreOffice(input, context) {
   fs.mkdirSync(renderDir, { recursive: true });
   const soffice = resolveLibreOffice();
   const pdftoppm = resolvePdfToPpm();
-  const profileDir = path.join(renderDir, "lo-profile");
-  fs.mkdirSync(profileDir, { recursive: true });
   const dpi = String(context.config?.render?.dpi || process.env.SLIDECLONE_DPI || "144");
   const maxPages = Number(context.config?.render?.maxPages || 0);
-
-  await run(soffice, [
-    "--headless",
-    "--nologo",
-    "--nodefault",
-    "--norestore",
-    "--nolockcheck",
-    `-env:UserInstallation=${fileUrl(profileDir)}`,
-    "--convert-to",
-    "pdf",
-    "--outdir",
-    renderDir,
-    pptxFile
-  ], { timeout: context.config?.render?.convertTimeoutMs || 120000 });
   const pdf = path.join(renderDir, `${path.basename(pptxFile, path.extname(pptxFile))}.pdf`);
-  if (!fs.existsSync(pdf)) throw new Error(`LibreOffice did not create expected PDF: ${pdf}`);
+  const conversion = stageLibreOfficeConversion(pptxFile, renderDir);
+  try {
+    await run(soffice, [
+      "--headless",
+      "--nologo",
+      "--nodefault",
+      "--norestore",
+      "--nolockcheck",
+      `-env:UserInstallation=${fileUrl(conversion.profileDir)}`,
+      "--convert-to",
+      "pdf",
+      "--outdir",
+      conversion.renderDir,
+      conversion.pptxFile
+    ], { timeout: context.config?.render?.convertTimeoutMs || 120000 });
+    const convertedPdf = path.join(conversion.renderDir, `${path.basename(conversion.pptxFile, path.extname(conversion.pptxFile))}.pdf`);
+    if (!fs.existsSync(convertedPdf)) throw new Error(`LibreOffice did not create expected PDF: ${convertedPdf}`);
+    if (path.resolve(convertedPdf) !== path.resolve(pdf)) fs.copyFileSync(convertedPdf, pdf);
+  } finally {
+    cleanupStagedConversion(conversion);
+  }
   await waitForStableFile(pdf, {
     timeoutMs: context.config?.render?.pdfReadyTimeoutMs || 10_000,
     intervalMs: context.config?.render?.pdfReadyPollMs || 250
@@ -91,6 +95,34 @@ function stagePdfForRenderer(pdf) {
   const file = path.join(cleanupDir, "input.pdf");
   fs.copyFileSync(resolved, file);
   return { file, cleanupDir };
+}
+
+function stageLibreOfficeConversion(pptxFile, renderDir) {
+  const resolvedPptx = path.resolve(pptxFile);
+  const resolvedRenderDir = path.resolve(renderDir);
+  const directProfileDir = path.join(resolvedRenderDir, "lo-profile");
+  const expectedPdf = path.join(resolvedRenderDir, `${path.basename(resolvedPptx, path.extname(resolvedPptx))}.pdf`);
+  if (Math.max(resolvedPptx.length, directProfileDir.length, expectedPdf.length) < 180) {
+    fs.mkdirSync(directProfileDir, { recursive: true });
+    return { pptxFile: resolvedPptx, renderDir: resolvedRenderDir, profileDir: directProfileDir, cleanupDir: "" };
+  }
+  const cleanupDir = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-lo-"));
+  const stagedRenderDir = path.join(cleanupDir, "out");
+  const profileDir = path.join(cleanupDir, "profile");
+  const stagedPptx = path.join(cleanupDir, `input${path.extname(resolvedPptx) || ".pptx"}`);
+  fs.mkdirSync(stagedRenderDir, { recursive: true });
+  fs.mkdirSync(profileDir, { recursive: true });
+  fs.copyFileSync(resolvedPptx, stagedPptx);
+  return { pptxFile: stagedPptx, renderDir: stagedRenderDir, profileDir, cleanupDir };
+}
+
+function cleanupStagedConversion(conversion) {
+  if (!conversion?.cleanupDir) return;
+  try {
+    fs.rmSync(conversion.cleanupDir, { recursive: true, force: true });
+  } catch {
+    // Best-effort cleanup only; the generated PDF is already copied to the requested output.
+  }
 }
 
 function cleanupStagedPdf(staged) {
@@ -152,7 +184,9 @@ function delay(ms) {
 
 module.exports.collectRenderedPages = collectRenderedPages;
 module.exports._private = {
+  cleanupStagedConversion,
   isRetryablePdfReadError,
+  stageLibreOfficeConversion,
   stagePdfForRenderer,
   waitForStableFile
 };
