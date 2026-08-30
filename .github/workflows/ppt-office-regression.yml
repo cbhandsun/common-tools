@@ -70,7 +70,6 @@ jobs:
       SLIDECLONE_OFFICE_PYTHON_BIN: ${{ vars.SLIDECLONE_OFFICE_PYTHON_BIN }}
       CORPUS_SUITE: ${{ github.event_name == 'pull_request' && 'smoke' || inputs.suite || 'full' }}
       TEST_REPORTER: dot
-      RUNNER_TOOL_CACHE: ${{ runner.tool_cache }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -100,6 +99,8 @@ jobs:
           npm ci --ignore-scripts
 
       - name: Prepare cached Python runtimes
+        env:
+          RUNNER_TOOL_CACHE: ${{ runner.tool_cache }}
         run: |
           npm run slideclone:bootstrap-python
           npm run slideclone:bootstrap-paddleocr
