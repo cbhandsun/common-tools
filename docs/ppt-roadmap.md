@@ -6,16 +6,16 @@ Status values are `done`, `in progress`, `blocked`, and `planned`. A row may mov
 
 ## Release objective
 
-The current target is the first immutable commercial-release candidate, `v0.1.14`. Core engineering is Beta-ready; commercial release remains blocked until repository protection, an immutable release, a production deployment, and public end-to-end canaries are complete.
+The current target is the first successful immutable commercial-release candidate, `v0.1.15`. Core engineering is Beta-ready; commercial release remains blocked until an immutable release, a production deployment, and public end-to-end canaries are complete. The immutable `v0.1.14` tag is retained as failed release evidence: its workflow stopped before image build because the hosted Linux npm CLI layout was not supported, and no GitHub Release was created.
 
 | Priority | Deliverable | Status | Acceptance criteria | Evidence | Owner role | Target |
 | --- | --- | --- | --- | --- | --- | --- |
-| P0 | Stable Office required check | in progress | Every pull request reports `office-regression-required`; relevant changes require the Office suite; unrelated changes pass through a tested no-op path | `.github/workflows/ppt-office-regression.yml`, `test/office-regression-scope.test.js` | Release engineering | v0.1.14 |
-| P0 | Protect `main` | blocked | Required CI and Office checks, pull-request review, conversation resolution, no force push, no deletion | GitHub branch-protection API snapshot | Repository admin | v0.1.14 |
-| P0 | First immutable release | blocked | Tag matches `package.json`; release workflow succeeds once; SBOM, signed evidence, GHCR digests, Cosign verification, attestations, and GitHub Release are present | `.github/workflows/release.yml`, GitHub Release URL | Release engineering | v0.1.14 |
-| P0 | Marketplace immutable ref | blocked | installation guide and validated Marketplace configuration reference the released tag rather than `main` | `docs/git-marketplace-installation.md`, clean-machine install report | Product release | v0.1.14 |
-| P0 | Production service deployment | blocked | digest-pinned images, `NODE_ENV=production`, production RBAC, managed secrets/IdP, monitoring and alert routing; `/healthz` returns only `{"status":"ok"}` | production preflight and deployment record | Platform operations | v0.1.14 |
-| P0 | Public image conversion canary | blocked | OAuth + upload + job + download succeeds against production and validates the returned PPTX; failures alert without logging user content or credentials | redacted canary report | Platform operations | v0.1.14 |
+| P0 | Stable Office required check | done | Every pull request reports `office-regression-required`; relevant changes require the Office suite; unrelated changes pass through a tested no-op path | `.github/workflows/ppt-office-regression.yml`, `test/office-regression-scope.test.js`, PR #10 and PR #11 checks | Release engineering | v0.1.15 |
+| P0 | Protect `main` | done | Required CI and Office checks, conversation resolution, no force push, no deletion, linear history, and admin enforcement | GitHub branch-protection API snapshot, Auto-merge on PR #10 and PR #11 | Repository admin | v0.1.15 |
+| P0 | First immutable release | in progress | Tag matches `package.json`; release workflow succeeds once; SBOM, signed evidence, GHCR digests, Cosign verification, attestations, and GitHub Release are present | `.github/workflows/release.yml`, failed `v0.1.14` run `33293402721`, successful GitHub Release URL required | Release engineering | v0.1.15 |
+| P0 | Marketplace immutable ref | blocked | installation guide and validated Marketplace configuration reference the released tag rather than `main` | `docs/git-marketplace-installation.md`, clean-machine install report | Product release | v0.1.15 |
+| P0 | Production service deployment | blocked | digest-pinned images, `NODE_ENV=production`, production RBAC, managed secrets/IdP, monitoring and alert routing; `/healthz` returns only `{"status":"ok"}` | production preflight and deployment record | Platform operations | v0.1.15 |
+| P0 | Public image conversion canary | blocked | OAuth + upload + job + download succeeds against production and validates the returned PPTX; failures alert without logging user content or credentials | redacted canary report | Platform operations | v0.1.15 |
 | P1 | Public `ppt-create` capability | blocked | production worker deployed; capability allowlist and OAuth scope published; JSON spec, asset archive, and user-template archive pass remotely | three redacted canary reports | Platform operations | v0.1.15 |
 | P1 | Clean-machine Marketplace canary | planned | immutable Marketplace install through PPTX download succeeds without a repository clone or undeclared local Runtime | clean-machine canary report | Release QA | v0.1.15 |
 | P1 | Independent creation corpus | in progress | four themes and all 22 layouts; Chinese, English, mixed language; tables, charts, templates, assets, notes, citations; empty, invalid, long, and capacity boundaries; PowerPoint and LibreOffice | Office workflow artifacts and trend history | Presentation QA | v0.1.15 |
@@ -37,7 +37,7 @@ The current target is the first immutable commercial-release candidate, `v0.1.14
 ## Execution order
 
 1. Land the stable Office required check and make it a required `main` check together with CI.
-2. Create and verify `v0.1.14`; record all immutable digests and release evidence.
+2. Create and verify `v0.1.15`; record all immutable digests and release evidence while retaining the failed `v0.1.14` run as evidence.
 3. Promote the recorded digests through the production overlay and run the public image-conversion canary.
 4. Publish `ppt-create` in the production allowlist and OAuth scope, then run all three remote input canaries.
 5. Complete the independent creation corpus and accumulate three compatible trend snapshots.
