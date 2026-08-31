@@ -62,7 +62,7 @@ Plan 会检查 Docker、release evidence、生产 Compose、OIDC discovery 和�
 
 1. 核对实际部署 revision、每个服务的镜像 digest 和能力集合，必须与批准记录一致；API 不直接发布宿主端口。
 2. 确认生产 `/healthz` 仅为 `{"status":"ok"}`，`/readyz` 为 200；ingress 使用 readiness 控制接流。
-3. 按 [路线图中的身份同步与负向 canary](./ppt-roadmap.md#可重复验收命令) 核验封闭身份、PKCE、audience、scope、禁用能力与失败保护。线上同步本身属于受授权变更；短期测试 token 由受管配置注入，结束后撤销测试会话。
+3. 按 [路线图中的身份同步与负向 canary](./ppt-roadmap.md#可重复验收命令) 核验封闭身份、audience、scope、禁用能力与失败保护。客户端同步必须将 `common-tools-mcp` 的 `pkce.code.challenge.method` 固定为 `S256` 并回读验证，缺失或其他值均视为配置漂移；写入失败或回读不匹配必须停止发布。仅 discovery 声明支持 S256 或预先签发 token 的 canary 通过，不能证明客户端强制 PKCE。线上同步本身属于受授权变更；保存脱敏同步结果，并在真实授权流程中验证无 PKCE/`plain` 被拒绝、S256 成功；短期测试 token 由受管配置注入，结束后撤销测试会话。
 4. 从授权设备完成图片上传、Job、下载、PPTX 校验和精确清理；若批准启用 `ppt-create`，分别验证 JSON Spec、素材归档及所有者真实模板归档。另验证固定安装包/引用的干净设备安装，不依赖仓库 clone 或未声明 Runtime。
 5. 确认每个启用能力的 Worker 心跳、maintenance、backlog 和错误指标正常，受管告警接收器能收到测试告警并有确认记录。
 6. 所有检查通过且所有者确认后才逐步恢复流量，记录 UTC 时间和观察结果；任何一步失败都不写“发布成功”。

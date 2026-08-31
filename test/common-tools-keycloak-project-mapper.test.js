@@ -129,7 +129,7 @@ test("Keycloak mapper apply refuses to mutate without a fresh snapshot path", as
 
 test("Keycloak MCP client configuration check is read-only and permits the OAuth native loopback redirect", async () => {
   assert.deepEqual(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, ["http://127.0.0.1", "http://127.0.0.1:*"]);
-  const current = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE });
+  const current = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE, "pkce.code.challenge.method": "S256" });
   assert.deepEqual(await synchronizeMcpClientRedirectUris({ ...credentials, fetchImpl: current.fetchImpl }), { status: "current", changed: false });
   assert.equal(current.calls.some((call) => call.method !== "GET" && !call.url.endsWith("token")), false);
   assert.equal(redirectUrisMatch(current.client()), true);
@@ -147,7 +147,7 @@ test("Keycloak MCP client configuration apply snapshots the old state and preser
     const mock = mcpClientFetch(undefined, { "pkce.code.challenge.method": "S256", unrelated: "preserved" }, MCP_OPTIONAL_CLIENT_SCOPE_NAMES, MCP_OPTIONAL_CLIENT_SCOPE_NAMES, { publicClient: false, standardFlowEnabled: false, directAccessGrantsEnabled: true, implicitFlowEnabled: true, serviceAccountsEnabled: true, authorizationServicesEnabled: true, fullScopeAllowed: true });
     assert.deepEqual(await synchronizeMcpClientRedirectUris({ ...credentials, apply: true, backupFile, fetchImpl: mock.fetchImpl }), { status: "updated", changed: true });
     const snapshot = JSON.parse(fs.readFileSync(backupFile, "utf8"));
-    assert.deepEqual(snapshot.client, { id: "client-123", clientId: "common-tools-mcp", redirectUris: ["http://127.0.0.1:54000/*"], issuerResponseExcluded: null, flowSettings: { publicClient: false, standardFlowEnabled: false, directAccessGrantsEnabled: true, implicitFlowEnabled: true, serviceAccountsEnabled: true, authorizationServicesEnabled: true, fullScopeAllowed: true }, mcpScopeBindings: MCP_OPTIONAL_CLIENT_SCOPE_NAMES.map((name) => ({ name, binding: "optional" })) });
+    assert.deepEqual(snapshot.client, { id: "client-123", clientId: "common-tools-mcp", redirectUris: ["http://127.0.0.1:54000/*"], issuerResponseExcluded: null, pkceMethod: "S256", flowSettings: { publicClient: false, standardFlowEnabled: false, directAccessGrantsEnabled: true, implicitFlowEnabled: true, serviceAccountsEnabled: true, authorizationServicesEnabled: true, fullScopeAllowed: true }, mcpScopeBindings: MCP_OPTIONAL_CLIENT_SCOPE_NAMES.map((name) => ({ name, binding: "optional" })) });
     assert.deepEqual(mock.client().redirectUris, MCP_NATIVE_LOOPBACK_REDIRECT_URIS);
     assert.equal(mock.client().attributes[MCP_ISSUER_RESPONSE_ATTRIBUTE], MCP_ISSUER_RESPONSE_VALUE);
     assert.equal(mock.client().attributes.unrelated, "preserved");
@@ -169,7 +169,7 @@ test("Keycloak MCP client scope apply associates missing capability scopes witho
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-keycloak-client-scopes-"));
   try {
     const backupFile = path.join(temporary, "client-before.json");
-    const mock = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE }, []);
+    const mock = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE, "pkce.code.challenge.method": "S256" }, []);
     assert.deepEqual(await synchronizeMcpClientRedirectUris({ ...credentials, apply: true, backupFile, fetchImpl: mock.fetchImpl }), { status: "updated", changed: true });
     assert.equal(mock.calls.some((call) => call.method === "PUT" && call.url.endsWith(`/clients/${mock.client().id}`)), false);
     assert.equal(mock.calls.filter((call) => call.method === "PUT" && call.url.includes("/optional-client-scopes/")).length, MCP_OPTIONAL_CLIENT_SCOPE_NAMES.length);
@@ -185,7 +185,7 @@ test("Keycloak MCP client scope apply creates only fixed missing capability scop
     const missing = "common-tools:capability:ppt-create";
     const available = MCP_OPTIONAL_CLIENT_SCOPE_NAMES.filter((name) => name !== missing);
     const backupFile = path.join(temporary, "client-before.json");
-    const mock = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE }, available, available);
+    const mock = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE, "pkce.code.challenge.method": "S256" }, available, available);
     assert.deepEqual(await synchronizeMcpClientRedirectUris({ ...credentials, apply: true, backupFile, fetchImpl: mock.fetchImpl }), { status: "updated", changed: true });
     const creates = mock.calls.filter((call) => call.method === "POST" && call.url.endsWith("/client-scopes"));
     assert.equal(creates.length, 1);
@@ -193,6 +193,63 @@ test("Keycloak MCP client scope apply creates only fixed missing capability scop
     assert.equal(mcpClientScopeConfigurationMatches(mock.scopeState()), true);
     assert.equal(MCP_CAPABILITY_CLIENT_SCOPE_NAMES.includes("common-tools:capability:siyuan-note"), true);
     assert.throws(() => capabilityClientScopeDefinition("offline_access"), /invalid/);
+  } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
+});
+
+test("Keycloak MCP client rejects missing, plain, malformed and oversized PKCE without mutation", async () => {
+  for (const method of [undefined, null, "", "plain", "s256", " S256", true, 256, ["S256"], { method: "S256" }, "sensitive-input".repeat(10000)]) {
+    const attributes = { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE };
+    if (method !== undefined) attributes["pkce.code.challenge.method"] = method;
+    const mock = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, attributes);
+    assert.equal(mcpClientConfigurationMatches(mock.client()), false);
+    assert.deepEqual(await synchronizeMcpClientRedirectUris({ ...credentials, fetchImpl: mock.fetchImpl }), { status: "drift", changed: false });
+    assert.equal(mock.calls.some((call) => call.method !== "GET" && !call.url.endsWith("token")), false);
+  }
+});
+
+test("Keycloak MCP client applies S256 to existing clients and is idempotent", async () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-keycloak-pkce-"));
+  try {
+    for (const [index, method] of [undefined, "plain", "sensitive-input".repeat(10000)].entries()) {
+      const attributes = { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE, unrelated: "preserved" };
+      if (method !== undefined) attributes["pkce.code.challenge.method"] = method;
+      const mock = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, attributes);
+      const backupFile = path.join(temporary, `before-${index}.json`);
+      assert.deepEqual(await synchronizeMcpClientRedirectUris({ ...credentials, apply: true, backupFile, fetchImpl: mock.fetchImpl }), { status: "updated", changed: true });
+      assert.equal(mock.client().attributes["pkce.code.challenge.method"], "S256");
+      assert.equal(mock.client().attributes.unrelated, "preserved");
+      const snapshot = JSON.parse(fs.readFileSync(backupFile, "utf8"));
+      assert.equal(snapshot.client.pkceMethod, method === undefined ? null : method === "plain" ? "plain" : "invalid");
+      assert.equal(JSON.stringify(snapshot).includes("sensitive-input"), false);
+      assert.deepEqual(await synchronizeMcpClientRedirectUris({ ...credentials, apply: true, fetchImpl: mock.fetchImpl }), { status: "current", changed: false });
+      assert.equal(mock.calls.filter((call) => call.method === "PUT").length, 1);
+    }
+  } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
+});
+
+test("Keycloak MCP PKCE apply fails closed on rejected writes or ineffective read-back", async () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-keycloak-pkce-failure-"));
+  try {
+    for (const mode of ["reject", "ignore"]) {
+      const mock = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE });
+      let writes = 0;
+      const backupFile = path.join(temporary, `before-${mode}.json`);
+      const fetchImpl = async (url, options = {}) => {
+        if (options.method === "PUT" && String(url).endsWith("/clients/client-123")) {
+          writes += 1;
+          assert.equal(fs.existsSync(backupFile), true);
+          assert.equal(JSON.parse(options.body).attributes["pkce.code.challenge.method"], "S256");
+          return { ok: mode !== "reject" };
+        }
+        return mock.fetchImpl(url, options);
+      };
+      await assert.rejects(() => synchronizeMcpClientRedirectUris({ ...credentials, apply: true, backupFile, fetchImpl }), mode === "reject" ? /Keycloak request failed/ : /configuration verification failed/);
+      assert.equal(writes, 1);
+    }
+    const mock = mcpClientFetch(MCP_NATIVE_LOOPBACK_REDIRECT_URIS, { [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE });
+    await assert.rejects(() => synchronizeMcpClientRedirectUris({ ...credentials, apply: true, fetchImpl: mock.fetchImpl }), /backup-file/);
+    await assert.rejects(() => synchronizeMcpClientRedirectUris({ ...credentials, apply: true, backupFile: path.join(temporary, "before-ignore.json"), fetchImpl: mock.fetchImpl }), { code: "EEXIST" });
+    assert.equal(mock.calls.some((call) => call.method === "PUT"), false);
   } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 });
 

@@ -23,6 +23,8 @@ const MCP_NATIVE_LOOPBACK_REDIRECT_URIS = Object.freeze(["http://127.0.0.1", "ht
 // optional Keycloak parameter enabled for the public native client.
 const MCP_ISSUER_RESPONSE_ATTRIBUTE = "exclude.issuer.from.auth.response";
 const MCP_ISSUER_RESPONSE_VALUE = "false";
+const MCP_PKCE_ATTRIBUTE = "pkce.code.challenge.method";
+const MCP_PKCE_METHOD = "S256";
 const MCP_CAPABILITY_CLIENT_SCOPE_NAMES = Object.freeze(Object.values(TEAM_CAPABILITY_DEFINITIONS).map((definition) => definition.oauthScope).sort());
 const MCP_OPTIONAL_CLIENT_SCOPE_NAMES = Object.freeze(["offline_access", ...MCP_CAPABILITY_CLIENT_SCOPE_NAMES]);
 
@@ -107,6 +109,7 @@ function mcpClientConfigurationMatches(client) {
   return redirectUrisMatch(client)
     && attributes !== null
     && attributes[MCP_ISSUER_RESPONSE_ATTRIBUTE] === MCP_ISSUER_RESPONSE_VALUE
+    && attributes[MCP_PKCE_ATTRIBUTE] === MCP_PKCE_METHOD
     && client.publicClient === true
     && client.standardFlowEnabled === true
     && client.directAccessGrantsEnabled === false
@@ -146,6 +149,12 @@ function safeMcpScopeBindings(scopeState) {
   return MCP_OPTIONAL_CLIENT_SCOPE_NAMES.map((name) => ({ name, binding: optional.has(name) ? "optional" : defaults.has(name) ? "default" : "none" }));
 }
 
+function safePkceSnapshot(client) {
+  const method = clientAttributes(client)?.[MCP_PKCE_ATTRIBUTE];
+  if (method === undefined) return null;
+  return method === MCP_PKCE_METHOD || method === "plain" ? method : "invalid";
+}
+
 function safeClientRedirectSnapshot(client, scopeState) {
   if (!client || typeof client !== "object" || Array.isArray(client)) throw new Error("Keycloak MCP client is invalid");
   return {
@@ -153,6 +162,7 @@ function safeClientRedirectSnapshot(client, scopeState) {
     clientId: client.clientId === "common-tools-mcp" ? client.clientId : null,
     redirectUris: Array.isArray(client.redirectUris) ? client.redirectUris.filter((uri) => typeof uri === "string" && uri.length <= 2048).sort() : [],
     issuerResponseExcluded: clientAttributes(client)?.[MCP_ISSUER_RESPONSE_ATTRIBUTE] ?? null,
+    pkceMethod: safePkceSnapshot(client),
     flowSettings: {
       publicClient: typeof client.publicClient === "boolean" ? client.publicClient : null,
       standardFlowEnabled: typeof client.standardFlowEnabled === "boolean" ? client.standardFlowEnabled : null,
@@ -260,7 +270,7 @@ async function synchronizeMcpClientRedirectUris({ baseUrl, realm, adminUsername,
   const attributes = clientAttributes(current.client);
   if (attributes === null) throw new Error("Keycloak MCP client attributes are invalid");
   writeClientRedirectSnapshot(backupFile, { realm, client: current.client, scopeState });
-  if (!mcpClientConfigurationMatches(current.client)) await requestOk(fetchImpl, current.clientUrl, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ ...current.client, publicClient: true, standardFlowEnabled: true, directAccessGrantsEnabled: false, implicitFlowEnabled: false, serviceAccountsEnabled: false, authorizationServicesEnabled: false, fullScopeAllowed: false, redirectUris: [...MCP_NATIVE_LOOPBACK_REDIRECT_URIS], attributes: { ...attributes, [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE } }) });
+  if (!mcpClientConfigurationMatches(current.client)) await requestOk(fetchImpl, current.clientUrl, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ ...current.client, publicClient: true, standardFlowEnabled: true, directAccessGrantsEnabled: false, implicitFlowEnabled: false, serviceAccountsEnabled: false, authorizationServicesEnabled: false, fullScopeAllowed: false, redirectUris: [...MCP_NATIVE_LOOPBACK_REDIRECT_URIS], attributes: { ...attributes, [MCP_ISSUER_RESPONSE_ATTRIBUTE]: MCP_ISSUER_RESPONSE_VALUE, [MCP_PKCE_ATTRIBUTE]: MCP_PKCE_METHOD } }) });
   const clientScopesUrl = current.clientUrl.replace(/\/clients\/[^/]+$/, "/client-scopes");
   const availableNames = scopeNames(scopeState.available);
   for (const name of MCP_CAPABILITY_CLIENT_SCOPE_NAMES) {
