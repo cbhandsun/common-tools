@@ -106,10 +106,10 @@ PR #20 已以 `c02047d0ab6efe56e15d970b11ba9db3ae055b40` 合入 main。新缓存
 
 ## 单次 corpus 内复用 OCR 模型（待正式验收）
 
-依赖安装缓存不等于模型进程复用。`run-office-ppt-regression.js` 为 corpus 传入 `--paddle-ocr-broker true`，由 corpus 父进程持有共享的 PaddleOCR broker，使串行、受控的 complex-graphic OCR 用例可以复用同一 worker。独立调用 corpus 默认不启用；启用时并发必须为 1，不适用于并行 Office worker。该 broker 仅存活于本轮 corpus，不跨工作流保留服务或凭据。
+依赖安装缓存不等于模型进程复用。`run-office-ppt-regression.js` 为 corpus 传入 `--paddle-ocr-broker true`，仅在至少两个受控 complex-graphic OCR 用例可复用时，由 corpus 父进程持有共享 PaddleOCR broker。当前完整 manifest 的 31 个用例中仅 `triangle-topology` 符合条件，因此不启动 broker；单个质量进程内部已有 OCR 批处理，此改动不能视为当前整套语料的提速。独立调用 corpus 默认不启用；请求启用时并发必须为 1，不适用于并行 Office worker。该 broker 仅存活于本轮 corpus，不跨工作流保留服务或凭据。
 
-broker 的随机凭据只传给符合白名单的用例，并由用例入口取走，仅提供给质量检查子进程；重建、Office 与其他语料不继承凭据。OCR 配置身份校验、鉴权、输入上限及严格协议解析保持有效。退出时等待 worker 关闭，清理失败或超时仍使任务失败；Docker 镜像包含退出等待模块，并有实际 COPY 依赖闭包回归。
+broker 的随机凭据只传给符合白名单的用例，并由用例入口取走，仅提供给质量检查子进程；质量 CLI 在读取输入及启动渲染之前也消费并删除环境变量，配置仅保留在当前进程内供 OCR 使用，重建、Office 与其他语料不继承凭据。此前质量 CLI 在渲染后才消费环境变量的缺陷已修正，入口边界回归覆盖缺省、仅 URL、仅 token 和完整配置；此回归不替代实际 Office 验收。OCR 配置身份校验、鉴权、输入上限及严格协议解析保持有效。退出时等待 worker 关闭，清理失败或超时仍使任务失败；Docker 镜像包含退出等待模块，并有实际 COPY 依赖闭包回归。
 
-语料报告新增 `ocrSession`，只包含启用状态、请求/完成/失败计数、排队和服务毫秒数，不包含地址、凭据或 OCR 内容。逐例超时、质量阈值、fresh 重建、跨渲染器及编辑往返检查没有减少，也未新增重试。共享模型并不代表复用此前的质量报告。
+语料报告新增 `ocrSession`，包含启用状态与适用用例数 `eligibleCases`；仅在实际启用时增加请求/完成/失败计数、排队和服务毫秒数，不包含地址、凭据或 OCR 内容。当前完整语料预期为 `{"enabled":false,"eligibleCases":1}`。逐例超时、质量阈值、fresh 重建、跨渲染器及编辑往返检查没有减少，也未新增重试。共享模型并不代表复用此前的质量报告。
 
 本地替身回归通过两个真实 Node 客户端证明冷启动需要 2 个 worker、共享会话只需 1 个，返回 OCR 内容一致。它只证明复用机制，不证明真实模型或完整 CI 的加速比例；实际收益及 triangle-topology 超时是否消除，仍须由候选提交的 full Office 报告验证。首次 Node 远端缓存上传耗时未在本批优化。

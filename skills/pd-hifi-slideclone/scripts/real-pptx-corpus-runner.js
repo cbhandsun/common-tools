@@ -200,7 +200,7 @@ function usage() {
     "  --allow-parallel-office <true>  Allow concurrency for environments with isolated Office workers",
     "  --case-timeout-ms <ms>   Per-case timeout",
     "  --fresh <true>            Disable supported golden stage reuse",
-    "  --paddle-ocr-broker <true|false>  Reuse OCR across serialized supported cases",
+    "  --paddle-ocr-broker <true|false>  Reuse OCR across at least two serialized supported cases",
     "  --help                   Print help"
   ].join("\n");
 }

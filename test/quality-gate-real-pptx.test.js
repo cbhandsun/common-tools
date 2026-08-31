@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 
 const {
   alignRenderedPageIndexesToIr,
@@ -45,6 +46,30 @@ const {
   summarizeRasterImages,
   writeRenderCacheMetadata
 } = require("../skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx");
+
+test("quality CLI consumes broker credentials before input loading or renderer startup", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quality-gate-env-boundary-"));
+  const input = path.join(directory, "input.json");
+  const urlKey = "SLIDECLONE_PADDLE_OCR_BROKER_URL";
+  const tokenKey = "SLIDECLONE_PADDLE_OCR_BROKER_TOKEN";
+  const environment = { ...process.env, QUALITY_GATE_BOUNDARY_INPUT: input };
+  delete environment[urlKey];
+  delete environment[tokenKey];
+  try {
+    fs.writeFileSync(input, "{}");
+    for (const credentials of [{}, { [urlKey]: "http://127.0.0.1:12345" }, { [tokenKey]: "PRIVATE_BROKER_TOKEN" }, { [urlKey]: "http://127.0.0.1:12345", [tokenKey]: "PRIVATE_BROKER_TOKEN" }]) {
+      const result = spawnSync(process.execPath, [
+        "--require", path.join(__dirname, "fixtures/quality-gate-env-boundary.js"),
+        path.join(__dirname, "../skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx.js"),
+        "--ir", input, "--out", path.join(directory, "output")
+      ], { env: { ...environment, ...credentials }, encoding: "utf8", windowsHide: true, timeout: 10000 });
+      assert.equal(result.error, undefined);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /broker-environment-consumed-before-input/);
+      assert.doesNotMatch(`${result.stdout}${result.stderr}`, /PRIVATE_BROKER_TOKEN|127\.0\.0\.1/);
+    }
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
 
 test("decorative backgrounds with native text require a verified text-free band", () => {
   const image = {

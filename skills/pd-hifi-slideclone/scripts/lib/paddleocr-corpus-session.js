@@ -48,8 +48,8 @@ function takeBrokerEnvironment(environment) {
   return Object.freeze({ [URL_KEY]: broker.url, [TOKEN_KEY]: broker.token });
 }
 
-function safeMetrics(metrics) {
-  const result = { enabled: true };
+function safeMetrics(metrics, eligibleCases) {
+  const result = { enabled: true, eligibleCases };
   for (const key of ["requests", "completed", "failed", "queueWaitMs", "serviceMs"]) {
     const value = metrics?.[key];
     if (!Number.isSafeInteger(value) || value < 0) throw new Error("PaddleOCR corpus broker metrics are invalid");
@@ -65,8 +65,9 @@ async function runCorpusCases(cases, options = {}, dependencies = {}) {
   const execute = dependencies.runCases || runCases;
   const environment = cleanEnvironment(options.environment || process.env);
   const runOptions = { ...options, environmentForCase: () => environment };
-  if (!enabled || !cases.some(eligibleForBroker)) {
-    return { results: await execute(cases, runOptions), ocrSession: Object.freeze({ enabled: false }) };
+  const eligibleCases = cases.filter(eligibleForBroker).length;
+  if (!enabled || eligibleCases < 2) {
+    return { results: await execute(cases, runOptions), ocrSession: Object.freeze({ enabled: false, eligibleCases }) };
   }
   const start = dependencies.startBroker || startPaddleOcrBatchBroker;
   const broker = await start({
@@ -94,7 +95,7 @@ async function runCorpusCases(cases, options = {}, dependencies = {}) {
     throw new Error("Corpus OCR cleanup failed", { cause: error });
   }
   if (executionError) throw executionError;
-  return { results, ocrSession: safeMetrics(metrics) };
+  return { results, ocrSession: safeMetrics(metrics, eligibleCases) };
 }
 
 module.exports = { brokerEnabled, eligibleForBroker, runCorpusCases, takeBrokerEnvironment };

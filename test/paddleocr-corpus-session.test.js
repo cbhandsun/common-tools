@@ -51,8 +51,8 @@ test("corpus credentials are consumed before unrelated tools and malformed endpo
 test("one scoped broker preserves timeout/results, isolates other cases, and reports only safe metrics", async () => {
   let starts = 0;
   let closes = 0;
-  const cases = [entry(), { id: "other", command: [process.execPath, "other.js"] }];
-  const results = [{ passed: true }, { passed: false }];
+  const cases = [entry(), entry("second"), { id: "other", command: [process.execPath, "other.js"] }];
+  const results = [{ passed: true }, { passed: true }, { passed: false }];
   const inherited = { ...env, KEEP: "value" };
   const outcome = await runCorpusCases(cases, { sharedOcr: true, concurrency: 1, timeoutMs: 600000, environment: inherited }, {
     startBroker: async () => { starts += 1; return { env, close: async () => { closes += 1; return { ...metrics, token: env[tokenKey] }; } }; },
@@ -61,20 +61,21 @@ test("one scoped broker preserves timeout/results, isolates other cases, and rep
       assert.equal(options.timeoutMs, 600000);
       assert.equal(actual[0].timeoutMs, 180000);
       assert.deepEqual(options.environmentForCase(cases[0]), { ...env, KEEP: "value" });
-      assert.deepEqual(options.environmentForCase(cases[1]), { KEEP: "value" });
+      assert.deepEqual(options.environmentForCase(cases[1]), { ...env, KEEP: "value" });
+      assert.deepEqual(options.environmentForCase(cases[2]), { KEEP: "value" });
       return results;
     }
   });
   assert.equal(starts, 1);
   assert.equal(closes, 1);
   assert.equal(outcome.results, results);
-  assert.deepEqual(outcome.ocrSession, { enabled: true, ...metrics });
+  assert.deepEqual(outcome.ocrSession, { enabled: true, eligibleCases: 2, ...metrics });
   assert.doesNotMatch(JSON.stringify(outcome), /z{43}|127\.0\.0\.1/);
   assert.deepEqual(inherited, { ...env, KEEP: "value" });
 });
 
-test("disabled, empty and ineligible corpora start no broker or inherit a stale one", async () => {
-  for (const [cases, sharedOcr] of [[[entry()], false], [[], true], [[{ command: [process.execPath, "other.js"] }], true]]) {
+test("disabled, empty, single-eligible and ineligible corpora start no broker or inherit a stale one", async () => {
+  for (const [cases, sharedOcr] of [[[entry()], false], [[entry()], true], [[], true], [[{ command: [process.execPath, "other.js"] }], true]]) {
     const result = await runCorpusCases(cases, { sharedOcr, concurrency: 1, environment: env }, {
       startBroker: async () => assert.fail("must not start"),
       runCases: async (items, options) => { assert.deepEqual(options.environmentForCase(items[0]), {}); return []; }
@@ -83,19 +84,38 @@ test("disabled, empty and ineligible corpora start no broker or inherit a stale 
   }
 });
 
+test("actual full corpus reports OCR eligibility without claiming cross-case reuse for one client", async () => {
+  const { resolveCorpusCases } = require("../skills/pd-hifi-slideclone/scripts/lib/real-pptx-corpus");
+  const corpus = require("../skills/pd-hifi-slideclone/examples/real-pptx-corpus.manifest.json");
+  const golden = require("../skills/pd-hifi-slideclone/examples/golden-set.manifest.json");
+  const selected = resolveCorpusCases(corpus, golden, { suites: ["full"], manifestSuites: corpus.suites, requireCoverage: false });
+  assert.equal(selected.cases.length, 31);
+  assert.deepEqual(selected.cases.filter(eligibleForBroker).map((item) => item.id), ["triangle-topology"]);
+  const outcome = await runCorpusCases(selected.cases, { sharedOcr: true, concurrency: 1 }, {
+    startBroker: async () => assert.fail("one eligible client cannot reuse across cases"),
+    runCases: async (items, options) => {
+      assert.equal(items, selected.cases);
+      for (const item of items) assert.equal(options.environmentForCase(item)[tokenKey], undefined);
+      return [];
+    }
+  });
+  assert.deepEqual(outcome.ocrSession, { enabled: false, eligibleCases: 1 });
+});
+
 test("corpus execution/start/cleanup failures are never converted to passing results", async () => {
   const primary = new Error("execution failed");
   let closes = 0;
   const options = { sharedOcr: true, concurrency: 1 };
-  await assert.rejects(runCorpusCases([entry()], options, { startBroker: async () => { throw primary; } }), (error) => error === primary);
-  await assert.rejects(runCorpusCases([entry()], options, {
+  const cases = [entry(), entry("second")];
+  await assert.rejects(runCorpusCases(cases, options, { startBroker: async () => { throw primary; } }), (error) => error === primary);
+  await assert.rejects(runCorpusCases(cases, options, {
     startBroker: async () => ({ env, close: async () => { closes += 1; return metrics; } }),
     runCases: async () => { throw primary; }
   }), (error) => error === primary);
   assert.equal(closes, 1);
   const secondary = new Error("private cleanup error");
   for (const failExecution of [false, true]) {
-    await assert.rejects(runCorpusCases([entry()], options, {
+    await assert.rejects(runCorpusCases(cases, options, {
       startBroker: async () => ({ env, close: async () => { throw secondary; } }),
       runCases: async () => { if (failExecution) throw primary; return []; }
     }), (error) => {
@@ -114,7 +134,7 @@ test("invalid broker credentials and metrics fail after closing the session", as
     { env, metrics: { ...metrics, requests: Number.MAX_SAFE_INTEGER + 1 } },
     { env, metrics: { ...metrics, completed: -1 } }
   ]) {
-    await assert.rejects(runCorpusCases([entry()], { sharedOcr: true, concurrency: 1 }, {
+    await assert.rejects(runCorpusCases([entry(), entry("second")], { sharedOcr: true, concurrency: 1 }, {
       startBroker: async () => ({ env: broker.env, close: async () => { closes += 1; return broker.metrics; } }),
       runCases: async () => []
     }), /invalid/);
