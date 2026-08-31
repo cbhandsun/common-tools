@@ -11,6 +11,7 @@ RUN python3 -m venv /opt/paddleocr/venv \
     && /opt/paddleocr/venv/bin/python -m pip install --no-cache-dir --requirement /opt/paddleocr/requirements.lock.txt
 
 COPY skills/pd-hifi-slideclone/scripts/python/paddleocr_worker.py /opt/paddleocr/paddleocr_worker.py
+COPY skills/pd-hifi-slideclone/scripts/python/paddleocr_protocol.py /opt/paddleocr/paddleocr_protocol.py
 COPY skills/pd-hifi-slideclone/scripts/python/image_to_png.py /opt/paddleocr/image_to_png.py
 COPY skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local.js /opt/paddleocr/skill/scripts/adapters/ocr-paddleocr-local.js
 COPY skills/pd-hifi-slideclone/scripts/lib/process-boundaries.js /opt/paddleocr/skill/scripts/lib/process-boundaries.js

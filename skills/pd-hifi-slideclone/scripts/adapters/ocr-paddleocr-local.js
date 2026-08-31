@@ -196,6 +196,7 @@ class PaddleOcrEngine {
     this.buffer = "";
     this.bufferBytes = 0;
     this.pending = new Map();
+    this.closed = false;
     this.idleTimer = null;
     this.ready = null;
     this.metadata = Object.freeze({ protocolVersion: PROTOCOL_VERSION, paddleocrVersion: "unknown", paddlepaddleVersion: "unknown" });
@@ -341,18 +342,23 @@ class PaddleOcrEngine {
   }
 
   scheduleClose(delayMs) {
+    if (this.closed) return;
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(() => this.close(), delayMs);
     this.idleTimer.unref?.();
   }
 
   close(error = new Error("PaddleOCR worker stopped")) {
+    if (this.closed) return;
+    this.closed = true;
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = null;
     this.failAll(error);
-    if (activeEngine === this) activeEngine = null;
-    if (activeIdentity === this.settings.identity) activeIdentity = null;
-    if (enginePromise) enginePromise = null;
+    if (activeEngine === this || (!activeEngine && activeIdentity === this.settings.identity)) {
+      activeEngine = null;
+      activeIdentity = null;
+      enginePromise = null;
+    }
     try {
       if (this.child && this.child.exitCode === null) this.child.kill();
     } catch {
@@ -560,7 +566,10 @@ function safeWorkerEnvironment(settings) {
 
 function settingsIdentity(settings) {
   const scriptStat = fs.statSync(settings.workerScript);
+  const protocolFile = path.join(path.dirname(settings.workerScript), "paddleocr_protocol.py");
+  const protocolSha256 = fs.existsSync(protocolFile) ? sha256File(protocolFile) : null;
   const identityCacheKey = JSON.stringify({
+    protocolSha256,
     workerScript: path.resolve(settings.workerScript),
     scriptSize: scriptStat.size,
     scriptMtimeMs: scriptStat.mtimeMs,
@@ -580,6 +589,7 @@ function settingsIdentity(settings) {
   });
   if (cachedSettingsIdentities.has(identityCacheKey)) return cachedSettingsIdentities.get(identityCacheKey);
   const identity = {
+    protocolSha256,
     protocolVersion: PROTOCOL_VERSION,
     workerScript: sha256File(settings.workerScript),
     pythonBin: executableIdentity(settings.pythonBin),

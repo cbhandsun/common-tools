@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "status": "pr-verified-main-full-failed",
+  "failedRun": {
+    "url": "https://github.com/cbhandsun/common-tools/actions/runs/33363744103",
+    "revision": "41c75eb7a65ef27c1395b309293ba37692fece76",
+    "conclusion": "failure",
+    "step": "Run common-tools contract tests",
+    "observations": [
+      "The local-browser capture test could not reach the browser debugging endpoint.",
+      "The remote-plugin bundle test's PowerShell compiler helper returned a null exit status instead of zero."
+    ],
+    "rootCauseStatus": "The test entrypoint bypassed resource-aware scheduling and the browser and bundle files lacked external-process classification. Those gaps are confirmed; resource contention is not proven as the exact cause of either hosted failure."
+  },
+  "fix": {
+    "pullRequest": "https://github.com/cbhandsun/common-tools/pull/30",
+    "head": "2453d5b629dec135d3fc4062cf39199774f21946",
+    "mergeCommit": "d7c91223bab0b7279155ff2a95261d1dbb7bb0c4",
+    "mergedAt": "2026-08-31T07:43:07Z",
+    "testedAndMergedTree": "ae73c9a7276889cb3cabaf92e8590ee7b3e3f2cb",
+    "behavior": "Route every common-tools-*.test.js file through the shared resource scheduler. Isolate browser and compiler/bundle tests in external-process waves; serialize files inside each shard while retaining ordinary shard parallelism.",
+    "unchanged": ["Production behavior", "Test assertions", "Test timeouts", "Required CI and Office checks"],
+    "regressionCoverage": ["Exact discovery of all contract files", "Resource wave isolation", "Actual subprocess file serialization", "Failure exit-code propagation"]
+  },
+  "localVerification": {
+    "focusedTestsPassed": 9,
+    "lintPassed": true,
+    "typecheckPassed": true,
+    "contractFiles": 72,
+    "shardFileCounts": [32, 32, 1, 5, 2],
+    "allShardsPassed": true,
+    "elapsedMs": 316606,
+    "limitation": "Original isolated bundle tests passed locally. One original browser invocation failed at screenshot capture; a later isolated invocation passed. A passing run is not proof that all browser flakiness is eliminated."
+  },
+  "ciVerification": [
+    {"event": "push", "run": 33364872572, "revision": "2453d5b629dec135d3fc4062cf39199774f21946", "conclusion": "success"},
+    {"event": "pull_request", "run": 33364901950, "revision": "2453d5b629dec135d3fc4062cf39199774f21946", "conclusion": "success"},
+    {"event": "main-push", "run": 33369609994, "revision": "d7c91223bab0b7279155ff2a95261d1dbb7bb0c4", "conclusion": "success"}
+  ],
+  "prOfficeVerification": {
+    "url": "https://github.com/cbhandsun/common-tools/actions/runs/33364901838",
+    "attempt": 1,
+    "scope": "pr-smoke",
+    "conclusion": "success",
+    "requiredCheckConclusion": "success",
+    "environmentFingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+    "corpusPassing": 4,
+    "corpusTotal": 4,
+    "crossRendererPassing": 4,
+    "crossRendererTotal": 4,
+    "independentRoundTripPassing": 5,
+    "semanticAndImageRoundTripPassing": 2,
+    "roundTripReportsValid": true,
+    "roundTripProcessesSucceeded": true,
+    "trendComparedTargets": 4,
+    "trendFailureCount": 0,
+    "timings": {
+      "officeJobStartedAt": "2026-08-31T07:18:57Z",
+      "officeJobCompletedAt": "2026-08-31T07:42:03Z",
+      "officeJobSeconds": 1386,
+      "dependencyValidateOrInstallSeconds": 61,
+      "remoteNodeCacheSaveSeconds": 260,
+      "corpusAndTrendSeconds": 807,
+      "limitation": "One observed PR run, not a controlled speed benchmark; queue wait is excluded from the Office job duration."
+    },
+    "artifact": {
+      "id": 9749479980,
+      "createdAt": "2026-08-31T07:41:16Z",
+      "sha256": "a073116cb1016a17142410ffb80c406df03ac64636f6d4f5faef9fe5dadb534c"
+    },
+    "reportSha256": {
+      "office-environment.json": "aba62244020d77e523db191a007edad04e3a021208477a1f330427d85dd2a947",
+      "real-pptx-corpus.report.json": "55131442a04711fc3c0c9a4f73bc8b23807a7091b0d6c9fd4d2261ab25405631",
+      "cross-renderer/cross-renderer-report.json": "9c3045ee3cccf8dba0b6c3255a25ccb18c47064fd1ebfb219892ef93e2263679",
+      "quality-trend-report.json": "5e2e4f30c17a7b2b51ffc6d339cb3e330d9733d5e66403abffc5ea0c8fcb1355",
+      "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969",
+      "ppt-create-smoke/independent-corpus/powerpoint-editable-roundtrip-summary.json": "3bdfbc85473fec099e7551f6167709a4e74dde4ad2944b90cce2b6439c5e5a32",
+      "ppt-create-smoke/powerpoint-editable-roundtrip-summary.json": "b1e236205a699ea97c9e0b41801061dd24fe68c0dfcf1b04d789a5897fb608a5"
+    }
+  },
+  "mainOfficeVerification": {
+    "url": "https://github.com/cbhandsun/common-tools/actions/runs/33369610023",
+    "revision": "d7c91223bab0b7279155ff2a95261d1dbb7bb0c4",
+    "scope": "main-full",
+    "attempt": 1,
+    "status": "completed",
+    "conclusion": "failure",
+    "failedStep": "Validate cached runtimes and build locked .NET dependencies",
+    "diagnostic": "PaddleOCR worker returned invalid output",
+    "corpusStarted": false
+  },
+  "remainingScope": "Main full Office validation failed during the PaddleOCR preflight before corpus execution. The failure requires diagnosis and a subsequent successful full run. Production deployment, live identity and PKCE validation, authorized-device and owner-template canaries, and operational drills are not proven by this evidence."
+}

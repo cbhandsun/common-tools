@@ -36,13 +36,19 @@ function readPinnedPaddleOcrProfile(environment = process.env) {
   let modelCacheValid;
   try { modelCacheValid = path.isAbsolute(modelCacheDir) && fs.statSync(modelCacheDir).isDirectory(); } catch { throw new Error("COMMON_TOOLS_IMAGE_PADDLEOCR_MODEL_CACHE is unavailable"); }
   if (!modelCacheValid) throw new Error("COMMON_TOOLS_IMAGE_PADDLEOCR_MODEL_CACHE is unavailable");
+  const worker = checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER", "COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256");
+  const protocol = checkedFile({
+    COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL: path.join(path.dirname(worker), "paddleocr_protocol.py"),
+    COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL_SHA256: environment.COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL_SHA256
+  }, "COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL", "COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL_SHA256");
   return Object.freeze({
     enabled: true,
     kind: "paddleocr",
     name: PROFILE_NAME,
     python: checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON", "COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON_SHA256"),
     adapter: checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER", "COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER_SHA256"),
-    worker: checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER", "COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256"),
+    worker,
+    protocol,
     imageNormalizer: checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE_NORMALIZER", "COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE_NORMALIZER_SHA256"),
     healthcheckImage: checkedFile(environment, "COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK", "COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK_SHA256"),
     modelCacheDir

@@ -1,21 +1,25 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const { spawnSync } = require("node:child_process");
 const { EXPECTED_VERSIONS, MIN_TEXT_CONFIDENCE, PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile } = require("../packages/slideclone-core/team-paddleocr-profile");
 
 function environment(overrides = {}) {
   const fixture = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png");
+  const worker = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "python", "paddleocr_worker.py");
   return {
     COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE: PROFILE_NAME,
     COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON: process.execPath,
     COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON_SHA256: sha256File(process.execPath),
     COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER: __filename,
     COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER_SHA256: sha256File(__filename),
-    COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER: __filename,
-    COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256: sha256File(__filename),
+    COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER: worker,
+    COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256: sha256File(worker),
+    COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL_SHA256: sha256File(path.join(path.dirname(worker), "paddleocr_protocol.py")),
     COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE_NORMALIZER: __filename,
     COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE_NORMALIZER_SHA256: sha256File(__filename),
     COMMON_TOOLS_IMAGE_PADDLEOCR_MODEL_CACHE: os.tmpdir(),
@@ -32,6 +36,34 @@ test("pinned PaddleOCR profile validates every executable source and model bound
   assert.throws(() => readPinnedPaddleOcrProfile(environment({ COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256: "b".repeat(64) })), /checksum/);
   assert.throws(() => readPinnedPaddleOcrProfile(environment({ COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE: "paddle-latest" })), /unsupported/);
   assert.throws(() => readPinnedPaddleOcrProfile(environment({ COMMON_TOOLS_IMAGE_PADDLEOCR_MODEL_CACHE: path.join(os.tmpdir(), "missing-paddle-models") })), /unavailable/);
+});
+
+test("pinned PaddleOCR protocol requires the actual sibling module and exact digest", () => {
+  const original = environment();
+  const profile = readPinnedPaddleOcrProfile(original);
+  assert.equal(profile.protocol, path.join(path.dirname(profile.worker), "paddleocr_protocol.py"));
+  for (const digest of [undefined, null, "", "invalid", "b".repeat(64), "a".repeat(65)]) {
+    assert.throws(() => readPinnedPaddleOcrProfile(environment({ COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL_SHA256: digest })), /COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL(?:_SHA256)? (?:is required|is invalid|checksum does not match)/);
+  }
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "paddleocr-profile-"));
+  try {
+    const worker = path.join(tempDir, "worker.py");
+    fs.copyFileSync(original.COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER, worker);
+    assert.throws(() => readPinnedPaddleOcrProfile(environment({ COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER: worker })), /PROTOCOL is unavailable/);
+    fs.writeFileSync(path.join(tempDir, "paddleocr_protocol.py"), "# modified module\n");
+    assert.throws(() => readPinnedPaddleOcrProfile(environment({ COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER: worker })), /PROTOCOL checksum/);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("PaddleOCR deployment probe validates all six hashes and both pinned versions", () => {
+  const result = spawnSync("pwsh", ["-NoProfile", "-NonInteractive", "-File", path.join(__dirname, "fixtures", "paddleocr-deployment-profile.ps1"), path.join(__dirname, "..", "scripts", "team-runtime-local-deploy.ps1")], {
+    encoding: "utf8", windowsHide: true, timeout: 30000, maxBuffer: 64 * 1024
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "profile-boundaries-passed");
 });
 
 test("PaddleOCR result normalization rejects unsafe text and geometry", () => {

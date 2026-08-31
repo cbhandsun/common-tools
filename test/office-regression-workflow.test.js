@@ -18,10 +18,74 @@ const {
   snapshotId,
   verifyPowerPointInstallation
 } = require("../scripts/run-office-ppt-regression");
-const { collectOfficeRegressionEvidence } = require("../scripts/lib/office-regression-evidence");
+const { collectOfficeRegressionEvidence, probeCommandVersion, probePowerPointVersion } = require("../scripts/lib/office-regression-evidence");
 const { resolveWorkRoot } = require("../skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke");
 
 const root = path.resolve(__dirname, "..");
+
+test("Office version probes preserve stdout/stderr versions and fixed execution bounds", () => {
+  const calls = [];
+  const run = (command, args, options) => {
+    calls.push({ command, args, options });
+    return { status: 0, stdout: "", stderr: "pdftoppm version 26.05.0\r\nCopyright fixture\n" };
+  };
+  assert.equal(probeCommandVersion("fixture.exe", ["-v"], run, "pdftoppm"), "pdftoppm version 26.05.0 Copyright fixture");
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].args, ["-v"]);
+  assert.equal(calls[0].options.timeout, 10000);
+  assert.equal(calls[0].options.windowsHide, true);
+  assert.equal(probePowerPointVersion("fixture.exe", () => ({ status: 0, stdout: "16.0.1\r\n" })), "16.0.1");
+  assert.equal(probeCommandVersion("fixture.exe", ["-v"], () => ({ status: 0, stdout: "v1\u0000\u001f\u007f中文 🌍" })), "v1 中文 🌍");
+});
+
+test("Office version failures expose bounded diagnostics but never raw process text", () => {
+  const secret = "PRIVATE_FIXTURE_TOKEN_AND_CONTENT";
+  const scenarios = [
+    { result: { error: { code: "ETIMEDOUT", message: secret }, status: null, signal: "SIGTERM" }, reason: "timeout", errorCode: "ETIMEDOUT" },
+    { result: { error: { code: "ENOENT", message: secret }, status: null }, reason: "spawn-error", errorCode: "ENOENT" },
+    { result: { status: 3221225477, stdout: secret, stderr: secret }, reason: "exit-status", errorCode: "none" },
+    { result: { status: 0, stdout: "\r\n\t" }, reason: "empty-output", errorCode: "none" },
+    { result: { status: Number.MAX_SAFE_INTEGER, stdout: 5, stderr: [], signal: secret }, reason: "exit-status", errorCode: "none" },
+    { result: { error: { code: "ENOBUFS" }, status: null, stdout: secret.repeat(100), stderr: secret.repeat(100) }, reason: "spawn-error", errorCode: "ENOBUFS" },
+    { result: null, reason: "invalid-result", errorCode: "none" },
+    { result: { error: { code: secret }, status: secret, signal: secret }, reason: "spawn-error", errorCode: "unknown" }
+  ];
+  for (const { result, reason, errorCode } of scenarios) {
+    let calls = 0;
+    assert.throws(() => probeCommandVersion("fixture.exe", ["-v"], () => { calls += 1; return result; }, "pdftoppm"), (error) => {
+      assert.match(error.message, /^pdftoppm version preflight failed /);
+      assert.doesNotMatch(error.message, /PRIVATE_FIXTURE/);
+      const diagnostic = JSON.parse(error.message.slice(error.message.indexOf("{")));
+      assert.equal(diagnostic.reason, reason);
+      assert.equal(diagnostic.errorCode, errorCode);
+      assert.equal(Number.isSafeInteger(diagnostic.elapsedMs), true);
+      assert.equal(Number.isSafeInteger(diagnostic.stdoutBytes), true);
+      assert.equal(Number.isSafeInteger(diagnostic.stderrBytes), true);
+      assert.equal(diagnostic.stdoutBytes, typeof result?.stdout === "string" ? Buffer.byteLength(result.stdout) : 0);
+      assert.equal(diagnostic.stderrBytes, typeof result?.stderr === "string" ? Buffer.byteLength(result.stderr) : 0);
+      assert.equal(diagnostic.exitCode, result?.status === 3221225477 ? 3221225477 : result?.status === 0 ? 0 : null);
+      assert.equal(diagnostic.signal, result?.signal === "SIGTERM" ? "SIGTERM" : result?.signal ? "unknown" : null);
+      assert.equal(error.message.length < 512, true);
+      return true;
+    });
+    assert.equal(calls, 1, "a failed probe must not be retried into a passing result");
+  }
+});
+
+test("Office version probes sanitize thrown errors and unrecognized diagnostic labels", () => {
+  const run = () => { throw Object.assign(new Error("PRIVATE_FIXTURE_SECRET"), { code: "EINVAL" }); };
+  for (const invoke of [
+    () => probeCommandVersion("fixture.exe", ["-v"], run, "PRIVATE_FIXTURE_LABEL"),
+    () => probePowerPointVersion("fixture.exe", run)
+  ]) {
+    assert.throws(invoke, (error) => {
+      assert.doesNotMatch(error.message, /PRIVATE_FIXTURE/);
+      assert.match(error.message, /version preflight failed/);
+      assert.match(error.message, /"errorCode":"EINVAL"/);
+      return true;
+    });
+  }
+});
 
 test("Office regression plan serializes the selected suite and keeps artifacts in the workspace", () => {
   const plan = buildOfficeRegressionPlan({ suite: "smoke", "work-root": "D:/ppt-corpus" }, {}, root, "win32");

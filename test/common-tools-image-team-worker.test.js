@@ -433,6 +433,7 @@ test("PaddleOCR team image pins the runtime and remains an explicit deployment o
   assert.match(dockerfile, /--engine paddle_dynamic/);
   assert.match(compose, /paddleocr-ppocrv6-v1/);
   assert.match(compose, /COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256/);
+  assert.match(compose, /COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL_SHA256/);
   assert.match(compose, /COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE_NORMALIZER_SHA256/);
   assert.doesNotMatch(fs.readFileSync(path.join(root, "deploy", "compose.team-api.yaml"), "utf8"), /PADDLEOCR/);
 });

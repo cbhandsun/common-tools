@@ -30,6 +30,21 @@ test("resolvePythonExecutable honors explicit and slideclone python overrides", 
   }
 });
 
+test("Python resolution never treats an absent or relative profile as a bundled executable", () => {
+  const names = ["PYTHON_BIN", "SLIDECLONE_PYTHON", "PYTHON", "USERPROFILE"];
+  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  try {
+    for (const name of names) delete process.env[name];
+    for (const profile of [undefined, "", ".", "relative-profile"]) {
+      restoreEnv("USERPROFILE", profile);
+      assert.equal(resolvePythonExecutable(), "python");
+      assert.equal(resolvePythonExecutable("explicit-python"), "explicit-python");
+    }
+  } finally {
+    for (const name of names) restoreEnv(name, previous[name]);
+  }
+});
+
 test("pythonEnv can skip local python-site injection for bundled runtimes", () => {
   const previousSkip = process.env.SLIDECLONE_SKIP_LOCAL_PYTHON_SITE;
   const previousPythonPath = process.env.PYTHONPATH;
