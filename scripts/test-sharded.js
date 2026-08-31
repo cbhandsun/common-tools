@@ -72,7 +72,8 @@ function runShard(root, shard, index) {
     const reporter = parseReporter();
     const child = spawn(process.execPath, [
       "--test",
-      ...(shard.resources?.has("standard") === false ? ["--test-concurrency=1"] : []),
+      // Parallelism belongs to the wave scheduler, not another per-shard pool.
+      "--test-concurrency=1",
       ...(reporter ? [`--test-reporter=${reporter}`] : []),
       ...shard.files
     ], {
@@ -128,5 +129,6 @@ module.exports = {
   discoverTestFiles,
   parseShardCount,
   parseReporter,
+  runShard,
   parseSuite
 };

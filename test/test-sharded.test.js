@@ -2,6 +2,10 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 const {
   balanceTestFiles,
   createExecutionWaves,
@@ -52,6 +56,12 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.equal(includesSuite("test/font-fit.test.js", "all"), true);
   assert.equal(parseSuite(["--suite", "contract"], {}), "contract");
   assert.equal(parseSuite([], { TEST_SUITE: "integration" }), "integration");
+  assert.equal(parseSuite(["--suite", "common-tools"], {}), "common-tools");
+  assert.equal(includesSuite("test/common-tools-project-audit.test.js", "common-tools"), true);
+  assert.equal(includesSuite("test/common-tools-ppt-create-openxml-smoke.test.js", "common-tools"), true);
+  for (const name of ["font-fit.test.js", "common-tools-test.js", "common-tools-test.test.js.bak"]) {
+    assert.equal(includesSuite(name, "common-tools"), false);
+  }
   assert.throws(() => parseSuite(["--suite", "slow"], {}), /one of/);
   assert.equal(classifyTestResource("test/font-fit.test.js"), "standard");
   assert.equal(classifyTestResource("test/real-pptx-native-network.test.js"), "memory-heavy");
@@ -59,6 +69,32 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.equal(classifyTestResource("test/openxml-native-chart-smoke.test.js"), "external-process");
   assert.equal(classifyTestResource("test/common-tools-team-ocr-profile.test.js"), "external-process");
   assert.equal(classifyTestResource("test/common-tools-mcp.test.js"), "external-process");
+});
+
+test("real shards serialize files even for standard resources and propagate failures", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ct-shard-contract-"));
+  try {
+    const env = { ...process.env, TEST_REPORTER: "dot" };
+    delete env.NODE_TEST_CONTEXT;
+    const run = (files, resource) => spawnSync(process.execPath, ["--eval",
+      `require(${JSON.stringify(require.resolve("../scripts/test-sharded"))}).runShard(${JSON.stringify(root)}, {files:${JSON.stringify(files)}, resources:new Set([${JSON.stringify(resource)}])}, 0).then(result => { process.exitCode = result.code; });`
+    ], { env, encoding: "utf8", windowsHide: true, timeout: 15000 });
+    const source = `const fs = require('node:fs'); const test = require('node:test');
+test('exclusive file execution', async () => {
+  const descriptor = fs.openSync('exclusive.lock', 'wx');
+  try { await new Promise(resolve => setTimeout(resolve, 300)); fs.writeFileSync(__filename + '.executed', 'yes'); }
+  finally { fs.closeSync(descriptor); fs.unlinkSync('exclusive.lock'); }
+});`;
+    for (const name of ["a.test.cjs", "b.test.cjs"]) fs.writeFileSync(path.join(root, name), source);
+    const passed = run(["a.test.cjs", "b.test.cjs"], "standard");
+    assert.equal(passed.status, 0, passed.stdout + passed.stderr);
+    for (const name of ["a.test.cjs", "b.test.cjs"]) assert.equal(fs.readFileSync(path.join(root, name + ".executed"), "utf8"), "yes");
+    fs.writeFileSync(path.join(root, "fail.test.cjs"), "require('node:test')('expected failure', () => { throw new Error('fixture failure'); });");
+    const failed = run(["fail.test.cjs"], "external-process");
+    assert.equal(failed.status, 1, failed.stdout + failed.stderr);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("resource-aware execution isolates heavy shards while retaining standard parallelism", () => {

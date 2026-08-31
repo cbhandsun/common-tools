@@ -564,7 +564,7 @@ npm run common-tools:verify-release-evidence -- --sbom artifacts/common-tools.sp
 
 | 门禁 | 完成标准 | 失败时的处理 |
 |---|---|---|
-| 现有回归基线 | `npm run common-tools:test`、`test:unit`、`test:contract`、`test:integration` 在干净 Windows 环境可重复通过；前者以固定 2 路 Node 测试并发运行全部 `common-tools-*.test.js`，避免 Docker Desktop 与测试子进程争用 | 先修复测试或移除不可靠的宿主依赖；不得忽略失败继续重构 |
+| 现有回归基线 | `npm run common-tools:test`、`test:unit`、`test:contract`、`test:integration` 在干净 Windows 环境可重复通过；统一使用资源调度器，普通测试默认 2 路分片并行、每个分片内部串行，外部进程和高内存波次独占执行；`common-tools:test` 保留全部 `common-tools-*.test.js` | 先修复测试或移除不可靠的宿主依赖；不得忽略失败继续重构 |
 | Docker 可用性 | 当前用户可读 Docker 配置、访问 daemon、运行最小非特权容器 | 修复 Docker Desktop/用户组/配置权限，不把 Docker socket 暴露给模型 |
 | 包管理 | 根目录声明 `packageManager`，新增直接依赖并提交 lockfile | 不引入未锁定的 MCP、schema 或构建依赖 |
 | Workspace 边界 | 选定 npm workspaces 或等价 monorepo 工具，并建立 package 命名规范 | 保持单仓库，但不在根 `package.json` 继续累积新的业务脚本 |
