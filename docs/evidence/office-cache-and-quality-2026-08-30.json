@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-08-30T23:19:25.6131275Z",
+  "capturedAt": "2026-08-31T00:01:16.3670857Z",
   "scope": "Office Runner dependency preparation and full-corpus acceptance evidence",
   "cacheOptimizationMerge": {
     "pullRequest": "https://github.com/cbhandsun/common-tools/pull/20",
@@ -32,6 +32,58 @@
       "cross-renderer/cross-renderer-report.json": "3b762cb927e8d8d8eb472fa3c30efba4d6cf2b0ae009d6b8ccb051ce73914926",
       "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969"
     }
+  },
+  "fullCorpusFollowups": [
+    {
+      "runId": "33341429314",
+      "runUrl": "https://github.com/cbhandsun/common-tools/actions/runs/33341429314",
+      "revision": "c02047d0ab6efe56e15d970b11ba9db3ae055b40",
+      "conclusion": "success",
+      "suite": "full",
+      "environmentFingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+      "totalCases": 31,
+      "passingCases": 31,
+      "crossRendererPassed": true,
+      "independentPptCreatePassed": true,
+      "trendPassed": true,
+      "compatiblePriorSnapshots": 1,
+      "comparedTargets": 31,
+      "targetCount": 31,
+      "comparedTargetRatio": 1,
+      "trendFailureCount": 0,
+      "baselineBootstrap": false,
+      "artifactName": "ppt-office-regression-33341429314",
+      "artifactSha256": {
+        "office-environment.json": "6f7c787e7e698453c2b5d704565ac043851eb4d06a75481dd1a1f7140dae8038",
+        "real-pptx-corpus.report.json": "024530f280f397e1d7883b1018d49b56c63353d4e7a04275041c848fa0ef41d7",
+        "quality-trend-report.json": "b64089486e8ae24e48dcb136971bff0e379037bd7b679bb2beffb597daf4fd30",
+        "cross-renderer/cross-renderer-report.json": "e7968b11d4381f043867cda6824f9567ab6a5dc6ae96c85a56527c691eb9919a",
+        "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969"
+      }
+    }
+  ],
+  "fullSequenceAcceptance": {
+    "requiredCompatiblePasses": 3,
+    "confirmedCompatiblePasses": 2,
+    "complete": false,
+    "successfulFullRunIds": ["33337908795", "33341429314"],
+    "pendingFullRunId": "33341895591",
+    "pendingRevision": "3d0ee03fdb3e47d9cd77a337789c25f26b0518ef",
+    "equivalentMainRevisionAtDispatch": "a2ceac2502029f45785209158f3e2d3b7126ef26",
+    "equivalentTreeAtDispatch": "0e53039a5e65b80799ca1afb55af3adf2b4a659f",
+    "pendingRunCountsAsSuccess": false
+  },
+  "mainNodeCacheInitialization": {
+    "runId": "33341429314",
+    "reused": false,
+    "installed": true,
+    "reason": "cache-miss",
+    "identitySeconds": 2,
+    "restoreSeconds": 2,
+    "installAndValidateSeconds": 24,
+    "saveSeconds": 168,
+    "cacheScope": "refs/heads/main",
+    "cacheSizeBytes": 18674571
   },
   "nodeCacheWarmRuns": [
     {
