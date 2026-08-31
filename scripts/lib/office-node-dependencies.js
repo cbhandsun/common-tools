@@ -179,4 +179,4 @@ function runtimeIdentity() {
   return { node: process.version, npm: result.stdout.trim(), platform: process.platform, arch: process.arch };
 }
 
-module.exports = { CHECK_ARGS, INSTALL_ARGS, dependencyCacheKey, lockedPackagesMatch, parseCacheHit, prepareNodeDependencies, restoreCachedWorkspaceLinks, runtimeIdentity, workspaceLinksMatch };
+module.exports = { CHECK_ARGS, INSTALL_ARGS, dependencyCacheKey, lockedPackagesMatch, parseCacheHit, prepareNodeDependencies, repositoryRoot, restoreCachedWorkspaceLinks, runtimeIdentity, workspaceLinkEntries, workspaceLinksMatch };

@@ -96,10 +96,13 @@ jobs:
 
       - name: Identify locked Node dependency cache
         id: node-dependency-key
+        env:
+          RUNNER_TOOL_CACHE: ${{ runner.tool_cache }}
         run: node scripts/office-node-dependencies.js key
 
       - name: Restore exact Node dependencies
         id: node-dependencies
+        if: steps.node-dependency-key.outputs.local_hit != 'true'
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
@@ -109,11 +112,14 @@ jobs:
 
       - name: Validate or install locked Node dependencies
         env:
-          OFFICE_NODE_CACHE_HIT: ${{ steps.node-dependencies.outputs.cache-hit }}
+          RUNNER_TOOL_CACHE: ${{ runner.tool_cache }}
+          OFFICE_NODE_CACHE_KEY: ${{ steps.node-dependency-key.outputs.key }}
+          OFFICE_NODE_LOCAL_CACHE_HIT: ${{ steps.node-dependency-key.outputs.local_hit }}
+          OFFICE_NODE_CACHE_HIT: ${{ steps.node-dependency-key.outputs.local_hit == 'true' && 'true' || steps.node-dependencies.outputs.cache-hit }}
         run: node scripts/office-node-dependencies.js prepare
 
       - name: Save validated Node dependencies
-        if: steps.node-dependencies.outputs.cache-hit != 'true'
+        if: steps.node-dependencies.outputs.cache-hit != 'true' && steps.node-dependency-key.outputs.local_hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
