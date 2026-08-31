@@ -16,7 +16,7 @@ module.exports = [
     ]
   },
   {
-    files: ["packages/**/*.js", "scripts/**/*.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-roundtrip-evidence.js", "skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip.js"],
+    files: ["packages/**/*.js", "scripts/**/*.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-roundtrip-evidence.js", "skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence.js", "skills/pd-hifi-slideclone/scripts/lib/progress-reporter.js", "skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "commonjs",

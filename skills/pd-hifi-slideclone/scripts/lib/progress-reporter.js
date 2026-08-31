@@ -17,6 +17,7 @@ const SAFE_FIELDS = new Set([
   "cached",
   "jobs"
 ]);
+const NUMERIC_DIAGNOSTIC_FIELDS = new Set(["launchAttempt", "attempts", "retries", "retryDelayMs"]);
 
 function createProgressReporter(options = {}) {
   const enabled = options.enabled !== false;
@@ -40,6 +41,10 @@ function createProgressReporter(options = {}) {
 function sanitizeEvent(event) {
   const result = {};
   for (const [key, value] of Object.entries(event && typeof event === "object" ? event : {})) {
+    if (NUMERIC_DIAGNOSTIC_FIELDS.has(key)) {
+      if (Number.isSafeInteger(value) && value >= 0 && value <= 86400000) result[key] = value;
+      continue;
+    }
     if (!SAFE_FIELDS.has(key) || value === undefined || value === null) continue;
     if (typeof value === "boolean") {
       result[key] = value;
