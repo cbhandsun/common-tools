@@ -55,6 +55,8 @@ main [全量运行 33353923778](https://github.com/cbhandsun/common-tools/action
 
 ## 验证与测量范围
 
+后续诊断与页码索引修复 PR #28 的 [Office run 33360255823](https://github.com/cbhandsun/common-tools/actions/runs/33360255823) 已全部通过，官方日志再次确认 `reused=true`、`installed=false`、`cacheSource=runner-local`。本机恢复与标识 16 秒、校验 8 秒，合计仍为 24 秒；远端恢复和保存均跳过。4/4 smoke、4/4 跨渲染器、5 份独立 PPT（33 页、4 个主题、22 个布局）以及趋势检查均通过，两组编辑往返摘要分别为 5/5 和 2/2。PR 已受保护合入 main `3c9f75b`，与测试提交 `f568f75` 的源码 tree 一致；main [全量运行 33360911889](https://github.com/cbhandsun/common-tools/actions/runs/33360911889) 随后独立通过：31/31 语料、4/4 跨渲染器、5/5 独立 PPT 及 2/2 语义/图片 PPT 编辑往返全部通过，趋势比较 31 个目标且无失败。该次 main 新标识首次准备仍执行安装：标识 2 秒、远端恢复尝试 2 秒、安装/校验及本机保存 40 秒、首次远端上传 173 秒，Node 共 217 秒；Python 15 秒。它是首次缓存建立成本，不与 PR 热缓存 24 秒混算；Office 语料与趋势阶段为 29 分 45 秒，不属于安装。报告哈希和修复范围见 [编辑目标索引修复记录](./evidence/office-roundtrip-index-2026-08-31.json)。
+
 2026-08-30 本机真实准备验证：初版冷安装加检查约 35.3 秒，已安装目录的复用检查约 4.2 秒；补充逐项锁定版本检查后，热准备约 5.3 秒，仍报告 `reused=true`、`installed=false`。这不包含 Actions 缓存上传、下载、解压时间，不能据此声称完整 CI 已提速同等比例。
 
 专用 Runner 的首次验证见 [Office run 33333667128，attempt 1](https://github.com/cbhandsun/common-tools/actions/runs/33333667128/attempts/1)，对应 PR #20 提交 `f928af86ad4d545be5442c056ab527e441774eb4`。完整工作流及稳定的 required check 均通过；日志明确报告 `reused=false`、`installed=true`、`reason=cache-miss`。各步骤实测如下（按 Actions 步骤时间取整）：

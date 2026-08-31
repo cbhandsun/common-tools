@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "local-fix-verified-official-regression-pending",
+  "status": "pr-and-main-full-verified",
   "failedRun": {
     "url": "https://github.com/cbhandsun/common-tools/actions/runs/33356629089",
     "attempt": 1,
@@ -45,9 +45,120 @@
     "failedCases": 0,
     "allOpenedSavedReopenedVerified": true
   },
+  "prValidation": {
+    "runId": 33360255823,
+    "url": "https://github.com/cbhandsun/common-tools/actions/runs/33360255823",
+    "attempt": 1,
+    "testedHead": "f568f759f2fc3f16a8c713d5a897ced7950adb3f",
+    "conclusion": "success",
+    "scope": "pr-smoke",
+    "artifact": {
+      "id": 9746633151,
+      "createdAt": "2026-08-31T05:32:10Z",
+      "sha256": "de74cdff47ebfc80c7aa0b8bd0fc31ab2b62f399d537bd5f7b3fe95fa4daa717"
+    },
+    "reportSha256": {
+      "office-environment.json": "6a60b174d5745e559e6d50281661b6254034e570d25001faa0dab19471f709fd",
+      "real-pptx-corpus.report.json": "829d0c4c72507e53322ee8a5d95c8ac25d191e2fac1c22ea88ce74a684175841",
+      "cross-renderer/cross-renderer-report.json": "ee3eaa9666c58adbcea2060ad8f972b74614256477ba73185ad2bbf830676e69",
+      "quality-trend-report.json": "af2ad7d0f3f14b4409097b154761c3548135ba8b5eb80237b3f291639c6488f2",
+      "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969",
+      "ppt-create-smoke/independent-corpus/powerpoint-editable-roundtrip-summary.json": "386b82a01a68163966ff81af8bd551a511502ebeae23c2f1cebec26a3953c90f",
+      "ppt-create-smoke/powerpoint-editable-roundtrip-summary.json": "a756101896ecdb99dfcd9c51c31630c3150f5bd33e388da376fa459f19778ad2"
+    },
+    "metrics": {
+      "corpus": 4,
+      "crossRenderer": 4,
+      "independentDecks": 5,
+      "independentPages": 33,
+      "themes": 4,
+      "layouts": 22,
+      "trendCompared": 4,
+      "trendFailures": 0,
+      "compatibleHistorySnapshots": 21,
+      "independentRoundTrip": 5,
+      "semanticAndImageRoundTrip": 2,
+      "fingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+      "nodePreparationSeconds": 24,
+      "installed": false,
+      "cacheSource": "runner-local"
+    },
+    "ciRuns": [
+      33360255802,
+      33360253385
+    ],
+    "ciConclusions": [
+      "success",
+      "success"
+    ]
+  },
+  "merge": {
+    "commit": "3c9f75b29ae603264e578add7517654a24f0309c",
+    "mergedAt": "2026-08-31T05:32:41Z",
+    "testedAndMergedTree": "cbdee1893249674c387a1a98ba683e91fb52afd6",
+    "protectedAutoMerge": true
+  },
+  "mainValidation": {
+    "revision": "3c9f75b29ae603264e578add7517654a24f0309c",
+    "officeRunId": 33360911889,
+    "url": "https://github.com/cbhandsun/common-tools/actions/runs/33360911889",
+    "attempt": 1,
+    "status": "completed",
+    "conclusion": "success",
+    "suite": "full",
+    "ciRunId": 33360911926,
+    "ciConclusion": "success",
+    "artifact": {
+      "id": 9747312621,
+      "createdAt": "2026-08-31T06:08:42Z",
+      "sha256": "9026a8c0d3c0f94a2828a60c8f69db74c865233cc478ec4c706412c2fd2ac33a"
+    },
+    "reportSha256": {
+      "office-environment.json": "9f650c9632f69a3e81d4c42462d202c2e8b588bfe63c88fa7b10d74c94916fd8",
+      "real-pptx-corpus.report.json": "d1156b1931c246abca8417f7fbca0b241cb2c35b57d30a8ee748d48620a3ae76",
+      "cross-renderer/cross-renderer-report.json": "6c8720c3ed29a04c1bda0a63c9ceecd8003c04bc7043dacae8d663b92ae8daf0",
+      "quality-trend-report.json": "b155fa86956af9a620250fd32c0dd3a967eaf6d5f8d88c176b38f70231496f2f",
+      "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969",
+      "ppt-create-smoke/independent-corpus/powerpoint-editable-roundtrip-summary.json": "513e65da903de789beee5de16b64822bddff00e65bbc94a8d54918014181ea3e",
+      "ppt-create-smoke/powerpoint-editable-roundtrip-summary.json": "c1fb213404b0b172677fcc86bab60de616ca865575c3bff098f5b7aa1c9f8a93"
+    },
+    "metrics": {
+      "corpus": 31,
+      "crossRenderer": 4,
+      "independentDecks": 5,
+      "independentPages": 33,
+      "themes": 4,
+      "layouts": 22,
+      "trendCompared": 31,
+      "trendFailures": 0,
+      "compatibleHistorySnapshots": 3,
+      "independentRoundTrip": 5,
+      "semanticAndImageRoundTrip": 2,
+      "fingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+      "nodePreparationSeconds": 217,
+      "installed": true,
+      "cacheSource": "install"
+    },
+    "nodePreparation": {
+      "identifySeconds": 2,
+      "remoteRestoreAttemptSeconds": 2,
+      "validateOrInstallAndLocalSaveSeconds": 40,
+      "firstRemoteSaveSeconds": 173,
+      "totalSeconds": 217,
+      "pythonSeconds": 15
+    },
+    "cacheResult": {
+      "reused": false,
+      "installed": true,
+      "reason": "cache-miss",
+      "cacheSource": "install",
+      "localCacheSaved": true
+    },
+    "corpusAndTrendSeconds": 1785
+  },
   "limits": [
     "The earlier main run 33353923778 lost its detailed report; this finding does not establish that its failure had the same cause.",
     "The reason PowerPoint exposed an unusable SlideIndex is not established. The fix removes that property from target identity construction.",
-    "Fresh official PR and main Office regression results are still required. Production deployment and owner-authorized canaries remain unverified."
+    "Official PR smoke and main full acceptance passed for the recorded revisions. Production deployment, live identity configuration, owner-device/template canaries and operational drills remain unverified."
   ]
 }
