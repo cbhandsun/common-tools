@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "scope": "Runner-local Node dependency reuse, single-run preparation measurements and Office acceptance",
+  "status": "main-office-validation-failed",
+  "merge": {
+    "pullRequest": "https://github.com/cbhandsun/common-tools/pull/27",
+    "revision": "138a8e09656dc98ea422ddaef47735ab743cb0bd",
+    "mergedAt": "2026-08-31T03:27:48Z",
+    "verifiedHead": "fe37afd939261960b9d26d45308eb38936ea6e12",
+    "exactTreeMatch": true,
+    "tree": "29a2d526660b1606b08e250eee0f436d81abd1de"
+  },
+  "remoteBaseline": {
+    "runId": 33341895591,
+    "source": "docs/evidence/office-cache-and-quality-2026-08-30.json",
+    "nodePreparationSeconds": {
+      "identify": 2,
+      "restore": 20,
+      "validate": 7,
+      "total": 29
+    },
+    "cacheResult": {
+      "reused": true,
+      "installed": false,
+      "reason": "validated-cache-hit"
+    }
+  },
+  "sequentialCold": {
+    "runId": 33350964881,
+    "attempt": 1,
+    "status": "completed",
+    "conclusion": "success",
+    "artifactId": 9743911520,
+    "artifactCreatedAt": "2026-08-31T02:51:18Z",
+    "artifactDigest": "sha256:17cf9ebd1f63083979d26da2817604e8755210d535960cc011316e15b3852dd1",
+    "cacheResult": {
+      "reused": false,
+      "installed": true,
+      "reason": "cache-miss",
+      "cacheSource": "install",
+      "localCacheSaved": true
+    },
+    "nodePreparationSeconds": {
+      "identify": 2,
+      "remoteRestore": 2,
+      "validateInstallAndLocalSave": 54,
+      "remoteSave": 178
+    },
+    "pythonPreparationSeconds": 16,
+    "officeCorpusStartedAt": "2026-08-31T02:42:21Z",
+    "validation": {
+      "corpusGeneratedAt": "2026-08-31T02:46:11.337Z",
+      "trendGeneratedAt": "2026-08-31T02:51:10.880Z",
+      "corpusPassingCases": 4,
+      "corpusTotalCases": 4,
+      "crossRendererPassingCases": 4,
+      "trendComparedTargets": 4,
+      "trendFailureCount": 0,
+      "compatibleHistorySnapshots": 18,
+      "environmentFingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+      "independentCorpus": {
+        "decks": 5,
+        "pages": 33,
+        "themes": 4,
+        "layouts": 22,
+        "powerPointValidated": true,
+        "libreOfficeValidated": true
+      },
+      "hashes": {
+        "office-environment.json": "19c8ac2a23fba07ec0d9fa19ca429c081897321e144cc9f10dae31fdc9d2d316",
+        "real-pptx-corpus.report.json": "ca27bc5913c3ade38ae3076dc4fb0356bc98f00763c52fb08b2a48fb6ca56d1f",
+        "quality-trend-report.json": "1b40fed05878a604560866602cf8557aebf70817bafe0341ff53a9aa29f561eb",
+        "cross-renderer/cross-renderer-report.json": "cbbc68acdf0f8d114beec17ec8a7427e15184b9c0cf6d157d17ea648c6665bc1",
+        "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969"
+      }
+    },
+    "head": "38492ae1a9d3987a8cdf8c0178a1f2a3a06fe717",
+    "runUrl": "https://github.com/cbhandsun/common-tools/actions/runs/33350964881/attempts/1"
+  },
+  "sequentialWarm": {
+    "runId": 33350964881,
+    "attempt": 2,
+    "head": "38492ae1a9d3987a8cdf8c0178a1f2a3a06fe717",
+    "status": "completed",
+    "conclusion": "success",
+    "artifactId": 9744148145,
+    "artifactCreatedAt": "2026-08-31T03:06:21Z",
+    "artifactDigest": "sha256:117292e552f8ed6358f39dbd62d68a1d51e16a85f7a35343c8ce3516953c8835",
+    "cacheResult": {
+      "reused": true,
+      "installed": false,
+      "reason": "validated-cache-hit",
+      "cacheSource": "runner-local",
+      "localCacheSaved": false
+    },
+    "nodePreparationSeconds": {
+      "identifyAndLocalRestore": 23,
+      "remoteRestore": 0,
+      "validate": 9,
+      "remoteSave": 0,
+      "total": 32
+    },
+    "remoteRestoreSkipped": true,
+    "remoteSaveSkipped": true,
+    "pythonPreparationSeconds": 16,
+    "comparison": "Single-run preparation was 32 seconds, slower than the recorded 29-second remote-cache baseline.",
+    "validation": {
+      "corpusGeneratedAt": "2026-08-31T03:00:37.755Z",
+      "trendGeneratedAt": "2026-08-31T03:06:13.037Z",
+      "corpusPassingCases": 4,
+      "crossRendererPassingCases": 4,
+      "trendComparedTargets": 4,
+      "trendFailureCount": 0,
+      "compatibleHistorySnapshots": 19,
+      "environmentFingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+      "independentCorpus": {
+        "decks": 5,
+        "pages": 33,
+        "themes": 4,
+        "layouts": 22,
+        "powerPointValidated": true,
+        "libreOfficeValidated": true
+      },
+      "hashes": {
+        "office-environment.json": "750477e7185b2a51db765f36b06f92a3cb320f1e58d4501013abee9b8f2465de",
+        "real-pptx-corpus.report.json": "30956bb8b039c2bb81eb2c28dcdfa642f489ab0e9172836b210dc78a70cd697a",
+        "quality-trend-report.json": "9efd65e521b36a0c31b9e65943d8a5d3b8427e32d06be5da327c75de8eaaefb9",
+        "cross-renderer/cross-renderer-report.json": "0a594755dd67ad551cb15ff8a5a7ec07970bf572c33921e9b9ebac8a5eb2c68f",
+        "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969"
+      }
+    },
+    "runUrl": "https://github.com/cbhandsun/common-tools/actions/runs/33350964881/attempts/2"
+  },
+  "optimizedWarm": {
+    "runId": 33353210305,
+    "attempt": 1,
+    "runUrl": "https://github.com/cbhandsun/common-tools/actions/runs/33353210305/attempts/1",
+    "head": "fe37afd939261960b9d26d45308eb38936ea6e12",
+    "conclusion": "success",
+    "copyConcurrency": 8,
+    "cacheResult": {
+      "reused": true,
+      "installed": false,
+      "reason": "validated-cache-hit",
+      "cacheSource": "runner-local",
+      "localCacheSaved": false
+    },
+    "nodePreparationSeconds": {
+      "identifyAndLocalRestore": 15,
+      "remoteRestore": 0,
+      "validate": 9,
+      "remoteSave": 0,
+      "total": 24
+    },
+    "remoteRestoreSkipped": true,
+    "remoteSaveSkipped": true,
+    "pythonPreparationSeconds": 18,
+    "artifactId": 9744489971,
+    "artifactCreatedAt": "2026-08-31T03:27:03Z",
+    "artifactDigest": "sha256:094c06fda9872fab6549df22fdd089b0dcd494309d8adb9f9a691428cf4fbbc4",
+    "validation": {
+      "corpusGeneratedAt": "2026-08-31T03:21:57.903Z",
+      "trendGeneratedAt": "2026-08-31T03:26:55.477Z",
+      "corpusPassingCases": 4,
+      "crossRendererPassingCases": 4,
+      "trendComparedTargets": 4,
+      "trendFailureCount": 0,
+      "compatibleHistorySnapshots": 19,
+      "environmentFingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+      "independentCorpus": {
+        "decks": 5,
+        "pages": 33,
+        "themes": 4,
+        "layouts": 22,
+        "powerPointValidated": true,
+        "libreOfficeValidated": true
+      },
+      "hashes": {
+        "office-environment.json": "a0c94aaa944b5c5dd925bdd63e899ce08df077b88e70a08ec9e911a13ea4b615",
+        "real-pptx-corpus.report.json": "f8f018b65880702df758bcb0a18a2a0b6948a40f006678174668a965c31c5777",
+        "quality-trend-report.json": "822568540854930d422ccfad89dfb83ff4137973e0c7ca6e4a518707c34ee160",
+        "cross-renderer/cross-renderer-report.json": "475604686e1ecad1553a1eeda4bc392b35e5d203ba671f45a7b6521ecf681a19",
+        "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969"
+      }
+    },
+    "ciRuns": [
+      33353208317,
+      33353210303
+    ],
+    "ciPassed": true
+  },
+  "localSaveProbe": {
+    "saveMs": 12478,
+    "saveAndInventoryMs": 16410,
+    "entries": 10380,
+    "bytes": 72353180,
+    "sha256VerifiedFiles": 9133,
+    "allFilesByteIdentical": true,
+    "runnerWasIdle": true
+  },
+  "comparison": {
+    "singleRunMeasurement": true,
+    "secondsSavedVersusSequential": 8,
+    "secondsSavedVersusRemoteBaseline": 5,
+    "repeatabilityEstablished": false,
+    "wholeCiSpeedupProven": false
+  },
+  "mainValidation": {
+    "revision": "138a8e09656dc98ea422ddaef47735ab743cb0bd",
+    "ciRunId": 33353923791,
+    "ciConclusion": "success",
+    "officeRunId": 33353923778,
+    "status": "completed",
+    "conclusion": "failure",
+    "suite": "full",
+    "nodePreparationSeconds": {
+      "identify": 2,
+      "remoteRestoreAttempt": 2,
+      "validateOrInstallAndLocalSave": 49,
+      "firstRemoteSave": 188,
+      "total": 241
+    },
+    "cacheResult": { "reused": false, "installed": true, "reason": "cache-miss", "cacheSource": "install", "localCacheSaved": true },
+    "pythonPreparationSeconds": 17,
+    "artifactId": 9745087848,
+    "artifactCreatedAt": "2026-08-31T04:04:27Z",
+    "artifactDigest": "sha256:f1e1bfbd0ff4c805e51606152b8e40e6c3e4aed3fde78f28c64eb7f0a9d015fa",
+    "validation": {
+      "corpusPassingCases": 31,
+      "corpusTotalCases": 31,
+      "crossRendererPassingCases": 4,
+      "independentPptCreatePassed": false,
+      "trendStatus": "not-run",
+      "failureStage": "independent-corpus-powerpoint-editable-roundtrip",
+      "rootCause": "unknown: child process failure report was not archived and the subsequent Runner checkout removed the local copy",
+      "hashes": {
+        "office-environment.json": "12b07e95d020114d67dc1b81bf17f2b72f88bc8ddb0c0ee8420f6500ac6452c8",
+        "real-pptx-corpus.report.json": "1c7ee7dc5a1c50474830d46dc19a5c7c7eea95cfc8f9bb5e3e7da493c593f25f",
+        "cross-renderer/cross-renderer-report.json": "954b164ccff26aa9c8e1ab350e74f20af73b231249e70cc125e48503b612f867"
+      }
+    }
+  },
+  "limitations": [
+    "Preparation timings are rounded GitHub Actions step durations, not a controlled repeated benchmark or whole-CI speedup.",
+    "Cache keys isolate repositories, refs, checkout paths and dependency/runtime identities; a new main key can still require installation and first upload.",
+    "The save-only local probe does not measure Runner restore, validation or complete CI time; the full-file SHA-256 comparison was one-time validation.",
+    "PR Office results use the smoke suite, not the 31-case full suite. Their passing reports do not replace main full acceptance.",
+    "The independent PPTX template is a repository-owned simulation, not an owner-authorized real template or remote production canary.",
+    "Rerun artifacts were archived separately and identified by artifact ID and report timestamps."
+  ]
+}

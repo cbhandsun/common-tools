@@ -97,7 +97,11 @@ npm run canary:remote-access-negative
 
 ## 门禁回归记录
 
+Office Runner 的本机依赖缓存优化已通过 PR #27 合入 main `138a8e0`。PR 专用 Runner 热运行确认 `installed=false`，Node 准备共 24 秒（本机恢复与标识 15 秒、校验 9 秒），远端下载和上传均跳过；全部 PR Office 门禁通过。这是单轮准备测量，不是整条 CI 的提速证明。main 全量运行 `33353923778` 的 31/31 语料和 4/4 跨渲染器检查通过，但独立新建 PPT 的 PowerPoint 编辑往返验证失败，趋势门禁未执行；当前整体 Office 验收未通过，失败报告归档缺口及具体根因仍待处理。冷/热运行范围、归档报告摘要与 SHA-256 见 [本机缓存证据](./evidence/office-local-cache-2026-08-31.json)，复用边界见 [Office Runner 缓存说明](./office-runner-cache.md)。此项不改变线上部署、身份同步和授权设备 canary 的待验收状态，也不将此前三轮历史全量通过冒充本次通过。
+
 2026-08-30，main `a2ceac2` 的 [CI run 33341820370](https://github.com/cbhandsun/common-tools/actions/runs/33341820370) 在 metrics CLI 测试中出现 `2 !== 0`。该用例验证配置与脱敏，却隐含依赖宿主 Docker 可用；受控的 Docker 不可用场景已复现相同失败。回归测试继续启动真实 CLI，仅在测试子进程中隔离 Docker 探测，分别覆盖可用、daemon 不可用和命令不存在，以及每种状态下的 metrics 禁用、token 启用、文件配置和非法 token。生产 Docker 检查和退出码保持不变，不通过允许任意退出码、跳过测试或修改门禁消除失败。
+
+PowerPoint 编辑往返验证的诊断补强正在验证：每次调用绑定新的 invocation ID，拒绝旧报告；无论子进程成功、失败或被终止，都先写入有界脱敏摘要，记录用例数量、布尔结果、失败阶段及 HRESULT，不记录路径或错误原文。工作流只额外归档独立 corpus 的摘要，不上传包含路径和错误原文的内部报告。此改动补足失败可诊断性，不证明 run `33353923778` 的具体失败根因已修复，也不代替新的 Office 验收。
 
 ## 更新规则
 

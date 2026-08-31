@@ -166,7 +166,9 @@ jobs:
           path: |
             artifacts/ppt-office-regression/*.json
             artifacts/ppt-office-regression/cross-renderer/cross-renderer-report.json
-            artifacts/ppt-office-regression/ppt-create-smoke/*.json
+            artifacts/ppt-office-regression/ppt-create-smoke/ppt-create-office-smoke-report.json
+            artifacts/ppt-office-regression/ppt-create-smoke/powerpoint-editable-roundtrip-summary.json
+            artifacts/ppt-office-regression/ppt-create-smoke/independent-corpus/powerpoint-editable-roundtrip-summary.json
           if-no-files-found: warn
           retention-days: 90
 
