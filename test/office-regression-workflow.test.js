@@ -177,7 +177,11 @@ test("Office workflow is scheduled, manually selectable, serialized and isolated
   assert.match(workflow, /slideclone:smoke-paddleocr/u);
   assert.match(workflow, /Upload bounded regression reports/u);
   assert.match(workflow, /scripts\/run-office-ppt-regression[.]js/u);
-  assert.match(workflow, /ppt-create-smoke\/[*][.]json/u);
+  assert.match(workflow, /ppt-create-smoke\/ppt-create-office-smoke-report[.]json/u);
+  assert.match(workflow, /ppt-create-smoke\/powerpoint-editable-roundtrip-summary[.]json/u);
+  assert.doesNotMatch(workflow, /ppt-create-smoke\/[*]|ppt-create-smoke\/powerpoint-editable-roundtrip-report[.]json/u);
+  assert.match(workflow, /ppt-create-smoke\/independent-corpus\/powerpoint-editable-roundtrip-summary[.]json/u);
+  assert.doesNotMatch(workflow, /independent-corpus\/[*]|independent-corpus\/powerpoint-editable-roundtrip-report[.]json/u);
   assert.match(workflow, /retention-days: 90/u);
   assert.doesNotMatch(workflow, /secrets\./u);
   const officeRunner = fs.readFileSync(path.join(root, "scripts", "run-office-ppt-regression.js"), "utf8");

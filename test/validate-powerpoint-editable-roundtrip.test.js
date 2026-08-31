@@ -30,5 +30,8 @@ test("editable round-trip PowerPoint script edits a staging copy and verifies af
   assert.match(script, /ExpectedLeft=\$expectedLeft/);
   assert.match(script, /\$shape\.Left - \[double\]\$Target\.ExpectedLeft/);
   assert.match(script, /SlideclonePowerPointOpenGate/);
+  assert.match(script, /invocationId=\$InvocationId/);
+  assert.match(script, /stage=\$stage; hresult=\(Get-ErrorCode \$_[.]Exception\)/);
+  for (const stage of ["lock", "manifest", "application", "copy", "open", "find-target", "edit", "save", "close", "reopen", "verify"]) assert.ok(script.includes(`$stage = "${stage}"`));
   assert.doesNotMatch(script, /Remove-Item|SaveAs\(\$source/);
 });
