@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-08-31T00:01:16.3670857Z",
+  "capturedAt": "2026-08-31T01:33:30.4551123Z",
   "scope": "Office Runner dependency preparation and full-corpus acceptance evidence",
   "cacheOptimizationMerge": {
     "pullRequest": "https://github.com/cbhandsun/common-tools/pull/20",
@@ -62,16 +62,71 @@
       }
     }
   ],
+  "thirdFullCorpusPass": {
+    "runId": "33341895591",
+    "runUrl": "https://github.com/cbhandsun/common-tools/actions/runs/33341895591",
+    "revision": "3d0ee03fdb3e47d9cd77a337789c25f26b0518ef",
+    "conclusion": "success",
+    "suite": "full",
+    "environmentFingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+    "environmentGeneratedAt": "2026-08-31T00:57:25.315Z",
+    "corpusGeneratedAt": "2026-08-31T01:26:07.229Z",
+    "trendGeneratedAt": "2026-08-31T01:31:26.529Z",
+    "totalCases": 31,
+    "passingCases": 31,
+    "crossRendererPassed": true,
+    "crossRendererCases": 4,
+    "independentPptCreatePassed": true,
+    "trendPassed": true,
+    "compatiblePriorSnapshots": 2,
+    "incompatiblePriorSnapshots": 5,
+    "comparedTargets": 31,
+    "targetCount": 31,
+    "comparedTargetRatio": 1,
+    "trendFailureCount": 0,
+    "baselineBootstrap": false,
+    "artifactName": "ppt-office-regression-33341895591",
+    "artifactSha256": {
+      "office-environment.json": "b58652b5f8902db532750f40374bf64cfb819d3e4d95124df4ffaec629ca99d4",
+      "real-pptx-corpus.report.json": "4f13915dfd260f075e7a0d9c03737455807cd500c976c3a391213434317da22a",
+      "quality-trend-report.json": "a619c9b2588b05af12c7041466e3c3be7c89e6c543acd94fa2e33f6b16c2af34",
+      "cross-renderer/cross-renderer-report.json": "ed4e5b24e58e9a0efe1a79102d0c0a343a018bf871844a71b399a529e449a4d5",
+      "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969"
+    },
+    "nodePreparation": {
+      "reused": true,
+      "installed": false,
+      "reason": "validated-cache-hit",
+      "identitySeconds": 2,
+      "restoreSeconds": 20,
+      "validateSeconds": 7,
+      "totalNodePreparationSeconds": 29,
+      "pythonPreparationSeconds": 16,
+      "cacheSaveSkipped": true
+    }
+  },
   "fullSequenceAcceptance": {
     "requiredCompatiblePasses": 3,
-    "confirmedCompatiblePasses": 2,
-    "complete": false,
-    "successfulFullRunIds": ["33337908795", "33341429314"],
-    "pendingFullRunId": "33341895591",
-    "pendingRevision": "3d0ee03fdb3e47d9cd77a337789c25f26b0518ef",
+    "confirmedCompatiblePasses": 3,
+    "complete": true,
+    "successfulFullRunIds": ["33337908795", "33341429314", "33341895591"],
+    "thirdFullRunId": "33341895591",
+    "thirdRevision": "3d0ee03fdb3e47d9cd77a337789c25f26b0518ef",
     "equivalentMainRevisionAtDispatch": "a2ceac2502029f45785209158f3e2d3b7126ef26",
     "equivalentTreeAtDispatch": "0e53039a5e65b80799ca1afb55af3adf2b4a659f",
-    "pendingRunCountsAsSuccess": false
+    "thirdRunTreeMatchesMainAtDispatch": true,
+    "chronologyAudit": {
+      "workflow": "ppt-office-regression.yml",
+      "windowStart": "2026-08-30T21:59:53Z",
+      "fullRunCount": 3,
+      "failedOrCancelledExecutedFullRuns": [],
+      "excludedCancelledBeforeAnyJob": ["33341820347"],
+      "excludedMainOfficeJobSkipped": ["33342484700", "33343288135", "33343833664"],
+      "pullRequestSmokeRunsCounted": false,
+      "olderIncompatibleSnapshotsCounted": false,
+      "qualityInputsUnchangedBetweenThirdRevisionAndReviewedMain": true,
+      "reviewedMainRevision": "457ef8090622d8c187f86fc621605ba2f4644bf0"
+    }
   },
   "mainNodeCacheInitialization": {
     "runId": "33341429314",
@@ -154,6 +209,6 @@
     "A new cache scope or dependency/runtime identity may require one cold installation and cache upload.",
     "Successful PR smoke runs do not establish three consecutive full-corpus passes.",
     "The full baseline has no compatible prior snapshots and does not establish a no-regression comparison by itself.",
-    "Three consecutive compatible full runs and owner-authorized remote production canaries remain unproven."
+    "Three consecutive compatible full runs are verified; owner-authorized remote production canaries remain unproven."
   ]
 }

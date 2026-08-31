@@ -72,4 +72,6 @@ PR #20 已以 `c02047d0ab6efe56e15d970b11ba9db3ae055b40` 合入 main。新缓存
 
 统一单元测试入口自动包含 `test/office-node-dependencies.test.js`；相关工作流和变更范围测试分别在 `test/office-regression-workflow.test.js`、`test/office-regression-scope.test.js` 中。
 
+第三轮 [full run 33341895591](https://github.com/cbhandsun/common-tools/actions/runs/33341895591) 已全部通过，官方日志确认 `reused=true`、`installed=false`、`reason=validated-cache-hit`：Node 标识 2 秒、缓存恢复 20 秒、校验 7 秒，合计 29 秒；Python 准备 16 秒，缓存保存跳过。该轮没有重复安装，但缓存传输仍有成本，相较此前直接安装约 29～30 秒并无显著速度优势。三轮同环境 full 均为 31/31，后两轮比较全部 31 个目标且无趋势失败；完整证据见上述 JSON。此结果不替代所有者授权的生产部署和远程 canary。
+
 .NET 暂时保持每轮锁定 restore/audit 和 build。尚未实施编译产物缓存，也没有跳过漏洞检查或构建验证。
