@@ -102,6 +102,17 @@ test("local cache treats malformed, incomplete or mismatched markers as misses w
   assert.equal(restoreLocalCache(f.context), false);
 });
 
+test("local cache checks canonical overlap and rejects linked checkout aliases", (t) => {
+  const f = fixture(t);
+  const alias = path.join(f.temporary, "checkout-alias");
+  fs.symlinkSync(f.root, alias, "junction");
+  assert.throws(() => localCacheContext(alias, f.key, f.environment), /boundary/u);
+  const realpath = fs.realpathSync;
+  const realpathMock = t.mock.method(fs, "realpathSync", (target, ...options) => target === f.toolCache ? f.root : realpath(target, ...options));
+  assert.throws(() => localCacheContext(f.root, f.key, f.environment), /separate from the checkout/u);
+  realpathMock.mock.restore();
+});
+
 test("local cache refuses linked source, cache and destination boundaries without touching outside data", (t) => {
   const f = fixture(t);
   const outside = path.join(f.temporary, "outside");
@@ -182,6 +193,8 @@ test("local cache rejects a linked marker and unsafe replacement without followi
 });
 
 test("Office workflow tries local cache first and never omits post-restore validation", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
+  assert.match(manifest.scripts.lint, /scripts\/lib\/office-node\*\.js/u);
   const workflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "ppt-office-regression.yml"), "utf8");
   assert.match(workflow, /id: node-dependencies\r?\n        if: steps.node-dependency-key.outputs.local_hit != 'true'/u);
   assert.match(workflow, /OFFICE_NODE_CACHE_KEY: \$\{\{ steps.node-dependency-key.outputs.key \}\}/u);

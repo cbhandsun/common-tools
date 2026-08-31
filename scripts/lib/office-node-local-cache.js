@@ -39,9 +39,11 @@ function inside(parent, child) {
 
 function localCacheContext(rootValue, key, environment) {
   const root = repositoryRoot(rootValue);
+  plainAncestors(path.resolve(rootValue));
   const toolCache = environment.RUNNER_TOOL_CACHE;
   if (typeof toolCache !== "string" || !path.isAbsolute(toolCache) || toolCache.length > 4096 || /[\r\n\0]/u.test(toolCache)) throw new Error("Office local cache root is invalid");
-  const cacheRoot = path.resolve(toolCache);
+  plainAncestors(path.resolve(toolCache));
+  const cacheRoot = fs.realpathSync(toolCache);
   if (cacheRoot === path.parse(cacheRoot).root || inside(root, cacheRoot) || inside(cacheRoot, root)) throw new Error("Office local cache must be separate from the checkout");
   plainAncestors(root);
   plainAncestors(cacheRoot);
@@ -77,7 +79,7 @@ function inventory(base, skip = new Set()) {
     const relative = pending.pop();
     const directory = path.join(base, relative);
     for (const item of fs.readdirSync(directory, { withFileTypes: true })) {
-      if (item.name.length > 255 || /[\x00-\x1f\x7f\\/:]/u.test(item.name)) throw new Error("Office local cache entry name is invalid");
+      if (item.name.length > 255 || [...item.name].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127 || "\\/:".includes(character))) throw new Error("Office local cache entry name is invalid");
       const name = relative ? `${relative}/${item.name}` : item.name;
       if (skip.has(name)) continue;
       if (name.length > 2048 || name.split("/").length > 48 || entries.length >= 100000) throw new Error("Office local cache inventory exceeds its bound");
