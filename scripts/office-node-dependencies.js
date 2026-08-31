@@ -6,13 +6,13 @@ const path = require("node:path");
 const { dependencyCacheKey, parseCacheHit, prepareNodeDependencies, runtimeIdentity } = require("./lib/office-node-dependencies");
 const { localCacheContext, restoreLocalCache, saveLocalCache } = require("./lib/office-node-local-cache");
 
-function main(argv = process.argv.slice(2)) {
+async function main(argv = process.argv.slice(2)) {
   if (argv.length !== 1 || !["key", "prepare"].includes(argv[0])) throw new Error("Usage: node scripts/office-node-dependencies.js <key|prepare>");
   const root = path.resolve(__dirname, "..");
   if (argv[0] === "key") {
     const key = dependencyCacheKey(root, runtimeIdentity());
     if (!process.env.GITHUB_OUTPUT) throw new Error("Office Node cache key requires GITHUB_OUTPUT");
-    const localHit = process.env.RUNNER_TOOL_CACHE ? restoreLocalCache(localCacheContext(root, key, process.env)) : false;
+    const localHit = process.env.RUNNER_TOOL_CACHE ? await restoreLocalCache(localCacheContext(root, key, process.env)) : false;
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `key=${key}\nlocal_hit=${localHit}\n`, "utf8");
     process.stdout.write("Office Node dependency cache identity ready\n");
     return;
@@ -23,14 +23,14 @@ function main(argv = process.argv.slice(2)) {
   const report = prepareNodeDependencies(root, process.env.OFFICE_NODE_CACHE_HIT);
   let localCacheSaved = false;
   if (local && (!localHit || !report.reused)) {
-    saveLocalCache(local);
+    await saveLocalCache(local);
     localCacheSaved = true;
   }
   process.stdout.write(`${JSON.stringify({ ...report, cacheSource: report.reused ? localHit ? "runner-local" : "actions" : "install", localCacheSaved })}\n`);
 }
 
 if (require.main === module) {
-  try { main(); } catch { process.stderr.write("Office Node dependency preparation failed; installation or validation did not complete\n"); process.exitCode = 1; }
+  main().catch(() => { process.stderr.write("Office Node dependency preparation failed; installation or validation did not complete\n"); process.exitCode = 1; });
 }
 
 module.exports = { main };

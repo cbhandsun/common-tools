@@ -94,11 +94,32 @@ function inventory(base, skip = new Set()) {
   return entries;
 }
 
-function copyInventory(source, destination, entries) {
+async function copyFiles(source, destination, entries) {
+  const files = entries.filter((entry) => !entry.directory);
+  let next = 0;
+  let failed = false;
+  const worker = async () => {
+    while (!failed && next < files.length) {
+      const entry = files[next++];
+      try {
+        await fs.promises.copyFile(path.join(source, entry.name), path.join(destination, entry.name), fs.constants.COPYFILE_EXCL);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
+    }
+  };
+  // Drain all in-flight writes before a caller can remove staging on failure.
+  const results = await Promise.allSettled(Array.from({ length: Math.min(8, files.length) }, worker));
+  const failure = results.find((result) => result.status === "rejected");
+  if (failure) throw failure.reason;
+}
+
+async function copyInventory(source, destination, entries) {
   plainAncestors(path.dirname(destination));
   fs.mkdirSync(destination);
   for (const entry of entries.filter((item) => item.directory).sort((a, b) => a.name.split("/").length - b.name.split("/").length)) fs.mkdirSync(path.join(destination, entry.name));
-  for (const entry of entries.filter((item) => !item.directory)) fs.copyFileSync(path.join(source, entry.name), path.join(destination, entry.name), fs.constants.COPYFILE_EXCL);
+  await copyFiles(source, destination, entries);
 }
 
 function validateCombinedInventory(copies) {
@@ -128,7 +149,7 @@ function readEntry(context) {
   return record;
 }
 
-function restoreLocalCache(context) {
+async function restoreLocalCache(context) {
   const record = readEntry(context);
   if (!record) return false;
   const payload = path.join(context.entry, "payload");
@@ -144,7 +165,7 @@ function restoreLocalCache(context) {
   });
   // Inspect every source and destination before the first checkout write.
   validateCombinedInventory(copies);
-  for (const copy of copies) copyInventory(copy.source, copy.destination, copy.entries);
+  for (const copy of copies) await copyInventory(copy.source, copy.destination, copy.entries);
   return true;
 }
 
@@ -154,7 +175,7 @@ function removeManagedEntry(context, target) {
   fs.rmSync(target, { recursive: true });
 }
 
-function saveLocalCache(context) {
+async function saveLocalCache(context) {
   plainAncestors(context.managed);
   if (!workspaceLinksMatch(context.root) || !lockedPackagesMatch(context.root)) throw new Error("Office local cache source dependencies are invalid");
   const workspaceLinks = workspaceLinkEntries(context.root).map((entry) => entry.relative);
@@ -173,7 +194,7 @@ function saveLocalCache(context) {
     for (const copy of copies) {
       let parent = payload;
       for (const part of copy.name.split("/").slice(0, -1)) parent = ensureChild(parent, part);
-      copyInventory(copy.source, path.join(parent, "node_modules"), copy.entries);
+      await copyInventory(copy.source, path.join(parent, "node_modules"), copy.entries);
     }
     fs.writeFileSync(path.join(staging, "entry.json"), JSON.stringify({ schemaVersion: 1, key: context.key, scope: context.scope, roots: copies.map((copy) => copy.name) }), { flag: "wx", mode: 0o600 });
     if (statOrMissing(context.entry)) removeManagedEntry(context, context.entry);

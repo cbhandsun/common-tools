@@ -32,14 +32,14 @@ function fixture(t) {
   return { root, toolCache, context, key, environment, clean, temporary };
 }
 
-test("local Node cache restores dependencies without stale workspace source or npm install", (t) => {
+test("local Node cache restores dependencies without stale workspace source or npm install", async (t) => {
   const f = fixture(t);
   fs.writeFileSync(path.join(f.root, "node_modules", "fixture-data.txt"), "dependency");
-  assert.equal(restoreLocalCache(f.context), false);
-  saveLocalCache(f.context);
+  assert.equal(await restoreLocalCache(f.context), false);
+  await saveLocalCache(f.context);
   assert.equal(fs.existsSync(path.join(f.context.entry, "payload", "node_modules", "demo")), false);
   f.clean();
-  assert.equal(restoreLocalCache(f.context), true);
+  assert.equal(await restoreLocalCache(f.context), true);
   assert.equal(fs.readFileSync(path.join(f.root, "node_modules", "fixture-data.txt"), "utf8"), "dependency");
   assert.equal(workspaceLinksMatch(f.root), false);
   const calls = [];
@@ -50,33 +50,33 @@ test("local Node cache restores dependencies without stale workspace source or n
   assert.equal(fs.readFileSync(path.join(f.root, "packages", "demo", "index.js"), "utf8"), "source must stay outside the cache");
 });
 
-test("local cache restores workspace-local dependencies and passes a real offline npm health check", (t) => {
+test("local cache restores workspace-local dependencies and passes a real offline npm health check", async (t) => {
   const f = fixture(t);
   const nested = path.join(f.root, "packages", "demo", "node_modules");
   fs.mkdirSync(nested);
   fs.writeFileSync(path.join(nested, ".fixture"), "nested marker");
-  saveLocalCache(f.context);
+  await saveLocalCache(f.context);
   f.clean();
   fs.rmSync(nested, { recursive: true });
-  assert.equal(restoreLocalCache(f.context), true);
+  assert.equal(await restoreLocalCache(f.context), true);
   assert.equal(fs.readFileSync(path.join(nested, ".fixture"), "utf8"), "nested marker");
   assert.equal(prepareNodeDependencies(f.root, "true").installed, false);
 });
 
-test("local cache is isolated by exact dependency key, repository and branch trust scope", (t) => {
+test("local cache is isolated by exact dependency key, repository and branch trust scope", async (t) => {
   const f = fixture(t);
-  saveLocalCache(f.context);
+  await saveLocalCache(f.context);
   for (const environment of [{ ...f.environment, GITHUB_REF: "refs/pull/7/merge" }, { ...f.environment, GITHUB_REPOSITORY: "other/tools" }]) {
     const context = localCacheContext(f.root, f.key, environment);
     assert.notEqual(context.entry, f.context.entry);
-    assert.equal(restoreLocalCache(context), false);
+    assert.equal(await restoreLocalCache(context), false);
   }
   const changed = localCacheContext(f.root, `office-node-v1-${"a".repeat(64)}`, f.environment);
-  assert.equal(restoreLocalCache(changed), false);
+  assert.equal(await restoreLocalCache(changed), false);
   assert.doesNotMatch(JSON.stringify(JSON.parse(fs.readFileSync(path.join(f.context.entry, "entry.json"), "utf8"))), /example\/tools|refs\/heads|checkout/u);
 });
 
-test("local cache rejects empty, relative, overlapping and malformed location inputs", (t) => {
+test("local cache rejects empty, relative, overlapping and malformed location inputs", async (t) => {
   const f = fixture(t);
   for (const cache of [undefined, "", "relative", path.parse(f.root).root, f.root, f.temporary, `${f.toolCache}\n`, path.join(f.root, "inside")]) {
     assert.throws(() => localCacheContext(f.root, f.key, { ...f.environment, RUNNER_TOOL_CACHE: cache }));
@@ -86,23 +86,23 @@ test("local cache rejects empty, relative, overlapping and malformed location in
   for (const repository of [undefined, "", "owner", "owner/repo/extra", "secret\nvalue"]) assert.throws(() => localCacheContext(f.root, f.key, { ...f.environment, GITHUB_REPOSITORY: repository }), /scope/u);
 });
 
-test("local cache treats malformed, incomplete or mismatched markers as misses without checkout writes", (t) => {
+test("local cache treats malformed, incomplete or mismatched markers as misses without checkout writes", async (t) => {
   const f = fixture(t);
-  saveLocalCache(f.context);
+  await saveLocalCache(f.context);
   const marker = path.join(f.context.entry, "entry.json");
   const valid = JSON.parse(fs.readFileSync(marker, "utf8"));
   f.clean();
   for (const text of ["{", "null", "x".repeat(16385), JSON.stringify({ ...valid, key: "wrong" }), JSON.stringify({ ...valid, scope: "wrong" }), JSON.stringify({ ...valid, roots: ["../escape"] }), JSON.stringify({ ...valid, roots: ["node_modules", "node_modules"] }), JSON.stringify({ ...valid, roots: [] })]) {
     fs.writeFileSync(marker, text);
-    assert.equal(restoreLocalCache(f.context), false);
+    assert.equal(await restoreLocalCache(f.context), false);
     assert.equal(fs.existsSync(path.join(f.root, "node_modules")), false);
   }
   fs.writeFileSync(marker, JSON.stringify(valid));
   fs.rmSync(path.join(f.context.entry, "payload"), { recursive: true });
-  assert.equal(restoreLocalCache(f.context), false);
+  assert.equal(await restoreLocalCache(f.context), false);
 });
 
-test("local cache checks canonical overlap and rejects linked checkout aliases", (t) => {
+test("local cache checks canonical overlap and rejects linked checkout aliases", async (t) => {
   const f = fixture(t);
   const alias = path.join(f.temporary, "checkout-alias");
   fs.symlinkSync(f.root, alias, "junction");
@@ -113,25 +113,25 @@ test("local cache checks canonical overlap and rejects linked checkout aliases",
   realpathMock.mock.restore();
 });
 
-test("local cache refuses linked source, cache and destination boundaries without touching outside data", (t) => {
+test("local cache refuses linked source, cache and destination boundaries without touching outside data", async (t) => {
   const f = fixture(t);
   const outside = path.join(f.temporary, "outside");
   fs.mkdirSync(outside);
   fs.writeFileSync(path.join(outside, "keep.txt"), "protected");
   const unsafe = path.join(f.root, "node_modules", "unsafe");
   fs.symlinkSync(outside, unsafe, "junction");
-  assert.throws(() => saveLocalCache(f.context), /unsafe entry/u);
+  await assert.rejects(() => saveLocalCache(f.context), /unsafe entry/u);
   fs.unlinkSync(unsafe);
-  saveLocalCache(f.context);
-  assert.throws(() => restoreLocalCache(f.context), /clean dependency targets/u);
+  await saveLocalCache(f.context);
+  await assert.rejects(() => restoreLocalCache(f.context), /clean dependency targets/u);
   f.clean();
   const cachedLink = path.join(f.context.entry, "payload", "node_modules", "unsafe");
   fs.symlinkSync(outside, cachedLink, "junction");
-  assert.throws(() => restoreLocalCache(f.context), /unsafe entry/u);
+  await assert.rejects(() => restoreLocalCache(f.context), /unsafe entry/u);
   assert.equal(fs.existsSync(path.join(f.root, "node_modules")), false);
   fs.unlinkSync(cachedLink);
   fs.symlinkSync(outside, path.join(f.root, "node_modules"), "junction");
-  assert.throws(() => restoreLocalCache(f.context), /clean dependency targets/u);
+  await assert.rejects(() => restoreLocalCache(f.context), /clean dependency targets/u);
   fs.unlinkSync(path.join(f.root, "node_modules"));
   const linkedCache = path.join(f.temporary, "linked-tools");
   fs.symlinkSync(f.toolCache, linkedCache, "junction");
@@ -139,19 +139,19 @@ test("local cache refuses linked source, cache and destination boundaries withou
   assert.equal(fs.readFileSync(path.join(outside, "keep.txt"), "utf8"), "protected");
 });
 
-test("local cache repairs a bounded damaged snapshot only after successful dependency preparation", (t) => {
+test("local cache repairs a bounded damaged snapshot only after successful dependency preparation", async (t) => {
   const f = fixture(t);
-  saveLocalCache(f.context);
+  await saveLocalCache(f.context);
   fs.writeFileSync(path.join(f.context.entry, "entry.json"), "invalid marker");
-  saveLocalCache(f.context);
+  await saveLocalCache(f.context);
   assert.equal(JSON.parse(fs.readFileSync(path.join(f.context.entry, "entry.json"), "utf8")).key, f.key);
   assert.deepEqual(fs.readdirSync(f.context.managed), [path.basename(f.context.entry)]);
   fs.unlinkSync(path.join(f.root, "node_modules", "demo"));
-  assert.throws(() => saveLocalCache(f.context), /source dependencies/u);
+  await assert.rejects(() => saveLocalCache(f.context), /source dependencies/u);
   assert.equal(fs.existsSync(path.join(f.context.entry, "entry.json")), true);
 });
 
-test("local cache inventory rejects hardlinks, oversized files and excessive nesting", (t) => {
+test("local cache inventory rejects hardlinks, oversized files and excessive nesting", async (t) => {
   const f = fixture(t);
   const probe = path.join(f.temporary, "probe");
   fs.mkdirSync(probe);
@@ -167,29 +167,88 @@ test("local cache inventory rejects hardlinks, oversized files and excessive nes
   assert.throws(() => inventory(probe), /inventory exceeds/u);
 });
 
-test("local cache does not publish partial snapshots or hide copy failures", (t) => {
+test("local cache does not publish partial snapshots or hide copy failures", async (t) => {
   const f = fixture(t);
   fs.writeFileSync(path.join(f.root, "node_modules", "fixture"), "dependency");
-  saveLocalCache(f.context);
+  await saveLocalCache(f.context);
   const marker = fs.readFileSync(path.join(f.context.entry, "entry.json"), "utf8");
-  const copyMock = t.mock.method(fs, "copyFileSync", () => { throw new Error("simulated-copy-failure"); });
-  assert.throws(() => saveLocalCache(f.context), /simulated-copy-failure/u);
+  const copyMock = t.mock.method(fs.promises, "copyFile", async () => { throw new Error("simulated-copy-failure"); });
+  await assert.rejects(() => saveLocalCache(f.context), /simulated-copy-failure/u);
   assert.equal(fs.readFileSync(path.join(f.context.entry, "entry.json"), "utf8"), marker);
   assert.deepEqual(fs.readdirSync(f.context.managed), [path.basename(f.context.entry)]);
   copyMock.mock.restore();
 });
 
-test("local cache rejects a linked marker and unsafe replacement without following or deleting it", (t) => {
+test("local cache rejects a linked marker and unsafe replacement without following or deleting it", async (t) => {
   const f = fixture(t);
-  saveLocalCache(f.context);
+  await saveLocalCache(f.context);
   const marker = path.join(f.context.entry, "entry.json");
   const outside = path.join(f.temporary, "private.json");
   fs.writeFileSync(outside, "not cache data");
   fs.unlinkSync(marker);
   fs.linkSync(outside, marker);
-  assert.throws(() => restoreLocalCache(f.context), /marker is unsafe/u);
-  assert.throws(() => saveLocalCache(f.context), /unsafe entry/u);
+  await assert.rejects(() => restoreLocalCache(f.context), /marker is unsafe/u);
+  await assert.rejects(() => saveLocalCache(f.context), /unsafe entry/u);
   assert.equal(fs.readFileSync(outside, "utf8"), "not cache data");
+});
+
+test("local cache copies concurrently with a fixed eight-file bound and preserves bytes", async (t) => {
+  const f = fixture(t);
+  for (let index = 0; index < 24; index += 1) fs.writeFileSync(path.join(f.root, "node_modules", `file-${index}`), `content-${index}`);
+  const copyFile = fs.promises.copyFile;
+  let active = 0;
+  let maximum = 0;
+  const copyMock = t.mock.method(fs.promises, "copyFile", async (...args) => {
+    active += 1;
+    maximum = Math.max(maximum, active);
+    try {
+      await new Promise((resolve) => setImmediate(resolve));
+      return await copyFile(...args);
+    } finally { active -= 1; }
+  });
+  await saveLocalCache(f.context);
+  assert.ok(maximum > 1 && maximum <= 8);
+  assert.equal(active, 0);
+  f.clean();
+  assert.equal(await restoreLocalCache(f.context), true);
+  assert.ok(maximum <= 8);
+  for (let index = 0; index < 24; index += 1) assert.equal(fs.readFileSync(path.join(f.root, "node_modules", `file-${index}`), "utf8"), `content-${index}`);
+  copyMock.mock.restore();
+});
+
+test("local cache stops scheduling after copy failure and drains in-flight writes before cleanup", async (t) => {
+  const f = fixture(t);
+  for (let index = 0; index < 24; index += 1) fs.writeFileSync(path.join(f.root, "node_modules", `file-${index}`), "original");
+  await saveLocalCache(f.context);
+  const marker = fs.readFileSync(path.join(f.context.entry, "entry.json"), "utf8");
+  const finish = [];
+  let calls = 0;
+  let active = 0;
+  let settled = false;
+  const copyMock = t.mock.method(fs.promises, "copyFile", async (_source, destination) => {
+    calls += 1;
+    active += 1;
+    try {
+      if (calls === 1) throw new Error("simulated-in-flight-failure");
+      await new Promise((resolve, reject) => finish.push(() => {
+        try { fs.writeFileSync(destination, "late write", { flag: "wx" }); resolve(); } catch (error) { reject(error); }
+      }));
+    } finally { active -= 1; }
+  });
+  const rejection = assert.rejects(saveLocalCache(f.context), /simulated-in-flight-failure/u).then(() => { settled = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  try {
+    assert.equal(calls, 8);
+    assert.equal(active, 7);
+    assert.equal(settled, false);
+    assert.equal(fs.readdirSync(f.context.managed).filter((name) => name.startsWith("staging-")).length, 1);
+  } finally { for (const release of finish) release(); }
+  await rejection;
+  assert.equal(active, 0);
+  assert.equal(calls, 8);
+  assert.deepEqual(fs.readdirSync(f.context.managed), [path.basename(f.context.entry)]);
+  assert.equal(fs.readFileSync(path.join(f.context.entry, "entry.json"), "utf8"), marker);
+  copyMock.mock.restore();
 });
 
 test("Office workflow tries local cache first and never omits post-restore validation", () => {
