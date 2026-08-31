@@ -8,27 +8,55 @@ const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 const { REMOTE_CAPABILITY_CODES, REMOTE_CAPABILITY_SCOPES, REMOTE_PLUGIN_VERSION, connectionVerificationScript, generateRemotePluginBundles, installGuide, installationScript, marketplaceMetadata, mcpConfiguration, parseArguments, parseCapabilities, parseLayout, parseOrigin, pluginName, remoteRouterSkill, remoteSkill } = require("../scripts/generate-remote-plugin-bundles");
 const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { createFakeLibreOffice, resolveFrameworkCompiler } = require("./helpers/fake-libreoffice");
 
-function createFakeLibreOffice(root) {
-  const source = path.join(root, "FakeLibreOffice.cs");
-  const executable = path.join(root, "fake-libreoffice.exe");
-  const compiler = path.join(root, "compile-fake-libreoffice.ps1");
-  fs.writeFileSync(source, `using System; using System.IO;
-public static class Program {
-  public static int Main(string[] args) {
-    string output = null;
-    for (int index = 0; index < args.Length - 1; index += 1) if (args[index] == "--outdir") output = args[index + 1];
-    if (output == null || args.Length == 0) return 2;
-    string pdf = Path.Combine(output, Path.GetFileNameWithoutExtension(args[args.Length - 1]) + ".pdf");
-    File.WriteAllText(pdf, "%PDF-1.4\\n1 0 obj <</Type /Page>> endobj\\n2 0 obj <</Type /Page>> endobj\\n3 0 obj <</Type /Page>> endobj\\n%%EOF\\n");
-    return 0;
+test("fake LibreOffice compiler resolves only installed Framework executables", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "fake-lo-compiler-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const value of [undefined, "", ".", "relative", "bad\npath"]) {
+    assert.throws(() => resolveFrameworkCompiler({ SystemRoot: value }), /absolute Windows system directory/);
   }
-}`, "utf8");
-  fs.writeFileSync(compiler, "param([string]$Source, [string]$Output)\nAdd-Type -Path $Source -OutputAssembly $Output -OutputType ConsoleApplication\n", "utf8");
-  const compiled = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-File", compiler, source, executable], { encoding: "utf8", windowsHide: true, timeout: 30_000 });
-  assert.equal(compiled.status, 0, `${compiled.stdout}${compiled.stderr}`);
-  return executable;
-}
+  const compiler = (framework) => path.join(root, "Microsoft.NET", framework, "v4.0.30319", "csc.exe");
+  for (const framework of ["Framework64", "Framework"]) {
+    fs.mkdirSync(path.dirname(compiler(framework)), { recursive: true });
+    fs.writeFileSync(compiler(framework), "fixture compiler");
+  }
+  assert.equal(resolveFrameworkCompiler({ SystemRoot: root }), compiler("Framework64"));
+  fs.unlinkSync(compiler("Framework64"));
+  assert.equal(resolveFrameworkCompiler({ SystemRoot: root }), compiler("Framework"));
+  fs.unlinkSync(compiler("Framework"));
+  assert.throws(() => resolveFrameworkCompiler({ SystemRoot: root }), /installed .NET Framework C# compiler/);
+});
+
+test("fake LibreOffice compilation stays shell-free, bounded and fails without an executable", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "fake-lo-boundary-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const compiler = path.join(root, "Microsoft.NET", "Framework64", "v4.0.30319", "csc.exe");
+  fs.mkdirSync(path.dirname(compiler), { recursive: true });
+  fs.writeFileSync(compiler, "fixture compiler");
+  const environment = { SystemRoot: root };
+  for (const result of [null, { status: null, error: { code: "ETIMEDOUT", message: "PRIVATE_FIXTURE" } }, { status: 1, stderr: "PRIVATE_FIXTURE" }, { status: 0 }]) {
+    let calls = 0;
+    assert.throws(() => createFakeLibreOffice(root, { environment, run: () => { calls += 1; return result; } }), (error) => {
+      assert.match(error.message, /compilation failed|did not produce/);
+      assert.doesNotMatch(error.message, /PRIVATE_FIXTURE/);
+      return true;
+    });
+    assert.equal(calls, 1);
+  }
+  assert.throws(() => createFakeLibreOffice(root, { environment, run: () => { throw new Error("PRIVATE_FIXTURE"); } }), /^Error: Fake LibreOffice compiler could not start$/);
+  const executable = createFakeLibreOffice(root, { environment, run: (command, args, options) => {
+    assert.equal(command, compiler);
+    assert.deepEqual(args.slice(0, 3), ["/nologo", "/noconfig", "/target:exe"]);
+    assert.equal(options.timeout, 30000);
+    assert.equal(options.windowsHide, true);
+    assert.equal(options.shell, false);
+    fs.writeFileSync(args[3].slice("/out:".length), "fixture executable");
+    return { status: 0 };
+  } });
+  assert.equal(fs.statSync(executable).isFile(), true);
+  assert.throws(() => createFakeLibreOffice(root, { environment }), /already exists/);
+});
 
 test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-plugin-bundles-"));
