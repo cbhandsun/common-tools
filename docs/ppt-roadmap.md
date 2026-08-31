@@ -95,6 +95,10 @@ npm run canary:remote-access-negative
 
 生产部署仍必须先通过 `common-tools team production-preflight`，并由受保护 commit 和不可变 digest 驱动；上述同步与 canary 不能替代生产部署门禁。
 
+## 门禁回归记录
+
+2026-08-30，main `a2ceac2` 的 [CI run 33341820370](https://github.com/cbhandsun/common-tools/actions/runs/33341820370) 在 metrics CLI 测试中出现 `2 !== 0`。该用例验证配置与脱敏，却隐含依赖宿主 Docker 可用；受控的 Docker 不可用场景已复现相同失败。回归测试继续启动真实 CLI，仅在测试子进程中隔离 Docker 探测，分别覆盖可用、daemon 不可用和命令不存在，以及每种状态下的 metrics 禁用、token 启用、文件配置和非法 token。生产 Docker 检查和退出码保持不变，不通过允许任意退出码、跳过测试或修改门禁消除失败。
+
 ## 更新规则
 
 - 事项状态、验收标准、证据、负责人或目标发生变化时，必须在同一个 PR 中更新本文档。
