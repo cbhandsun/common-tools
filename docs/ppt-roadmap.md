@@ -97,13 +97,15 @@ npm run canary:remote-access-negative
 
 ## 门禁回归记录
 
-Office Runner 的本机依赖缓存优化已通过 PR #27 合入 main `138a8e0`。PR 专用 Runner 热运行确认 `installed=false`，Node 准备共 24 秒（本机恢复与标识 15 秒、校验 9 秒），远端下载和上传均跳过；全部 PR Office 门禁通过。这是单轮准备测量，不是整条 CI 的提速证明。main 全量运行 `33353923778` 的 31/31 语料和 4/4 跨渲染器检查通过，但独立新建 PPT 的 PowerPoint 编辑往返验证失败，趋势门禁未执行；当前整体 Office 验收未通过，失败报告归档缺口及具体根因仍待处理。冷/热运行范围、归档报告摘要与 SHA-256 见 [本机缓存证据](./evidence/office-local-cache-2026-08-31.json)，复用边界见 [Office Runner 缓存说明](./office-runner-cache.md)。此项不改变线上部署、身份同步和授权设备 canary 的待验收状态，也不将此前三轮历史全量通过冒充本次通过。
+Office Runner 的本机依赖缓存优化已通过 PR #27 合入 main `138a8e0`。PR 专用 Runner 热运行确认 `installed=false`，Node 准备共 24 秒（本机恢复与标识 15 秒、校验 9 秒），远端下载和上传均跳过；全部 PR Office 门禁通过。这是单轮准备测量，不是整条 CI 的提速证明。main 全量运行 `33353923778` 的 31/31 语料和 4/4 跨渲染器检查通过，但独立新建 PPT 的 PowerPoint 编辑往返验证失败，趋势门禁未执行；该轮整体 Office 验收未通过，且原始具体根因无法确认；后续诊断、修复和新一轮全量验收见下文。冷/热运行范围、归档报告摘要与 SHA-256 见 [本机缓存证据](./evidence/office-local-cache-2026-08-31.json)，复用边界见 [Office Runner 缓存说明](./office-runner-cache.md)。此项不改变线上部署、身份同步和授权设备 canary 的待验收状态，也不将此前三轮历史全量通过冒充本次通过。
 
 2026-08-30，main `a2ceac2` 的 [CI run 33341820370](https://github.com/cbhandsun/common-tools/actions/runs/33341820370) 在 metrics CLI 测试中出现 `2 !== 0`。该用例验证配置与脱敏，却隐含依赖宿主 Docker 可用；受控的 Docker 不可用场景已复现相同失败。回归测试继续启动真实 CLI，仅在测试子进程中隔离 Docker 探测，分别覆盖可用、daemon 不可用和命令不存在，以及每种状态下的 metrics 禁用、token 启用、文件配置和非法 token。生产 Docker 检查和退出码保持不变，不通过允许任意退出码、跳过测试或修改门禁消除失败。
 
-PowerPoint 编辑往返验证的诊断补强正在验证：每次调用绑定新的 invocation ID，拒绝旧报告；无论子进程成功、失败或被终止，都先写入有界脱敏摘要，记录用例数量、布尔结果、失败阶段及 HRESULT，不记录路径或错误原文。工作流只额外归档独立 corpus 的摘要，不上传包含路径和错误原文的内部报告。此改动补足失败可诊断性，不证明 run `33353923778` 的具体失败根因已修复，也不代替新的 Office 验收。
+PowerPoint 编辑往返验证的诊断补强已通过 PR #28 合入：每次调用绑定新的 invocation ID，拒绝旧报告；无论子进程成功、失败或被终止，都先写入有界脱敏摘要，记录用例数量、布尔结果、失败阶段及 HRESULT，不记录路径或错误原文。工作流只额外归档独立 corpus 的摘要，不上传包含路径和错误原文的内部报告。此改动补足失败可诊断性，不证明 run `33353923778` 的具体失败根因已修复，也不代替新的 Office 验收。
 
-PR #28 的首次 Office 运行 `33356629089` 已成功归档失败摘要：4/4 smoke 和 4/4 跨渲染器通过，独立 corpus 第 1/5 份在 edit 阶段失败，HRESULT 为 `0x80048240`。与摘要 invocation ID 一致的本地内部报告确认编辑目标使用页码 0，导致 `Slides.Item(0)` 越界。修复改为显式一基集合索引，不再用 `SlideIndex` 构造目标，并在编辑前校验页码和形状 ID。可执行 PowerShell 回归先红后绿；使用原 5 份独立语料的本地真实 PowerPoint 复测全部完成编辑、保存、重开和验证。正式 PR/main Office 回归仍待通过；不能把此前 main 报告缺失的失败直接归为同因。脱敏证据见 [编辑目标索引修复记录](./evidence/office-roundtrip-index-2026-08-31.json)。
+PR #28 的首次 Office 运行 `33356629089` 已成功归档失败摘要：4/4 smoke 和 4/4 跨渲染器通过，独立 corpus 第 1/5 份在 edit 阶段失败，HRESULT 为 `0x80048240`。与摘要 invocation ID 一致的本地内部报告确认编辑目标使用页码 0，导致 `Slides.Item(0)` 越界。修复改为显式一基集合索引，不再用 `SlideIndex` 构造目标，并在编辑前校验页码和形状 ID。可执行 PowerShell 回归先红后绿；使用原 5 份独立语料的本地真实 PowerPoint 复测全部完成编辑、保存、重开和验证。后续正式 PR/main Office 回归结果见下文；不能把此前 main 报告缺失的失败直接归为同因。脱敏证据见 [编辑目标索引修复记录](./evidence/office-roundtrip-index-2026-08-31.json)。
+
+PR #28 后续修复提交 `f568f75` 已通过两组常规 CI 和 [Office run 33360255823](https://github.com/cbhandsun/common-tools/actions/runs/33360255823)：4/4 smoke、4/4 跨渲染器、5/5 独立 PPT 编辑往返及 2/2 语义/图片批量 PPT 编辑往返均通过，趋势比较 4 个目标且失败数为 0；Node 本机缓存热准备为 24 秒且未重新安装。该 PR 已受保护合入 main `3c9f75b`，源码 tree 与受测版本一致。main [全量运行 33360911889](https://github.com/cbhandsun/common-tools/actions/runs/33360911889) 与常规 CI 均已通过：31/31 语料、4/4 跨渲染器、5/5 独立 PPT 和 2/2 语义/图片 PPT 编辑往返通过；同环境趋势使用 3 个兼容历史快照比较全部 31 个目标，失败数为 0。两类脱敏往返摘要已归档，不再只有本地复测证据。此项确认修复后的仓库全量验收通过，线上部署、真实身份流程、授权设备/模板及运维演练仍未验收。
 
 ## 更新规则
 

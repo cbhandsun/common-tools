@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "scope": "Runner-local Node dependency reuse, single-run preparation measurements and Office acceptance",
-  "status": "main-office-validation-failed",
+  "status": "cache-verified-follow-up-main-full-passed",
   "merge": {
     "pullRequest": "https://github.com/cbhandsun/common-tools/pull/27",
     "revision": "138a8e09656dc98ea422ddaef47735ab743cb0bd",
@@ -220,7 +220,13 @@
       "firstRemoteSave": 188,
       "total": 241
     },
-    "cacheResult": { "reused": false, "installed": true, "reason": "cache-miss", "cacheSource": "install", "localCacheSaved": true },
+    "cacheResult": {
+      "reused": false,
+      "installed": true,
+      "reason": "cache-miss",
+      "cacheSource": "install",
+      "localCacheSaved": true
+    },
     "pythonPreparationSeconds": 17,
     "artifactId": 9745087848,
     "artifactCreatedAt": "2026-08-31T04:04:27Z",
@@ -247,5 +253,12 @@
     "PR Office results use the smoke suite, not the 31-case full suite. Their passing reports do not replace main full acceptance.",
     "The independent PPTX template is a repository-owned simulation, not an owner-authorized real template or remote production canary.",
     "Rerun artifacts were archived separately and identified by artifact ID and report timestamps."
-  ]
+  ],
+  "followUpMainValidation": {
+    "revision": "3c9f75b29ae603264e578add7517654a24f0309c",
+    "officeRunId": 33360911889,
+    "conclusion": "success",
+    "evidence": "office-roundtrip-index-2026-08-31.json",
+    "preservesOriginalFailedRun": true
+  }
 }
