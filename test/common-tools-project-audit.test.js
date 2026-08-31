@@ -348,6 +348,29 @@ test("browser experience collector accepts only a bounded local plan and emits r
   }
 });
 
+test("browser startup fails immediately for an exited process without exposing endpoint errors", async () => {
+  const root = fixture();
+  let probes = 0;
+  try {
+    fs.writeFileSync(path.join(root, "startup-plan.json"), JSON.stringify({ schemaVersion: 1, baseUrl: "http://127.0.0.1:3000/", scenarios: [{ id: "first-visit", actions: [{ type: "navigate", path: "/" }] }] }));
+    await assert.rejects(collectBrowserExperience({
+      projectRoot: root, planFile: "startup-plan.json", output: "startup-evidence", timeoutMs: 1000,
+      browserResolver: () => "browser.exe",
+      processFactory: () => ({ exitCode: 23, signalCode: null, kill() { throw new Error("already exited"); } }),
+      fetchVersion: async () => { probes += 1; throw new Error("PRIVATE_ENDPOINT_CONTENT"); }
+    }), /browser startup failed.*process-exited.*exitCode.*23/);
+    assert.equal(probes, 0);
+    await assert.rejects(collectBrowserExperience({
+      projectRoot: root, planFile: "startup-plan.json", output: "spawn-evidence", timeoutMs: 1000,
+      browserResolver: () => "browser.exe",
+      processFactory: () => { throw new Error("PRIVATE_SPAWN_CONFIGURATION"); }
+    }), (error) => {
+      assert.equal(error.message, "browser process could not be started");
+      return true;
+    });
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("browser experience collector completes against a local browser only when Chrome is installed", async (t) => {
   if (!BROWSERS.chrome.some((file) => file && fs.existsSync(file))) {
     t.skip("Chrome is not installed in this test environment");
