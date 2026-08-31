@@ -17,6 +17,8 @@ common-tools team doctor
 
 ## 发布证据与镜像回滚
 
+PPT 自用远程服务的变更责任、停止条件、应用回滚与隔离数据恢复流程集中在 [生产发布与回滚手册](./ppt-production-runbook.md)。手册不代替生产授权、实际联系人确认或演练证据。
+
 CI 会在 `artifacts/` 中生成 SPDX SBOM 和 `common-tools.release.json`。后者绑定锁文件、源码 revision、SBOM 摘要及可选的不可变镜像 digest；启用原始图片 OCR 时，还会绑定 OCR profile 的 Worker image、二进制 SHA-256、语言包和许可。它不含 Secret，也不应被误认为签名。生产候选必须在构建、推送镜像后用实际 `@sha256:` 引用生成或补全 evidence，并在 `team production-preflight` 前复验：
 
 ```powershell

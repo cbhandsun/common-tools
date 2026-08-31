@@ -36,7 +36,7 @@
 | P1 | 独立的新建 PPT 语料 | 已完成 | 覆盖 4 套主题和全部 22 个布局；中文、英文和中英混排；表格、图表、模板、素材、备注、引用；空值、非法值、长内容和容量边界；具备 PowerPoint 与 LibreOffice 证据 | PR #19 已以 `37b4f5c` 合入 main；[Office run 33333201534](https://github.com/cbhandsun/common-tools/actions/runs/33333201534) 全部门禁通过，归档报告证明独立 corpus 的 5 份、33 页、4 套主题、22 个布局、三种语言形态、表格、图表、受控素材、备注、引用、8 类输入边界及 PowerPoint/LibreOffice 验证；受控模板归档另验证母版和主题保留。此项完成仅指独立语料验收，不能替代上方远程 `ppt-create` 项所需的所有者授权真实用户模板 canary | PPT 质量验收 | 已完成 |
 | P1 | 三次兼容质量快照 | 已完成 | 相同环境 fingerprint 下连续 3 次通过，并且没有质量回退 | 三轮全量 [33337908795](https://github.com/cbhandsun/common-tools/actions/runs/33337908795)、[33341429314](https://github.com/cbhandsun/common-tools/actions/runs/33341429314)、[33341895591](https://github.com/cbhandsun/common-tools/actions/runs/33341895591) 均为 31/31，fingerprint 同为 `7151d11f…`，跨渲染器与独立新建 PPT 均通过；后两轮分别使用 1、2 个兼容历史快照比较全部 31 个目标，趋势失败数均为 0。第三轮源码 tree 与派发时已合入 main 的 `a2ceac2` 完全一致。已核对完整运行顺序：PR smoke、文档变更跳过检查、未启动任何作业的取消运行和旧环境快照均未计入全量通过。官方归档报告 SHA-256 与序列审计见 `docs/evidence/office-cache-and-quality-2026-08-30.json`；本项不替代生产部署或真实用户模板远程 canary | PPT 质量验收 | 已完成 |
 | P2 | 经批准的内容与素材 Provider | 计划中 | 配置所有者批准的 Provider；具备有界失败、重试分类、素材来源与许可证证据以及安全测试 | 安全的内容 Provider 适配器已存在；Provider 选择、素材服务和验收证据仍待完成 | 服务所有者 | 可选 |
-| P2 | 自用运维闭环 | 进行中 | 具备基础 Job 容量限制、安全重试与恢复、加密 Secret 处理、备份恢复演练、就绪与 Worker 告警，以及明确的回滚联系人和路径 | quota、lease 恢复、备份脚本、指标和告警模板已存在；受管告警接收器、生产演练证据和回滚手册仍待完成 | 服务所有者 | 生产部署后 |
+| P2 | 自用运维闭环 | 进行中 | 具备基础 Job 容量限制、安全重试与恢复、加密 Secret 处理、备份恢复演练、就绪与 Worker 告警，以及明确的回滚联系人和路径 | quota、lease 恢复、备份脚本、指标和告警模板已存在；[生产发布与回滚手册](./ppt-production-runbook.md) 已明确责任、停止条件、digest 回滚、隔离恢复和证据要求；实际联系人、受管告警接收器及生产演练证据仍待所有者确认和验收 | 服务所有者 | 生产部署后 |
 
 ## 访问控制基线
 
