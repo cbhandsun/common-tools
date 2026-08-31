@@ -2,7 +2,7 @@
 
 const path = require("path");
 
-const SUITES = Object.freeze(["all", "unit", "contract", "integration"]);
+const SUITES = Object.freeze(["all", "unit", "contract", "integration", "common-tools"]);
 const CONTRACT_TESTS = new Set([
   "cli-scaffold-generator.test.js",
   "openxml-dotnet-contract.test.js",
@@ -44,7 +44,7 @@ const INTEGRATION_TESTS = new Set([
 ]);
 const INTEGRATION_NAME_HINT = /(smoke|golden|benchmark|quality-gate|real-pptx|render|libreoffice|watch|harvest)/;
 const EXTERNAL_PROCESS_HINT = /(libreoffice|powerpoint-com|openxml.*(?:smoke|contract)|render|quality-gate|ocr)/;
-const EXTERNAL_PROCESS_TESTS = new Set(["common-tools-mcp.test.js", "powerpoint-roundtrip-targets.test.js"]);
+const EXTERNAL_PROCESS_TESTS = new Set(["common-tools-mcp.test.js", "common-tools-project-audit.test.js", "common-tools-remote-plugin-bundles.test.js", "powerpoint-roundtrip-targets.test.js"]);
 const MEMORY_HEAVY_HINT = /^(?:real-pptx-native|component-template-native-shapes|diagram-understanding|visual-atoms)/;
 const MEMORY_HEAVY_TESTS = new Set(["common-tools-ppt-ir-editor-browser.test.js"]);
 
@@ -81,6 +81,7 @@ function validateTestSuiteManifest(files) {
 }
 
 function includesSuite(file, suite) {
+  if (suite === "common-tools") return /^common-tools-.*\.test\.js$/.test(path.basename(file));
   return suite === "all" || classifyTestFile(file) === suite;
 }
 
