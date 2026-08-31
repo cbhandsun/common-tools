@@ -26,7 +26,10 @@ function pythonEnv(skillRoot, options = {}) {
 }
 
 function resolvePythonExecutable(explicit) {
-  const bundled = path.join(process.env.USERPROFILE || "", ".cache", "codex-runtimes", "codex-primary-runtime", "dependencies", "python", "python.exe");
+  const profile = process.env.USERPROFILE;
+  const bundled = profile && path.isAbsolute(profile)
+    ? path.join(profile, ".cache", "codex-runtimes", "codex-primary-runtime", "dependencies", "python", "python.exe")
+    : null;
   return [
     explicit,
     process.env.PYTHON_BIN,
