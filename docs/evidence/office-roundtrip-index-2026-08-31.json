@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "status": "local-fix-verified-official-regression-pending",
+  "failedRun": {
+    "url": "https://github.com/cbhandsun/common-tools/actions/runs/33356629089",
+    "attempt": 1,
+    "head": "bf05609a2b759eb7443e2c2b7bbc8736184e60ef",
+    "conclusion": "failure",
+    "scope": "pr-smoke",
+    "corpusPassing": 4,
+    "crossRendererPassing": 4,
+    "roundTripExpected": 5,
+    "roundTripFailed": 1,
+    "failedCaseIndex": 1,
+    "stage": "edit",
+    "hresult": "0x80048240",
+    "invocationId": "2eb9c704-b485-40cb-83f7-ab7bd30f8ccb",
+    "diagnosis": "The local raw report with the matching invocation ID identified Slides.Item(0), outside the valid 1..11 range. The target builder trusted SlideIndex without validating it. The archived summary preserves stage and HRESULT, not raw errors or paths.",
+    "artifact": {
+      "id": 9746280300,
+      "createdAt": "2026-08-31T05:13:04Z",
+      "sha256": "81a48f80d281616243bfd0a8502ef54c53332a5649acd470443ce4fde86e516a"
+    },
+    "reportSha256": {
+      "real-pptx-corpus.report.json": "6d010f86d03680c43726f5078f7d713a742a826fcfcefb77c3135079d397674d",
+      "cross-renderer/cross-renderer-report.json": "94670628e4810b4e1566fb2b73db58f6e00fd2efb06a7eaa3fcddfbbcb38745c",
+      "ppt-create-smoke/independent-corpus/powerpoint-editable-roundtrip-summary.json": "3a2eafdcd75f5a04c2ed496a4875091b68d99cd1ed9bff2cb4891e1bf3e94388"
+    }
+  },
+  "fix": {
+    "adapterGitBlob": "97093d134dc53c3d6631b1f84b94a8641500cf8b",
+    "behavior": "Use explicit one-based Slides.Item and Shapes.Item collection indices, preserve shape IDs, and reject invalid target identities before COM lookup. Save/reopen verification remains mandatory.",
+    "regression": "The generated production PowerShell functions failed a SlideIndex=0 fixture before the change and passed after it. The executable harness covers all four modes and empty, malformed, extreme and failure cases, and is included in the unified unit suite as an external-process test."
+  },
+  "localPowerPointVerification": {
+    "scope": "Same five independent corpus input decks as the failed run, edited only in staging copies; not a complete CI or main full run.",
+    "generatedScriptSha256": "2d9d43491d2d9ceaaee90699b72109d065cb885c531f22b827db4e358a9ae763",
+    "summarySha256": "90e3ac523504226b9f6a36f1354f86e031c71be79bb0edc36e1271790fa9fd85",
+    "invocationId": "854549f0-80ea-430b-b49e-b097770912d9",
+    "processStatus": "succeeded",
+    "reportStatus": "valid",
+    "passed": true,
+    "expectedCases": 5,
+    "reportedCases": 5,
+    "failedCases": 0,
+    "allOpenedSavedReopenedVerified": true
+  },
+  "limits": [
+    "The earlier main run 33353923778 lost its detailed report; this finding does not establish that its failure had the same cause.",
+    "The reason PowerPoint exposed an unusable SlideIndex is not established. The fix removes that property from target identity construction.",
+    "Fresh official PR and main Office regression results are still required. Production deployment and owner-authorized canaries remain unverified."
+  ]
+}

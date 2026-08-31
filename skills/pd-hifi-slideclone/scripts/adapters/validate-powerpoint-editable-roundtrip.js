@@ -96,19 +96,30 @@ function Open-Deck([string]$File) {
   throw "PowerPoint did not open the editable round-trip deck."
 }
 function Find-Target($Deck, [string]$Mode) {
-  foreach ($slide in @($Deck.Slides)) {
-    foreach ($shape in @($slide.Shapes)) {
+  if ($Mode -notin @("auto", "shape-text", "smartart-text", "geometry")) { throw "The requested edit mode is invalid." }
+  $slides = $Deck.Slides
+  $slideCount = [int]$slides.Count
+  if ($slideCount -lt 1 -or $slideCount -gt 100000) { throw "The deck slide collection is unavailable or out of bounds." }
+  for ($slideIndex = 1; $slideIndex -le $slideCount; $slideIndex++) {
+    $slide = $slides.Item($slideIndex)
+    $shapes = $slide.Shapes
+    $shapeCount = [int]$shapes.Count
+    if ($null -eq $slide -or $null -eq $shapes -or $shapeCount -lt 0 -or $shapeCount -gt 100000) { throw "The slide shape collection is unavailable or out of bounds." }
+    for ($shapeIndex = 1; $shapeIndex -le $shapeCount; $shapeIndex++) {
+      $shape = $shapes.Item($shapeIndex)
+      $shapeId = $shape.Id
+      if ($shapeId -isnot [int] -or $shapeId -lt 1) { throw "The editable shape identity is unavailable." }
       if ($Mode -eq "smartart-text" -or $Mode -eq "auto") {
         try {
           if ($shape.HasSmartArt -eq $msoTrue -and $shape.SmartArt.AllNodes.Count -gt 0) {
-            return [pscustomobject]@{ Kind="smartart-text"; Slide=[int]$slide.SlideIndex; Shape=[int]$shape.Id }
+            return [pscustomobject]@{ Kind="smartart-text"; Slide=$slideIndex; Shape=$shapeId }
           }
         } catch {}
       }
       if ($Mode -eq "shape-text" -or $Mode -eq "auto") {
         try {
           if ($shape.HasTextFrame -eq $msoTrue -and $shape.TextFrame2.HasText -eq $msoTrue) {
-            return [pscustomobject]@{ Kind="shape-text"; Slide=[int]$slide.SlideIndex; Shape=[int]$shape.Id }
+            return [pscustomobject]@{ Kind="shape-text"; Slide=$slideIndex; Shape=$shapeId }
           }
         } catch {}
       }
@@ -116,8 +127,8 @@ function Find-Target($Deck, [string]$Mode) {
         $expectedLeft = [single]($shape.Left + 1.0)
         return [pscustomobject]@{
           Kind="geometry"
-          Slide=[int]$slide.SlideIndex
-          Shape=[int]$shape.Id
+          Slide=$slideIndex
+          Shape=$shapeId
           ExpectedLeft=$expectedLeft
         }
       }
@@ -135,8 +146,18 @@ function Find-TargetWithRetry($Deck, [string]$Mode) {
   }
 }
 function Get-ShapeById($Deck, $Target) {
-  $slide = $Deck.Slides.Item([int]$Target.Slide)
-  foreach ($shape in @($slide.Shapes)) { if ([int]$shape.Id -eq [int]$Target.Shape) { return $shape } }
+  if ($null -eq $Target -or $Target.Slide -isnot [int] -or $Target.Slide -lt 1 -or
+      $Target.Slide -gt [int]$Deck.Slides.Count -or $Target.Shape -isnot [int] -or $Target.Shape -lt 1) {
+    throw "The editable target identity is invalid."
+  }
+  $slide = $Deck.Slides.Item($Target.Slide)
+  $shapes = $slide.Shapes
+  $shapeCount = [int]$shapes.Count
+  if ($null -eq $shapes -or $shapeCount -lt 0 -or $shapeCount -gt 100000) { throw "The slide shape collection is unavailable or out of bounds." }
+  for ($shapeIndex = 1; $shapeIndex -le $shapeCount; $shapeIndex++) {
+    $shape = $shapes.Item($shapeIndex)
+    if ($shape.Id -is [int] -and $shape.Id -eq $Target.Shape) { return $shape }
+  }
   throw "The edited object could not be resolved after reopen."
 }
 function Set-SmartArtMarker($Shape) {
