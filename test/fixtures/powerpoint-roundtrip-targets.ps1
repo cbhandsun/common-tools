@@ -83,4 +83,15 @@ Require-Failure { Find-Target ([pscustomobject]@{ Slides=$brokenSlides }) 'geome
 Require-Failure { Find-Target ([pscustomobject]@{ Slides=(New-Collection @([pscustomobject]@{ Shapes=$null })) }) 'geometry' }
 Require-Failure { Get-ShapeById $deck $null }
 $checks += 5
+# A COM-backed layout can update between target selection and mutation. Apply
+# the recorded edit intent, not a second offset computed from a new position.
+$shape.Left = [single]10
+$target = Find-Target $deck 'geometry'
+$shape.Left = [single]20
+Apply-Edit $deck $target
+Require ($shape.Left -eq $target.ExpectedLeft) 'Geometry mutation diverged from the recorded expected position.'
+Require (Verify-Edit $deck $target) 'Recorded geometry edit did not survive target resolution.'
+$shape.Left = [single]10
+Require (-not (Verify-Edit $deck $target)) 'A lost geometry edit must still fail verification.'
+$checks += 3
 [pscustomobject]@{ passed=$true; checks=$checks } | ConvertTo-Json -Compress

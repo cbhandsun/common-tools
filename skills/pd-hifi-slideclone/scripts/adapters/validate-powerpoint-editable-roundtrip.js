@@ -202,7 +202,7 @@ function Apply-Edit($Deck, $Target) {
     } elseif ($Target.Kind -eq "shape-text") {
       $shape.TextFrame2.TextRange.Text = ([string]$shape.TextFrame2.TextRange.Text) + $marker
     } else {
-      $shape.Left = [single]($shape.Left + 1.0)
+      $shape.Left = [single]$Target.ExpectedLeft
     }
   } finally { Release-Com $shape }
 }
