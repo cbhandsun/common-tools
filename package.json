@@ -245,7 +245,7 @@
     "common-tools:pack-project-audit": "node scripts/build-project-audit-runtime-package.js",
     "common-tools:sync-project-audit-plugin-runtime": "node scripts/sync-project-audit-plugin-runtime.js",
     "common-tools:test": "node --test --test-concurrency=2 test/common-tools-*.test.js",
-    "lint": "eslint packages scripts/*.js && node scripts/check-common-tools.js && node scripts/verify-slideclone-profiles.js && node scripts/verify-architecture-budgets.js",
+    "lint": "eslint packages scripts/*.js scripts/lib/office-node*.js && node scripts/check-common-tools.js && node scripts/verify-slideclone-profiles.js && node scripts/verify-architecture-budgets.js",
     "typecheck": "tsc --project tsconfig.json",
     "test": "node --test",
     "test:unit": "node scripts/test-sharded.js --suite unit --shards 4",
