@@ -107,7 +107,11 @@ npm run canary:remote-access-negative
 
 提交前再次执行同组 115 项测试时为 114/115，耗时约 115 秒：既有 `official PaddleOCR adapter returns sorted editable boxes, polygons, and pinned metadata` 在等待替身 worker ready 的 5 秒时限处失败，不能沿用前轮通过作为最新结果。两次宿主 CPU 采样均为 100%，同期专用 Runner 正执行其他 PR；这些仅说明存在负载，不证明超时根因。失败另暴露可确定的诊断缺陷：初始化计时器先使用默认错误关闭 worker，导致真正的初始化超时信息被覆盖。新增不发送 ready 的 worker 回归先失败、改为把超时错误传给关闭路径后通过；未增加任何时限或重试。此改动只修复错误原因丢失，不宣称已消除启动变慢，后续 CI/full Office 仍须独立验证；未启用自动合并。
 
-### 当前验收状态（PR #31）
+PR #32 候选 `f8ce9b7` 的 [push CI 33386601549](https://github.com/cbhandsun/common-tools/actions/runs/33386601549) 已完整通过，包括单元、合约、集成、插件、Runtime 安装、构建及依赖门禁；但 [PR CI 33386650987](https://github.com/cbhandsun/common-tools/actions/runs/33386650987) 在真实 Chrome 合约测试失败，不能以单轮通过替代整个候选验收。脱敏诊断为 `reason=deadline`、`endpointError=ECONNREFUSED`、186 次探测、20002 毫秒，未观察到进程退出；其后的单元/合约/集成等阶段未执行。同一真实浏览器用例本地隔离执行通过，不证明原 CI 失败根因。
+
+后续补充启动输出诊断：只记录 spawn 事件、各输出流最多 65536 字节的计数、截断标记，以及是否出现 DevTools 就绪标记；使用逐字节状态匹配，不保留原始输出、URL、路径或用户内容，不改变启动时限或添加重试。新增分块、超量和敏感内容回归先红后绿；33 项相关测试（含真实 Chrome、安装包及内嵌 Runtime 一致性）通过。两份内嵌源码同步更新，文件集合及摘要验证继续保留。此改动补强诊断，不宣称浏览器启动超时已消除；PR 保持草稿且自动合并关闭，候选 full Office `33386716453` 仍独立跟踪。
+
+### 已合入基线的验收状态（PR #31）
 
 PR #31 已受保护合入 main `0f186070a0b02feedf3eef185a140561654a7c17`，与最终受测提交 `874ff4d` 的源码 tree 完全一致。最终提交的两轮常规 CI（`33377989657`、`33377984989`）和 [PR Office 33377989658](https://github.com/cbhandsun/common-tools/actions/runs/33377989658) 均已通过：4/4 smoke、4/4 跨渲染器、5/5 独立 PPT 与 2/2 批量 PPT 编辑往返通过，趋势门禁通过。main [常规 CI 33380432749](https://github.com/cbhandsun/common-tools/actions/runs/33380432749) 也已通过；[全量 Office 33380432876](https://github.com/cbhandsun/common-tools/actions/runs/33380432876) 已结束且失败：31 个语料中 30 个通过，`triangle-topology` 在 180 秒用例时限处被终止（实测 180167 毫秒），后续跨渲染器、新建 PPT、编辑往返及趋势检查未执行。官方报告显示重建约 77 秒、渲染约 30 秒、像素差异约 1 秒，最后进入内容比较；PowerPoint 打开检查通过，但最终质量报告未生成。超时事实已确认，各阶段变慢的根因仍待诊断，不以增加超时、降低阈值或重跑成功代替修复。
 

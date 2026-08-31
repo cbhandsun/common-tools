@@ -330,7 +330,11 @@ test("browser experience collector accepts only a bounded local plan and emits r
       projectRoot: root,
       planFile: "experience-plan.json",
       output: "browser-evidence",
-      processFactory: () => ({ kill() { killed = true; } }),
+      processFactory: (_executable, _args, options) => {
+        assert.deepEqual(options.stdio, ["ignore", "pipe", "pipe"]);
+        assert.equal(options.windowsHide, true);
+        return { kill() { killed = true; } };
+      },
       browserResolver: () => "browser.exe",
       fetchVersion: async () => ([{ type: "page", webSocketDebuggerUrl: "ws://127.0.0.1:12345/devtools/page/test" }]),
       cdpFactory: async () => fakeClient

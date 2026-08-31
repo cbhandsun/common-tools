@@ -6,9 +6,10 @@ const path = require("node:path");
 const test = require("node:test");
 const { observeBrowserProcess, waitForBrowserPage } = require("../packages/project-audit-core/browser-startup");
 const { discoverTestFiles } = require("../scripts/test-sharded");
+const EMPTY_OUTPUT = { spawned: false, stdoutBytes: 0, stderrBytes: 0, devtoolsAnnounced: false, truncated: false };
 
 function fixture() {
-  const child = Object.assign(new EventEmitter(), { exitCode: null, signalCode: null });
+  const child = Object.assign(new EventEmitter(), { exitCode: null, signalCode: null, stdout: new EventEmitter(), stderr: new EventEmitter() });
   const monitor = observeBrowserProcess(child);
   let time = 0;
   return { child, monitor, clock: { now: () => time, pause: async (milliseconds) => { time += milliseconds; } } };
@@ -19,6 +20,38 @@ function diagnosis(error) {
   assert.doesNotMatch(error.message, /PRIVATE|token|cookie|https?:\/\//);
   return JSON.parse(error.message.slice("browser startup failed ".length));
 }
+
+test("browser startup diagnostics consume split output without retaining private content", async () => {
+  const { child, monitor, clock } = fixture();
+  const unrelated = () => {};
+  child.stderr.on("data", unrelated);
+  child.emit("spawn");
+  child.stdout.emit("data", Buffer.from("PRIVATE_STDOUT"));
+  child.stderr.emit("data", Buffer.from("PRIVATE_COOKIE\nDevTools listen"));
+  child.stderr.emit("data", Buffer.from("ing on ws://127.0.0.1:1234/PRIVATE_TOKEN\n"));
+  await assert.rejects(waitForBrowserPage(1234, 100, async () => [], monitor, clock), (error) => {
+    const result = diagnosis(error);
+    assert.deepEqual(result.processOutput, {
+      spawned: true, stdoutBytes: 14, stderrBytes: 71, devtoolsAnnounced: true, truncated: false
+    });
+    return true;
+  });
+  monitor.dispose();
+  assert.deepEqual(child.stderr.listeners("data"), [unrelated]);
+  assert.equal(child.stdout.listenerCount("data"), 0);
+  assert.equal(child.listenerCount("spawn"), 0);
+});
+
+test("browser startup output diagnostics bound inspected bytes and counters", () => {
+  const { child, monitor } = fixture();
+  child.stderr.emit("data", Buffer.alloc(65536, 120));
+  child.stderr.emit("data", Buffer.from("DevTools listening on ws://PRIVATE"));
+  const result = monitor.snapshot().processOutput;
+  assert.equal(result.stderrBytes, 65536);
+  assert.equal(result.truncated, true);
+  assert.equal(result.devtoolsAnnounced, false);
+  monitor.dispose();
+});
 
 test("browser startup accepts a ready page and preserves bounded readiness polling", async () => {
   const { monitor, clock } = fixture();
@@ -39,7 +72,7 @@ test("browser startup bounds empty, malformed and unsafe endpoint responses with
   for (const response of [null, {}, [], [null], [{ type: "worker", webSocketDebuggerUrl: "ws://127.0.0.1:1234/" }], [{ type: "page", webSocketDebuggerUrl: "https://PRIVATE" }]]) {
     const { monitor, clock } = fixture();
     await assert.rejects(waitForBrowserPage(1234, 250, async () => response, monitor, clock), (error) => {
-      assert.deepEqual(diagnosis(error), { reason: "deadline", errorCode: null, exitCode: null, signal: null, endpointError: null, probes: 3, elapsedMs: 250 });
+      assert.deepEqual(diagnosis(error), { reason: "deadline", errorCode: null, exitCode: null, signal: null, endpointError: null, probes: 3, elapsedMs: 250, processOutput: EMPTY_OUTPUT });
       return true;
     });
   }
@@ -63,7 +96,7 @@ test("browser startup observes asynchronous spawn errors and removes owned liste
     child.emit("error", Object.assign(new Error("PRIVATE_EXECUTABLE"), { code: "ENOENT" }));
     return [];
   }, monitor, clock), (error) => {
-    assert.deepEqual(diagnosis(error), { reason: "spawn-error", errorCode: "ENOENT", exitCode: null, signal: null, endpointError: null, probes: 1, elapsedMs: 0 });
+      assert.deepEqual(diagnosis(error), { reason: "spawn-error", errorCode: "ENOENT", exitCode: null, signal: null, endpointError: null, probes: 1, elapsedMs: 0, processOutput: EMPTY_OUTPUT });
     return true;
   });
   monitor.dispose();

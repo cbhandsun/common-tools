@@ -100,7 +100,7 @@ async function collectBrowserExperience({ projectRoot, planFile, output, browser
   try {
     const executable = browserResolver(options.browser);
     try {
-      processHandle = processFactory(executable, [`--headless=new`, "--window-size=1440,900", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--disable-background-networking", "--no-first-run", "--no-default-browser-check", "about:blank"], { stdio: "ignore", windowsHide: true });
+      processHandle = processFactory(executable, [`--headless=new`, "--window-size=1440,900", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--disable-background-networking", "--no-first-run", "--no-default-browser-check", "about:blank"], { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     } catch { throw new Error("browser process could not be started"); }
     if (!processHandle || typeof processHandle.kill !== "function") throw new Error("browser process could not be started");
     startupMonitor = observeBrowserProcess(processHandle);
