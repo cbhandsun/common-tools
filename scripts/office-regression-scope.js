@@ -15,6 +15,7 @@ const OFFICE_PATHS = Object.freeze([
   "scripts/lib/ppt-create-office-corpus.js",
   "scripts/lib/ppt-create-template-archive-corpus.js",
   "scripts/lib/office-node-dependencies.js",
+  "scripts/lib/office-node-local-cache.js",
   "scripts/office-node-dependencies.js",
   "scripts/lib/office-regression-evidence.js",
   "scripts/office-regression-scope.js",
