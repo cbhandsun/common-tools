@@ -10,6 +10,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { insideRoot } = require("../capability-runtime");
 const { EXPERIENCE_SCENARIOS } = require("./experience-evidence");
+const { observeBrowserProcess, waitForBrowserPage } = require("./browser-startup");
 
 const MAX_PLAN_BYTES = 256 * 1024;
 const MAX_ACTIONS_PER_SCENARIO = 32;
@@ -95,11 +96,15 @@ async function collectBrowserExperience({ projectRoot, planFile, output, browser
   const port = await availablePort();
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-audit-browser-"));
   let processHandle;
+  let startupMonitor;
   try {
     const executable = browserResolver(options.browser);
-    processHandle = processFactory(executable, [`--headless=new`, "--window-size=1440,900", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--disable-background-networking", "--no-first-run", "--no-default-browser-check", "about:blank"], { stdio: "ignore", windowsHide: true });
+    try {
+      processHandle = processFactory(executable, [`--headless=new`, "--window-size=1440,900", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--disable-background-networking", "--no-first-run", "--no-default-browser-check", "about:blank"], { stdio: "ignore", windowsHide: true });
+    } catch { throw new Error("browser process could not be started"); }
     if (!processHandle || typeof processHandle.kill !== "function") throw new Error("browser process could not be started");
-    const page = await waitForPage(port, options.timeoutMs, fetchVersion);
+    startupMonitor = observeBrowserProcess(processHandle);
+    const page = await waitForBrowserPage(port, options.timeoutMs, fetchVersion, startupMonitor);
     const client = await cdpFactory(page.webSocketDebuggerUrl);
     try {
       const outputRelative = path.relative(fs.realpathSync.native(projectRoot), outputRoot).split(path.sep).join("/");
@@ -110,8 +115,11 @@ async function collectBrowserExperience({ projectRoot, planFile, output, browser
       return Object.freeze({ outputRoot, manifestFile, scenarios: Object.freeze(outcomes.map((outcome) => Object.freeze({ id: outcome.id, status: outcome.status }))) });
     } finally { client.close(); }
   } finally {
-    await terminateBrowserProcess(processHandle);
-    fs.rmSync(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    try { await terminateBrowserProcess(processHandle); }
+    finally {
+      startupMonitor?.dispose();
+      fs.rmSync(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    }
   }
 }
 
@@ -134,7 +142,6 @@ function prepareOutput(projectRoot, output) {
 }
 
 function availablePort() { return new Promise((resolve, reject) => { const server = net.createServer(); server.once("error", reject); server.listen(0, "127.0.0.1", () => { const address = server.address(); server.close((error) => error ? reject(error) : resolve(address.port)); }); }); }
-async function waitForPage(port, timeoutMs, fetchVersion) { const deadline = Date.now() + timeoutMs; let lastError; while (Date.now() < deadline) { try { const value = await fetchVersion(`http://127.0.0.1:${port}/json/list`); const page = Array.isArray(value) ? value.find((item) => item?.type === "page" && typeof item.webSocketDebuggerUrl === "string" && item.webSocketDebuggerUrl.startsWith("ws://127.0.0.1:")) : null; if (page) return page; } catch (error) { lastError = error; } await delay(100); } throw new Error(lastError ? "browser debugging endpoint is unavailable" : "browser startup timed out"); }
 function fetchJson(url) { return new Promise((resolve, reject) => { const request = http.get(url, { timeout: 3000 }, (response) => { let body = ""; response.setEncoding("utf8"); response.on("data", (chunk) => { body += chunk; if (body.length > 65536) request.destroy(new Error("browser response is too large")); }); response.on("end", () => { try { resolve(JSON.parse(body)); } catch { reject(new Error("browser response is invalid")); } }); }); request.on("error", reject); request.on("timeout", () => request.destroy(new Error("browser endpoint timed out"))); }); }
 
 async function runScenarios(client, plan, outputRoot, outputRelative, timeoutMs, allowExternalUrl) {

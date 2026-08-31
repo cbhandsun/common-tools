@@ -37,6 +37,7 @@ test("lightweight project audit runtime package excludes every heavy capability 
     const names = listed.stdout.toLowerCase();
     for (const marker of FORBIDDEN_MARKERS) assert.doesNotMatch(names, new RegExp(marker));
     assert.match(names, /project-audit-core\/index\.js/);
+    assert.match(names, /project-audit-core\/browser-startup\.js/);
     assert.match(names, /common-tools-audit\.js/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
@@ -73,7 +74,7 @@ test("standalone audit CLI validates input and runs locally without the unified 
 });
 
 test("Git Marketplace embeds a byte-synchronized runnable audit Runtime", () => {
-  assert.deepEqual(verifyProjectAuditPluginRuntime({ repositoryRoot }), { fileCount: 22, synchronized: true });
+  assert.deepEqual(verifyProjectAuditPluginRuntime({ repositoryRoot }), { fileCount: 23, synchronized: true });
   const root = temporaryRoot();
   try {
     const result = childProcess.spawnSync(process.execPath, [embeddedCli, "doctor", "--workspace", root], { cwd: root, encoding: "utf8", windowsHide: true });
@@ -82,6 +83,15 @@ test("Git Marketplace embeds a byte-synchronized runnable audit Runtime", () => 
     assert.equal(diagnosis.healthy, true);
     assert.equal(diagnosis.runtime, "project-audit-local");
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("embedded audit Runtime includes the browser startup failure observer", async () => {
+  const embeddedRoot = path.join(repositoryRoot, "plugins", "common-tools", "runtime", "project-audit");
+  const { observeBrowserProcess, waitForBrowserPage } = require(path.join(embeddedRoot, "packages", "project-audit-core", "browser-startup.js"));
+  const monitor = observeBrowserProcess({ exitCode: 23, signalCode: null });
+  let probes = 0;
+  await assert.rejects(waitForBrowserPage(1234, 1000, async () => { probes += 1; return []; }, monitor), /process-exited.*exitCode.*23/);
+  assert.equal(probes, 0);
 });
 
 test("project audit text mirror digests ignore checkout line endings without weakening binary checks", () => {
