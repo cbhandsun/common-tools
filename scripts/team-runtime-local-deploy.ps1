@@ -141,14 +141,14 @@ function Resolve-PaddleRawImageOcrProfile {
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($inspect | Out-String))) { throw 'Raw image OCR image is unavailable' }
   $probe = @'
 set -eu
-sha256sum /opt/paddleocr/venv/bin/python /opt/paddleocr/skill/scripts/adapters/ocr-paddleocr-local.js /opt/paddleocr/paddleocr_worker.py /opt/paddleocr/image_to_png.py /opt/paddleocr/healthcheck.png | awk '{print $1}'
+sha256sum /opt/paddleocr/venv/bin/python /opt/paddleocr/skill/scripts/adapters/ocr-paddleocr-local.js /opt/paddleocr/paddleocr_worker.py /opt/paddleocr/image_to_png.py /opt/paddleocr/healthcheck.png /opt/paddleocr/paddleocr_protocol.py | awk '{print $1}'
 /opt/paddleocr/venv/bin/python -c 'import importlib.metadata as m; print(m.version("paddlepaddle")); print(m.version("paddleocr"))'
 test -d /opt/paddleocr/models
 '@
   $raw = & docker run '--rm' '--network' 'none' '--read-only' '--user' '10001:10001' '--tmpfs' '/tmp:rw,noexec,nosuid,size=64m' '--entrypoint' '/bin/sh' $resolvedRawImageOcrImage '-c' $probe
   if ($LASTEXITCODE -ne 0) { throw 'Raw image OCR image verification failed' }
   $lines = @($raw | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
-  if ($lines.Count -ne 7 -or @($lines | Select-Object -First 5 | Where-Object { $_ -notmatch '^[a-f0-9]{64}$' }).Count -ne 0 -or $lines[5] -ne '3.3.1' -or $lines[6] -ne '3.7.0') { throw 'PaddleOCR image profile is invalid' }
+  if ($lines.Count -ne 8 -or @($lines | Select-Object -First 6 | Where-Object { $_ -notmatch '^[a-f0-9]{64}$' }).Count -ne 0 -or $lines[6] -ne '3.3.1' -or $lines[7] -ne '3.7.0') { throw 'PaddleOCR image profile is invalid' }
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE', 'paddleocr-ppocrv6-v1', 'Process')
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON', '/opt/paddleocr/venv/bin/python', 'Process')
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON_SHA256', $lines[0], 'Process')
@@ -160,8 +160,9 @@ test -d /opt/paddleocr/models
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE_NORMALIZER_SHA256', $lines[3], 'Process')
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK', '/opt/paddleocr/healthcheck.png', 'Process')
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK_SHA256', $lines[4], 'Process')
+  [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL_SHA256', $lines[5], 'Process')
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_PADDLEOCR_MODEL_CACHE', '/opt/paddleocr/models', 'Process')
-  return [pscustomobject]@{ provider = 'PaddleOCR'; profile = 'paddleocr-ppocrv6-v1'; image = $resolvedRawImageOcrImage; paddlepaddleVersion = $lines[5]; paddleocrVersion = $lines[6] }
+  return [pscustomobject]@{ provider = 'PaddleOCR'; profile = 'paddleocr-ppocrv6-v1'; image = $resolvedRawImageOcrImage; paddlepaddleVersion = $lines[6]; paddleocrVersion = $lines[7] }
 }
 
 function Resolve-RawImageOcrProfile {

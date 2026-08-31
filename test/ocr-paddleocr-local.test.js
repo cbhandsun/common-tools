@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const { spawnSync } = require("node:child_process");
 const paddleOcr = require("../skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local");
 const { startPaddleOcrBatchBroker } = require("../skills/pd-hifi-slideclone/scripts/lib/paddleocr-batch-broker");
 const { consumePaddleOcrBrokerEnvironment } = require("../skills/pd-hifi-slideclone/scripts/lib/quality-gate-policy");
@@ -42,6 +43,36 @@ function input() {
 }
 
 test.afterEach(() => paddleOcr.closeActiveEngine());
+
+test("PaddleOCR protocol failure recovery cannot orphan the replacement worker", () => {
+  const result = spawnSync(process.execPath, [path.join(__dirname, "fixtures/paddleocr-worker-lifecycle.js")], {
+    encoding: "utf8", windowsHide: true, timeout: 15000, maxBuffer: 64 * 1024
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "worker-lifecycle-passed");
+});
+
+test("PaddleOCR cache identity includes helper contents even when size and timestamps match", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "paddleocr-identity-"));
+  try {
+    const workerScript = path.join(tempDir, "worker.js");
+    const helper = path.join(tempDir, "paddleocr_protocol.py");
+    fs.copyFileSync(fakeWorker, workerScript);
+    const resolve = () => paddleOcr._private.resolveSettings(context(tempDir, { workerScript })).identity;
+    const absent = resolve();
+    fs.writeFileSync(helper, "# revision A\n");
+    const timestamp = fs.statSync(helper).mtime;
+    const first = resolve();
+    assert.notEqual(first, absent);
+    assert.equal(resolve(), first);
+    fs.writeFileSync(helper, "# revision B\n");
+    fs.utimesSync(helper, timestamp, timestamp);
+    assert.notEqual(resolve(), first);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
 
 test("official PaddleOCR adapter returns sorted editable boxes, polygons, and pinned metadata", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "paddleocr-adapter-"));
@@ -105,6 +136,9 @@ test("official PaddleOCR adapter micro-batches inputs while preserving order and
 test("official PaddleOCR adapter rejects malformed output and exposes no worker detail", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "paddleocr-adapter-"));
   try {
+    await assert.rejects(() => paddleOcr(input(), context(tempDir, { lang: "protocol-noise", cache: false })), {
+      message: "PaddleOCR worker returned invalid output"
+    });
     await assert.rejects(() => paddleOcr(input(), context(tempDir, { lang: "malformed", cache: false })), /polygon|confidence/);
     paddleOcr.closeActiveEngine();
     await assert.rejects(() => paddleOcr(input(), context(tempDir, { lang: "fail", cache: false })), (error) => {

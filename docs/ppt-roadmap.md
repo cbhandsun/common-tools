@@ -97,6 +97,14 @@ npm run canary:remote-access-negative
 
 ## 门禁回归记录
 
+PR #30 的资源调度修复已合入 `d7c9122`：PR 常规 CI、Office smoke 及合入后的常规 CI 均通过，详见 `docs/evidence/ci-resource-isolation-2026-08-31.json`。随后 main 全量 [Office run 33369610023](https://github.com/cbhandsun/common-tools/actions/runs/33369610023) 在 PaddleOCR 预检报 `PaddleOCR worker returned invalid output`，尚未进入 PPT corpus，不能记作最新 main 全量通过。原日志没有保留非法行，因此不能将其确定归因于某个第三方库。
+
+当前修复将 JSON-lines 协议输出移到非继承的独立描述符，普通 Python、CRT、Win32、子进程和退出阶段输出不再进入协议或日志；Node 端仍严格拒绝非法 JSON，不过滤后继续。受控回归覆盖 Unicode、空结果、批量边界、非法输入、初始化/推理失败和隔离设置失败。协议辅助模块同时纳入 OCR 缓存指纹、Docker 打包与生产 SHA-256 校验；部署探测必须提取六个文件摘要及两个固定版本，缺失或不匹配即失败。使用 Runner 已有 Python/PaddleOCR 缓存的本地真实 OCR 已通过（2 行，PaddleOCR 3.7.0 / PaddlePaddle 3.3.1），没有重新安装依赖；这不替代待执行的受保护 PR 和 main 全量 Office 验收。
+
+部署升级必须同时更新镜像及 `COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL_SHA256`。本地部署脚本会从选定镜像提取该摘要；手动使用 PaddleOCR overlay 时也必须提供，不能用旧镜像或占位摘要绕过校验。本次未修改线上服务、身份配置或授权设备。
+
+同轮定向复测发现失败 worker 的延迟清理仍会重置新 worker 的共享状态，造成重复启动及残留进程。受控子进程回归在修复前观察到 3 次启动（预期 2 次），修复后保持 2 次并自行退出。修复使关闭操作幂等，已关闭的 worker 不再安排清理，且只能清除其拥有的活动状态。此前需要手动清理残留进程的运行不作为完整通过证据；正式 CI 必须重新验证此修复。
+
 main `41c75eb` 的 [常规 CI 33363744103](https://github.com/cbhandsun/common-tools/actions/runs/33363744103) 在 `common-tools:test` 阶段失败：浏览器调试端点不可用，另一个插件打包测试的 PowerShell 编译辅助进程未正常返回退出码 0。这不是 Office 安装失败；此前 `3c9f75b` 的全量 Office 证据仍有效，但不能代表最新 main 常规 CI 已通过。检查确认该测试入口绕过已有资源调度，而且浏览器与插件打包测试未被标记为外部进程；修复将全部 `common-tools-*.test.js` 接入同一调度器，外部进程波次独占执行，每个分片内部串行，普通分片仍可并行。新增回归核对完整文件集合、资源隔离、真实子进程串行执行和失败退出码传播，不增加超时、不跳过测试。本地原版隔离复测中插件打包通过，浏览器一次截图失败、再次单独执行通过，因此资源竞争仍只是原 CI 失败的待验证原因，不能将调度修复视为完整根因证明；正式修复验收尚在进行。
 
 Office Runner 的本机依赖缓存优化已通过 PR #27 合入 main `138a8e0`。PR 专用 Runner 热运行确认 `installed=false`，Node 准备共 24 秒（本机恢复与标识 15 秒、校验 9 秒），远端下载和上传均跳过；全部 PR Office 门禁通过。这是单轮准备测量，不是整条 CI 的提速证明。main 全量运行 `33353923778` 的 31/31 语料和 4/4 跨渲染器检查通过，但独立新建 PPT 的 PowerPoint 编辑往返验证失败，趋势门禁未执行；该轮整体 Office 验收未通过，且原始具体根因无法确认；后续诊断、修复和新一轮全量验收见下文。冷/热运行范围、归档报告摘要与 SHA-256 见 [本机缓存证据](./evidence/office-local-cache-2026-08-31.json)，复用边界见 [Office Runner 缓存说明](./office-runner-cache.md)。此项不改变线上部署、身份同步和授权设备 canary 的待验收状态，也不将此前三轮历史全量通过冒充本次通过。

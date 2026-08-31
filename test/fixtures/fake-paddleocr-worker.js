@@ -16,6 +16,10 @@ process.stdout.write(`${JSON.stringify({
 readline.createInterface({ input: process.stdin }).on("line", (line) => {
   const request = JSON.parse(line);
   if (mode === "hang") return;
+  if (mode === "protocol-noise") {
+    process.stdout.write("PRIVATE_FIXTURE_NON_JSON\n");
+    return;
+  }
   if (mode === "fail") {
     process.stdout.write(`${JSON.stringify({ type: "error", id: request.id, code: "inference-failed", detail: "secret OCR text" })}\n`);
     return;

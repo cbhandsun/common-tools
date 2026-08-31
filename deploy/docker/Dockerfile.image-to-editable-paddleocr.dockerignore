@@ -4,6 +4,7 @@
 !packages/**
 !scripts/paddleocr-requirements.lock.txt
 !skills/pd-hifi-slideclone/scripts/python/paddleocr_worker.py
+!skills/pd-hifi-slideclone/scripts/python/paddleocr_protocol.py
 !skills/pd-hifi-slideclone/scripts/python/image_to_png.py
 !skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js
 !skills/pd-hifi-slideclone/scripts/lib/**

@@ -7,9 +7,12 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Callable
 from importlib import metadata
 from pathlib import Path
 from typing import Any
+
+from paddleocr_protocol import JsonLineProtocol
 
 PROTOCOL_VERSION = 2
 MAX_REQUEST_BYTES = 64 * 1024
@@ -105,11 +108,6 @@ def parse_results(results: Any) -> list[dict[str, Any]]:
     return items
 
 
-def emit(payload: dict[str, Any]) -> None:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n")
-    sys.stdout.flush()
-
-
 def safe_version(package: str) -> str:
     try:
         return metadata.version(package)
@@ -135,7 +133,7 @@ def valid_request(value: Any) -> tuple[str, list[str]]:
     return request_id, resolved_paths
 
 
-def main() -> int:
+def serve(emit: Callable[[dict[str, object]], None]) -> int:
     try:
         args = parse_args()
         pipeline = build_pipeline(args)
@@ -165,6 +163,18 @@ def main() -> int:
         except Exception as error:
             emit({"type": "error", "id": request_id, "code": "inference-failed", "errorType": type(error).__name__})
     return 0
+
+
+def main() -> int:
+    try:
+        protocol = JsonLineProtocol()
+    except Exception:
+        # Isolation failed: do not import libraries or run their shutdown hooks.
+        os._exit(2)
+    try:
+        return serve(protocol.emit)
+    finally:
+        protocol.close()
 
 
 if __name__ == "__main__":
