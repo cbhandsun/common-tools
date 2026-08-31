@@ -7,6 +7,9 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const MAX_PROBE_OUTPUT = 512;
+const PROBE_ERROR_CODES = new Set(["ETIMEDOUT", "ENOENT", "EACCES", "EPERM", "EINVAL", "ENOBUFS", "EIO", "ENOMEM", "EMFILE", "ENFILE"]);
+const PROBE_SIGNALS = new Set(["SIGTERM", "SIGKILL", "SIGABRT", "SIGSEGV", "SIGINT", "SIGHUP", "SIGPIPE", "SIGFPE"]);
+const PROBE_LABELS = new Set(["PowerPoint", "LibreOffice", "pdftoppm", "dependency"]);
 
 function collectOfficeRegressionEvidence(options = {}) {
   const commandRunner = options.commandRunner || spawnSync;
@@ -44,7 +47,7 @@ function collectOfficeRegressionEvidence(options = {}) {
 }
 
 function probePowerPointVersion(executable, commandRunner = spawnSync) {
-  const result = commandRunner("powershell.exe", [
+  return runVersionProbe("powershell.exe", [
     "-NoProfile",
     "-NonInteractive",
     "-Command",
@@ -54,17 +57,23 @@ function probePowerPointVersion(executable, commandRunner = spawnSync) {
     windowsHide: true,
     timeout: 10000,
     env: { ...process.env, SLIDECLONE_POWERPNT_PROBE_PATH: executable }
-  });
-  return requireProbeOutput(result, "PowerPoint");
+  }, commandRunner, "PowerPoint");
 }
 
 function probeCommandVersion(executable, args, commandRunner = spawnSync, label = "dependency") {
-  const result = commandRunner(executable, args, {
+  return runVersionProbe(executable, args, {
     encoding: "utf8",
     windowsHide: true,
     timeout: 10000
-  });
-  return requireProbeOutput(result, label);
+  }, commandRunner, label);
+}
+
+function runVersionProbe(executable, args, options, commandRunner, label) {
+  const startedAt = Date.now();
+  let result;
+  try { result = commandRunner(executable, args, options); }
+  catch (error) { result = { error }; }
+  return requireProbeOutput(result, label, Date.now() - startedAt);
 }
 
 function probeFontInventory(commandRunner = spawnSync) {
@@ -78,13 +87,30 @@ function probeFontInventory(commandRunner = spawnSync) {
   return sha256(result.stdout.replace(/\r\n/gu, "\n"));
 }
 
-function requireProbeOutput(result, label) {
+function requireProbeOutput(result, label, elapsedMs) {
   const output = `${typeof result?.stdout === "string" ? result.stdout : ""}\n${typeof result?.stderr === "string" ? result.stderr : ""}`
-    .replace(/[\u0000-\u001F\u007F]+/gu, " ")
+    .replace(/./gsu, (character) => isControlCharacter(character) ? " " : character)
     .replace(/\s+/gu, " ")
     .trim();
-  if (result?.error || result?.status !== 0 || !output) throw new Error(`${label} version preflight failed`);
+  if (result?.error || result?.status !== 0 || !output) throw probeFailure(result, label, elapsedMs);
   return boundedText(output.slice(0, MAX_PROBE_OUTPUT), `${label} version`);
+}
+
+function probeFailure(result, label, elapsedMs) {
+  const errorCode = result?.error ? (PROBE_ERROR_CODES.has(result.error.code) ? result.error.code : "unknown") : "none";
+  const reason = !result || typeof result !== "object" ? "invalid-result"
+    : result.error ? (errorCode === "ETIMEDOUT" ? "timeout" : "spawn-error")
+      : result.status !== 0 ? "exit-status" : "empty-output";
+  const diagnostic = {
+    reason,
+    errorCode,
+    exitCode: Number.isSafeInteger(result?.status) && result.status >= -2147483648 && result.status <= 4294967295 ? result.status : null,
+    signal: result?.signal == null ? null : PROBE_SIGNALS.has(result.signal) ? result.signal : "unknown",
+    elapsedMs: Number.isSafeInteger(elapsedMs) && elapsedMs >= 0 ? Math.min(elapsedMs, 3600000) : 0,
+    stdoutBytes: typeof result?.stdout === "string" ? Buffer.byteLength(result.stdout) : 0,
+    stderrBytes: typeof result?.stderr === "string" ? Buffer.byteLength(result.stderr) : 0
+  };
+  return new Error(`${PROBE_LABELS.has(label) ? label : "dependency"} version preflight failed ${JSON.stringify(diagnostic)}`);
 }
 
 function listBuilderInputs(root) {
@@ -125,8 +151,13 @@ function requiredDirectory(value, label) {
 
 function boundedText(value, label) {
   const text = String(value || "").trim();
-  if (!text || text.length > MAX_PROBE_OUTPUT || /[\u0000-\u001F\u007F]/u.test(text)) throw new TypeError(`${label} is invalid`);
+  if (!text || text.length > MAX_PROBE_OUTPUT || [...text].some(isControlCharacter)) throw new TypeError(`${label} is invalid`);
   return text;
+}
+
+function isControlCharacter(character) {
+  const code = character.codePointAt(0);
+  return code < 32 || code === 127;
 }
 
 function sha256Digest(value, label) {
