@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "status": "pr-verified-main-full-failed",
+  "pullRequest": 31,
+  "candidateRevision": "874ff4de939f5983dfacea0f3c54f406f1601b86",
+  "mainRevision": "0f186070a0b02feedf3eef185a140561654a7c17",
+  "verifiedTree": "bbdf5fde1b3727c1c0e7d0ebe497324f860cd831",
+  "mergedAt": "2026-08-31T10:00:49Z",
+  "mainFullOfficeVerified": false,
+  "mainRuns": {
+    "ci": {
+      "runId": 33380432749,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    "office": {
+      "runId": 33380432876,
+      "suite": "full",
+      "status": "completed",
+      "preparationTimingsSeconds": {
+        "nodeValidateOrInstall": 90,
+        "remoteNodeCacheSave": 341,
+        "pythonPrepare": 32,
+        "ocrAndDotnetPreflight": 56
+      },
+      "timingLimitation": "Single observed run, not a benchmark. Node preparation includes validation and local snapshot work; timing alone does not prove whether installation occurred.",
+      "conclusion": "failure",
+      "jobId": 99451434170,
+      "jobStartedAt": "2026-08-31T10:01:18Z",
+      "jobCompletedAt": "2026-08-31T10:51:39Z",
+      "jobSeconds": 3021,
+      "corpusPassed": false,
+      "corpusTotal": 31,
+      "corpusPassing": 30,
+      "corpusFailing": 1,
+      "environmentFingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+      "artifactId": 9754937527,
+      "artifactDigest": "sha256:187bd59d0c783bab4e2bfed2f11c6416189d2d3a9442bccc49a9ea5ebe161c70",
+      "reportSha256": {
+        "office-environment.json": "3798090a8c90f8ff6b922a08ac19078e68cf22c09804f79ad06f419251127c6f",
+        "quality-history.snapshot.json": "15de423194e49319c7031f27d7443fee3cba20b5827aa3c7d061f03448c3c95b",
+        "real-pptx-corpus.report.json": "e8f64fe330e0ce4aed913235f851ed9efacf045bf4ad9a8bee351433e9d2aedb"
+      },
+      "failure": {
+        "caseId": "triangle-topology",
+        "caseNumber": 18,
+        "timedOut": true,
+        "timeoutMs": 180000,
+        "elapsedMs": 180167,
+        "rebuildMs": 77318,
+        "pageProcessingMs": 6204,
+        "pptxBuildMs": 2084,
+        "renderMs": 30104,
+        "pixelDiffMs": 1218,
+        "lastObservedPhase": "compare",
+        "powerPointOpenPassed": true,
+        "finalQualityReportPresent": false,
+        "rootCauseProven": false,
+        "diagnosticSource": "official-downloaded-artifact",
+        "limitation": "Timeout is proven, but the cause of the phase latency is not. A completed PowerPoint open and pixel diff do not prove final quality passed."
+      },
+      "downstreamChecksRun": false,
+      "downstreamLimitation": "The corpus command failed before cross-renderer, independent creation, editable roundtrips and trend checks; the history snapshot is restored historical data, not a new passing snapshot."
+    }
+  },
+  "productionDeployed": false,
+  "mergedBranchCleanup": {
+    "branch": "codex/paddle-protocol-output",
+    "localDeleted": true,
+    "remoteDeleted": true,
+    "expectedTip": "874ff4de939f5983dfacea0f3c54f406f1601b86",
+    "worktreesRemoved": 0
+  },
+  "finalCandidateCi": [
+    {
+      "runId": 33377989657,
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    {
+      "runId": 33377984989,
+      "event": "push",
+      "conclusion": "success"
+    }
+  ],
+  "finalCandidateOffice": {
+    "runId": 33377989658,
+    "jobId": 99447219099,
+    "status": "completed",
+    "conclusion": "success",
+    "artifactId": 9753475280,
+    "artifactDigest": "sha256:e157f2a5d5cdc6d1303b4c76467d8cab856c607507011f58ce8c40dfe8b344e8",
+    "verifiedSmokeCases": 4,
+    "verifiedCrossRendererCases": 4,
+    "verifiedIndependentRoundtrips": 5,
+    "verifiedBatchRoundtrips": 2,
+    "trendPassed": true,
+    "trendComparedTargets": 4,
+    "trendFailureCount": 0,
+    "roundtripFailedCases": 0,
+    "roundtripProcessesSucceeded": true,
+    "roundtripReportsValid": true,
+    "suite": "smoke",
+    "environmentFingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+    "fingerprintSource": "official-downloaded-artifact",
+    "reportSha256": {
+      "office-environment.json": "78ab8143bbf0ed7446be492d17df1767dee0b0f3f6945d22ebd60efcd8d5c96d",
+      "quality-history.snapshot.json": "3708199b757c09c85394f1850689ea3977caf75bdc51183f1938f0437c262f01",
+      "quality-trend-report.json": "1e06570e516221fdb3432bb29dbca1c51d5eebc09f7ecb52cacd79b8fe4c9ace",
+      "real-pptx-corpus.report.json": "7dd9af2158e722f58f55d4ecefdbec02a3c2c1d9fe68b141dabf291282f28edd",
+      "cross-renderer/cross-renderer-report.json": "a80e14016a76949dc9941f7624bf2cfc0043d4eae2716ab00e1aca3a0cafdceb",
+      "ppt-create-smoke/powerpoint-editable-roundtrip-summary.json": "e17cec329d8d5d0695f3f12d7d29068949ed9b9fd593a8642286a980dde1cb42",
+      "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969",
+      "ppt-create-smoke/independent-corpus/powerpoint-editable-roundtrip-summary.json": "16e24cde77cc72af7366962e1d2d5c81113db7e30b833275ebf7d10fedcd9ca0"
+    }
+  },
+  "priorOfficeArchives": [
+    {
+      "revision": "8cd3ff3c968c1c24c1a550cb99ad0d21002db722",
+      "runId": 33374863266,
+      "conclusion": "success",
+      "artifactId": 9751807119,
+      "artifactDigest": "sha256:a5f1efa3e1c70d78598cdaf2cd0f5664da7b86003ec427db32889f1e14dcbbe6",
+      "verifiedSmokeCases": 4,
+      "verifiedCrossRendererCases": 4,
+      "verifiedIndependentRoundtrips": 5,
+      "verifiedBatchRoundtrips": 2
+    },
+    {
+      "revision": "cbc5457e1d6e2d4dc3d08971012513feccb60cc8",
+      "runId": 33376363969,
+      "conclusion": "success",
+      "artifactId": 9752367581,
+      "artifactDigest": "sha256:772caf538974e00d63f4ef4dca70d70b82459d0cfb443862695f13b6c2ed34fa",
+      "verifiedSmokeCases": 4,
+      "verifiedCrossRendererCases": 4,
+      "verifiedIndependentRoundtrips": 5,
+      "verifiedBatchRoundtrips": 2
+    },
+    {
+      "revision": "26a08e71715bb89f96d024d78dc4c260832648b5",
+      "runId": 33377475724,
+      "conclusion": "success",
+      "artifactId": 9752988058,
+      "artifactDigest": "sha256:961481eb074f914c0ac1fb9098fc1e937ebdc7240de6e20a96097d27fa702f99",
+      "verifiedSmokeCases": 4,
+      "verifiedCrossRendererCases": 4,
+      "verifiedIndependentRoundtrips": 5,
+      "verifiedBatchRoundtrips": 2
+    }
+  ],
+  "knownFailedGates": [
+    {
+      "runId": 33372987836,
+      "stage": "pdftoppm-version-preflight",
+      "historicalRootCauseProven": false
+    },
+    {
+      "runId": 33374863272,
+      "stage": "fake-libreoffice-compilation",
+      "historicalRootCauseProven": false
+    },
+    {
+      "runId": 33376359130,
+      "stage": "chrome-debugging-endpoint",
+      "historicalRootCauseProven": false
+    },
+    {
+      "runId": 33377475729,
+      "stage": "embedded-runtime-out-of-sync",
+      "historicalRootCauseProven": true
+    },
+    {
+      "runId": 33377471556,
+      "stage": "embedded-runtime-out-of-sync",
+      "historicalRootCauseProven": true
+    }
+  ],
+  "limitations": [
+    "Prior passing Office archives do not validate the final candidate or main.",
+    "Deterministic protocol, lifecycle and exited-browser regressions verify defects without attributing lost historical diagnostics to a specific cause.",
+    "Repository checks do not authorize production deployment, live identity changes, device or real-user-template canaries."
+  ],
+  "fix": {
+    "behavior": [
+      "Isolate PaddleOCR JSON-lines output on a non-inherited descriptor; keep strict Node parsing.",
+      "Make worker shutdown idempotent and prevent obsolete workers from clearing replacement state.",
+      "Reject bundled Python paths without an absolute user profile.",
+      "Preserve bounded, sanitized Office version and browser startup diagnostics.",
+      "Compile the LibreOffice test fixture directly with the existing compiler; synchronize embedded browser runtime."
+    ],
+    "unchanged": [
+      "Required CI and Office gates",
+      "Test timeouts and single-attempt behavior",
+      "Production deployment and live identity configuration"
+    ],
+    "regressionCoverage": [
+      "Noisy Python/native/child/shutdown output and protocol setup failure",
+      "Worker replacement and natural child-process exit",
+      "Missing, empty and relative Python profiles",
+      "Compiler discovery, invalid inputs and failed compilation",
+      "Browser spawn errors, exited processes, endpoint polling and safe diagnostics",
+      "Embedded runtime file-set consistency, packaged module and runtime behavior"
+    ]
+  }
+}

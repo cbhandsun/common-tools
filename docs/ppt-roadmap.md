@@ -38,8 +38,6 @@
 | P2 | 经批准的内容与素材 Provider | 计划中 | 配置所有者批准的 Provider；具备有界失败、重试分类、素材来源与许可证证据以及安全测试 | 安全的内容 Provider 适配器已存在；Provider 选择、素材服务和验收证据仍待完成 | 服务所有者 | 可选 |
 | P2 | 自用运维闭环 | 进行中 | 具备基础 Job 容量限制、安全重试与恢复、加密 Secret 处理、备份恢复演练、就绪与 Worker 告警，以及明确的回滚联系人和路径 | quota、lease 恢复、备份脚本、指标和告警模板已存在；[生产发布与回滚手册](./ppt-production-runbook.md) 已明确责任、停止条件、digest 回滚、隔离恢复和证据要求；实际联系人、受管告警接收器及生产演练证据仍待所有者确认和验收 | 服务所有者 | 生产部署后 |
 
-`26a08e7` 的两轮常规 CI 在插件一致性检查失败：浏览器启动源码已更新，但 Git Marketplace 的内嵌 Runtime 未同步。这是本批遗漏，不是浏览器启动问题复发。补齐对应模块及调用方副本，保留完整文件集合和内容摘要校验；预期文件数由 22 调整为包含新模块的 23。新增回归验证打包归档包含 `browser-startup.js`，并直接调用内嵌模块确认已退出进程不再触发端点轮询；同步前两项回归失败，同步后完整插件校验及 6 项打包/安装/CLI 测试通过。新提交仍须通过正式 CI 和 Office 门禁。
-
 ## 访问控制基线
 
 远程入口可以匿名提供健康检查、就绪检查、OAuth discovery、JWKS 和受保护资源 metadata。这些端点不得泄露凭据、用户内容、对象 key、项目成员关系或后端细节。所有 MCP 工具、上传、Job 和工件都必须经过 OAuth 授权。
@@ -98,6 +96,26 @@ npm run canary:remote-access-negative
 生产部署仍必须先通过 `common-tools team production-preflight`，并由受保护 commit 和不可变 digest 驱动；上述同步与 canary 不能替代生产部署门禁。
 
 ## 门禁回归记录
+
+### 后续改动：串行语料复用 OCR（待正式验收）
+
+针对不同语料子进程重复启动 OCR 的开销，Office corpus 已接入单次运行内的共享 PaddleOCR broker；仅允许串行执行，只有受控的 complex-graphic OCR 用例及其质量子进程获得短期 loopback 凭据，重建、Office 和其他用例不继承凭据。报告仅新增请求数、完成/失败数和排队/服务耗时。语料集合、逐例时限、fresh 重建和质量阈值保持不变，不复用历史质量结果。
+
+另补充有界的 worker 退出等待：关闭所有已启动的清理任务后才报告完成，任何失败仍令任务失败；新增模块同时纳入 Docker 依赖闭包。受控的两个独立客户端测试证明 worker 启动由 2 次降至 1 次且 OCR 内容一致，不能将该替身测试换算为真实 Office 提速。相关 115 项测试、类型检查、常规 Lint、插件和 Runtime 安装包验证已通过；最终错误链调整后新增模块 12 项测试再次通过。对 14 个改动 JavaScript 文件扩展执行推荐规则及 no-console/no-unused-vars，与 HEAD 对比没有新增诊断，4 条历史诊断仍存在；没有关闭规则或抬高门禁基线。
+
+本批尚待正式 CI 和候选提交的 full Office 回归；在取得完整报告之前，不认定下述 triangle-topology 超时已修复，也不批准生产部署。OCR 复用边界见 [Runner 缓存说明](./office-runner-cache.md)。
+
+提交前再次执行同组 115 项测试时为 114/115，耗时约 115 秒：既有 `official PaddleOCR adapter returns sorted editable boxes, polygons, and pinned metadata` 在等待替身 worker ready 的 5 秒时限处失败，不能沿用前轮通过作为最新结果。两次宿主 CPU 采样均为 100%，同期专用 Runner 正执行其他 PR；这些仅说明存在负载，不证明超时根因。失败另暴露可确定的诊断缺陷：初始化计时器先使用默认错误关闭 worker，导致真正的初始化超时信息被覆盖。新增不发送 ready 的 worker 回归先失败、改为把超时错误传给关闭路径后通过；未增加任何时限或重试。此改动只修复错误原因丢失，不宣称已消除启动变慢，后续 CI/full Office 仍须独立验证；未启用自动合并。
+
+### 当前验收状态（PR #31）
+
+PR #31 已受保护合入 main `0f186070a0b02feedf3eef185a140561654a7c17`，与最终受测提交 `874ff4d` 的源码 tree 完全一致。最终提交的两轮常规 CI（`33377989657`、`33377984989`）和 [PR Office 33377989658](https://github.com/cbhandsun/common-tools/actions/runs/33377989658) 均已通过：4/4 smoke、4/4 跨渲染器、5/5 独立 PPT 与 2/2 批量 PPT 编辑往返通过，趋势门禁通过。main [常规 CI 33380432749](https://github.com/cbhandsun/common-tools/actions/runs/33380432749) 也已通过；[全量 Office 33380432876](https://github.com/cbhandsun/common-tools/actions/runs/33380432876) 已结束且失败：31 个语料中 30 个通过，`triangle-topology` 在 180 秒用例时限处被终止（实测 180167 毫秒），后续跨渲染器、新建 PPT、编辑往返及趋势检查未执行。官方报告显示重建约 77 秒、渲染约 30 秒、像素差异约 1 秒，最后进入内容比较；PowerPoint 打开检查通过，但最终质量报告未生成。超时事实已确认，各阶段变慢的根因仍待诊断，不以增加超时、降低阈值或重跑成功代替修复。
+
+修复范围、官方 PR 归档标识和报告 SHA-256 见 [协议与门禁修复证据](./evidence/paddle-protocol-output-2026-08-31.json)。已合并的修复分支本地与远端均已删除，没有移除用户文件或其他工作树。本次仍未执行生产部署、线上身份同步、授权设备/真实用户模板 canary 或运维演练。
+
+以下记录保留各次失败及当时的验证边界；其中“待验证”“自动合并已暂停”等描述属于历史阶段，当前结果以上述状态为准。
+
+`26a08e7` 的两轮常规 CI 在插件一致性检查失败：浏览器启动源码已更新，但 Git Marketplace 的内嵌 Runtime 未同步。这是本批遗漏，不是浏览器启动问题复发。补齐对应模块及调用方副本，保留完整文件集合和内容摘要校验；预期文件数由 22 调整为包含新模块的 23。新增回归验证打包归档包含 `browser-startup.js`，并直接调用内嵌模块确认已退出进程不再触发端点轮询；同步前两项回归失败，同步后完整插件校验及 6 项打包/安装/CLI 测试通过。新提交仍须通过正式 CI 和 Office 门禁。
 
 PR #30 的资源调度修复已合入 `d7c9122`：PR 常规 CI、Office smoke 及合入后的常规 CI 均通过，详见 `docs/evidence/ci-resource-isolation-2026-08-31.json`。随后 main 全量 [Office run 33369610023](https://github.com/cbhandsun/common-tools/actions/runs/33369610023) 在 PaddleOCR 预检报 `PaddleOCR worker returned invalid output`，尚未进入 PPT corpus，不能记作最新 main 全量通过。原日志没有保留非法行，因此不能将其确定归因于某个第三方库。
 

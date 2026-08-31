@@ -58,7 +58,8 @@ async function startPaddleOcrBatchBroker({ adapter, context, maxRequestBytes = M
       accepting = false;
       await queue;
       await closeServer(server);
-      adapter.closeActiveEngine?.();
+      if (typeof adapter.closeActiveEngineAndWait === "function") await adapter.closeActiveEngineAndWait();
+      else await adapter.closeActiveEngine?.();
       return Object.freeze({ ...metrics });
     }
   };

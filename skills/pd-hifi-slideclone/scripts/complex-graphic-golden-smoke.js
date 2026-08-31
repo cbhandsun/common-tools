@@ -5,12 +5,14 @@ const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 const { createProgressLineForwarder, redactSecrets } = require("./lib/progress-reporter");
+const { takeBrokerEnvironment } = require("./lib/paddleocr-corpus-session");
 
 const STAGE_CACHE_FILE = ".complex-graphic-golden-cache.json";
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help === "true" || args.h === "true") return process.stdout.write(`${usage()}\n`);
+  const brokerEnvironment = takeBrokerEnvironment(process.env);
   const deck = normalizeDeckId(required(args.deck, "--deck"));
   const pages = normalizePages(required(args.pages, "--pages"));
   const out = path.resolve(args.out || path.join("runs", "complex-graphic-golden", deck));
@@ -62,7 +64,9 @@ async function main() {
   ) {
     markStageReused("quality", timings);
   } else {
-    await runStage("quality", timings, () => run("node", buildQualityArgs({ ir, pptx, qualityDir, minimumTextCoverage, renderer })));
+    await runStage("quality", timings, () => run("node", buildQualityArgs({ ir, pptx, qualityDir, minimumTextCoverage, renderer }), {
+      env: { ...process.env, ...brokerEnvironment }
+    }));
     stageCache.quality = { signature: qualitySignature, completedAt: new Date().toISOString() };
     writeStageCache(cacheFile, stageCache);
   }
@@ -263,7 +267,7 @@ function buildQualityArgs({ ir, pptx, qualityDir, minimumTextCoverage = null, re
 function run(command, args, options = {}) {
   const maxOutputChars = positiveInt(options.maxOutputChars, 64 * 1024 * 1024);
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd: process.cwd(), windowsHide: true, shell: false });
+    const child = spawn(command, args, { cwd: process.cwd(), windowsHide: true, shell: false, ...(options.env ? { env: options.env } : {}) });
     const progress = createProgressLineForwarder({ stream: process.stderr });
     let stdout = "";
     let stderr = "";

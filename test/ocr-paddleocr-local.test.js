@@ -44,6 +44,18 @@ function input() {
 
 test.afterEach(() => paddleOcr.closeActiveEngine());
 
+test("PaddleOCR initialization timeout preserves its cause through worker cleanup", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "paddleocr-init-timeout-"));
+  try {
+    await assert.rejects(paddleOcr(input(), context(tempDir, { lang: "init-hang", cache: false, initTimeoutMs: 1000 })), {
+      message: "PaddleOCR worker initialization timed out"
+    });
+  } finally {
+    await paddleOcr.closeActiveEngineAndWait();
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("PaddleOCR protocol failure recovery cannot orphan the replacement worker", () => {
   const result = spawnSync(process.execPath, [path.join(__dirname, "fixtures/paddleocr-worker-lifecycle.js")], {
     encoding: "utf8", windowsHide: true, timeout: 15000, maxBuffer: 64 * 1024

@@ -438,6 +438,25 @@ test("PaddleOCR team image pins the runtime and remains an explicit deployment o
   assert.doesNotMatch(fs.readFileSync(path.join(root, "deploy", "compose.team-api.yaml"), "utf8"), /PADDLEOCR/);
 });
 
+test("PaddleOCR Docker adapter loads using only its declared image COPY dependencies", () => {
+  const root = path.resolve(__dirname, "..");
+  const dockerfile = fs.readFileSync(path.join(root, "deploy/docker/Dockerfile.image-to-editable-paddleocr"), "utf8");
+  const directory = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "paddle-image-import-"));
+  try {
+    for (const match of dockerfile.matchAll(/^COPY (\S+) \/opt\/paddleocr\/skill\/(\S+)$/gm)) {
+      const target = path.resolve(directory, match[2]);
+      assert.equal(path.relative(directory, target).startsWith(".."), false);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(path.resolve(root, match[1]), target);
+    }
+    const imageAdapter = require(path.join(directory, "scripts/adapters/ocr-paddleocr-local.js"));
+    assert.equal(typeof imageAdapter, "function");
+    assert.equal(typeof imageAdapter.closeActiveEngineAndWait, "function");
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("local deployment script keeps raw OCR opt-in and Plan mode non-mutating", () => {
   const deployScript = fs.readFileSync(path.join(path.resolve(__dirname, ".."), "scripts", "team-runtime-local-deploy.ps1"), "utf8");
   assert.match(deployScript, /\[switch\]\$EnableRawImageOcr/);

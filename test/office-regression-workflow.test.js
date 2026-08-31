@@ -92,6 +92,7 @@ test("Office regression plan serializes the selected suite and keeps artifacts i
   assert.equal(plan.suite, "smoke");
   assert.equal(plan.environment.SLIDECLONE_REAL_PPTX_WORK_ROOT, path.resolve("D:/ppt-corpus"));
   assert.ok(plan.corpusArgs.includes("1"));
+  assert.equal(plan.corpusArgs[plan.corpusArgs.indexOf("--paddle-ocr-broker") + 1], "true");
   assert.equal(path.relative(root, plan.outDir).startsWith(".."), false);
   assert.equal(path.relative(root, plan.historyFile).startsWith(".."), false);
   assert.match(plan.historyFile, /ppt-quality-history-smoke\.json$/u);
