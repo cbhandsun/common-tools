@@ -68,6 +68,8 @@ Office job 的全部脚本步骤统一继承 `pwsh -NoProfile -NonInteractive -C
 
 PR #20 已以 `c02047d0ab6efe56e15d970b11ba9db3ae055b40` 合入 main。新缓存作用域或依赖/运行时标识变化时仍可能首次安装并上传，不能承诺永不安装。合入后的 main 全量回归与连续三次质量验收仍独立跟踪。脱敏运行证据与归档报告 SHA-256 见 `docs/evidence/office-cache-and-quality-2026-08-30.json`。
 
+合入后的 [main full run 33341429314](https://github.com/cbhandsun/common-tools/actions/runs/33341429314) 已全部通过：31/31 语料、跨渲染器、独立新建 PPT，以及覆盖全部 31 个目标的同环境趋势比较。该轮 main 首次缓存未命中，标识 2 秒、恢复尝试 2 秒、安装及验证 24 秒、首次保存 168 秒；约 18 MB 的 main 缓存已建立。这是首次准备成本，不是热缓存提速数据，也不能计作每轮都会安装。
+
 统一单元测试入口自动包含 `test/office-node-dependencies.test.js`；相关工作流和变更范围测试分别在 `test/office-regression-workflow.test.js`、`test/office-regression-scope.test.js` 中。
 
 .NET 暂时保持每轮锁定 restore/audit 和 build。尚未实施编译产物缓存，也没有跳过漏洞检查或构建验证。
