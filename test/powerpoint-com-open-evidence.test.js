@@ -157,27 +157,29 @@ test("Node open-gate boundary preserves failure, records every launch and reject
   }
 });
 
-test("generated PowerShell records actual fake-COM success, retry and lock failure without Office", t => {
+test("generated PowerShell balances COM lifetimes through success, retry, null collections and failures", t => {
   const { root, evidenceFile } = fixture(t);
   const generated = path.join(root, "generated.ps1");
   const manifestFile = path.join(root, "manifest.json");
   const reportFile = path.join(root, "report.json");
   const sourceFile = path.join(root, "source.pptx");
+  const lifetimeFile = path.join(root, "lifetime.json");
   fs.writeFileSync(generated, powerPointOpenValidationScript());
   fs.writeFileSync(sourceFile, "fake package, never opened in Office");
-  for (const scenario of ["success", "retry", "lock-failure"]) {
+  for (const scenario of ["success", "retry", "null-collections", "slide-retry", "open-failure", "slide-failure", "open-release-failure", "slide-release-failure", "lock-failure"]) {
     fs.rmSync(evidenceFile, { force: true });
     fs.rmSync(reportFile, { force: true });
+    fs.rmSync(lifetimeFile, { force: true });
     const stagingRoot = path.join(root, scenario);
     fs.mkdirSync(stagingRoot);
     fs.writeFileSync(manifestFile, JSON.stringify({ files: [sourceFile], repairInPlace: true, stagingRoot }));
     const result = spawnSync(process.platform === "win32" ? "powershell.exe" : "pwsh", [
       "-NoProfile", "-NonInteractive", "-File", path.join(__dirname, "fixtures/powerpoint-com-open-evidence.ps1"),
       "-GeneratedScript", generated, "-ManifestFile", manifestFile, "-ReportFile", reportFile,
-      "-EvidenceFile", evidenceFile, "-InvocationId", invocationId, "-Scenario", scenario
+      "-EvidenceFile", evidenceFile, "-InvocationId", invocationId, "-Scenario", scenario, "-LifetimeFile", lifetimeFile
     ], { encoding: "utf8", windowsHide: true, timeout: 30000 });
     assert.equal(result.error, undefined);
-    if (scenario === "lock-failure") assert.notEqual(result.status, 0);
+    if (scenario.endsWith("failure")) assert.notEqual(result.status, 0);
     else assert.equal(result.status, 0, result.stderr);
     const metrics = readOpenGateEvidence(evidenceFile, invocationId);
     assert.equal(metrics.status, "valid");
@@ -188,13 +190,31 @@ test("generated PowerShell records actual fake-COM success, retry and lock failu
       assert.equal(metrics.failedStage, "lock");
     }
     else {
+      const events = JSON.parse(fs.readFileSync(lifetimeFile, "utf8").replace(/^\uFEFF/, ""));
+      const outstanding = { app: 0, presentations: 0, presentation: 0, slides: 0 };
+      for (const event of events) {
+        if (event.action === "quit") {
+          assert.deepEqual(outstanding, { app: 1, presentations: 0, presentation: 0, slides: 0 }, `${scenario}: child COM references must be released before Quit`);
+        } else {
+          outstanding[event.kind] += event.action === "acquire" ? 1 : -1;
+          assert.ok(outstanding[event.kind] >= 0, `${scenario}: release without acquisition`);
+        }
+      }
+      assert.deepEqual(outstanding, { app: 0, presentations: 0, presentation: 0, slides: 0 }, `${scenario}: every acquired reference must be released`);
       assert.equal(metrics.stages["com-start"].attempts, 1);
-      assert.equal(metrics.stages.open.attempts, scenario === "retry" ? 3 : 2);
-      assert.equal(metrics.stages.open.retries, scenario === "retry" ? 1 : 0);
-      assert.equal(metrics.stages.open.retryDelayMs, scenario === "retry" ? 600 : 0);
-      assert.equal(metrics.stages["save-copy"].attempts, 1);
+      if (scenario.includes("release-failure")) {
+        assert.equal(metrics.stages.open.attempts, 1, "release failure must not become an open retry");
+        assert.equal(metrics.stages.open.retries, 0);
+        assert.equal(metrics.stages["slide-count"].retries, 0);
+      }
+      if (["success", "retry"].includes(scenario)) {
+        assert.equal(metrics.stages.open.attempts, scenario === "retry" ? 3 : 2);
+        assert.equal(metrics.stages.open.retries, scenario === "retry" ? 1 : 0);
+        assert.equal(metrics.stages.open.retryDelayMs, scenario === "retry" ? 600 : 0);
+      }
+      assert.equal(metrics.stages["save-copy"].attempts, scenario.endsWith("failure") ? 0 : 1);
       assert.equal(metrics.stages.quit.attempts, 1);
-      assert.equal(JSON.parse(fs.readFileSync(reportFile, "utf8").replace(/^\uFEFF/, "")).passed, true);
+      assert.equal(JSON.parse(fs.readFileSync(reportFile, "utf8").replace(/^\uFEFF/, "")).passed, !scenario.endsWith("failure"));
     }
     assert.doesNotMatch(fs.readFileSync(evidenceFile, "utf8"), /source\.pptx|PRIVATE_VALUE/);
   }

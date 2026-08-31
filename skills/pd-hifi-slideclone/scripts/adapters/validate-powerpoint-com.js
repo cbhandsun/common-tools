@@ -172,12 +172,16 @@ try {
   function Open-PresentationWithRetry([string]$FilePath) {
     for ($openAttempt = 1; $openAttempt -le 12; $openAttempt++) {
       $candidate = $null
+      $presentations = $null
       $accepted = $false
       $openTimer = Start-OpenGateStep 'open'
       try {
         # Open a writable staging copy. Read-only opens hide the dirty state
         # after a silent repair, which would let broken delivery files pass.
-        $candidate = $app.Presentations.Open($FilePath, $msoFalse, $msoFalse, $msoFalse)
+        # Balance each acquired collection reference before its owner quits.
+        # Chained COM access otherwise leaves collection release to finalizers.
+        $presentations = $app.Presentations
+        $candidate = $presentations.Open($FilePath, $msoFalse, $msoFalse, $msoFalse)
         if ($candidate -ne $null) {
           Start-Sleep -Milliseconds 1200
           $accepted = $true
@@ -194,12 +198,26 @@ try {
         if ($openAttempt -eq 12) { throw }
       }
       finally {
-        if ($candidate -ne $null -and -not $accepted) {
-          try { $candidate.Saved = $msoTrue } catch {}
-          try { $candidate.Close() | Out-Null } catch {}
-          try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($candidate) } catch {}
+        try {
+          if ($presentations -ne $null) {
+            [void][Runtime.InteropServices.Marshal]::ReleaseComObject($presentations)
+            $presentations = $null
+          }
         }
-        Complete-OpenGateStep 'open' $openTimer
+        catch {
+          # A release failure is not an open retry: reject the candidate and
+          # still close it instead of returning an unowned presentation.
+          $accepted = $false
+          throw
+        }
+        finally {
+          if ($candidate -ne $null -and -not $accepted) {
+            try { $candidate.Saved = $msoTrue } catch {}
+            try { $candidate.Close() | Out-Null } catch {}
+            try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($candidate) } catch {}
+          }
+          Complete-OpenGateStep 'open' $openTimer
+        }
       }
       Wait-OpenGateRetry 'open' (600 * $openAttempt)
     }
@@ -211,9 +229,11 @@ try {
     # COM open to hydrate the Slides collection, especially after an update.
     $maxSlideLoadAttempts = 60
     for ($slideAttempt = 1; $slideAttempt -le $maxSlideLoadAttempts; $slideAttempt++) {
+      $slides = $null
       $slideTimer = Start-OpenGateStep 'slide-count'
       try {
-        $slideCount = [int]$Presentation.Slides.Count
+        $slides = $Presentation.Slides
+        $slideCount = [int]$slides.Count
         if ($slideCount -gt 0) { return $slideCount }
       }
       catch [System.Runtime.InteropServices.COMException] {
@@ -225,7 +245,15 @@ try {
         # retry rather than rejecting an otherwise valid presentation.
         if ($slideAttempt -eq $maxSlideLoadAttempts) { throw }
       }
-      finally { Complete-OpenGateStep 'slide-count' $slideTimer }
+      finally {
+        try {
+          if ($slides -ne $null) {
+            [void][Runtime.InteropServices.Marshal]::ReleaseComObject($slides)
+            $slides = $null
+          }
+        }
+        finally { Complete-OpenGateStep 'slide-count' $slideTimer }
+      }
       Wait-OpenGateRetry 'slide-count' 500
     }
     throw "PowerPoint opened the presentation but did not load any slides."
@@ -344,6 +372,7 @@ try {
         try { $presentation.Close() | Out-Null } catch {}
         finally { Complete-OpenGateStep 'close' $closeTimer }
         try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($presentation) } catch {}
+        $presentation = $null
       }
       if ($stagingFile -and (Test-Path -LiteralPath $stagingFile)) {
         Remove-Item -LiteralPath $stagingFile -Force -ErrorAction SilentlyContinue
@@ -361,6 +390,7 @@ finally {
     try { $app.Quit() | Out-Null } catch {}
     finally { Complete-OpenGateStep 'quit' $quitTimer }
     try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($app) } catch {}
+    $app = $null
   }
   $finalizerTimer = Start-OpenGateStep 'finalizers'
   try {
