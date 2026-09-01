@@ -3,12 +3,13 @@ $ErrorActionPreference = 'Stop'
 $tokens = $null; $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($GeneratedScript, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Generated PowerPoint script did not parse.' }
-$functions = @('Find-Target', 'Get-ShapeById', 'Apply-Edit', 'Verify-Edit', 'Release-Com', 'Set-SmartArtMarker', 'Test-SmartArtMarker', 'Get-ErrorCode', 'Test-TransientComFailure', 'Close-DeckWithRetry')
+$functions = @('Find-Target', 'Find-TargetWithRetry', 'Get-ShapeById', 'Apply-Edit', 'Verify-Edit', 'Release-Com', 'Set-SmartArtMarker', 'Test-SmartArtMarker', 'Get-ErrorCode', 'Test-TransientComFailure', 'Close-DeckWithRetry')
 foreach ($definition in $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
   if ($functions -contains $definition.Name) { . ([scriptblock]::Create($definition.Extent.Text)) }
 }
 $msoTrue = -1
 $marker = ' [slideclone-edit-check]'
+function Start-Sleep { param([int]$Milliseconds) }
 Add-Type @'
 using System;
 using System.Collections;
@@ -110,5 +111,16 @@ $permanentClose | Add-Member ScriptMethod Close {
 }
 Require-Failure { Close-DeckWithRetry $permanentClose }
 Require ($permanentClose.Attempts -eq 1) 'A non-transient close failure must not be retried.'
+$checks += 2
+$delayedSlides = [pscustomobject]@{ Reads=0; Slide=$slide }
+$delayedSlides | Add-Member ScriptProperty Count {
+  $this.Reads++
+  if ($this.Reads -le 8) { return 0 }
+  return 1
+}
+$delayedSlides | Add-Member ScriptMethod Item { param($Index) return $this.Slide }
+$delayedTarget = Find-TargetWithRetry ([pscustomobject]@{ Slides=$delayedSlides }) 'geometry'
+Require ($delayedTarget.Shape -eq 17) 'Target discovery did not survive a delayed PowerPoint collection.'
+Require ($delayedSlides.Reads -eq 9) 'Target discovery did not use the bounded extended readiness window.'
 $checks += 2
 [pscustomobject]@{ passed=$true; checks=$checks } | ConvertTo-Json -Compress

@@ -23,5 +23,5 @@ test("generated PowerPoint target functions reject invalid indices and preserve 
     "-NoProfile", "-NonInteractive", "-File", path.join(__dirname, "fixtures", "powerpoint-roundtrip-targets.ps1"), "-GeneratedScript", generated
   ], { encoding: "utf8", windowsHide: true, timeout: 30_000 });
   assert.equal(result.status, 0, result.stderr || result.error?.message);
-  assert.deepEqual(JSON.parse(result.stdout.trim()), { passed: true, checks: 37 });
+  assert.deepEqual(JSON.parse(result.stdout.trim()), { passed: true, checks: 39 });
 });

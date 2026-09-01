@@ -153,11 +153,11 @@ function Find-Target($Deck, [string]$Mode) {
   throw "No editable object matched the requested round-trip mode."
 }
 function Find-TargetWithRetry($Deck, [string]$Mode) {
-  for ($attempt = 1; $attempt -le 8; $attempt++) {
+  for ($attempt = 1; $attempt -le 12; $attempt++) {
     try { return (Find-Target $Deck $Mode) }
     catch {
-      if ($attempt -eq 8) { throw }
-      Start-Sleep -Milliseconds (300 * $attempt)
+      if ($attempt -eq 12) { throw }
+      Start-Sleep -Milliseconds (400 * $attempt)
     }
   }
 }
