@@ -49,25 +49,33 @@
     "editableRoundTripTransientCloseRetriesAdded": true,
     "editableTargetReadinessAttempts": 12,
     "editableTargetEditAttempts": 8,
-    "editableTargetEditIsIdempotent": true
+    "editableTargetEditIsIdempotent": true,
+    "finalizedCopyReadinessRetryIsBounded": true,
+    "reopenedTargetVerificationAttempts": 8,
+    "powerPointQuitAttempts": 5,
+    "powerPointQuitRetryHresults": [
+      "0x80010001",
+      "0x8001010A"
+    ],
+    "permanentErrorsFailImmediately": true,
+    "keeperExitWaitMs": 30000
   },
   "protectedValidation": {
-    "candidateCommit": "944f50c55605fd4a9f6c39188d3b84109afc58b0",
+    "candidateCommit": "d054591f47ae6912bd951cfee4ec93f721feb91c",
     "regularCi": {
-      "pushRunId": 33465767591,
-      "pushPassed": false,
-      "pushFailureScope": "unrelated hosted-Windows worker-doctor child process exceeded its existing 15-second test timeout",
-      "pullRequestRunId": 33465770051,
+      "pushRunId": 33474523595,
+      "pushPassed": true,
+      "pullRequestRunId": 33474528301,
       "pullRequestPassed": true,
       "requiredPullRequestCheckPassed": true
     },
     "smoke": {
-      "runId": 33465770050,
-      "artifactId": 9785048117,
-      "artifactDigest": "sha256:d29c687034cbc5dd742534c35bbd0b92e9b69f09117ccf8a5c7bda33bf9cc9a1",
+      "runId": 33474528287,
+      "artifactId": 9787990809,
+      "artifactDigest": "sha256:aa10066338e8aef5353697d414f0c89c38a5fe0115ab5d606c6806ad7aedee39",
       "corpusCases": 4,
       "passingCorpusCases": 4,
-      "corpusElapsedMs": 177724,
+      "corpusElapsedMs": 167793,
       "crossRendererPassing": 4,
       "independentRoundTripsPassing": 5,
       "batchRoundTripsPassing": 2,
@@ -75,33 +83,33 @@
       "passed": true
     },
     "full": {
-      "runId": 33466706070,
-      "artifactId": 9785624101,
-      "artifactDigest": "sha256:ed07628fa0e8b10df74920e1f04156b7f1797628d01af7c821d5341def08eecb",
-      "coreStepElapsedSeconds": 1295,
+      "runId": 33475598003,
+      "artifactId": 9788913898,
+      "artifactDigest": "sha256:23d763ff30d17414f8d90216e8204bb68f7e8387f418feba6afa98f8960bf47b",
+      "coreStepElapsedSeconds": 1924,
       "corpusCases": 31,
       "passingCorpusCases": 31,
-      "corpusElapsedMs": 948877,
-      "corpusAverageMs": 30609,
-      "corpusP50Ms": 27860,
-      "corpusP95Ms": 65849,
-      "corpusMaxMs": 66419,
+      "corpusElapsedMs": 1457060,
+      "corpusAverageMs": 47002,
+      "corpusP50Ms": 44189,
+      "corpusP95Ms": 75323,
+      "corpusMaxMs": 98055,
       "crossRendererPassing": 4,
       "independentRoundTripsPassing": 5,
       "batchRoundTripsPassing": 2,
       "trendTargets": 31,
       "trendFailures": 0,
-      "historySnapshotsBefore": 10,
-      "historySnapshotsAfter": 11,
+      "historySnapshotsBefore": 11,
+      "historySnapshotsAfter": 12,
       "historyPrefixExact": true,
       "officeSession": {
         "eligibleCases": 30,
         "requests": 30,
         "rejected": 0,
-        "createMs": 32076,
-        "quitMs": 5028,
-        "collectMs": 8,
-        "processExitWaitMs": 3005,
+        "createMs": 33568,
+        "quitMs": 6734,
+        "collectMs": 12,
+        "processExitWaitMs": 3086,
         "releaseRemaining": 0,
         "stderrBytes": 0
       },
@@ -114,11 +122,19 @@
       "corpusElapsedMs": 2764956
     },
     "improvement": {
-      "coreStepReductionPercent": 61.15,
-      "corpusElapsedReductionPercent": 65.68
+      "coreStepReductionPercent": 42.27,
+      "corpusElapsedReductionPercent": 47.3
+    },
+    "priorPassingFull": {
+      "candidateCommit": "944f50c55605fd4a9f6c39188d3b84109afc58b0",
+      "runId": 33466706070,
+      "coreStepElapsedSeconds": 1295,
+      "corpusElapsedMs": 948877,
+      "passed": true
     }
   },
   "limitations": [
+    "The final full run was slower than the prior passing full run, so the performance gain has observable runner and Office variance.",
     "No production deployment, identity synchronization, device canary, or user-template canary was performed."
   ]
 }
