@@ -21,6 +21,7 @@ const {
   sanitizeOpenXmlIr,
   validateImageAssets,
   resolveOpenXmlBuilderCommand,
+  resolveOpenXmlBuilderWorkingDirectory,
   sourceFilesForBuildFreshness
 } = require("../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
 const {
@@ -42,6 +43,18 @@ test("OpenXML adapter prefers an explicitly configured builder executable", () =
   }, tmp);
 
   assert.deepEqual(command, { command: exe, args: [] });
+});
+
+test("OpenXML adapter runs a published builder when its source project is absent", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-published-builder-"));
+  const binaryDir = path.join(root, "published");
+  const missingProjectDir = path.join(root, "source-not-in-runtime-image");
+  fs.mkdirSync(binaryDir);
+  const exe = path.join(binaryDir, nativeBuilderFileName);
+  fs.writeFileSync(exe, "published builder");
+
+  assert.equal(resolveOpenXmlBuilderWorkingDirectory({ command: exe, args: [] }, missingProjectDir), binaryDir);
+  assert.throws(() => resolveOpenXmlBuilderWorkingDirectory({ command: "dotnet", args: [] }, missingProjectDir), /working directory is unavailable/);
 });
 
 test("OpenXML adapter uses the prebuilt executable before dotnet run", () => {

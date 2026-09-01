@@ -41,6 +41,7 @@ async function buildOpenXmlDecks(jobs, context, projectDir = path.join(context.s
   const artifacts = createOpenXmlBuildArtifacts(normalizedJobs);
   try {
     const builder = resolveOpenXmlBuilderCommand(context, projectDir);
+    const builderWorkingDirectory = resolveOpenXmlBuilderWorkingDirectory(builder, projectDir);
     const cache = resolveBuildCache(context);
     const cacheFileMemo = new Map();
     const misses = [];
@@ -55,7 +56,7 @@ async function buildOpenXmlDecks(jobs, context, projectDir = path.join(context.s
       const builderArgs = createOpenXmlBuilderArgs(misses, artifacts, {
         concurrency: context.config?.openXmlBuilder?.batchConcurrency
       });
-      await run(builder.command, [...builder.args, ...builderArgs], projectDir);
+      await run(builder.command, [...builder.args, ...builderArgs], builderWorkingDirectory);
       if (cache) for (const entry of cacheEntries) if (!entry.hit) tryWriteOpenXmlBuildCache(cache.dir, entry.key, entry.job.outFile, context);
     }
     if (context.metrics && typeof context.metrics === "object") {
@@ -74,6 +75,7 @@ function buildOpenXmlDecksSync(jobs, context, projectDir = path.join(context.ski
   const artifacts = createOpenXmlBuildArtifacts(normalizedJobs);
   try {
     const builder = resolveOpenXmlBuilderCommand(context, projectDir);
+    const builderWorkingDirectory = resolveOpenXmlBuilderWorkingDirectory(builder, projectDir);
     const cache = resolveBuildCache(context);
     const fileMemo = new Map();
     const entries = artifacts.safeJobs.map((job) => {
@@ -85,7 +87,7 @@ function buildOpenXmlDecksSync(jobs, context, projectDir = path.join(context.ski
       const builderArgs = createOpenXmlBuilderArgs(misses, artifacts, options);
       if (options.powerPointSafe) builderArgs.push("--powerpoint-safe", "true");
       const result = spawnSync(builder.command, [...builder.args, ...builderArgs], {
-        cwd: projectDir, encoding: "utf8", windowsHide: true, maxBuffer: 20 * 1024 * 1024
+        cwd: builderWorkingDirectory, encoding: "utf8", windowsHide: true, maxBuffer: 20 * 1024 * 1024
       });
       if (result.status !== 0) {
         const details = [result.error?.message, result.stderr, result.stdout].filter(Boolean).join("\n").trim();
@@ -349,6 +351,12 @@ function resolveOpenXmlBuilderCommand(context, projectDir) {
   };
 }
 
+function resolveOpenXmlBuilderWorkingDirectory(builder, projectDir) {
+  if (typeof projectDir === "string" && fs.existsSync(projectDir) && fs.statSync(projectDir).isDirectory()) return projectDir;
+  if (builder && typeof builder.command === "string" && path.isAbsolute(builder.command) && fs.existsSync(builder.command) && fs.statSync(builder.command).isFile()) return path.dirname(builder.command);
+  throw new Error("OpenXML builder working directory is unavailable");
+}
+
 function isBuildArtifactStale(artifact, projectDir) {
   if (!fs.existsSync(artifact)) return true;
   const artifactMtime = fs.statSync(artifact).mtimeMs;
@@ -384,6 +392,7 @@ function normalizeTargetFramework(value) {
 }
 
 module.exports.resolveOpenXmlBuilderCommand = resolveOpenXmlBuilderCommand;
+module.exports.resolveOpenXmlBuilderWorkingDirectory = resolveOpenXmlBuilderWorkingDirectory;
 module.exports.resolveDotnet = resolveDotnet;
 module.exports.buildBatchArgs = buildBatchArgs;
 module.exports.buildOpenXmlDecks = buildOpenXmlDecks;

@@ -50,3 +50,13 @@ test("team migration startup diagnostics expose only fixed failure classes", () 
   assert.equal(migrationFailureCode(new Error("migration checksum mismatch: 001_jobs.sql")), "migration_checksum_mismatch");
   assert.equal(migrationFailureCode(new Error("database=https://credential.example")), "migration_failed");
 });
+
+test("team schema migrates existing databases to the complete remote capability catalog", () => {
+  const migration = fs.readFileSync(path.join(__dirname, "..", "packages", "team-runtime", "schema", "009_capability_job_catalog.sql"), "utf8");
+  assert.match(migration, /DROP CONSTRAINT IF EXISTS capability_jobs_capability_check/u);
+  assert.match(migration, /ADD CONSTRAINT capability_jobs_capability_check/u);
+  assert.match(migration, /VALIDATE CONSTRAINT capability_jobs_capability_check/u);
+  for (const capability of ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit", "siyuan-note"]) {
+    assert.match(migration, new RegExp(`'${capability}'`, "u"));
+  }
+});
