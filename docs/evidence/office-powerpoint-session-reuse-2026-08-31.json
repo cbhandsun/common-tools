@@ -39,17 +39,81 @@
   },
   "controls": {
     "qualityThresholdsChanged": false,
-    "retryBudgetsChanged": false,
+    "corpusRetryBudgetsChanged": false,
     "caseTimeoutsChanged": false,
     "freshRebuildChanged": false,
     "loopbackAuthentication": true,
     "serializedOnly": true,
     "refusesPreexistingPowerPoint": true,
-    "waitsForOwnedProcessExit": true
+    "waitsForOwnedProcessExit": true,
+    "editableRoundTripTransientCloseRetriesAdded": true,
+    "editableTargetReadinessAttempts": 12
+  },
+  "protectedValidation": {
+    "candidateCommit": "9ce5f03eb546240c3293dccb4ef8a79d8d54b42f",
+    "regularCi": {
+      "pushRunId": 33462080208,
+      "pullRequestRunId": 33462083360,
+      "passed": true
+    },
+    "smoke": {
+      "runId": 33462083321,
+      "artifactId": 9783774605,
+      "artifactDigest": "sha256:01bfd2b6a0401a607335bc392794763438d10e70c917336ff80ea8bd15db9439",
+      "corpusCases": 4,
+      "passingCorpusCases": 4,
+      "corpusElapsedMs": 122281,
+      "crossRendererPassing": 4,
+      "independentRoundTripsPassing": 5,
+      "batchRoundTripsPassing": 2,
+      "trendFailures": 0,
+      "passed": true
+    },
+    "full": {
+      "runId": 33462933759,
+      "artifactId": 9784366927,
+      "artifactDigest": "sha256:846414644b84b9559238a91d645a93de65a85e91df1b6e033c51a73d49121c27",
+      "coreStepElapsedSeconds": 1339,
+      "corpusCases": 31,
+      "passingCorpusCases": 31,
+      "corpusElapsedMs": 977949,
+      "corpusAverageMs": 31547,
+      "corpusP50Ms": 28225,
+      "corpusP95Ms": 46668,
+      "corpusMaxMs": 74720,
+      "crossRendererPassing": 4,
+      "independentRoundTripsPassing": 5,
+      "batchRoundTripsPassing": 2,
+      "trendTargets": 31,
+      "trendFailures": 0,
+      "historySnapshotsBefore": 9,
+      "historySnapshotsAfter": 10,
+      "historyPrefixExact": true,
+      "officeSession": {
+        "eligibleCases": 30,
+        "requests": 30,
+        "rejected": 0,
+        "createMs": 9453,
+        "quitMs": 4299,
+        "collectMs": 8,
+        "processExitWaitMs": 3022,
+        "releaseRemaining": 0,
+        "stderrBytes": 0
+      },
+      "passed": true
+    },
+    "baseline": {
+      "commit": "a8586faa9a636de845c48373088261b38cacfb38",
+      "runId": 33406736536,
+      "coreStepElapsedSeconds": 3333,
+      "corpusElapsedMs": 2764956
+    },
+    "improvement": {
+      "coreStepReductionPercent": 59.83,
+      "corpusElapsedReductionPercent": 64.63
+    }
   },
   "limitations": [
-    "This is a local controlled two-case validation, not the protected full Office workflow.",
-    "The candidate requires regular CI and full Office validation before merge.",
     "No production deployment, identity synchronization, device canary, or user-template canary was performed."
   ]
 }
