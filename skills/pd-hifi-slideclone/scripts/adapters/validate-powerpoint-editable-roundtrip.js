@@ -174,7 +174,7 @@ function Get-ShapeById($Deck, $Target) {
     $shape = $shapes.Item($shapeIndex)
     if ($shape.Id -is [int] -and $shape.Id -eq $Target.Shape) { return $shape }
   }
-  throw "The edited object could not be resolved after reopen."
+  throw "The editable object could not be resolved."
 }
 function Set-SmartArtMarker($Shape) {
   $nodes = $Shape.SmartArt.AllNodes
@@ -186,7 +186,8 @@ function Set-SmartArtMarker($Shape) {
         $nodeShape = $nodeShapes.Item($shapeIndex)
         try {
           if ($nodeShape.TextFrame2.HasText -eq $msoTrue) {
-            $nodeShape.TextFrame2.TextRange.Text = ([string]$nodeShape.TextFrame2.TextRange.Text) + $marker
+            $current = [string]$nodeShape.TextFrame2.TextRange.Text
+            if (-not $current.Contains($marker)) { $nodeShape.TextFrame2.TextRange.Text = $current + $marker }
             return
           }
         } finally { Release-Com $nodeShape }
@@ -216,11 +217,25 @@ function Apply-Edit($Deck, $Target) {
     if ($Target.Kind -eq "smartart-text") {
       Set-SmartArtMarker $shape
     } elseif ($Target.Kind -eq "shape-text") {
-      $shape.TextFrame2.TextRange.Text = ([string]$shape.TextFrame2.TextRange.Text) + $marker
+      $current = [string]$shape.TextFrame2.TextRange.Text
+      if (-not $current.Contains($marker)) { $shape.TextFrame2.TextRange.Text = $current + $marker }
     } else {
       $shape.Left = [single]$Target.ExpectedLeft
     }
   } finally { Release-Com $shape }
+}
+function Test-RetryableEditFailure($Exception) {
+  if (Test-TransientComFailure $Exception) { return $true }
+  return $Exception.Message -eq "The editable object could not be resolved."
+}
+function Apply-EditWithRetry($Deck, $Target) {
+  for ($attempt = 1; $attempt -le 8; $attempt++) {
+    try { Apply-Edit $Deck $Target; return }
+    catch {
+      if (-not (Test-RetryableEditFailure $_.Exception) -or $attempt -eq 8) { throw }
+    }
+    Start-Sleep -Milliseconds (300 * $attempt)
+  }
 }
 function Verify-Edit($Deck, $Target) {
   $shape = Get-ShapeById $Deck $Target
@@ -255,7 +270,7 @@ try {
       $stage = "find-target"
       $target = Find-TargetWithRetry $deck ([string]$case.mode)
       $stage = "edit"
-      Apply-Edit $deck $target
+      Apply-EditWithRetry $deck $target
       $stage = "save"
       $deck.SaveCopyAs($edited, $ppSaveAsOpenXMLPresentation)
       Start-Sleep -Milliseconds 1200

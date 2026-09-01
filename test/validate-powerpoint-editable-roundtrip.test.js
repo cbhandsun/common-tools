@@ -27,6 +27,7 @@ test("editable round-trip PowerPoint script edits a staging copy and verifies af
   assert.match(script, /Find-TargetWithRetry/);
   assert.match(script, /for \(\$attempt = 1; \$attempt -le 12; \$attempt\+\+\)/);
   assert.match(script, /Close-DeckWithRetry \$deck/);
+  assert.match(script, /Apply-EditWithRetry \$deck \$target/);
   assert.match(script, /0x80010001/);
   assert.match(script, /0x8001010A/);
   assert.match(script, /Start-Sleep -Milliseconds 1200/);

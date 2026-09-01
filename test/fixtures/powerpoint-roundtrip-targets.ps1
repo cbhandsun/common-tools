@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $tokens = $null; $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($GeneratedScript, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Generated PowerPoint script did not parse.' }
-$functions = @('Find-Target', 'Find-TargetWithRetry', 'Get-ShapeById', 'Apply-Edit', 'Verify-Edit', 'Release-Com', 'Set-SmartArtMarker', 'Test-SmartArtMarker', 'Get-ErrorCode', 'Test-TransientComFailure', 'Close-DeckWithRetry')
+$functions = @('Find-Target', 'Find-TargetWithRetry', 'Get-ShapeById', 'Apply-Edit', 'Apply-EditWithRetry', 'Test-RetryableEditFailure', 'Verify-Edit', 'Release-Com', 'Set-SmartArtMarker', 'Test-SmartArtMarker', 'Get-ErrorCode', 'Test-TransientComFailure', 'Close-DeckWithRetry')
 foreach ($definition in $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
   if ($functions -contains $definition.Name) { . ([scriptblock]::Create($definition.Extent.Text)) }
 }
@@ -122,5 +122,19 @@ $delayedSlides | Add-Member ScriptMethod Item { param($Index) return $this.Slide
 $delayedTarget = Find-TargetWithRetry ([pscustomobject]@{ Slides=$delayedSlides }) 'geometry'
 Require ($delayedTarget.Shape -eq 17) 'Target discovery did not survive a delayed PowerPoint collection.'
 Require ($delayedSlides.Reads -eq 9) 'Target discovery did not use the bounded extended readiness window.'
+$checks += 2
+$delayedShapes = [pscustomobject]@{ Reads=0; Shape=$shape }
+$delayedShapes | Add-Member ScriptProperty Count { return 1 }
+$delayedShapes | Add-Member ScriptMethod Item {
+  param($Index)
+  $this.Reads++
+  if ($this.Reads -le 3) { return [pscustomobject]@{ Id=999 } }
+  return $this.Shape
+}
+$delayedEditDeck = [pscustomobject]@{ Slides=(New-Collection @([pscustomobject]@{ Shapes=$delayedShapes })) }
+$delayedEditTarget = [pscustomobject]@{ Slide=1; Shape=17; Kind='geometry'; ExpectedLeft=[single]11 }
+Apply-EditWithRetry $delayedEditDeck $delayedEditTarget
+Require ($delayedShapes.Reads -eq 4) 'Edit did not retry only the temporarily unresolved target.'
+Require ($shape.Left -eq [single]11) 'Retried edit did not apply the recorded absolute intent.'
 $checks += 2
 [pscustomobject]@{ passed=$true; checks=$checks } | ConvertTo-Json -Compress
