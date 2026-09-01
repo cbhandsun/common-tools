@@ -143,6 +143,16 @@ PR #32 候选 `f8ce9b7` 的 [push CI 33386601549](https://github.com/cbhandsun/c
 
 后续补充启动输出诊断：只记录 spawn 事件、各输出流最多 65536 字节的计数、截断标记，以及是否出现 DevTools 就绪标记；使用逐字节状态匹配，不保留原始输出、URL、路径或用户内容，不改变启动时限或添加重试。新增分块、超量和敏感内容回归先红后绿；33 项相关测试（含真实 Chrome、安装包及内嵌 Runtime 一致性）通过。两份内嵌源码同步更新，文件集合及摘要验证继续保留。此改动补强诊断，不宣称浏览器启动超时已消除；PR 保持草稿且自动合并关闭，候选 full Office `33386716453` 仍独立跟踪。
 
+### 后续改动：串行语料复用 PowerPoint（待正式验收）
+
+PR #32 候选 `a8586fa` 的常规 CI 两轮均通过，Office smoke `33405965825` 通过；full `33406736536` 完成 31/31 语料、4/4 跨渲染器、5/5 独立 PPT 与 2/2 批量编辑往返，但最终两个既有趋势目标超过兼容历史基线，因此整轮仍记为失败。full 的 30 次 PowerPoint 打开尝试累计约 29.7 分钟，其中 COM 启动约 9.4 分钟、终结器等待约 9.1 分钟；不能把它归为依赖安装，因为同轮 Node 明确为 `reused=true, installed=false`。
+
+本机隔离诊断进一步确认，只创建并退出 PowerPoint、不打开文档也分别约需 15.2 秒和 19.3 秒。临时禁用 iSlide 与 OfficePLUS 后终结器等待仍约 18.3 秒，恢复后约 18.9 秒；两项设置均已恢复，永久禁用加载项不作为修复。显式释放集合、退出前 GC 及 `FinalReleaseComObject` 对主延迟也没有改善。跨进程原型证明，父进程持有一个 PowerPoint 后，另一 PowerShell 进程附着同一实例只需约 0.6 秒且释放后不会终止父进程，故根因收敛为逐例重复的应用生命周期成本。
+
+当前实现为串行 Office corpus 增加显式 `--powerpoint-session true`：父进程持有互斥锁和唯一 PowerPoint 进程，短期 loopback 凭据只授权白名单 rebuild；子门禁仍执行 fresh 重建、打开、保存状态、必要的保存重开、关闭及原质量检查，但不再逐例退出共享应用。keeper 启动前拒绝已有 POWERPNT，最终等待所创建进程真正消失；归属不唯一、授权、清理或退出失败均使任务失败。没有提高时限、增加重试、降低阈值或跳过检查。
+
+真实双案例集成中两例均通过，分别约 12.7 秒和 4.3 秒，第二例 COM 附着 36 毫秒、终结器 49 毫秒；统一关闭返回时 POWERPNT 进程数为 0。这只证明本机受控机制，不替代最终候选的常规 CI、Office smoke/full 和趋势验收。脱敏数据及限制见 [PowerPoint 会话复用证据](./evidence/office-powerpoint-session-reuse-2026-08-31.json)；详细边界见 [Runner 缓存说明](./office-runner-cache.md)。
+
 ### 已合入基线的验收状态（PR #31）
 
 PR #31 已受保护合入 main `0f186070a0b02feedf3eef185a140561654a7c17`，与最终受测提交 `874ff4d` 的源码 tree 完全一致。最终提交的两轮常规 CI（`33377989657`、`33377984989`）和 [PR Office 33377989658](https://github.com/cbhandsun/common-tools/actions/runs/33377989658) 均已通过：4/4 smoke、4/4 跨渲染器、5/5 独立 PPT 与 2/2 批量 PPT 编辑往返通过，趋势门禁通过。main [常规 CI 33380432749](https://github.com/cbhandsun/common-tools/actions/runs/33380432749) 也已通过；[全量 Office 33380432876](https://github.com/cbhandsun/common-tools/actions/runs/33380432876) 已结束且失败：31 个语料中 30 个通过，`triangle-topology` 在 180 秒用例时限处被终止（实测 180167 毫秒），后续跨渲染器、新建 PPT、编辑往返及趋势检查未执行。官方报告显示重建约 77 秒、渲染约 30 秒、像素差异约 1 秒，最后进入内容比较；PowerPoint 打开检查通过，但最终质量报告未生成。超时事实已确认，各阶段变慢的根因仍待诊断，不以增加超时、降低阈值或重跑成功代替修复。

@@ -10,8 +10,11 @@ const {
   isRetryableColdStartReport,
   normalizePptxFiles,
   powerPointOpenValidationScript,
-  resolveAsciiTempRoot
+  resolveAsciiTempRoot,
+  validatePowerPointOpen
 } = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com");
+const { STAGES } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence");
+const { URL_KEY, TOKEN_KEY } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client");
 
 test("PowerPoint open gate validates PPTX files at its boundary", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "powerpoint-open-gate-"));
@@ -76,6 +79,8 @@ test("PowerPoint open gate rejects files that PowerPoint dirties while opening",
   assert.match(script, /requires repair/);
   assert.match(script, /\$presentation\.Close/);
   assert.match(script, /\$app\.Quit/);
+  assert.match(script, /\$reuseApplication/);
+  assert.match(script, /Start-OpenGateStep 'session-detach'/);
   assert.match(script, /exit 1/);
 });
 
@@ -84,4 +89,39 @@ test("PowerPoint open gate uses an ASCII-safe isolated staging root", () => {
   assert.match(root, /slideclone-powerpoint-open-gate/);
   assert.ok(root.startsWith(resolveAsciiTempRoot()));
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("PowerPoint open gate consumes and authorizes a shared session before launching its child", async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "powerpoint-session-boundary-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const pptx = path.join(root, "source.pptx");
+  fs.writeFileSync(pptx, "fixture");
+  const environment = { [URL_KEY]: "http://127.0.0.1:12345/", [TOKEN_KEY]: "z".repeat(43), KEEP: "yes" };
+  let authorizations = 0;
+  const report = await validatePowerPointOpen([pptx], { outputDir: path.join(root, "out") }, {
+    sessionEnvironment: environment,
+    authorizePowerPointSession: async session => {
+      authorizations += 1;
+      assert.equal(session[TOKEN_KEY], "z".repeat(43));
+      return true;
+    },
+    run: async (_command, args) => {
+      const argument = name => args[args.indexOf(name) + 1];
+      const manifest = JSON.parse(fs.readFileSync(argument("-ManifestFile"), "utf8").replace(/^\uFEFF/u, ""));
+      assert.equal(manifest.reuseApplication, true);
+      fs.rmSync(manifest.stagingRoot, { recursive: true, force: true });
+      fs.writeFileSync(argument("-ReportFile"), JSON.stringify({ passed: true, sessionReused: true, results: [{ opened: true }] }));
+      fs.writeFileSync(argument("-EvidenceFile"), JSON.stringify({
+        version: 1,
+        invocationId: argument("-InvocationId"),
+        finished: true,
+        activeStage: null,
+        failedStage: null,
+        stages: Object.fromEntries(STAGES.map(stage => [stage, { attempts: 0, elapsedMs: 0, retries: 0, retryDelayMs: 0 }]))
+      }));
+    }
+  });
+  assert.equal(authorizations, 1);
+  assert.equal(report.sessionReused, true);
+  assert.deepEqual(environment, { KEEP: "yes" });
 });

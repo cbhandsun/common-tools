@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const { createProgressReporter } = require("./progress-reporter");
 
-const STAGES = Object.freeze(["lock", "com-start", "warmup", "open", "slide-count", "saved-state", "save-copy", "close", "quit", "finalizers", "cleanup"]);
+const STAGES = Object.freeze(["lock", "com-start", "warmup", "open", "slide-count", "saved-state", "save-copy", "close", "quit", "session-detach", "finalizers", "cleanup"]);
 const MAX_BYTES = 32768;
 const MAX_MS = 86400000;
 const MAX_COUNT = 100000;

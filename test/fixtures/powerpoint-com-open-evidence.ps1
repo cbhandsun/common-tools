@@ -69,6 +69,6 @@ function Release-FakeComObject {
 # The exact replacement count prevents a silent failure to exercise the script.
 $source = [IO.File]::ReadAllText($GeneratedScript)
 $pattern = '\[void\]\[Runtime.InteropServices.Marshal\]::ReleaseComObject\((\$[a-zA-Z]+)\)'
-if ([regex]::Matches($source, $pattern).Count -ne 6) { throw 'Unexpected COM release sites' }
+if ([regex]::Matches($source, $pattern).Count -ne 7) { throw 'Unexpected COM release sites' }
 $source = [regex]::Replace($source, $pattern, 'Release-FakeComObject $1')
 & ([scriptblock]::Create($source)) -ManifestFile $ManifestFile -ReportFile $ReportFile -EvidenceFile $EvidenceFile -InvocationId $InvocationId

@@ -6,11 +6,14 @@ const os = require("os");
 const path = require("path");
 const { run } = require("../lib/exec");
 const { emitOpenGateEvidence, powerPointOpenEvidenceScript, readOpenGateEvidence } = require("../lib/powerpoint-open-evidence");
+const { authorizePowerPointSession, takePowerPointSessionEnvironment } = require("../lib/powerpoint-session-client");
 
 async function validatePowerPointOpen(pptxFiles, options = {}, dependencies = {}) {
   const execute = dependencies.run || run;
   const pause = dependencies.wait || wait;
   const files = normalizePptxFiles(pptxFiles);
+  const sessionEnvironment = takePowerPointSessionEnvironment(dependencies.sessionEnvironment || process.env);
+  const reuseApplication = await (dependencies.authorizePowerPointSession || authorizePowerPointSession)(sessionEnvironment);
   const outputDir = path.resolve(options.outputDir || path.join(process.cwd(), "runs", "powerpoint-open-gate"));
   fs.mkdirSync(outputDir, { recursive: true });
 
@@ -32,6 +35,7 @@ async function validatePowerPointOpen(pptxFiles, options = {}, dependencies = {}
     fs.writeFileSync(manifestFile, `\uFEFF${JSON.stringify({
       files,
       repairInPlace: options.repairInPlace === true,
+      reuseApplication,
       stagingRoot: createValidationStagingRoot(outputDir)
     }, null, 2)}\n`, "utf8");
     try {
@@ -147,25 +151,34 @@ $app = $null
 $results = @()
 $comMutex = $null
 $comMutexHeld = $false
+$manifest = $null
+$reuseApplication = $false
 try {
-  # PowerPoint COM is process-global. Parallel validation processes can open
-  # each other's automation session and report false package failures.
-  $comMutex = New-Object System.Threading.Mutex($false, "Local\SlideclonePowerPointOpenGate")
-  $lockTimer = Start-OpenGateStep 'lock'
-  try { $comMutexHeld = $comMutex.WaitOne(150000) }
-  finally { Complete-OpenGateStep 'lock' $lockTimer }
-  if (-not $comMutexHeld) { throw "Timed out waiting for the PowerPoint COM validation lock." }
   $manifest = Get-Content -LiteralPath $ManifestFile -Raw -Encoding UTF8 | ConvertFrom-Json
   $repairInPlace = ($manifest.repairInPlace -eq $true)
+  $reuseApplication = ($manifest.reuseApplication -eq $true)
+  # PowerPoint COM is process-global. Parallel validation processes can open
+  # each other's automation session and report false package failures.
+  $lockTimer = Start-OpenGateStep 'lock'
+  try {
+    if (-not $reuseApplication) {
+      $comMutex = New-Object System.Threading.Mutex($false, "Local\SlideclonePowerPointOpenGate")
+      $comMutexHeld = $comMutex.WaitOne(150000)
+    }
+  }
+  finally { Complete-OpenGateStep 'lock' $lockTimer }
+  if (-not $reuseApplication -and -not $comMutexHeld) { throw "Timed out waiting for the PowerPoint COM validation lock." }
   $comTimer = Start-OpenGateStep 'com-start'
   try { $app = New-Object -ComObject PowerPoint.Application }
   finally { Complete-OpenGateStep 'com-start' $comTimer }
   if ($app -eq $null) { throw "PowerPoint.Application COM object is null." }
   # Fresh PowerPoint processes can still reject automation calls while their
   # first-run add-ins and repair services are initializing.
-  $warmupTimer = Start-OpenGateStep 'warmup'
-  try { Start-Sleep -Milliseconds 2500 }
-  finally { Complete-OpenGateStep 'warmup' $warmupTimer }
+  if (-not $reuseApplication) {
+    $warmupTimer = Start-OpenGateStep 'warmup'
+    try { Start-Sleep -Milliseconds 2500 }
+    finally { Complete-OpenGateStep 'warmup' $warmupTimer }
+  }
   # Do not let a repair prompt deadlock the unattended validation process.
   # A repaired file is still rejected below because PowerPoint marks it dirty.
   try { $app.DisplayAlerts = 1 } catch {}
@@ -386,10 +399,17 @@ catch {
 }
 finally {
   if ($app -ne $null) {
-    $quitTimer = Start-OpenGateStep 'quit'
-    try { $app.Quit() | Out-Null } catch {}
-    finally { Complete-OpenGateStep 'quit' $quitTimer }
-    try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($app) } catch {}
+    if ($reuseApplication) {
+      $detachTimer = Start-OpenGateStep 'session-detach'
+      try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($app) } catch {}
+      finally { Complete-OpenGateStep 'session-detach' $detachTimer }
+    }
+    else {
+      $quitTimer = Start-OpenGateStep 'quit'
+      try { $app.Quit() | Out-Null } catch {}
+      finally { Complete-OpenGateStep 'quit' $quitTimer }
+      try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($app) } catch {}
+    }
     $app = $null
   }
   $finalizerTimer = Start-OpenGateStep 'finalizers'
@@ -414,6 +434,7 @@ finally {
 }
 $report = [PSCustomObject]@{
   provider = "powerpoint-com-open-gate"
+  sessionReused = $reuseApplication
   passed = (@($results | Where-Object { $_.opened -ne $true }).Count -eq 0)
   results = $results
 }

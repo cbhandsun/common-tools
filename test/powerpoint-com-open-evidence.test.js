@@ -26,7 +26,7 @@ test("open-gate evidence tests belong to the unified external-process wave", () 
   assert.equal(entry?.resource, "external-process");
   const manifest = require("../package.json");
   const lintConfig = require("../eslint.config");
-  for (const file of ["lib/powerpoint-open-evidence.js", "lib/progress-reporter.js", "adapters/validate-powerpoint-com.js"]) {
+  for (const file of ["lib/powerpoint-open-evidence.js", "lib/powerpoint-session-client.js", "lib/powerpoint-session-broker.js", "lib/powerpoint-corpus-session.js", "lib/progress-reporter.js", "adapters/validate-powerpoint-com.js"]) {
     const source = `skills/pd-hifi-slideclone/scripts/${file}`;
     assert.ok(manifest.scripts.lint.includes(source));
     assert.ok(lintConfig.some(config => config.files?.includes(source) && config.rules?.["no-console"] === "error"));
@@ -47,7 +47,7 @@ test("open-gate evidence admits only bounded numeric stages for this invocation"
 
 test("runtime package validation requires the complete open-gate evidence dependency chain", () => {
   const { REQUIRED_FILES, parsePackMetadata } = require("../scripts/verify-runtime-package");
-  for (const source of ["adapters/validate-powerpoint-com.js", "lib/powerpoint-open-evidence.js", "lib/progress-reporter.js"]) {
+  for (const source of ["adapters/validate-powerpoint-com.js", "lib/powerpoint-open-evidence.js", "lib/powerpoint-session-client.js", "lib/powerpoint-session-broker.js", "lib/powerpoint-corpus-session.js", "lib/progress-reporter.js"]) {
     const file = `skills/pd-hifi-slideclone/scripts/${source}`;
     assert.ok(REQUIRED_FILES.includes(file));
     const metadata = [{ filename: "runtime.tgz", size: 100, files: REQUIRED_FILES.filter(item => item !== file).map(item => ({ path: item, size: 1 })) }];
@@ -123,6 +123,7 @@ test("Node open-gate boundary preserves failure, records every launch and reject
     let launches = 0;
     const waits = [];
     const operation = validatePowerPointOpen([source], { outputDir }, {
+      sessionEnvironment: {},
       evidenceStream: { write: value => { output += value; } },
       wait: async ms => { waits.push(ms); },
       run: async (command, args, options) => {
@@ -166,13 +167,13 @@ test("generated PowerShell balances COM lifetimes through success, retry, null c
   const lifetimeFile = path.join(root, "lifetime.json");
   fs.writeFileSync(generated, powerPointOpenValidationScript());
   fs.writeFileSync(sourceFile, "fake package, never opened in Office");
-  for (const scenario of ["success", "retry", "null-collections", "slide-retry", "open-failure", "slide-failure", "open-release-failure", "slide-release-failure", "lock-failure"]) {
+  for (const scenario of ["success", "session-success", "retry", "null-collections", "slide-retry", "open-failure", "slide-failure", "open-release-failure", "slide-release-failure", "lock-failure"]) {
     fs.rmSync(evidenceFile, { force: true });
     fs.rmSync(reportFile, { force: true });
     fs.rmSync(lifetimeFile, { force: true });
     const stagingRoot = path.join(root, scenario);
     fs.mkdirSync(stagingRoot);
-    fs.writeFileSync(manifestFile, JSON.stringify({ files: [sourceFile], repairInPlace: true, stagingRoot }));
+    fs.writeFileSync(manifestFile, JSON.stringify({ files: [sourceFile], repairInPlace: true, reuseApplication: scenario === "session-success", stagingRoot }));
     const result = spawnSync(process.platform === "win32" ? "powershell.exe" : "pwsh", [
       "-NoProfile", "-NonInteractive", "-File", path.join(__dirname, "fixtures/powerpoint-com-open-evidence.ps1"),
       "-GeneratedScript", generated, "-ManifestFile", manifestFile, "-ReportFile", reportFile,
@@ -207,13 +208,14 @@ test("generated PowerShell balances COM lifetimes through success, retry, null c
         assert.equal(metrics.stages.open.retries, 0);
         assert.equal(metrics.stages["slide-count"].retries, 0);
       }
-      if (["success", "retry"].includes(scenario)) {
+      if (["success", "session-success", "retry"].includes(scenario)) {
         assert.equal(metrics.stages.open.attempts, scenario === "retry" ? 3 : 2);
         assert.equal(metrics.stages.open.retries, scenario === "retry" ? 1 : 0);
         assert.equal(metrics.stages.open.retryDelayMs, scenario === "retry" ? 600 : 0);
       }
       assert.equal(metrics.stages["save-copy"].attempts, scenario.endsWith("failure") ? 0 : 1);
-      assert.equal(metrics.stages.quit.attempts, 1);
+      assert.equal(metrics.stages.quit.attempts, scenario === "session-success" ? 0 : 1);
+      assert.equal(metrics.stages["session-detach"].attempts, scenario === "session-success" ? 1 : 0);
       assert.equal(JSON.parse(fs.readFileSync(reportFile, "utf8").replace(/^\uFEFF/, "")).passed, !scenario.endsWith("failure"));
     }
     assert.doesNotMatch(fs.readFileSync(evidenceFile, "utf8"), /source\.pptx|PRIVATE_VALUE/);

@@ -4,7 +4,7 @@
 const fs = require("fs");
 const path = require("path");
 const { summarizeTotals } = require("./golden-set-runner");
-const { runCorpusCases } = require("./lib/paddleocr-corpus-session");
+const { runPowerPointCorpusSession } = require("./lib/powerpoint-corpus-session");
 const { resolveCorpusCases, summarizeCorpusCoverage } = require("./lib/real-pptx-corpus");
 
 const skillRoot = path.resolve(__dirname, "..");
@@ -31,8 +31,9 @@ async function main() {
   const outputDir = path.resolve(args.out || path.join("runs", "real-pptx-corpus"));
   fs.mkdirSync(outputDir, { recursive: true });
   const executionCases = applyFreshExecution(selected.cases, truthy(args.fresh));
-  const { results, ocrSession } = await runCorpusCases(executionCases, {
+  const { results, ocrSession, officeSession } = await runPowerPointCorpusSession(executionCases, {
     sharedOcr: args["paddle-ocr-broker"],
+    sharedPowerPoint: args["powerpoint-session"],
     timeoutMs: positiveInteger(args["case-timeout-ms"], 180000),
     concurrency: resolveCorpusConcurrency(args.concurrency, args["allow-parallel-office"]),
     onStart: ({ index, total, entry }) => process.stderr.write(`[real-pptx-corpus] ${index + 1}/${total} start ${entry.id}\n`),
@@ -65,7 +66,8 @@ async function main() {
     performance,
     coverage,
     cases: reportCases,
-    ocrSession
+    ocrSession,
+    officeSession
   };
   const reportFile = path.join(outputDir, "real-pptx-corpus.report.json");
   fs.writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`, "utf8");
@@ -201,6 +203,7 @@ function usage() {
     "  --case-timeout-ms <ms>   Per-case timeout",
     "  --fresh <true>            Disable supported golden stage reuse",
     "  --paddle-ocr-broker <true|false>  Reuse OCR across at least two serialized supported cases",
+    "  --powerpoint-session <true|false> Reuse PowerPoint across at least two serialized supported cases",
     "  --help                   Print help"
   ].join("\n");
 }

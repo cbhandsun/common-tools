@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "candidateBaseCommit": "a8586faa9a636de845c48373088261b38cacfb38",
+  "scope": "local-controlled-office-diagnostic",
+  "diagnosis": {
+    "appOnlyCreateMs": 15236,
+    "appOnlyQuitMs": 19264,
+    "appOnlyFinalizerWaitMs": 16,
+    "conclusion": "PowerPoint process startup and shutdown dominate the repeated open-gate cost"
+  },
+  "addInExperiment": {
+    "temporarilyChanged": [
+      "iSlideTools.Connect",
+      "OfficePLUS.Connect"
+    ],
+    "restoredLoadBehavior": 3,
+    "beforeFinalizerWaitMs": 19234,
+    "disabledFinalizerWaitMs": 18302,
+    "restoredFinalizerWaitMs": 18928,
+    "adopted": false,
+    "sourceReportSha256": "277c5843e5c63be9e25d0659bc93134dcacaedcfdbaa516670401fdb358338a4"
+  },
+  "sharedSessionIntegration": {
+    "powerPointProcessesBefore": 0,
+    "powerPointProcessesAfterClose": 0,
+    "requests": 2,
+    "rejected": 0,
+    "createMs": 19834,
+    "caseElapsedMs": [12658, 4343],
+    "casePassed": [true, true],
+    "caseSessionReused": [true, true],
+    "secondCaseComStartMs": 36,
+    "secondCaseFinalizerMs": 49,
+    "quitMs": 19473,
+    "processExitWaitMs": 3251,
+    "releaseRemaining": 0,
+    "stderrBytes": 0,
+    "sourceReportSha256": "458d3d7f0ea7621851d47c9c4e22892b40d9693188881ff01a3439336e667e7b"
+  },
+  "controls": {
+    "qualityThresholdsChanged": false,
+    "retryBudgetsChanged": false,
+    "caseTimeoutsChanged": false,
+    "freshRebuildChanged": false,
+    "loopbackAuthentication": true,
+    "serializedOnly": true,
+    "refusesPreexistingPowerPoint": true,
+    "waitsForOwnedProcessExit": true
+  },
+  "limitations": [
+    "This is a local controlled two-case validation, not the protected full Office workflow.",
+    "The candidate requires regular CI and full Office validation before merge.",
+    "No production deployment, identity synchronization, device canary, or user-template canary was performed."
+  ]
+}

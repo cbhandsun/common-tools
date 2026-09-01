@@ -64,7 +64,9 @@ async function runCorpusCases(cases, options = {}, dependencies = {}) {
   if (enabled && options.concurrency !== 1) throw new Error("Shared corpus OCR requires serialized cases");
   const execute = dependencies.runCases || runCases;
   const environment = cleanEnvironment(options.environment || process.env);
-  const runOptions = { ...options, environmentForCase: () => environment };
+  const inheritedEnvironmentForCase = typeof options.environmentForCase === "function" ? options.environmentForCase : null;
+  const environmentForCase = (entry) => cleanEnvironment(inheritedEnvironmentForCase ? inheritedEnvironmentForCase(entry) : environment);
+  const runOptions = { ...options, environmentForCase };
   const eligibleCases = cases.filter(eligibleForBroker).length;
   if (!enabled || eligibleCases < 2) {
     return { results: await execute(cases, runOptions), ocrSession: Object.freeze({ enabled: false, eligibleCases }) };
@@ -82,8 +84,10 @@ async function runCorpusCases(cases, options = {}, dependencies = {}) {
   let executionError;
   let metrics;
   try {
-    const scoped = { ...environment, ...takeBrokerEnvironment({ ...broker.env }) };
-    runOptions.environmentForCase = (entry) => eligibleForBroker(entry) ? scoped : environment;
+    const brokerEnvironment = takeBrokerEnvironment({ ...broker.env });
+    runOptions.environmentForCase = (entry) => eligibleForBroker(entry)
+      ? { ...environmentForCase(entry), ...brokerEnvironment }
+      : environmentForCase(entry);
     results = await execute(cases, runOptions);
   } catch (error) {
     executionError = error;

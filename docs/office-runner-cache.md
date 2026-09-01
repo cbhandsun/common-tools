@@ -113,3 +113,13 @@ broker 的随机凭据只传给符合白名单的用例，并由用例入口取�
 语料报告新增 `ocrSession`，包含启用状态与适用用例数 `eligibleCases`；仅在实际启用时增加请求/完成/失败计数、排队和服务毫秒数，不包含地址、凭据或 OCR 内容。当前完整语料预期为 `{"enabled":false,"eligibleCases":1}`。逐例超时、质量阈值、fresh 重建、跨渲染器及编辑往返检查没有减少，也未新增重试。共享模型并不代表复用此前的质量报告。
 
 本地替身回归通过两个真实 Node 客户端证明冷启动需要 2 个 worker、共享会话只需 1 个，返回 OCR 内容一致。它只证明复用机制，不证明真实模型或完整 CI 的加速比例；实际收益及 triangle-topology 超时是否消除，仍须由候选提交的 full Office 报告验证。首次 Node 远端缓存上传耗时未在本批优化。
+
+## 单次 corpus 内复用 PowerPoint 进程（待正式验收）
+
+完整候选运行的阶段证据确认，重复的 PowerPoint 应用启动、退出和退出后的终结器等待占据逐例打开门禁的大部分时间；只创建并退出应用、不打开文档的本机诊断也分别耗时约 15.2 秒和 19.3 秒。临时禁用 iSlide 与 OfficePLUS 的 A-B-A 实验没有消除约 19 秒的稳定等待，两个加载项已在 `finally` 中恢复为原 `LoadBehavior=3`，因此不采用永久禁用加载项的方案。
+
+Office corpus 现可显式传入 `--powerpoint-session true`。父进程只在至少两个白名单 complex-graphic 用例且并发为 1 时创建一个 corpus 级 PowerPoint keeper；每个 rebuild 仍执行原来的 fresh 重建、写入、PowerPoint 打开、保存状态、必要的保存重开和质量验证，只把逐例应用所有权改为附着及释放代理，最终由 keeper 统一退出。质量阈值、逐例时限、打开/页数重试、跨渲染器检查、独立新建 PPT 和趋势预算均未降低。
+
+keeper 使用既有全局 Office 互斥锁，启动前拒绝接管任何已运行的 POWERPNT 进程，关闭时在 `Quit`、COM 释放和终结器之后继续等待它所创建的进程真正退出；退出超时或归属不唯一都会使门禁失败。短期随机凭据仅通过 `127.0.0.1` 鉴权端点发放，complex-graphic 入口立即从环境中消费，并只传给 rebuild 子进程；OCR、质量渲染和不适用用例不继承。报告中的 `officeSession` 只记录适用用例数、请求/拒绝计数以及创建、退出、终结器和进程退出等待毫秒数，不包含端点、token、路径或用户内容。
+
+本机真实 Office 的受控双案例验证中，两个完整打开门禁均通过，耗时约 12.7 秒和 4.3 秒；第二例 `com-start` 为 36 毫秒、finalizer 为 49 毫秒。keeper 创建约 19.8 秒、统一退出约 19.5 秒，额外等待进程消失约 3.3 秒，关闭返回时 POWERPNT 进程数为 0。该结果证明会话所有权和复用路径有效，但只是本机两例测量，不能直接换算为 full 工作流节省时间；受保护常规 CI 和完整 Office 验收仍须针对最终提交执行。脱敏数据见 [PowerPoint 会话复用证据](./evidence/office-powerpoint-session-reuse-2026-08-31.json)。

@@ -102,6 +102,7 @@ function buildOfficeRegressionPlan(args, environment, cwd, platform) {
       "--concurrency", "1",
       "--fresh", "true",
       "--paddle-ocr-broker", "true",
+      "--powerpoint-session", "true",
       "--case-timeout-ms", "600000",
       "--out", outDir
     ]),

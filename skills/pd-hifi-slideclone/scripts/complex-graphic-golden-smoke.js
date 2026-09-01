@@ -6,6 +6,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { createProgressLineForwarder, redactSecrets } = require("./lib/progress-reporter");
 const { takeBrokerEnvironment } = require("./lib/paddleocr-corpus-session");
+const { takePowerPointSessionEnvironment } = require("./lib/powerpoint-session-client");
 
 const STAGE_CACHE_FILE = ".complex-graphic-golden-cache.json";
 
@@ -13,6 +14,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help === "true" || args.h === "true") return process.stdout.write(`${usage()}\n`);
   const brokerEnvironment = takeBrokerEnvironment(process.env);
+  const powerPointSessionEnvironment = takePowerPointSessionEnvironment(process.env);
   const deck = normalizeDeckId(required(args.deck, "--deck"));
   const pages = normalizePages(required(args.pages, "--pages"));
   const out = path.resolve(args.out || path.join("runs", "complex-graphic-golden", deck));
@@ -39,7 +41,9 @@ async function main() {
   ) {
     markStageReused("rebuild", timings);
   } else {
-    await runStage("rebuild", timings, () => run("node", buildRebuildArgs({ workRoot, deck, pages, out })));
+    await runStage("rebuild", timings, () => run("node", buildRebuildArgs({ workRoot, deck, pages, out }), {
+      env: { ...process.env, ...powerPointSessionEnvironment }
+    }));
     stageCache.rebuild = { signature: rebuildSignature, completedAt: new Date().toISOString() };
     writeStageCache(cacheFile, stageCache);
   }
