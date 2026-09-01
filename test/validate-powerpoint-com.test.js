@@ -8,6 +8,7 @@ const path = require("path");
 const {
   createValidationStagingRoot,
   isRetryableColdStartReport,
+  isRetryableSessionAttachFailure,
   normalizePptxFiles,
   powerPointOpenValidationScript,
   resolveAsciiTempRoot,
@@ -60,6 +61,34 @@ test("PowerPoint open gate restarts only unambiguous cold-start states", () => {
     results: [{ error: "PowerPoint modified the presentation while opening it; the package requires repair." }]
   }), false);
   assert.equal(isRetryableColdStartReport({ passed: false, results: [] }), false);
+});
+
+test("PowerPoint open gate retries only a completed shared-session COM attach failure", () => {
+  const stages = Object.fromEntries(STAGES.map(stage => [stage, { attempts: 0, elapsedMs: 0, retries: 0, retryDelayMs: 0 }]));
+  stages.lock.attempts = 1;
+  stages["com-start"].attempts = 1;
+  stages.finalizers.attempts = 1;
+  stages.cleanup.attempts = 1;
+  const evidence = { status: "valid", finished: true, activeStage: null, failedStage: "com-start", stages };
+  assert.equal(isRetryableSessionAttachFailure(evidence, true), true);
+  assert.equal(isRetryableSessionAttachFailure(evidence, false), false);
+  for (const changes of [
+    { status: "missing" },
+    { status: "invalid" },
+    { finished: false },
+    { activeStage: "com-start" },
+    { failedStage: "open" }
+  ]) assert.equal(isRetryableSessionAttachFailure({ ...evidence, ...changes }, true), false);
+  for (const stage of ["open", "slide-count", "saved-state", "save-copy", "close", "quit", "session-detach"]) {
+    const changed = structuredClone(evidence);
+    changed.stages[stage].attempts = 1;
+    assert.equal(isRetryableSessionAttachFailure(changed, true), false, stage);
+  }
+  for (const [stage, attempts] of [["lock", 0], ["com-start", 2], ["finalizers", 0], ["cleanup", 0]]) {
+    const changed = structuredClone(evidence);
+    changed.stages[stage].attempts = attempts;
+    assert.equal(isRetryableSessionAttachFailure(changed, true), false, stage);
+  }
 });
 
 test("PowerPoint open gate rejects files that PowerPoint dirties while opening", () => {
@@ -148,4 +177,59 @@ test("PowerPoint open gate consumes and authorizes a shared session before launc
   assert.equal(authorizations, 1);
   assert.equal(report.sessionReused, true);
   assert.deepEqual(environment, { KEEP: "yes" });
+});
+
+test("PowerPoint open gate restarts a completed transient shared-session attach", async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "powerpoint-session-attach-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const pptx = path.join(root, "source.pptx");
+  fs.writeFileSync(pptx, "fixture");
+  let launches = 0;
+  const waits = [];
+  let output = "";
+  const report = await validatePowerPointOpen([pptx], { outputDir: path.join(root, "out") }, {
+    sessionEnvironment: { [URL_KEY]: "http://127.0.0.1:12345/", [TOKEN_KEY]: "z".repeat(43) },
+    authorizePowerPointSession: async () => true,
+    evidenceStream: { write: value => { output += value; } },
+    wait: async milliseconds => { waits.push(milliseconds); },
+    run: async (_command, args) => {
+      launches += 1;
+      const argument = name => args[args.indexOf(name) + 1];
+      const manifest = JSON.parse(fs.readFileSync(argument("-ManifestFile"), "utf8").replace(/^\uFEFF/u, ""));
+      assert.equal(manifest.reuseApplication, true);
+      fs.rmSync(manifest.stagingRoot, { recursive: true, force: true });
+      const stages = Object.fromEntries(STAGES.map(stage => [stage, { attempts: 0, elapsedMs: 0, retries: 0, retryDelayMs: 0 }]));
+      if (launches === 1) {
+        stages.lock.attempts = 1;
+        stages["com-start"].attempts = 1;
+        stages.finalizers.attempts = 1;
+        stages.cleanup.attempts = 1;
+        fs.writeFileSync(argument("-EvidenceFile"), JSON.stringify({
+          version: 1,
+          invocationId: argument("-InvocationId"),
+          finished: true,
+          activeStage: null,
+          failedStage: "com-start",
+          stages
+        }));
+        throw new Error("PRIVATE_VALUE");
+      }
+      fs.writeFileSync(argument("-ReportFile"), JSON.stringify({ passed: true, sessionReused: true, results: [{ opened: true }] }));
+      fs.writeFileSync(argument("-EvidenceFile"), JSON.stringify({
+        version: 1,
+        invocationId: argument("-InvocationId"),
+        finished: true,
+        activeStage: null,
+        failedStage: null,
+        stages
+      }));
+    }
+  });
+  assert.equal(report.passed, true);
+  assert.equal(launches, 2);
+  assert.deepEqual(waits, [3000]);
+  assert.doesNotMatch(output, /PRIVATE_VALUE|source\.pptx/u);
+  const events = output.trim().split("\n").map(line => JSON.parse(line.slice("[slideclone-progress] ".length)));
+  assert.ok(events.some(event => event.launchAttempt === 1 && event.phase === "com-start" && event.status === "failed"));
+  assert.ok(events.some(event => event.launchAttempt === 2 && event.phase === "attempt" && event.status === "done"));
 });
