@@ -26,11 +26,35 @@ test("PowerPoint open gate validates PPTX files at its boundary", () => {
   assert.throws(() => normalizePptxFiles([path.join(tmp, "missing.pptx")]), /was not found/);
 });
 
-test("PowerPoint open gate restarts only an unambiguous cold-start RPC rejection", () => {
+test("PowerPoint open gate restarts only unambiguous cold-start states", () => {
   assert.equal(isRetryableColdStartReport({
     passed: false,
     results: [{ error: "被呼叫方拒绝接收呼叫。 (RPC_E_CALL_REJECTED)" }]
   }), true);
+  assert.equal(isRetryableColdStartReport({
+    passed: false,
+    results: [{
+      opened: false,
+      slideCount: 1,
+      modifiedAfterOpen: true,
+      repairAttempted: false,
+      repairedInPlace: false,
+      finalizedByPowerPoint: true,
+      error: "PowerPoint modified the presentation while opening it; the package requires repair."
+    }]
+  }), true);
+  assert.equal(isRetryableColdStartReport({
+    passed: false,
+    results: [{
+      opened: false,
+      slideCount: 1,
+      modifiedAfterOpen: true,
+      repairAttempted: true,
+      repairedInPlace: false,
+      finalizedByPowerPoint: true,
+      error: "PowerPoint modified the presentation while opening it; the package requires repair."
+    }]
+  }), false);
   assert.equal(isRetryableColdStartReport({
     passed: false,
     results: [{ error: "PowerPoint modified the presentation while opening it; the package requires repair." }]

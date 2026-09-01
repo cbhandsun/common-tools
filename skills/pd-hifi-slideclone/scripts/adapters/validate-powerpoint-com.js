@@ -95,7 +95,19 @@ function isRetryableColdStartReport(report) {
   const results = Array.isArray(report?.results) ? report.results : [];
   return report?.passed === false
     && results.length > 0
-    && results.every((result) => /RPC_E_CALL_REJECTED|被呼叫方拒绝接收呼叫/i.test(String(result?.error || "")));
+    && results.every((result) => /RPC_E_CALL_REJECTED|被呼叫方拒绝接收呼叫/i.test(String(result?.error || ""))
+      || isTransientFinalizedCopyReadiness(result));
+}
+
+function isTransientFinalizedCopyReadiness(result) {
+  return result?.opened === false
+    && result?.modifiedAfterOpen === true
+    && result?.repairAttempted === false
+    && result?.repairedInPlace === false
+    && result?.finalizedByPowerPoint === true
+    && Number.isInteger(result?.slideCount)
+    && result.slideCount > 0
+    && result?.error === "PowerPoint modified the presentation while opening it; the package requires repair.";
 }
 
 function wait(milliseconds) {
