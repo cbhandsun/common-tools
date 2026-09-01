@@ -61,10 +61,20 @@ async function runPowerPointCorpusSession(cases, options = {}, dependencies = {}
     metrics = await broker.close();
   } catch (error) {
     if (executionError) throw new AggregateError([executionError, error], "Corpus execution and PowerPoint cleanup failed", { cause: error });
-    throw new Error("Corpus PowerPoint cleanup failed", { cause: error });
+    const diagnostic = safeCleanupDiagnostic(error);
+    const suffix = diagnostic ? ` (phase=${diagnostic.phase}, hresult=${diagnostic.hresult || "none"})` : "";
+    throw new Error(`Corpus PowerPoint cleanup failed${suffix}`, { cause: error });
   }
   if (executionError) throw executionError;
   return { ...outcome, officeSession: safeSessionMetrics(metrics, eligibleCases) };
 }
 
-module.exports = { eligibleForPowerPointSession, powerPointSessionEnabled, runPowerPointCorpusSession, safeSessionMetrics };
+function safeCleanupDiagnostic(error) {
+  const phase = error?.diagnostic?.phase;
+  const hresult = error?.diagnostic?.hresult;
+  if (error?.code !== "POWERPOINT_KEEPER_CLEANUP" || !/^[a-z-]{1,32}$/u.test(phase || "")) return null;
+  if (hresult !== null && !/^0x[0-9A-F]{8}$/u.test(hresult || "")) return null;
+  return Object.freeze({ phase, hresult });
+}
+
+module.exports = { eligibleForPowerPointSession, powerPointSessionEnabled, runPowerPointCorpusSession, safeCleanupDiagnostic, safeSessionMetrics };

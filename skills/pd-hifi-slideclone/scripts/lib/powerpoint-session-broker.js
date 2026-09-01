@@ -95,7 +95,7 @@ async function startPowerPointKeeper({ startupTimeoutMs = 60000 } = {}) {
               child.stdin.end("close\n");
               const closed = await nextKeeperMessage(iterator, KEEPER_TIMEOUT_MS);
               const exitCode = await waitForExit(child, childExit, KEEPER_TIMEOUT_MS);
-              if (closed.status !== "closed" || exitCode !== 0) throw new Error("PowerPoint keeper cleanup failed");
+              if (closed.status !== "closed" || exitCode !== 0) throw keeperCleanupError(closed);
               return { createMs: ready.createMs, quitMs: closed.quitMs, collectMs: closed.collectMs,
                 waitMs: closed.waitMs, exitMs: closed.exitMs, releaseRemaining: closed.releaseRemaining, stderrBytes };
             } finally {
@@ -119,11 +119,34 @@ async function startPowerPointKeeper({ startupTimeoutMs = 60000 } = {}) {
 function keeperScript() {
   return String.raw`$ErrorActionPreference = "Stop"
 $mutex = $null; $held = $false; $app = $null; $powerPointProcess = $null
+$stage = "initialization"
+function Get-ErrorCode($Exception) {
+  $value = $Exception
+  for ($depth = 0; $depth -lt 4 -and $null -ne $value.InnerException; $depth++) { $value = $value.InnerException }
+  if ($null -eq $value.HResult) { return $null }
+  return ("0x{0:X8}" -f ([long]$value.HResult -band 4294967295L))
+}
+function Test-TransientComFailure($Exception) {
+  return (Get-ErrorCode $Exception) -in @("0x80010001", "0x8001010A")
+}
+function Quit-PowerPointWithRetry($Application) {
+  if ($null -eq $Application) { throw "PowerPoint application is unavailable" }
+  for ($attempt = 1; $attempt -le 5; $attempt++) {
+    try { $Application.Quit() | Out-Null; return }
+    catch {
+      if (-not (Test-TransientComFailure $_.Exception) -or $attempt -eq 5) { throw }
+    }
+    Start-Sleep -Milliseconds (200 * $attempt)
+  }
+}
 try {
+  $stage = "mutex"
   $mutex = New-Object System.Threading.Mutex($false, "Local\SlideclonePowerPointOpenGate")
   $held = $mutex.WaitOne(0)
   if (-not $held) { throw "PowerPoint session mutex unavailable" }
+  $stage = "ownership"
   if (@(Get-Process -Name POWERPNT -ErrorAction SilentlyContinue).Count -ne 0) { throw "PowerPoint is already running" }
+  $stage = "create"
   $create = [Diagnostics.Stopwatch]::StartNew()
   $app = New-Object -ComObject PowerPoint.Application
   $create.Stop()
@@ -132,22 +155,43 @@ try {
   $powerPointProcess = $powerPointProcesses[0]
   [Console]::Out.WriteLine(([pscustomobject]@{status="ready";createMs=[long]$create.ElapsedMilliseconds}|ConvertTo-Json -Compress))
   [Console]::Out.Flush()
+  $stage = "command"
   if ([Console]::In.ReadLine() -ne "close") { throw "Invalid keeper command" }
-  $quit = [Diagnostics.Stopwatch]::StartNew(); $app.Quit() | Out-Null; $quit.Stop()
+  $stage = "quit"
+  $quit = [Diagnostics.Stopwatch]::StartNew(); Quit-PowerPointWithRetry $app; $quit.Stop()
+  $stage = "release"
   $remaining = [Runtime.InteropServices.Marshal]::ReleaseComObject($app); $app = $null
+  $stage = "collect"
   $collect = [Diagnostics.Stopwatch]::StartNew(); [GC]::Collect(); $collect.Stop()
   $wait = [Diagnostics.Stopwatch]::StartNew(); [GC]::WaitForPendingFinalizers(); $wait.Stop()
+  $stage = "process-exit"
   $exit = [Diagnostics.Stopwatch]::StartNew()
   if (-not $powerPointProcess.WaitForExit(30000)) { throw "PowerPoint process did not exit" }
   $exit.Stop()
+  $stage = "complete"
   [Console]::Out.WriteLine(([pscustomobject]@{status="closed";quitMs=[long]$quit.ElapsedMilliseconds;releaseRemaining=[int]$remaining;collectMs=[long]$collect.ElapsedMilliseconds;waitMs=[long]$wait.ElapsedMilliseconds;exitMs=[long]$exit.ElapsedMilliseconds}|ConvertTo-Json -Compress))
   [Console]::Out.Flush()
+}
+catch {
+  [Console]::Out.WriteLine(([pscustomobject]@{status="failed";phase=$stage;hresult=(Get-ErrorCode $_.Exception)}|ConvertTo-Json -Compress))
+  [Console]::Out.Flush()
+  throw
 }
 finally {
   if ($app -ne $null) { try { $app.Quit() | Out-Null } catch {}; try { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($app) } catch {} }
   if ($held -and $mutex -ne $null) { try { $mutex.ReleaseMutex() } catch {} }
   if ($mutex -ne $null) { $mutex.Dispose() }
 }`;
+}
+
+function keeperCleanupError(value) {
+  const phases = new Set(["initialization", "mutex", "ownership", "create", "command", "quit", "release", "collect", "process-exit", "complete"]);
+  const phase = phases.has(value?.phase) ? value.phase : "unknown";
+  const hresult = /^0x[0-9A-F]{8}$/u.test(value?.hresult || "") ? value.hresult : null;
+  const error = new Error("PowerPoint keeper cleanup failed");
+  error.code = "POWERPOINT_KEEPER_CLEANUP";
+  error.diagnostic = Object.freeze({ phase, hresult });
+  return error;
 }
 
 async function nextKeeperMessage(iterator, timeoutMs) {
@@ -189,4 +233,4 @@ function closeServer(server) {
 function authorized(header, token) { const value = typeof header === "string" && header.startsWith("Bearer ") ? header.slice(7) : ""; const actual = Buffer.from(value), expected = Buffer.from(token); return actual.length === expected.length && crypto.timingSafeEqual(actual, expected); }
 function sendJson(response, status, payload) { const body = Buffer.from(JSON.stringify(payload)); response.writeHead(status, { "content-type": "application/json", "content-length": body.length, "cache-control": "no-store" }); response.end(body); }
 
-module.exports = { keeperScript, safeKeeperMetrics, startPowerPointKeeper, startPowerPointSessionBroker };
+module.exports = { keeperCleanupError, keeperScript, safeKeeperMetrics, startPowerPointKeeper, startPowerPointSessionBroker };

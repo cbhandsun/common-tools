@@ -1,7 +1,10 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 const {
   URL_KEY,
@@ -10,11 +13,12 @@ const {
   cleanPowerPointSessionEnvironment,
   takePowerPointSessionEnvironment
 } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client");
-const { keeperScript, startPowerPointSessionBroker } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker");
+const { keeperCleanupError, keeperScript, startPowerPointSessionBroker } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker");
 const {
   eligibleForPowerPointSession,
   powerPointSessionEnabled,
-  runPowerPointCorpusSession
+  runPowerPointCorpusSession,
+  safeCleanupDiagnostic
 } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session");
 
 const root = path.resolve(__dirname, "..");
@@ -82,6 +86,29 @@ test("keeper refuses existing Office ownership and waits for its process to exit
   assert.match(script, /process ownership is ambiguous/);
   assert.match(script, /WaitForExit\(30000\)/);
   assert.match(script, /PowerPoint process did not exit/);
+  assert.match(script, /Quit-PowerPointWithRetry \$app/);
+  assert.match(script, /0x80010001/);
+  assert.match(script, /0x8001010A/);
+});
+
+test("keeper retries only transient Quit failures in generated PowerShell", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ct-powerpoint-keeper-test-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const generated = path.join(directory, "keeper.ps1");
+  fs.writeFileSync(generated, keeperScript());
+  const result = spawnSync(process.platform === "win32" ? "powershell.exe" : "pwsh", [
+    "-NoProfile", "-NonInteractive", "-File", path.join(__dirname, "fixtures", "powerpoint-keeper-quit.ps1"), "-GeneratedScript", generated
+  ], { encoding: "utf8", windowsHide: true, timeout: 30_000 });
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  assert.deepEqual(JSON.parse(result.stdout.trim()), { passed: true, checks: 6 });
+});
+
+test("keeper cleanup diagnostics admit only safe phase and HRESULT fields", () => {
+  const error = keeperCleanupError({ phase: "quit", hresult: "0x80010001", private: "secret" });
+  assert.deepEqual(safeCleanupDiagnostic(error), { phase: "quit", hresult: "0x80010001" });
+  assert.doesNotMatch(JSON.stringify(error.diagnostic), /secret/u);
+  assert.equal(safeCleanupDiagnostic(keeperCleanupError({ phase: "PRIVATE", hresult: "secret" })).phase, "unknown");
+  assert.equal(safeCleanupDiagnostic(new Error("private")), null);
 });
 
 test("one serialized PowerPoint session scopes credentials to supported corpus cases", async () => {
