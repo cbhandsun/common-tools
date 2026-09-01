@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $tokens = $null; $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($GeneratedScript, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Generated PowerPoint script did not parse.' }
-$functions = @('Find-Target', 'Get-ShapeById', 'Apply-Edit', 'Verify-Edit', 'Release-Com', 'Set-SmartArtMarker', 'Test-SmartArtMarker')
+$functions = @('Find-Target', 'Get-ShapeById', 'Apply-Edit', 'Verify-Edit', 'Release-Com', 'Set-SmartArtMarker', 'Test-SmartArtMarker', 'Get-ErrorCode', 'Test-TransientComFailure', 'Close-DeckWithRetry')
 foreach ($definition in $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
   if ($functions -contains $definition.Name) { . ([scriptblock]::Create($definition.Extent.Text)) }
 }
@@ -94,4 +94,21 @@ Require (Verify-Edit $deck $target) 'Recorded geometry edit did not survive targ
 $shape.Left = [single]10
 Require (-not (Verify-Edit $deck $target)) 'A lost geometry edit must still fail verification.'
 $checks += 3
+$transientClose = [pscustomobject]@{ Saved=0; Attempts=0 }
+$transientClose | Add-Member ScriptMethod Close {
+  $this.Attempts++
+  if ($this.Attempts -lt 3) { throw [Runtime.InteropServices.COMException]::new('busy', -2147418111) }
+}
+Close-DeckWithRetry $transientClose
+Require ($transientClose.Attempts -eq 3) 'Transient Office close failures were not retried to success.'
+Require ($transientClose.Saved -eq $msoTrue) 'The successfully closed deck was not marked saved.'
+$checks += 2
+$permanentClose = [pscustomobject]@{ Saved=0; Attempts=0 }
+$permanentClose | Add-Member ScriptMethod Close {
+  $this.Attempts++
+  throw [InvalidOperationException]::new('permanent')
+}
+Require-Failure { Close-DeckWithRetry $permanentClose }
+Require ($permanentClose.Attempts -eq 1) 'A non-transient close failure must not be retried.'
+$checks += 2
 [pscustomobject]@{ passed=$true; checks=$checks } | ConvertTo-Json -Compress

@@ -85,6 +85,22 @@ function Get-ErrorCode($Exception) {
   if ($null -eq $value.HResult) { return $null }
   return ("0x{0:X8}" -f ([long]$value.HResult -band 4294967295L))
 }
+function Test-TransientComFailure($Exception) {
+  return (Get-ErrorCode $Exception) -in @("0x80010001", "0x8001010A")
+}
+function Close-DeckWithRetry($Deck) {
+  if ($null -eq $Deck) { throw "The PowerPoint deck to close is unavailable." }
+  for ($attempt = 1; $attempt -le 5; $attempt++) {
+    try {
+      $Deck.Saved = $msoTrue
+      $Deck.Close()
+      return
+    } catch {
+      if (-not (Test-TransientComFailure $_.Exception) -or $attempt -eq 5) { throw }
+    }
+    Start-Sleep -Milliseconds (200 * $attempt)
+  }
+}
 function Open-Deck([string]$File) {
   for ($attempt = 1; $attempt -le 12; $attempt++) {
     try {
@@ -244,7 +260,7 @@ try {
       $deck.SaveCopyAs($edited, $ppSaveAsOpenXMLPresentation)
       Start-Sleep -Milliseconds 1200
       $stage = "close"
-      $deck.Saved = $msoTrue; $deck.Close(); Release-Com $deck; $deck = $null
+      Close-DeckWithRetry $deck; Release-Com $deck; $deck = $null
       Start-Sleep -Milliseconds 800
       $stage = "reopen"
       $reopened = Open-Deck $edited
@@ -254,8 +270,8 @@ try {
     } catch {
       $results += [pscustomobject]@{ file=$source; mode=[string]$case.mode; opened=($null -ne $deck); saved=(Test-Path -LiteralPath $edited); reopened=($null -ne $reopened); verified=$false; stage=$stage; hresult=(Get-ErrorCode $_.Exception); error=$_.Exception.Message }
     } finally {
-      if ($null -ne $reopened) { try { $reopened.Saved=$msoTrue; $reopened.Close() } catch {}; Release-Com $reopened }
-      if ($null -ne $deck) { try { $deck.Saved=$msoTrue; $deck.Close() } catch {}; Release-Com $deck }
+      if ($null -ne $reopened) { try { Close-DeckWithRetry $reopened } catch {}; Release-Com $reopened }
+      if ($null -ne $deck) { try { Close-DeckWithRetry $deck } catch {}; Release-Com $deck }
     }
   }
 } catch {
