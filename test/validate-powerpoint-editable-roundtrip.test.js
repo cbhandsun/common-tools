@@ -31,7 +31,7 @@ test("editable round-trip PowerPoint script edits a staging copy and verifies af
   assert.match(script, /0x80010001/);
   assert.match(script, /0x8001010A/);
   assert.match(script, /Start-Sleep -Milliseconds 1200/);
-  assert.match(script, /Verify-Edit \$reopened \$target/);
+  assert.match(script, /Verify-EditWithRetry \$reopened \$target/);
   assert.match(script, /ExpectedLeft=\$expectedLeft/);
   assert.match(script, /\$shape\.Left - \[double\]\$Target\.ExpectedLeft/);
   assert.match(script, /SlideclonePowerPointOpenGate/);

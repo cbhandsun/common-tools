@@ -163,10 +163,14 @@ function Find-TargetWithRetry($Deck, [string]$Mode) {
 }
 function Get-ShapeById($Deck, $Target) {
   if ($null -eq $Target -or $Target.Slide -isnot [int] -or $Target.Slide -lt 1 -or
-      $Target.Slide -gt [int]$Deck.Slides.Count -or $Target.Shape -isnot [int] -or $Target.Shape -lt 1) {
+      $Target.Shape -isnot [int] -or $Target.Shape -lt 1) {
     throw "The editable target identity is invalid."
   }
-  $slide = $Deck.Slides.Item($Target.Slide)
+  $slides = $Deck.Slides
+  $slideCount = [int]$slides.Count
+  if ($null -eq $slides -or $slideCount -lt 0 -or $slideCount -gt 100000) { throw "The deck slide collection is unavailable or out of bounds." }
+  if ($Target.Slide -gt $slideCount) { throw "The editable object could not be resolved." }
+  $slide = $slides.Item($Target.Slide)
   $shapes = $slide.Shapes
   $shapeCount = [int]$shapes.Count
   if ($null -eq $shapes -or $shapeCount -lt 0 -or $shapeCount -gt 100000) { throw "The slide shape collection is unavailable or out of bounds." }
@@ -247,6 +251,16 @@ function Verify-Edit($Deck, $Target) {
     return ([Math]::Abs(([double]$shape.Left - [double]$Target.ExpectedLeft)) -le 0.05)
   } finally { Release-Com $shape }
 }
+function Verify-EditWithRetry($Deck, $Target) {
+  for ($attempt = 1; $attempt -le 8; $attempt++) {
+    try { if (Verify-Edit $Deck $Target) { return $true } }
+    catch {
+      if (-not (Test-RetryableEditFailure $_.Exception) -or $attempt -eq 8) { throw }
+    }
+    if ($attempt -lt 8) { Start-Sleep -Milliseconds (300 * $attempt) }
+  }
+  return $false
+}
 
 try {
   $mutex = New-Object System.Threading.Mutex($false, "Local\SlideclonePowerPointOpenGate")
@@ -280,7 +294,7 @@ try {
       $stage = "reopen"
       $reopened = Open-Deck $edited
       $stage = "verify"
-      if (-not (Verify-Edit $reopened $target)) { throw "The edit did not survive PowerPoint save and reopen." }
+      if (-not (Verify-EditWithRetry $reopened $target)) { throw "The edit did not survive PowerPoint save and reopen." }
       $results += [pscustomobject]@{ file=$source; mode=[string]$case.mode; editedKind=[string]$target.Kind; opened=$true; saved=$true; reopened=$true; verified=$true; stage="complete" }
     } catch {
       $results += [pscustomobject]@{ file=$source; mode=[string]$case.mode; opened=($null -ne $deck); saved=(Test-Path -LiteralPath $edited); reopened=($null -ne $reopened); verified=$false; stage=$stage; hresult=(Get-ErrorCode $_.Exception); error=$_.Exception.Message }

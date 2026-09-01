@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $tokens = $null; $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($GeneratedScript, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Generated PowerPoint script did not parse.' }
-$functions = @('Find-Target', 'Find-TargetWithRetry', 'Get-ShapeById', 'Apply-Edit', 'Apply-EditWithRetry', 'Test-RetryableEditFailure', 'Verify-Edit', 'Release-Com', 'Set-SmartArtMarker', 'Test-SmartArtMarker', 'Get-ErrorCode', 'Test-TransientComFailure', 'Close-DeckWithRetry')
+$functions = @('Find-Target', 'Find-TargetWithRetry', 'Get-ShapeById', 'Apply-Edit', 'Apply-EditWithRetry', 'Test-RetryableEditFailure', 'Verify-Edit', 'Verify-EditWithRetry', 'Release-Com', 'Set-SmartArtMarker', 'Test-SmartArtMarker', 'Get-ErrorCode', 'Test-TransientComFailure', 'Close-DeckWithRetry')
 foreach ($definition in $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
   if ($functions -contains $definition.Name) { . ([scriptblock]::Create($definition.Extent.Text)) }
 }
@@ -137,4 +137,16 @@ Apply-EditWithRetry $delayedEditDeck $delayedEditTarget
 Require ($delayedShapes.Reads -eq 4) 'Edit did not retry only the temporarily unresolved target.'
 Require ($shape.Left -eq [single]11) 'Retried edit did not apply the recorded absolute intent.'
 $checks += 2
+$delayedVerifySlides = [pscustomobject]@{ Reads=0; Slide=$slide }
+$delayedVerifySlides | Add-Member ScriptProperty Count {
+  $this.Reads++
+  if ($this.Reads -le 3) { return 0 }
+  return 1
+}
+$delayedVerifySlides | Add-Member ScriptMethod Item { param($Index) return $this.Slide }
+$delayedVerifyDeck = [pscustomobject]@{ Slides=$delayedVerifySlides }
+Require (Verify-EditWithRetry $delayedVerifyDeck $delayedEditTarget) 'Verification did not survive a delayed reopened collection.'
+Require ($delayedVerifySlides.Reads -eq 4) 'Verification did not use the bounded reopened-collection retry.'
+Require-Failure { Verify-EditWithRetry $delayedVerifyDeck ([pscustomobject]@{ Slide='1'; Shape=17; Kind='geometry'; ExpectedLeft=[single]11 }) }
+$checks += 3
 [pscustomobject]@{ passed=$true; checks=$checks } | ConvertTo-Json -Compress
