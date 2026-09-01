@@ -6,7 +6,7 @@ const args = process.argv.slice(2);
 const langIndex = args.indexOf("--lang");
 const mode = langIndex >= 0 ? args[langIndex + 1] : "ch";
 
-process.stdout.write(`${JSON.stringify({
+if (mode !== "init-hang") process.stdout.write(`${JSON.stringify({
   type: "ready",
   protocolVersion: 2,
   paddleocrVersion: "3.7.0-test",

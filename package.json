@@ -245,7 +245,7 @@
     "common-tools:pack-project-audit": "node scripts/build-project-audit-runtime-package.js",
     "common-tools:sync-project-audit-plugin-runtime": "node scripts/sync-project-audit-plugin-runtime.js",
     "common-tools:test": "node scripts/test-sharded.js --suite common-tools",
-    "lint": "eslint packages scripts/*.js scripts/lib/office-node*.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-roundtrip-evidence.js skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip.js && node scripts/check-common-tools.js && node scripts/verify-slideclone-profiles.js && node scripts/verify-architecture-budgets.js",
+    "lint": "eslint packages scripts/*.js scripts/lib/office-node*.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-roundtrip-evidence.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session.js skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip.js skills/pd-hifi-slideclone/scripts/lib/progress-reporter.js skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com.js && node scripts/check-common-tools.js && node scripts/verify-slideclone-profiles.js && node scripts/verify-architecture-budgets.js",
     "typecheck": "tsc --project tsconfig.json",
     "test": "node --test",
     "test:unit": "node scripts/test-sharded.js --suite unit --shards 4",

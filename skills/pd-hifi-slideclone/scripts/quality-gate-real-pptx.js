@@ -15,6 +15,7 @@ const { validateReconstructionContracts } = require("./lib/reconstruction-contra
 const { evaluateDeckReconstructionBudget } = require("./lib/reconstruction-quality-budget");
 const {
   DEFAULT_OCR_ADAPTER,
+  boundedHeartbeatMs,
   consumePaddleOcrBrokerEnvironment,
   readPaddleOcrConfig,
   readReconstructionBudgetConfig,
@@ -33,6 +34,7 @@ const DEFAULT_THRESHOLDS = { acceptPixelDiffRatio: 0.22, acceptForegroundMissing
 async function main() {
   const startedAt = Date.now();
   const args = parseArgs(process.argv.slice(2));
+  const brokerConfig = consumePaddleOcrBrokerEnvironment(process.env);
   const outputFormat = readQualityGateOutputFormat(args);
   const progress = createProgressReporter(args);
   const timings = {};
@@ -108,7 +110,7 @@ async function main() {
       },
       textOcr: readTextOcrConfig(args),
       umiOcr: readUmiOcrConfig(args),
-      paddleOcr: { ...readPaddleOcrConfig(args), ...consumePaddleOcrBrokerEnvironment(process.env) }
+      paddleOcr: { ...readPaddleOcrConfig(args), ...brokerConfig }
     },
     skillRoot: path.resolve(__dirname, ".."),
     onProgress: progress
@@ -552,15 +554,6 @@ function sanitizeRendererError(value) {
     .replace(/(token|api[_-]?key|secret|password|cookie|license)\s*[=:]\s*[^\s,;]+/gi, "$1=[redacted]")
     .replace(/[\r\n]+/g, " ")
     .slice(-4000);
-}
-
-function boundedHeartbeatMs(value) {
-  if (value === undefined || value === null || value === "") return 10_000;
-  const number = Number(value);
-  if (!Number.isSafeInteger(number) || number < 0 || number > 120_000) {
-    throw new Error("--heartbeat-ms must be an integer between 0 and 120000");
-  }
-  return number === 0 ? 0 : Math.max(1_000, number);
 }
 
 function resolveRenderOutputDir(args, outputDir, irFile) {

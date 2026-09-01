@@ -85,6 +85,22 @@ function Get-ErrorCode($Exception) {
   if ($null -eq $value.HResult) { return $null }
   return ("0x{0:X8}" -f ([long]$value.HResult -band 4294967295L))
 }
+function Test-TransientComFailure($Exception) {
+  return (Get-ErrorCode $Exception) -in @("0x80010001", "0x8001010A")
+}
+function Close-DeckWithRetry($Deck) {
+  if ($null -eq $Deck) { throw "The PowerPoint deck to close is unavailable." }
+  for ($attempt = 1; $attempt -le 5; $attempt++) {
+    try {
+      $Deck.Saved = $msoTrue
+      $Deck.Close()
+      return
+    } catch {
+      if (-not (Test-TransientComFailure $_.Exception) -or $attempt -eq 5) { throw }
+    }
+    Start-Sleep -Milliseconds (200 * $attempt)
+  }
+}
 function Open-Deck([string]$File) {
   for ($attempt = 1; $attempt -le 12; $attempt++) {
     try {
@@ -137,20 +153,24 @@ function Find-Target($Deck, [string]$Mode) {
   throw "No editable object matched the requested round-trip mode."
 }
 function Find-TargetWithRetry($Deck, [string]$Mode) {
-  for ($attempt = 1; $attempt -le 8; $attempt++) {
+  for ($attempt = 1; $attempt -le 12; $attempt++) {
     try { return (Find-Target $Deck $Mode) }
     catch {
-      if ($attempt -eq 8) { throw }
-      Start-Sleep -Milliseconds (300 * $attempt)
+      if ($attempt -eq 12) { throw }
+      Start-Sleep -Milliseconds (400 * $attempt)
     }
   }
 }
 function Get-ShapeById($Deck, $Target) {
   if ($null -eq $Target -or $Target.Slide -isnot [int] -or $Target.Slide -lt 1 -or
-      $Target.Slide -gt [int]$Deck.Slides.Count -or $Target.Shape -isnot [int] -or $Target.Shape -lt 1) {
+      $Target.Shape -isnot [int] -or $Target.Shape -lt 1) {
     throw "The editable target identity is invalid."
   }
-  $slide = $Deck.Slides.Item($Target.Slide)
+  $slides = $Deck.Slides
+  $slideCount = [int]$slides.Count
+  if ($null -eq $slides -or $slideCount -lt 0 -or $slideCount -gt 100000) { throw "The deck slide collection is unavailable or out of bounds." }
+  if ($Target.Slide -gt $slideCount) { throw "The editable object could not be resolved." }
+  $slide = $slides.Item($Target.Slide)
   $shapes = $slide.Shapes
   $shapeCount = [int]$shapes.Count
   if ($null -eq $shapes -or $shapeCount -lt 0 -or $shapeCount -gt 100000) { throw "The slide shape collection is unavailable or out of bounds." }
@@ -158,7 +178,7 @@ function Get-ShapeById($Deck, $Target) {
     $shape = $shapes.Item($shapeIndex)
     if ($shape.Id -is [int] -and $shape.Id -eq $Target.Shape) { return $shape }
   }
-  throw "The edited object could not be resolved after reopen."
+  throw "The editable object could not be resolved."
 }
 function Set-SmartArtMarker($Shape) {
   $nodes = $Shape.SmartArt.AllNodes
@@ -170,7 +190,8 @@ function Set-SmartArtMarker($Shape) {
         $nodeShape = $nodeShapes.Item($shapeIndex)
         try {
           if ($nodeShape.TextFrame2.HasText -eq $msoTrue) {
-            $nodeShape.TextFrame2.TextRange.Text = ([string]$nodeShape.TextFrame2.TextRange.Text) + $marker
+            $current = [string]$nodeShape.TextFrame2.TextRange.Text
+            if (-not $current.Contains($marker)) { $nodeShape.TextFrame2.TextRange.Text = $current + $marker }
             return
           }
         } finally { Release-Com $nodeShape }
@@ -200,11 +221,25 @@ function Apply-Edit($Deck, $Target) {
     if ($Target.Kind -eq "smartart-text") {
       Set-SmartArtMarker $shape
     } elseif ($Target.Kind -eq "shape-text") {
-      $shape.TextFrame2.TextRange.Text = ([string]$shape.TextFrame2.TextRange.Text) + $marker
+      $current = [string]$shape.TextFrame2.TextRange.Text
+      if (-not $current.Contains($marker)) { $shape.TextFrame2.TextRange.Text = $current + $marker }
     } else {
-      $shape.Left = [single]($shape.Left + 1.0)
+      $shape.Left = [single]$Target.ExpectedLeft
     }
   } finally { Release-Com $shape }
+}
+function Test-RetryableEditFailure($Exception) {
+  if (Test-TransientComFailure $Exception) { return $true }
+  return $Exception.Message -eq "The editable object could not be resolved."
+}
+function Apply-EditWithRetry($Deck, $Target) {
+  for ($attempt = 1; $attempt -le 8; $attempt++) {
+    try { Apply-Edit $Deck $Target; return }
+    catch {
+      if (-not (Test-RetryableEditFailure $_.Exception) -or $attempt -eq 8) { throw }
+    }
+    Start-Sleep -Milliseconds (300 * $attempt)
+  }
 }
 function Verify-Edit($Deck, $Target) {
   $shape = Get-ShapeById $Deck $Target
@@ -215,6 +250,16 @@ function Verify-Edit($Deck, $Target) {
     if ($Target.Kind -eq "shape-text") { return ([string]$shape.TextFrame2.TextRange.Text).Contains($marker) }
     return ([Math]::Abs(([double]$shape.Left - [double]$Target.ExpectedLeft)) -le 0.05)
   } finally { Release-Com $shape }
+}
+function Verify-EditWithRetry($Deck, $Target) {
+  for ($attempt = 1; $attempt -le 8; $attempt++) {
+    try { if (Verify-Edit $Deck $Target) { return $true } }
+    catch {
+      if (-not (Test-RetryableEditFailure $_.Exception) -or $attempt -eq 8) { throw }
+    }
+    if ($attempt -lt 8) { Start-Sleep -Milliseconds (300 * $attempt) }
+  }
+  return $false
 }
 
 try {
@@ -239,23 +284,23 @@ try {
       $stage = "find-target"
       $target = Find-TargetWithRetry $deck ([string]$case.mode)
       $stage = "edit"
-      Apply-Edit $deck $target
+      Apply-EditWithRetry $deck $target
       $stage = "save"
       $deck.SaveCopyAs($edited, $ppSaveAsOpenXMLPresentation)
       Start-Sleep -Milliseconds 1200
       $stage = "close"
-      $deck.Saved = $msoTrue; $deck.Close(); Release-Com $deck; $deck = $null
+      Close-DeckWithRetry $deck; Release-Com $deck; $deck = $null
       Start-Sleep -Milliseconds 800
       $stage = "reopen"
       $reopened = Open-Deck $edited
       $stage = "verify"
-      if (-not (Verify-Edit $reopened $target)) { throw "The edit did not survive PowerPoint save and reopen." }
+      if (-not (Verify-EditWithRetry $reopened $target)) { throw "The edit did not survive PowerPoint save and reopen." }
       $results += [pscustomobject]@{ file=$source; mode=[string]$case.mode; editedKind=[string]$target.Kind; opened=$true; saved=$true; reopened=$true; verified=$true; stage="complete" }
     } catch {
       $results += [pscustomobject]@{ file=$source; mode=[string]$case.mode; opened=($null -ne $deck); saved=(Test-Path -LiteralPath $edited); reopened=($null -ne $reopened); verified=$false; stage=$stage; hresult=(Get-ErrorCode $_.Exception); error=$_.Exception.Message }
     } finally {
-      if ($null -ne $reopened) { try { $reopened.Saved=$msoTrue; $reopened.Close() } catch {}; Release-Com $reopened }
-      if ($null -ne $deck) { try { $deck.Saved=$msoTrue; $deck.Close() } catch {}; Release-Com $deck }
+      if ($null -ne $reopened) { try { Close-DeckWithRetry $reopened } catch {}; Release-Com $reopened }
+      if ($null -ne $deck) { try { Close-DeckWithRetry $deck } catch {}; Release-Com $deck }
     }
   }
 } catch {

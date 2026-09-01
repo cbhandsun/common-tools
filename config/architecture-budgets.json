@@ -10,7 +10,7 @@
     "skills/pd-hifi-slideclone/scripts/lib/diagram-understanding.js": { "maxLines": 3403, "maxBytes": 187847 },
     "skills/pd-hifi-slideclone/scripts/lib/visual-atoms.js": { "maxLines": 3150 },
     "skills/pd-hifi-slideclone/scripts/component-strategy-rebuild.js": { "maxLines": 2299 },
-    "skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx.js": { "maxLines": 2123 },
+    "skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx.js": { "maxLines": 2116 },
     "skills/pd-hifi-slideclone/scripts/lib/component-asset-learning.js": { "maxLines": 2224 },
     "skills/pd-hifi-slideclone/scripts/lib/relationship-native-shell.js": { "maxLines": 2186 },
     "skills/pd-hifi-slideclone/scripts/slideclone.js": { "maxLines": 1712 },

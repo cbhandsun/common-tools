@@ -3,12 +3,13 @@ $ErrorActionPreference = 'Stop'
 $tokens = $null; $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($GeneratedScript, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Generated PowerPoint script did not parse.' }
-$functions = @('Find-Target', 'Get-ShapeById', 'Apply-Edit', 'Verify-Edit', 'Release-Com', 'Set-SmartArtMarker', 'Test-SmartArtMarker')
+$functions = @('Find-Target', 'Find-TargetWithRetry', 'Get-ShapeById', 'Apply-Edit', 'Apply-EditWithRetry', 'Test-RetryableEditFailure', 'Verify-Edit', 'Verify-EditWithRetry', 'Release-Com', 'Set-SmartArtMarker', 'Test-SmartArtMarker', 'Get-ErrorCode', 'Test-TransientComFailure', 'Close-DeckWithRetry')
 foreach ($definition in $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
   if ($functions -contains $definition.Name) { . ([scriptblock]::Create($definition.Extent.Text)) }
 }
 $msoTrue = -1
 $marker = ' [slideclone-edit-check]'
+function Start-Sleep { param([int]$Milliseconds) }
 Add-Type @'
 using System;
 using System.Collections;
@@ -83,4 +84,69 @@ Require-Failure { Find-Target ([pscustomobject]@{ Slides=$brokenSlides }) 'geome
 Require-Failure { Find-Target ([pscustomobject]@{ Slides=(New-Collection @([pscustomobject]@{ Shapes=$null })) }) 'geometry' }
 Require-Failure { Get-ShapeById $deck $null }
 $checks += 5
+# A COM-backed layout can update between target selection and mutation. Apply
+# the recorded edit intent, not a second offset computed from a new position.
+$shape.Left = [single]10
+$target = Find-Target $deck 'geometry'
+$shape.Left = [single]20
+Apply-Edit $deck $target
+Require ($shape.Left -eq $target.ExpectedLeft) 'Geometry mutation diverged from the recorded expected position.'
+Require (Verify-Edit $deck $target) 'Recorded geometry edit did not survive target resolution.'
+$shape.Left = [single]10
+Require (-not (Verify-Edit $deck $target)) 'A lost geometry edit must still fail verification.'
+$checks += 3
+$transientClose = [pscustomobject]@{ Saved=0; Attempts=0 }
+$transientClose | Add-Member ScriptMethod Close {
+  $this.Attempts++
+  if ($this.Attempts -lt 3) { throw [Runtime.InteropServices.COMException]::new('busy', -2147418111) }
+}
+Close-DeckWithRetry $transientClose
+Require ($transientClose.Attempts -eq 3) 'Transient Office close failures were not retried to success.'
+Require ($transientClose.Saved -eq $msoTrue) 'The successfully closed deck was not marked saved.'
+$checks += 2
+$permanentClose = [pscustomobject]@{ Saved=0; Attempts=0 }
+$permanentClose | Add-Member ScriptMethod Close {
+  $this.Attempts++
+  throw [InvalidOperationException]::new('permanent')
+}
+Require-Failure { Close-DeckWithRetry $permanentClose }
+Require ($permanentClose.Attempts -eq 1) 'A non-transient close failure must not be retried.'
+$checks += 2
+$delayedSlides = [pscustomobject]@{ Reads=0; Slide=$slide }
+$delayedSlides | Add-Member ScriptProperty Count {
+  $this.Reads++
+  if ($this.Reads -le 8) { return 0 }
+  return 1
+}
+$delayedSlides | Add-Member ScriptMethod Item { param($Index) return $this.Slide }
+$delayedTarget = Find-TargetWithRetry ([pscustomobject]@{ Slides=$delayedSlides }) 'geometry'
+Require ($delayedTarget.Shape -eq 17) 'Target discovery did not survive a delayed PowerPoint collection.'
+Require ($delayedSlides.Reads -eq 9) 'Target discovery did not use the bounded extended readiness window.'
+$checks += 2
+$delayedShapes = [pscustomobject]@{ Reads=0; Shape=$shape }
+$delayedShapes | Add-Member ScriptProperty Count { return 1 }
+$delayedShapes | Add-Member ScriptMethod Item {
+  param($Index)
+  $this.Reads++
+  if ($this.Reads -le 3) { return [pscustomobject]@{ Id=999 } }
+  return $this.Shape
+}
+$delayedEditDeck = [pscustomobject]@{ Slides=(New-Collection @([pscustomobject]@{ Shapes=$delayedShapes })) }
+$delayedEditTarget = [pscustomobject]@{ Slide=1; Shape=17; Kind='geometry'; ExpectedLeft=[single]11 }
+Apply-EditWithRetry $delayedEditDeck $delayedEditTarget
+Require ($delayedShapes.Reads -eq 4) 'Edit did not retry only the temporarily unresolved target.'
+Require ($shape.Left -eq [single]11) 'Retried edit did not apply the recorded absolute intent.'
+$checks += 2
+$delayedVerifySlides = [pscustomobject]@{ Reads=0; Slide=$slide }
+$delayedVerifySlides | Add-Member ScriptProperty Count {
+  $this.Reads++
+  if ($this.Reads -le 3) { return 0 }
+  return 1
+}
+$delayedVerifySlides | Add-Member ScriptMethod Item { param($Index) return $this.Slide }
+$delayedVerifyDeck = [pscustomobject]@{ Slides=$delayedVerifySlides }
+Require (Verify-EditWithRetry $delayedVerifyDeck $delayedEditTarget) 'Verification did not survive a delayed reopened collection.'
+Require ($delayedVerifySlides.Reads -eq 4) 'Verification did not use the bounded reopened-collection retry.'
+Require-Failure { Verify-EditWithRetry $delayedVerifyDeck ([pscustomobject]@{ Slide='1'; Shape=17; Kind='geometry'; ExpectedLeft=[single]11 }) }
+$checks += 3
 [pscustomobject]@{ passed=$true; checks=$checks } | ConvertTo-Json -Compress

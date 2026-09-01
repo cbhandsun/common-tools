@@ -68,7 +68,10 @@ async function runCases(cases = [], options = {}) {
       options.onStart?.({ index, total: entries.length, entry });
       let result;
       try {
-        result = await run(entry, { timeoutMs: options.timeoutMs });
+        result = await run(entry, {
+          timeoutMs: options.timeoutMs,
+          ...(options.environmentForCase ? { env: options.environmentForCase(entry) } : {})
+        });
       } catch (error) {
         result = {
           id: entry?.id || `case-${index + 1}`,
@@ -135,7 +138,8 @@ function runCaseAsync(entry, options = {}) {
     const child = spawn(executable, command, {
       cwd: process.cwd(),
       windowsHide: true,
-      shell: false
+      shell: false,
+      ...(options.env ? { env: options.env } : {})
     });
     const settle = (result) => {
       if (settled) return;

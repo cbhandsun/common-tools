@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "status": "older-candidate-full-performance-trend-failed-open-gate-diagnostics-unverified",
+  "pullRequest": 32,
+  "olderCandidateFull": {
+    "revision": "a995b7a4f30f37bb9d2ce44840eec395b9d40b3a",
+    "runId": 33387917655,
+    "jobId": 99474687264,
+    "jobStartedAt": "2026-08-31T11:55:58Z",
+    "jobCompletedAt": "2026-08-31T12:41:42Z",
+    "status": "completed",
+    "conclusion": "failure",
+    "artifactId": 9758196506,
+    "artifactDigest": "sha256:01cc67916f8ae8ae09abff2257a58e421f95c5967c4ce7347b1950a13c15e7d7",
+    "environmentFingerprint": "7151d11f08b6c3bcde02723f243ac0f762ec36c907122fcf833af5008503297b",
+    "reportSha256": {
+      "office-environment.json": "a8d48f37a40ef565b6f635efc2704bdd9c56d9e2f0deb23d20dc04c917cf2c26",
+      "real-pptx-corpus.report.json": "194ccabda368ffd827c8297b022c3a5527b63c3f95d41f3cfdd265041fc20b04",
+      "cross-renderer/cross-renderer-report.json": "1c2b281da087fa712ffb0e420268ea1681fe4756d45da375742829efff85c959",
+      "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969",
+      "ppt-create-smoke/powerpoint-editable-roundtrip-summary.json": "ddd5f16e369819756edc507e166d554994d413ff6cc6624c499d059f0f4691f4",
+      "ppt-create-smoke/independent-corpus/powerpoint-editable-roundtrip-summary.json": "a37f19c9f15b7d5889991903bd9f429e02234360d7f3de3989d547954e9d41ac",
+      "quality-trend-report.json": "03816c7661a76ced387d205fefe21588eeb3918232d0b06a5c5fba8cc2fc6468",
+      "quality-history.snapshot.json": "15de423194e49319c7031f27d7443fee3cba20b5827aa3c7d061f03448c3c95b"
+    },
+    "passingChecks": {
+      "corpus": 31,
+      "crossRenderer": 4,
+      "independentDecks": 5,
+      "independentPages": 33,
+      "themes": 4,
+      "layouts": 22,
+      "independentEditableRoundtrips": 5,
+      "semanticAndImageEditableRoundtrips": 2
+    },
+    "ocrSession": {
+      "enabled": true,
+      "requests": 1,
+      "completed": 1,
+      "failed": 0,
+      "queueWaitMs": 0,
+      "serviceMs": 51865
+    },
+    "trend": {
+      "passed": false,
+      "comparedTargets": 31,
+      "compatibleHistorySnapshots": 4,
+      "failureCount": 1,
+      "failedTarget": "triangle-topology",
+      "failedMetric": "elapsedMs",
+      "reason": "window-regression",
+      "current": 157565,
+      "baseline": 86624,
+      "earliest": 88604,
+      "delta": 70941,
+      "cumulativeDelta": 68961,
+      "threshold": 60000,
+      "visualAndEditabilityMetricsUnchanged": true
+    }
+  },
+  "comparisonWithLatestPassingMain": {
+    "runId": 33360911889,
+    "jobId": 99391960449,
+    "corpusReportSha256": "d1156b1931c246abca8417f7fbca0b241cb2c35b57d30a8ee748d48620a3ae76",
+    "triangle": {
+      "oldElapsedMs": 85082,
+      "newElapsedMs": 157565,
+      "oldRebuildMs": 29164,
+      "newRebuildMs": 90159,
+      "oldQualityMs": 55683,
+      "newQualityMs": 67053,
+      "oldPageMs": 2898,
+      "newPageMs": 3111,
+      "oldPptxBuildMs": 1092,
+      "newPptxBuildMs": 1184,
+      "oldPowerPointOpenStart": "2026-08-31T05:51:14.7343891Z",
+      "oldPowerPointOpenDone": "2026-08-31T05:51:39.1639927Z",
+      "newPowerPointOpenStart": "2026-08-31T12:20:17.8268981Z",
+      "newPowerPointOpenDone": "2026-08-31T12:21:42.7941388Z"
+    },
+    "phaseEvidence": "Official job logs, bounded extraction of triangle progress timestamps and numeric durations only; no raw logs retained.",
+    "finding": "Most additional rebuild time is inside PowerPoint open validation; COM startup, lock waiting and internal retries are not yet separately measured.",
+    "rootCauseProven": false
+  },
+  "productionDeployed": false,
+  "limits": [
+    "Older-candidate full failed despite individual quality checks passing; neither the trend threshold nor history was changed.",
+    "One broker request proves no cross-case OCR reuse occurred in this full run, not the absence of in-process OCR batching.",
+    "Final-candidate Office checks are outstanding; no merge or production acceptance is established.",
+    "The repository-owned template simulation is not an owner-authorized real-user template canary."
+  ],
+  "ciVerifiedRevision": "21a631eaf0e60426dde3bcb225b6fe532a0ac047",
+  "ciVerifiedRevisionRuns": [
+    {
+      "runId": 33391403687,
+      "conclusion": "success"
+    },
+    {
+      "runId": 33391396495,
+      "conclusion": "success"
+    }
+  ],
+  "ciVerifiedRevisionOffice": {
+    "smokeRunId": 33391403662,
+    "fullRunId": 33392114866,
+    "verified": false
+  },
+  "diagnosticFollowup": {
+    "scope": "bounded PowerPoint open-gate stage timing and retries, no timeout or quality-threshold changes",
+    "realOfficeVerified": false
+  }
+}

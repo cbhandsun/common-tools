@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "status": "com-collection-lifetime-fix-local-verified-office-unverified",
+  "failedRun": {
+    "url": "https://github.com/cbhandsun/common-tools/actions/runs/33397104571",
+    "attempt": 1,
+    "head": "0d4929087bc88354b7d416898c019d1e52d6e20e",
+    "scope": "full",
+    "conclusion": "failure",
+    "durationSeconds": 4304,
+    "artifact": {
+      "id": 9762422862,
+      "name": "ppt-office-regression-33397104571",
+      "sizeBytes": 20191,
+      "digest": "sha256:506b64e53e88e530b1c498a751757dbdc05ab788a18a134762c523864c9afe26"
+    },
+    "corpus": {
+      "passing": 31,
+      "failing": 0,
+      "elapsedMs": 2880989,
+      "ocrSession": {
+        "enabled": false,
+        "eligibleCases": 1
+      }
+    },
+    "crossRenderer": {
+      "passing": 4,
+      "failing": 0
+    },
+    "independentCorpus": {
+      "decks": 5,
+      "pages": 33,
+      "themes": 4,
+      "layouts": 22,
+      "powerPointValidated": true,
+      "libreOfficeValidated": true
+    },
+    "independentRoundTrip": {
+      "expected": 5,
+      "passing": 5,
+      "failing": 0
+    },
+    "batchRoundTrip": {
+      "expected": 2,
+      "passing": 2,
+      "failing": 0
+    },
+    "trend": {
+      "passed": false,
+      "comparedTargets": 31,
+      "compatibleHistorySnapshots": 4,
+      "failureCount": 4,
+      "failedMetric": "elapsedMs",
+      "thresholdMs": 60000,
+      "failedTargets": [
+        {
+          "id": "closed-loop-cycle",
+          "currentMs": 144240,
+          "baselineMs": 51639.5,
+          "deltaMs": 92600.5
+        },
+        {
+          "id": "friction-network",
+          "currentMs": 152229,
+          "baselineMs": 52962.5,
+          "deltaMs": 99266.5
+        },
+        {
+          "id": "radial-capability-network",
+          "currentMs": 147115,
+          "baselineMs": 55371,
+          "deltaMs": 91744
+        },
+        {
+          "id": "stage-timeline",
+          "currentMs": 121382,
+          "baselineMs": 58202,
+          "deltaMs": 63180
+        }
+      ],
+      "passingHistorySave": "skipped"
+    },
+    "reportSha256": {
+      "office-environment.json": "90ef32f805f9117475b077d2f89e0662b9aacd61ec294602e16c22f8f99870c0",
+      "quality-history.snapshot.json": "15de423194e49319c7031f27d7443fee3cba20b5827aa3c7d061f03448c3c95b",
+      "quality-trend-report.json": "62cd348bc4d475a36429d6d7d7484626f11921bcb3ada7428ef0191c12a4ce9d",
+      "real-pptx-corpus.report.json": "639960e7817d65999201f68d93e40c393cb910dc0f77561b8e31b3eaba0f8dc4",
+      "cross-renderer/cross-renderer-report.json": "83b9f0f44c8a10744272b7c62d9e8b04dd617184b2c0c7d895d498f3f10e4137",
+      "ppt-create-smoke/powerpoint-editable-roundtrip-summary.json": "9605af5a5a1d8330408eab7b8093e468e08812edaea20f9b3a46aa2ff5525c46",
+      "ppt-create-smoke/ppt-create-office-smoke-report.json": "06dbb85c02945d24ab996646e913d73cfd889e1bc6e0a0a4dc8c19a9e4926969",
+      "ppt-create-smoke/independent-corpus/powerpoint-editable-roundtrip-summary.json": "a250b2f370a9d9d66f73b343ee50b97ba3c4a3c29078181cf96939b0d3e3b3ae"
+    }
+  },
+  "observedPhases": {
+    "scope": "Per-case checkpoints read before Runner checkout advanced; not a controlled performance comparison.",
+    "cases": [
+      {
+        "id": "closed-loop-cycle",
+        "comStartMs": 26304,
+        "finalizersMs": 19527,
+        "renderMs": 73594,
+        "lockMs": 51,
+        "retries": 0
+      },
+      {
+        "id": "friction-network",
+        "comStartMs": 45432,
+        "finalizersMs": 20054,
+        "renderMs": 24524,
+        "lockMs": 46,
+        "retries": 0
+      },
+      {
+        "id": "radial-capability-network",
+        "comStartMs": 73923,
+        "finalizersMs": 4104,
+        "renderMs": 18611,
+        "lockMs": 20,
+        "retries": 0
+      },
+      {
+        "id": "stage-timeline",
+        "comStartMs": 20469,
+        "finalizersMs": 18237,
+        "renderMs": 16469,
+        "lockMs": 43,
+        "retries": 0
+      }
+    ]
+  },
+  "fix": {
+    "problem": "Presentations and Slides collections were acquired through chained COM access and left for finalization after application Quit.",
+    "behavior": "Release each locally acquired collection once in finally, before application Quit. Clear released local references. Preserve all original gates, timeouts, retry budgets, GC and finalizer waiting.",
+    "releaseFailure": "A collection release exception fails the case instead of entering the open or slide retry loop; an unreturned presentation is still closed and released.",
+    "reference": "https://learn.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.marshal.releasecomobject?view=netframework-4.8.1",
+    "redRegression": {
+      "scenario": "success with finalized save and reopen",
+      "outstandingAtQuit": {
+        "presentations": 2,
+        "slides": 2
+      },
+      "expected": {
+        "presentations": 0,
+        "slides": 0
+      }
+    },
+    "controlledScenarios": [
+      "success",
+      "retry",
+      "null-collections",
+      "slide-retry",
+      "open-failure",
+      "slide-failure",
+      "open-release-failure",
+      "slide-release-failure",
+      "lock-failure"
+    ]
+  },
+  "localValidation": {
+    "relatedTests": 16,
+    "passed": 16,
+    "failed": 0,
+    "skipped": 0,
+    "command": "node --test --test-concurrency=1 test/powerpoint-com-open-evidence.test.js test/validate-powerpoint-com.test.js test/progress-reporter.test.js",
+    "unifiedCiEntry": "Existing unit-suite external-process test; no new discovery exclusion.",
+    "lint": "passed",
+    "typecheck": "passed",
+    "extendedTestLint": "passed",
+    "pluginVerification": "passed",
+    "runtimePackageVerification": "passed"
+  },
+  "limitations": [
+    "Balanced references in a generated-script fixture do not prove the cause of the four historical performance failures or quantify actual speedup.",
+    "A single saturated-CPU sample with available memory does not establish sustained contention during earlier cases.",
+    "This fix does not reuse PowerPoint sessions or skip fresh Office validation.",
+    "The predecessor's functional passes and regular CI successes do not validate this new candidate.",
+    "Production deployment, real identity flows, owner-device and real-template canaries, and operations drills remain unverified."
+  ]
+}

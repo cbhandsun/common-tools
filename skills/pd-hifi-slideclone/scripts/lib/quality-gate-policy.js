@@ -126,6 +126,15 @@ function assignOptionalInteger(target, key, value, minimum, maximum) {
   target[key] = number;
 }
 
+function boundedHeartbeatMs(value) {
+  if (value === undefined || value === null || value === "") return 10_000;
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < 0 || number > 120_000) {
+    throw new Error("--heartbeat-ms must be an integer between 0 and 120000");
+  }
+  return number === 0 ? 0 : Math.max(1_000, number);
+}
+
 function consumePaddleOcrBrokerEnvironment(environment = {}) {
   const brokerUrl = environment.SLIDECLONE_PADDLE_OCR_BROKER_URL;
   const brokerToken = environment.SLIDECLONE_PADDLE_OCR_BROKER_TOKEN;
@@ -136,6 +145,7 @@ function consumePaddleOcrBrokerEnvironment(environment = {}) {
 
 module.exports = {
   DEFAULT_OCR_ADAPTER,
+  boundedHeartbeatMs,
   consumePaddleOcrBrokerEnvironment,
   readPaddleOcrConfig,
   readReconstructionBudgetConfig,

@@ -8,6 +8,7 @@ const { spawn } = require("child_process");
 const { normalizeTimeoutMs } = require("../lib/process-boundaries");
 const { resolvePythonExecutable } = require("../lib/python-env");
 const { boxFromPolygon, normalizeOcrItems } = require("../lib/ocr-result-contract");
+const { waitForWorkersToClose } = require("../lib/paddleocr-worker-shutdown");
 
 const PROVIDER = "paddleocr-local-v1";
 const PROTOCOL_VERSION = 2;
@@ -18,6 +19,7 @@ let activeEngine = null;
 let activeIdentity = null;
 let processExitHookInstalled = false;
 const cachedSettingsIdentities = new Map();
+const workerEngines = new Set();
 
 async function paddleOcrLocal(input, context = {}) {
   const startedAt = Date.now();
@@ -192,6 +194,8 @@ async function startEngine(settings) {
 class PaddleOcrEngine {
   constructor(child, settings) {
     this.child = child;
+    workerEngines.add(this);
+    child.once("close", () => workerEngines.delete(this));
     this.settings = settings;
     this.buffer = "";
     this.bufferBytes = 0;
@@ -208,8 +212,7 @@ class PaddleOcrEngine {
   waitReady(timeoutMs) {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.close();
-        reject(new Error("PaddleOCR worker initialization timed out"));
+        this.close(new Error("PaddleOCR worker initialization timed out"));
       }, timeoutMs);
       this.ready = {
         resolve: (metadata) => {
@@ -748,6 +751,7 @@ module.exports = paddleOcrLocal;
 module.exports.maxConcurrency = 1;
 module.exports.runBatch = paddleOcrBatch;
 module.exports.closeActiveEngine = closeActiveEngine;
+module.exports.closeActiveEngineAndWait = () => waitForWorkersToClose([...workerEngines]);
 module.exports._private = {
   formatResult,
   resolveBroker,

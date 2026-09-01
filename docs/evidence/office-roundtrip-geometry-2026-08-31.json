@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "status": "deterministic-geometry-fix-local-verified-office-unverified",
+  "failedRun": {
+    "url": "https://github.com/cbhandsun/common-tools/actions/runs/33391403662",
+    "attempt": 1,
+    "head": "21a631eaf0e60426dde3bcb225b6fe532a0ac047",
+    "scope": "pr-smoke",
+    "conclusion": "failure",
+    "artifact": {
+      "id": 9759104494,
+      "name": "ppt-office-regression-33391403662",
+      "sizeBytes": 8372,
+      "digest": "sha256:d8484182bad3039084cfe85211a7857c99c29ac4dad0e1527e72cbd391d11ae0"
+    },
+    "corpus": { "passing": 4, "failing": 0, "ocrSession": { "enabled": false, "eligibleCases": 0 } },
+    "crossRenderer": { "passing": 4, "failing": 0 },
+    "independentRoundTrip": { "expected": 5, "passing": 5, "failing": 0 },
+    "batchRoundTrip": {
+      "invocationId": "3c7dae4a-dc7f-4dfc-810a-8cb87da41122",
+      "processStatus": "failed",
+      "reportStatus": "valid",
+      "expectedCases": 2,
+      "reportedCases": 2,
+      "failedCases": 1,
+      "failedCase": {
+        "index": 2,
+        "mode": "auto",
+        "opened": false,
+        "saved": true,
+        "reopened": true,
+        "verified": false,
+        "stage": "verify",
+        "hresult": "0x80131501"
+      }
+    },
+    "trendExecuted": false,
+    "reportSha256": {
+      "office-environment.json": "a7cb03a2ddf334266551c96c24088735da9f8b9a0c9012bb466a41c0e0ad3d68",
+      "quality-history.snapshot.json": "3708199b757c09c85394f1850689ea3977caf75bdc51183f1938f0437c262f01",
+      "real-pptx-corpus.report.json": "8c432095730c35200df53896e9f84c8a8b60af784def5e07f38748835dd865e9",
+      "cross-renderer/cross-renderer-report.json": "92fd9303be31efe89f4660c634dd6f7e38a74c647cba01a556a8614c9c702a7b",
+      "ppt-create-smoke/powerpoint-editable-roundtrip-summary.json": "026ae037e0862405da730e25f0dc9a32028573980b4adefafa9a7450ae9b24a0",
+      "ppt-create-smoke/independent-corpus/powerpoint-editable-roundtrip-summary.json": "8ba53c8a70f7825c4586480d77ac16e3182df8175e62902a033003e64de05069"
+    },
+    "limitations": [
+      "The archived auto-mode failure does not identify the selected edit kind or preserve the raw reason; geometry drift is not a proven cause of this historical Office failure.",
+      "The opened field on failure reflects a live deck reference; the reference is cleared after close, so false at verify does not establish an initial open failure.",
+      "The history artifact is restored input, not evidence that this failed run passed or recorded a new snapshot."
+    ]
+  },
+  "fix": {
+    "behavior": "Apply the geometry target's recorded ExpectedLeft instead of computing a second offset from a potentially changed live position.",
+    "regression": "Select a target at Left=10 (ExpectedLeft=11), change the live position to 20, and apply the edit. The old implementation fails the expected-position assertion; the corrected implementation writes 11 and passes target verification. Resetting the shape to 10 still fails verification.",
+    "generatedPowerShellChecks": 33,
+    "unchanged": ["save and reopen requirement", "geometry tolerance 0.05", "timeouts", "retry limits", "quality thresholds", "corpus coverage"]
+  },
+  "localVerification": {
+    "relatedTests": { "passed": 19, "failed": 0, "skipped": 0 },
+    "command": "node --test --test-concurrency=1 test/powerpoint-roundtrip-targets.test.js test/powerpoint-roundtrip-evidence.test.js test/validate-powerpoint-editable-roundtrip.test.js test/powerpoint-editable-roundtrip-cli.test.js",
+    "lint": "passed",
+    "typecheck": "passed",
+    "pluginVerification": "passed",
+    "runtimePackageVerification": "passed",
+    "unifiedCiEntry": "The target regression is discovered in the unit suite as an external-process test.",
+    "scope": "Generated production PowerShell functions execute with controlled object fixtures; this does not start real Office or establish the historical failure's cause."
+  },
+  "remaining": ["final candidate regular CI", "final candidate Office smoke and full regression", "PowerPoint open performance root cause", "authorized production and device acceptance"]
+}

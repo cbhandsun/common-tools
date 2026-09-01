@@ -34,6 +34,24 @@ function deliveryReport(overrides = {}) {
   };
 }
 
+test("golden-set runner scopes an environment to each child without mutating the parent", async () => {
+  const key = "SLIDECLONE_CORPUS_TEST_SCOPE";
+  const before = process.env[key];
+  const entries = ["first", "second"].map((id) => ({
+    id,
+    mode: "command-passes",
+    command: [process.execPath, "-e", `process.exit(process.env.${key} === '${id}' ? 0 : 23)`]
+  }));
+  const results = await runCases(entries, {
+    concurrency: 1,
+    timeoutMs: 5000,
+    environmentForCase: (entry) => ({ ...process.env, [key]: entry.id })
+  });
+  assert.deepEqual(results.map((result) => result.ok), [true, true]);
+  assert.equal(process.env[key], before);
+  assert.equal(JSON.stringify(results).includes('"env"'), false);
+});
+
 test("golden-set runner supports per-case timeout budgets", () => {
   assert.equal(caseTimeoutMs({ timeoutMs: 360000 }, 180000), 360000);
   assert.equal(caseTimeoutMs({ timeoutMs: "450000" }, 180000), 450000);

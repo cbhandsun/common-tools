@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "candidateBaseCommit": "a8586faa9a636de845c48373088261b38cacfb38",
+  "scope": "local-controlled-office-diagnostic",
+  "diagnosis": {
+    "appOnlyCreateMs": 15236,
+    "appOnlyQuitMs": 19264,
+    "appOnlyFinalizerWaitMs": 16,
+    "conclusion": "PowerPoint process startup and shutdown dominate the repeated open-gate cost"
+  },
+  "addInExperiment": {
+    "temporarilyChanged": [
+      "iSlideTools.Connect",
+      "OfficePLUS.Connect"
+    ],
+    "restoredLoadBehavior": 3,
+    "beforeFinalizerWaitMs": 19234,
+    "disabledFinalizerWaitMs": 18302,
+    "restoredFinalizerWaitMs": 18928,
+    "adopted": false,
+    "sourceReportSha256": "277c5843e5c63be9e25d0659bc93134dcacaedcfdbaa516670401fdb358338a4"
+  },
+  "sharedSessionIntegration": {
+    "powerPointProcessesBefore": 0,
+    "powerPointProcessesAfterClose": 0,
+    "requests": 2,
+    "rejected": 0,
+    "createMs": 19834,
+    "caseElapsedMs": [12658, 4343],
+    "casePassed": [true, true],
+    "caseSessionReused": [true, true],
+    "secondCaseComStartMs": 36,
+    "secondCaseFinalizerMs": 49,
+    "quitMs": 19473,
+    "processExitWaitMs": 3251,
+    "releaseRemaining": 0,
+    "stderrBytes": 0,
+    "sourceReportSha256": "458d3d7f0ea7621851d47c9c4e22892b40d9693188881ff01a3439336e667e7b"
+  },
+  "controls": {
+    "qualityThresholdsChanged": false,
+    "corpusRetryBudgetsChanged": false,
+    "caseTimeoutsChanged": false,
+    "freshRebuildChanged": false,
+    "loopbackAuthentication": true,
+    "serializedOnly": true,
+    "refusesPreexistingPowerPoint": true,
+    "waitsForOwnedProcessExit": true,
+    "editableRoundTripTransientCloseRetriesAdded": true,
+    "editableTargetReadinessAttempts": 12,
+    "editableTargetEditAttempts": 8,
+    "editableTargetEditIsIdempotent": true,
+    "finalizedCopyReadinessRetryIsBounded": true,
+    "reopenedTargetVerificationAttempts": 8,
+    "powerPointQuitAttempts": 5,
+    "powerPointQuitRetryHresults": [
+      "0x80010001",
+      "0x8001010A"
+    ],
+    "permanentErrorsFailImmediately": true,
+    "keeperExitWaitMs": 30000
+  },
+  "protectedValidation": {
+    "candidateCommit": "d054591f47ae6912bd951cfee4ec93f721feb91c",
+    "regularCi": {
+      "pushRunId": 33474523595,
+      "pushPassed": true,
+      "pullRequestRunId": 33474528301,
+      "pullRequestPassed": true,
+      "requiredPullRequestCheckPassed": true
+    },
+    "smoke": {
+      "runId": 33474528287,
+      "artifactId": 9787990809,
+      "artifactDigest": "sha256:aa10066338e8aef5353697d414f0c89c38a5fe0115ab5d606c6806ad7aedee39",
+      "corpusCases": 4,
+      "passingCorpusCases": 4,
+      "corpusElapsedMs": 167793,
+      "crossRendererPassing": 4,
+      "independentRoundTripsPassing": 5,
+      "batchRoundTripsPassing": 2,
+      "trendFailures": 0,
+      "passed": true
+    },
+    "full": {
+      "runId": 33475598003,
+      "artifactId": 9788913898,
+      "artifactDigest": "sha256:23d763ff30d17414f8d90216e8204bb68f7e8387f418feba6afa98f8960bf47b",
+      "coreStepElapsedSeconds": 1924,
+      "corpusCases": 31,
+      "passingCorpusCases": 31,
+      "corpusElapsedMs": 1457060,
+      "corpusAverageMs": 47002,
+      "corpusP50Ms": 44189,
+      "corpusP95Ms": 75323,
+      "corpusMaxMs": 98055,
+      "crossRendererPassing": 4,
+      "independentRoundTripsPassing": 5,
+      "batchRoundTripsPassing": 2,
+      "trendTargets": 31,
+      "trendFailures": 0,
+      "historySnapshotsBefore": 11,
+      "historySnapshotsAfter": 12,
+      "historyPrefixExact": true,
+      "officeSession": {
+        "eligibleCases": 30,
+        "requests": 30,
+        "rejected": 0,
+        "createMs": 33568,
+        "quitMs": 6734,
+        "collectMs": 12,
+        "processExitWaitMs": 3086,
+        "releaseRemaining": 0,
+        "stderrBytes": 0
+      },
+      "passed": true
+    },
+    "baseline": {
+      "commit": "a8586faa9a636de845c48373088261b38cacfb38",
+      "runId": 33406736536,
+      "coreStepElapsedSeconds": 3333,
+      "corpusElapsedMs": 2764956
+    },
+    "improvement": {
+      "coreStepReductionPercent": 42.27,
+      "corpusElapsedReductionPercent": 47.3
+    },
+    "priorPassingFull": {
+      "candidateCommit": "944f50c55605fd4a9f6c39188d3b84109afc58b0",
+      "runId": 33466706070,
+      "coreStepElapsedSeconds": 1295,
+      "corpusElapsedMs": 948877,
+      "passed": true
+    }
+  },
+  "limitations": [
+    "The final full run was slower than the prior passing full run, so the performance gain has observable runner and Office variance.",
+    "No production deployment, identity synchronization, device canary, or user-template canary was performed."
+  ]
+}

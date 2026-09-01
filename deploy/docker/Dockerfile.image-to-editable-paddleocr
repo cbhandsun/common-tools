@@ -17,6 +17,7 @@ COPY skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local.js /opt/padd
 COPY skills/pd-hifi-slideclone/scripts/lib/process-boundaries.js /opt/paddleocr/skill/scripts/lib/process-boundaries.js
 COPY skills/pd-hifi-slideclone/scripts/lib/python-env.js /opt/paddleocr/skill/scripts/lib/python-env.js
 COPY skills/pd-hifi-slideclone/scripts/lib/ocr-result-contract.js /opt/paddleocr/skill/scripts/lib/ocr-result-contract.js
+COPY skills/pd-hifi-slideclone/scripts/lib/paddleocr-worker-shutdown.js /opt/paddleocr/skill/scripts/lib/paddleocr-worker-shutdown.js
 COPY skills/pd-hifi-slideclone/examples/ocr-text-smoke.source.png /opt/paddleocr/healthcheck.png
 
 ENV PADDLE_PDX_CACHE_HOME=/opt/paddleocr/models

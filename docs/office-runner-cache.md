@@ -103,3 +103,27 @@ PR #20 已以 `c02047d0ab6efe56e15d970b11ba9db3ae055b40` 合入 main。新缓存
 第三轮 [full run 33341895591](https://github.com/cbhandsun/common-tools/actions/runs/33341895591) 已全部通过，官方日志确认 `reused=true`、`installed=false`、`reason=validated-cache-hit`：Node 标识 2 秒、缓存恢复 20 秒、校验 7 秒，合计 29 秒；Python 准备 16 秒，缓存保存跳过。该轮没有重复安装，但缓存传输仍有成本，相较此前直接安装约 29～30 秒并无显著速度优势。三轮同环境 full 均为 31/31，后两轮比较全部 31 个目标且无趋势失败；完整证据见上述 JSON。此结果不替代所有者授权的生产部署和远程 canary。
 
 .NET 暂时保持每轮锁定 restore/audit 和 build。尚未实施编译产物缓存，也没有跳过漏洞检查或构建验证。
+
+## 单次 corpus 内复用 OCR 模型（待正式验收）
+
+依赖安装缓存不等于模型进程复用。`run-office-ppt-regression.js` 为 corpus 传入 `--paddle-ocr-broker true`，仅在至少两个受控 complex-graphic OCR 用例可复用时，由 corpus 父进程持有共享 PaddleOCR broker。当前完整 manifest 的 31 个用例中仅 `triangle-topology` 符合条件，因此不启动 broker；单个质量进程内部已有 OCR 批处理，此改动不能视为当前整套语料的提速。独立调用 corpus 默认不启用；请求启用时并发必须为 1，不适用于并行 Office worker。该 broker 仅存活于本轮 corpus，不跨工作流保留服务或凭据。
+
+broker 的随机凭据只传给符合白名单的用例，并由用例入口取走，仅提供给质量检查子进程；质量 CLI 在读取输入及启动渲染之前也消费并删除环境变量，配置仅保留在当前进程内供 OCR 使用，重建、Office 与其他语料不继承凭据。此前质量 CLI 在渲染后才消费环境变量的缺陷已修正，入口边界回归覆盖缺省、仅 URL、仅 token 和完整配置；此回归不替代实际 Office 验收。OCR 配置身份校验、鉴权、输入上限及严格协议解析保持有效。退出时等待 worker 关闭，清理失败或超时仍使任务失败；Docker 镜像包含退出等待模块，并有实际 COPY 依赖闭包回归。
+
+语料报告新增 `ocrSession`，包含启用状态与适用用例数 `eligibleCases`；仅在实际启用时增加请求/完成/失败计数、排队和服务毫秒数，不包含地址、凭据或 OCR 内容。当前完整语料预期为 `{"enabled":false,"eligibleCases":1}`。逐例超时、质量阈值、fresh 重建、跨渲染器及编辑往返检查没有减少，也未新增重试。共享模型并不代表复用此前的质量报告。
+
+本地替身回归通过两个真实 Node 客户端证明冷启动需要 2 个 worker、共享会话只需 1 个，返回 OCR 内容一致。它只证明复用机制，不证明真实模型或完整 CI 的加速比例；实际收益及 triangle-topology 超时是否消除，仍须由候选提交的 full Office 报告验证。首次 Node 远端缓存上传耗时未在本批优化。
+
+## 单次 corpus 内复用 PowerPoint 进程（正式验收通过）
+
+完整候选运行的阶段证据确认，重复的 PowerPoint 应用启动、退出和退出后的终结器等待占据逐例打开门禁的大部分时间；只创建并退出应用、不打开文档的本机诊断也分别耗时约 15.2 秒和 19.3 秒。临时禁用 iSlide 与 OfficePLUS 的 A-B-A 实验没有消除约 19 秒的稳定等待，两个加载项已在 `finally` 中恢复为原 `LoadBehavior=3`，因此不采用永久禁用加载项的方案。
+
+Office corpus 现可显式传入 `--powerpoint-session true`。父进程只在至少两个白名单 complex-graphic 用例且并发为 1 时创建一个 corpus 级 PowerPoint keeper；每个 rebuild 仍执行原来的 fresh 重建、写入、PowerPoint 打开、保存状态、必要的保存重开和质量验证，只把逐例应用所有权改为附着及释放代理，最终由 keeper 统一退出。质量阈值、逐例时限、打开/页数重试、跨渲染器检查、独立新建 PPT 和趋势预算均未降低。
+
+keeper 使用既有全局 Office 互斥锁，启动前拒绝接管任何已运行的 POWERPNT 进程，关闭时在 `Quit`、COM 释放和终结器之后继续等待它所创建的进程真正退出；退出超时或归属不唯一都会使门禁失败。短期随机凭据仅通过 `127.0.0.1` 鉴权端点发放，complex-graphic 入口立即从环境中消费，并只传给 rebuild 子进程；OCR、质量渲染和不适用用例不继承。报告中的 `officeSession` 只记录适用用例数、请求/拒绝计数以及创建、退出、终结器和进程退出等待毫秒数，不包含端点、token、路径或用户内容。
+
+本机真实 Office 的受控双案例验证中，两个完整打开门禁均通过，耗时约 12.7 秒和 4.3 秒；第二例 `com-start` 为 36 毫秒、finalizer 为 49 毫秒。keeper 创建约 19.8 秒、统一退出约 19.5 秒，额外等待进程消失约 3.3 秒，关闭返回时 POWERPNT 进程数为 0。
+
+在候选 `9ce5f03` 已完整通过后，文档候选的额外 smoke 继续暴露 PowerPoint 冷启动边界。候选 `944f50c` 将文本、SmartArt 标记和绝对几何编辑保持为幂等操作，只对明确瞬时 HRESULT 或受控的目标解析错误做最多 8 次退避；随后又分别处理 `SaveCopyAs` 后 clean 副本短暂仍为 dirty、保存重开后 `Slides.Count` 短暂为 0，以及 keeper `Quit` 返回 `0x80010001`/`0x8001010A` 的情况。所有新增重试都有固定上限和精确白名单，真实原文件修复状态及永久错误立即失败；keeper 仍等待所拥有进程最多 30 秒，安全诊断只输出阶段与 HRESULT。对应生成脚本回归、本地失败工件单例、真实 `mixed-warm.pptx` 和 keeper 三轮真实启停均通过。
+
+最终候选 `d054591f` 的 push CI `33474523595`、PR CI `33474528301` 和 [Office smoke 33474528287](https://github.com/cbhandsun/common-tools/actions/runs/33474528287) 均通过。[full Office 33475598003](https://github.com/cbhandsun/common-tools/actions/runs/33475598003) 的 31/31 语料耗时 1457060 毫秒，平均 47002、P50 44189、P95 75323、最大 98055 毫秒；30 个适用用例共享一次 PowerPoint，30 个请求全部接受，最终 COM 引用余量和 stderr 字节均为 0。跨渲染器 4/4、独立编辑往返 5/5、批量往返 2/2、趋势目标 31/31 也全部通过，历史旧 11 条原样保留并追加第 12 条。相较 `a8586fa` full `33406736536`，corpus 耗时减少 47.30%，完整 Office 核心步骤从 55 分 33 秒降至 32 分 4 秒，减少 42.27%。前一成功 [full 33466706070](https://github.com/cbhandsun/common-tools/actions/runs/33466706070) 的 corpus 为 948877 毫秒、核心为 21 分 35 秒，说明专用 Runner 与 Office 仍存在明显单轮波动；文档保留两轮数据，不承诺以最佳轮次作为稳定耗时。依赖热命中时 Node 依赖只执行校验，Office 本身由 Runner 预装，并未在本轮重新安装。脱敏数据及工件 digest 见 [PowerPoint 会话复用证据](./evidence/office-powerpoint-session-reuse-2026-08-31.json)。
