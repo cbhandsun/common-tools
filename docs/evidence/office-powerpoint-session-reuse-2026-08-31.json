@@ -47,22 +47,27 @@
     "refusesPreexistingPowerPoint": true,
     "waitsForOwnedProcessExit": true,
     "editableRoundTripTransientCloseRetriesAdded": true,
-    "editableTargetReadinessAttempts": 12
+    "editableTargetReadinessAttempts": 12,
+    "editableTargetEditAttempts": 8,
+    "editableTargetEditIsIdempotent": true
   },
   "protectedValidation": {
-    "candidateCommit": "9ce5f03eb546240c3293dccb4ef8a79d8d54b42f",
+    "candidateCommit": "944f50c55605fd4a9f6c39188d3b84109afc58b0",
     "regularCi": {
-      "pushRunId": 33462080208,
-      "pullRequestRunId": 33462083360,
-      "passed": true
+      "pushRunId": 33465767591,
+      "pushPassed": false,
+      "pushFailureScope": "unrelated hosted-Windows worker-doctor child process exceeded its existing 15-second test timeout",
+      "pullRequestRunId": 33465770051,
+      "pullRequestPassed": true,
+      "requiredPullRequestCheckPassed": true
     },
     "smoke": {
-      "runId": 33462083321,
-      "artifactId": 9783774605,
-      "artifactDigest": "sha256:01bfd2b6a0401a607335bc392794763438d10e70c917336ff80ea8bd15db9439",
+      "runId": 33465770050,
+      "artifactId": 9785048117,
+      "artifactDigest": "sha256:d29c687034cbc5dd742534c35bbd0b92e9b69f09117ccf8a5c7bda33bf9cc9a1",
       "corpusCases": 4,
       "passingCorpusCases": 4,
-      "corpusElapsedMs": 122281,
+      "corpusElapsedMs": 177724,
       "crossRendererPassing": 4,
       "independentRoundTripsPassing": 5,
       "batchRoundTripsPassing": 2,
@@ -70,33 +75,33 @@
       "passed": true
     },
     "full": {
-      "runId": 33462933759,
-      "artifactId": 9784366927,
-      "artifactDigest": "sha256:846414644b84b9559238a91d645a93de65a85e91df1b6e033c51a73d49121c27",
-      "coreStepElapsedSeconds": 1339,
+      "runId": 33466706070,
+      "artifactId": 9785624101,
+      "artifactDigest": "sha256:ed07628fa0e8b10df74920e1f04156b7f1797628d01af7c821d5341def08eecb",
+      "coreStepElapsedSeconds": 1295,
       "corpusCases": 31,
       "passingCorpusCases": 31,
-      "corpusElapsedMs": 977949,
-      "corpusAverageMs": 31547,
-      "corpusP50Ms": 28225,
-      "corpusP95Ms": 46668,
-      "corpusMaxMs": 74720,
+      "corpusElapsedMs": 948877,
+      "corpusAverageMs": 30609,
+      "corpusP50Ms": 27860,
+      "corpusP95Ms": 65849,
+      "corpusMaxMs": 66419,
       "crossRendererPassing": 4,
       "independentRoundTripsPassing": 5,
       "batchRoundTripsPassing": 2,
       "trendTargets": 31,
       "trendFailures": 0,
-      "historySnapshotsBefore": 9,
-      "historySnapshotsAfter": 10,
+      "historySnapshotsBefore": 10,
+      "historySnapshotsAfter": 11,
       "historyPrefixExact": true,
       "officeSession": {
         "eligibleCases": 30,
         "requests": 30,
         "rejected": 0,
-        "createMs": 9453,
-        "quitMs": 4299,
+        "createMs": 32076,
+        "quitMs": 5028,
         "collectMs": 8,
-        "processExitWaitMs": 3022,
+        "processExitWaitMs": 3005,
         "releaseRemaining": 0,
         "stderrBytes": 0
       },
@@ -109,8 +114,8 @@
       "corpusElapsedMs": 2764956
     },
     "improvement": {
-      "coreStepReductionPercent": 59.83,
-      "corpusElapsedReductionPercent": 64.63
+      "coreStepReductionPercent": 61.15,
+      "corpusElapsedReductionPercent": 65.68
     }
   },
   "limitations": [
