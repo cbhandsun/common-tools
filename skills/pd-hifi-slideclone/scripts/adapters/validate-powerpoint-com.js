@@ -58,7 +58,9 @@ async function validatePowerPointOpen(pptxFiles, options = {}, dependencies = {}
       break;
     } catch (error) {
       const report = readValidationReport(reportFile);
-      if (launchAttempt < launchAttempts && isRetryableColdStartReport(report)) {
+      const evidence = readOpenGateEvidence(evidenceFile, invocationId);
+      if (launchAttempt < launchAttempts
+        && (isRetryableColdStartReport(report) || isRetryableSessionAttachFailure(evidence, reuseApplication))) {
         retryDelayMs = launchAttempt * 3000;
         await pause(retryDelayMs);
         continue;
@@ -108,6 +110,22 @@ function isTransientFinalizedCopyReadiness(result) {
     && Number.isInteger(result?.slideCount)
     && result.slideCount > 0
     && result?.error === "PowerPoint modified the presentation while opening it; the package requires repair.";
+}
+
+function isRetryableSessionAttachFailure(evidence, reuseApplication) {
+  const stages = evidence?.stages;
+  const untouched = ["open", "slide-count", "saved-state", "save-copy", "close", "quit", "session-detach"];
+  return reuseApplication === true
+    && evidence?.status === "valid"
+    && evidence.finished === true
+    && evidence.activeStage === null
+    && evidence.failedStage === "com-start"
+    && stages?.lock?.attempts === 1
+    && stages?.["com-start"]?.attempts === 1
+    && stages["com-start"].retries === 0
+    && untouched.every(stage => stages?.[stage]?.attempts === 0)
+    && stages?.finalizers?.attempts === 1
+    && stages?.cleanup?.attempts === 1;
 }
 
 function wait(milliseconds) {
@@ -458,6 +476,7 @@ if ($report.passed -ne $true) { exit 1 }
 module.exports = {
   createValidationStagingRoot,
   isRetryableColdStartReport,
+  isRetryableSessionAttachFailure,
   normalizePptxFiles,
   powerPointOpenValidationScript,
   resolveAsciiTempRoot,
