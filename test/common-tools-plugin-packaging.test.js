@@ -43,7 +43,7 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.equal(marketplace.plugins[0].source.path, "./plugins/common-tools");
   const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".codex-plugin", "plugin.json"), "utf8"));
   assert.equal(manifest.mcpServers, "./.mcp.json");
-  assert.match(manifest.version, /^0\.1\.19\+codex\./);
+  assert.match(manifest.version, /^0\.1\.20\+codex\./);
   assert.equal(manifest.version.split("+")[0], packageManifest.version);
   const mcp = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".mcp.json"), "utf8"));
   assert.deepEqual(mcp.mcpServers["common-tools"], { type: "http", url: "https://plugins.iepose.cn/mcp", oauth: { clientId: "common-tools-mcp" } });

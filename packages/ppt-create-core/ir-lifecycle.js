@@ -46,7 +46,7 @@ function applyObjectLifecycleOperation(ir, operation, index, { collections, vali
     const objectId = newObjectId(page, collections, operation.objectId);
     if (!["rect", "roundRect", "ellipse", "line"].includes(operation.shapeType)) throw new TypeError("editable shape type is invalid");
     page.shapes ||= [];
-    page.shapes.push({ id: objectId, type: operation.shapeType, box: { ...validateBox(operation.box, ir.slideSize) }, style: { fill: operation.shapeType === "line" ? "none" : "#E0F2FE", stroke: "#0284C7", opacity: 1, strokeWidthPt: 1 } });
+    page.shapes.push({ id: objectId, type: operation.shapeType, box: { ...validateBox(operation.box, ir.slideSize, operation.shapeType === "line") }, style: { fill: operation.shapeType === "line" ? "none" : "#E0F2FE", stroke: "#0284C7", opacity: 1, strokeWidthPt: 1 } });
     return true;
   }
   if (operation.type === "duplicate-object") {
@@ -57,7 +57,7 @@ function applyObjectLifecycleOperation(ir, operation, index, { collections, vali
     const objectId = newObjectId(page, collections, operation.newObjectId);
     for (const offset of [operation.offsetXPt, operation.offsetYPt]) if (typeof offset !== "number" || !Number.isFinite(offset) || offset < -4_000 || offset > 4_000) throw new TypeError("editable duplicate offset is invalid");
     const duplicate = clone(source.item); duplicate.id = objectId; duplicate.box = { ...duplicate.box, x: duplicate.box.x + operation.offsetXPt, y: duplicate.box.y + operation.offsetYPt };
-    validateBox(duplicate.box, ir.slideSize); page[source.collection].splice(source.index + 1, 0, duplicate);
+    validateBox(duplicate.box, ir.slideSize, source.collection === "shapes" && ["line", "connector"].includes(duplicate.type)); page[source.collection].splice(source.index + 1, 0, duplicate);
     return true;
   }
   if (operation.type === "delete-object") {

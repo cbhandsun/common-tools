@@ -184,6 +184,7 @@ test("team image worker rebuilds an ordered raw-image batch into one page per so
   fs.writeFileSync(builderFile, "const fs=require('node:fs'); const i=process.argv.indexOf('--out'); fs.writeFileSync(process.argv[i + 1], Buffer.from('PK\\x03\\x04'));", "utf8");
   const source = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"));
   const calls = [];
+  const semanticResults = [];
   const handler = createImageToEditableArchiveHandler({
     temporaryRoot, builderExecutable: process.execPath, builderArgs: [builderFile],
     rawImageOcr: async ({ pageIndex }) => { calls.push(`ocr-${pageIndex}`); return { lines: [] }; },
@@ -191,6 +192,9 @@ test("team image worker rebuilds an ordered raw-image batch into one page per so
       calls.push(`rebuild-${pageIndex}`);
       const rebuilt = boundedOcrSourceDeck({ metadata, ocr: { lines: [] }, sourceImage: metadata.assetPath });
       rebuilt.pages[0].shapes.push({ id: `shape-${pageIndex}`, type: "roundRect", box: { x: 4, y: 4, w: 120, h: 40 }, fill: "#FFFFFF", source: { editable: true, pageImage: metadata.assetPath } });
+      const semanticNative = Object.freeze({ matched: true, addedShapes: 1, connectors: 0 });
+      rebuilt.meta = { ...(rebuilt.meta || {}), semanticNative };
+      semanticResults.push(semanticNative);
       return { deck: rebuilt };
     },
     objectStore: { readObject: async () => archive([tarEntry("assets/source-001.png", source), tarEntry("assets/source-002.png", source)]), putObject: async () => {} }
@@ -201,6 +205,7 @@ test("team image worker rebuilds an ordered raw-image batch into one page per so
     assert.equal(output.quality.metrics.pages, 2);
     assert.equal(output.quality.metrics["native-shapes"], 2);
     assert.equal(output.quality.checks[0].name, "raw-image-batch-validated");
+    assert.deepEqual(semanticResults, [{ matched: true, addedShapes: 1, connectors: 0 }, { matched: true, addedShapes: 1, connectors: 0 }]);
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
 
@@ -279,9 +284,10 @@ test("remote image path reconstructs a high-confidence three-panel knowledge gra
   assert.ok(rebuilt.addedShapes >= 18);
   assert.ok(rebuilt.connectors >= 9);
   assert.equal(page.shapes.some((item) => item.id === "bad-check"), false);
+  assert.ok(page.shapes.filter((item) => item.source?.nativeComponentRole === "node").every((item) => item.type === "roundRect" && item.style.fill === "#FFFFFF"));
   const frames = page.shapes.filter((item) => item.source?.preserveResidualInterior === true);
-  assert.equal(frames.length, 4);
-  assert.ok(frames.every((item) => item.style.fill === "none"));
+  assert.equal(frames.length, 10);
+  assert.deepEqual([...new Set(frames.map((item) => item.source.nativeComponentRole))].sort(), ["layer-band", "node", "panel"]);
   assert.deepEqual(page.intent, { rasterBackgroundAllowed: true, primarySemanticStructureNative: true, semanticStructureProfile: "knowledge-graph-three-panel-v1" });
   assert.equal(applyKnowledgeGraphPanelNativeRebuild({ textBoxes: [box("普通图片", 10, 10)], shapes: [] }, { widthPt: 960, heightPt: 720 }).matched, false);
 });

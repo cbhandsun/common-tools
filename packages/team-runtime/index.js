@@ -1,6 +1,7 @@
 "use strict";
 
 const { resolveWorkerCompletion } = require("./worker-completion");
+const { storedWorkerFailure } = require("./worker-failure");
 
 const crypto = require("node:crypto");
 const { assertNonEmptyString, assertPlainObject, assertQualityReport, assertTransition } = require("../capability-contracts");
@@ -329,9 +330,9 @@ class TeamWorker {
         quality,
         ...(completion.error ? { error: completion.error } : {})
       });
-    } catch {
+    } catch (error) {
       if (await isCancellationRequested()) return this.repository.transition({ id: job.id, workerId: worker, from: "cancel_requested", to: "cancelled" });
-      return this.repository.transition({ id: job.id, workerId: worker, from: "running", to: "failed", error: { code: "WORKER_FAILED", message: "capability worker failed", retryable: false } });
+      return this.repository.transition({ id: job.id, workerId: worker, from: "running", to: "failed", error: storedWorkerFailure(error) });
     } finally { clearInterval(heartbeatTimer); if (activeHeartbeat) await activeHeartbeat; }
   }
 }

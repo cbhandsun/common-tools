@@ -10,6 +10,7 @@ const { assertQualityReport } = require("../capability-contracts");
 const { nativeObjectMetrics } = require("./team-native-rebuild");
 const { assertEditableInputDocument } = require("./document-input");
 const { QUALITY_GATE_REQUIRED } = require("../team-runtime/worker-completion");
+const { WorkerFailure } = require("../team-runtime/worker-failure");
 
 const MAX_DECK_BYTES = 1024 * 1024;
 const MAX_PAGES = 50;
@@ -179,10 +180,9 @@ function namespaceRawPageAssets(deck, pageRoot, root, pageNumber) {
     fs.mkdirSync(destinationAssets, { recursive: true }); fs.copyFileSync(path.join(sourceAssets, entry.name), path.join(destinationAssets, entry.name)); replacements.set(original, replacement);
   }
   function rewrite(value) {
-    if (Array.isArray(value)) { for (let index = 0; index < value.length; index += 1) value[index] = rewrite(value[index]); return value; }
+    if (Array.isArray(value)) return value.map((item) => rewrite(item));
     if (!value || typeof value !== "object") return typeof value === "string" && replacements.has(value) ? replacements.get(value) : value;
-    for (const [key, item] of Object.entries(value)) value[key] = rewrite(item);
-    return value;
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, rewrite(item)]));
   }
   return rewrite(deck);
 }
@@ -196,11 +196,12 @@ async function rebuildRawImages({ root, metadata, rawImageOcr, rawImageRebuilder
     const ocr = await rawImageOcr({ inputFile: source.inputFile, dimensions: source.dimensions, pageIndex: source.pageIndex, isCancellationRequested });
     if (await isCancellationRequested()) throw new Error("editable job was cancelled");
     const rebuilt = await rawImageRebuilder({ root: pageRoot, metadata: source, ocr, pageIndex: source.pageIndex, isCancellationRequested });
-    const deck = rebuilt?.deck;
+    let deck = rebuilt?.deck;
     if (!deck || !Array.isArray(deck.pages) || deck.pages.length !== 1) throw new Error("raw image rebuild must produce exactly one page per source image");
     if (!slideSize) slideSize = deck.slideSize;
     else if (deck.slideSize?.widthPt !== slideSize.widthPt || deck.slideSize?.heightPt !== slideSize.heightPt) throw new Error("raw image batch sources must have a consistent slide aspect ratio");
-    namespaceRawPageAssets(deck, pageRoot, root, source.pageIndex + 1);
+    try { deck = namespaceRawPageAssets(deck, pageRoot, root, source.pageIndex + 1); }
+    catch (error) { throw new WorkerFailure("IMAGE_ASSET_NAMESPACE_FAILED", { cause: error }); }
     deck.pages[0].pageIndex = source.pageIndex; pageDecks.push(deck.pages[0]); sourceImages.push(rebuilt.sourceImage || source.inputFile);
     const pageMetrics = nativeObjectMetrics(deck);
     if (pageMetrics.graphicalObjects < 1) throw new Error(`native image rebuild produced no editable graphical objects for page ${source.pageIndex + 1}`);
@@ -270,7 +271,11 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
         ...(visualQuality?.checks || [{ name: "quality-render-not-configured", passed: false }])
       );
       checks.push({ name: "pptx-generated", passed: true });
-      const delivered = createDelivery ? await createDelivery({ root, irFile: metadata.deckFile, pptxFile: outputFile }) : null;
+      let delivered = null;
+      if (createDelivery) {
+        try { delivered = await createDelivery({ root, irFile: metadata.deckFile, pptxFile: outputFile }); }
+        catch (error) { throw new WorkerFailure("IMAGE_DELIVERY_FAILED", { cause: error }); }
+      }
       if (delivered && (!Array.isArray(delivered.artifacts) || !Array.isArray(delivered.checks))) throw new Error("editable delivery adapter returned an invalid result");
       if (delivered) checks.push(...delivered.checks);
       const outputArtifacts = delivered?.artifacts || [{ name: "deck.pptx", file: outputFile, mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }];

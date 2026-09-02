@@ -29,9 +29,12 @@ function boundedText(value) {
   if (typeof value !== "string" || value.length > 32768 || value.includes("\0")) throw new TypeError("editable text value is invalid");
   return value;
 }
-function validateBox(box, slideSize) {
+function validateBox(box, slideSize, directedLine = false) {
   exactKeys(box, ["x", "y", "w", "h"], "editable object box");
-  if (![box.x, box.y, box.w, box.h].every(Number.isFinite) || box.x < 0 || box.y < 0 || box.w <= 0 || box.h <= 0 || box.x + box.w > slideSize.widthPt + 0.001 || box.y + box.h > slideSize.heightPt + 0.001) throw new TypeError("editable object box exceeds the slide boundary");
+  const values = [box.x, box.y, box.w, box.h];
+  const endX = box.x + box.w; const endY = box.y + box.h;
+  const invalidSize = directedLine ? box.w === 0 && box.h === 0 : box.w <= 0 || box.h <= 0;
+  if (!values.every(Number.isFinite) || invalidSize || box.x < 0 || box.y < 0 || endX < 0 || endY < 0 || box.x > slideSize.widthPt + 0.001 || box.y > slideSize.heightPt + 0.001 || endX > slideSize.widthPt + 0.001 || endY > slideSize.heightPt + 0.001) throw new TypeError("editable object box exceeds the slide boundary");
   return box;
 }
 function validateStylePatch(value) {
@@ -88,7 +91,7 @@ function validateEditableIr(ir) {
       if (page[collection] !== undefined && !Array.isArray(page[collection])) throw new TypeError(`editable Deck IR ${collection} is invalid`);
       for (const item of page[collection] || []) {
         if (!plainObject(item) || typeof item.id !== "string" || !item.id || item.id.length > 256 || containsUnsafeText(item.id) || ids.has(`${pageIndex}\0${item.id}`)) throw new TypeError("editable Deck IR object id is invalid");
-        ids.add(`${pageIndex}\0${item.id}`); validateBox(item.box, ir.slideSize);
+        ids.add(`${pageIndex}\0${item.id}`); validateBox(item.box, ir.slideSize, collection === "shapes" && ["line", "connector"].includes(item.type));
         if (collection === "textBoxes") boundedText(item.text);
       }
     }
@@ -133,7 +136,8 @@ function applyIrEditorPatch(rawIr, patch) {
     }
     if (operation.type === "set-box") {
       exactKeys(operation, ["type", "pageIndex", "objectId", "box"], `editable IR operation ${index + 1}`);
-      targetObject(ir, operation.pageIndex, operation.objectId).box = { ...validateBox(operation.box, ir.slideSize) };
+      const item = targetObject(ir, operation.pageIndex, operation.objectId);
+      item.box = { ...validateBox(operation.box, ir.slideSize, ["line", "connector"].includes(item.type)) };
       return;
     }
     if (operation.type === "set-rotation") {

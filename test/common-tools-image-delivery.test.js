@@ -58,6 +58,22 @@ test("image preservation candidates remain bounded and do not masquerade as new-
   assert.equal(plan.pages[0].decision.deliveryStatus, "partially-editable");
 });
 
+test("image delivery accepts directed native connectors with negative deltas inside the slide", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-image-directed-line-"));
+  try {
+    fs.mkdirSync(path.join(root, "reports")); fs.mkdirSync(path.join(root, "ir")); fs.mkdirSync(path.join(root, "pptx"));
+    const ir = sampleIr(); ir.pages[0].images = [];
+    ir.pages[0].shapes.push({ id: "reverse-link", type: "line", box: { x: 500, y: 300, w: -200, h: -100 }, style: { stroke: "#0284C7" } });
+    const irFile = path.join(root, "ir", "deck.final.json"); const pptxFile = path.join(root, "pptx", "deck.final.pptx");
+    fs.writeFileSync(irFile, JSON.stringify(ir)); fs.writeFileSync(pptxFile, Buffer.concat([Buffer.from("PK\u0003\u0004"), Buffer.alloc(64, 1)]));
+    fs.writeFileSync(path.join(root, "reports", "pipeline-result.json"), JSON.stringify({ ok: true, irFile, pptx: { pptxFile } }));
+    const result = createImageDeliveryArtifacts({ outputDir: root, buildPdf: fakePdf });
+    assert.equal(result.passed, true);
+    const delivered = JSON.parse(fs.readFileSync(result.files.irFile, "utf8"));
+    assert.deepEqual(delivered.pages[0].shapes.at(-1).box, { x: 500, y: 300, w: -200, h: -100 });
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("complex graphic gate rejects raster-only and oversized residual delivery", () => {
   const rasterOnly = sampleIr(); rasterOnly.pages[0].textBoxes = []; rasterOnly.pages[0].shapes = []; rasterOnly.pages[0].images[0].box = { x: 0, y: 0, w: 960, h: 540 };
   const rejected = createPreservationPlan(rasterOnly);

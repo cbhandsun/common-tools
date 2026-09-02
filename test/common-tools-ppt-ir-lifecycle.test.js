@@ -43,6 +43,15 @@ test("editable IR lifecycle adds shapes, replaces local image paths, and manages
   assert.ok(result.checks.some((check) => check.name === "ir-page-lifecycle-validated"));
 });
 
+test("editable IR lifecycle preserves directed line endpoints and rejects boundary escapes", () => {
+  const source = deck();
+  source.pages[0].shapes.push({ id: "reverse-link", type: "line", box: { x: 500, y: 300, w: -200, h: -100 }, style: { stroke: "#0284C7" } });
+  const updated = applyIrEditorPatch(source, patch(source, [{ type: "set-box", pageIndex: 0, objectId: "reverse-link", box: { x: 520, y: 320, w: -220, h: -120 } }]));
+  assert.deepEqual(updated.ir.pages[0].shapes[0].box, { x: 520, y: 320, w: -220, h: -120 });
+  assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-box", pageIndex: 0, objectId: "reverse-link", box: { x: 100, y: 100, w: -101, h: 0 } }])), /boundary/u);
+  assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-box", pageIndex: 0, objectId: "reverse-link", box: { x: 100, y: 100, w: 0, h: 0 } }])), /boundary/u);
+});
+
 test("editable IR lifecycle safely edits native table cells and chart data", () => {
   const source = deck();
   source.pages[0].tables.push({ id: "table", type: "table", box: { x: 40, y: 140, w: 400, h: 180 }, rows: [["Metric", "Value"], ["Revenue", "12"]], style: {} });

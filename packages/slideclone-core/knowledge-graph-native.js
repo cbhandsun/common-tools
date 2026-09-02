@@ -13,7 +13,7 @@ function source(detector, role, options = {}) {
   return { editable: true, nativeRebuild: true, detector: `${PREFIX}${detector}`, confidence: 0.94, semanticNativeStructure: true, componentOwnerKind: "knowledge-graph-panel", nativeComponentRole: role, ...options };
 }
 function shape(id, type, box, style, role) {
-  const preserveResidualInterior = role === "panel" || role === "layer-band";
+  const preserveResidualInterior = role === "panel" || role === "layer-band" || role === "node";
   return { id: `${PREFIX}${id}`, type, box: rounded(box), style, source: source(id, role, preserveResidualInterior ? { preserveResidualInterior: true } : {}) };
 }
 function connector(id, from, to, style = {}) {
@@ -56,7 +56,7 @@ function buildShapes(model) {
   }
   shapes.push(shape("layer-band", "roundRect", { x: left, y: h * 0.735, w: w - left * 2, h: h * 0.205 }, { fill: "none", stroke: "#D5E2EA", strokeWidthPt: 1.1, radiusPt: 10 }, "layer-band"));
   const nodeItems = [model.hub, model.translator, ...model.right.slice(0, 5)];
-  nodeItems.forEach((item, index) => shapes.push(shape(`node-${index + 1}`, index < 2 ? "ellipse" : "roundRect", { x: item.box.x - 11, y: item.box.y - 7, w: item.box.w + 22, h: item.box.h + 14 }, { fill: index < 2 ? "#E5F3FB" : "#FFFFFF", stroke: "#62A7D2", strokeWidthPt: 1.25, radiusPt: 8 }, "node")));
+  nodeItems.forEach((item, index) => shapes.push(shape(`node-${index + 1}`, "roundRect", { x: item.box.x - 11, y: item.box.y - 7, w: item.box.w + 22, h: item.box.h + 14 }, { fill: "#FFFFFF", stroke: index === 1 ? "#A7A7A7" : "#1473E6", strokeWidthPt: 1.25, radiusPt: 8 }, "node")));
   const hub = center(model.hub.box);
   for (const [index, item] of model.middle.filter((item) => item !== model.hub).slice(0, 6).entries()) shapes.push(connector(`hub-link-${index + 1}`, hub, center(item.box)));
   const rightCenter = center(model.right[Math.floor(model.right.length / 2)].box);
