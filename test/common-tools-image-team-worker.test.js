@@ -494,5 +494,6 @@ test("local deployment script keeps raw OCR opt-in and Plan mode non-mutating", 
   assert.match(deployScript, /COMMON_TOOLS_IMAGE_PADDLEOCR_ADAPTER/);
   assert.match(deployScript, /\/opt\/paddleocr\/paddleocr_worker\.py/);
   assert.match(deployScript, /COMMON_TOOLS_IMAGE_PADDLEOCR_HEALTHCHECK_SHA256/);
+  assert.equal((deployScript.match(/\.Replace\("`r`n", "`n"\)\.Replace\("`r", "`n"\)/g) || []).length, 2);
   assert.match(deployScript, /deployment = 'No containers or images were changed\.'/);
 });

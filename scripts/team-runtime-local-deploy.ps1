@@ -120,11 +120,12 @@ function Invoke-RawImageOcrImageBuild {
 function Resolve-TesseractRawImageOcrProfile {
   $inspect = & docker image inspect '--format' '{{.Id}}' $resolvedRawImageOcrImage
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($inspect | Out-String))) { throw 'Raw image OCR image is unavailable' }
-  $probe = @'
+$probe = @'
 set -eu
 sha256sum /usr/bin/tesseract | awk '{print $1}'
 tesseract --list-langs | grep -E '^(eng|chi_sim)$' | sort
 '@
+  $probe = $probe.Replace("`r`n", "`n").Replace("`r", "`n")
   $raw = & docker run '--rm' '--network' 'none' '--read-only' '--user' '10001:10001' '--tmpfs' '/tmp:rw,noexec,nosuid,size=64m' '--entrypoint' '/bin/sh' $resolvedRawImageOcrImage '-c' $probe
   if ($LASTEXITCODE -ne 0) { throw 'Raw image OCR image verification failed' }
   $lines = @($raw | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
@@ -139,12 +140,13 @@ tesseract --list-langs | grep -E '^(eng|chi_sim)$' | sort
 function Resolve-PaddleRawImageOcrProfile {
   $inspect = & docker image inspect '--format' '{{.Id}}' $resolvedRawImageOcrImage
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($inspect | Out-String))) { throw 'Raw image OCR image is unavailable' }
-  $probe = @'
+$probe = @'
 set -eu
 sha256sum /opt/paddleocr/venv/bin/python /opt/paddleocr/skill/scripts/adapters/ocr-paddleocr-local.js /opt/paddleocr/paddleocr_worker.py /opt/paddleocr/image_to_png.py /opt/paddleocr/healthcheck.png /opt/paddleocr/paddleocr_protocol.py | awk '{print $1}'
 /opt/paddleocr/venv/bin/python -c 'import importlib.metadata as m; print(m.version("paddlepaddle")); print(m.version("paddleocr"))'
 test -d /opt/paddleocr/models
 '@
+  $probe = $probe.Replace("`r`n", "`n").Replace("`r", "`n")
   $raw = & docker run '--rm' '--network' 'none' '--read-only' '--user' '10001:10001' '--tmpfs' '/tmp:rw,noexec,nosuid,size=64m' '--entrypoint' '/bin/sh' $resolvedRawImageOcrImage '-c' $probe
   if ($LASTEXITCODE -ne 0) { throw 'Raw image OCR image verification failed' }
   $lines = @($raw | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
