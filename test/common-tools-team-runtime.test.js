@@ -559,6 +559,39 @@ test("team Workers persist only fixed quality reports and hide historic arbitrar
   assert.equal(transitions[0].error.code, "WORKER_FAILED");
 });
 
+test("team worker preserves artifacts but fails a required quality gate", async () => {
+  const transitions = [];
+  const job = { id: "quality-failure", capability: "image-to-editable", outputPrefix: "owners/a/jobs/quality-failure/" };
+  const quality = { passed: false, checks: [{ name: "complex-graphic-native-gate", passed: false }], metrics: { pages: 1 } };
+  const artifact = { name: "deck.pptx", objectKey: `${job.outputPrefix}deck.pptx`, mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", sha256: "b".repeat(64) };
+  const worker = new TeamWorker({
+    repository: {
+      async claim() { return job; },
+      async heartbeat() { return true; },
+      async isCancellationRequested() { return false; },
+      async transition(value) { transitions.push(value); return value; }
+    },
+    handlers: { "image-to-editable": async () => ({ completionPolicy: "quality-gate-required", artifacts: [artifact], quality }) }
+  });
+  const completed = await worker.process({ id: job.id }, "worker-1");
+  assert.equal(completed.to, "failed");
+  assert.deepEqual(completed.artifacts, [artifact]);
+  assert.deepEqual(completed.quality, quality);
+  assert.deepEqual(completed.error, { code: "QUALITY_GATE_FAILED", message: "capability output did not pass required quality gates", retryable: false });
+  assert.equal(transitions.length, 1);
+});
+
+test("team worker allows audit capabilities to report failed quality without failing execution", async () => {
+  const job = { id: "audit-findings", capability: "project-audit", outputPrefix: "owners/a/jobs/audit-findings/" };
+  const worker = new TeamWorker({
+    repository: {
+      async claim() { return job; }, async heartbeat() { return true; }, async isCancellationRequested() { return false; }, async transition(value) { return value; }
+    },
+    handlers: { "project-audit": async () => ({ artifacts: [], quality: { passed: false, checks: [{ name: "audit-clean", passed: false }], metrics: {} } }) }
+  });
+  assert.equal((await worker.process({ id: job.id }, "worker-1")).to, "succeeded");
+});
+
 test("expired lease recovery atomically returns only matching pending deliveries to their capability queue", async () => {
   const queued = { id: "job-retry", capability: "image-to-editable", status: "queued" };
   const terminal = { id: "job-ended", capability: "image-to-editable", status: "failed" };

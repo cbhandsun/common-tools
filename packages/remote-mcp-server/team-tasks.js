@@ -36,7 +36,10 @@ function toDetailedTask(job) {
   const task = { resultType: "complete", taskId: assertTaskId(job.id), ...taskTiming(job) };
   if (["queued", "running", "cancel_requested"].includes(job.status)) return { ...task, status: "working", statusMessage: "Team job is in progress." };
   if (job.status === "succeeded") return { ...task, status: "completed", result: taskToolResult(job, "Team job completed.") };
-  if (["failed", "expired"].includes(job.status)) return { ...task, status: "completed", result: taskToolResult(job, "Team job did not complete.", true) };
+  if (["failed", "expired"].includes(job.status)) {
+    const qualityFailure = job.error?.code === "QUALITY_GATE_FAILED";
+    return { ...task, status: "completed", result: taskToolResult(job, qualityFailure ? "Team job produced artifacts but did not pass required quality gates." : "Team job did not complete.", true) };
+  }
   if (job.status === "cancelled") return { ...task, status: "cancelled", statusMessage: "Team job was cancelled." };
   if (job.status === "input_required") return { ...task, status: "failed", error: { code: -32603, message: "task input state is not supported" } };
   throw new Error("team job task status is invalid");

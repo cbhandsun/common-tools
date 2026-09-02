@@ -1,5 +1,7 @@
 "use strict";
 
+const { resolveWorkerCompletion } = require("./worker-completion");
+
 const crypto = require("node:crypto");
 const { assertNonEmptyString, assertPlainObject, assertQualityReport, assertTransition } = require("../capability-contracts");
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
@@ -315,7 +317,18 @@ class TeamWorker {
       await heartbeat();
       if (heartbeatFailure) throw heartbeatFailure;
       if (await isCancellationRequested()) return this.repository.transition({ id: job.id, workerId: worker, from: "cancel_requested", to: "cancelled" });
-      return this.repository.transition({ id: job.id, workerId: worker, from: "running", to: "succeeded", artifacts: validateArtifacts(job, output?.artifacts || []), quality: assertQualityReport(output?.quality) });
+      const artifacts = validateArtifacts(job, output?.artifacts || []);
+      const quality = assertQualityReport(output?.quality);
+      const completion = resolveWorkerCompletion(output, quality);
+      return this.repository.transition({
+        id: job.id,
+        workerId: worker,
+        from: "running",
+        to: completion.status,
+        artifacts,
+        quality,
+        ...(completion.error ? { error: completion.error } : {})
+      });
     } catch {
       if (await isCancellationRequested()) return this.repository.transition({ id: job.id, workerId: worker, from: "cancel_requested", to: "cancelled" });
       return this.repository.transition({ id: job.id, workerId: worker, from: "running", to: "failed", error: { code: "WORKER_FAILED", message: "capability worker failed", retryable: false } });
