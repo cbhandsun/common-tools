@@ -87,15 +87,20 @@ function createPreservationPlan(ir, rawPolicy = {}) {
     if (candidates.length === 0) candidates.push({ id: "preserve-native-v1", strategy: "native-first" });
     const selectedCandidateId = nativeObjects > 0 && residualImages > 0 ? "preserve-hybrid-v1" : nativeObjects > 0 ? "preserve-native-v1" : "preserve-raster-fallback-v1";
     const nativeCategories = ["shapes", "tables", "charts", "icons"].filter((name) => (page[name] || []).length > 0).length;
+    const nativeConnectors = (page.shapes || []).filter((shape) => shape?.type === "line" || shape?.type === "connector" || shape?.source?.connector === true).length;
     const editabilityTier = nativeObjects === 0 ? "raster-only" : nativeCategories >= 2 || nativeObjects >= 6 ? "native-complex" : residualImages > 0 ? "native-hybrid" : "native-basic";
     const slideArea = ir.slideSize.widthPt * ir.slideSize.heightPt;
     const nativeBoxes = ["textBoxes", "shapes", "tables", "charts", "icons"].flatMap((name) => (page[name] || []).map((item) => item.box));
     const residualBoxes = (page.images || []).map((item) => item.box); const nativeAreaRatio = unionArea(nativeBoxes, ir.slideSize) / slideArea; const residualAreaRatio = unionArea(residualBoxes, ir.slideSize) / slideArea;
     const largestResidualAreaRatio = residualBoxes.reduce((maximum, box) => { const clipped = clippedBox(box, ir.slideSize); return Math.max(maximum, clipped ? (clipped.right - clipped.left) * (clipped.bottom - clipped.top) / slideArea : 0); }, 0);
-    const rasterBackgroundException = page.intent?.rasterBackgroundAllowed === true && nativeObjects >= policy.minNativeObjects && nativeAreaRatio >= policy.minNativeAreaRatio;
+    const rasterBackgroundException = page.intent?.rasterBackgroundAllowed === true
+      && page.intent?.primarySemanticStructureNative === true
+      && nativeObjects >= Math.max(policy.minNativeObjects, 12)
+      && nativeConnectors >= 6
+      && nativeAreaRatio >= policy.minNativeAreaRatio;
     const nativeGatePassed = nativeObjects >= policy.minNativeObjects && nativeAreaRatio >= policy.minNativeAreaRatio && (rasterBackgroundException || (residualAreaRatio <= policy.maxResidualAreaRatio && largestResidualAreaRatio <= policy.maxLargestResidualAreaRatio));
     const deliveryStatus = residualImages === 0 && nativeGatePassed ? "fully-editable" : nativeGatePassed ? "partially-editable" : "not-editable-enough";
-    return { pageIndex: page.pageIndex, selectedCandidateId, candidates, metrics: { nativeObjects, nativeCategories, residualImages, editabilityTier, nativeAreaRatio, residualAreaRatio, largestResidualAreaRatio }, decision: { passed: nativeGatePassed, deliveryStatus, rasterBackgroundException, reasons: [...(nativeObjects < policy.minNativeObjects ? ["insufficient-native-objects"] : []), ...(nativeAreaRatio < policy.minNativeAreaRatio ? ["insufficient-native-area"] : []), ...(!rasterBackgroundException && residualAreaRatio > policy.maxResidualAreaRatio ? ["excessive-raster-residual-area"] : []), ...(!rasterBackgroundException && largestResidualAreaRatio > policy.maxLargestResidualAreaRatio ? ["oversized-raster-residual"] : [])] } };
+    return { pageIndex: page.pageIndex, selectedCandidateId, candidates, metrics: { nativeObjects, nativeCategories, nativeConnectors, residualImages, editabilityTier, nativeAreaRatio, residualAreaRatio, largestResidualAreaRatio }, decision: { passed: nativeGatePassed, deliveryStatus, rasterBackgroundException, reasons: [...(nativeObjects < policy.minNativeObjects ? ["insufficient-native-objects"] : []), ...(nativeAreaRatio < policy.minNativeAreaRatio ? ["insufficient-native-area"] : []), ...(!rasterBackgroundException && residualAreaRatio > policy.maxResidualAreaRatio ? ["excessive-raster-residual-area"] : []), ...(!rasterBackgroundException && largestResidualAreaRatio > policy.maxLargestResidualAreaRatio ? ["oversized-raster-residual"] : [])] } };
   });
   return Object.freeze({ version: "1.1", sourceFingerprint: fingerprint, semantics: "faithful-reconstruction-strategy-not-layout-reflow", policy, pages });
 }

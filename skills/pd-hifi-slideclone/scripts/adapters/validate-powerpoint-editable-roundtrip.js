@@ -241,6 +241,16 @@ function Apply-EditWithRetry($Deck, $Target) {
     Start-Sleep -Milliseconds (300 * $attempt)
   }
 }
+function Save-DeckCopyWithRetry($Deck, [string]$File) {
+  if ($null -eq $Deck -or [string]::IsNullOrWhiteSpace($File)) { throw "The PowerPoint save request is invalid." }
+  for ($attempt = 1; $attempt -le 8; $attempt++) {
+    try { $Deck.SaveCopyAs($File, $ppSaveAsOpenXMLPresentation); return }
+    catch {
+      if (-not (Test-TransientComFailure $_.Exception) -or $attempt -eq 8) { throw }
+    }
+    Start-Sleep -Milliseconds (300 * $attempt)
+  }
+}
 function Verify-Edit($Deck, $Target) {
   $shape = Get-ShapeById $Deck $Target
   try {
@@ -286,7 +296,7 @@ try {
       $stage = "edit"
       Apply-EditWithRetry $deck $target
       $stage = "save"
-      $deck.SaveCopyAs($edited, $ppSaveAsOpenXMLPresentation)
+      Save-DeckCopyWithRetry $deck $edited
       Start-Sleep -Milliseconds 1200
       $stage = "close"
       Close-DeckWithRetry $deck; Release-Com $deck; $deck = $null

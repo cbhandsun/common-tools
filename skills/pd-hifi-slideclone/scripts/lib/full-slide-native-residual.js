@@ -25,10 +25,14 @@ function pixelMask(box, image, slideSize) {
 function eraseObjectMask(item, image, slideSize) {
   const box = item?.box;
   const line = item?.type === "line" || item?.type === "connector" || item?.source?.connector === true;
-  const valid = box && ["x", "y", "w", "h"].every((key) => Number.isFinite(box[key]))
-    && box.x >= 0 && box.y >= 0 && box.w >= 0 && box.h >= 0
-    && (line ? box.w + box.h > 0 : box.w > 0 && box.h > 0)
-    && box.x + box.w <= slideSize.w && box.y + box.h <= slideSize.h;
+  const finite = box && ["x", "y", "w", "h"].every((key) => Number.isFinite(box[key]));
+  const endX = finite ? box.x + box.w : Number.NaN; const endY = finite ? box.y + box.h : Number.NaN;
+  const validLine = line && finite && Math.hypot(box.w, box.h) > 0
+    && box.x >= 0 && box.x <= slideSize.w && box.y >= 0 && box.y <= slideSize.h
+    && endX >= 0 && endX <= slideSize.w && endY >= 0 && endY <= slideSize.h;
+  const validBox = !line && finite && box.x >= 0 && box.y >= 0 && box.w > 0 && box.h > 0
+    && endX <= slideSize.w && endY <= slideSize.h;
+  const valid = validLine || validBox;
   if (!valid) throw new Error("full-slide residual object geometry is invalid");
   if (!line) return pixelMask(box, image, { widthPt: slideSize.w, heightPt: slideSize.h });
   const scaleX = image.width / slideSize.w;
@@ -38,8 +42,8 @@ function eraseObjectMask(item, image, slideSize) {
     kind: "line",
     x1: box.x * scaleX,
     y1: box.y * scaleY,
-    x2: (box.x + box.w) * scaleX,
-    y2: (box.y + box.h) * scaleY,
+    x2: endX * scaleX,
+    y2: endY * scaleY,
     width: padding * 2
   };
 }

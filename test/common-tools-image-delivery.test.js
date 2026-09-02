@@ -63,8 +63,15 @@ test("complex graphic gate rejects raster-only and oversized residual delivery",
   const rejected = createPreservationPlan(rasterOnly);
   assert.equal(rejected.pages[0].decision.passed, false);
   assert.deepEqual(rejected.pages[0].decision.reasons, ["insufficient-native-objects", "insufficient-native-area", "excessive-raster-residual-area", "oversized-raster-residual"]);
-  const background = sampleIr(); background.pages[0].images[0].box = { x: 0, y: 0, w: 960, h: 540 }; background.pages[0].intent = { rasterBackgroundAllowed: true };
-  assert.equal(createPreservationPlan(background).pages[0].decision.rasterBackgroundException, true);
+  const weakBackground = sampleIr(); weakBackground.pages[0].images[0].box = { x: 0, y: 0, w: 960, h: 540 }; weakBackground.pages[0].intent = { rasterBackgroundAllowed: true };
+  assert.equal(createPreservationPlan(weakBackground).pages[0].decision.rasterBackgroundException, false);
+  const semanticBackground = sampleIr(); semanticBackground.pages[0].images[0].box = { x: 0, y: 0, w: 960, h: 540 };
+  semanticBackground.pages[0].intent = { rasterBackgroundAllowed: true, primarySemanticStructureNative: true };
+  semanticBackground.pages[0].shapes.push(...Array.from({ length: 5 }, (_, index) => ({ id: `node-${index}`, type: "ellipse", box: { x: 100 + index * 80, y: 200, w: 50, h: 50 } })));
+  semanticBackground.pages[0].shapes.push(...Array.from({ length: 6 }, (_, index) => ({ id: `link-${index}`, type: "line", box: { x: 100 + index * 60, y: 250, w: 55, h: 20 } })));
+  const accepted = createPreservationPlan(semanticBackground).pages[0];
+  assert.equal(accepted.metrics.nativeConnectors, 6);
+  assert.equal(accepted.decision.rasterBackgroundException, true);
   assert.throws(() => createPreservationPlan(sampleIr(), { maxResidualAreaRatio: 2 }), /ratio/u);
 });
 

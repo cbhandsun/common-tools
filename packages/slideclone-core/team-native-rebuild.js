@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { applyKnowledgeGraphPanelNativeRebuild } = require("./knowledge-graph-native");
 
 const MAX_OCR_LINES = 10000;
 
@@ -144,6 +145,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
       assetDir: path.join(root, "assets"),
       deckName: "deck"
     });
+    const semanticNative = applyKnowledgeGraphPanelNativeRebuild(generatedDeck?.pages?.[0], generatedDeck?.slideSize);
     if (createFullSlideResidual) {
       const residualAssetPath = "assets/deck-p01-full-residual.png";
       const page = generatedDeck?.pages?.[0];
@@ -175,7 +177,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
           nonEditableReason: "Complex pictorial details are preserved after independently editable text and native objects are removed from the residual."
         }
       }];
-      generatedDeck.meta = { ...(generatedDeck.meta || {}), residualDeduplication: { candidateObjects: eraseObjects.length, erasedObjects: residual.erasedObjects } };
+      generatedDeck.meta = { ...(generatedDeck.meta || {}), semanticNative, residualDeduplication: { candidateObjects: eraseObjects.length, erasedObjects: residual.erasedObjects } };
     }
     normalizeSourceAssetProvenance(generatedDeck, metadata.assetPath);
     const metrics = nativeObjectMetrics(generatedDeck);
