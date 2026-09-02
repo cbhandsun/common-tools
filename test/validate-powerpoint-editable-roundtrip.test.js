@@ -23,7 +23,9 @@ test("editable round-trip PowerPoint script edits a staging copy and verifies af
   assert.match(script, /HasSmartArt/);
   assert.match(script, /\$node\.Shapes/);
   assert.match(script, /TextFrame2\.TextRange\.Text/);
-  assert.match(script, /SaveCopyAs\(\$edited/);
+  assert.match(script, /function Save-DeckCopyWithRetry/);
+  assert.match(script, /SaveCopyAs\(\$File/);
+  assert.match(script, /Save-DeckCopyWithRetry \$deck \$edited/);
   assert.match(script, /Find-TargetWithRetry/);
   assert.match(script, /for \(\$attempt = 1; \$attempt -le 12; \$attempt\+\+\)/);
   assert.match(script, /Close-DeckWithRetry \$deck/);

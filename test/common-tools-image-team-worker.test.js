@@ -13,6 +13,7 @@ const { PROFILE_NAME: PADDLE_PROFILE_NAME } = require("../packages/slideclone-co
 const { startupFailureCode, workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-image-worker");
 const { eraseMasks, readPng, rebuildDeckFromWorkDir } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
 const { createFullSlideResidualBuilder } = require("../skills/pd-hifi-slideclone/scripts/lib/full-slide-native-residual");
+const { applyKnowledgeGraphPanelNativeRebuild, findKnowledgeGraphPanelModel } = require("../packages/slideclone-core/knowledge-graph-native");
 const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
 
 const createFullSlideResidual = createFullSlideResidualBuilder({ eraseMasks, readPng, writePng });
@@ -262,6 +263,29 @@ test("raw native rebuild adapter materializes a bounded work IR and requires gra
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
 
+test("remote image path reconstructs a high-confidence three-panel knowledge graph as native structure", () => {
+  const box = (text, x, y, w = 100, h = 24) => ({ id: text, text, box: { x, y, w, h } });
+  const page = { textBoxes: [
+    box("动态本体：知识图谱升级", 190, 20, 520, 42),
+    box("传统知识图谱问题", 60, 105, 180, 28), box("动态本体思路", 385, 105, 160, 28), box("本体生长能力", 710, 105, 160, 28),
+    box("系统A", 80, 260), box("系统B", 200, 290), box("系统C", 100, 380),
+    box("翻译层", 430, 190), box("人员", 445, 285), box("属性", 360, 355), box("事件", 540, 355),
+    box("高空事件", 700, 190), box("工单文本", 700, 285), box("视频数据", 700, 320), box("新型事件", 820, 285),
+    box("数据接入层", 105, 560), box("本体生成层", 420, 560), box("应用服务层", 730, 560)
+  ], shapes: [{ id: "bad-check", type: "ellipse", box: { x: 400, y: 300, w: 20, h: 20 }, source: { detector: "simple-status-icon" } }], images: [] };
+  assert.ok(findKnowledgeGraphPanelModel(page.textBoxes, { widthPt: 960, heightPt: 720 }));
+  const rebuilt = applyKnowledgeGraphPanelNativeRebuild(page, { widthPt: 960, heightPt: 720 });
+  assert.equal(rebuilt.matched, true);
+  assert.ok(rebuilt.addedShapes >= 18);
+  assert.ok(rebuilt.connectors >= 9);
+  assert.equal(page.shapes.some((item) => item.id === "bad-check"), false);
+  const frames = page.shapes.filter((item) => item.source?.preserveResidualInterior === true);
+  assert.equal(frames.length, 4);
+  assert.ok(frames.every((item) => item.style.fill === "none"));
+  assert.deepEqual(page.intent, { rasterBackgroundAllowed: true, primarySemanticStructureNative: true, semanticStructureProfile: "knowledge-graph-three-panel-v1" });
+  assert.equal(applyKnowledgeGraphPanelNativeRebuild({ textBoxes: [box("普通图片", 10, 10)], shapes: [] }, { widthPt: 960, heightPt: 720 }).matched, false);
+});
+
 test("real native rebuild removes native diagram objects from its fidelity residual", async () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-native-diagram-"));
   const source = path.join(temporaryRoot, "diagram.png");
@@ -337,6 +361,9 @@ test("full-slide residual builder erases native objects, bounds volume, and hono
     const result = await createFullSlideResidual({ sourceFile: source, outputFile: path.join(temporaryRoot, "objects.png"), objects, slideSize: { x: 0, y: 0, w: 960, h: 540 } });
     assert.equal(result.erasedObjects, 2);
     assert.equal(result.erasedTextBoxes, 0);
+    const reverse = await createFullSlideResidual({ sourceFile: source, outputFile: path.join(temporaryRoot, "reverse.png"), objects: [{ type: "line", box: { x: 700, y: 400, w: -300, h: -100 } }], slideSize: { x: 0, y: 0, w: 960, h: 540 } });
+    assert.equal(reverse.erasedObjects, 1);
+    await assert.rejects(() => createFullSlideResidual({ sourceFile: source, outputFile: path.join(temporaryRoot, "reverse-outside.png"), objects: [{ type: "line", box: { x: 100, y: 100, w: -200, h: 0 } }], slideSize: { x: 0, y: 0, w: 960, h: 540 } }), /geometry/);
     await assert.rejects(() => createFullSlideResidual({ sourceFile: source, outputFile: path.join(temporaryRoot, "outside.png"), objects: [{ type: "roundRect", box: { x: 950, y: 530, w: 20, h: 20 } }], slideSize: { x: 0, y: 0, w: 960, h: 540 } }), /geometry/);
     await assert.rejects(() => createFullSlideResidual({ sourceFile: source, outputFile: path.join(temporaryRoot, "extreme.png"), objects: Array.from({ length: 30001 }, () => objects[0]), slideSize: { x: 0, y: 0, w: 960, h: 540 } }), /request/);
     await assert.rejects(() => createFullSlideResidual({ sourceFile: source, outputFile: path.join(temporaryRoot, "cancelled.png"), objects: [], slideSize: { x: 0, y: 0, w: 960, h: 540 }, isCancellationRequested: async () => true }), /cancelled/);
@@ -347,7 +374,7 @@ test("residual erase collection deduplicates geometry and excludes explicitly no
   const box = { x: 10, y: 10, w: 100, h: 40 };
   const objects = residualEraseObjects({
     textBoxes: [{ id: "text-a", box }, { id: "text-b", box }],
-    shapes: [{ id: "native", type: "roundRect", box: { x: 150, y: 10, w: 100, h: 40 }, source: { editable: true } }, { id: "raster", type: "roundRect", box: { x: 300, y: 10, w: 100, h: 40 }, source: { editable: false } }],
+    shapes: [{ id: "native", type: "roundRect", box: { x: 150, y: 10, w: 100, h: 40 }, source: { editable: true } }, { id: "frame", type: "roundRect", box: { x: 20, y: 80, w: 400, h: 300 }, source: { editable: true, preserveResidualInterior: true } }, { id: "raster", type: "roundRect", box: { x: 300, y: 10, w: 100, h: 40 }, source: { editable: false } }],
     tables: [], charts: [], icons: []
   });
   assert.deepEqual(objects.map((item) => item.id), ["text-a", "native"]);

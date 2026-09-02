@@ -9,6 +9,7 @@ const { MAX_ARCHIVE_BYTES, extractProjectArchive } = require("../project-audit-c
 const { assertQualityReport } = require("../capability-contracts");
 const { nativeObjectMetrics } = require("./team-native-rebuild");
 const { assertEditableInputDocument } = require("./document-input");
+const { QUALITY_GATE_REQUIRED } = require("../team-runtime/worker-completion");
 
 const MAX_DECK_BYTES = 1024 * 1024;
 const MAX_PAGES = 50;
@@ -283,7 +284,7 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
         await store.putObject({ objectKey, body: artifactBody, contentType: item.mediaType });
         artifacts.push({ name: item.name, objectKey, mediaType: item.mediaType, sha256: sha256(artifactBody) });
       }
-      return { artifacts, quality: assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0, "residual-erased-native-objects": metadata.residualDeduplication?.erasedObjects || 0, ...(visualQuality?.metrics || {}) } : {}), "pptx-bytes": fs.statSync(outputFile).size } }) };
+      return { completionPolicy: QUALITY_GATE_REQUIRED, artifacts, quality: assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0, "residual-erased-native-objects": metadata.residualDeduplication?.erasedObjects || 0, ...(visualQuality?.metrics || {}) } : {}), "pptx-bytes": fs.statSync(outputFile).size } }) };
     } finally { fs.rmSync(root, { recursive: true, force: true, maxRetries: 2 }); }
   };
 }

@@ -14,6 +14,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/slideclone-core/document-input.js",
   "packages/cli/slideclone-runner.js",
   "packages/slideclone-core/team-native-rebuild.js",
+  "packages/slideclone-core/knowledge-graph-native.js",
   "packages/slideclone-core/team-raw-image-archive.js",
   "packages/slideclone-core/team-document-normalizer.js",
   "packages/slideclone-core/team-render-quality.js",

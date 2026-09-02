@@ -51,6 +51,11 @@ test("Tasks projection maps terminal jobs without exposing raw failure details",
   assert.equal(failed.status, "completed");
   assert.equal(failed.result.isError, true);
   assert.doesNotMatch(JSON.stringify(failed), /password/);
+  const qualityFailure = toDetailedTask(job({ status: "failed", artifacts: [{ name: "deck.pptx" }], quality: { passed: false }, error: { code: "QUALITY_GATE_FAILED", message: "sensitive internals" } }));
+  assert.equal(qualityFailure.result.isError, true);
+  assert.match(qualityFailure.result.content[0].text, /produced artifacts.*quality gates/i);
+  assert.deepEqual(qualityFailure.result.structuredContent.artifacts, [{ name: "deck.pptx" }]);
+  assert.doesNotMatch(JSON.stringify(qualityFailure), /sensitive internals/);
   assert.throws(() => toDetailedTask(job({ updatedAt: "invalid" })), /timing/);
   assert.throws(() => toDetailedTask(job({ id: "job-1" })), /taskId/);
 });
