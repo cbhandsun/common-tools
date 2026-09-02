@@ -17,6 +17,11 @@ function cssBox(box, slideSize = { widthPt: 960, heightPt: 540 }) {
   const width = Number(slideSize.widthPt) || 960; const height = Number(slideSize.heightPt) || 540;
   return `left:${box.x / width * 100}%;top:${box.y / height * 100}%;width:${box.w / width * 100}%;height:${box.h / height * 100}%`;
 }
+function cssLineBox(box, slideSize = { widthPt: 960, heightPt: 540 }) {
+  const width = Number(slideSize.widthPt) || 960; const height = Number(slideSize.heightPt) || 540;
+  const length = Math.hypot(box.w / width * 100, box.h / height * 100); const angle = Math.atan2(box.h / height, box.w / width) * 180 / Math.PI;
+  return `left:${box.x / width * 100}%;top:${box.y / height * 100}%;width:${length}%;height:0;transform-origin:0 50%;transform:rotate(${angle}deg)`;
+}
 function cssColor(value, fallback) { return /^#[0-9A-F]{6}$/u.test(value || "") ? value : fallback; }
 function textHtml(item, slideSize) {
   const font = item.font || {};
@@ -25,6 +30,7 @@ function textHtml(item, slideSize) {
 }
 function shapeHtml(item, slideSize) {
   const style = item.style || {};
+  if (item.type === "line" || item.type === "connector") return `<div class="shape line" data-object-id="${escapeHtml(item.id)}" style="${cssLineBox(item.box, slideSize)};background:transparent;border:0;border-top:${Number(style.strokeWidthPt) || 1}px solid ${cssColor(style.stroke, "#0284C7")};opacity:${Number.isFinite(style.opacity) ? style.opacity : 1}"></div>`;
   const radius = item.type === "ellipse" ? "50%" : item.type === "roundRect" ? "12px" : "0";
   return `<div class="shape" data-object-id="${escapeHtml(item.id)}" style="${cssBox(item.box, slideSize)};background:${cssColor(style.fill, "transparent")};border:${Number(style.strokeWidthPt) || 0}px solid ${cssColor(style.stroke, "transparent")};border-radius:${radius};opacity:${Number.isFinite(style.opacity) ? style.opacity : 1}"></div>`;
 }
@@ -74,7 +80,7 @@ function createPrintableHtml(ir, options = {}) {
     const tables = (page.tables || []).map((item) => tableHtml(item, slideSize)).join("");
     const charts = (page.charts || []).map((item) => chartHtml(item, slideSize)).join("");
     const notes = page.speakerNotes ? `<aside class="speaker-notes" data-page-index="${page.pageIndex}" hidden>${escapeHtml(page.speakerNotes)}</aside>` : "";
-    return `<section class="slide" data-page-index="${page.pageIndex}" style="background:${cssColor(page.background?.fill, "#FFFFFF")}">${shapes}${images}${tables}${charts}${text}${notes}</section>`;
+    return `<section class="slide" data-page-index="${page.pageIndex}" style="background:${cssColor(page.background?.fill, "#FFFFFF")}">${images}${shapes}${tables}${charts}${text}${notes}</section>`;
   }).join("");
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="common-tools-deck-ir-sha256" content="${fingerprint}"><meta name="common-tools-page-count" content="${ir.pages.length}"><title>Presentation</title><style>*{box-sizing:border-box}body{margin:0;background:#d1d5db;font-family:Arial,sans-serif}.slide{position:relative;width:13.333in;height:7.5in;margin:20px auto;overflow:hidden;page-break-after:always}.shape,.image-clip,.image,.text,.native,.chart{position:absolute}.image-clip{overflow:hidden}.image{display:block}.text{white-space:pre-wrap;overflow:hidden;line-height:1.15}.native{border-collapse:collapse;font-size:14pt;background:#fff}.native td{border:1px solid #94a3b8;padding:6px}.chart{display:flex;flex-direction:column;gap:12px;padding:18px;border:1px solid #94a3b8;background:#fff;overflow:hidden}.chart span{font-size:13pt}@page{size:13.333in 7.5in;margin:0}@media print{body{background:#fff}.slide{margin:0}}</style></head><body data-source-fingerprint="${fingerprint}" data-page-count="${ir.pages.length}">${pages}</body></html>`;
 }

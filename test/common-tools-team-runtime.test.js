@@ -5,6 +5,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const test = require("node:test");
+const { WorkerFailure } = require("../packages/team-runtime/worker-failure");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 const { PostgresJobRepository, TeamWorker, TeamWorkerRunner, assertTraceParent, createTeamJob, createTeamServices, fromRow, loadTeamConfig, normalizeTeamJobOptions, parseEnabledCapabilities, recoverWorkerLeases, retentionObjectKeys, runTeamRetention, teamDeploymentPlan } = require("../packages/team-runtime");
@@ -530,6 +531,28 @@ test("team worker renews its lease during a slow handler and fails closed when r
   const failed = await rejected.process({ id: job.id }, "worker-1");
   assert.equal(failed.to, "failed");
   assert.equal(rejectedTransitions[0].error.code, "WORKER_FAILED");
+});
+
+test("team worker persists allowlisted stage failures without exposing their internal cause", async () => {
+  const transitions = [];
+  const job = { id: "stage-failure", capability: "image-to-editable", outputPrefix: "owners/a/jobs/stage-failure/" };
+  const worker = new TeamWorker({
+    repository: {
+      async claim() { return job; },
+      async heartbeat() { return true; },
+      async isCancellationRequested() { return false; },
+      async transition(value) { transitions.push(value); return value; }
+    },
+    handlers: {
+      "image-to-editable": async () => { throw new WorkerFailure("IMAGE_ASSET_NAMESPACE_FAILED", { cause: new Error("secret input content") }); }
+    }
+  });
+  const failed = await worker.process({ id: job.id }, "worker-1");
+  assert.equal(failed.to, "failed");
+  assert.deepEqual(transitions[0].error, { code: "IMAGE_ASSET_NAMESPACE_FAILED", message: "image asset namespace processing failed", retryable: false });
+  assert.equal(JSON.stringify(transitions[0]).includes("secret input content"), false);
+  assert.throws(() => new WorkerFailure("UNKNOWN_STAGE"), /code is invalid/);
+  assert.throws(() => new WorkerFailure("IMAGE_ASSET_NAMESPACE_FAILED", { unsafe: true }), /options are invalid/);
 });
 
 test("team Workers persist only fixed quality reports and hide historic arbitrary quality JSON", async () => {

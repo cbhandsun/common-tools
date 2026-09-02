@@ -19,6 +19,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/slideclone-core/team-document-normalizer.js",
   "packages/slideclone-core/team-render-quality.js",
   "packages/slideclone-core/team-worker.js",
+  "packages/team-runtime/worker-failure.js",
   "packages/remote-mcp-server/bin/common-tools-team-image-worker.js",
   "skills/pd-hifi-slideclone/scripts/lib/full-slide-native-residual.js",
   "plugins/common-tools/skills/image-to-editable/SKILL.md",

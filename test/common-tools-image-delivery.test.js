@@ -41,7 +41,9 @@ test("image delivery emits shared editable, preview, preservation, HTML, PPTX an
     for (const file of Object.values(result.files)) assert.equal(fs.statSync(file).isFile(), true);
     const delivered = JSON.parse(fs.readFileSync(result.files.irFile, "utf8"));
     assert.equal(delivered.pages[0].images[0].assetPath, "assets/pixel.png");
-    assert.match(fs.readFileSync(result.files.htmlFile, "utf8"), /data:image\/png;base64,/);
+    const html = fs.readFileSync(result.files.htmlFile, "utf8");
+    assert.match(html, /data:image\/png;base64,/);
+    assert.ok(html.indexOf('data-object-id="residual"') < html.indexOf('data-object-id="panel"'));
     assert.match(fs.readFileSync(result.files.previewFile, "utf8"), /ppt apply-ir-edit/);
     const plan = JSON.parse(fs.readFileSync(result.files.planFile, "utf8"));
     assert.equal(plan.semantics, "faithful-reconstruction-strategy-not-layout-reflow");
@@ -56,6 +58,28 @@ test("image preservation candidates remain bounded and do not masquerade as new-
   assert.equal(plan.pages[0].candidates.some((candidate) => candidate.id.includes("layout")), false);
   assert.equal(plan.pages[0].decision.passed, true);
   assert.equal(plan.pages[0].decision.deliveryStatus, "partially-editable");
+});
+
+test("image delivery accepts directed native connectors with negative deltas inside the slide", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-image-directed-line-"));
+  try {
+    fs.mkdirSync(path.join(root, "reports")); fs.mkdirSync(path.join(root, "ir")); fs.mkdirSync(path.join(root, "pptx"));
+    const ir = sampleIr(); ir.pages[0].images = [];
+    ir.pages[0].shapes.push({ id: "reverse-link", type: "line", box: { x: 500, y: 300, w: -200, h: -100 }, style: { stroke: "#0284C7" } });
+    const irFile = path.join(root, "ir", "deck.final.json"); const pptxFile = path.join(root, "pptx", "deck.final.pptx");
+    fs.writeFileSync(irFile, JSON.stringify(ir)); fs.writeFileSync(pptxFile, Buffer.concat([Buffer.from("PK\u0003\u0004"), Buffer.alloc(64, 1)]));
+    fs.writeFileSync(path.join(root, "reports", "pipeline-result.json"), JSON.stringify({ ok: true, irFile, pptx: { pptxFile } }));
+    const result = createImageDeliveryArtifacts({ outputDir: root, buildPdf: fakePdf });
+    assert.equal(result.passed, true);
+    const delivered = JSON.parse(fs.readFileSync(result.files.irFile, "utf8"));
+    assert.deepEqual(delivered.pages[0].shapes.at(-1).box, { x: 500, y: 300, w: -200, h: -100 });
+    const html = fs.readFileSync(result.files.htmlFile, "utf8");
+    assert.match(html, /data-object-id="reverse-link"[^>]+width:[0-9.]+%;height:0;transform-origin:0 50%;transform:rotate\(-/u);
+    assert.doesNotMatch(html, /data-object-id="reverse-link"[^>]+(?:width|height):-/u);
+    const preview = fs.readFileSync(result.files.previewFile, "utf8");
+    assert.match(preview, /Math\.hypot\(dx,dy\)/u);
+    assert.match(preview, /Math\.atan2\(dy,dx\)/u);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test("complex graphic gate rejects raster-only and oversized residual delivery", () => {
