@@ -3,7 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
-const { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } = require("@aws-sdk/client-s3");
+const { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand, S3Client } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { Pool } = require("pg");
 const { createClient } = require("redis");
@@ -11,6 +11,7 @@ const { PostgresJobRepository, TEAM_DEFAULT_CAPABILITIES, createTeamServices } =
 const { TEAM_DEPLOYMENT_CAPABILITIES } = require("../team-runtime");
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 const { idempotencyStorageKey } = require("../siyuan-note-core");
+const { withInputReadinessRetry } = require("./object-readiness");
 
 const TEAM_CAPABILITIES = Object.freeze(Object.keys(TEAM_CAPABILITY_DEFINITIONS));
 const JOB_STATUSES = Object.freeze(["queued", "running", "input_required", "cancel_requested", "succeeded", "failed", "cancelled", "expired"]);
@@ -160,8 +161,9 @@ function startWorkerHeartbeat({ heartbeats, capability, workerId, intervalMs = 1
   timer = setInterval(() => { void beat(); }, intervalMs);
   return Object.freeze({ ready, async stop() { clearInterval(timer); if (active) await active; try { await heartbeats.remove(capability, workerId); } catch { reportFailure(); } } });
 }
-function createObjectStore(client, bucket, expiresIn = 900, { presignClient = client, signer = getSignedUrl } = {}) {
+function createObjectStore(client, bucket, expiresIn = 900, { presignClient = client, signer = getSignedUrl, readinessRetryDelaysMs, sleep } = {}) {
   if (!client || typeof client.send !== "function" || !presignClient || typeof presignClient.send !== "function" || typeof signer !== "function") throw new TypeError("object storage client is invalid");
+  const readinessOptions = { retryDelaysMs: readinessRetryDelaysMs, sleep };
   async function readBody(body, maxBytes) {
     if (!body || typeof body[Symbol.asyncIterator] !== "function" || !Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new Error("object storage response is invalid");
     const chunks = [];
@@ -189,8 +191,13 @@ function createObjectStore(client, bucket, expiresIn = 900, { presignClient = cl
       const downloadUrl = await signer(presignClient, new GetObjectCommand({ Bucket: bucket, Key: objectKey }), { expiresIn });
       return { objectKey, downloadUrl, expiresAt };
     },
+    async waitForUpload({ objectKey }) {
+      const response = await withInputReadinessRetry(() => client.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey })), readinessOptions);
+      if (!Number.isSafeInteger(response.ContentLength) || response.ContentLength < 1) throw new Error("uploaded object metadata is invalid");
+      return Object.freeze({ contentLength: response.ContentLength });
+    },
     async readObject({ objectKey, maxBytes }) {
-      const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: objectKey }));
+      const response = await withInputReadinessRetry(() => client.send(new GetObjectCommand({ Bucket: bucket, Key: objectKey })), readinessOptions);
       if (Number.isFinite(response.ContentLength) && response.ContentLength > maxBytes) throw new Error("object storage object exceeds worker limit");
       return readBody(response.Body, maxBytes);
     },

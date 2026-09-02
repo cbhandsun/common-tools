@@ -94,6 +94,42 @@ test("worker object storage reads bounded streams, writes typed buffers, and del
   await assert.rejects(() => oversized.readObject({ objectKey: "owners/a/inputs/test", maxBytes: 3 }), /exceeds worker limit/);
 });
 
+test("object storage waits for a complete upload and classifies exhausted readiness retries", async () => {
+  const sleeps = [];
+  let heads = 0;
+  const transient = createObjectStore({ send: async (command) => {
+    assert.equal(command.constructor.name, "HeadObjectCommand");
+    heads += 1;
+    if (heads < 3) { const error = new Error("private provider detail"); error.name = "NoSuchKey"; error.$metadata = { httpStatusCode: 404 }; throw error; }
+    return { ContentLength: 42 };
+  } }, "common-tools-artifacts", 60, { readinessRetryDelaysMs: [10, 20], sleep: async (milliseconds) => { sleeps.push(milliseconds); } });
+  assert.deepEqual(await transient.waitForUpload({ objectKey: "owners/a/inputs/file" }), { contentLength: 42 });
+  assert.deepEqual(sleeps, [10, 20]);
+
+  let reads = 0;
+  const delayedRead = createObjectStore({ send: async (command) => {
+    assert.equal(command.constructor.name, "GetObjectCommand");
+    reads += 1;
+    if (reads === 1) { const error = new Error("private provider detail"); error.name = "NotFound"; error.$metadata = { httpStatusCode: 404 }; throw error; }
+    return { ContentLength: 3, Body: (async function* () { yield Buffer.from("abc"); })() };
+  } }, "common-tools-artifacts", 60, { readinessRetryDelaysMs: [1], sleep: async () => {} });
+  assert.equal((await delayedRead.readObject({ objectKey: "owners/a/inputs/file", maxBytes: 3 })).toString("utf8"), "abc");
+
+  const missing = createObjectStore({ send: async () => { const error = new Error("must remain private"); error.name = "NoSuchKey"; throw error; } }, "common-tools-artifacts", 60, { readinessRetryDelaysMs: [1], sleep: async () => {} });
+  await assert.rejects(() => missing.waitForUpload({ objectKey: "owners/a/inputs/missing" }), (error) => error.code === "INPUT_NOT_READY" && error.message === "uploaded input is not ready" && error.cause?.message === "must remain private");
+
+  let outageAttempts = 0;
+  const outage = createObjectStore({ send: async () => { outageAttempts += 1; const error = new Error("private outage detail"); error.name = "NoSuchBucket"; error.$metadata = { httpStatusCode: 404 }; throw error; } }, "common-tools-artifacts", 60, { readinessRetryDelaysMs: [1, 2], sleep: async () => { throw new Error("must not retry an object-store outage"); } });
+  await assert.rejects(() => outage.waitForUpload({ objectKey: "owners/a/inputs/file" }), (error) => error.name === "NoSuchBucket");
+  assert.equal(outageAttempts, 1);
+
+  const invalid = createObjectStore({ send: async () => ({ ContentLength: 0 }) }, "common-tools-artifacts", 60, { readinessRetryDelaysMs: [], sleep: async () => {} });
+  await assert.rejects(() => invalid.waitForUpload({ objectKey: "owners/a/inputs/empty" }), /metadata is invalid/);
+  await assert.rejects(() => invalid.readObject({ objectKey: "owners/a/inputs/empty", maxBytes: 3 }), /response is invalid/);
+  const unsafeRetry = createObjectStore({ send: async () => ({ ContentLength: 1 }) }, "common-tools-artifacts", 60, { readinessRetryDelaysMs: [60001], sleep: async () => {} });
+  await assert.rejects(() => unsafeRetry.waitForUpload({ objectKey: "owners/a/inputs/file" }), /retry delays are invalid/);
+});
+
 test("object storage can sign client URLs with a separate public endpoint client", async () => {
   const internal = { send: async () => ({}) };
   const publicClient = { send: async () => ({}) };

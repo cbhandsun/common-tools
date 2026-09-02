@@ -142,6 +142,11 @@ function requireQuery(query) { if (typeof query !== "function") throw new TypeEr
 
 class PostgresJobRepository {
   constructor({ query }) { this.query = requireQuery(query); }
+  async findActiveByIdempotency(job) {
+    const candidate = createTeamJob(job);
+    const result = await this.query("SELECT * FROM capability_jobs WHERE owner_id = $1 AND project_id IS NOT DISTINCT FROM $2 AND capability = $3 AND idempotency_key = $4 AND status NOT IN ('succeeded','failed','cancelled','expired') ORDER BY created_at DESC LIMIT 1", [candidate.ownerId, candidate.projectId || null, candidate.capability, candidate.idempotencyKey]);
+    return result.rows.length ? fromRow(result.rows[0]) : null;
+  }
   async create(job, actorId = job.ownerId) {
     const result = await this.query("INSERT INTO capability_jobs (id, capability, owner_id, project_id, idempotency_key, status, attempt, max_attempts, input_object_key, output_prefix, options, artifacts, created_at, updated_at, expires_at, trace_parent) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13::timestamptz,$14::timestamptz,$15::timestamptz,$16) ON CONFLICT DO NOTHING RETURNING *", [job.id, job.capability, job.ownerId, job.projectId || null, job.idempotencyKey, job.status, job.attempt, job.maxAttempts, job.inputObjectKey, job.outputPrefix, JSON.stringify(job.options), JSON.stringify(job.artifacts), job.createdAt, job.updatedAt, job.expiresAt, job.traceParent || null]);
     if (result.rows.length) { await this.event(job.id, "created", actorId, {}); return fromRow(result.rows[0]); }
@@ -380,9 +385,9 @@ class TeamWorkerRunner {
 }
 
 function createTeamServices({ repository, queue, objectStore, projectActiveJobLimit } = {}) {
-  if (!repository || typeof repository.create !== "function" || typeof repository.get !== "function" || typeof repository.requestCancel !== "function") throw new TypeError("repository is incomplete");
+  if (!repository || typeof repository.create !== "function" || typeof repository.findActiveByIdempotency !== "function" || typeof repository.get !== "function" || typeof repository.requestCancel !== "function") throw new TypeError("repository is incomplete");
   if (!queue || typeof queue.enqueue !== "function") throw new TypeError("queue is incomplete");
-  if (!objectStore || typeof objectStore.createUploadTarget !== "function" || typeof objectStore.createDownloadTarget !== "function") throw new TypeError("objectStore is incomplete");
+  if (!objectStore || typeof objectStore.createUploadTarget !== "function" || typeof objectStore.createDownloadTarget !== "function" || typeof objectStore.waitForUpload !== "function") throw new TypeError("objectStore is incomplete");
   if (projectActiveJobLimit !== undefined && (!Number.isSafeInteger(projectActiveJobLimit) || projectActiveJobLimit < 1 || projectActiveJobLimit > 10000 || typeof repository.createWithinProjectQuota !== "function")) throw new TypeError("project active Job quota configuration is invalid");
   return Object.freeze({
     async createUploadTarget({ ownerId, capability, contentType, contentLength }) {
@@ -392,6 +397,9 @@ function createTeamServices({ repository, queue, objectStore, projectActiveJobLi
     },
     async createJob(input) {
       const job = createTeamJob(input);
+      const existing = await repository.findActiveByIdempotency(job);
+      if (existing) return existing;
+      await objectStore.waitForUpload({ objectKey: job.inputObjectKey });
       let admission;
       if (projectActiveJobLimit !== undefined && job.projectId !== undefined) admission = await repository.createWithinProjectQuota(job, projectActiveJobLimit);
       else {
