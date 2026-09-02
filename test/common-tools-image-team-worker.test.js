@@ -279,6 +279,9 @@ test("remote image path reconstructs a high-confidence three-panel knowledge gra
   assert.ok(rebuilt.addedShapes >= 18);
   assert.ok(rebuilt.connectors >= 9);
   assert.equal(page.shapes.some((item) => item.id === "bad-check"), false);
+  const frames = page.shapes.filter((item) => item.source?.preserveResidualInterior === true);
+  assert.equal(frames.length, 4);
+  assert.ok(frames.every((item) => item.style.fill === "none"));
   assert.deepEqual(page.intent, { rasterBackgroundAllowed: true, primarySemanticStructureNative: true, semanticStructureProfile: "knowledge-graph-three-panel-v1" });
   assert.equal(applyKnowledgeGraphPanelNativeRebuild({ textBoxes: [box("普通图片", 10, 10)], shapes: [] }, { widthPt: 960, heightPt: 720 }).matched, false);
 });
@@ -371,7 +374,7 @@ test("residual erase collection deduplicates geometry and excludes explicitly no
   const box = { x: 10, y: 10, w: 100, h: 40 };
   const objects = residualEraseObjects({
     textBoxes: [{ id: "text-a", box }, { id: "text-b", box }],
-    shapes: [{ id: "native", type: "roundRect", box: { x: 150, y: 10, w: 100, h: 40 }, source: { editable: true } }, { id: "raster", type: "roundRect", box: { x: 300, y: 10, w: 100, h: 40 }, source: { editable: false } }],
+    shapes: [{ id: "native", type: "roundRect", box: { x: 150, y: 10, w: 100, h: 40 }, source: { editable: true } }, { id: "frame", type: "roundRect", box: { x: 20, y: 80, w: 400, h: 300 }, source: { editable: true, preserveResidualInterior: true } }, { id: "raster", type: "roundRect", box: { x: 300, y: 10, w: 100, h: 40 }, source: { editable: false } }],
     tables: [], charts: [], icons: []
   });
   assert.deepEqual(objects.map((item) => item.id), ["text-a", "native"]);

@@ -9,11 +9,12 @@ function center(box) { return { x: box.x + box.w / 2, y: box.y + box.h / 2 }; }
 function normalized(value) { return String(value || "").replace(/[\s:：,，。.;；·•—_-]/gu, "").toLowerCase(); }
 function lineBox(from, to) { return { x: from.x, y: from.y, w: to.x - from.x, h: to.y - from.y }; }
 function rounded(box) { return Object.fromEntries(Object.entries(box).map(([key, value]) => [key, Math.round(value * 100) / 100])); }
-function source(detector, role) {
-  return { editable: true, nativeRebuild: true, detector: `${PREFIX}${detector}`, confidence: 0.94, semanticNativeStructure: true, componentOwnerKind: "knowledge-graph-panel", nativeComponentRole: role };
+function source(detector, role, options = {}) {
+  return { editable: true, nativeRebuild: true, detector: `${PREFIX}${detector}`, confidence: 0.94, semanticNativeStructure: true, componentOwnerKind: "knowledge-graph-panel", nativeComponentRole: role, ...options };
 }
 function shape(id, type, box, style, role) {
-  return { id: `${PREFIX}${id}`, type, box: rounded(box), style, source: source(id, role) };
+  const preserveResidualInterior = role === "panel" || role === "layer-band";
+  return { id: `${PREFIX}${id}`, type, box: rounded(box), style, source: source(id, role, preserveResidualInterior ? { preserveResidualInterior: true } : {}) };
 }
 function connector(id, from, to, style = {}) {
   return shape(id, "line", lineBox(from, to), { stroke: "#79A6C8", strokeWidthPt: 1.35, connectorType: "straight", endArrow: "triangle", ...style }, "relationship");
@@ -51,9 +52,9 @@ function buildShapes(model) {
   const { width: w, height: h } = model; const shapes = [];
   const gap = w * 0.018; const left = w * 0.047; const panelY = h * 0.13; const panelH = h * 0.59; const panelW = (w - left * 2 - gap * 2) / 3;
   for (let index = 0; index < 3; index += 1) {
-    shapes.push(shape(`panel-${index + 1}`, "roundRect", { x: left + index * (panelW + gap), y: panelY, w: panelW, h: panelH }, { fill: index === 1 ? "#F2F8FC" : "#F7FAFC", stroke: "#D5E2EA", strokeWidthPt: 1.1, radiusPt: 10 }, "panel"));
+    shapes.push(shape(`panel-${index + 1}`, "roundRect", { x: left + index * (panelW + gap), y: panelY, w: panelW, h: panelH }, { fill: "none", stroke: "#D5E2EA", strokeWidthPt: 1.1, radiusPt: 10 }, "panel"));
   }
-  shapes.push(shape("layer-band", "roundRect", { x: left, y: h * 0.735, w: w - left * 2, h: h * 0.205 }, { fill: "#F4F8FB", stroke: "#D5E2EA", strokeWidthPt: 1.1, radiusPt: 10 }, "layer-band"));
+  shapes.push(shape("layer-band", "roundRect", { x: left, y: h * 0.735, w: w - left * 2, h: h * 0.205 }, { fill: "none", stroke: "#D5E2EA", strokeWidthPt: 1.1, radiusPt: 10 }, "layer-band"));
   const nodeItems = [model.hub, model.translator, ...model.right.slice(0, 5)];
   nodeItems.forEach((item, index) => shapes.push(shape(`node-${index + 1}`, index < 2 ? "ellipse" : "roundRect", { x: item.box.x - 11, y: item.box.y - 7, w: item.box.w + 22, h: item.box.h + 14 }, { fill: index < 2 ? "#E5F3FB" : "#FFFFFF", stroke: "#62A7D2", strokeWidthPt: 1.25, radiusPt: 8 }, "node")));
   const hub = center(model.hub.box);

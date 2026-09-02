@@ -101,7 +101,7 @@ function residualEraseObjects(page) {
   const seen = new Set();
   for (const [collection, requireEditable] of [["textBoxes", false], ["shapes", true], ["tables", true], ["charts", true], ["icons", true]]) {
     for (const item of Array.isArray(page[collection]) ? page[collection] : []) {
-      if (!item || typeof item !== "object" || Array.isArray(item) || (requireEditable && item.source?.editable === false)) continue;
+      if (!item || typeof item !== "object" || Array.isArray(item) || item.source?.preserveResidualInterior === true || (requireEditable && item.source?.editable === false)) continue;
       const box = item.box;
       if (!box || !["x", "y", "w", "h"].every((key) => Number.isFinite(box[key]))) throw new Error("native image residual object is invalid");
       const key = [item.type || collection, box.x, box.y, box.w, box.h].join(":");

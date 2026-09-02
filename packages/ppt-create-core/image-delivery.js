@@ -90,7 +90,7 @@ function createPreservationPlan(ir, rawPolicy = {}) {
     const nativeConnectors = (page.shapes || []).filter((shape) => shape?.type === "line" || shape?.type === "connector" || shape?.source?.connector === true).length;
     const editabilityTier = nativeObjects === 0 ? "raster-only" : nativeCategories >= 2 || nativeObjects >= 6 ? "native-complex" : residualImages > 0 ? "native-hybrid" : "native-basic";
     const slideArea = ir.slideSize.widthPt * ir.slideSize.heightPt;
-    const nativeBoxes = ["textBoxes", "shapes", "tables", "charts", "icons"].flatMap((name) => (page[name] || []).map((item) => item.box));
+    const nativeBoxes = ["textBoxes", "shapes", "tables", "charts", "icons"].flatMap((name) => (page[name] || []).filter((item) => item?.source?.preserveResidualInterior !== true).map((item) => item.box));
     const residualBoxes = (page.images || []).map((item) => item.box); const nativeAreaRatio = unionArea(nativeBoxes, ir.slideSize) / slideArea; const residualAreaRatio = unionArea(residualBoxes, ir.slideSize) / slideArea;
     const largestResidualAreaRatio = residualBoxes.reduce((maximum, box) => { const clipped = clippedBox(box, ir.slideSize); return Math.max(maximum, clipped ? (clipped.right - clipped.left) * (clipped.bottom - clipped.top) / slideArea : 0); }, 0);
     const rasterBackgroundException = page.intent?.rasterBackgroundAllowed === true
