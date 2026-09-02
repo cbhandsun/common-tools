@@ -275,19 +275,22 @@ test("remote image path reconstructs a high-confidence three-panel knowledge gra
     box("传统知识图谱问题", 60, 105, 180, 28), box("动态本体思路", 385, 105, 160, 28), box("本体生长能力", 710, 105, 160, 28),
     box("系统A", 80, 260), box("系统B", 200, 290), box("系统C", 100, 380),
     box("翻译层", 430, 190), box("人员", 445, 285), box("属性", 360, 355), box("事件", 540, 355),
+    box("✓", 360, 205, 28, 28), box("✓", 570, 205, 28, 28), box("✓", 360, 390, 28, 28),
     box("高空事件", 700, 190), box("工单文本", 700, 285), box("视频数据", 700, 320), box("新型事件", 820, 285),
     box("数据接入层", 105, 560), box("本体生成层", 420, 560), box("应用服务层", 730, 560)
   ], shapes: [{ id: "bad-check", type: "ellipse", box: { x: 400, y: 300, w: 20, h: 20 }, source: { detector: "simple-status-icon" } }], images: [] };
   assert.ok(findKnowledgeGraphPanelModel(page.textBoxes, { widthPt: 960, heightPt: 720 }));
   const rebuilt = applyKnowledgeGraphPanelNativeRebuild(page, { widthPt: 960, heightPt: 720 });
   assert.equal(rebuilt.matched, true);
-  assert.ok(rebuilt.addedShapes >= 18);
-  assert.ok(rebuilt.connectors >= 9);
+  assert.ok(rebuilt.addedShapes >= 11);
+  assert.ok(rebuilt.connectors >= 6);
   assert.equal(page.shapes.some((item) => item.id === "bad-check"), false);
   assert.ok(page.shapes.filter((item) => item.source?.nativeComponentRole === "node").every((item) => item.type === "roundRect" && item.style.fill === "#FFFFFF"));
   const frames = page.shapes.filter((item) => item.source?.preserveResidualInterior === true);
-  assert.equal(frames.length, 10);
-  assert.deepEqual([...new Set(frames.map((item) => item.source.nativeComponentRole))].sort(), ["layer-band", "node", "panel"]);
+  assert.equal(frames.length, 0);
+  assert.equal(page.shapes.filter((item) => item.source?.nativeComponentRole === "node").length, 5);
+  assert.equal(page.shapes.some((item) => item.source?.detector === "team-knowledge-graph-node-6"), false);
+  assert.equal(page.textBoxes.some((item) => item.text === "✓"), false);
   assert.deepEqual(page.intent, { rasterBackgroundAllowed: true, primarySemanticStructureNative: true, semanticStructureProfile: "knowledge-graph-three-panel-v1" });
   assert.equal(applyKnowledgeGraphPanelNativeRebuild({ textBoxes: [box("普通图片", 10, 10)], shapes: [] }, { widthPt: 960, heightPt: 720 }).matched, false);
 });
@@ -311,6 +314,7 @@ test("real native rebuild removes native diagram objects from its fidelity resid
     assert.ok(result.metrics.shapes >= 3);
     assert.equal(result.metrics.images, 1);
     assert.equal(result.deck.pages[0].images[0].source.strategy, "full-slide-object-erased-residual");
+    assert.deepEqual(result.deck.pages[0].images[0].source.componentRenderStrategy, { mode: "preserve-crop-with-native-overlays" });
     assert.equal(result.deck.pages[0].images[0].source.nativeObjectsErased, true);
     assert.equal(result.residual.erasedObjects, result.residual.candidateObjects);
     assert.ok(result.residual.erasedObjects >= 3);

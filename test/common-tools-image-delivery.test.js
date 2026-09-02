@@ -41,7 +41,9 @@ test("image delivery emits shared editable, preview, preservation, HTML, PPTX an
     for (const file of Object.values(result.files)) assert.equal(fs.statSync(file).isFile(), true);
     const delivered = JSON.parse(fs.readFileSync(result.files.irFile, "utf8"));
     assert.equal(delivered.pages[0].images[0].assetPath, "assets/pixel.png");
-    assert.match(fs.readFileSync(result.files.htmlFile, "utf8"), /data:image\/png;base64,/);
+    const html = fs.readFileSync(result.files.htmlFile, "utf8");
+    assert.match(html, /data:image\/png;base64,/);
+    assert.ok(html.indexOf('data-object-id="residual"') < html.indexOf('data-object-id="panel"'));
     assert.match(fs.readFileSync(result.files.previewFile, "utf8"), /ppt apply-ir-edit/);
     const plan = JSON.parse(fs.readFileSync(result.files.planFile, "utf8"));
     assert.equal(plan.semantics, "faithful-reconstruction-strategy-not-layout-reflow");
@@ -71,6 +73,12 @@ test("image delivery accepts directed native connectors with negative deltas ins
     assert.equal(result.passed, true);
     const delivered = JSON.parse(fs.readFileSync(result.files.irFile, "utf8"));
     assert.deepEqual(delivered.pages[0].shapes.at(-1).box, { x: 500, y: 300, w: -200, h: -100 });
+    const html = fs.readFileSync(result.files.htmlFile, "utf8");
+    assert.match(html, /data-object-id="reverse-link"[^>]+width:[0-9.]+%;height:0;transform-origin:0 50%;transform:rotate\(-/u);
+    assert.doesNotMatch(html, /data-object-id="reverse-link"[^>]+(?:width|height):-/u);
+    const preview = fs.readFileSync(result.files.previewFile, "utf8");
+    assert.match(preview, /Math\.hypot\(dx,dy\)/u);
+    assert.match(preview, /Math\.atan2\(dy,dx\)/u);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 

@@ -173,6 +173,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
           residualCrop: true,
           textObjectified: true,
           nativeObjectsErased: true,
+          componentRenderStrategy: { mode: "preserve-crop-with-native-overlays" },
           strategy: "full-slide-object-erased-residual",
           nonEditableReason: "Complex pictorial details are preserved after independently editable text and native objects are removed from the residual."
         }
