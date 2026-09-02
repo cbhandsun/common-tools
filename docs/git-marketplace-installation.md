@@ -9,7 +9,7 @@ The repository root is a Codex Git Marketplace. Its single `common-tools` plugin
 Open **Plugins → Add → Add plugin marketplace** and enter:
 
 - Source: `cbhandsun/common-tools`
-- Git ref: `v0.1.20` (reviewed immutable release)
+- Git ref: `v0.1.21` (reviewed immutable release)
 - Sparse paths, one per line:
   - `.agents/plugins`
   - `plugins/common-tools`
@@ -31,7 +31,7 @@ The embedded audit Runtime is synchronized from the audited core during developm
 ## CLI equivalent
 
 ```powershell
-codex plugin marketplace add cbhandsun/common-tools --ref v0.1.20 --sparse .agents/plugins --sparse plugins/common-tools
+codex plugin marketplace add cbhandsun/common-tools --ref v0.1.21 --sparse .agents/plugins --sparse plugins/common-tools
 ```
 
 The Marketplace policy installs `common-tools` by default. If an older Codex build only registers the Marketplace, install explicitly:

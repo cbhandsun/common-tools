@@ -5,7 +5,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const test = require("node:test");
-const { WorkerFailure } = require("../packages/team-runtime/worker-failure");
+const { WorkerFailure, storedWorkerFailure } = require("../packages/team-runtime/worker-failure");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 const { PostgresJobRepository, TeamWorker, TeamWorkerRunner, assertTraceParent, createTeamJob, createTeamServices, fromRow, loadTeamConfig, normalizeTeamJobOptions, parseEnabledCapabilities, recoverWorkerLeases, retentionObjectKeys, runTeamRetention, teamDeploymentPlan } = require("../packages/team-runtime");
@@ -309,6 +309,7 @@ test("team Jobs preserve only a validated private trace parent for workers", () 
 test("team services enqueue only newly persisted jobs and preserve upload ownership", async () => {
   const created = [];
   const queued = [];
+  const ready = [];
   const services = createTeamServices({
     repository: {
       async create(job) { created.push(job); return job; },
@@ -318,15 +319,39 @@ test("team services enqueue only newly persisted jobs and preserve upload owners
     queue: { async enqueue(message) { queued.push(message); } },
     objectStore: {
       async createUploadTarget(input) { return { objectKey: input.objectKey, uploadUrl: "https://storage.example.test/upload" }; },
+      async waitForUpload(input) { ready.push(input.objectKey); return { contentLength: 42 }; },
       async createDownloadTarget(input) { return { objectKey: input.objectKey, downloadUrl: "https://storage.example.test/download" }; }
     }
   });
   const upload = await services.createUploadTarget({ ownerId: "member-1", capability: "project-audit", contentType: "application/gzip", contentLength: 42 });
   const job = await services.createJob({ capability: "project-audit", ownerId: "member-1", idempotencyKey: "request-1", inputObjectKey: upload.objectKey, expiresAt: "2030-01-01T00:00:00.000Z" });
   assert.equal(created.length, 1);
+  assert.deepEqual(ready, [upload.objectKey]);
   assert.deepEqual(queued, [{ id: job.id, capability: "project-audit" }]);
   assert.match(upload.objectKey, /^owners\/[a-f0-9]{64}\/inputs\//);
   await assert.rejects(() => services.createUploadTarget({ ownerId: "member-1", capability: "image-to-editable", contentType: "image/png", contentLength: 42 }), /upload request is invalid/);
+});
+
+test("team services never persist or enqueue a Job before its upload is ready", async () => {
+  let persisted = 0;
+  let queued = 0;
+  const ownerId = "member-1";
+  const inputObjectKey = `owners/${crypto.createHash("sha256").update(ownerId).digest("hex")}/inputs/pending.tar.gz`;
+  const services = createTeamServices({
+    repository: { async create(job) { persisted += 1; return job; }, async get() { return null; }, async requestCancel() { return null; } },
+    queue: { async enqueue() { queued += 1; } },
+    objectStore: {
+      async createUploadTarget() { return {}; },
+      async waitForUpload() { throw new WorkerFailure("INPUT_NOT_READY", { cause: new Error("private provider detail") }); },
+      async createDownloadTarget() { return {}; }
+    }
+  });
+  await assert.rejects(
+    () => services.createJob({ capability: "project-audit", ownerId, idempotencyKey: "pending-request", inputObjectKey, expiresAt: "2030-01-01T00:00:00.000Z" }),
+    (error) => error.code === "INPUT_NOT_READY" && error.message === "uploaded input is not ready"
+  );
+  assert.equal(persisted, 0);
+  assert.equal(queued, 0);
 });
 
 test("project Job admission is quota-atomic and idempotent retries do not enqueue twice", async () => {
@@ -346,14 +371,14 @@ test("project Job admission is quota-atomic and idempotent retries do not enqueu
       async requestCancel() { return null; }
     },
     queue: { async enqueue(message) { queued.push(message); } },
-    objectStore: { async createUploadTarget() { return {}; }, async createDownloadTarget() { return {}; } },
+    objectStore: { async createUploadTarget() { return {}; }, async waitForUpload() { return { contentLength: 42 }; }, async createDownloadTarget() { return {}; } },
     projectActiveJobLimit: 2
   });
   const first = await services.createJob({ capability: "project-audit", ownerId, projectId: "product-core", idempotencyKey: "same-request", inputObjectKey, expiresAt: "2030-01-01T00:00:00.000Z" });
   const retry = await services.createJob({ capability: "project-audit", ownerId, projectId: "product-core", idempotencyKey: "same-request", inputObjectKey, expiresAt: "2030-01-01T00:00:00.000Z" });
   assert.equal(retry.id, first.id);
   assert.deepEqual(queued, [{ id: first.id, capability: "project-audit" }]);
-  assert.throws(() => createTeamServices({ repository: { create() {}, get() {}, requestCancel() {} }, queue: { enqueue() {} }, objectStore: { createUploadTarget() {}, createDownloadTarget() {} }, projectActiveJobLimit: 2 }), /quota configuration/);
+  assert.throws(() => createTeamServices({ repository: { create() {}, get() {}, requestCancel() {} }, queue: { enqueue() {} }, objectStore: { createUploadTarget() {}, waitForUpload() {}, createDownloadTarget() {} }, projectActiveJobLimit: 2 }), /quota configuration/);
 });
 
 test("legacy owner-scoped Jobs retain queue delivery when project quotas are configured", async () => {
@@ -368,7 +393,7 @@ test("legacy owner-scoped Jobs retain queue delivery when project quotas are con
       async requestCancel() { return null; }
     },
     queue: { async enqueue(message) { queued.push(message); } },
-    objectStore: { async createUploadTarget() { return {}; }, async createDownloadTarget() { return {}; } },
+    objectStore: { async createUploadTarget() { return {}; }, async waitForUpload() { return { contentLength: 42 }; }, async createDownloadTarget() { return {}; } },
     projectActiveJobLimit: 2
   });
   const job = await services.createJob({ capability: "project-audit", ownerId, idempotencyKey: "legacy-request", inputObjectKey, expiresAt: "2030-01-01T00:00:00.000Z" });
@@ -551,6 +576,9 @@ test("team worker persists allowlisted stage failures without exposing their int
   assert.equal(failed.to, "failed");
   assert.deepEqual(transitions[0].error, { code: "IMAGE_ASSET_NAMESPACE_FAILED", message: "image asset namespace processing failed", retryable: false });
   assert.equal(JSON.stringify(transitions[0]).includes("secret input content"), false);
+  const inputNotReady = new WorkerFailure("INPUT_NOT_READY", { cause: new Error("private object storage response") });
+  assert.deepEqual(storedWorkerFailure(inputNotReady), { code: "INPUT_NOT_READY", message: "uploaded input is not ready", retryable: true });
+  assert.equal(JSON.stringify(storedWorkerFailure(inputNotReady)).includes("private object storage response"), false);
   assert.throws(() => new WorkerFailure("UNKNOWN_STAGE"), /code is invalid/);
   assert.throws(() => new WorkerFailure("IMAGE_ASSET_NAMESPACE_FAILED", { unsafe: true }), /options are invalid/);
 });

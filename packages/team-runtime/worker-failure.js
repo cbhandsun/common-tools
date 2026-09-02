@@ -1,6 +1,7 @@
 "use strict";
 
 const FAILURE_DEFINITIONS = Object.freeze({
+  INPUT_NOT_READY: Object.freeze({ message: "uploaded input is not ready", retryable: true }),
   IMAGE_ASSET_NAMESPACE_FAILED: Object.freeze({ message: "image asset namespace processing failed", retryable: false }),
   IMAGE_DELIVERY_FAILED: Object.freeze({ message: "image delivery artifact processing failed", retryable: false })
 });

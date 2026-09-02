@@ -382,7 +382,7 @@ class TeamWorkerRunner {
 function createTeamServices({ repository, queue, objectStore, projectActiveJobLimit } = {}) {
   if (!repository || typeof repository.create !== "function" || typeof repository.get !== "function" || typeof repository.requestCancel !== "function") throw new TypeError("repository is incomplete");
   if (!queue || typeof queue.enqueue !== "function") throw new TypeError("queue is incomplete");
-  if (!objectStore || typeof objectStore.createUploadTarget !== "function" || typeof objectStore.createDownloadTarget !== "function") throw new TypeError("objectStore is incomplete");
+  if (!objectStore || typeof objectStore.createUploadTarget !== "function" || typeof objectStore.createDownloadTarget !== "function" || typeof objectStore.waitForUpload !== "function") throw new TypeError("objectStore is incomplete");
   if (projectActiveJobLimit !== undefined && (!Number.isSafeInteger(projectActiveJobLimit) || projectActiveJobLimit < 1 || projectActiveJobLimit > 10000 || typeof repository.createWithinProjectQuota !== "function")) throw new TypeError("project active Job quota configuration is invalid");
   return Object.freeze({
     async createUploadTarget({ ownerId, capability, contentType, contentLength }) {
@@ -392,6 +392,7 @@ function createTeamServices({ repository, queue, objectStore, projectActiveJobLi
     },
     async createJob(input) {
       const job = createTeamJob(input);
+      await objectStore.waitForUpload({ objectKey: job.inputObjectKey });
       let admission;
       if (projectActiveJobLimit !== undefined && job.projectId !== undefined) admission = await repository.createWithinProjectQuota(job, projectActiveJobLimit);
       else {
