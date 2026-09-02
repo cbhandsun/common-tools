@@ -312,6 +312,7 @@ test("team services enqueue only newly persisted jobs and preserve upload owners
   const ready = [];
   const services = createTeamServices({
     repository: {
+      async findActiveByIdempotency() { return null; },
       async create(job) { created.push(job); return job; },
       async get(id, ownerId) { return created.find((job) => job.id === id && job.ownerId === ownerId) || null; },
       async requestCancel(id, ownerId) { return created.find((job) => job.id === id && job.ownerId === ownerId) || null; }
@@ -338,7 +339,7 @@ test("team services never persist or enqueue a Job before its upload is ready", 
   const ownerId = "member-1";
   const inputObjectKey = `owners/${crypto.createHash("sha256").update(ownerId).digest("hex")}/inputs/pending.tar.gz`;
   const services = createTeamServices({
-    repository: { async create(job) { persisted += 1; return job; }, async get() { return null; }, async requestCancel() { return null; } },
+    repository: { async findActiveByIdempotency() { return null; }, async create(job) { persisted += 1; return job; }, async get() { return null; }, async requestCancel() { return null; } },
     queue: { async enqueue() { queued += 1; } },
     objectStore: {
       async createUploadTarget() { return {}; },
@@ -356,11 +357,13 @@ test("team services never persist or enqueue a Job before its upload is ready", 
 
 test("project Job admission is quota-atomic and idempotent retries do not enqueue twice", async () => {
   const queued = [];
+  let readinessChecks = 0;
   let admitted;
   const ownerId = "member-1";
   const inputObjectKey = `owners/${crypto.createHash("sha256").update(ownerId).digest("hex")}/inputs/project.tar.gz`;
   const services = createTeamServices({
     repository: {
+      async findActiveByIdempotency() { return admitted || null; },
       async create(job) { return job; },
       async createWithinProjectQuota(job, limit) {
         assert.equal(limit, 2);
@@ -371,14 +374,15 @@ test("project Job admission is quota-atomic and idempotent retries do not enqueu
       async requestCancel() { return null; }
     },
     queue: { async enqueue(message) { queued.push(message); } },
-    objectStore: { async createUploadTarget() { return {}; }, async waitForUpload() { return { contentLength: 42 }; }, async createDownloadTarget() { return {}; } },
+    objectStore: { async createUploadTarget() { return {}; }, async waitForUpload() { readinessChecks += 1; return { contentLength: 42 }; }, async createDownloadTarget() { return {}; } },
     projectActiveJobLimit: 2
   });
   const first = await services.createJob({ capability: "project-audit", ownerId, projectId: "product-core", idempotencyKey: "same-request", inputObjectKey, expiresAt: "2030-01-01T00:00:00.000Z" });
   const retry = await services.createJob({ capability: "project-audit", ownerId, projectId: "product-core", idempotencyKey: "same-request", inputObjectKey, expiresAt: "2030-01-01T00:00:00.000Z" });
   assert.equal(retry.id, first.id);
+  assert.equal(readinessChecks, 1);
   assert.deepEqual(queued, [{ id: first.id, capability: "project-audit" }]);
-  assert.throws(() => createTeamServices({ repository: { create() {}, get() {}, requestCancel() {} }, queue: { enqueue() {} }, objectStore: { createUploadTarget() {}, waitForUpload() {}, createDownloadTarget() {} }, projectActiveJobLimit: 2 }), /quota configuration/);
+  assert.throws(() => createTeamServices({ repository: { findActiveByIdempotency() {}, create() {}, get() {}, requestCancel() {} }, queue: { enqueue() {} }, objectStore: { createUploadTarget() {}, waitForUpload() {}, createDownloadTarget() {} }, projectActiveJobLimit: 2 }), /quota configuration/);
 });
 
 test("legacy owner-scoped Jobs retain queue delivery when project quotas are configured", async () => {
@@ -387,6 +391,7 @@ test("legacy owner-scoped Jobs retain queue delivery when project quotas are con
   const inputObjectKey = `owners/${crypto.createHash("sha256").update(ownerId).digest("hex")}/inputs/legacy.tar.gz`;
   const services = createTeamServices({
     repository: {
+      async findActiveByIdempotency() { return null; },
       async create(job) { return job; },
       async createWithinProjectQuota() { throw new Error("legacy Job must not use project quota"); },
       async get() { return null; },
@@ -431,6 +436,17 @@ test("project Job idempotency lookup remains in the same project partition", asy
   assert.equal(calls[0].values[15], traceParent);
   assert.match(calls[1].text, /project_id IS NOT DISTINCT FROM \$2/);
   assert.deepEqual(calls[1].values, [owner, "product-core", "project-audit", "same-key"]);
+});
+
+test("active Job idempotency lookup is owner, project, capability, and key scoped", async () => {
+  const calls = [];
+  const owner = "member-1";
+  const inputKey = `owners/${crypto.createHash("sha256").update(owner).digest("hex")}/inputs/project.tar.gz`;
+  const job = createTeamJob({ capability: "project-audit", ownerId: owner, projectId: "product-core", idempotencyKey: "same-key", inputObjectKey: inputKey, expiresAt: "2030-01-01T00:00:00.000Z" });
+  const repository = new PostgresJobRepository({ query: async (text, values) => { calls.push({ text, values }); return { rows: [] }; } });
+  assert.equal(await repository.findActiveByIdempotency(job), null);
+  assert.match(calls[0].text, /status NOT IN \('succeeded','failed','cancelled','expired'\)/);
+  assert.deepEqual(calls[0].values, [owner, "product-core", "project-audit", "same-key"]);
 });
 
 test("Postgres project admission holds a project lock before counting active Jobs", async () => {

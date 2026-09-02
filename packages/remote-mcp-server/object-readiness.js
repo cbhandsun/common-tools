@@ -8,8 +8,7 @@ const NOT_READY_CODES = new Set(["NoSuchKey", "NotFound", "NoSuchObject", "INPUT
 function isInputNotReadyError(error) {
   if (!error || typeof error !== "object") return false;
   const code = typeof error.code === "string" ? error.code : typeof error.name === "string" ? error.name : "";
-  const statusCode = error.$metadata && typeof error.$metadata === "object" ? error.$metadata.httpStatusCode : undefined;
-  return NOT_READY_CODES.has(code) || statusCode === 404;
+  return NOT_READY_CODES.has(code);
 }
 
 function retrySettings({ retryDelaysMs = DEFAULT_RETRY_DELAYS_MS, sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)) } = {}) {
