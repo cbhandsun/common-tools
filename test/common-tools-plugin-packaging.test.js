@@ -26,6 +26,7 @@ function copiedPluginRoot() {
   fs.cpSync(path.join(repositoryRoot, "marketplaces"), path.join(root, "marketplaces"), { recursive: true });
   fs.cpSync(path.join(repositoryRoot, ".agents"), path.join(root, ".agents"), { recursive: true });
   fs.cpSync(path.join(repositoryRoot, "packages", "capability-manifests"), path.join(root, "packages", "capability-manifests"), { recursive: true });
+  fs.copyFileSync(path.join(repositoryRoot, "package.json"), path.join(root, "package.json"));
   return root;
 }
 
@@ -42,7 +43,8 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.equal(marketplace.plugins[0].source.path, "./plugins/common-tools");
   const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".codex-plugin", "plugin.json"), "utf8"));
   assert.equal(manifest.mcpServers, "./.mcp.json");
-  assert.match(manifest.version, /^0\.1\.14\+codex\./);
+  assert.match(manifest.version, /^0\.1\.18\+codex\./);
+  assert.equal(manifest.version.split("+")[0], packageManifest.version);
   const mcp = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".mcp.json"), "utf8"));
   assert.deepEqual(mcp.mcpServers["common-tools"], { type: "http", url: "https://plugins.iepose.cn/mcp", oauth: { clientId: "common-tools-mcp" } });
   const imageSkill = fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "image-to-editable", "SKILL.md"), "utf8");
@@ -78,6 +80,19 @@ test("Git Marketplace rejects removal of the image residual deduplication releas
     manifest.version = "0.1.0+codex.legacy";
     fs.writeFileSync(manifestFile, JSON.stringify(manifest), "utf8");
     assert.throws(() => verifyPluginPackaging(root, capabilities), /does not include the current ppt-create release/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Git Marketplace rejects a plugin version that drifts from the repository release", () => {
+  const root = copiedPluginRoot();
+  try {
+    const manifestFile = path.join(root, "plugins", "common-tools", ".codex-plugin", "plugin.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+    manifest.version = "0.1.17+codex.stale";
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest), "utf8");
+    assert.throws(() => verifyPluginPackaging(root, capabilities), /does not match the repository release version/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
