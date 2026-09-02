@@ -134,6 +134,11 @@ test("Keycloak MCP client configuration check is read-only and permits the OAuth
   assert.equal(current.calls.some((call) => call.method !== "GET" && !call.url.endsWith("token")), false);
   assert.equal(redirectUrisMatch(current.client()), true);
   assert.equal(mcpClientConfigurationMatches(current.client()), true);
+  const omittedAuthorizationServices = { ...current.client() };
+  delete omittedAuthorizationServices.authorizationServicesEnabled;
+  assert.equal(mcpClientConfigurationMatches(omittedAuthorizationServices), true);
+  assert.equal(mcpClientConfigurationMatches({ ...omittedAuthorizationServices, authorizationServicesEnabled: null }), false);
+  assert.equal(mcpClientConfigurationMatches({ ...omittedAuthorizationServices, authorizationServicesEnabled: true }), false);
   assert.equal(mcpClientScopeConfigurationMatches(current.scopeState()), true);
   const drift = mcpClientFetch();
   assert.deepEqual(await synchronizeMcpClientRedirectUris({ ...credentials, fetchImpl: drift.fetchImpl }), { status: "drift", changed: false });

@@ -16,6 +16,7 @@ function docker {
   if ($args[0] -eq 'image') { $global:LASTEXITCODE = 0; return ('sha256:' + ('1' * 64)) }
   if ($args[0] -ne 'run') { throw 'Unexpected Docker operation' }
   $probe = $args[-1]
+  if ($probe.Contains("`r")) { throw 'Docker shell probe must use POSIX line endings' }
   if (-not $probe.Contains('/opt/paddleocr/healthcheck.png /opt/paddleocr/paddleocr_protocol.py')) { throw 'Protocol digest must follow healthcheck digest' }
   $global:LASTEXITCODE = $script:probeStatus
   return $script:profileLines

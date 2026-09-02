@@ -115,7 +115,10 @@ function mcpClientConfigurationMatches(client) {
     && client.directAccessGrantsEnabled === false
     && client.implicitFlowEnabled === false
     && client.serviceAccountsEnabled === false
-    && client.authorizationServicesEnabled === false
+    // Keycloak 26 omits this property when authorization services are disabled.
+    // Reject every value except the explicit disabled value and that canonical
+    // omission; null and truthy/coerced values remain invalid.
+    && (client.authorizationServicesEnabled === false || client.authorizationServicesEnabled === undefined)
     && client.fullScopeAllowed === false;
 }
 
