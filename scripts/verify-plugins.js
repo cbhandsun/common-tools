@@ -153,6 +153,8 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   const metadata = assertPluginMetadata(path.join(pluginRoot, ".codex-plugin", "plugin.json"), "common-tools", "codex");
   if (metadata.mcpServers !== "./.mcp.json") throw new Error("unified Codex plugin MCP configuration is invalid");
   if (!versionAtLeast(pluginRuntimeVersion(metadata.version), "0.1.13")) throw new Error("unified Codex plugin version does not include the current ppt-create release");
+  const repositoryMetadata = assertObject(readJson(path.join(root, "package.json"), "repository package metadata is invalid"), "repository package metadata is invalid");
+  if (!SEMVER_PATTERN.test(repositoryMetadata.version || "") || pluginRuntimeVersion(metadata.version) !== repositoryMetadata.version) throw new Error("unified Codex plugin version does not match the repository release version");
   const mcp = assertObject(readJson(path.join(pluginRoot, ".mcp.json"), "unified Codex plugin MCP configuration is invalid"), "unified Codex plugin MCP configuration is invalid");
   const server = mcp.mcpServers?.["common-tools"];
   if (!server || server.type !== "http" || server.url !== "https://plugins.iepose.cn/mcp" || server.oauth?.clientId !== "common-tools-mcp" || Object.keys(server).some((key) => !["type", "url", "oauth"].includes(key))) throw new Error("unified Codex plugin MCP configuration is invalid");
