@@ -210,6 +210,8 @@ test("generated Windows installer accepts capability codes, safely migrates lega
   assert.match(split, /codex mcp remove \$serverName/);
   assert.match(split, /codex mcp add \$serverName --url \$serverUrl --oauth-client-id "common-tools-mcp"/);
   assert.doesNotMatch(split, /--oauth-resource/);
+  assert.match(split, /\$oauthScopes = \[string\]::Join\(",", @\("offline_access"\) \+ @\(\$remoteSelected/);
+  assert.match(split, /codex mcp logout \$serverName/);
   assert.match(split, /codex mcp login \$serverName --scopes \$oauthScopes/);
   assert.match(split, /verify-connection\.ps1"\) -Capabilities \$remoteSelected/);
   assert.match(split, /\[ValidateSet\("local-preferred", "remote-only", "local-only"\)\]/);
@@ -305,8 +307,69 @@ ${registration}`;
     fs.writeFileSync(harnessPath, harness, "utf8");
     const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
     assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
-    assert.match(result.stdout, /CALL=mcp login common-tools --scopes common-tools:capability:image-to-editable/);
+    assert.match(result.stdout, /CALL=mcp logout common-tools/);
+    assert.match(result.stdout, /CALL=mcp login common-tools --scopes offline_access,common-tools:capability:image-to-editable/);
     assert.doesNotMatch(result.stdout, /CALL=mcp (?:remove|add)/);
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("generated Windows installer uses the add command's initial OAuth flow without a second login", { skip: process.platform !== "win32" }, () => {
+  const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
+  const registrationStart = installer.indexOf('$serverName = "common-tools"');
+  const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-new-registration-"));
+  const harnessPath = path.join(parent, "new-registration.ps1");
+  try {
+    const registration = installer.slice(registrationStart, registrationEnd);
+    const harness = `$ErrorActionPreference = "Stop"
+function codex {
+  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
+  if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
+    $global:LASTEXITCODE = 1
+    return
+  }
+  Write-Output "CALL=$($CommandArgs -join ' ')"
+  $global:LASTEXITCODE = 0
+}
+$selected = @("siyuan-note")
+$remoteSelected = @("siyuan-note")
+${registration}`;
+    fs.writeFileSync(harnessPath, harness, "utf8");
+    const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+    assert.match(result.stdout, /CALL=mcp add common-tools --url https:\/\/tunnel\.example\.test\/mcp --oauth-client-id common-tools-mcp/);
+    assert.doesNotMatch(result.stdout, /CALL=mcp (?:logout|login)/);
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("generated Windows installer fails closed when the stale OAuth session cannot be reset", { skip: process.platform !== "win32" }, () => {
+  const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
+  const registrationStart = installer.indexOf('$serverName = "common-tools"');
+  const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-reset-failure-"));
+  const harnessPath = path.join(parent, "reset-failure.ps1");
+  try {
+    const registration = installer.slice(registrationStart, registrationEnd);
+    const harness = `$ErrorActionPreference = "Stop"
+function codex {
+  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
+  if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
+    '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}'
+    $global:LASTEXITCODE = 0
+    return
+  }
+  Write-Output "CALL=$($CommandArgs -join ' ')"
+  $global:LASTEXITCODE = if ($CommandArgs[1] -eq "logout") { 2 } else { 0 }
+}
+$selected = @("siyuan-note")
+$remoteSelected = @("siyuan-note")
+${registration}`;
+    fs.writeFileSync(harnessPath, harness, "utf8");
+    const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
+    const output = `${result.stdout}${result.stderr}`;
+    assert.notEqual(result.status, 0, output);
+    assert.match(output, /Codex MCP OAuth session reset failed/);
+    assert.doesNotMatch(result.stdout, /CALL=mcp login/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
@@ -375,7 +438,7 @@ test("unified bundle installer selects capability scopes while installing one pl
   assert.match(bundle, /"4" = "project-audit"/);
   assert.deepEqual(REMOTE_CAPABILITY_CODES, { "image-to-editable": "1", "ppt-improve": "2", "ppt-quality": "3", "project-audit": "4", "ppt-create": "5", "siyuan-note": "6" });
   assert.match(bundle, /\$pluginNames = @\(\$plugins\["bundle"\]\)/);
-  assert.match(bundle, /\$oauthScopes = \[string\]::Join\(",", @\(\$remoteSelected/);
+  assert.match(bundle, /\$oauthScopes = \[string\]::Join\(",", @\("offline_access"\) \+ @\(\$remoteSelected/);
   assert.doesNotMatch(bundle, /"image-to-editable" = "common-tools-remote-image-to-editable"/);
   assert.match(installGuide("codex", "https://tunnel.example.test", ["image-to-editable", "project-audit"]), /one capability-router Skill/);
   assert.match(installGuide("codex", "https://tunnel.example.test", ["image-to-editable", "project-audit"]), /-AllCapabilities/);
@@ -397,7 +460,7 @@ test("remote plugin bundle input rejects paths, insecure origins and unknown opt
 
 test("remote capability Skills are self-contained and use the team job protocol", () => {
   for (const capability of ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit"]) {
-    const skill = remoteSkill(capability);
+    const skill = remoteSkill(capability, "https://tunnel.example.test");
     assert.match(skill, new RegExp(`name: ${capability}`));
     assert.match(skill, /create_team_upload_target/);
     assert.match(skill, /get_team_artifact_target/);
@@ -426,10 +489,16 @@ test("remote capability Skills are self-contained and use the team job protocol"
 });
 
 test("SiYuan remote Skill uses direct restricted tools instead of the job protocol", () => {
-  const skill = remoteSkill("siyuan-note");
+  const skill = remoteSkill("siyuan-note", "https://tunnel.example.test");
   assert.match(skill, /name: siyuan-note/);
   assert.match(skill, /siyuan_save_note/);
   assert.match(skill, /不可信数据/);
+  assert.match(skill, /siyuan_list_notebooks/);
+  assert.match(skill, /codex mcp logout common-tools/);
+  assert.match(skill, /offline_access/);
+  assert.match(skill, /完全关闭并重新打开 Codex/);
+  assert.match(skill, /codex mcp add common-tools --url https:\/\/tunnel\.example\.test\/mcp/);
+  assert.doesNotMatch(skill, /plugins\.iepose\.cn/);
   assert.doesNotMatch(skill, /create_team_upload_target/);
   assert.match(skill, /任意思源端点或任意 SQL/);
 });

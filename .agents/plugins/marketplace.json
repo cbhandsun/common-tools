@@ -12,7 +12,7 @@
       },
       "policy": {
         "installation": "INSTALLED_BY_DEFAULT",
-        "authentication": "ON_USE"
+        "authentication": "ON_INSTALL"
       },
       "category": "Productivity"
     }

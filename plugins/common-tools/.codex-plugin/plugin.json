@@ -1,6 +1,6 @@
 {
   "name": "common-tools",
-  "version": "0.1.21+codex.20260902130718",
+  "version": "0.1.22+codex.20260904035515",
   "description": "由一个托管 HTTPS MCP 服务支持的 Common Tools 客户端技能，包括私有思源笔记能力。",
   "author": {
     "name": "common-tools",

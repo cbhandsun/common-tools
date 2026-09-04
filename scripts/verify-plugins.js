@@ -148,7 +148,7 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   const marketplace = assertObject(readJson(path.join(root, ".agents", "plugins", "marketplace.json"), "Git marketplace metadata is invalid"), "Git marketplace metadata is invalid");
   if (marketplace.name !== "common-tools" || marketplace.interface?.displayName !== "Common Tools" || !Array.isArray(marketplace.plugins) || marketplace.plugins.length !== 1) throw new Error("Git marketplace metadata is invalid");
   const entry = marketplace.plugins[0];
-  if (!entry || entry.name !== "common-tools" || entry.source?.source !== "local" || entry.source?.path !== "./plugins/common-tools" || entry.policy?.installation !== "INSTALLED_BY_DEFAULT" || entry.policy?.authentication !== "ON_USE" || !assertNonEmptyString(entry.category, "Git marketplace metadata is invalid")) throw new Error("Git marketplace metadata is invalid");
+  if (!entry || entry.name !== "common-tools" || entry.source?.source !== "local" || entry.source?.path !== "./plugins/common-tools" || entry.policy?.installation !== "INSTALLED_BY_DEFAULT" || entry.policy?.authentication !== "ON_INSTALL" || !assertNonEmptyString(entry.category, "Git marketplace metadata is invalid")) throw new Error("Git marketplace metadata is invalid");
   const pluginRoot = path.join(root, "plugins", "common-tools");
   const metadata = assertPluginMetadata(path.join(pluginRoot, ".codex-plugin", "plugin.json"), "common-tools", "codex");
   if (metadata.mcpServers !== "./.mcp.json") throw new Error("unified Codex plugin MCP configuration is invalid");
@@ -169,7 +169,7 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   const auditSkill = fs.readFileSync(path.join(pluginRoot, "skills", "project-audit", "SKILL.md"), "utf8");
   if (!auditSkill.includes("Source-code privacy is the default boundary") || !auditSkill.includes("<plugin-root>/runtime/project-audit/") || !auditSkill.includes("contains no SlideClone, OCR, .NET, Docker") || !auditSkill.includes("obtain separate explicit user approval") || !auditSkill.includes("create_team_upload_target")) throw new Error("unified project-audit Skill is not embedded local-first with an explicit remote boundary");
   const siyuanSkill = fs.readFileSync(path.join(pluginRoot, "skills", "siyuan-note", "SKILL.md"), "utf8");
-  if (!siyuanSkill.includes("siyuan_save_note") || !siyuanSkill.includes("不可信数据") || !siyuanSkill.includes("不提供删除") || siyuanSkill.includes("create_team_upload_target")) throw new Error("unified SiYuan Skill does not enforce the direct private-note boundary");
+  if (!siyuanSkill.includes("siyuan_save_note") || !siyuanSkill.includes("siyuan_list_notebooks") || !siyuanSkill.includes("不可信数据") || !siyuanSkill.includes("不提供删除") || !siyuanSkill.includes("codex mcp logout common-tools") || !siyuanSkill.includes("offline_access") || !siyuanSkill.includes("完全关闭并重新打开 Codex") || siyuanSkill.includes("create_team_upload_target")) throw new Error("unified SiYuan Skill does not enforce the direct private-note and OAuth recovery boundary");
   // This source-only verifier is intentionally loaded lazily. Remote runtime
   // bundles reuse this file but do not ship the Git Marketplace sync tooling.
   const syncVerifier = path.join(root, "scripts", "sync-project-audit-plugin-runtime.js");

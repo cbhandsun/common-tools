@@ -18,3 +18,23 @@
 ## 安全边界
 
 该能力只开放以下操作：列出笔记本、在收件箱路径下创建笔记、追加内容、受限搜索和受限 Markdown 读取。它不开放删除、任意 SQL、任意思源 API、文件系统访问或凭据访问。写入操作必须提供由 Redis 保存、按所有者隔离的幂等键。搜索和读取结果都会被标记为不可信数据。
+
+## 客户端授权与恢复
+
+安装后的新任务应至少能看到 `siyuan_list_notebooks`。如果一个 `siyuan_*` 工具都没有，这是当前 Codex 任务没有加载 Common Tools MCP 授权工具，不能据此判断思源服务端未启动。安装客户端应申请 `offline_access` 和 `common-tools:capability:siyuan-note`，使正常过期的访问令牌可以刷新。
+
+旧刷新凭据已失效、管理员撤销会话或登录策略改变时，在安装插件的电脑上执行：
+
+```powershell
+codex mcp get common-tools --json
+codex mcp logout common-tools
+codex mcp login common-tools --scopes offline_access,common-tools:capability:siyuan-note
+```
+
+如果 `get` 显示配置不存在，先执行：
+
+```powershell
+codex mcp add common-tools --url https://plugins.iepose.cn/mcp --oauth-client-id common-tools-mcp
+```
+
+完成浏览器授权后，必须完全关闭并重新打开 Codex，再新建任务确认 `siyuan_list_notebooks` 已出现。客户端不需要也不应获得思源 API Token、Keycloak 管理员账号或 Docker 内部地址。
