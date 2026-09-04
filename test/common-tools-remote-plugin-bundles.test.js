@@ -313,7 +313,7 @@ ${registration}`;
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
-test("generated Windows installer explicitly logs in after registering a missing Codex MCP server", { skip: process.platform !== "win32" }, () => {
+test("generated Windows installer uses the add command's initial OAuth flow without a second login", { skip: process.platform !== "win32" }, () => {
   const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
   const registrationStart = installer.indexOf('$serverName = "common-tools"');
   const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
@@ -338,9 +338,7 @@ ${registration}`;
     const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
     assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
     assert.match(result.stdout, /CALL=mcp add common-tools --url https:\/\/tunnel\.example\.test\/mcp --oauth-client-id common-tools-mcp/);
-    assert.match(result.stdout, /CALL=mcp logout common-tools/);
-    assert.match(result.stdout, /CALL=mcp login common-tools --scopes offline_access,common-tools:capability:siyuan-note/);
-    assert.ok(result.stdout.indexOf("CALL=mcp add") < result.stdout.indexOf("CALL=mcp login"));
+    assert.doesNotMatch(result.stdout, /CALL=mcp (?:logout|login)/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
@@ -462,7 +460,7 @@ test("remote plugin bundle input rejects paths, insecure origins and unknown opt
 
 test("remote capability Skills are self-contained and use the team job protocol", () => {
   for (const capability of ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit"]) {
-    const skill = remoteSkill(capability);
+    const skill = remoteSkill(capability, "https://tunnel.example.test");
     assert.match(skill, new RegExp(`name: ${capability}`));
     assert.match(skill, /create_team_upload_target/);
     assert.match(skill, /get_team_artifact_target/);
@@ -491,7 +489,7 @@ test("remote capability Skills are self-contained and use the team job protocol"
 });
 
 test("SiYuan remote Skill uses direct restricted tools instead of the job protocol", () => {
-  const skill = remoteSkill("siyuan-note");
+  const skill = remoteSkill("siyuan-note", "https://tunnel.example.test");
   assert.match(skill, /name: siyuan-note/);
   assert.match(skill, /siyuan_save_note/);
   assert.match(skill, /不可信数据/);
@@ -499,6 +497,8 @@ test("SiYuan remote Skill uses direct restricted tools instead of the job protoc
   assert.match(skill, /codex mcp logout common-tools/);
   assert.match(skill, /offline_access/);
   assert.match(skill, /完全关闭并重新打开 Codex/);
+  assert.match(skill, /codex mcp add common-tools --url https:\/\/tunnel\.example\.test\/mcp/);
+  assert.doesNotMatch(skill, /plugins\.iepose\.cn/);
   assert.doesNotMatch(skill, /create_team_upload_target/);
   assert.match(skill, /任意思源端点或任意 SQL/);
 });
