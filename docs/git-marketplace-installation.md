@@ -2,19 +2,19 @@
 
 > This repository-root Marketplace uses a hybrid policy: heavy image conversion runs on the team Docker service at `https://plugins.iepose.cn`, while source-sensitive project audit runs locally by default.
 
-The repository root is a Codex Git Marketplace. Its single `common-tools` plugin is marked `INSTALLED_BY_DEFAULT`, so adding the Marketplace installs the complete Skill surface without requiring four separate plugin selections.
+The repository root is a Codex Git Marketplace. Its single `common-tools` plugin is marked `INSTALLED_BY_DEFAULT` and `ON_INSTALL`, so adding the Marketplace installs the complete Skill surface and starts authorization without requiring separate plugin selections or waiting for the first tool call.
 
 ## Codex desktop
 
 Open **Plugins → Add → Add plugin marketplace** and enter:
 
 - Source: `cbhandsun/common-tools`
-- Git ref: `v0.1.21` (reviewed immutable release)
+- Git ref: `v0.1.22` (reviewed immutable release)
 - Sparse paths, one per line:
   - `.agents/plugins`
   - `plugins/common-tools`
 
-After adding the Marketplace, complete the OAuth prompt and start a new task so Codex loads the installed Skills and HTTPS MCP declaration. The same `plugins/common-tools` sparse path includes the lightweight local project-audit Runtime; no npm command or separate Runtime installation is needed. It contains no OCR models or `pd-hifi-slideclone` engine. Image conversion uploads only explicitly approved PNG/JPEG images, one PDF, or one image-based PPTX in a constrained gzip/TAR transport package; fixed document normalization, OCR, reconstruction, rendering, and quality work execute in the server-side Docker workers.
+After adding the Marketplace, complete the OAuth prompt, fully close and reopen Codex, and start a new task so Codex loads the installed Skills and HTTPS MCP tools. The generated remote installer explicitly requests `offline_access` plus the selected capability scopes so a normal access-token expiry can be refreshed; Marketplace-only users can use the CLI recovery command below when authorization must be renewed. Explicit logout, administrator revocation, password/session policy changes, or a long-expired refresh token can still require login again. The same `plugins/common-tools` sparse path includes the lightweight local project-audit Runtime; no npm command or separate Runtime installation is needed. It contains no OCR models or `pd-hifi-slideclone` engine. Image conversion uploads only explicitly approved PNG/JPEG images, one PDF, or one image-based PPTX in a constrained gzip/TAR transport package; fixed document normalization, OCR, reconstruction, rendering, and quality work execute in the server-side Docker workers.
 
 The Marketplace commit and the hosted service release are one compatibility boundary, but they are deployed separately. Publishing the Git plugin updates Skills and MCP metadata; it does not rebuild or deploy the server-side Worker image. For `image-to-editable`, release the same reviewed revision as an immutable `image-worker` image and require the `residual-native-duplicates-removed`, `quality-rendered`, and `visual-fidelity` gates before describing an output as visually verified. CI packs and installs the npm Runtime and functionally probes image residual deduplication plus PPT asset provenance, image delivery, IR editing, document ingestion, safe templates, whole-deck variants, citations, and native notes so a release cannot silently omit those modules.
 
@@ -31,7 +31,7 @@ The embedded audit Runtime is synchronized from the audited core during developm
 ## CLI equivalent
 
 ```powershell
-codex plugin marketplace add cbhandsun/common-tools --ref v0.1.21 --sparse .agents/plugins --sparse plugins/common-tools
+codex plugin marketplace add cbhandsun/common-tools --ref v0.1.22 --sparse .agents/plugins --sparse plugins/common-tools
 ```
 
 The Marketplace policy installs `common-tools` by default. If an older Codex build only registers the Marketplace, install explicitly:
@@ -39,6 +39,16 @@ The Marketplace policy installs `common-tools` by default. If an older Codex bui
 ```powershell
 codex plugin add common-tools@common-tools
 ```
+
+If a new task cannot see any `siyuan_*` tools, reset only the Common Tools OAuth session and authorize it again:
+
+```powershell
+codex mcp get common-tools --json
+codex mcp logout common-tools
+codex mcp login common-tools --scopes offline_access,common-tools:capability:siyuan-note
+```
+
+If `get` reports that the MCP server is missing, register it first with `codex mcp add common-tools --url https://plugins.iepose.cn/mcp --oauth-client-id common-tools-mcp`. After browser authorization, fully close and reopen Codex and use a new task. Do not copy the server-side SiYuan token or Keycloak administrator credentials to the client computer.
 
 ## Runtime boundary
 
