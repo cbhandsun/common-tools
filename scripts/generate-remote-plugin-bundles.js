@@ -319,6 +319,10 @@ ${layout === "split" ? "$pluginNames = @($selected | ForEach-Object { $plugins[$
     .replace(
       `  if ($legacyUrlValue.TrimEnd("/") -ne $serverUrl.TrimEnd("/")) { throw "Legacy Codex MCP '$legacyServerName' points to an unrelated URL and was not changed." }`,
       `  if ([string]::IsNullOrWhiteSpace($legacyUrlValue)) { throw "Legacy Codex MCP '$legacyServerName' has an invalid URL and was not changed." }\n  $legacyUri = $null\n  try { $legacyUri = [Uri]$legacyUrlValue } catch { }\n  $expectedLegacyUri = [Uri]$serverUrl\n  $isManagedLegacyEndpoint = $null -ne $legacyUri -and $legacyUri.IsAbsoluteUri -and $legacyUri.Scheme -eq "https" -and [string]::IsNullOrWhiteSpace($legacyUri.UserInfo) -and $legacyUri.Query.Length -eq 0 -and $legacyUri.Fragment.Length -eq 0 -and $legacyUri.AbsoluteUri.TrimEnd("/") -eq $expectedLegacyUri.AbsoluteUri.TrimEnd("/")\n  if (-not $isManagedLegacyEndpoint) { throw "Legacy Codex MCP '$legacyServerName' points to an unrelated URL and was not changed." }`
+    )
+    .replace(
+      `if (-not $registeredNow) {\n  & codex mcp logout $serverName 2>$null\n  if ($LASTEXITCODE -notin @(0, 1)) { throw "Codex MCP OAuth session reset failed" }\n  & codex mcp login $serverName --scopes $oauthScopes\n  if ($LASTEXITCODE -ne 0) { throw "Codex MCP OAuth login failed" }\n}`,
+      `if (-not $registeredNow) {\n  & codex mcp logout $serverName 2>$null\n  if ($LASTEXITCODE -notin @(0, 1)) { throw "Codex MCP OAuth session reset failed" }\n}\n& codex mcp login $serverName --scopes $oauthScopes\nif ($LASTEXITCODE -ne 0) { throw "Codex MCP OAuth login failed" }`
     );
   const managedPluginNames = [pluginName(), ...CAPABILITIES.map((capability) => pluginName(capability))];
   const marketplaceRegistration = host === "codex" ? `$marketplaceName = "common-tools-remote"

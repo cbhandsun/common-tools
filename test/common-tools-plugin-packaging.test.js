@@ -195,6 +195,8 @@ test("plugin packaging rejects unresolved patch artifacts in Skill prose", () =>
 test("Codex plugin manifests require install-page metadata and accept cachebuster semver", () => {
   const root = copiedPluginRoot();
   try {
+    const siyuanManifest = JSON.parse(fs.readFileSync(path.join(root, "plugins", "codex", "siyuan-note", ".codex-plugin", "plugin.json"), "utf8"));
+    assert.match(siyuanManifest.version, /^0\.1\.0\+codex\./, "SiYuan auth changes must invalidate installed plugin caches");
     const manifest = path.join(root, "plugins", "codex", "image-to-editable", ".codex-plugin", "plugin.json");
     const parsed = JSON.parse(fs.readFileSync(manifest, "utf8"));
     assert.match(parsed.version, /^0\.1\.7\+codex\./);

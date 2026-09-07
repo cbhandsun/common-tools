@@ -320,7 +320,7 @@ ${registration}`;
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
-test("generated Windows installer uses the add command's initial OAuth flow without a second login", { skip: process.platform !== "win32" }, () => {
+test("generated Windows installer performs scoped OAuth login after a new registration", { skip: process.platform !== "win32" }, () => {
   const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
   const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
   const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
@@ -345,7 +345,8 @@ ${registration}`;
     const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
     assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
     assert.match(result.stdout, /CALL=mcp add common-tools-auth-v2 --url https:\/\/tunnel\.example\.test\/mcp --oauth-client-id common-tools-mcp/);
-    assert.doesNotMatch(result.stdout, /CALL=mcp (?:logout|login)/);
+    assert.doesNotMatch(result.stdout, /CALL=mcp logout/);
+    assert.match(result.stdout, /CALL=mcp login common-tools-auth-v2 --scopes offline_access,common-tools:capability:siyuan-note/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
