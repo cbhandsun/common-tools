@@ -335,6 +335,24 @@ test("OpenXML build cache is content-addressed, portable, and refuses corrupt en
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
+test("OpenXML cache invalidates assets bound through case-insensitive model fields", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-cache-casing-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const asset = path.join(root, "asset.png");
+  const irFile = path.join(root, "deck.json");
+  const builder = { command: "dotnet", args: ["run"] };
+  for (const field of ["assetPath", "AssetPath", "ASSETPATH", "sourceImage", "SourceImage", "SOURCEIMAGE"]) {
+    const page = field.toLowerCase() === "sourceimage" ? { [field]: "asset.png" } : { Images: [{ [field]: "asset.png" }] };
+    fs.writeFileSync(irFile, JSON.stringify({ Pages: [page] }));
+    fs.writeFileSync(asset, "pixels-v1");
+    const before = createOpenXmlBuildCacheIdentity({ irFile }, builder, root);
+    fs.writeFileSync(asset, "pixels-v2");
+    const after = createOpenXmlBuildCacheIdentity({ irFile }, builder, root);
+    assert.notEqual(after, before, field + " must hash the referenced content");
+    assert.equal(createOpenXmlBuildCacheIdentity({ irFile }, builder, root), after);
+  }
+});
+
 function makeProjectWithBinary(fileName) {
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-builder-command-"));
   const binaryDir = path.join(projectDir, "bin", "Debug", "net8.0");

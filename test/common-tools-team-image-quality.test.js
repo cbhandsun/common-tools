@@ -19,6 +19,18 @@ function verifier(metric, renderPresentation = async (_input, context) => ({ ok:
   return createRawImageRenderQualityVerifier({ renderPresentation, comparePageFiles: () => ({ ok: true, ...metric }) });
 }
 
+test("quality verification exposes rendered pages only to its optional internal collector", async (t) => {
+  const files = fixture(); t.after(() => fs.rmSync(files.root, { recursive: true, force: true }));
+  let pages;
+  const verify = verifier({ pixelDiffRatio: 0.01, foregroundMissingRatio: 0.02, meanAbsoluteDelta: 2 });
+  const result = await verify({ ...files, collectRenderedPages: captured => { pages = captured; } });
+  assert.deepEqual(pages, [path.join(files.root, "quality-render", "page-1.png")]);
+  assert.equal(Object.isFrozen(pages), true);
+  assert.equal(result.passed, true);
+  assert.equal(JSON.stringify(result).includes(files.root), false);
+  await assert.rejects(verify({ ...files, collectRenderedPages: {} }), /collector is invalid/u);
+});
+
 test("raw image visual quality passes only within every bounded render threshold", async () => {
   const files = fixture();
   try {
@@ -29,6 +41,8 @@ test("raw image visual quality passes only within every bounded render threshold
     const failing = await verifier({ pixelDiffRatio: 0.08, foregroundMissingRatio: 0.13, meanAbsoluteDelta: 11 })({ ...files, isCancellationRequested: async () => false });
     assert.equal(failing.passed, false);
     assert.equal(failing.checks[1].passed, false);
+    const pixelRegression = await verifier({ pixelDiffRatio: 0.085, foregroundMissingRatio: 0.11, meanAbsoluteDelta: 11 })({ ...files, isCancellationRequested: async () => false });
+    assert.equal(pixelRegression.passed, false);
   } finally { fs.rmSync(files.root, { recursive: true, force: true }); }
 });
 
@@ -55,6 +69,24 @@ test("raw image visual quality compares every batch page and reports worst-case 
   } finally { fs.rmSync(files.root, { recursive: true, force: true }); }
 });
 
+test("raw image visual quality forwards bounded component regions and reports their worst diagnostics", async () => {
+  const files = fixture(); let received;
+  const verify = createRawImageRenderQualityVerifier({
+    renderPresentation: async (_input, context) => ({ ok: true, data: { renderedPages: [{ image: path.join(context.outputDir, "page-1.png") }] } }),
+    comparePageFiles: (input) => { received = input.options.componentRegions; return { ok: true, pixelDiffRatio: 0.01, foregroundMissingRatio: 0.02, meanAbsoluteDelta: 2, componentQuality: { audited: 2, evaluated: 1, attentionCount: 1, worstSeverity: 1.25, worstPixelDiffRatio: 0.3, worstForegroundMissingRatio: 0.4 } }; },
+  });
+  try {
+    const deck = { slideSize: { widthPt: 100, heightPt: 50 }, pages: [{ textBoxes: [{ id: "title", box: { x: 1, y: 1, w: 20, h: 5 } }], shapes: [{ id: "node", box: { x: 30, y: 10, w: 20, h: 20 } }] }] };
+    const result = await verify({ ...files, deck, isCancellationRequested: async () => false });
+    assert.deepEqual(received.map((item) => item.id), ["title", "node"]);
+    assert.equal(result.metrics["component-regions-audited"], 2);
+    assert.equal(result.metrics["component-regions-evaluated"], 1);
+    assert.equal(result.metrics["component-regions-attention"], 1);
+    assert.equal(result.metrics["worst-component-normalized-severity"], 1.25);
+    assert.equal(result.metrics["worst-component-foreground-missing-ratio"], 0.4);
+  } finally { fs.rmSync(files.root, { recursive: true, force: true }); }
+});
+
 test("raw image visual quality rejects invalid boundaries and preserves cancellation", async () => {
   assert.throws(() => createRawImageRenderQualityVerifier({ renderPresentation: async () => ({}), comparePageFiles: () => ({}), thresholds: { maximumPixelDiffRatio: 2 } }), /threshold/);
   const files = fixture();
@@ -63,4 +95,19 @@ test("raw image visual quality rejects invalid boundaries and preserves cancella
     await assert.rejects(() => verify({ ...files, sourceImage: path.join(files.root, "..", "outside.png") }), /request/);
     await assert.rejects(() => verify({ ...files, isCancellationRequested: async () => true }), /cancelled/);
   } finally { fs.rmSync(files.root, { recursive: true, force: true }); }
+});
+
+
+test("quality forwards live cancellation into the renderer", async () => {
+  const files = fixture();
+  const check = async () => false;
+  const verify = createRawImageRenderQualityVerifier({
+    renderPresentation: async (_input, context) => {
+      assert.equal(context.isCancellationRequested, check);
+      throw new Error("editable job was cancelled");
+    },
+    comparePageFiles: () => { throw new Error("must not compare after cancellation"); }
+  });
+  try { await assert.rejects(verify({ ...files, isCancellationRequested: check }), /cancelled/); }
+  finally { fs.rmSync(files.root, { recursive: true, force: true }); }
 });

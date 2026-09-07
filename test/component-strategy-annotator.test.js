@@ -756,3 +756,16 @@ test("stable text box dedupe removes duplicate OCR ids after final merge", () =>
 
   assert.deepEqual(retained.map((item) => item.id || item.text), ["p4-ocr-003", "native-bound", "无 id 保留"]);
 });
+
+test("component strategy text cleanup preserves Unicode and strips every ASCII control", () => {
+  const api = require("../packages/slideclone-core/component-strategy-annotator");
+  for (let code = 0; code <= 0xffff; code += 1) {
+    const character = String.fromCharCode(code);
+    const input = `A${character}B`;
+    const expected = code <= 31 || code === 127 ? "AB" : input;
+    assert.equal(api._private.sanitizeStrategy({mode: input}).mode, expected, `code unit ${code}`);
+  }
+  assert.equal(api._private.sanitizeStrategy({mode: " \t中文😀\r\n "}).mode, "中文😀");
+  assert.equal(api._private.sanitizeStrategy({mode: "\u0000\u007f"}), null);
+  assert.equal(api._private.sanitizeStrategy({mode: ""}), null);
+});

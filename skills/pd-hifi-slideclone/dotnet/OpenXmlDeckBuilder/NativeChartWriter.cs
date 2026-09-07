@@ -166,14 +166,43 @@ internal static class NativeChartWriter
         if (needsAxes) { Value(writer, "axId", categoryAxisId.ToString(CultureInfo.InvariantCulture)); Value(writer, "axId", valueAxisId.ToString(CultureInfo.InvariantCulture)); }
         writer.WriteEndElement(); if (needsAxes) WriteAxes(writer, categoryAxisId, valueAxisId, chartNs); writer.WriteEndElement();
         Value(writer, "plotVisOnly", "1"); Value(writer, "dispBlanksAs", "gap"); Value(writer, "showDLblsOverMax", "0"); writer.WriteEndElement();
+        WriteTextProperties(writer, chart.Style, chartNs, drawingNs);
         writer.WriteStartElement("c", "externalData", chartNs); writer.WriteAttributeString("r", "id", relNs, workbookRelationshipId); Value(writer, "autoUpdate", "0"); writer.WriteEndElement(); writer.WriteEndElement(); writer.WriteEndDocument();
+    }
+
+    private static void WriteTextProperties(XmlWriter writer, JsonElement? style, string chartNs, string drawingNs)
+    {
+        var color = GetString(style, "textColor");
+        if (color is null) return;
+        writer.WriteStartElement("c", "txPr", chartNs);
+        writer.WriteElementString("a", "bodyPr", drawingNs, string.Empty);
+        writer.WriteElementString("a", "lstStyle", drawingNs, string.Empty);
+        writer.WriteStartElement("a", "p", drawingNs);
+        writer.WriteStartElement("a", "pPr", drawingNs);
+        writer.WriteStartElement("a", "defRPr", drawingNs);
+        writer.WriteStartElement("a", "solidFill", drawingNs);
+        writer.WriteStartElement("a", "srgbClr", drawingNs);
+        writer.WriteAttributeString("val", NormalizeHex(color));
+        writer.WriteEndElement(); writer.WriteEndElement(); writer.WriteEndElement();
+        writer.WriteEndElement(); writer.WriteEndElement(); writer.WriteEndElement();
     }
 
     private static void WriteSeries(XmlWriter writer, ChartIr chart, string chartElement, string sheetName, IReadOnlyList<string> categories, NativeChartSeriesData series, int index, string drawingNs, string chartNs)
     {
         writer.WriteStartElement("c", "ser", chartNs); Value(writer, "idx", index.ToString(CultureInfo.InvariantCulture)); Value(writer, "order", index.ToString(CultureInfo.InvariantCulture));
         writer.WriteStartElement("c", "tx", chartNs); writer.WriteElementString("c", "v", chartNs, series.Name); writer.WriteEndElement();
-        writer.WriteStartElement("c", "spPr", chartNs); writer.WriteStartElement("a", "solidFill", drawingNs); writer.WriteStartElement("a", "srgbClr", drawingNs); writer.WriteAttributeString("val", SeriesColor(chart.Style, index)); writer.WriteEndElement(); writer.WriteEndElement(); writer.WriteStartElement("a", "ln", drawingNs); writer.WriteElementString("a", "noFill", drawingNs, string.Empty); writer.WriteEndElement(); writer.WriteEndElement();
+        writer.WriteStartElement("c", "spPr", chartNs); writer.WriteStartElement("a", "solidFill", drawingNs); writer.WriteStartElement("a", "srgbClr", drawingNs); writer.WriteAttributeString("val", SeriesColor(chart.Style, index)); writer.WriteEndElement(); writer.WriteEndElement();
+        writer.WriteStartElement("a", "ln", drawingNs);
+        if (chartElement == "lineChart")
+        {
+            writer.WriteAttributeString("w", "25400");
+            writer.WriteStartElement("a", "solidFill", drawingNs);
+            writer.WriteStartElement("a", "srgbClr", drawingNs);
+            writer.WriteAttributeString("val", SeriesColor(chart.Style, index));
+            writer.WriteEndElement(); writer.WriteEndElement();
+        }
+        else writer.WriteElementString("a", "noFill", drawingNs, string.Empty);
+        writer.WriteEndElement(); writer.WriteEndElement();
         if (chartElement == "lineChart") { writer.WriteStartElement("c", "marker", chartNs); Value(writer, "symbol", "circle"); Value(writer, "size", "5"); writer.WriteEndElement(); }
         writer.WriteStartElement("c", "cat", chartNs); writer.WriteStartElement("c", "strRef", chartNs); writer.WriteElementString("c", "f", chartNs, $"'{sheetName}'!$A$2:$A${categories.Count + 1}"); writer.WriteStartElement("c", "strCache", chartNs); Value(writer, "ptCount", categories.Count.ToString(CultureInfo.InvariantCulture));
         for (var i = 0; i < categories.Count; i++) Point(writer, i, categories[i], chartNs); writer.WriteEndElement(); writer.WriteEndElement(); writer.WriteEndElement();

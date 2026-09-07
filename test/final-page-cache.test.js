@@ -33,6 +33,51 @@ test("final page cache implementation fingerprints use file content, not a coars
   assert.notEqual(fingerprintFiles([first], root), fingerprintFiles([second], root));
 });
 
+test("core implementation changes invalidate shared and scoped page caches across installations", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-core-cache-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const lib = path.join(root, "skills", "pd-hifi-slideclone", "scripts", "lib");
+  const core = path.join(root, "packages", "slideclone-core");
+  fs.mkdirSync(lib, { recursive: true });
+  fs.mkdirSync(core, { recursive: true });
+  fs.copyFileSync(require.resolve("../skills/pd-hifi-slideclone/scripts/lib/final-page-cache"), path.join(lib, "final-page-cache.js"));
+  fs.writeFileSync(path.join(lib, "..", "rebuild-real-pptx-native.js"), "function createWorkflowKpiEvidenceObjects() { return []; }\n");
+  const source = path.join(core, "graphic-crop-policy.js");
+  fs.writeFileSync(source, "module.exports = 'before';\n");
+  const script = `const cache = require(process.argv[1]);
+    process.stdout.write(JSON.stringify([
+      cache.finalPageCacheImplementationFingerprint(),
+      cache.finalPageCachePageImplementationFingerprint({textBoxes: [{text: '数据见证 概念试点 规模化企业底座 9大 15个 500+份 400+个'}]})
+    ]));`;
+  const fingerprint = (moduleFile = path.join(lib, "final-page-cache.js")) => {
+    const result = spawnSync(process.execPath, ["-e", script, moduleFile], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+  };
+  const before = fingerprint();
+  assert.deepEqual(fingerprint(), before, "unchanged installation must retain reusable keys");
+  fs.writeFileSync(source, "module.exports = 'after!';\n");
+  const after = fingerprint();
+  assert.notEqual(after[0], before[0], "shared cache must include core implementation");
+  assert.notEqual(after[1], before[1], "scoped cache must include shared core implementation");
+  const dependency = path.join(root, "packages", "team-runtime", "boundary.js");
+  fs.mkdirSync(path.dirname(dependency), { recursive: true });
+  fs.writeFileSync(dependency, "module.exports = true;\n");
+  const withDependency = fingerprint();
+  assert.notEqual(withDependency[0], after[0], "workspace dependency changes invalidate shared cache");
+  assert.notEqual(withDependency[1], after[1], "workspace dependency changes invalidate scoped cache");
+  fs.unlinkSync(dependency);
+  assert.deepEqual(fingerprint(), after, "removed source is excluded deterministically");
+  const installedDependency = path.join(core, "node_modules", "external", "index.js");
+  fs.mkdirSync(path.dirname(installedDependency), { recursive: true });
+  fs.writeFileSync(installedDependency, "module.exports = true;\n");
+  assert.deepEqual(fingerprint(), after, "installation layout must not change workspace source identity");
+  const relocated = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-relocated-cache-"));
+  t.after(() => fs.rmSync(relocated, { recursive: true, force: true }));
+  fs.cpSync(root, relocated, { recursive: true });
+  assert.deepEqual(fingerprint(path.join(relocated, path.relative(root, lib), "final-page-cache.js")), after);
+});
+
 test("final page cache key includes native rebuild ruleset version", () => {
   const input = {
     workDir: "ppt文档/可编辑版本/example.work",

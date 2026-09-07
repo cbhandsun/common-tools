@@ -91,3 +91,87 @@ test("OCR process runner preserves the first termination reason while process sh
     spawn: () => child
   }), /cancelled/);
 });
+
+test("OCR escalates an ignored graceful stop and bounds an unconfirmed termination", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  const signals = [];
+  child.kill = (signal) => { signals.push(signal); return true; };
+  let failure;
+  const result = runProcess({ executable: process.execPath, args: [], timeoutMs: 10, spawn: () => child }).catch((error) => { failure = error; });
+  t.mock.timers.tick(10);
+  assert.deepEqual(signals, ["SIGTERM"]);
+  t.mock.timers.tick(1000);
+  assert.deepEqual(signals, ["SIGTERM", "SIGKILL"]);
+  t.mock.timers.tick(1000);
+  await result;
+  assert.match(failure.message, /timed out.*termination was not confirmed/);
+});
+
+test("OCR startup exceptions and invalid timeouts produce safe fixed diagnostics", async () => {
+  await assert.rejects(() => runProcess({ executable: process.execPath, args: [], timeoutMs: 1000, spawn: () => { throw new Error("private-source-content"); } }), (error) => error.message === "raw image OCR process could not start");
+  for (const timeoutMs of [undefined, 0, -1, Infinity, NaN, "1000", 600001]) {
+    let spawned = false;
+    await assert.rejects(() => runProcess({ executable: process.execPath, args: [], timeoutMs, spawn: () => { spawned = true; throw new Error("unexpected spawn"); } }), /configuration is invalid/);
+    assert.equal(spawned, false);
+  }
+});
+
+test("OCR cancellation survives signal errors and confirms forced closure", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  const signals = [];
+  child.kill = (signal) => {
+    signals.push(signal);
+    if (signal === "SIGTERM") throw new Error("private-process-detail");
+    child.emit("close", null);
+    return true;
+  };
+  const result = assert.rejects(() => runProcess({ executable: process.execPath, args: [], timeoutMs: 10, isCancellationRequested: () => true, spawn: () => child }), (error) => error.message === "raw image OCR was cancelled");
+  await new Promise((resolve) => setImmediate(resolve));
+  child.emit("error", new Error("private-kill-error"));
+  t.mock.timers.tick(1000);
+  await result;
+  t.mock.timers.tick(10000);
+  assert.deepEqual(signals, ["SIGTERM", "SIGKILL"]);
+});
+
+test("OCR output overflow releases buffered content and stops before a successful exit", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  const signals = [];
+  child.kill = (signal) => { signals.push(signal); if (signal === "SIGKILL") child.emit("close", 0); return true; };
+  const result = assert.rejects(() => runProcess({ executable: process.execPath, args: [], timeoutMs: 60000, spawn: () => child }), (error) => error.message === "raw image OCR output exceeds limits");
+  child.stdout.emit("data", Buffer.alloc(1024 * 1024));
+  assert.deepEqual(signals, []);
+  child.stdout.emit("data", Buffer.from("x"));
+  child.stdout.emit("data", Buffer.from("private-output-after-stop"));
+  t.mock.timers.tick(1000);
+  await result;
+  assert.deepEqual(signals, ["SIGTERM", "SIGKILL"]);
+});
+
+test("OCR permits only one pending cancellation query and clears timers on normal close", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  let queries = 0;
+  let resolveQuery;
+  const signals = [];
+  child.kill = (signal) => { signals.push(signal); return true; };
+  const result = runProcess({ executable: process.execPath, args: [], timeoutMs: 60000, spawn: () => child, isCancellationRequested: () => { queries += 1; return new Promise((resolve) => { resolveQuery = resolve; }); } });
+  await new Promise((resolve) => setImmediate(resolve));
+  t.mock.timers.tick(10000);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(queries, 1);
+  child.stdout.emit("data", Buffer.from("ok"));
+  child.emit("close", 0);
+  assert.equal(await result, "ok");
+  resolveQuery(true);
+  await new Promise((resolve) => setImmediate(resolve));
+  t.mock.timers.tick(100000);
+  assert.deepEqual(signals, []);
+});

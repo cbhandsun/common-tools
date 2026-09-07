@@ -1,5 +1,6 @@
 "use strict";
 
+const { isProtectedFidelityFirstDiagram, isSemanticallySplitScreenshotFlowRegion, hasTargetConcentricCircleEvidence } = require("./component-template-source-evidence");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -71,7 +72,7 @@ function shouldSkipComponentTemplateNativeShapes(image = {}) {
     || String(source.detector || "") === "illustration-card-graphic-underlay-crop"
     || isProtectedGraphicExpressionForNativeTemplate(source, image)
     || (hasRasterResidualDominance(source, image) && !hasAnyLocalTemplateGroup(source))
-    || (isProtectedFidelityFirstDiagram(source) && !hasTrustedLocalTemplateGroup(source))
+    || isProtectedFidelityFirstDiagram(source, hasTrustedLocalTemplateGroup(source))
     || isSemanticallySplitScreenshotFlowRegion(source);
 }
 
@@ -166,21 +167,6 @@ function shouldSkipLowReuseComponentGroup(group = {}) {
   return componentReuseReadinessLevel(group) === "avoid";
 }
 
-function isProtectedFidelityFirstDiagram(source = {}) {
-  const detector = String(source.detector || "").toLowerCase();
-  const action = String(source.recommendedAction || source.layer?.recommendedAction || "").toLowerCase();
-  const reason = `${source.reason || ""} ${source.nonEditableReason || ""} ${source.explanation || ""}`.toLowerCase();
-  return /^(?:sparse-diagram-graphic-underlay-crop|foreground-graphic-crop)$/.test(detector)
-    && (/preserve-fidelity-crop|preserve-local-crop/.test(action)
-      || /preserved-as-movable-crop|preserving this visual until/.test(reason));
-}
-
-function isSemanticallySplitScreenshotFlowRegion(source = {}) {
-  const splitMode = String(source.residualSplitMode || "").toLowerCase();
-  const reason = `${source.reason || ""} ${source.nonEditableReason || ""}`.toLowerCase();
-  return splitMode === "process-with-screenshots-semantic-regions"
-    || /case-study-diagram|process-with-screenshots/.test(reason);
-}
 
 function hasRasterResidualDominance(source = {}, image = {}) {
   if (isAppliedPluginMotifReady(source)) return false;
@@ -1076,7 +1062,11 @@ function chartFamilyFromEvidence(image = {}, match = {}) {
   if (motifs.includes("donut-segment-chart")) return "donut-chart";
   if (motifs.includes("pie-share-chart")) return "pie-chart";
   if (motifs.includes("venn-overlap") || motifs.includes("intersection-overlap")) return "venn-overlap";
-  if (motifs.includes("concentric-circles") || motifs.includes("ring-node")) return "concentric-circles";
+  if (motifs.includes("concentric-circles")) return "concentric-circles";
+  // A ring-node is often a decorative element of a card or matrix component.
+  // Do not let a learned template's incidental ring promote a grid target into a
+  // concentric-circle replay family; that requires target-side concentric evidence.
+  if (motifs.includes("ring-node") && hasTargetConcentricCircleEvidence(image)) return "concentric-circles";
   if (motifs.includes("fishbone-cause")) return "fishbone-cause-effect";
   if (motifs.includes("sankey-flow-chart")) return "sankey-flow-chart";
   if (motifs.includes("map-chart")) return "map-chart";
@@ -1114,6 +1104,7 @@ function chartFamilyFromEvidence(image = {}, match = {}) {
   if (/radar|spider|雷达|蛛网|蜘蛛网/.test(direct)) return "radar-chart";
   return "";
 }
+
 
 function rawComponentMotifs(image = {}, match = {}) {
   const readiness = image?.source?.componentAssetReadiness || {};

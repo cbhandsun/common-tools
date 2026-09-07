@@ -6,6 +6,7 @@ const path = require("node:path");
 const { execFile } = require("node:child_process");
 const renderLibreOffice = require("./adapters/render-libreoffice");
 const renderPowerPointCom = require("./adapters/render-powerpoint-com");
+const { createRenderCacheIdentity, readRenderCacheMetadata, sameRenderCacheIdentity, writeRenderCacheMetadata } = require("./lib/render-cache-metadata");
 const { readImageSize } = require("./lib/image-size");
 const { cropPng, readPng, writePng } = require("./lib/png");
 const {
@@ -462,7 +463,8 @@ function sampleOffset(image, x, y, targetWidth, targetHeight) {
 }
 
 async function renderDeck(pptxFile, outDir, targetSlides, args) {
-  const cached = args.reuseRender ? collectReusableRender(outDir, targetSlides) : null;
+  const identity = typeof args.renderDeck === "function" ? null : createRenderCacheIdentity({ pptxFile, renderer: args.renderer, expectedPages: Math.max(...targetSlides), dpi: 96 });
+  const cached = args.reuseRender ? collectReusableRender(outDir, targetSlides, identity) : null;
   if (cached) return cached;
   if (typeof args.renderDeck === "function") {
     return args.renderDeck({ pptxFile, outDir, targetSlides, args });
@@ -485,6 +487,7 @@ async function renderDeck(pptxFile, outDir, targetSlides, args) {
     : await renderPowerPointCom(input, context);
   if (result.ok !== true) throw new Error(result.error || `Failed to render ${pptxFile}`);
   const data = result.data || result;
+  writeRenderCacheMetadata(data.renderDir, identity);
   return {
     renderDir: data.renderDir,
     renderedPages: normalizeRenderedPages(data.renderedPages || data.pages || [])
@@ -520,9 +523,22 @@ function safeString(value) {
   return typeof value === "string" ? value.slice(0, 300) : "";
 }
 
-function collectReusableRender(outDir, targetSlides = []) {
-  const renderDir = path.join(outDir, "render", "iteration-0");
-  if (!fs.existsSync(renderDir)) return null;
+function collectReusableRender(outDir, targetSlides = [], identity = null) {
+  const iterationDir = path.join(outDir, "render", "iteration-0");
+  if (!fs.existsSync(iterationDir)) return null;
+  const attempts = fs.readdirSync(iterationDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^attempt-[A-Za-z0-9]+$/.test(entry.name))
+    .slice(0, 2000).map((entry) => path.join(iterationDir, entry.name));
+  for (const renderDir of [...attempts, iterationDir]) {
+    if (identity && !sameRenderCacheIdentity(readRenderCacheMetadata(renderDir), identity)) continue;
+    if (!identity && renderDir !== iterationDir) continue;
+    const result = collectCompleteRender(renderDir, targetSlides);
+    if (result) return result;
+  }
+  return null;
+}
+
+function collectCompleteRender(renderDir, targetSlides) {
   const maxPage = Math.max(...targetSlides);
   const pages = collectRenderedPagesFromDir(renderDir);
   if (pages.length < maxPage) return null;

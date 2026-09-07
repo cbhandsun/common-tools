@@ -243,9 +243,9 @@ def add_shape(slide, item, shape_index=None):
     if style.get("dash"):
         add_line_dash(shape, style.get("dash"))
     if style.get("endArrow"):
-        add_line_end(shape, style.get("endArrow"), "tailEnd")
+        add_line_end(shape, style.get("endArrow"), "tailEnd", style.get("endArrowWidth"), style.get("endArrowLength"))
     if style.get("startArrow"):
-        add_line_end(shape, style.get("startArrow"), "headEnd")
+        add_line_end(shape, style.get("startArrow"), "headEnd", style.get("startArrowWidth"), style.get("startArrowLength"))
     if style.get("shadow"):
         add_outer_shadow(shape, style.get("shadow"))
     else:
@@ -464,7 +464,7 @@ def connector_type_for(value):
     return MSO_CONNECTOR.STRAIGHT
 
 
-def add_line_end(shape, arrow_type, tag_name):
+def add_line_end(shape, arrow_type, tag_name, arrow_width=None, arrow_length=None):
     sp_pr = shape.element.spPr
     ln = sp_pr.ln
     if ln is None:
@@ -475,7 +475,14 @@ def add_line_end(shape, arrow_type, tag_name):
             ln.remove(child)
     end = OxmlElement(f"a:{tag_name}")
     end.set("type", arrow_type if isinstance(arrow_type, str) else "triangle")
+    end.set("w", line_end_size(arrow_width))
+    end.set("len", line_end_size(arrow_length))
     ln.append(end)
+
+
+def line_end_size(value):
+    normalized = str(value or "medium").strip().lower()
+    return {"small": "sm", "sm": "sm", "large": "lg", "lg": "lg"}.get(normalized, "med")
 
 
 def add_line_dash(shape, dash_type):

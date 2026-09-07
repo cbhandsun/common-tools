@@ -7,7 +7,7 @@ module.exports = [
   {
     ignores: [
       "**/node_modules/**",
-      "**/bin/**",
+      "skills/**/dotnet/**/bin/**",
       "**/obj/**",
       "artifacts/**",
       "runs/**",
@@ -16,7 +16,7 @@ module.exports = [
     ]
   },
   {
-    files: ["packages/**/*.js", "scripts/**/*.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-roundtrip-evidence.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session.js", "skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip.js", "skills/pd-hifi-slideclone/scripts/lib/progress-reporter.js", "skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com.js"],
+    files: ["packages/**/*.js", "scripts/**/*.js", "skills/pd-hifi-slideclone/scripts/lib/graphic-crop-materializer.js", "skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js", "skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata.js", "skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-roundtrip-evidence.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker.js", "skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session.js", "skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip.js", "skills/pd-hifi-slideclone/scripts/lib/progress-reporter.js", "skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "commonjs",
@@ -30,7 +30,7 @@ module.exports = [
     }
   },
   {
-    files: ["packages/**/bin/**/*.js", "scripts/**/*.js"],
+    files: ["packages/cli/bin/**/*.js", "scripts/**/*.js"],
     rules: { "no-console": "off" }
   }
 ];

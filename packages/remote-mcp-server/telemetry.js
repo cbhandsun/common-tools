@@ -1,12 +1,13 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const { withWorkerStageObserver, isFailureCode } = require("../team-runtime/worker-failure");
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 
 const MAX_ENDPOINT_LENGTH = 2048;
 const SERVICE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const METHOD_LABELS = new Set(["initialize", "server/discover", "tools/list", "tools/call", "resources/list", "resources/read", "tasks/get", "tasks/update", "tasks/cancel", ...Object.keys(TEAM_CAPABILITY_DEFINITIONS).map((capability) => `worker/${capability}`)]);
-const SPAN_NAMES = new Set(["common-tools.mcp", "common-tools.worker"]);
+const SPAN_NAMES = new Set(["common-tools.mcp", "common-tools.worker", "common-tools.worker.stage"]);
 
 function loopbackHost(hostname) { return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1"; }
 function parseEndpoint(value, production) {
@@ -43,14 +44,19 @@ function unixNano(milliseconds) {
   if (!Number.isFinite(milliseconds) || milliseconds < 0) throw new TypeError("trace time is invalid");
   return String(BigInt(Math.floor(milliseconds)) * 1000000n);
 }
-function tracePayload({ serviceName, spanName = "common-tools.mcp", method, statusCode, traceParent, startedAt, endedAt, randomBytes = crypto.randomBytes }) {
+function tracePayload({ serviceName, spanName = "common-tools.mcp", method, statusCode, traceParent, startedAt, endedAt, identity, stage, randomBytes = crypto.randomBytes }) {
   if (typeof serviceName !== "string" || !SERVICE_NAME_PATTERN.test(serviceName) || !SPAN_NAMES.has(spanName) || !Number.isSafeInteger(statusCode) || statusCode < 100 || statusCode > 599 || typeof randomBytes !== "function") throw new TypeError("trace payload is invalid");
   const parent = parseTraceParent(traceParent);
-  const traceId = parent ? parent.traceId : randomBytes(16).toString("hex");
+  if (identity !== undefined && (!identity || typeof identity !== "object" || Array.isArray(identity)
+    || typeof identity.traceId !== "string" || typeof identity.spanId !== "string"
+    || !/^[0-9a-f]{32}$/.test(identity.traceId) || /^0{32}$/.test(identity.traceId)
+    || !/^[0-9a-f]{16}$/.test(identity.spanId) || /^0{16}$/.test(identity.spanId)
+    || (parent && identity.traceId !== parent.traceId))) throw new TypeError("trace identity is invalid");
+  const traceId = identity?.traceId || (parent ? parent.traceId : randomBytes(16).toString("hex"));
   if (!/^[0-9a-f]{32}$/.test(traceId) || /^0{32}$/.test(traceId)) throw new Error("trace ID generation failed");
   const span = {
     traceId,
-    spanId: spanId(randomBytes),
+    spanId: identity?.spanId || spanId(randomBytes),
     name: spanName,
     kind: 1,
     startTimeUnixNano: unixNano(startedAt),
@@ -62,14 +68,15 @@ function tracePayload({ serviceName, spanName = "common-tools.mcp", method, stat
     ],
     status: { code: statusCode >= 500 ? 2 : 1 }
   };
+  if (spanName === "common-tools.worker.stage") span.attributes.push({ key: "worker.stage", value: { stringValue: isFailureCode(stage) ? stage : "other" } });
   if (parent) { span.parentSpanId = parent.parentSpanId; span.flags = Number.parseInt(parent.traceFlags, 16); }
   return Object.freeze({ resourceSpans: [{ resource: { attributes: [{ key: "service.name", value: { stringValue: serviceName } }] }, scopeSpans: [{ scope: { name: "common-tools.remote-mcp" }, spans: [span] }] }] });
 }
 function createOtlpTraceExporter(config, { fetchImpl = globalThis.fetch, clock = () => Date.now(), randomBytes = crypto.randomBytes } = {}) {
   if (!config || typeof config.endpoint !== "string" || typeof config.serviceName !== "string" || !Number.isSafeInteger(config.timeoutMs) || typeof fetchImpl !== "function" || typeof clock !== "function" || typeof randomBytes !== "function") throw new TypeError("OTLP exporter configuration is invalid");
   return Object.freeze({
-    exportSpan({ spanName, method, statusCode, traceParent, startedAt = clock(), endedAt = clock() }) {
-      const payload = tracePayload({ serviceName: config.serviceName, spanName, method, statusCode, traceParent, startedAt, endedAt, randomBytes });
+    exportSpan({ spanName, method, statusCode, traceParent, identity, stage, startedAt = clock(), endedAt = clock() }) {
+      const payload = tracePayload({ serviceName: config.serviceName, spanName, method, statusCode, traceParent, startedAt, endedAt, identity, stage, randomBytes });
       const signal = AbortSignal.timeout(config.timeoutMs);
       return Promise.resolve(fetchImpl(config.endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal })).then(() => undefined).catch(() => undefined);
     }
@@ -81,12 +88,21 @@ function createTracedWorkerHandler(handler, { exporter, capability, clock = () =
   return async function tracedWorkerHandler(context) {
     const startedAt = clock();
     const traceParent = context?.job?.traceParent;
+    const parent = parseTraceParent(traceParent);
+    const identity = { traceId: parent?.traceId || crypto.randomBytes(16).toString("hex"), spanId: spanId(crypto.randomBytes) };
+    const stageParent = `00-${identity.traceId}-${identity.spanId}-${parent?.traceFlags || "01"}`;
+    let stageCount = 0;
+    const observe = (event) => {
+      if (stageCount >= 256) return;
+      stageCount++;
+      return exporter.exportSpan({ spanName: "common-tools.worker.stage", method: `worker/${capability}`, statusCode: event.status === "failed" ? 500 : 200, traceParent: stageParent, stage: event.code, startedAt: event.startedAt, endedAt: event.endedAt });
+    };
     try {
-      const output = await handler(context);
-      try { void Promise.resolve(exporter.exportSpan({ spanName: "common-tools.worker", method: `worker/${capability}`, statusCode: 200, traceParent, startedAt, endedAt: clock() })).catch(() => {}); } catch { /* telemetry must not affect Worker execution */ }
+      const output = await withWorkerStageObserver(observe, () => handler(context));
+      try { void Promise.resolve(exporter.exportSpan({ spanName: "common-tools.worker", method: `worker/${capability}`, statusCode: 200, traceParent, identity, startedAt, endedAt: clock() })).catch(() => {}); } catch { /* telemetry must not affect Worker execution */ }
       return output;
     } catch (error) {
-      try { void Promise.resolve(exporter.exportSpan({ spanName: "common-tools.worker", method: `worker/${capability}`, statusCode: 500, traceParent, startedAt, endedAt: clock() })).catch(() => {}); } catch { /* telemetry must not affect Worker execution */ }
+      try { void Promise.resolve(exporter.exportSpan({ spanName: "common-tools.worker", method: `worker/${capability}`, statusCode: 500, traceParent, identity, startedAt, endedAt: clock() })).catch(() => {}); } catch { /* telemetry must not affect Worker execution */ }
       throw error;
     }
   };

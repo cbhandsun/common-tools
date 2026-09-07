@@ -4244,7 +4244,7 @@ test("createGenericNodeDiagramSkeletonShapes does not rebuild screenshots or low
 });
 
 test("generic node diagram skeletons are wired into final page shape output", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-core/page-shape-finalizer.js"), "utf8");
   const finalShapesLine = source.split(/\r?\n/).find((line) => line.includes("pageDraft.shapes = sanitizeNativeShapes"));
 
   assert.ok(finalShapesLine);
@@ -6990,7 +6990,7 @@ test("createStructuredIllustrationCardShellShapes emits native card borders for 
 });
 
 test("structured illustration card shells are wired without requiring a source image", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-core/page-hybrid-graphics-stage.js"), "utf8");
   const shellLine = source.split(/\r?\n/).find((line) => line.includes("const structuredIllustrationCardShellShapes ="));
 
   assert.ok(shellLine);
@@ -18736,7 +18736,7 @@ test("fully objectified process-with-screenshots diagrams split residuals instea
 });
 
 test("process-with-screenshots flow is wired without requiring a source image", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-core/page-native-graphics-stage.js"), "utf8");
   const processFlowLine = source.split(/\r?\n/).find((line) => line.includes("const processWithScreenshotsFlow ="));
 
   assert.ok(processFlowLine);

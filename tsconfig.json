@@ -7,7 +7,6 @@
     "module": "Node16",
     "moduleResolution": "Node16",
     "esModuleInterop": true,
-    "esModuleInterop": true,
     "strict": false,
     "noImplicitAny": true,
     "skipLibCheck": true,

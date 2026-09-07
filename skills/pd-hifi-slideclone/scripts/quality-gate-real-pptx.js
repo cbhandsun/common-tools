@@ -9,7 +9,7 @@ const { readPng, writePng } = require("./lib/png");
 const { summarizeLayerProfile } = require("./lib/layer-classifier");
 const { summarizeComponentStrategyProfile } = require("./lib/component-strategy-profile");
 const { summarizeNativeObjectConflicts } = require("./lib/native-object-conflict-audit");
-const { fingerprintOoxmlPackage } = require("./lib/ooxml-package-fingerprint");
+const { createRenderCacheIdentity, normalizeRenderer, readRenderCacheMetadata, sameRenderCacheIdentity, writeRenderCacheMetadata } = require("./lib/render-cache-metadata");
 const { auditPptxTextLayers } = require("./lib/ooxml-text-layer-audit");
 const { validateReconstructionContracts } = require("./lib/reconstruction-contract");
 const { evaluateDeckReconstructionBudget } = require("./lib/reconstruction-quality-budget");
@@ -27,7 +27,6 @@ const { auditSourceMediaExclusion } = require("./lib/source-media-exclusion");
 const renderPowerPointCom = require("./adapters/render-powerpoint-com");
 const { createQualityEvidenceIdentity, loadOrComputeQualityEvidence, qualityEvidenceConfig, qualityEvidenceImplementationFiles, tryWriteQualityEvidenceCache } = require("./lib/quality-evidence-cache");
 
-const RENDER_CACHE_METADATA = ".slideclone-render-cache.json";
 
 const DEFAULT_THRESHOLDS = { acceptPixelDiffRatio: 0.22, acceptForegroundMissingRatio: 0.3, reviewPixelDiffRatio: 0.38, reviewForegroundMissingRatio: 0.5, maxRasterImageAreaRatio: 0.65, fullPageWidthRatio: 0.92, fullPageHeightRatio: 0.92 };
 
@@ -626,50 +625,11 @@ function expandRenderCacheCandidates(renderDirs = []) {
   return unique(candidates);
 }
 
-function sameRenderCacheIdentity(left, right) {
-  if (!left || !right) return false;
-  return left.provider === right.provider
-    && left.packageFingerprint === right.packageFingerprint
-    && left.renderer === right.renderer
-    && left.expectedPages === right.expectedPages
-    && left.dpi === right.dpi;
-}
-
-function createRenderCacheIdentity({ pptxFile, renderer, expectedPages, dpi = 144 }) {
-  return {
-    provider: "slideclone-render-cache-v1",
-    packageFingerprint: fingerprintOoxmlPackage(pptxFile),
-    renderer: normalizeRenderer(renderer),
-    expectedPages: positiveSafeInteger(expectedPages, 1),
-    dpi: positiveSafeInteger(dpi, 144)
-  };
-}
-
 function reusableRenderMatches(renderDir, { renderer, expectedPages, cacheIdentity }) {
   if (countRenderedPages(renderDir, { renderer, expectedPages }) <= 0) return false;
   if (!cacheIdentity) return true;
   const metadata = readRenderCacheMetadata(renderDir);
   return metadata !== null && JSON.stringify(metadata) === JSON.stringify(cacheIdentity);
-}
-
-function readRenderCacheMetadata(renderDir) {
-  const file = path.join(renderDir, RENDER_CACHE_METADATA);
-  try {
-    const value = readJson(file);
-    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeRenderCacheMetadata(renderDir, identity) {
-  ensureDir(renderDir);
-  fs.writeFileSync(path.join(renderDir, RENDER_CACHE_METADATA), `${JSON.stringify(identity, null, 2)}\n`, "utf8");
-}
-
-function positiveSafeInteger(value, fallback) {
-  const number = Number(value);
-  return Number.isSafeInteger(number) && number > 0 ? number : fallback;
 }
 
 function expectedRenderPageCount({ args = {}, irFile = "" } = {}) {
@@ -804,13 +764,6 @@ function readRenderedPages(renderDir, options = {}) {
     renderDir,
     renderedPages
   };
-}
-
-function normalizeRenderer(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (["powerpoint", "power-point", "powerpoint-com", "office"].includes(normalized)) return "powerpoint";
-  if (["libreoffice", "libre-office", "lo", "headless", ""].includes(normalized)) return "libreoffice";
-  throw new TypeError(`Unsupported renderer: ${normalized}`);
 }
 
 function assessPages({ ir, render, diff, compare, raster, thresholds }) {

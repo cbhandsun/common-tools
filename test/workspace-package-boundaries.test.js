@@ -17,6 +17,7 @@ test("CLI declares every workspace package used by its composition root", () => 
     "@common-tools/ppt-quality-core",
     "@common-tools/project-audit-core",
     "@common-tools/remote-mcp-server",
+    "@common-tools/siyuan-note-core",
     "@common-tools/slideclone-core",
     "@common-tools/team-runtime"
   ];

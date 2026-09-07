@@ -54,11 +54,11 @@ function createPptCreateJob({ workspaceRoot, stateRoot, ownerId, input, output, 
 function qualityFor(spec, ir, formats, assetRecords = [], template, variants = []) {
   const deliveredVariants = variants.length ? variants : [Object.freeze({ layoutIds: ir.pages.map((page) => page.intent?.layoutId), formats })];
   const editableObjects = ir.pages.reduce((total, page) => total + page.textBoxes.length + page.shapes.length + page.tables.length + page.charts.length, 0);
-  const requiredFacts = spec.slides.reduce((total, slide) => total + slide.items.filter((item) => item.required).length, 0);
-  const renderedFacts = spec.slides.reduce((total, slide) => total + slide.items.length, 0);
+  const requiredFacts = spec.slides.reduce((total, slide) => total + (slide.items || []).filter((item) => item.required).length, 0);
+  const renderedFacts = spec.slides.reduce((total, slide) => total + (slide.items || []).length, 0);
   const candidateLayouts = ir.pages.reduce((total, page) => total + (Array.isArray(page.intent?.candidateLayoutIds) ? page.intent.candidateLayoutIds.length : 0), 0);
   const selectedLayoutsResolved = ir.pages.every((page) => typeof page.intent?.layoutId === "string" && page.intent.candidateLayoutIds?.includes(page.intent.layoutId));
-  const layoutCandidatesAvailable = ir.pages.every((page) => Array.isArray(page.intent?.candidateLayoutIds) && page.intent.candidateLayoutIds.length >= 2);
+  const layoutCandidatesAvailable = ir.pages.every((page) => Array.isArray(page.intent?.candidateLayoutIds) && page.intent.candidateLayoutIds.length >= Math.min(2, spec.variantCount));
   const visualSlides = spec.slides.filter((slide) => slide.visual);
   const resolvedVisuals = ir.pages.reduce((total, page) => total + page.tables.length + page.charts.length + page.shapes.filter((item) => /-(?:media-slot|media-stage|analysis|node)$/u.test(item.id)).length, 0);
   const nativeTables = ir.pages.reduce((total, page) => total + page.tables.length, 0);

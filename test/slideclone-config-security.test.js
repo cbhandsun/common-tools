@@ -10,6 +10,62 @@ const { createConfig, loadAdapter, validateIr } = require("../skills/pd-hifi-sli
 const { assertValidConfig, validateConfig } = require("../skills/pd-hifi-slideclone/scripts/lib/config-validation");
 const configSchema = require("../skills/pd-hifi-slideclone/schemas/slideclone.config.schema.json");
 
+test("config rejects embedded NUL and oversized paths before execution", () => {
+  for (const value of ["input\0hidden", "x".repeat(32769)]) {
+    for (const field of ["inputDir", "outputDir"]) {
+      const config = structuredClone(createConfig("input", "output"));
+      config[field] = value;
+      assert.equal(validateConfig(config).ok, false, field);
+    }
+    const config = structuredClone(createConfig("input", "output"));
+    config.adapters.ocr = value;
+    assert.equal(validateConfig(config).ok, false, "adapter path");
+  }
+});
+
+test("config errors do not echo arbitrary unsupported field names", () => {
+  const secretField = "private-token\n" + "secret-content".repeat(1000);
+  for (const section of [null, "adapters", "paddleOcr", "openXmlBuilder"]) {
+    const config = structuredClone(createConfig("input", "output"));
+    if (section) config[section] = { ...(config[section] || {}), [secretField]: true };
+    else config[secretField] = true;
+    const result = validateConfig(config);
+    assert.equal(result.ok, false);
+    assert.doesNotMatch(result.errors.join(" "), /private-token|secret-content/);
+    assert.ok(result.errors.join(" ").length < 2000);
+  }
+});
+
+test("config rejects malformed nested settings without coercion or unbounded diagnostics", () => {
+  for (const value of [null, [], false, 1, "invalid"]) {
+    for (const section of ["normalize", "thresholds", "umiOcr", "paddleOcr", "openXmlBuilder", "tesseract"]) {
+      const config = structuredClone(createConfig("input", "output"));
+      config[section] = value;
+      assert.equal(validateConfig(config).ok, false, section);
+    }
+  }
+  const config = structuredClone(createConfig("input", "output"));
+  const hostile = { valueOf() { throw new Error("must not coerce"); }, toString() { throw new Error("must not stringify"); } };
+  config.maxIterations = hostile;
+  config.slide.widthPt = hostile;
+  assert.equal(validateConfig(config).ok, false);
+  for (let index = 0; index < 10000; index += 1) config[`unknown-${index}`] = true;
+  const result = validateConfig(config);
+  assert.ok(result.errors.length < 10);
+  assert.throws(() => assertValidConfig(config), (error) => error.code === "ERR_SLIDECLONE_CONFIG" && error.message.length < 2000);
+});
+
+test("runtime and schema bound input, output and adapter path strings", () => {
+  for (const schema of [configSchema.properties.inputDir, configSchema.properties.outputDir, ...Object.values(configSchema.properties.adapters.properties)]) {
+    assert.equal(schema.maxLength, 32768);
+    assert.equal(new RegExp(schema.pattern).test("path\0hidden"), false);
+    assert.equal(new RegExp(schema.pattern).test("C:\\合法 路径\\adapter.js"), true);
+  }
+  const config = structuredClone(createConfig("input", "output"));
+  config.inputDir = "x".repeat(32768);
+  assert.equal(validateConfig(config).ok, true);
+});
+
 test("generated slideclone config passes its runtime boundary validation", () => {
   const config = createConfig("input", "output");
   assert.deepEqual(validateConfig(config), { ok: true, errors: [] });
@@ -29,7 +85,7 @@ test("slideclone config rejects empty, unknown, and extreme boundary values", ()
   const result = validateConfig(config);
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((error) => error.includes("outputDir")));
-  assert.ok(result.errors.some((error) => error.includes("unknownExecutionFlag")));
+  assert.ok(result.errors.includes("config contains an unsupported field"));
   assert.ok(result.errors.some((error) => error.includes("maxIterations")));
   assert.ok(result.errors.some((error) => error.includes("exportWidthPx")));
 });
@@ -42,7 +98,7 @@ test("slideclone config rejects retired commercial OCR configuration", () => {
   };
   const invalid = validateConfig(config);
   assert.equal(invalid.ok, false);
-  assert.ok(invalid.errors.some((error) => error.includes("asposeOcr")));
+  assert.ok(invalid.errors.includes("config contains an unsupported field"));
 });
 
 test("slideclone config validates official PaddleOCR runtime boundaries", () => {
@@ -58,7 +114,8 @@ test("slideclone config validates official PaddleOCR runtime boundaries", () => 
   };
   const invalid = validateConfig(config);
   assert.equal(invalid.ok, false);
-  for (const field of ["lang", "ocrVersion", "engine", "cpuThreads", "timeoutMs", "enableHpi", "unknown"]) {
+  assert.ok(invalid.errors.includes("config.paddleOcr contains an unsupported field"));
+  for (const field of ["lang", "ocrVersion", "engine", "cpuThreads", "timeoutMs", "enableHpi"]) {
     assert.ok(invalid.errors.some((error) => error.includes(field)), `missing validation error for ${field}`);
   }
 });
@@ -80,7 +137,7 @@ test("slideclone config validates OpenXML builder diagnostics and executable bou
   assert.equal(invalid.ok, false);
   assert.ok(invalid.errors.some((error) => error.includes("retainBuildArtifacts must be a boolean")));
   assert.ok(invalid.errors.some((error) => error.includes("targetFramework is invalid")));
-  assert.ok(invalid.errors.some((error) => error.includes("unknown is not supported")));
+  assert.ok(invalid.errors.includes("config.openXmlBuilder contains an unsupported field"));
 });
 
 test("slideclone rejects external adapters unless the CLI explicitly opts in", async () => {

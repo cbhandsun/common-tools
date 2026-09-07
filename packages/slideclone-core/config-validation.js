@@ -1,3 +1,4 @@
+// @ts-check
 "use strict";
 
 const ADAPTER_KEYS = Object.freeze([
@@ -42,13 +43,13 @@ const ALLOWED_TOP_LEVEL_KEYS = new Set([
   "pageConcurrency"
 ]);
 
+/** @param {unknown} config */
 function validateConfig(config) {
+  /** @type {string[]} */
   const errors = [];
   if (!isRecord(config)) return { ok: false, errors: ["config must be a JSON object"] };
 
-  for (const key of Object.keys(config)) {
-    if (!ALLOWED_TOP_LEVEL_KEYS.has(key)) errors.push(`config.${key} is not supported`);
-  }
+  if (Object.keys(config).some((key) => !ALLOWED_TOP_LEVEL_KEYS.has(key))) errors.push("config contains an unsupported field");
 
   requireNonEmptyString(config, "inputDir", errors);
   requireNonEmptyString(config, "outputDir", errors);
@@ -64,7 +65,7 @@ function validateConfig(config) {
 
   if (config.normalize !== undefined && !isRecord(config.normalize)) {
     errors.push("config.normalize must be an object");
-  } else {
+  } else if (isRecord(config.normalize)) {
     validateInteger(config.normalize?.exportWidthPx, "config.normalize.exportWidthPx", errors, { min: 320, max: 16384 });
     validateInteger(config.normalize?.exportHeightPx, "config.normalize.exportHeightPx", errors, { min: 180, max: 16384 });
     validateInteger(config.normalize?.maxPages, "config.normalize.maxPages", errors, { min: 0, max: 10000 });
@@ -72,7 +73,7 @@ function validateConfig(config) {
 
   if (config.thresholds !== undefined && !isRecord(config.thresholds)) {
     errors.push("config.thresholds must be an object");
-  } else {
+  } else if (isRecord(config.thresholds)) {
     for (const key of [
       "pixelDiffRatio",
       "foregroundMissingRatio",
@@ -108,17 +109,20 @@ function validateConfig(config) {
     if (config[key] !== undefined && !isRecord(config[key])) errors.push(`config.${key} must be an object`);
   }
 
-  validateInteger(config.tesseract?.timeoutMs, "config.tesseract.timeoutMs", errors, { min: 1000, max: 600000 });
-  validateInteger(config.umiOcr?.initTimeoutMs, "config.umiOcr.initTimeoutMs", errors, { min: 1000, max: 600000 });
-  validateInteger(config.umiOcr?.timeoutMs, "config.umiOcr.timeoutMs", errors, { min: 1000, max: 600000 });
-  validateInteger(config.umiOcr?.idleTimeoutMs, "config.umiOcr.idleTimeoutMs", errors, { min: 1000, max: 600000 });
-  validateInteger(config.umiOcr?.maxOutputBytes, "config.umiOcr.maxOutputBytes", errors, { min: 1048576, max: 67108864 });
+  if (isRecord(config.tesseract)) validateInteger(config.tesseract.timeoutMs, "config.tesseract.timeoutMs", errors, { min: 1000, max: 600000 });
+  if (isRecord(config.umiOcr)) {
+    validateInteger(config.umiOcr.initTimeoutMs, "config.umiOcr.initTimeoutMs", errors, { min: 1000, max: 600000 });
+    validateInteger(config.umiOcr.timeoutMs, "config.umiOcr.timeoutMs", errors, { min: 1000, max: 600000 });
+    validateInteger(config.umiOcr.idleTimeoutMs, "config.umiOcr.idleTimeoutMs", errors, { min: 1000, max: 600000 });
+    validateInteger(config.umiOcr.maxOutputBytes, "config.umiOcr.maxOutputBytes", errors, { min: 1048576, max: 67108864 });
+  }
   validatePaddleOcr(config.paddleOcr, errors);
   validateOpenXmlBuilder(config.openXmlBuilder, errors);
 
   return { ok: errors.length === 0, errors };
 }
 
+/** @param {unknown} value @param {string[]} errors */
 function validatePaddleOcr(value, errors) {
   if (value === undefined || !isRecord(value)) return;
   const allowed = new Set([
@@ -127,16 +131,14 @@ function validatePaddleOcr(value, errors) {
     "modelCacheDir", "enableHpi", "useTextlineOrientation", "initTimeoutMs", "timeoutMs",
     "idleTimeoutMs", "maxOutputBytes", "cache", "cacheDir"
   ]);
-  for (const key of Object.keys(value)) {
-    if (!allowed.has(key)) errors.push(`config.paddleOcr.${key} is not supported`);
-  }
+  if (Object.keys(value).some((key) => !allowed.has(key))) errors.push("config.paddleOcr contains an unsupported field");
   for (const key of ["pythonBin", "workerScript", "textDetectionModelDir", "textRecognitionModelDir", "modelCacheDir", "cacheDir"]) {
     validateBoundedString(value[key], `config.paddleOcr.${key}`, errors, 32768);
   }
   if (value.lang !== undefined && (typeof value.lang !== "string" || !/^[A-Za-z0-9_-]{2,32}$/.test(value.lang))) errors.push("config.paddleOcr.lang is invalid");
   if (value.ocrVersion !== undefined && (typeof value.ocrVersion !== "string" || !/^PP-OCRv[3-9]$/.test(value.ocrVersion))) errors.push("config.paddleOcr.ocrVersion is invalid");
   if (value.device !== undefined && (typeof value.device !== "string" || !/^[A-Za-z0-9:_,-]{1,64}$/.test(value.device))) errors.push("config.paddleOcr.device is invalid");
-  if (value.engine !== undefined && !["paddle", "paddle_static", "paddle_dynamic", "transformers", "onnxruntime"].includes(value.engine)) errors.push("config.paddleOcr.engine is invalid");
+  if (value.engine !== undefined && (typeof value.engine !== "string" || !["paddle", "paddle_static", "paddle_dynamic", "transformers", "onnxruntime"].includes(value.engine))) errors.push("config.paddleOcr.engine is invalid");
   for (const key of ["textDetectionModel", "textRecognitionModel"]) {
     if (value[key] !== undefined && (typeof value[key] !== "string" || !/^[A-Za-z0-9_.-]{1,128}$/.test(value[key]))) errors.push(`config.paddleOcr.${key} is invalid`);
   }
@@ -149,17 +151,17 @@ function validatePaddleOcr(value, errors) {
   validateInteger(value.maxOutputBytes, "config.paddleOcr.maxOutputBytes", errors, { min: 1048576, max: 67108864 });
 }
 
+/** @param {unknown} value @param {string} label @param {string[]} errors @param {number} maxLength */
 function validateBoundedString(value, label, errors, maxLength) {
   if (value !== undefined && (!isNonEmptyString(value) || value.length > maxLength || value.includes("\0"))) errors.push(`${label} must be a bounded non-empty string`);
 }
 
+/** @param {unknown} value @param {string[]} errors */
 function validateOpenXmlBuilder(value, errors) {
   if (value === undefined || !isRecord(value)) return;
   const allowed = new Set(["configuration", "exePath", "powerPointSafe", "retainBuildArtifacts", "targetFramework"]);
-  for (const key of Object.keys(value)) {
-    if (!allowed.has(key)) errors.push(`config.openXmlBuilder.${key} is not supported`);
-  }
-  if (value.configuration !== undefined && !["Debug", "Release", "debug", "release"].includes(value.configuration)) {
+  if (Object.keys(value).some((key) => !allowed.has(key))) errors.push("config.openXmlBuilder contains an unsupported field");
+  if (value.configuration !== undefined && (typeof value.configuration !== "string" || !["Debug", "Release", "debug", "release"].includes(value.configuration))) {
     errors.push("config.openXmlBuilder.configuration must be Debug or Release");
   }
   if (value.exePath !== undefined && (!isNonEmptyString(value.exePath) || value.exePath.length > 32768 || value.exePath.includes("\0"))) {
@@ -173,39 +175,42 @@ function validateOpenXmlBuilder(value, errors) {
   }
 }
 
+/** @template T @param {T} config @returns {T} */
 function assertValidConfig(config) {
   const result = validateConfig(config);
   if (!result.ok) {
-    const error = new Error(`Invalid slideclone config:\n- ${result.errors.join("\n- ")}`);
-    error.code = "ERR_SLIDECLONE_CONFIG";
-    error.validationErrors = result.errors;
+    const error = Object.assign(new Error(`Invalid slideclone config:\n- ${result.errors.join("\n- ")}`), {
+      code: "ERR_SLIDECLONE_CONFIG",
+      validationErrors: result.errors
+    });
     throw error;
   }
   return config;
 }
 
+/** @param {unknown} adapters @param {string[]} errors */
 function validateAdapters(adapters, errors) {
   if (!isRecord(adapters)) {
     errors.push("config.adapters must be an object");
     return;
   }
-  for (const key of Object.keys(adapters)) {
-    if (!ADAPTER_KEYS.includes(key)) errors.push(`config.adapters.${key} is not supported`);
-  }
+  if (Object.keys(adapters).some((key) => !ADAPTER_KEYS.includes(key))) errors.push("config.adapters contains an unsupported field");
   for (const key of REQUIRED_ADAPTER_KEYS) {
-    if (!isNonEmptyString(adapters[key])) errors.push(`config.adapters.${key} must be a non-empty string`);
+    if (!isBoundedPath(adapters[key])) errors.push(`config.adapters.${key} must be a non-empty string`);
   }
   for (const key of ADAPTER_KEYS) {
-    if (adapters[key] !== undefined && !isNonEmptyString(adapters[key])) {
+    if (adapters[key] !== undefined && !isBoundedPath(adapters[key])) {
       errors.push(`config.adapters.${key} must be a non-empty string`);
     }
   }
 }
 
+/** @param {Record<string, unknown>} record @param {string} key @param {string[]} errors */
 function requireNonEmptyString(record, key, errors) {
-  if (!isNonEmptyString(record[key])) errors.push(`config.${key} must be a non-empty string`);
+  if (!isBoundedPath(record[key])) errors.push(`config.${key} must be a non-empty string`);
 }
 
+/** @param {unknown} record @param {string} key @param {string} label @param {string[]} errors */
 function validatePositiveNumber(record, key, label, errors) {
   if (record === undefined) return;
   if (!isRecord(record)) {
@@ -213,30 +218,38 @@ function validatePositiveNumber(record, key, label, errors) {
     return;
   }
   const value = record[key];
-  if (value !== undefined && (!Number.isFinite(value) || value <= 0)) {
+  if (value !== undefined && (typeof value !== "number" || !Number.isFinite(value) || value <= 0)) {
     errors.push(`${label}.${key} must be a positive finite number`);
   }
 }
 
+/** @param {unknown} value @param {string} label @param {string[]} errors */
 function validateFiniteNumber(value, label, errors) {
   if (value !== undefined && !Number.isFinite(value)) errors.push(`${label} must be a finite number`);
 }
 
+/** @param {unknown} value @param {string} label @param {string[]} errors @param {{min: number, max: number}} bounds */
 function validateInteger(value, label, errors, { min, max }) {
   if (value === undefined) return;
-  if (!Number.isSafeInteger(value) || value < min || value > max) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < min || value > max) {
     errors.push(`${label} must be an integer from ${min} to ${max}`);
   }
 }
 
+/** @param {unknown} value @returns {value is Record<string, unknown>} */
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+/** @param {unknown} value @returns {value is string} */
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+/** @param {unknown} value @returns {value is string} */
+function isBoundedPath(value) {
+  return isNonEmptyString(value) && value.length <= 32768 && !value.includes("\0");
+}
 module.exports = {
   ADAPTER_KEYS,
   ALLOWED_TOP_LEVEL_KEYS,

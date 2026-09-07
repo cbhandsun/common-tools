@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
+const { ownerPrefix } = require("../packages/team-runtime/job-input");
 const fs = require("node:fs");
 const os = require("node:os");
 const test = require("node:test");
@@ -405,20 +406,108 @@ test("legacy owner-scoped Jobs retain queue delivery when project quotas are con
   assert.deepEqual(queued, [{ id: job.id, capability: "project-audit" }]);
 });
 
+test("stale execution cannot complete a replacement claim using the same worker ID", async () => {
+  const storedObjects = new Map();
+  let currentAttempt = 0;
+  let releaseOld;
+  let announceOld;
+  const started = new Promise((resolve) => { announceOld = resolve; });
+  const wait = new Promise((resolve) => { releaseOld = resolve; });
+  const completed = [];
+  const worker = new TeamWorker({ repository: {
+    async claim() { return { id: "job", attempt: ++currentAttempt, capability: "project-audit", outputPrefix: "owners/a/jobs/job/" }; },
+    async heartbeat(id, owner, seconds, attempt) { return attempt === currentAttempt; },
+    async isCancellationRequested(id, owner, attempt) { assert.ok(attempt >= 1); return false; },
+    async transition(value) {
+      if (value.attempt !== currentAttempt) throw new Error("stale lease");
+      completed.push(value);
+      return value;
+    }
+  }, handlers: { "project-audit": async ({ job }) => {
+    if (job.attempt === 1) { announceOld(); await wait; }
+    const objectKey = `${job.outputPrefix}report.json`;
+    storedObjects.set(objectKey, job.attempt);
+    return { artifacts: [{ name: "report.json", objectKey, mediaType: "application/json", sha256: "a".repeat(64) }], quality: { passed: true, checks: [{ name: "done", passed: true }], metrics: {} } };
+  } } });
+  const old = worker.process({ id: "job" }, "same-worker");
+  const rejected = assert.rejects(old, /stale lease/);
+  await started;
+  try { assert.equal((await worker.process({ id: "job" }, "same-worker")).to, "succeeded"); }
+  finally { releaseOld(); }
+  await rejected;
+  assert.deepEqual(completed.map((entry) => [entry.attempt, entry.to]), [[2, "succeeded"]]);
+  assert.equal(storedObjects.get(completed[0].artifacts[0].objectKey), 2, "old execution must not overwrite the winner's stored bytes");
+  assert.equal(storedObjects.size, 2);
+});
+
+test("attempt output namespaces are bounded and cannot be nested or traversed", () => {
+  const { attemptOutputPrefix } = require("../packages/team-runtime/worker-lease");
+  assert.equal(attemptOutputPrefix("owners/a/jobs/job/", 1), "owners/a/jobs/job/attempts/1/");
+  assert.equal(attemptOutputPrefix("owners/a/jobs/job/", 2147483647), "owners/a/jobs/job/attempts/2147483647/");
+  for (const prefix of [undefined, null, "", {}, "private", "owners/a/jobs/../", "owners/a/jobs/job/attempts/1/", "owners/a/jobs/job//", "owners/a/jobs/job/\0", `owners/a/jobs/${"x".repeat(129)}/`]) {
+    assert.throws(() => attemptOutputPrefix(prefix, 1), (error) => error instanceof TypeError && !error.message.includes("private"));
+  }
+  assert.throws(() => attemptOutputPrefix("owners/a/jobs/job/", 0), /attempt/);
+});
+
+test("worker refuses artifact references from another attempt without mutating the stored job", async () => {
+  const job = { id: "job", attempt: 2, capability: "project-audit", outputPrefix: "owners/a/jobs/job/" };
+  const transitions = [];
+  const worker = new TeamWorker({ repository: {
+    async claim() { return job; }, async heartbeat() { return true; }, async isCancellationRequested() { return false; },
+    async transition(value) { transitions.push(value); return value; }
+  }, handlers: { "project-audit": async ({ job: scoped }) => {
+    assert.equal(Object.isFrozen(scoped), true);
+    assert.equal(scoped.outputPrefix, `${job.outputPrefix}attempts/2/`);
+    return { artifacts: [{ name: "report.json", objectKey: `${job.outputPrefix}attempts/1/report.json`, mediaType: "application/json", sha256: "a".repeat(64) }] };
+  } } });
+  assert.equal((await worker.process({ id: "job" }, "worker")).to, "failed");
+  assert.equal(transitions[0].attempt, 2);
+  assert.equal(transitions[0].artifacts, undefined);
+  assert.equal(job.outputPrefix, "owners/a/jobs/job/");
+});
+
+test("lease boundary validation rejects invalid attempts and durations before querying", async () => {
+  const { assertLeaseAttempt, assertLeaseSeconds } = require("../packages/team-runtime/worker-lease");
+  for (const value of [1, 2147483647]) assert.equal(assertLeaseAttempt(value), value);
+  for (const value of [30, 600]) assert.equal(assertLeaseSeconds(value), value);
+  const repository = new PostgresJobRepository({ query: async () => { throw new Error("must not query"); } });
+  for (const attempt of [undefined, null, true, "1", 0, -1, 1.5, NaN, Infinity, 2147483648]) {
+    await assert.rejects(repository.transition({ id: "job", workerId: "worker", attempt, from: "running", to: "succeeded" }), /attempt/);
+    await assert.rejects(repository.heartbeat("job", "worker", 60, attempt), /attempt/);
+    await assert.rejects(repository.isCancellationRequested("job", "worker", attempt), /attempt/);
+  }
+  for (const seconds of [null, true, "60", 0, 29, 601, NaN, Infinity]) await assert.rejects(repository.claim("job", "worker", seconds), /leaseSeconds/);
+});
+
+test("repository lease mutations bind the claim attempt even when worker identity is reused", async () => {
+  const calls = [];
+  const repository = new PostgresJobRepository({ query: async (text, values) => { calls.push({ text, values }); return { rows: [] }; } });
+  await assert.rejects(() => repository.transition({ id: "job", workerId: "same-worker", attempt: 2, from: "running", to: "succeeded" }), /lease/);
+  assert.match(calls[0].text, /AND attempt = \$8/);
+  assert.equal(calls[0].values[7], 2);
+  await repository.heartbeat("job", "same-worker", 60, 2);
+  assert.match(calls[1].text, /AND attempt = \$4/);
+  assert.equal(calls[1].values[3], 2);
+  await repository.isCancellationRequested("job", "same-worker", 2);
+  assert.match(calls[2].text, /AND attempt = \$3/);
+  assert.equal(calls[2].values[2], 2);
+});
+
 test("Postgres repository uses parameterized ownership and lease-constrained updates", async () => {
   const calls = [];
   const query = async (text, values) => { calls.push({ text, values }); return { rows: [] }; };
   const repository = new PostgresJobRepository({ query });
   await repository.get("job-1", "owner-1");
-  await assert.rejects(() => repository.transition({ id: "job-1", workerId: "worker-1", from: "running", to: "succeeded" }), /lease is no longer valid/);
-  await assert.rejects(() => repository.transition({ id: "job-1", workerId: "worker-1", from: "running", to: "succeeded", quality: { arbitrary: "must-not-persist" } }), /quality report/);
+  await assert.rejects(() => repository.transition({ id: "job-1", workerId: "worker-1", attempt: 1, from: "running", to: "succeeded" }), /lease is no longer valid/);
+  await assert.rejects(() => repository.transition({ id: "job-1", workerId: "worker-1", attempt: 1, from: "running", to: "succeeded", quality: { arbitrary: "must-not-persist" } }), /quality report/);
   assert.match(calls[0].text, /owner_id = \$2/);
   assert.deepEqual(calls[0].values, ["job-1", "owner-1"]);
   assert.match(calls[1].text, /lease_owner = \$2 AND lease_expires_at > NOW\(\)/);
   assert.equal(calls[1].values.includes("worker-1"), true);
-  assert.equal(await repository.heartbeat("job-1", "worker-1", 90), false);
+  assert.equal(await repository.heartbeat("job-1", "worker-1", 90, 1), false);
   assert.match(calls[2].text, /status IN \('running','cancel_requested'\)/);
-  assert.deepEqual(calls[2].values, ["job-1", "worker-1", 90]);
+  assert.deepEqual(calls[2].values, ["job-1", "worker-1", 90, 1]);
   assert.equal(await repository.getInProject("job-1", "product-core"), null);
   assert.match(calls[3].text, /project_id = \$2/);
   assert.deepEqual(calls[3].values, ["job-1", "product-core"]);
@@ -472,7 +561,7 @@ test("Postgres project admission holds a project lock before counting active Job
 });
 
 test("Postgres repository recovers only expired running leases with an auditable terminal fallback", async () => {
-  const base = { id: "job-expired", capability: "project-audit", owner_id: "owner-1", idempotency_key: "key", status: "queued", attempt: 1, max_attempts: 2, input_object_key: "owners/a/inputs/source.tar.gz", output_prefix: "owners/a/jobs/job-expired/", artifacts: [], created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", expires_at: "2030-01-01T00:00:00.000Z" };
+  const base = { id: "job-expired", capability: "project-audit", owner_id: "owner-1", idempotency_key: "key", status: "queued", attempt: 1, max_attempts: 2, input_object_key: ownerPrefix("owner-1") + "inputs/source.tar.gz", output_prefix: ownerPrefix("owner-1") + "jobs/job-expired/", artifacts: [], created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", expires_at: "2030-01-01T00:00:00.000Z" };
   const calls = [];
   const repository = new PostgresJobRepository({ query: async (text, values) => { calls.push({ text, values }); return calls.length === 1 ? { rows: [base] } : { rows: [] }; } });
   const jobs = await repository.recoverExpiredLeases("reaper-1", "project-audit");
@@ -494,7 +583,7 @@ test("team retention expires only unclaimed jobs and records retention cleanup w
     calls.push({ text, values });
     if (text.startsWith("UPDATE capability_jobs SET status = 'expired'")) return { rows: [row] };
     if (text.startsWith("SELECT * FROM capability_jobs WHERE status IN")) return { rows: [] };
-    if (text.startsWith("UPDATE capability_jobs SET artifacts")) return { rows: [row] };
+    if (text.startsWith("WITH cleaned AS")) return { rows: [{ ...row, retention_initial_cleanup: true }] };
     return { rows: [] };
   } });
   const expired = await repository.expireDueJobs("retention-1", "project-audit");
@@ -506,8 +595,12 @@ test("team retention expires only unclaimed jobs and records retention cleanup w
   assert.equal(candidates.length, 0);
   const marked = await repository.markRetentionCleaned("job-retention", "retention-1");
   assert.equal(marked.status, "expired");
-  assert.match(calls[3].text, /retention_cleaned_at = NOW\(\)/);
-  assert.equal(calls[4].values[1], "retention-cleaned");
+  assert.match(calls[3].text, /retention_cleaned_at = COALESCE\(retention_cleaned_at, NOW\(\)\)/);
+  assert.match(calls[3].text, /retention_last_swept_at = NOW\(\)/);
+  assert.match(calls[3].text, /INSERT INTO capability_job_events/);
+  assert.match(calls[3].text, /FROM cleaned WHERE retention_initial_cleanup/);
+  assert.deepEqual(calls[3].values, ["job-retention", "retention-1"]);
+  assert.equal(calls.length, 4, "cleanup marking and its event use one database statement");
 });
 
 test("team retention deletes only validated owner/job-scoped keys and marks each job once", async () => {
@@ -523,14 +616,14 @@ test("team retention deletes only validated owner/job-scoped keys and marks each
       async listRetentionCandidates(days, limit) { assert.equal(days, 30); assert.equal(limit, 25); return [job]; },
       async markRetentionCleaned(id, actor) { marked.push([id, actor]); return job; }
     },
-    objectStore: { async deleteObject({ objectKey }) { deleted.push(objectKey); } },
+    objectStore: { async listObjects({ prefix }) { assert.equal(prefix, job.outputPrefix); return { keys: [`${prefix}attempts/1/orphan.json`], nextToken: null }; }, async deleteObject({ objectKey }) { deleted.push(objectKey); } },
     actorId: "retention-1", retentionDays: 30, limit: 25
   });
   assert.deepEqual(result, { expired: 1, cleaned: 1 });
-  assert.deepEqual(deleted, [job.inputObjectKey, job.artifacts[0].objectKey]);
+  assert.deepEqual(deleted, [job.inputObjectKey, job.artifacts[0].objectKey, `${job.outputPrefix}attempts/1/orphan.json`]);
   assert.deepEqual(marked, [[job.id, "retention-1"]]);
   const unsafe = { ...job, inputObjectKey: "owners/not-the-owner/inputs/source.tar.gz" };
-  await assert.rejects(() => runTeamRetention({ repository: { async expireDueJobs() { return []; }, async listRetentionCandidates() { return [unsafe]; }, async markRetentionCleaned() { throw new Error("must not mark"); } }, objectStore: { async deleteObject() { throw new Error("must not delete"); } }, actorId: "retention-1", retentionDays: 30 }), /owner input prefix/);
+  await assert.rejects(() => runTeamRetention({ repository: { async expireDueJobs() { return []; }, async listRetentionCandidates() { return [unsafe]; }, async markRetentionCleaned() { throw new Error("must not mark"); } }, objectStore: { async listObjects() { throw new Error("must not list"); }, async deleteObject() { throw new Error("must not delete"); } }, actorId: "retention-1", retentionDays: 30 }), /owner input prefix/);
 });
 
 test("team worker claims once, receives trace context, and only writes owner-scoped verified artifacts", async () => {
@@ -538,15 +631,15 @@ test("team worker claims once, receives trace context, and only writes owner-sco
   const job = createTeamJob({ capability: "project-audit", ownerId: "member-1", idempotencyKey: "request-2", inputObjectKey: `owners/${crypto.createHash("sha256").update("member-1").digest("hex")}/inputs/source.tar.gz`, expiresAt: "2030-01-01T00:00:00.000Z", traceParent });
   const transitions = [];
   const repository = {
-    async claim(id, workerId, leaseSeconds) { assert.equal(id, job.id); assert.equal(workerId, "worker-1"); assert.equal(leaseSeconds, 90); return job; },
+    async claim(id, workerId, leaseSeconds) { assert.equal(id, job.id); assert.equal(workerId, "worker-1"); assert.equal(leaseSeconds, 90); return { ...job, attempt: 1, traceParent: job.traceParent }; },
     async heartbeat() { return true; },
     async isCancellationRequested() { return false; },
     async transition(value) { transitions.push(value); return value; }
   };
-  const worker = new TeamWorker({ repository, leaseSeconds: 90, handlers: { "project-audit": async ({ job: claimedJob }) => { assert.equal(claimedJob.traceParent, traceParent); return { artifacts: [{ name: "report.json", objectKey: `${job.outputPrefix}report.json`, mediaType: "application/json", sha256: "a".repeat(64) }], quality: { passed: true, checks: [{ name: "report-generated", passed: true }], metrics: { artifacts: 1 } } }; } } });
+  const worker = new TeamWorker({ repository, leaseSeconds: 90, handlers: { "project-audit": async ({ job: claimedJob }) => { assert.equal(claimedJob.traceParent, traceParent); return { artifacts: [{ name: "report.json", objectKey: `${claimedJob.outputPrefix}report.json`, mediaType: "application/json", sha256: "a".repeat(64) }], quality: { passed: true, checks: [{ name: "report-generated", passed: true }], metrics: { artifacts: 1 } } }; } } });
   const completed = await worker.process({ id: job.id }, "worker-1");
   assert.equal(completed.to, "succeeded");
-  assert.equal(transitions[0].artifacts[0].objectKey, `${job.outputPrefix}report.json`);
+  assert.equal(transitions[0].artifacts[0].objectKey, `${job.outputPrefix}attempts/1/report.json`);
   assert.deepEqual(transitions[0].quality, { passed: true, checks: [{ name: "report-generated", passed: true }], metrics: { artifacts: 1 } });
   const duplicate = new TeamWorker({ repository: { ...repository, claim: async () => null }, handlers: {} });
   assert.equal(await duplicate.process({ id: job.id }, "worker-2"), null);
@@ -556,7 +649,7 @@ test("team worker renews its lease during a slow handler and fails closed when r
   const job = { id: "job-heartbeat", capability: "project-audit", outputPrefix: "owners/a/jobs/job-heartbeat/" };
   const transitions = [];
   const repository = {
-    async claim() { return job; },
+    async claim() { return { ...job, attempt: 1, traceParent: job.traceParent }; },
     async heartbeat() { return true; },
     async isCancellationRequested() { return false; },
     async transition(value) { transitions.push(value); return value; }
@@ -579,7 +672,7 @@ test("team worker persists allowlisted stage failures without exposing their int
   const job = { id: "stage-failure", capability: "image-to-editable", outputPrefix: "owners/a/jobs/stage-failure/" };
   const worker = new TeamWorker({
     repository: {
-      async claim() { return job; },
+      async claim() { return { ...job, attempt: 1, traceParent: job.traceParent }; },
       async heartbeat() { return true; },
       async isCancellationRequested() { return false; },
       async transition(value) { transitions.push(value); return value; }
@@ -604,12 +697,27 @@ test("team Workers persist only fixed quality reports and hide historic arbitrar
   assert.deepEqual(quality, { passed: true, checks: [{ name: "completed", passed: true }], metrics: { pages: 1 } });
   assert.throws(() => assertQualityReport({ passed: true, checks: [{ name: "completed", passed: false }], metrics: {} }), /passed state/);
   assert.throws(() => assertQualityReport({ passed: true, checks: [{ name: "completed", passed: true, summary: "unbounded" }], metrics: {} }), /quality check/);
-  const unsafeRow = { id: "historic-quality", capability: "project-audit", owner_id: "owner-1", idempotency_key: "key", status: "succeeded", attempt: 1, max_attempts: 1, input_object_key: "owners/a/inputs/source.tar.gz", output_prefix: "owners/a/jobs/historic-quality/", artifacts: [], quality: { secret: "must-not-escape" }, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", expires_at: "2030-01-01T00:00:00.000Z" };
+  const unsafeRow = { id: "historic-quality", capability: "project-audit", owner_id: "owner-1", idempotency_key: "key", status: "succeeded", attempt: 1, max_attempts: 1, input_object_key: ownerPrefix("owner-1") + "inputs/source.tar.gz", output_prefix: ownerPrefix("owner-1") + "jobs/historic-quality/", artifacts: [], quality: { secret: "must-not-escape" }, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", expires_at: "2030-01-01T00:00:00.000Z" };
   assert.equal(fromRow(unsafeRow).quality, null);
+  assert.equal(fromRow({ ...unsafeRow, quality: "{private invalid JSON" }).quality, null);
+  assert.equal(fromRow({ ...unsafeRow, quality: "x".repeat(262145) }).quality, null);
+  for (const options of ["{private invalid JSON", "x".repeat(8193), { unknown: true }]) assert.throws(() => fromRow({ ...unsafeRow, options }), (error) => error.message === "database job options are invalid");
+  for (const patch of [{ id: "" }, { owner_id: null }, { capability: "unknown" }, { project_id: "../bad" }, { input_object_key: "../bad" }, { trace_parent: "private invalid trace" }]) assert.throws(() => fromRow({ ...unsafeRow, ...patch }), (error) => error.message === "database job identity is invalid");
+
+  const storedArtifact = { name: "report.json", objectKey: unsafeRow.output_prefix + "report.json", mediaType: "application/json", sha256: "a".repeat(64) };
+  assert.deepEqual(fromRow({ ...unsafeRow, artifacts: JSON.stringify([{ ...storedArtifact, headers: "private" }]) }).artifacts, [storedArtifact]);
+  for (const artifacts of ["{private broken JSON", " ".repeat(262145), {}, [null], [{ ...storedArtifact, objectKey: "owners/other/jobs/another/report.json" }], Array(33).fill(storedArtifact), [{ ...storedArtifact, sha256: "invalid" }]]) {
+    assert.throws(() => fromRow({ ...unsafeRow, artifacts }), (error) => error.message === "database job artifacts are invalid");
+  }
+  assert.throws(() => fromRow({ ...unsafeRow, output_prefix: "", artifacts: [] }), /database job identity is invalid/);
+
+  const safeError = fromRow({ ...unsafeRow, error: JSON.stringify({ code: "QUALITY_GATE_FAILED", message: "private content", retryable: true }) }).error;
+  assert.deepEqual(safeError, { code: "QUALITY_GATE_FAILED", message: "capability output did not pass required quality gates", retryable: false });
+  assert.equal(fromRow({ ...unsafeRow, error: "{private invalid JSON" }).error.code, "WORKER_FAILED");
   const transitions = [];
   const worker = new TeamWorker({
     repository: {
-      async claim() { return { id: "invalid-quality", capability: "project-audit", outputPrefix: "owners/a/jobs/invalid-quality/" }; },
+      async claim() { return { attempt: 1, id: "invalid-quality", capability: "project-audit", outputPrefix: "owners/a/jobs/invalid-quality/" }; },
       async heartbeat() { return true; },
       async isCancellationRequested() { return false; },
       async transition(value) { transitions.push(value); return value; }
@@ -630,10 +738,10 @@ test("team worker preserves artifacts but fails a required quality gate", async 
   const transitions = [];
   const job = { id: "quality-failure", capability: "image-to-editable", outputPrefix: "owners/a/jobs/quality-failure/" };
   const quality = { passed: false, checks: [{ name: "complex-graphic-native-gate", passed: false }], metrics: { pages: 1 } };
-  const artifact = { name: "deck.pptx", objectKey: `${job.outputPrefix}deck.pptx`, mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", sha256: "b".repeat(64) };
+  const artifact = { name: "deck.pptx", objectKey: `${job.outputPrefix}attempts/1/deck.pptx`, mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", sha256: "b".repeat(64) };
   const worker = new TeamWorker({
     repository: {
-      async claim() { return job; },
+      async claim() { return { ...job, attempt: 1, traceParent: job.traceParent }; },
       async heartbeat() { return true; },
       async isCancellationRequested() { return false; },
       async transition(value) { transitions.push(value); return value; }
@@ -652,7 +760,7 @@ test("team worker allows audit capabilities to report failed quality without fai
   const job = { id: "audit-findings", capability: "project-audit", outputPrefix: "owners/a/jobs/audit-findings/" };
   const worker = new TeamWorker({
     repository: {
-      async claim() { return job; }, async heartbeat() { return true; }, async isCancellationRequested() { return false; }, async transition(value) { return value; }
+      async claim() { return { ...job, attempt: 1, traceParent: job.traceParent }; }, async heartbeat() { return true; }, async isCancellationRequested() { return false; }, async transition(value) { return value; }
     },
     handlers: { "project-audit": async () => ({ artifacts: [], quality: { passed: false, checks: [{ name: "audit-clean", passed: false }], metrics: {} } }) }
   });
@@ -665,7 +773,7 @@ test("expired lease recovery atomically returns only matching pending deliveries
   const calls = [];
   const jobs = await recoverWorkerLeases({
     actorId: "reaper-1", capability: "image-to-editable",
-    repository: { async recoverExpiredLeases(actor, capability) { assert.equal(actor, "reaper-1"); assert.equal(capability, "image-to-editable"); return [queued, terminal]; } },
+    repository: { async recoverExpiredLeases(actor, capability) { assert.equal(actor, "reaper-1"); assert.equal(capability, "image-to-editable"); return [queued, terminal]; }, async listPendingDeliveries() { return [queued]; }, async acknowledgeDelivery() {} },
     queue: { async recover(message) { calls.push(["recover", message]); return true; }, async enqueue(message) { calls.push(["enqueue", message]); } }
   });
   assert.deepEqual(jobs, [queued, terminal]);
@@ -673,10 +781,41 @@ test("expired lease recovery atomically returns only matching pending deliveries
 
   await recoverWorkerLeases({
     actorId: "reaper-1", capability: "image-to-editable",
-    repository: { async recoverExpiredLeases() { return [queued]; } },
+    repository: { async recoverExpiredLeases() { return [queued]; }, async listPendingDeliveries() { return [queued]; }, async acknowledgeDelivery() {} },
     queue: { async recover() { return false; }, async enqueue(message) { calls.push(["fallback-enqueue", message]); } }
   });
   assert.deepEqual(calls[1], ["fallback-enqueue", { id: "job-retry", capability: "image-to-editable" }]);
+});
+
+test("delivery repository bounds polling and rejects unsafe identifiers before SQL", async () => {
+  const calls = [];
+  const repository = new PostgresJobRepository({ query: async (sql, values) => { calls.push({ sql, values }); return { rows: [] }; } });
+  for (const limit of [0, -1, 1001, Infinity, "100", null]) await assert.rejects(repository.listPendingDeliveries("project-audit", limit), /delivery limit/);
+  await assert.rejects(repository.listPendingDeliveries("__proto__"), /delivery capability/);
+  const id = "12345678-1234-1234-1234-123456789abc";
+  for (const generation of ["0", "-1", "1; SELECT 1", "9223372036854775808", 1, null, { toString() { throw new Error("must not coerce"); } }]) await assert.rejects(repository.acknowledgeDelivery(id, generation), /delivery generation/);
+  await assert.rejects(repository.acknowledgeDelivery("private-invalid-id", "1"), /delivery Job id/);
+  assert.equal(calls.length, 0);
+  assert.deepEqual(await repository.listPendingDeliveries("project-audit", 1000), []);
+  assert.deepEqual(calls[0].values, ["project-audit", 1000]);
+  assert.equal(await repository.acknowledgeDelivery(id, "9223372036854775807"), false);
+  assert.deepEqual(calls[1].values, [id, "9223372036854775807"]);
+});
+
+test("delivery publication and acknowledgement failures leave the pass failed", async () => {
+  let acknowledged = 0;
+  const repository = {
+    async recoverExpiredLeases() { return []; },
+    async listPendingDeliveries() { return [{ id: "job", generation: "1", capability: "project-audit" }]; },
+    async acknowledgeDelivery() { acknowledged++; throw new Error("injected acknowledgement outage"); }
+  };
+  const args = { repository, actorId: "reaper-1", capability: "project-audit" };
+  await assert.rejects(recoverWorkerLeases({ ...args, queue: { async recover() { throw new Error("injected recovery outage"); }, async enqueue() { throw new Error("must not enqueue"); } } }), /injected recovery outage/);
+  assert.equal(acknowledged, 0);
+  await assert.rejects(recoverWorkerLeases({ ...args, queue: { async recover() { return false; }, async enqueue() { throw new Error("injected publication outage"); } } }), /injected publication outage/);
+  assert.equal(acknowledged, 0);
+  await assert.rejects(recoverWorkerLeases({ ...args, queue: { async recover() { return true; }, async enqueue() { throw new Error("must not enqueue"); } } }), /injected acknowledgement outage/);
+  assert.equal(acknowledged, 1);
 });
 
 test("team worker runner acks only completed database-backed deliveries", async () => {

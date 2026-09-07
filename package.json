@@ -245,12 +245,16 @@
     "common-tools:pack-project-audit": "node scripts/build-project-audit-runtime-package.js",
     "common-tools:sync-project-audit-plugin-runtime": "node scripts/sync-project-audit-plugin-runtime.js",
     "common-tools:test": "node scripts/test-sharded.js --suite common-tools",
-    "lint": "eslint packages scripts/*.js scripts/lib/office-node*.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-roundtrip-evidence.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session.js skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip.js skills/pd-hifi-slideclone/scripts/lib/progress-reporter.js skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com.js && node scripts/check-common-tools.js && node scripts/verify-slideclone-profiles.js && node scripts/verify-architecture-budgets.js",
-    "typecheck": "tsc --project tsconfig.json",
+    "lint": "eslint packages scripts/*.js skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata.js skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice.js skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js scripts/lib/office-node*.js skills/pd-hifi-slideclone/scripts/lib/graphic-crop-materializer.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-roundtrip-evidence.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session.js skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip.js skills/pd-hifi-slideclone/scripts/lib/progress-reporter.js skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com.js && node scripts/check-common-tools.js && node scripts/verify-slideclone-profiles.js && node scripts/verify-architecture-budgets.js && node scripts/verify-workspace-boundaries.js",
+    "typecheck": "tsc --project tsconfig.json && tsc --project tsconfig.boundaries.json",
     "test": "node --test",
     "test:unit": "node scripts/test-sharded.js --suite unit --shards 4",
     "test:contract": "node scripts/test-sharded.js --suite contract --shards 2",
     "test:integration": "node scripts/test-sharded.js --suite integration --shards 2",
+    "test:linux-process-recovery": "node --test test/linux/ocr-process-recovery.test.cjs",
+    "test:container-recovery": "node --test test/container/worker-scratch-recovery.test.cjs",
+    "test:postgres-recovery": "node --test test/postgres/lease-recovery.test.cjs",
+    "test:s3-retention": "node --test test/s3/attempt-retention.test.cjs",
     "test:portable": "node --test test/slideclone-config-security.test.js test/slideclone-runner.test.js test/openxml-dotnet-adapter.test.js test/native-rebuilder-registry.test.js test/horizontal-step-chain.test.js test/hierarchy-diagram.test.js test/triangle-topology.test.js test/cover-engine-core.test.js test/dense-radial-network-policy.test.js test/dense-radial-network-shapes.test.js test/network-native-shapes.test.js test/radial-network-detector.test.js test/network-rebuild-orchestrator.test.js test/pptx-engine-architecture.test.js test/workspace-package-boundaries.test.js test/review-studio-server.test.js test/common-tools-ppt-quality.test.js test/common-tools-runtime-dockerfiles.test.js test/test-sharded.test.js && node --test test/paddleocr-worker-protocol.test.js",
     "test:ci": "node scripts/test-sharded.js --suite all --shards 4",
     "audit:dotnet": "dotnet restore skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj --locked-mode -p:NuGetAudit=true -p:NuGetAuditMode=all -warnaserror",
@@ -258,19 +262,22 @@
     "verify:python-lock": "python -m pip install --disable-pip-version-check --dry-run --ignore-installed --require-hashes --no-deps --requirement scripts/python-requirements.lock.txt",
     "verify:slideclone-graphics": "node --test test/batch-native-audit-summary.test.js test/graphic-reconstruction-decision-audit.test.js test/graphic-reconstruction-decision-gate.test.js test/expression-policy-repair-queue.test.js test/expression-policy-repair-queue-coverage.test.js test/component-strategy-rebuild.test.js test/minimum-unit-policy-gate.test.js test/minimum-unit-gap-audit.test.js test/minimum-unit-gap-repair-runner.test.js test/minimum-unit-gap-repair-merge.test.js test/native-fragmentation-audit.test.js test/component-render-strategy.test.js test/visual-atoms.test.js test/quality-gate-ocr-batch.test.js test/quality-gate-real-pptx.test.js test/real-pptx-quality-matrix.test.js",
     "verify:slideclone-profiles": "node scripts/verify-slideclone-profiles.js",
+    "verify:workspace-boundaries": "node scripts/verify-workspace-boundaries.js",
     "verify:architecture-budgets": "node scripts/verify-architecture-budgets.js",
     "verify": "npm run test:ci",
-    "verify:ci": "npm run audit:dotnet && npm run build:dotnet:locked && npm run test:unit && npm run test:contract && npm run test:integration && npm run verify:python-lock && npm run common-tools:verify-runtime-package"
+    "verify:ci": "npm run lint && npm run typecheck && npm run common-tools:verify-plugins && npm run common-tools:verify-observability && npm run common-tools:verify-adrs && npm run audit:dotnet && npm run build:dotnet:locked && npm run test:unit && npm run test:contract && npm run test:integration && npm run verify:python-lock && npm run common-tools:verify-runtime-package"
   },
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "3.1101.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.4.0",
     "eslint": "^10.9.1",
     "globals": "^17.11.0",
     "jsdom": "^26.1.0",
+    "pg": "8.22.0",
     "typescript": "^7.0.2"
   }
 }

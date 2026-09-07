@@ -8,13 +8,7 @@ const path = require("node:path");
 const { npmInvocation } = require("./verify-runtime-package");
 
 const MAX_PACKAGE_BYTES = 1024 * 1024;
-const INCLUDED_DIRECTORIES = Object.freeze([
-  "packages/capability-contracts",
-  "packages/capability-manifests",
-  "packages/capability-runtime",
-  "packages/project-audit-core",
-  "packages/project-audit-runtime"
-]);
+const { INCLUDED_DIRECTORIES } = require("../packages/cli/verification/project-audit-runtime");
 const FORBIDDEN_MARKERS = Object.freeze(["packages/slideclone", "skills/", "paddleocr", "openxmldeckbuilder", "docker", "packages/ppt-quality", "packages/ppt-improve", "packages/remote-mcp"]);
 
 function plainObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }

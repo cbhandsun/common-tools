@@ -9,6 +9,12 @@ using P = DocumentFormat.OpenXml.Presentation;
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 var options = CommandLineOptions.Parse(args);
 if (ComponentReplacementCommand.TryRun(options)) return;
+if (options.TryGetValue("inspect-template", out var inspectTemplateValue))
+{
+    var context = TemplateBuildContext.Inspect(inspectTemplateValue);
+    Console.WriteLine(JsonSerializer.Serialize(new { layoutIds = context.LayoutIds, slideIndices = context.SlideIndices }));
+    return;
+}
 if (options.TryGetValue("batch", out var batchFileValue))
 {
     var outputs = DeckBatchBuilder.Build(batchFileValue, PowerPointSafeEnabled(options), BuildDeck);
@@ -76,8 +82,12 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
     var placeholderBindings = TemplatePlaceholderWriter.BuildIndex(page);
     var usesTemplateBindings = page.Intent?.TemplatePlaceholderBindings is not null;
 
-    var overlayUnderlayImages = (page.Images ?? [])
-        .Where(IsNativeOverlayUnderlay)
+    var residualLayers = NativeResidualLayerPlan.Create(page);
+    foreach (var shape in residualLayers.BackgroundShapes)
+    {
+        shapeTree.Append(CreateShape(shape, shapeId++, boxIndex));
+    }
+    var overlayUnderlayImages = residualLayers.ResidualImages.Concat(residualLayers.RemainingImages.Where(IsNativeOverlayUnderlay))
         .ToList();
     foreach (var image in overlayUnderlayImages)
     {
@@ -91,7 +101,7 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
     var tableOverlayImages = (page.Images ?? [])
         .Where(IsTableOverlayElement)
         .ToList();
-    var componentImages = (page.Images ?? [])
+    var componentImages = residualLayers.RemainingImages
         .Where(image => !IsNativeOverlayUnderlay(image) && !IsTableOverlayElement(image))
         .ToList();
     var componentTextBoxes = (page.TextBoxes ?? [])
@@ -99,7 +109,7 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
         .ToList();
     var groupedComponentIds = AppendGroupedShapes(
         shapeTree,
-        page.Shapes ?? [],
+        residualLayers.ForegroundShapes,
         componentImages,
         componentTextBoxes,
         slidePart,
@@ -903,7 +913,7 @@ static A.Outline CreateOutline(JsonElement? style)
         outline.Append(new A.SolidFill(color));
     }
     AddLineDash(outline, style);
-    AddLineEnds(outline, style);
+    LineEndStyle.Append(outline, style);
     return outline;
 }
 
@@ -968,22 +978,6 @@ static int NormalizeGradientPosition(double value)
     var normalized = Math.Abs(value) <= 1 ? value * 100000 : value;
     return (int)Math.Round(Clamp(normalized, 0, 100000));
 }
-
-static void AddLineEnds(A.Outline outline, JsonElement? style)
-{
-    if (IsArrow(GetString(style, "startArrow")))
-    {
-        outline.Append(new A.HeadEnd { Type = A.LineEndValues.Triangle });
-    }
-    if (IsArrow(GetString(style, "endArrow")))
-    {
-        outline.Append(new A.TailEnd { Type = A.LineEndValues.Triangle });
-    }
-}
-
-static bool IsArrow(string? value) =>
-    string.Equals(value, "triangle", StringComparison.OrdinalIgnoreCase) ||
-    string.Equals(value, "arrow", StringComparison.OrdinalIgnoreCase);
 
 static void AddLineDash(A.Outline outline, JsonElement? style)
 {
@@ -1295,7 +1289,8 @@ static int ToInt32Emu(double point) => checked((int)Math.Round(point * 12700));
 
 static int ToLineWidth(double point) => Math.Max(0, (int)Math.Round(point * 12700));
 
-static int ToOpenXmlAngle(double degrees) => (int)Math.Round(degrees * 60000);
+// Remove complete turns before converting to the signed DrawingML angle unit.
+static int ToOpenXmlAngle(double degrees) => (int)Math.Round((degrees % 360) * 60000);
 
 static A.ShapeTypeValues ToShapeType(string? type)
 {

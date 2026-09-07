@@ -11,6 +11,8 @@ const CONTRACT_TESTS = new Set([
   "test-sharded.test.js"
 ]);
 const INTEGRATION_TESTS = new Set([
+  "deck-template-openxml-admission.test.js",
+  "deck-ir-openxml-admission.test.js",
   "chart-native-render-golden.test.js",
   "complex-graphic-golden-smoke.test.js",
   "common-tools-ppt-create-openxml-smoke.test.js",
@@ -26,6 +28,9 @@ const INTEGRATION_TESTS = new Set([
   "harvest-applied-ppt-components.test.js",
   "ir-delivery-smoke.test.js",
   "libreoffice-benchmark.test.js",
+  "libreoffice-core-package.test.js",
+  "native-page-lifecycle.test.js",
+  "openxml-cache-recovery-smoke.test.js",
   "openxml-native-chart-smoke.test.js",
   "openxml-reconstruction-e2e-smoke.test.js",
   "openxml-restricted-svg-smoke.test.js",
@@ -44,7 +49,7 @@ const INTEGRATION_TESTS = new Set([
 ]);
 const INTEGRATION_NAME_HINT = /(smoke|golden|benchmark|quality-gate|real-pptx|render|libreoffice|watch|harvest)/;
 const EXTERNAL_PROCESS_HINT = /(libreoffice|powerpoint-com|openxml.*(?:smoke|contract)|render|quality-gate|ocr)/;
-const EXTERNAL_PROCESS_TESTS = new Set(["common-tools-mcp.test.js", "common-tools-project-audit.test.js", "common-tools-remote-plugin-bundles.test.js", "powerpoint-roundtrip-targets.test.js"]);
+const EXTERNAL_PROCESS_TESTS = new Set(["common-tools-mcp.test.js", "common-tools-project-audit.test.js", "common-tools-remote-plugin-bundles.test.js", "common-tools-production-preflight.test.js", "powerpoint-roundtrip-targets.test.js"]);
 const MEMORY_HEAVY_HINT = /^(?:real-pptx-native|component-template-native-shapes|diagram-understanding|visual-atoms)/;
 const MEMORY_HEAVY_TESTS = new Set(["common-tools-ppt-ir-editor-browser.test.js"]);
 

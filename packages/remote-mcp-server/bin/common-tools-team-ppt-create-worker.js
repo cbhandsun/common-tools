@@ -1,23 +1,19 @@
 #!/usr/bin/env node
 "use strict";
 
-const crypto = require("node:crypto");
 const path = require("node:path");
 const { TeamWorker, TeamWorkerRunner, loadTeamConfig, recoverWorkerLeases } = require("../../team-runtime");
 const { createPptCreateHandler } = require("../../ppt-create-core/team-worker");
 const { ContentProviderRegistry, createHttpsJsonContentProvider } = require("../../ppt-create-core/content-provider");
 const { loadContentProviderConfig } = require("../../ppt-create-core/content-provider-config");
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
-const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
+const { buildOpenXmlDecksSync } = require("../../slideclone-core/pptx-openxml-dotnet");
 const { createTeamProviderBundle, loadTeamSecrets, optionalSecretFromEnvironment, startWorkerHeartbeat } = require("../team-providers");
 const { createOtlpTraceExporter, createTracedWorkerHandler, loadOtlpTraceConfig } = require("../telemetry");
+const { readWorkerSettings } = require("../worker-settings");
 
 function workerSettings(environment = process.env) {
-  if (environment.COMMON_TOOLS_WORKER_CAPABILITIES && environment.COMMON_TOOLS_WORKER_CAPABILITIES !== "ppt-create") throw new Error("PPT creation worker supports only ppt-create");
-  const pollSeconds = Number(environment.COMMON_TOOLS_WORKER_POLL_SECONDS || 5);
-  if (!Number.isSafeInteger(pollSeconds) || pollSeconds < 1 || pollSeconds > 60) throw new Error("COMMON_TOOLS_WORKER_POLL_SECONDS must be between 1 and 60");
-  const workerId = environment.COMMON_TOOLS_WORKER_ID || `team-ppt-create-worker-${crypto.randomUUID()}`;
-  if (!/^[a-zA-Z0-9._-]{3,128}$/.test(workerId)) throw new Error("COMMON_TOOLS_WORKER_ID is invalid");
+  const { pollSeconds, workerId } = readWorkerSettings(environment, { capability: "ppt-create", capabilityError: "PPT creation worker supports only ppt-create", workerIdPrefix: "team-ppt-create-worker-" });
   return Object.freeze({ pollSeconds, workerId });
 }
 function loadContentProviderRegistry(environment = process.env) {

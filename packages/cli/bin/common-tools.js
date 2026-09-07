@@ -25,14 +25,14 @@ const { persistPromptPlan, persistPromptPlanAsync, promptToPresentation, promptT
 const { persistDocumentPlan } = require("../../ppt-create-core/document-ingest");
 const { extractPdfLayout, extractPdfText } = require("../../ppt-create-core/pdf-text");
 const { createPptCreateArchive } = require("../../ppt-create-core/team-archive");
-const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
+const { buildOpenXmlDecksSync } = require("../../slideclone-core/pptx-openxml-dotnet");
 const { CAPABILITY_MANIFESTS, effectivePluginConfig, insideRoot, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
 const { TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig, teamDeploymentPlan } = require("../../team-runtime");
 const { runKeycloakMcpClientCommand, runKeycloakProjectMapperCommand } = require("../keycloak-project-mapper");
 const { runKeycloakRealmCommand } = require("../keycloak-realm-hardening");
 const { serveStdio } = require("../../mcp-server/core");
-const { assertMirroredPackage, assertPluginPackage, verifyPluginPackaging } = require("../../../scripts/verify-plugins");
-const { verifyCapabilityToolContracts } = require("../../../scripts/verify-capability-contracts");
+const { assertMirroredPackage, assertPluginPackage, verifyPluginPackaging } = require("../verification/verify-plugins");
+const { verifyCapabilityToolContracts } = require("../verification/verify-capability-contracts");
 const { scaffoldPlan, writeScaffold } = require("../capability-scaffold");
 const { assertValidConfig } = require("../../slideclone-core/config-validation");
 const { createEditableSourceArchive, createRawImageArchive } = require("../../slideclone-core/team-raw-image-archive");
@@ -60,7 +60,7 @@ function parseCapabilityList(value) {
   return capabilities;
 }
 function context(args) { const workspaceRoot = path.resolve(args.workspace || process.cwd()); const stateRoot = path.resolve(args.state || path.join(workspaceRoot, ".common-tools")); return { workspaceRoot, stateRoot, ownerId: args.owner || "local-user" }; }
-function runtimeStatus(args = {}, environment = process.env) {
+function runtimeStatus(_args = {}, environment = process.env) {
   const configuration = readRuntimeConfig(environment);
   const capabilities = [PROJECT_AUDIT_CAPABILITY, REGISTRATION.capability, PPT_QUALITY_CAPABILITY, PPT_IMPROVE_CAPABILITY, PPT_CREATE_CAPABILITY];
   return Object.freeze({

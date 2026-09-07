@@ -158,6 +158,18 @@ test("edited IR exports a new self-contained PPTX, PDF, HTML and preview bundle"
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test("edited IR export rejects malformed native table data before invoking output builders", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ir-invalid-native-data-"));
+  try {
+    const input = path.join(root, "edited.json"); const ir = sampleIr(); ir.pages[0].images = [];
+    ir.pages[0].tables.push({ id: "table", type: "table", box: { x: 40, y: 140, w: 400, h: 180 }, rows: [null] });
+    fs.writeFileSync(input, JSON.stringify(ir));
+    let pptxBuilds = 0; let pdfBuilds = 0;
+    assert.throws(() => exportEditedIrArtifacts({ workspaceRoot: root, input, output: path.join(root, "exported"), buildPptx() { pptxBuilds += 1; }, buildPdf() { pdfBuilds += 1; } }), /table row/u);
+    assert.equal(pptxBuilds, 0); assert.equal(pdfBuilds, 0); assert.equal(fs.existsSync(path.join(root, "exported")), false);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("IR edit finalization applies a revision-bound patch and exports in one operation", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ir-finalize-"));
   try {

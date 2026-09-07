@@ -1,0 +1,50 @@
+"use strict";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const style = require("../packages/slideclone-core/native-text-style");
+test("visibleTextBoxes omits unset wrap while preserving explicit no-wrap output", () => {
+  const {visibleTextBoxes} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+  const box = { id: "body", text: "First line\nSecond line", box: {x:10,y:120,w:220,h:70}, font:{sizePt:18}, style:{wrap:true} };
+  const [multi] = visibleTextBoxes([box], null, {widthPt:960,heightPt:540});
+  assert.equal(Object.hasOwn(multi.style,"wrap"),false);
+  assert.equal(box.style.wrap,true);
+  const [single] = visibleTextBoxes([{...box,text:"Short line",box:{...box.box,h:20}}], null, {widthPt:960,heightPt:540});
+  assert.equal(single.style.wrap,false);
+});
+test("native text style preserves explicit weights and only copies changed text boxes", () => {
+  for (const value of [600, 700, "600", "semibold", "heavy"]) assert.equal(style.normalizeFontWeightForOpenXml(value), "bold");
+  for (const value of [400, "400", "normal", "light"]) assert.equal(style.normalizeFontWeightForOpenXml(value), "regular");
+  assert.equal(style.normalizeFontWeightForOpenXml(undefined), "regular");
+  assert.deepEqual(style.normalizeTextBoxFontWeights([]), []);
+  const source = [{text: "Title", font: {weight: 700, sizePt: 20}}, {text: "Body", font: {weight: "regular"}}, {text: "Unspecified"}];
+  const before = JSON.stringify(source);
+  const output = style.normalizeTextBoxFontWeights(source);
+  assert.equal(JSON.stringify(source), before);
+  assert.equal(output[0].font.weight, "bold");
+  assert.notEqual(output[0], source[0]);
+  assert.equal(output[1], source[1]);
+  assert.equal(output[2], source[2]);
+});
+test("native text style retains title and metric sizing with bounded single-line shrink", () => {
+  const metric = {text: "80%", box: {y: 160, w: 140, h: 60}, font: {sizePt: 32}};
+  assert.equal(style.inferWeight(metric), "bold");
+  assert.ok(style.refineFontSize(metric) > 32);
+  assert.ok(style.refineFontSize(metric) <= 76);
+  const compact = {text: "Long readable status label", box: {y: 140, w: 70, h: 20}, font: {sizePt: 18}};
+  const fitted = style.fitSingleLineFontSize(compact, 18);
+  assert.ok(fitted < 18 && fitted >= 18 * 0.62 - 0.01);
+  assert.equal(style.fitSingleLineFontSize({...compact, text: "First\nSecond"}, 18), 18);
+  assert.equal(style.fitSingleLineFontSize({...compact, text: ""}, 18), 18);
+  assert.equal(style.fitSingleLineFontSize({...compact, box: {...compact.box, y: 50}}, 18), 18);
+  assert.equal(style.refineFontSize({}), undefined);
+});
+test("native text style preserves wrapping and rotated CJK crop decisions", () => {
+  const label = {text: "知识图谱", box: {w: 40, h: 80}, font: {sizePt: 24}};
+  assert.equal(style.shouldNativeTextBox(label), false);
+  assert.equal(style.shouldNativeTextBox({...label, box: {w: 200, h: 40}}), true);
+  assert.equal(style.shouldDisableTextWrap({text: "One line", box: {w: 200, h: 20}, font: {sizePt: 16}}), true);
+  assert.equal(style.shouldDisableTextWrap({text: "Two\nlines", box: {w: 200, h: 20}, font: {sizePt: 16}}), false);
+  assert.equal(style.shouldDisableTextWrap({}), false);
+  assert.equal(style.estimatedTextUnits(""), 0);
+  assert.equal(style.estimatedTextUnits("中"), 0.86);
+});

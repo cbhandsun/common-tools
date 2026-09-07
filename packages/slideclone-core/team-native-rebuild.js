@@ -1,64 +1,20 @@
 "use strict";
+const { assertUnverifiedRegionTextPreserved } = require("./screenshot-texture-evidence");
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { applyKnowledgeGraphPanelNativeRebuild } = require("./knowledge-graph-native");
+const { addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebuild } = require("./knowledge-graph-native");
+const { auditNativeComponentQuality } = require("./native-component-quality");
+const { PRODUCTION_PROFILE_NAME, createProductionNativeRebuildOptions } = require("./native-rebuild-profile");
+const { compactTeamComponentEvidence } = require("./team-component-evidence");
 
-const MAX_OCR_LINES = 10000;
-
-function correctContextualOcrLines(lines) {
-  const hasCanonicalAiAgent = lines.some((line) => typeof line?.text === "string" && /\bAI\s*Agent\b/.test(line.text));
-  if (!hasCanonicalAiAgent) return lines;
-  return lines.map((line) => typeof line?.text === "string" && /\bAl\s+Agent\b/.test(line.text)
-    ? { ...line, text: line.text.replace(/\bAl(?=\s+Agent\b)/g, "AI") }
-    : line);
-}
-
-function boundedOcrSourceDeck({ metadata, ocr, sourceImage }) {
-  if (!metadata?.dimensions || !Number.isSafeInteger(metadata.dimensions.widthPx) || !Number.isSafeInteger(metadata.dimensions.heightPx)) {
-    throw new TypeError("native image rebuild dimensions are invalid");
-  }
-  if (typeof sourceImage !== "string" || !sourceImage || path.isAbsolute(sourceImage) || sourceImage.includes("\0")) {
-    throw new TypeError("native image rebuild source path is invalid");
-  }
-  const lines = correctContextualOcrLines(Array.isArray(ocr?.lines) ? ocr.lines : []);
-  if (lines.length > MAX_OCR_LINES) throw new Error("native image rebuild OCR result exceeds limits");
-  const widthPt = 960;
-  const heightPt = Math.max(72, Math.min(4000, Math.round(widthPt * metadata.dimensions.heightPx / metadata.dimensions.widthPx)));
-  const scaleX = widthPt / metadata.dimensions.widthPx;
-  const scaleY = heightPt / metadata.dimensions.heightPx;
-  const textBoxes = lines.map((line, index) => {
-    if (!line || typeof line.text !== "string" || !line.text.trim() || line.text.length > 512 || !line.box
-      || !["x", "y", "w", "h"].every((key) => Number.isFinite(line.box[key]))) {
-      throw new Error("native image rebuild OCR result is invalid");
-    }
-    const box = { x: line.box.x * scaleX, y: line.box.y * scaleY, w: line.box.w * scaleX, h: line.box.h * scaleY };
-    if (box.x < 0 || box.y < 0 || box.w <= 0 || box.h <= 0 || box.x + box.w > widthPt || box.y + box.h > heightPt) {
-      throw new Error("native image rebuild OCR box is invalid");
-    }
-    return {
-      id: `p0-ocr-${String(index + 1).padStart(3, "0")}`,
-      role: "body",
-      text: line.text.trim(),
-      box,
-      font: { family: "Microsoft YaHei", sizePt: Math.max(6, Math.min(36, box.h * 0.72)), color: "#111111", opacity: 0, weight: "regular", align: "left", valign: "middle" },
-      style: { visibility: "hidden", opacity: 0, marginLeftPt: 0, marginRightPt: 0, marginTopPt: 0, marginBottomPt: 0 },
-      source: { pageImage: sourceImage, ocrProvider: "team-pinned-ocr", confidence: Number.isFinite(line.confidence) ? line.confidence : 1, evidenceBox: box, editable: true, overlayVisibility: "hidden" }
-    };
-  });
-  return {
-    version: "1.0",
-    meta: { source: "team-raw-image", reconstructionMode: "native-hybrid" },
-    slideSize: { widthPt, heightPt },
-    pages: [{ pageIndex: 0, sourceImage, background: { fill: "#FFFFFF" }, textBoxes, shapes: [], images: [], tables: [], charts: [], icons: [] }]
-  };
-}
+const { boundedOcrSourceDeck, correctContextualOcrLines } = require("./ocr-source-deck");
 
 function nativeObjectMetrics(deck) {
   const totals = { shapes: 0, connectors: 0, textBoxes: 0, tables: 0, charts: 0, icons: 0, images: 0 };
   for (const page of Array.isArray(deck?.pages) ? deck.pages : []) {
     for (const key of ["shapes", "textBoxes", "tables", "charts", "icons", "images"]) totals[key] += Array.isArray(page?.[key]) ? page[key].length : 0;
-    totals.connectors += (Array.isArray(page?.shapes) ? page.shapes : []).filter((shape) => shape?.type === "line" || shape?.type === "connector" || shape?.source?.connector === true).length;
+    totals.connectors += (Array.isArray(page?.shapes) ? page.shapes : []).filter((shape) => shape?.type === "line" || shape?.type === "connector" || (shape?.type === "arc" && (shape?.style?.endArrow || shape?.style?.startArrow)) || shape?.source?.connector === true).length;
   }
   return Object.freeze({ ...totals, graphicalObjects: totals.shapes + totals.tables + totals.charts + totals.icons });
 }
@@ -95,8 +51,9 @@ function ungroupHybridOverlayObjects(page) {
   }
 }
 
-function residualEraseObjects(page) {
+function residualEraseObjects(page, options = {}) {
   if (!page || typeof page !== "object" || Array.isArray(page)) throw new TypeError("native image residual page is invalid");
+  if (!options || typeof options !== "object" || Array.isArray(options)) throw new TypeError("native image residual options are invalid");
   const objects = [];
   const seen = new Set();
   for (const [collection, requireEditable] of [["textBoxes", false], ["shapes", true], ["tables", true], ["charts", true], ["icons", true]]) {
@@ -110,13 +67,37 @@ function residualEraseObjects(page) {
       objects.push(item);
     }
   }
+  if (options.includeLocalFidelityImages === true) {
+    for (const item of Array.isArray(page.images) ? page.images : []) {
+      if (!item || typeof item !== "object" || Array.isArray(item) || item.source?.fullSlideResidual === true) continue;
+      const box = item.box;
+      if (!box || !["x", "y", "w", "h"].every((key) => Number.isFinite(box[key])) || box.w <= 0 || box.h <= 0) {
+        throw new Error("native image local fidelity object is invalid");
+      }
+      const key = ["image", box.x, box.y, box.w, box.h].join(":");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      objects.push(item);
+    }
+  }
   return objects;
 }
 
-function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageFile, createFullSlideResidual } = {}) {
+function shouldOmitFullSlideResidual(semanticNative) {
+  return semanticNative?.matched === true && semanticNative.imageRefinement?.matched === true && semanticNative.pictorialConnectors?.matched === true && !(semanticNative.shapeAdmission?.rejected > 0);
+}
+
+function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageFile, createFullSlideResidual, refineSemanticImages, admitSemanticShapes, restoreOcrGlyphs, refineGrayBorders, resolveComponentIndexes, preserveLocalFidelityImages = false } = {}) {
   if (typeof rebuildDeckFromWorkDir !== "function") throw new TypeError("native image rebuild implementation is required");
+  if (resolveComponentIndexes !== undefined && typeof resolveComponentIndexes !== "function") throw new TypeError("native image component resolver is invalid");
   if (normalizeImageFile !== undefined && typeof normalizeImageFile !== "function") throw new TypeError("native image normalizer is invalid");
   if (createFullSlideResidual !== undefined && typeof createFullSlideResidual !== "function") throw new TypeError("native image residual builder is invalid");
+  if (refineSemanticImages !== undefined && typeof refineSemanticImages !== "function") throw new TypeError("native image semantic crop refiner is invalid");
+  if (admitSemanticShapes !== undefined && typeof admitSemanticShapes !== "function") throw new TypeError("native image semantic shape admission is invalid");
+  if (restoreOcrGlyphs !== undefined && typeof restoreOcrGlyphs !== "function") throw new TypeError("native image OCR glyph restorer is invalid");
+  if (refineGrayBorders !== undefined && typeof refineGrayBorders !== "function") throw new TypeError("native image gray border refiner is invalid");
+  if (typeof preserveLocalFidelityImages !== "boolean") throw new TypeError("native image local fidelity policy is invalid");
+  if (restoreOcrGlyphs && createFullSlideResidual && !preserveLocalFidelityImages) throw new TypeError("native image OCR glyph restoration requires preserved local images");
   return async ({ root, metadata, ocr, isCancellationRequested }) => {
     if (typeof root !== "string" || !path.isAbsolute(root) || !metadata || typeof metadata.inputFile !== "string") throw new TypeError("native image rebuild request is invalid");
     const workDir = path.join(root, "native-work");
@@ -128,30 +109,67 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
     else if (normalizeImageFile) await normalizeImageFile({ inputFile: metadata.inputFile, outputFile: sourceFile, dimensions: metadata.dimensions, isCancellationRequested });
     else throw new Error("native image rebuild requires a configured JPEG normalizer");
     if (await isCancellationRequested?.()) throw new Error("editable job was cancelled");
-    const sourceDeck = boundedOcrSourceDeck({ metadata, ocr, sourceImage: "../normalized/001.png" });
+    // The shared resolver supports work-directory-relative image paths.
+    const sourceDeck = boundedOcrSourceDeck({ metadata, ocr, sourceImage: "normalized/001.png" });
+    const admittedSourceDeck = restoreOcrGlyphs ? boundedOcrSourceDeck({ metadata, ocr, sourceImage: "normalized/001.png", preserveUncertainGlyphs: true }) : sourceDeck;
     fs.writeFileSync(path.join(workDir, "ir", "deck.json"), `${JSON.stringify(sourceDeck)}\n`, "utf8");
+    const components = resolveComponentIndexes ? await resolveComponentIndexes({ workDir, root, metadata, isCancellationRequested }) : undefined;
+    if (await isCancellationRequested?.()) throw new Error("editable job was cancelled");
+    const componentOptions = {};
+    for (const name of ["componentStrategyIndex", "componentAssetIndex"]) {
+      if (components?.[name] !== undefined) {
+        if (!(components[name] instanceof Map)) throw new TypeError("native image component index is invalid");
+        componentOptions[name] = components[name];
+      }
+    }
     const generatedDeck = rebuildDeckFromWorkDir(workDir, {
+      ...createProductionNativeRebuildOptions(),
+      ...componentOptions,
       pages: "1",
-      preserveGraphics: true,
-      vectorizeStatusIcons: true,
-      objectifyLayerText: true,
-      objectifyLayerContainers: true,
-      objectifyLayerConnectors: true,
-      eraseObjectifiedLayerPrimitives: true,
-      splitErasedResidualCrops: true,
-      objectifyTableGrid: true,
-      objectifyValueBanners: true,
       irDir: root,
       assetDir: path.join(root, "assets"),
       deckName: "deck"
     });
-    const semanticNative = applyKnowledgeGraphPanelNativeRebuild(generatedDeck?.pages?.[0], generatedDeck?.slideSize);
+    assertUnverifiedRegionTextPreserved(generatedDeck.pages[0], admittedSourceDeck.pages[0].textBoxes);
+    if (components?.evidence) generatedDeck.pages[0].source = { ...generatedDeck.pages[0].source, componentAnalysis: components.evidence };
+    if (restoreOcrGlyphs && admittedSourceDeck.meta.ocrAdmission.rasterFallbackGlyphs > 0) {
+      const admittedIds = new Set(admittedSourceDeck.pages[0].textBoxes.map(item => item.id));
+      const glyphs = sourceDeck.pages[0].textBoxes.filter(item => !admittedIds.has(item.id));
+      const restored = await restoreOcrGlyphs({ page: generatedDeck.pages[0], slideSize: generatedDeck.slideSize, sourceFile, root, glyphs });
+      if (restored?.restoredGlyphs !== glyphs.length) throw new Error("native image OCR glyph restoration is incomplete");
+    }
+    let semanticNative = applyKnowledgeGraphPanelNativeRebuild(generatedDeck?.pages?.[0], generatedDeck?.slideSize, {
+      semanticTextBoxes: admittedSourceDeck.pages[0].textBoxes,
+      sourceImageWidthPx: metadata?.dimensions?.widthPx
+    });
+    if (semanticNative.matched && refineSemanticImages) {
+      const imageRefinement = await refineSemanticImages({ page: generatedDeck.pages[0], slideSize: generatedDeck.slideSize, sourceFile, root, metadata, isCancellationRequested });
+      const pictorialConnectors = imageRefinement?.matched ? addKnowledgeGraphPictorialConnectors(generatedDeck.pages[0], generatedDeck.slideSize) : { matched: false, added: 0 };
+      semanticNative = Object.freeze({ ...semanticNative, imageRefinement, pictorialConnectors });
+    }
+    if (semanticNative.matched && admitSemanticShapes) {
+      // Reject unsupported geometry before computing erase masks, so its source
+      // pixels remain available to the raster fallback.
+      const page = generatedDeck.pages[0];
+      const admission = await admitSemanticShapes({ page, slideSize: generatedDeck.slideSize, sourceFile });
+      page.shapes = admission.shapes;
+      semanticNative = Object.freeze({ ...semanticNative, addedShapes: semanticNative.addedShapes - admission.evidence.rejected, connectors: semanticNative.connectors - admission.evidence.rejected, shapeAdmission: admission.evidence });
+      page.source.semanticNativeStructure.shapeAdmission = admission.evidence;
+      if (admission.evidence.rejected > 0) page.intent.primarySemanticStructureNative = false;
+    }
     if (createFullSlideResidual) {
       const residualAssetPath = "assets/deck-p01-full-residual.png";
       const page = generatedDeck?.pages?.[0];
       const slideSize = generatedDeck?.slideSize;
       if (!page || !Array.isArray(page.textBoxes) || !Number.isFinite(slideSize?.widthPt) || !Number.isFinite(slideSize?.heightPt)) throw new Error("native image rebuild produced an invalid page");
-      const eraseObjects = residualEraseObjects(page);
+      const localFidelityImages = preserveLocalFidelityImages ? [...(Array.isArray(page.images) ? page.images : [])] : [];
+      const omitFullSlideResidual = shouldOmitFullSlideResidual(semanticNative) && admittedSourceDeck.meta.ocrAdmission.rasterFallbackGlyphs === 0;
+      if (omitFullSlideResidual) {
+        ungroupHybridOverlayObjects(page);
+        page.images = localFidelityImages;
+        generatedDeck.meta = { ...(generatedDeck.meta || {}), semanticNative, reconstructionProfile: PRODUCTION_PROFILE_NAME, preservedLocalFidelityImages: localFidelityImages.length, fullSlideResidualOmitted: true, residualDeduplication: { candidateObjects: 0, erasedObjects: 0 } };
+      } else {
+      const eraseObjects = residualEraseObjects(page, { includeLocalFidelityImages: preserveLocalFidelityImages });
       const residual = await createFullSlideResidual({
         sourceFile,
         outputFile: path.join(root, ...residualAssetPath.split("/")),
@@ -171,21 +189,30 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
           pageImage: metadata.assetPath,
           editable: false,
           residualCrop: true,
+          fullSlideResidual: true,
           textObjectified: true,
           nativeObjectsErased: true,
-          componentRenderStrategy: { mode: "preserve-crop-with-native-overlays" },
+          componentRenderStrategy: { mode: preserveLocalFidelityImages ? "preserve-crop-with-native-and-local-fidelity-overlays" : "preserve-crop-with-native-overlays" },
           strategy: "full-slide-object-erased-residual",
           nonEditableReason: "Complex pictorial details are preserved after independently editable text and native objects are removed from the residual."
         }
-      }];
-      generatedDeck.meta = { ...(generatedDeck.meta || {}), semanticNative, residualDeduplication: { candidateObjects: eraseObjects.length, erasedObjects: residual.erasedObjects } };
+      }, ...localFidelityImages];
+      generatedDeck.meta = { ...(generatedDeck.meta || {}), semanticNative, reconstructionProfile: PRODUCTION_PROFILE_NAME, preservedLocalFidelityImages: localFidelityImages.length, residualDeduplication: { candidateObjects: eraseObjects.length, erasedObjects: residual.erasedObjects } };
+      }
+    }
+    generatedDeck.meta = { ...(generatedDeck.meta || {}), reconstructionProfile: PRODUCTION_PROFILE_NAME, ocrAdmission: admittedSourceDeck.meta.ocrAdmission };
+    copyDirectoryFiles(path.join(workDir, "ir", "assets"), path.join(root, "assets"));
+    if (semanticNative.matched && refineGrayBorders) {
+      const grayBorderRefinement = await refineGrayBorders({ page: generatedDeck.pages[0], slideSize: generatedDeck.slideSize, sourceFile, root, isCancellationRequested });
+      generatedDeck.meta = { ...generatedDeck.meta, grayBorderRefinement };
     }
     normalizeSourceAssetProvenance(generatedDeck, metadata.assetPath);
+    compactTeamComponentEvidence(generatedDeck);
+    const nativeComponentQuality = auditNativeComponentQuality(generatedDeck);
+    generatedDeck.meta = { ...(generatedDeck.meta || {}), nativeComponentQuality };
     const metrics = nativeObjectMetrics(generatedDeck);
-    if (metrics.graphicalObjects < 1) throw new Error("native image rebuild produced no editable graphical objects");
-    copyDirectoryFiles(path.join(workDir, "ir", "assets"), path.join(root, "assets"));
-    return Object.freeze({ deck: generatedDeck, metrics, sourceImage: sourceFile, residual: generatedDeck.meta?.residualDeduplication || null });
+    return Object.freeze({ deck: generatedDeck, metrics, sourceImage: sourceFile, residual: generatedDeck.meta?.residualDeduplication || null, reconstructionProfile: PRODUCTION_PROFILE_NAME, nativeComponentQuality });
   };
 }
 
-module.exports = { boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, nativeObjectMetrics, normalizeSourceAssetProvenance, residualEraseObjects, ungroupHybridOverlayObjects };
+module.exports = { boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, nativeObjectMetrics, normalizeSourceAssetProvenance, residualEraseObjects, shouldOmitFullSlideResidual, ungroupHybridOverlayObjects };

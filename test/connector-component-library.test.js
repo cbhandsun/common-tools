@@ -31,10 +31,12 @@ test("fixed cycle component avoids PowerPoint auto-routing", () => {
 });
 
 test("connector component library supports bounded visual overrides", () => {
-  const component = resolveConnectorComponent({ role: "support", connectorType: "elbow-2", direction: "bidirectional", stroke: "#aabbcc", strokeWidthPt: 2, dash: "dash" });
+  const component = resolveConnectorComponent({ role: "support", connectorType: "elbow-2", direction: "bidirectional", stroke: "#aabbcc", strokeWidthPt: 2, dash: "dash", arrowWidth: "large", arrowLength: "small" });
   assert.equal(component.style.stroke, "#AABBCC");
   assert.equal(component.style.connectorType, "elbow-2");
   assert.equal(component.style.startArrow, "triangle");
+  assert.equal(component.style.startArrowWidth, "large");
+  assert.equal(component.style.endArrowLength, "small");
   assert.equal(component.style.dash, "dash");
 });
 
@@ -44,4 +46,5 @@ test("connector component library rejects unsafe or unsupported input", () => {
   assert.throws(() => resolveConnectorComponent({ role: "flow", stroke: "red" }), /six-digit hex/u);
   assert.throws(() => resolveConnectorComponent({ role: "flow", strokeWidthPt: 9 }), /between 0.5 and 8/u);
   assert.throws(() => resolveConnectorComponent({ role: "flow", connectorType: "scribble" }), /route is invalid/u);
+  assert.throws(() => resolveConnectorComponent({ role: "flow", arrowWidth: "huge" }), /arrow width is invalid/u);
 });

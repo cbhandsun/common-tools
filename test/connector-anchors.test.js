@@ -43,7 +43,9 @@ test("flow adapter emits semantic connector anchors for key flow lines", async (
     fromId: "doc-card",
     toId: "portal-button",
     direction: "forward",
-    axis: "free"
+    axis: "free",
+    route: "elbow",
+    requireExplicitAnchors: true
   });
   assert.deepEqual(metrics.connectorSemantics, { connectors: 6, expectations: 6, findings: 0, axisTolerance: 1 });
   assert.deepEqual(
@@ -147,8 +149,14 @@ test("python pptx generator writes native line dash and bidirectional arrows", (
   assert.match(source, /if style\.get\("dash"\):\s+add_line_dash\(shape, style\.get\("dash"\)\)/s);
   assert.match(source, /def add_line_dash\(shape, dash_type\):/);
   assert.match(source, /OxmlElement\("a:prstDash"\)/);
-  assert.match(source, /if style\.get\("endArrow"\):\s+add_line_end\(shape, style\.get\("endArrow"\), "tailEnd"\)/s);
-  assert.match(source, /if style\.get\("startArrow"\):\s+add_line_end\(shape, style\.get\("startArrow"\), "headEnd"\)/s);
+  assert.match(
+    source,
+    /if style\.get\("endArrow"\):\s+add_line_end\(shape, style\.get\("endArrow"\), "tailEnd", style\.get\("endArrowWidth"\), style\.get\("endArrowLength"\)\)/s,
+  );
+  assert.match(
+    source,
+    /if style\.get\("startArrow"\):\s+add_line_end\(shape, style\.get\("startArrow"\), "headEnd", style\.get\("startArrowWidth"\), style\.get\("startArrowLength"\)\)/s,
+  );
 });
 
 test("python pptx generator orders shape and table overlay images explicitly", () => {

@@ -535,7 +535,9 @@ function line(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = 
     fromId: anchors.startAnchor.elementId,
     toId: anchors.endAnchor.elementId,
     direction,
-    axis: Math.abs(y2 - y1) < 0.001 ? "horizontal" : Math.abs(x2 - x1) < 0.001 ? "vertical" : "free"
+    axis: Math.abs(y2 - y1) < 0.001 ? "horizontal" : Math.abs(x2 - x1) < 0.001 ? "vertical" : "free",
+    route: connectorType,
+    requireExplicitAnchors: true
   } : null;
   return {
     id,

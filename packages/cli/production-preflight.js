@@ -6,8 +6,8 @@ const { loadRemoteConfig } = require("../remote-mcp-server");
 const { TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig } = require("../team-runtime");
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 const { loadSiyuanConfig } = require("../siyuan-note-core");
-const { verifyReleaseEvidenceFile } = require("../../scripts/release-evidence");
-const { verifyReleaseSignature } = require("../../scripts/verify-release-signature");
+const { assertRevision, verifyReleaseEvidenceFile } = require("./verification/release-evidence");
+const { verifyReleaseSignature } = require("./verification/verify-release-signature");
 const { parsePinnedRawImageOcrProfile } = require("../slideclone-core/team-ocr-profile");
 
 const REQUIRED_CREDENTIALS = Object.freeze([
@@ -115,7 +115,9 @@ function verifyProductionReleaseEvidence(repositoryRoot, environment, { evidence
   if (typeof repositoryRoot !== "string" || !path.isAbsolute(repositoryRoot)) throw new TypeError("production preflight repository root is invalid");
   if (typeof evidenceVerifier !== "function") throw new TypeError("production evidence verifier is invalid");
   const evidenceFile = nonEmpty(environment.COMMON_TOOLS_RELEASE_EVIDENCE_FILE, "COMMON_TOOLS_RELEASE_EVIDENCE_FILE");
+  const revision = assertRevision(nonEmpty(environment.COMMON_TOOLS_RELEASE_REVISION, "COMMON_TOOLS_RELEASE_REVISION"));
   const verified = evidenceVerifier({
+    revision,
     manifestPath: evidenceFile,
     packagePath: path.join(repositoryRoot, "package.json"),
     lockPath: path.join(repositoryRoot, "package-lock.json")
@@ -123,6 +125,7 @@ function verifyProductionReleaseEvidence(repositoryRoot, environment, { evidence
   if (!verified || verified.deployable !== true || !verified.evidence || !Array.isArray(verified.evidence.images) || typeof verified.evidence.source?.revision !== "string") {
     throw new Error("production release evidence is invalid");
   }
+  if (verified.evidence.source.revision !== revision) throw new Error("production release evidence does not match the expected revision");
   const resolved = productionEnvironment(environment);
   const enabledCapabilities = loadTeamConfig(resolved).enabledCapabilities;
   const expectedImages = new Set([immutableImageReference(environment.COMMON_TOOLS_REMOTE_IMAGE, "COMMON_TOOLS_REMOTE_IMAGE")]);

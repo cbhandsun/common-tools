@@ -11,6 +11,26 @@ const { main: auditWorkerMain } = require("../packages/remote-mcp-server/bin/com
 const { main: imageWorkerMain } = require("../packages/remote-mcp-server/bin/common-tools-team-image-worker");
 const { main: pptImproveWorkerMain } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-improve-worker");
 
+test("checkpoint reads preserve missing and failure identities without upload retries", async () => {
+  const input = { objectKey: "owners/a/jobs/test/.internal/ocr/test.json", maxBytes: 3, retryMissing: false };
+  for (const name of ["NoSuchKey", "NotFound", "AccessDenied", "NetworkingError"]) {
+    let calls = 0;
+    const failure = Object.assign(new Error("private detail"), { name });
+    const store = createObjectStore({ send: async () => { calls++; throw failure; } }, "test-bucket", 60, { sleep: async () => assert.fail("checkpoint must not retry") });
+    await assert.rejects(store.readObject(input), error => error === failure);
+    assert.equal(calls, 1);
+  }
+  let calls = 0;
+  const store = createObjectStore({ send: async () => { calls++; return { ContentLength: 3, Body: (async function* () { yield Buffer.from("abc"); })() }; } }, "test-bucket");
+  assert.equal((await store.readObject(input)).toString(), "abc");
+  await assert.rejects(store.readObject({ ...input, maxBytes: 2 }), /exceeds worker limit/);
+  const before = calls;
+  for (const retryMissing of [null, "false", "", 0, {}, [], Number.MAX_VALUE]) {
+    await assert.rejects(store.readObject({ ...input, retryMissing }), /retry option is invalid/);
+  }
+  assert.equal(calls, before, "invalid options make no storage request");
+});
+
 test("team provider configuration permits loopback HTTP only in development", () => {
   const base = { COMMON_TOOLS_DATABASE_URL: "postgresql://db.internal/common_tools", COMMON_TOOLS_REDIS_URL: "rediss://redis.internal", COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts" };
   assert.equal(loadTeamConfig({ ...base, COMMON_TOOLS_TEAM_MODE: "development", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "http://127.0.0.1:9000" }).mode, "development");

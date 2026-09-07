@@ -1,20 +1,14 @@
 #!/usr/bin/env node
 "use strict";
 
-const crypto = require("node:crypto");
 const { TeamWorker, TeamWorkerRunner, loadTeamConfig, recoverWorkerLeases } = require("../../team-runtime");
 const { createProjectAuditArchiveHandler } = require("../../project-audit-core/team-worker");
 const { createTeamProviderBundle, loadTeamSecrets, startWorkerHeartbeat } = require("../team-providers");
 const { createOtlpTraceExporter, createTracedWorkerHandler, loadOtlpTraceConfig } = require("../telemetry");
+const { readWorkerSettings } = require("../worker-settings");
 
 function workerSettings(environment = process.env) {
-  const configured = (environment.COMMON_TOOLS_WORKER_CAPABILITIES || "project-audit").split(",").map((item) => item.trim()).filter(Boolean);
-  if (!configured.length || configured.some((capability) => capability !== "project-audit")) throw new Error("COMMON_TOOLS_WORKER_CAPABILITIES must contain only project-audit");
-  const pollSeconds = Number(environment.COMMON_TOOLS_WORKER_POLL_SECONDS || 5);
-  if (!Number.isSafeInteger(pollSeconds) || pollSeconds < 1 || pollSeconds > 60) throw new Error("COMMON_TOOLS_WORKER_POLL_SECONDS must be between 1 and 60");
-  const workerId = environment.COMMON_TOOLS_WORKER_ID || `team-worker-${crypto.randomUUID()}`;
-  if (!/^[a-zA-Z0-9._-]{3,128}$/.test(workerId)) throw new Error("COMMON_TOOLS_WORKER_ID is invalid");
-  return Object.freeze({ capabilities: new Set(configured), pollSeconds, workerId });
+  return readWorkerSettings(environment, { capability: "project-audit", capabilityError: "COMMON_TOOLS_WORKER_CAPABILITIES must contain only project-audit", workerIdPrefix: "team-worker-", allowDelimitedCapabilities: true });
 }
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
 async function main(environment = process.env) {

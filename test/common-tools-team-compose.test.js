@@ -5,6 +5,14 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
+test("OCR overlays expose an optional checkpoint revision without enabling it by default", () => {
+  for (const name of ["compose.team-image-ocr.yaml", "compose.team-image-paddleocr.yaml"]) {
+    const source = fs.readFileSync(path.resolve("deploy", name), "utf8");
+    const worker = serviceBlock(source, "image-to-editable-worker");
+    assert.ok(worker.includes('COMMON_TOOLS_IMAGE_OCR_CHECKPOINT_REVISION: ${COMMON_TOOLS_IMAGE_OCR_CHECKPOINT_REVISION:-}'));
+  }
+});
+
 function serviceBlock(source, name) {
   const lines = source.replaceAll("\r\n", "\n").split("\n");
   const start = lines.indexOf(`  ${name}:`);
@@ -31,6 +39,7 @@ test("team Compose applies restart and resource limits to untrusted execution se
     assert.match(block, /COMMON_TOOLS_TEAM_CAPABILITIES: \$\{COMMON_TOOLS_TEAM_CAPABILITIES:-image-to-editable,project-audit\}/);
   }
   const gatewayBlock = serviceBlock(gateway, "remote-mcp-gateway");
+  assert.match(serviceBlock(api, "image-to-editable-worker"), /tmpfs: \["\/tmp:rw,noexec,nosuid,size=1g"\]/);
   assert.match(gatewayBlock, /restart: unless-stopped/);
   assert.match(gatewayBlock, /healthcheck:/);
   assert.match(gatewayBlock, /wget -q -O \/dev\/null http:\/\/127\.0\.0\.1:8080\/readyz \|\| exit 1/);
@@ -290,7 +299,8 @@ test("production deployment script requires the read-only release preflight and 
   assert.match(script, /Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds\s+\$preflight = Invoke-ProductionPreflight/s);
   assert.match(script, /team production-preflight/);
   assert.match(script, /function Resolve-PreflightComposeFiles/);
-  assert.match(script, /\$composeFiles = @\(Resolve-PreflightComposeFiles @\(\$preflight\.composeFiles\)\)/);
+  assert.match(script, /\$composeFiles = @\(Resolve-PreflightComposeFiles -ReportedFiles @\(\$preflight\.composeFiles\) -CredentialSource \$preflight\.credentialSource\)/);
+  assert.doesNotMatch(script, /\$composeFiles \+=/);
   assert.match(script, /compose\.team-siyuan-secret\.yaml/);
   assert.match(script, /Production deployment preflight returned duplicate Compose files/);
   assert.match(script, /Production deployment preflight returned an unsupported Compose file/);

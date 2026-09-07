@@ -3,6 +3,7 @@
 const MAX_CONNECTORS = 5000;
 const DIRECTIONS = new Set(["forward", "bidirectional", "undirected"]);
 const AXES = new Set(["horizontal", "vertical", "free"]);
+const ROUTES = new Set(["straight", "curve", "arc", "elbow", "elbow-2", "elbow-3", "elbow-4"]);
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -32,6 +33,9 @@ function normalizeConnector(value, index) {
     arrowAtTarget: value.arrowAtTarget === true,
     start: finitePoint(value.start, `connector ${index + 1} start`),
     end: finitePoint(value.end, `connector ${index + 1} end`),
+    route: value.route === undefined ? undefined : boundedRoute(value.route, `connector ${index + 1} route`),
+    startAnchorId: optionalBoundedId(value.startAnchorId, `connector ${index + 1} startAnchorId`),
+    endAnchorId: optionalBoundedId(value.endAnchorId, `connector ${index + 1} endAnchorId`),
   };
 }
 
@@ -47,7 +51,18 @@ function normalizeExpectation(value, index) {
     toId: boundedId(value.toId, `expectation ${index + 1} toId`),
     direction,
     axis,
+    route: value.route === undefined ? undefined : boundedRoute(value.route, `expectation ${index + 1} route`),
+    requireExplicitAnchors: value.requireExplicitAnchors === true,
   };
+}
+
+function boundedRoute(value, label) {
+  if (typeof value !== "string" || !ROUTES.has(value)) throw new TypeError(`${label} is invalid`);
+  return value;
+}
+
+function optionalBoundedId(value, label) {
+  return value === undefined || value === null ? undefined : boundedId(value, label);
 }
 
 function directionMatches(connector, expectation) {
@@ -94,6 +109,12 @@ function auditConnectorSemantics(connectors, expectations, options = {}) {
     if (delta > axisTolerance) {
       findings.push({ code: "connector-axis-drift", connectorId: connector.id, expectedAxis: expectation.axis, delta, tolerance: axisTolerance });
     }
+    if (expectation.route !== undefined && connector.route !== expectation.route) {
+      findings.push({ code: "connector-route-mismatch", connectorId: connector.id, expectedRoute: expectation.route, actualRoute: connector.route ?? null });
+    }
+    if (expectation.requireExplicitAnchors && (connector.startAnchorId !== expectation.fromId || connector.endAnchorId !== expectation.toId)) {
+      findings.push({ code: "connector-anchor-mismatch", connectorId: connector.id, expectedFrom: expectation.fromId, expectedTo: expectation.toId, actualStartAnchor: connector.startAnchorId ?? null, actualEndAnchor: connector.endAnchorId ?? null });
+    }
   }
 
   return {
@@ -130,8 +151,11 @@ function auditConnectorShapes(shapes, options = {}) {
       arrowAtTarget: Boolean(shape.style?.endArrow),
       start: { x: box.x, y: box.y },
       end: { x: box.x + box.w, y: box.y + box.h },
+      route: shape.style?.connectorType,
+      startAnchorId: shape.style?.startAnchor?.elementId,
+      endAnchorId: shape.style?.endAnchor?.elementId,
     });
-    expectations.push({ id, fromId, toId, direction, axis });
+    expectations.push({ id, fromId, toId, direction, axis, route: semantic.route, requireExplicitAnchors: semantic.requireExplicitAnchors });
   }
   return auditConnectorSemantics(connectors, expectations, options);
 }

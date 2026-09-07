@@ -539,6 +539,35 @@ test("buildReconstructionPlan describes table primitives", () => {
   assert.equal(plan.regionBox.w, 3);
 });
 
+test("buildReconstructionPlan omits undefined structure signature fields while retaining falsy values and evidence", () => {
+  const plan = buildReconstructionPlan({
+    layerType: "diagram-zone",
+    detector: "flow-diagram-crop",
+    item: { box: { x: 1, y: 2, w: 3, h: 4 } },
+    page: {},
+    areaRatio: 0.4,
+    nativeConfidence: 0.72,
+    editBenefit: 0.7,
+    recommendedAction: "attempt-native-reconstruction",
+    diagramUnderstanding: {
+      archetype: "flow-card-chain",
+      structureSignature: {
+        provider: "test",
+        laneCount: undefined,
+        stepCount: 0,
+        regularSpacing: false,
+        evidence: ["verified"]
+      }
+    }
+  });
+
+  const signature = plan.diagramUnderstanding.structureSignature;
+  assert.equal(Object.hasOwn(signature, "laneCount"), false);
+  assert.equal(signature.stepCount, 0);
+  assert.equal(signature.regularSpacing, false);
+  assert.deepEqual(signature.evidence, ["verified"]);
+});
+
 test("classifyVisualLayer does not split a tiny solid crop into fake dense nodes", () => {
   const sourceImage = blankImage(960, 540, "#ffffff");
   fillRect(sourceImage, 548, 215, 34, 38, "#2763a9");

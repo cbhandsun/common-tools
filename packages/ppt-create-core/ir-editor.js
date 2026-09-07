@@ -8,6 +8,7 @@ const { createPrintableHtml, deckIrFingerprint, inspectHtml, inspectPdf, inspect
 const { inspectImageAsset } = require("./assets");
 const { createIrEditorClientSource } = require("./ir-editor-client");
 const { CHART_TYPES, nativeChartPayload } = require("./data-models");
+const { boundedEditableText, boundedRawDataText, validateEditableChartData, validateEditableTableData } = require("./editable-data-validation");
 const { MAX_OBJECTS_PER_PAGE, applyObjectLifecycleOperation } = require("./ir-lifecycle");
 const { applyPageLifecycleOperation } = require("./ir-page-lifecycle");
 const { inspectTemplate } = require("./template");
@@ -26,8 +27,7 @@ function exactKeys(value, allowed, label) {
 }
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function boundedText(value) {
-  if (typeof value !== "string" || value.length > 32768 || value.includes("\0")) throw new TypeError("editable text value is invalid");
-  return value;
+  return boundedRawDataText(value, "editable text value", 32768);
 }
 function validateBox(box, slideSize, directedLine = false) {
   exactKeys(box, ["x", "y", "w", "h"], "editable object box");
@@ -56,8 +56,7 @@ function validateStylePatch(value) {
 }
 function containsUnsafeText(value) { return [...value].some((character) => { const code = character.codePointAt(0); return code <= 0x1f || code === 0x7f; }); }
 function boundedCellText(value, label, maximum = 120) {
-  if (typeof value !== "string" || value.length > maximum || containsUnsafeText(value)) throw new TypeError(`${label} is invalid`);
-  return value;
+  return boundedEditableText(value, label, maximum);
 }
 function boundedChartData(operation) {
   if (!CHART_TYPES.includes(operation.chartType) || !Array.isArray(operation.categories) || operation.categories.length < 2 || operation.categories.length > 12) throw new TypeError("editable chart data is invalid");
@@ -93,6 +92,8 @@ function validateEditableIr(ir) {
         if (!plainObject(item) || typeof item.id !== "string" || !item.id || item.id.length > 256 || containsUnsafeText(item.id) || ids.has(`${pageIndex}\0${item.id}`)) throw new TypeError("editable Deck IR object id is invalid");
         ids.add(`${pageIndex}\0${item.id}`); validateBox(item.box, ir.slideSize, collection === "shapes" && ["line", "connector"].includes(item.type));
         if (collection === "textBoxes") boundedText(item.text);
+        if (collection === "tables") validateEditableTableData(item);
+        if (collection === "charts") validateEditableChartData(item, CHART_TYPES);
       }
     }
   });

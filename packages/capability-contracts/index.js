@@ -34,7 +34,7 @@ function containsControlCharacter(value) {
   if (typeof value !== "string") return false;
   for (const character of value) {
     const code = character.codePointAt(0);
-    if (code <= 0x1f || code === 0x7f) return true;
+    if (code !== undefined && (code <= 0x1f || code === 0x7f)) return true;
   }
   return false;
 }
