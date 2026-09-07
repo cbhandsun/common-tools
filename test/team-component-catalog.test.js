@@ -62,7 +62,7 @@ test("team component catalog retains verified internal asset paths and path-free
   assert.deepEqual(catalog.inventory.candidates[0], {
     id: "promoted-cycle",
     provider: "officeplus",
-    path: path.join(value.assets, `${value.asset.sha256}.pptx`),
+    path: fs.realpathSync.native(path.join(value.assets, `${value.asset.sha256}.pptx`)),
     name: "matrix-template.pptx",
     roleTags: ["applied-component", "self-fidelity-promoted", "template-layout"],
     reusePolicy: "reuse",
@@ -104,7 +104,7 @@ test("team component catalog inventory supplies verified local assets to the rea
   });
 
   assert.ok(manifest.layers[0].localAssets.length >= 1);
-  assert.equal(manifest.layers[0].localAssets[0].path, path.join(value.assets, `${value.asset.sha256}.pptx`));
+  assert.equal(manifest.layers[0].localAssets[0].path, fs.realpathSync.native(path.join(value.assets, `${value.asset.sha256}.pptx`)));
 });
 
 test("team component catalog rejects invalid roots, symlink registries, and oversized registries", (t) => {
