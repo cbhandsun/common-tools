@@ -148,7 +148,7 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   const marketplace = assertObject(readJson(path.join(root, ".agents", "plugins", "marketplace.json"), "Git marketplace metadata is invalid"), "Git marketplace metadata is invalid");
   if (marketplace.name !== "common-tools" || marketplace.interface?.displayName !== "Common Tools" || !Array.isArray(marketplace.plugins) || marketplace.plugins.length !== 1) throw new Error("Git marketplace metadata is invalid");
   const entry = marketplace.plugins[0];
-  if (!entry || entry.name !== "common-tools" || entry.source?.source !== "local" || entry.source?.path !== "./plugins/common-tools" || entry.policy?.installation !== "INSTALLED_BY_DEFAULT" || entry.policy?.authentication !== "ON_USE" || !assertNonEmptyString(entry.category, "Git marketplace metadata is invalid")) throw new Error("Git marketplace metadata is invalid");
+  if (!entry || entry.name !== "common-tools" || entry.source?.source !== "local" || entry.source?.path !== "./plugins/common-tools" || entry.policy?.installation !== "INSTALLED_BY_DEFAULT" || entry.policy?.authentication !== "ON_INSTALL" || !assertNonEmptyString(entry.category, "Git marketplace metadata is invalid")) throw new Error("Git marketplace metadata is invalid");
   const pluginRoot = path.join(root, "plugins", "common-tools");
   const metadata = assertPluginMetadata(path.join(pluginRoot, ".codex-plugin", "plugin.json"), "common-tools", "codex");
   if (metadata.mcpServers !== "./.mcp.json") throw new Error("unified Codex plugin MCP configuration is invalid");
@@ -156,9 +156,9 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   const repositoryMetadata = assertObject(readJson(path.join(root, "package.json"), "repository package metadata is invalid"), "repository package metadata is invalid");
   if (!SEMVER_PATTERN.test(repositoryMetadata.version || "") || pluginRuntimeVersion(metadata.version) !== repositoryMetadata.version) throw new Error("unified Codex plugin version does not match the repository release version");
   const mcp = assertObject(readJson(path.join(pluginRoot, ".mcp.json"), "unified Codex plugin MCP configuration is invalid"), "unified Codex plugin MCP configuration is invalid");
-  const server = mcp.mcpServers?.["common-tools"];
+  const server = mcp.mcpServers?.["common-tools-auth-v2"];
   if (!server || server.type !== "http" || server.url !== "https://plugins.iepose.cn/mcp" || server.oauth?.clientId !== "common-tools-mcp" || Object.keys(server).some((key) => !["type", "url", "oauth"].includes(key))) throw new Error("unified Codex plugin MCP configuration is invalid");
-  const hostedCapabilities = [..._capabilities].sort();
+  const hostedCapabilities = [..._capabilities, "common-tools-connection"].sort();
   const installedSkills = fs.readdirSync(path.join(pluginRoot, "skills"), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   if (JSON.stringify(installedSkills) !== JSON.stringify(hostedCapabilities)) throw new Error("unified Codex plugin capability surface does not match the hosted service");
   const imageSkillFile = path.join(pluginRoot, "skills", "image-to-editable", "SKILL.md");
