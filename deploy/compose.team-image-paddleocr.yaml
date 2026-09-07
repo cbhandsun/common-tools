@@ -7,6 +7,7 @@ services:
         BASE_IMAGE: ${COMMON_TOOLS_IMAGE_PADDLEOCR_BASE_IMAGE:-common-tools-image-to-editable:local}
     image: common-tools-image-to-editable-paddleocr:local
     environment:
+      COMMON_TOOLS_IMAGE_OCR_CHECKPOINT_REVISION: ${COMMON_TOOLS_IMAGE_OCR_CHECKPOINT_REVISION:-}
       COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE: paddleocr-ppocrv6-v1
       COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON: /opt/paddleocr/venv/bin/python
       COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON_SHA256: ${COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON_SHA256:?set packaged Python SHA-256}

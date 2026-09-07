@@ -1,0 +1,19 @@
+# Overlay for the image worker's verified offline component catalog.
+# Set COMMON_TOOLS_COMPONENT_ASSET_STORE to the host inventory directory.
+services:
+  image-to-editable-worker:
+    environment:
+      COMMON_TOOLS_IMAGE_COMPONENT_ASSET_ROOT: /app/component-assets
+    volumes:
+      - type: bind
+        source: ${COMMON_TOOLS_COMPONENT_ASSET_STORE:?set verified component asset store}/asset-registry.json
+        target: /app/component-assets/asset-registry.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${COMMON_TOOLS_COMPONENT_ASSET_STORE:?set verified component asset store}/assets/sha256
+        target: /app/component-assets/assets/sha256
+        read_only: true
+        bind:
+          create_host_path: false

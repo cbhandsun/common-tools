@@ -350,6 +350,6 @@ services:
     mem_limit: 3g
     pids_limit: 256
     read_only: true
-    tmpfs: ["/tmp:rw,noexec,nosuid,size=256m"]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=1g"]
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
