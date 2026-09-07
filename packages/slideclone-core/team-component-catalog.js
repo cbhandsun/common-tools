@@ -124,21 +124,16 @@ function validateCandidate(candidate, selected, root, assetDirectory) {
   const candidatePath = readOwn(item, "path");
   if (typeof candidatePath !== "string" || !path.isAbsolute(candidatePath)) throw new Error("component catalog candidate path is invalid");
   const expected = path.join(assetDirectory, `${sha256}${extension}`);
-  if (!sameFilesystemPath(candidatePath, expected)) throw new Error("component catalog candidate path is outside the asset directory");
   const stat = regularFile(expected, "component catalog asset");
   const real = fs.realpathSync.native(expected);
+  let candidateReal;
+  try { candidateReal = fs.realpathSync.native(candidatePath); }
+  catch { throw new Error("component catalog candidate path is outside the asset directory"); }
+  if (candidateReal !== real) throw new Error("component catalog candidate path is outside the asset directory");
   if (real !== expected || !isInside(root, real) || !isInside(assetDirectory, real) || stat.size !== sizeBytes) {
     throw new Error("component catalog asset path or size is invalid");
   }
   return { sha256, extension, sizeBytes, path: real, assetKind: stored.assetKind, id: stored.id };
-}
-
-function sameFilesystemPath(left, right) {
-  const normalizedLeft = path.normalize(path.resolve(left));
-  const normalizedRight = path.normalize(path.resolve(right));
-  return process.platform === "win32"
-    ? normalizedLeft.toLocaleLowerCase("en-US") === normalizedRight.toLocaleLowerCase("en-US")
-    : normalizedLeft === normalizedRight;
 }
 
 function regularFile(file, label) {
