@@ -30,6 +30,7 @@ npm run common-tools:verify-release-evidence -- --sbom artifacts/common-tools.sp
 
 ```powershell
 $env:COMMON_TOOLS_RELEASE_EVIDENCE_FILE = 'C:\release\common-tools.release.json'
+$env:COMMON_TOOLS_RELEASE_REVISION = '<approved-full-git-revision>'
 .\scripts\team-runtime-production-deploy.ps1 -Mode Plan
 ```
 
@@ -331,6 +332,8 @@ $env:COMMON_TOOLS_OTEL_SERVICE_NAME = 'common-tools-remote-mcp'
 $env:COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS = '2000'
 ```
 
+图片 Worker 还会输出 `common-tools.worker.stage` 子 span，`worker.stage` 仅使用已注册的固定阶段码（输入读取、文档转换、OCR、重建、构建、质量验证、上传）。子 span 与本次 Worker span 共用 trace ID，以 Worker span ID 为 parent；没有上游 trace 时会为本次任务生成新的 trace。起止时间记录阶段耗时，阶段失败状态只表示操作抛错，质量分数是否达标仍以任务质量报告为准。每次 Worker 调用最多输出 256 条阶段 span，多页任务中的重复阶段分别记录；不附加页文本、路径、Job ID 或异常内容。诊断导出为尽力而为，不作为计费或完整审计流水。
+
 ### MCP Tasks 与无状态 HTTP（2026-06-30 / 2026-07-28）
 
 团队后端现在实现了 MCP Tasks 扩展的最小安全投影。`2026-06-30` 客户端可在 `initialize` 的 `params.protocolVersion`（或每次请求的 `MCP-Protocol-Version` header）协商 Tasks；最终版 `2026-07-28` 已移除初始化握手，应先调用 `server/discover`，其响应会列出 `supportedVersions` 与 `capabilities.extensions.io.modelcontextprotocol/tasks`。该最新版的每个成功结果还带 `resultType` 和结果 `_meta["io.modelcontextprotocol/serverInfo"]`，不再把 server identity 放进 discover result body。旧协议版本以及未协商这两个版本的客户端继续使用原有的基础 MCP Job 工具，行为不变。
@@ -580,11 +583,23 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 
 当前本机环境已验证 API 多副本、默认两个 capability Worker 的 lease 过期恢复和 Worker 重新启动；隔离 Compose smoke 会启动四类 capability Worker 及 `team-retention` 维护服务，并验证全体服务就绪。它不是备份策略的替代品。上线前必须为 PostgreSQL、对象存储和 IdP 配置独立于容器卷的加密备份，并明确每一类数据的 RPO/RTO。Redis 只保存可恢复 delivery，不应被当作唯一任务事实来源；恢复顺序始终是 PostgreSQL、对象存储、Redis，再启动 API/Worker。
 
+### 任务投递恢复
+
+新版 Worker 启用前须完成 `011_delivery_outbox.sql` 迁移。任务首次创建或恢复进入 `queued` 时，PostgreSQL 触发器在同一事务中记录待投递代次，并为迁移前仍在排队的任务补齐记录。Worker 的现有租约恢复循环每次按能力读取最多 100 条到期投递记录，按到期时间和代次排序；Redis 投递成功后仅把下一次补投资格延后一分钟，直到任务离开 `queued` 才删除记录。因此投递失败或后续队列数据丢失均可由后续循环补投，旧代次确认不会推迟新代次。实际补投时间还取决于 Worker 是否空闲、租约恢复周期及积压，不承诺一分钟送达。多 Worker 和首次直接入队可能产生重复消息，PostgreSQL 的条件领取保证同一 queued 状态仅一方成功；此机制提供至少一次投递，不保证 Redis 中仅有一条消息。
+
 ### 任务到期与工件保留
 
-`expiresAt` 到期后，未被 Worker 领取的 `queued` / `input_required` Job 会被标记为 `expired`；已领取的 Job 继续由 lease 和取消状态机收敛，避免维护任务与 Worker 争夺终态。`COMMON_TOOLS_ARTIFACT_RETENTION_DAYS` 默认为 30（范围 1–3650）。到达保留期的终态 Job，维护任务会先验证输入对象属于该 owner 的哈希前缀、验证工件位于同一 Job 的输出前缀，再按精确 object key 删除输入和工件，最后清空 Job 的 artifact 清单并写入 `retention-cleaned` 审计事件。验证或删除任一步失败时不会写入清理标记，下一次执行会安全重试；它绝不枚举 bucket、删除 prefix 或删除仍在运行的 Job。
+`npm run test:postgres-recovery` 同时启动独立 PostgreSQL 与固定 digest 的 Redis 容器，验证真实队列强制终止、无持久化重启丢失数据、后续补投、重复领取围栏和旧尝试拒绝。Redis 使用本次临时选择的固定回环端口及随机密码；队列通过实际生产 Node Redis 客户端访问，CLI 仅检查进程和数据状态。测试覆盖同一个客户端实例在两次重启后自动重连、离线投递拒绝、阻塞取消息中断及首次连接超时，只强制终止并删除自身创建的容器，已进入 Linux CI。尚未覆盖 TLS、细粒度 ACL 或整个 Worker 进程自动恢复。
+
+生产 Redis 连接关闭 SDK 离线命令排队，连接不可用时由命令拒绝和 readiness 暴露故障，待投递记录留在 PostgreSQL 中供重试；重连退避为 100 ms 起、最高 3 秒。单次连接超时 5 秒，首次初始化总等待上限 10 秒，失败后销毁该客户端。错误事件不输出供应商原始消息或凭据，Worker 继续沿现有固定错误分类报告失败。
+
+上述联合验收还启动独立 Node Worker 子进程，使用生产 TeamWorker/TeamWorkerRunner、真实 PostgreSQL 与 Redis，在固定测试处理器已领取任务后强制结束进程。替代进程恢复租约并以 attempt 2 完成同一任务，验证数据库成功状态、消息确认及旧心跳拒绝。子进程凭据只经 IPC 传入，进程退出后清理；这覆盖核心 Worker 的进程边界，尚不代表生产 CLI、Office/外部处理器及对象存储产物写入在崩溃后的完整验收。
+
+`expiresAt` 到期后，未被 Worker 领取的 `queued` / `input_required` Job 会被标记为 `expired`；已领取的 Job 继续由 lease 和取消状态机收敛，避免维护任务与 Worker 争夺终态。`COMMON_TOOLS_ARTIFACT_RETENTION_DAYS` 默认为 30（范围 1–3650）。到达保留期的终态 Job，维护任务会先验证输入对象属于该 owner 的哈希前缀、验证工件位于同一 Job 的输出前缀，再按精确 object key 删除输入和工件，最后清空 Job 的 artifact 清单并写入 `retention-cleaned` 审计事件。验证或删除任一步失败时不会写入清理标记，下一次执行会安全重试；它只枚举已验证的任务根前缀，不枚举全桶；逐 key 删除，不删除仍在运行的 Job。
 
 日常本机和生产 Compose 发布会自动启用独立的 `team-retention` 服务（`team-maintenance` profile）。它先执行一次维护，再每 24 小时顺序执行一次；`SIGTERM` 只中断空闲等待，运行中的一次清理不会被强行并行。任何维护失败都会以非零退出，使 Compose 的 `unless-stopped` 重启策略重试；因此不能把失败吞成“已清理”。`COMMON_TOOLS_RETENTION_INTERVAL_SECONDS` 可在 300–604800 秒范围内调整，默认 86400。`team doctor --runtime` 也会把该服务纳入运行态检查。
+
+启用本版本维护代码前必须执行 `010_retention_recheck.sql` 迁移，新增 `retention_last_swept_at` 和复查索引。已清理的终态 Job 在上次成功清理满一小时后重新具备复查资格，以回收旧 Worker 的迟到写入；实际回收取决于下一次调度、批量上限和积压，默认调度仍为 24 小时。首次清理和复查按各自到期时间统一排序，旧记录没有复查时间时使用首次清理时间。首次清理标记与审计事件在同一 SQL 语句中原子写入；复查仅推进复查时间，保留首次清理时间和 Job 更新时间，不重复写入首次清理事件。对象删除失败不会推进标记，维护输出的 `cleaned` 数量包含成功的复查，即使该次没有发现对象。
 
 仍可在变更窗口或外部平台调度器中手工执行一次性维护。它适用于补跑与诊断，不应替代常驻 profile：
 
@@ -594,6 +609,10 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 ```
 
 可选 `COMMON_TOOLS_RETENTION_BATCH_SIZE` 的范围为 1–1000，默认 100；`COMMON_TOOLS_RETENTION_ACTOR_ID` 只接受 3–128 位安全标识。维护命令和 scheduler 只输出过期/清理数量，不能输出 subject、对象 key、下载 URL 或凭据。
+
+本地联合验收命令为 `npm run test:s3-retention`，需要 Docker，可启动独立 PostgreSQL 与 MinIO 临时容器，验证实际租约恢复、产物隔离、保留期准入及部分删除失败重试。测试使用回环随机端口和临时数据，结束时清理所建容器；已接入 Linux CI。
+
+保留期清理还会按任务根前缀枚举未登记产物，包括失败领取留下的 `attempts/<n>/` 对象。维护身份需要该桶 jobs 前缀下的 `s3:ListBucket` 和对象删除权限；部署前在受管策略中确认，不通过授予全桶写权限绕过。每个任务最多枚举 10 页、每页 1,000 个对象，先验证全部 key 均在 owner/job 命名空间，再删除并标记完成。权限拒绝、分页异常、越界 key 或删除失败均会失败退出，不标记已清理；超过上限需要独立审查处理。复查提供迟到写入的后续回收，不阻止旧 Worker 写入，也不保证清理返回后对象前缀一直为空。
 
 恢复演练只能在隔离 Compose project、独立命名 volume 和隔离 bucket 中进行，严禁在运行中的 `deploy` project 上执行 `DROP`、`FLUSHDB`、volume 删除或 bucket 清空。每次演练至少验证：
 
@@ -788,3 +807,10 @@ Claude Code 的对应命令是 `claude plugin marketplace add .` 与 `claude plu
 # Common Tools 团队 Docker 部署
 
 > 本机/远程路由与 Local Runtime 安装边界见 [执行模式与本地 Runtime](./execution-modes.md)。团队 Docker 服务只承担远程 MCP 与 Worker；本机 `project-audit` 不需要默认上传到本服务。
+
+
+## Worker 中断后的临时目录
+
+图片 Worker 直接以 Node 运行，`/tmp` 使用容器 tmpfs。容器主进程被终止后，重新启动会挂载新的 tmpfs；中断任务留下的本地草稿不会跨这次容器重启保留。`test:container-recovery` 用非 root 用户、默认镜像入口和真实子/孙进程验证该路径，并检查生产 Compose 保留必要配置。S3 中的中断产物由任务保留期机制处理，两者不要混为一谈。
+
+直接在宿主机运行 Node 不具备容器 tmpfs 生命周期；现有处理器正常结束会执行 finally 清理，但强制结束后的宿主机临时目录仍可能遗留。本验证也不证明 Worker 存活时对外部处理器的单独取消或超时能够回收全部后代进程。
