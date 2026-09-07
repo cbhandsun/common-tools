@@ -1,7 +1,19 @@
 "use strict";
 // @ts-check
 
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
+
+/** @param {import("child_process").ChildProcess} child @param {string} [platform] @param {typeof spawnSync} [runTaskkill] */
+function terminateProcessTree(child, platform = process.platform, runTaskkill = spawnSync) {
+  if (!child.pid) return;
+  if (platform === "linux") { process.kill(-child.pid, "SIGKILL"); return; }
+  if (platform === "win32") {
+    const result = runTaskkill("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], { windowsHide: true, stdio: "ignore" });
+    if (result.error || (result.status !== 0 && result.status !== 128)) throw result.error || Object.assign(new Error("Windows renderer process tree could not be terminated"), { code: "TASKKILL_FAILED" });
+    return;
+  }
+  child.kill("SIGKILL");
+}
 
 /** @param {unknown} command @param {unknown} args @param {string} platform */
 function commandPlan(command, args, platform = process.platform) {
@@ -54,8 +66,7 @@ function run(command, args, options = {}) {
     let deadline;
     const kill = () => {
       try {
-        if (process.platform === "linux" && child.pid) process.kill(-child.pid, "SIGKILL");
-        else child.kill("SIGKILL");
+        terminateProcessTree(child);
       } catch (error) {
         if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) terminationFailed = true;
       }
@@ -112,4 +123,4 @@ function run(command, args, options = {}) {
 
 }
 
-module.exports = { run, commandPlan };
+module.exports = { run, commandPlan, _private: { terminateProcessTree } };

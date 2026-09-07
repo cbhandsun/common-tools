@@ -48,6 +48,14 @@ test("renderer command planning bounds batch syntax while preserving native argu
   for (const args of [null, "value", [1], ["\0"], new Array(257).fill("x")]) assert.throws(() => commandPlan("tool.exe", args, "win32"), /command is invalid/);
 });
 
+test("renderer termination uses taskkill to stop the complete Windows process tree", () => {
+  const { _private } = require("../packages/slideclone-core/renderer-process");
+  const calls = [];
+  _private.terminateProcessTree({ pid: 4321 }, "win32", (...args) => { calls.push(args); return { status: 0 }; });
+  assert.deepEqual(calls, [["taskkill.exe", ["/pid", "4321", "/t", "/f"], { windowsHide: true, stdio: "ignore" }]]);
+  assert.throws(() => _private.terminateProcessTree({ pid: 4321 }, "win32", () => ({ status: 1 })), /process tree/);
+});
+
 test("legacy rendering and benchmark entry points share the core implementation", () => {
   assert.equal(require("../skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice"), require("../packages/slideclone-core/render-libreoffice"));
   assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/exec"), require("../packages/slideclone-core/renderer-process"));
