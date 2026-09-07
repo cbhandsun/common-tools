@@ -86,7 +86,7 @@ function run(command, args, options = {}) {
     const stop = (message) => {
       if (settled || reason) return;
       reason = message;
-      deadline = setTimeout(() => finish(new Error("renderer process termination was not confirmed")), 1000);
+      deadline = setTimeout(() => finish(new Error("renderer process termination was not confirmed")), process.platform === "win32" ? 5000 : 1000);
       kill();
     };
     const timer = timeoutMs ? setTimeout(() => stop("renderer process timed out"), timeoutMs) : undefined;
