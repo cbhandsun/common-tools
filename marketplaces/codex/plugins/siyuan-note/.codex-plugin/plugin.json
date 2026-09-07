@@ -1,6 +1,6 @@
 {
   "name": "siyuan-note",
-  "version": "0.1.0",
+  "version": "0.1.0+codex.20260907065532",
   "description": "通过托管的 Common Tools MCP 服务保存和读取私有思源笔记。",
   "author": { "name": "common-tools" },
   "skills": "./skills/",

@@ -23,18 +23,6 @@
 
 安装后的新任务应至少能看到 `siyuan_list_notebooks`。如果一个 `siyuan_*` 工具都没有，这是当前 Codex 任务没有加载 Common Tools MCP 授权工具，不能据此判断思源服务端未启动。安装客户端应申请 `offline_access` 和 `common-tools:capability:siyuan-note`，使正常过期的访问令牌可以刷新。
 
-旧刷新凭据已失效、管理员撤销会话或登录策略改变时，在安装插件的电脑上执行：
-
-```powershell
-codex mcp get common-tools --json
-codex mcp logout common-tools
-codex mcp login common-tools --scopes offline_access,common-tools:capability:siyuan-note
-```
-
-如果 `get` 显示配置不存在，先执行：
-
-```powershell
-codex mcp add common-tools --url https://plugins.iepose.cn/mcp --oauth-client-id common-tools-mcp
-```
+0.1.23 起，Codex 使用受管连接名 `common-tools-auth-v2`。升级会触发一次新的浏览器授权；旧刷新凭据失效、管理员撤销会话或登录策略改变时，用户只需让 Codex“重新连接 Common Tools”。插件恢复 Skill 会在本机命令可用时自行检查、添加或重新授权该连接，不把脚本交给用户，也不会索取密码、验证码或 Token。旧的 `common-tools` 连接只有在 URL 严格等于官方 HTTPS MCP 端点时才会自动清理；空地址、解析失败或其他地址一律保持不变并报告冲突。
 
 完成浏览器授权后，必须完全关闭并重新打开 Codex，再新建任务确认 `siyuan_list_notebooks` 已出现。客户端不需要也不应获得思源 API Token、Keycloak 管理员账号或 Docker 内部地址。
