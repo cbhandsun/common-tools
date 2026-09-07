@@ -39,7 +39,7 @@ test("team Compose applies restart and resource limits to untrusted execution se
     assert.match(block, /COMMON_TOOLS_TEAM_CAPABILITIES: \$\{COMMON_TOOLS_TEAM_CAPABILITIES:-image-to-editable,project-audit\}/);
   }
   const gatewayBlock = serviceBlock(gateway, "remote-mcp-gateway");
-  assert.match(serviceBlock(api, "image-to-editable-worker"), /tmpfs: \["\/tmp:rw,noexec,nosuid,size=1g"\]/);
+  assert.match(serviceBlock(api, "image-to-editable-worker"), /tmpfs: \["\/tmp:rw,noexec,nosuid,size=256m"\]/);
   assert.match(gatewayBlock, /restart: unless-stopped/);
   assert.match(gatewayBlock, /healthcheck:/);
   assert.match(gatewayBlock, /wget -q -O \/dev\/null http:\/\/127\.0\.0\.1:8080\/readyz \|\| exit 1/);
