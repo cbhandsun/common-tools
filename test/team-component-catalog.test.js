@@ -141,3 +141,13 @@ test("team component catalog propagates candidate checksum verification failures
     registryCandidates: (registry) => candidatesFor(value.root, registry).map((candidate) => ({ ...candidate, path: path.join(os.tmpdir(), "stale.pptx") }))
   }), /outside the asset directory/);
 });
+
+test("team component catalog accepts the canonical asset path regardless of Windows path casing", { skip: process.platform !== "win32" }, () => {
+  const value = fixture();
+  const catalog = loadTeamComponentCatalog({
+    root: value.root,
+    readRegistry: () => value.registry,
+    registryCandidates: (registry, root) => candidatesFor(root, registry).map((candidate) => ({ ...candidate, path: candidate.path.toLocaleUpperCase("en-US") }))
+  });
+  assert.equal(catalog.inventory.candidates.length, 1);
+});

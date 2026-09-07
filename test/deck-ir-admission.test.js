@@ -12,7 +12,8 @@ test("production admission composes tree, object, metadata and asset checks with
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "deck-admission-"));
   t.after(() => fs.rmSync(root, {recursive:true,force:true}));
   fs.mkdirSync(path.join(root,"assets"));
-  fs.writeFileSync(path.join(root,"assets","source.png"), "fixture");
+  const sourceImage = path.join(root,"assets","source.png");
+  fs.writeFileSync(sourceImage, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Jx2UAAAAASUVORK5CYII=", "base64"));
   assert.equal(worker.validateDeckIr, admission.validateDeckIr);
   const input = deck();
   input.pages[0].source = {pageImage:"assets/source.png"};
@@ -38,7 +39,13 @@ test("production admission composes tree, object, metadata and asset checks with
   assert.throws(() => admission.validateDeckIr(unsafe,root), /data properties/u);
   assert.equal(calls,0);
   fs.writeFileSync(path.join(root,"deck.json"),JSON.stringify(input));
-  assert.deepEqual(worker.validatePackage(root),{kind:"deck-ir",deckFile:path.join(root,"deck.json"),pages:1,assets:1});
+  const admittedPackage = worker.validatePackage(root);
+  assert.equal(admittedPackage.kind, "deck-ir");
+  assert.equal(admittedPackage.deckFile, path.join(root, "deck.json"));
+  assert.equal(admittedPackage.pages, 1);
+  assert.equal(admittedPackage.assets, 1);
+  assert.deepEqual(admittedPackage.structuredDeck, input);
+  assert.deepEqual(admittedPackage.structuredSourceImages, [sourceImage]);
   fs.writeFileSync(path.join(root,"deck.json"),"invalid");
   assert.throws(() => worker.validatePackage(root), /invalid JSON/u);
 });
