@@ -25,14 +25,14 @@ const { persistPromptPlan, persistPromptPlanAsync, promptToPresentation, promptT
 const { persistDocumentPlan } = require("../../ppt-create-core/document-ingest");
 const { extractPdfLayout, extractPdfText } = require("../../ppt-create-core/pdf-text");
 const { createPptCreateArchive } = require("../../ppt-create-core/team-archive");
-const { buildOpenXmlDecksSync } = require("../../../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
+const { buildOpenXmlDecksSync } = require("../../slideclone-core/pptx-openxml-dotnet");
 const { CAPABILITY_MANIFESTS, effectivePluginConfig, insideRoot, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
 const { TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig, teamDeploymentPlan } = require("../../team-runtime");
 const { runKeycloakMcpClientCommand, runKeycloakProjectMapperCommand } = require("../keycloak-project-mapper");
 const { runKeycloakRealmCommand } = require("../keycloak-realm-hardening");
 const { serveStdio } = require("../../mcp-server/core");
-const { assertMirroredPackage, assertPluginPackage, verifyPluginPackaging } = require("../../../scripts/verify-plugins");
-const { verifyCapabilityToolContracts } = require("../../../scripts/verify-capability-contracts");
+const { assertMirroredPackage, assertPluginPackage, verifyPluginPackaging } = require("../verification/verify-plugins");
+const { verifyCapabilityToolContracts } = require("../verification/verify-capability-contracts");
 const { scaffoldPlan, writeScaffold } = require("../capability-scaffold");
 const { assertValidConfig } = require("../../slideclone-core/config-validation");
 const { createEditableSourceArchive, createRawImageArchive } = require("../../slideclone-core/team-raw-image-archive");
@@ -47,7 +47,7 @@ function bundledSlidecloneRunner() {
 const COMMAND_USAGE = [
   "usage: common-tools <command>",
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
-  "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team editable-source-archive (--input <png|jpg|pdf|pptx> | --inputs <ordered-images,csv>) --out <archive.tar.gz> | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) --out <archive.tar.gz> | team production-preflight | team keycloak-realm [--apply --backup-file <new.json> --evidence-file <new.json>] | team keycloak-mcp-client [--apply --backup-file <new.json>]",
+  "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team editable-source-archive (--input <png|jpg|pdf|pptx|deck.json> | --inputs <ordered-images,csv>) --out <archive.tar.gz> | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) --out <archive.tar.gz> | team production-preflight | team keycloak-realm [--apply --backup-file <new.json> --evidence-file <new.json>] | team keycloak-mcp-client [--apply --backup-file <new.json>]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
   "  editable init|create|run|batch|apply-edit | editable batch --inputs <ordered,csv> --out <directory> --config <json> | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose [--provider-config <json> --provider-id <id>]|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|edit-session|apply-edit|apply-ir-edit|finalize-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|layout-safe|typography-safe|editability-safe|audit-only] | job get|run|cancel"
 ].join("\n");
@@ -60,7 +60,7 @@ function parseCapabilityList(value) {
   return capabilities;
 }
 function context(args) { const workspaceRoot = path.resolve(args.workspace || process.cwd()); const stateRoot = path.resolve(args.state || path.join(workspaceRoot, ".common-tools")); return { workspaceRoot, stateRoot, ownerId: args.owner || "local-user" }; }
-function runtimeStatus(args = {}, environment = process.env) {
+function runtimeStatus(_args = {}, environment = process.env) {
   const configuration = readRuntimeConfig(environment);
   const capabilities = [PROJECT_AUDIT_CAPABILITY, REGISTRATION.capability, PPT_QUALITY_CAPABILITY, PPT_IMPROVE_CAPABILITY, PPT_CREATE_CAPABILITY];
   return Object.freeze({

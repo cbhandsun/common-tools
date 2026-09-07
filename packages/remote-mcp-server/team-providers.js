@@ -3,10 +3,11 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
-const { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand, S3Client } = require("@aws-sdk/client-s3");
+const { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } = require("@aws-sdk/client-s3");
+const { assertRetentionPrefix } = require("../team-runtime/retention-output-keys");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { Pool } = require("pg");
-const { createClient } = require("redis");
+const { connectTeamRedis } = require("./redis-connection");
 const { PostgresJobRepository, TEAM_DEFAULT_CAPABILITIES, createTeamServices } = require("../team-runtime");
 const { TEAM_DEPLOYMENT_CAPABILITIES } = require("../team-runtime");
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
@@ -196,8 +197,10 @@ function createObjectStore(client, bucket, expiresIn = 900, { presignClient = cl
       if (!Number.isSafeInteger(response.ContentLength) || response.ContentLength < 1) throw new Error("uploaded object metadata is invalid");
       return Object.freeze({ contentLength: response.ContentLength });
     },
-    async readObject({ objectKey, maxBytes }) {
-      const response = await withInputReadinessRetry(() => client.send(new GetObjectCommand({ Bucket: bucket, Key: objectKey })), readinessOptions);
+    async readObject({ objectKey, maxBytes, retryMissing = true }) {
+      if (typeof retryMissing !== "boolean") throw new TypeError("object storage retry option is invalid");
+      const read = () => client.send(new GetObjectCommand({ Bucket: bucket, Key: objectKey }));
+      const response = await (retryMissing ? withInputReadinessRetry(read, readinessOptions) : read());
       if (Number.isFinite(response.ContentLength) && response.ContentLength > maxBytes) throw new Error("object storage object exceeds worker limit");
       return readBody(response.Body, maxBytes);
     },
@@ -208,6 +211,13 @@ function createObjectStore(client, bucket, expiresIn = 900, { presignClient = cl
     async deleteObject({ objectKey }) {
       if (typeof objectKey !== "string" || !objectKey) throw new Error("retention object key is invalid");
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }));
+    },
+    async listObjects({ prefix, continuationToken }) {
+      const checked = assertRetentionPrefix(prefix);
+      if (continuationToken !== undefined && (typeof continuationToken !== "string" || !continuationToken || continuationToken.length > 4096)) throw new Error("retention listing cursor is invalid");
+      const response = await client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: checked, MaxKeys: 1000, ...(continuationToken === undefined ? {} : { ContinuationToken: continuationToken }) }));
+      if (!response || !Array.isArray(response.Contents ?? []) || typeof response.IsTruncated !== "boolean") throw new Error("retention listing response is invalid");
+      return { keys: (response.Contents || []).map((item) => item?.Key), nextToken: response.IsTruncated ? response.NextContinuationToken : null };
     }
   });
 }
@@ -302,9 +312,7 @@ function createMetricsProvider({ pool, redis, workerHeartbeats: heartbeatProvide
 async function createTeamProviderBundle({ config, secrets, allowCreateBucket = false, rateLimit } = {}) {
   const databaseUrl = new URL(config.databaseUrl);
   const pool = new Pool({ host: databaseUrl.hostname, port: Number(databaseUrl.port || 5432), database: databaseUrl.pathname.slice(1), user: secrets.databaseUser, password: secrets.databasePassword, ssl: databaseUrl.searchParams.get("sslmode") === "verify-full" ? { rejectUnauthorized: true } : undefined, max: 10, idleTimeoutMillis: 30000 });
-  const redis = createClient({ url: config.redisUrl, username: secrets.redisUsername, password: secrets.redisPassword });
-  redis.on("error", () => {});
-  await redis.connect();
+  const redis = await connectTeamRedis({ url: config.redisUrl, username: secrets.redisUsername, password: secrets.redisPassword });
   const s3Options = { forcePathStyle: true, region: "us-east-1", credentials: { accessKeyId: secrets.objectStoreAccessKeyId, secretAccessKey: secrets.objectStoreSecretAccessKey } };
   const s3 = new S3Client({ ...s3Options, endpoint: config.objectStoreEndpoint });
   const publicPresignClient = config.objectStorePublicEndpoint ? new S3Client({ ...s3Options, endpoint: config.objectStorePublicEndpoint }) : s3;

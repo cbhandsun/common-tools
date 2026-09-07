@@ -23,6 +23,8 @@ public static class DeckPackageWriter
         var irPath = RequiredFile(irFile, "IR");
         var outputPath = RequiredOutput(outFile, irPath, templatePptx);
         var ir = ReadDeckIr(irPath);
+        var templateContext = string.IsNullOrWhiteSpace(templatePptx) ? null : TemplateBuildContext.Inspect(templatePptx);
+        TemplateBuildContext.ValidatePageRequests(ir.Pages, templateContext);
         var irDirectory = Path.GetDirectoryName(irPath) ?? Directory.GetCurrentDirectory();
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         var workPath = outputPath + $".tmp-{Guid.NewGuid():N}";
@@ -40,11 +42,11 @@ public static class DeckPackageWriter
                 {
                     presentationPart = document.PresentationPart ?? throw new InvalidOperationException("PPTX template does not contain a presentation part.");
                     masterPart = presentationPart.SlideMasterParts.FirstOrDefault() ?? throw new InvalidOperationException("PPTX template does not contain a slide master.");
-                    var templateSlides = GetTemplateSlidesByIndex(presentationPart);
+                    var templateSlides = TemplateBuildContext.GetTemplateSlidesByIndex(presentationPart);
                     layoutPart = templateSlides.Values.FirstOrDefault()?.SlideLayoutPart
                         ?? masterPart.SlideLayoutParts.FirstOrDefault()
                         ?? throw new InvalidOperationException("PPTX template does not contain a slide layout.");
-                    templateLayouts = GetTemplateLayoutsById(presentationPart);
+                    templateLayouts = TemplateBuildContext.GetTemplateLayoutsById(presentationPart);
                     var preserveIndexes = ir.Pages.Where(page => page.PreserveTemplateSlide == true).Select(page => page.PageIndex).ToHashSet();
                     preservedTemplateSlides = templateSlides.Where(pair => preserveIndexes.Contains(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
                     foreach (var pair in templateSlides.Where(pair => !preserveIndexes.Contains(pair.Key))) presentationPart.DeletePart(pair.Value);
@@ -145,11 +147,12 @@ public static class DeckPackageWriter
         return PresentationDocument.Open(outputPath, true);
     }
 
-    private static string RequiredFile(string value, string label)
+    internal static string RequiredFile(string value, string label)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Contains('\0')) throw new ArgumentException($"{label} path is invalid.");
         var path = Path.GetFullPath(value);
-        if (!File.Exists(path)) throw new FileNotFoundException($"{label} was not found: {path}", path);
+        var file = new FileInfo(path);
+        if (!file.Exists || (file.Attributes & FileAttributes.Directory) != 0) throw new FileNotFoundException($"{label} was not found.");
         return path;
     }
 
@@ -164,35 +167,12 @@ public static class DeckPackageWriter
         return path;
     }
 
-    private static Dictionary<int, SlidePart> GetTemplateSlidesByIndex(PresentationPart presentationPart)
-    {
-        var orderedSlideIds = presentationPart.Presentation.SlideIdList?.Elements<P.SlideId>().ToList() ?? [];
-        var result = new Dictionary<int, SlidePart>();
-        for (var index = 0; index < orderedSlideIds.Count; index++)
-        {
-            var relationshipId = orderedSlideIds[index].RelationshipId?.Value;
-            if (!string.IsNullOrWhiteSpace(relationshipId) && presentationPart.GetPartById(relationshipId) is SlidePart slidePart) result[index] = slidePart;
-        }
-        if (result.Count == 0) throw new InvalidOperationException("PPTX template does not contain usable slides.");
-        return result;
-    }
-
-    private static Dictionary<string, SlideLayoutPart> GetTemplateLayoutsById(PresentationPart presentationPart)
-    {
-        var layouts = presentationPart.SlideMasterParts
-            .SelectMany(master => master.SlideLayoutParts)
-            .GroupBy(layout => Path.GetFileNameWithoutExtension(layout.Uri.OriginalString), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
-        if (layouts.Count == 0) throw new InvalidOperationException("PPTX template does not contain usable slide layouts.");
-        return layouts;
-    }
-
     private static SlideLayoutPart ResolvePageLayout(PageIr page, SlideLayoutPart fallback, Dictionary<string, SlideLayoutPart>? templateLayouts)
     {
         var requested = page.Intent?.TemplateLayoutId;
         if (string.IsNullOrWhiteSpace(requested)) return fallback;
         if (templateLayouts is null || !templateLayouts.TryGetValue(requested, out var layout))
-            throw new InvalidOperationException($"Deck IR page {page.PageIndex + 1} requests unavailable template layout '{requested}'.");
+            throw new InvalidOperationException("Deck IR template layout request is invalid.");
         return layout;
     }
 

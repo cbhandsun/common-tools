@@ -69,6 +69,7 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.equal(classifyTestResource("test/openxml-native-chart-smoke.test.js"), "external-process");
   assert.equal(classifyTestResource("test/common-tools-team-ocr-profile.test.js"), "external-process");
   assert.equal(classifyTestResource("test/common-tools-mcp.test.js"), "external-process");
+  assert.equal(classifyTestResource("test/common-tools-production-preflight.test.js"), "external-process");
 });
 
 test("real shards serialize files even for standard resources and propagate failures", () => {

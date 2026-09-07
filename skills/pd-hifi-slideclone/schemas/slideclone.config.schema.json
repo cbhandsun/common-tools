@@ -5,8 +5,8 @@
   "type": "object",
   "required": ["inputDir", "outputDir", "adapters", "thresholds"],
   "properties": {
-    "inputDir": { "type": "string", "minLength": 1 },
-    "outputDir": { "type": "string", "minLength": 1 },
+    "inputDir": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" },
+    "outputDir": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" },
     "pagePattern": { "type": "string", "default": "*.{png,jpg,jpeg,webp,pdf,pptx}" },
     "pageConcurrency": { "type": "integer", "default": 2, "minimum": 1, "maximum": 8 },
     "slide": {
@@ -21,15 +21,15 @@
       "type": "object",
       "required": ["ocr", "vision", "pptx", "render", "diff"],
       "properties": {
-        "normalize": { "type": "string" },
-        "ocr": { "type": "string" },
-        "vision": { "type": "string" },
-        "pptx": { "type": "string" },
-        "render": { "type": "string" },
-        "diff": { "type": "string" },
-        "compare": { "type": "string" },
-        "polish": { "type": "string" },
-        "compress": { "type": "string" }
+        "normalize": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" },
+        "ocr": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" },
+        "vision": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" },
+        "pptx": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" },
+        "render": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" },
+        "diff": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" },
+        "compare": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" },
+        "polish": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" },
+        "compress": { "type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^[^\\u0000]*$" }
       },
       "additionalProperties": false
     },

@@ -38,6 +38,13 @@ test("pinned PaddleOCR profile validates every executable source and model bound
   assert.throws(() => readPinnedPaddleOcrProfile(environment({ COMMON_TOOLS_IMAGE_PADDLEOCR_MODEL_CACHE: path.join(os.tmpdir(), "missing-paddle-models") })), /unavailable/);
 });
 
+test("image worker startup preserves all pinned PaddleOCR profile fields and checksum failures", () => {
+  const { workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-image-worker");
+  const input = environment({ OPENXML_BUILDER_EXE: process.execPath });
+  assert.deepEqual(workerSettings(input).rawImageOcrProfile, readPinnedPaddleOcrProfile(input));
+  assert.throws(() => workerSettings({ ...input, COMMON_TOOLS_IMAGE_PADDLEOCR_PROTOCOL_SHA256: "b".repeat(64) }), /checksum/);
+});
+
 test("pinned PaddleOCR protocol requires the actual sibling module and exact digest", () => {
   const original = environment();
   const profile = readPinnedPaddleOcrProfile(original);

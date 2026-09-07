@@ -31,6 +31,27 @@ test("OpenXML builder emits a real ChartPart with an embedded editable workbook"
       slideSize: { widthPt: 960, heightPt: 540 },
       pages: [{ pageIndex: 0, sourceImage: "", background: { fill: "#FFFFFF" }, textBoxes: [], shapes: [], images: [], tables: [], charts: [chart], icons: [] }]
     };
+    const colorCases = [
+      { input: "#F0F9FF", expected: "F0F9FF" },
+      { input: "#abc", expected: "AABBCC" },
+      { input: "", expected: "000000" },
+      { input: '<unsafe value="red"/>', expected: "000000" },
+      { input: "x".repeat(4096), expected: "000000" },
+      { input: undefined, expected: null }
+    ];
+    for (const [index, colorCase] of colorCases.entries()) {
+      const styled = structuredClone(chart);
+      styled.id = `chart-color-${index}`;
+      if (colorCase.input === undefined) delete styled.style.textColor;
+      else styled.style.textColor = colorCase.input;
+      styled.nativePayload = promoteNativeChartPayload(styled);
+      ir.pages.push({ ...ir.pages[0], pageIndex: index + 1, charts: [styled] });
+    }
+    const lineChart = structuredClone(chart);
+    lineChart.id = "edited-line-chart";
+    lineChart.type = "line";
+    lineChart.nativePayload = promoteNativeChartPayload(lineChart);
+    ir.pages.push({ ...ir.pages[0], pageIndex: ir.pages.length, charts: [lineChart] });
     const irFile = path.join(directory, "chart.ir.json");
     const outFile = path.join(directory, "chart.pptx");
     fs.writeFileSync(irFile, JSON.stringify(ir), "utf8");
@@ -45,6 +66,25 @@ test("OpenXML builder emits a real ChartPart with an embedded editable workbook"
     assert.match(chartXml, /<c:(?:bar|line|pie|doughnut)Chart>/);
     assert.match(chartXml, /<c:externalData/);
     assert.match(chartXml, /Revenue/);
+    assert.match(chartXml, /<c:txPr><a:bodyPr\s*\/><a:lstStyle\s*\/><a:p><a:pPr><a:defRPr><a:solidFill><a:srgbClr val="111111"/u, "chart labels must inherit the explicit chart text color");
+    const chartParts = entries.filter((name) => /\/charts\/chart\d+\.xml$/u.test(name));
+    assert.equal(chartParts.length, colorCases.length + 2);
+    for (const [index, colorCase] of colorCases.entries()) {
+      const partXml = readZipEntry(outFile, chartParts[index + 1]).toString("utf8");
+      const properties = partXml.match(/<c:txPr>([\s\S]*?)<\/c:txPr>/u)?.[1];
+      if (colorCase.expected === null) assert.equal(properties, undefined, "unspecified color preserves chart defaults");
+      else assert.ok(properties?.includes(`<a:srgbClr val="${colorCase.expected}"`), `color case ${index}`);
+      assert.ok(!partXml.includes("<unsafe"));
+    }
+    const lineXml = readZipEntry(outFile, chartParts.at(-1)).toString("utf8");
+    assert.match(lineXml, /<c:lineChart>/u);
+    const lineSeries = [...lineXml.matchAll(/<c:ser>([\s\S]*?)<\/c:ser>/gu)].map((match) => match[1]);
+    assert.equal(lineSeries.length, 2);
+    for (const [index, seriesXml] of lineSeries.entries()) {
+      const expectedColor = index === 0 ? "2F80ED" : "56CCF2";
+      assert.ok(seriesXml.includes(`<a:ln w="25400"><a:solidFill><a:srgbClr val="${expectedColor}"`), "line series must have a visible stroke in its own color");
+      assert.doesNotMatch(seriesXml, /<a:ln[^>]*><a:noFill/u);
+    }
     const workbookEntries = readZipEntries(readZipEntry(outFile, workbookPart)).map((entry) => entry.name);
     assert.ok(workbookEntries.includes("xl/workbook.xml"));
     assert.ok(workbookEntries.includes("xl/worksheets/sheet1.xml"));

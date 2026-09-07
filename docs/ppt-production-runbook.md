@@ -4,6 +4,18 @@
 
 命令以仓库根目录为工作目录。详细配置见 [团队部署文档](./team-docker-deployment.md)；发布器为 [`team-runtime-production-deploy.ps1`](../scripts/team-runtime-production-deploy.ps1)。不要把本机 fresh-reset、infra/IdP Compose 或本机卷演练直接用于生产。
 
+## OCR 阶段检查点
+
+图片 Worker 支持把完成的 OCR 保存到作业根目录的 `.internal/ocr/` 对象键中。检查点绑定 owner、job、源图内容、页码、尺寸和 OCR 版本；新 attempt 可以复用，交付文件仍写入各自 attempt 目录。检查点不会成为下载产物，作业保留清理会一并删除它。命中检查点后仍须重建并通过原有质量门禁。
+
+两个 OCR Compose overlay 提供可选变量 `COMMON_TOOLS_IMAGE_OCR_CHECKPOINT_REVISION`，默认空值时不启用。启用值必须为 64 位小写 SHA-256：模型与运行时代码全部随不可变工作镜像发布时，可使用已核验镜像 digest 的十六进制部分；如模型来自外部卷，版本摘要必须同时覆盖对应模型清单。代码、依赖、OCR 参数或模型变化必须更新版本。未能绑定完整 OCR 版本时保持关闭，不使用仅有名称、文件名或 Tesseract 可执行文件的校验值代替。
+
+仅对象存储返回 `NoSuchKey` 时重新识别；权限、网络、损坏检查点及写入失败会正常失败上报，不冒充缓存未命中。取消和源文件识别期间变化都阻止发布无效结果。此功能支持已有租约恢复后的新 attempt，不改变普通失败作业的终态规则，也不自动重启已经终止的失败作业。
+
+本地已验证 Handler attempt 1 → 2，并通过真实 PostgreSQL、Redis、MinIO 和独立 Worker 进程的故障演练：检查点写入后终止进程，租约过期后新进程复用 OCR，继续重建并用 OpenXML 生成 PPTX；缺少视觉验收时仍以 `QUALITY_GATE_FAILED` 结束。检查点和产物一起参与保留清理，邻接对象不受影响。演练使用受控 OCR 和重建结果，不能证明真实识别质量或线上启用完成。入口为 `npm run test:postgres-recovery`，已由 CI 的 Linux 作业调用。
+
+检查点读取显式使用 `retryMissing: false`，保留对象存储的 `NoSuchKey`，以便首次执行启动 OCR；默认输入读取仍等待上传就绪。权限、网络及其他错误保持原样失败，不被当作检查点未命中。
+
 ## 1. 变更前必须确认
 
 在受管变更记录中填写实际负责人、联系方式和访问方式。仓库及公开验收报告只保留角色和非敏感记录编号，不存储电话号码、内部管理地址、Webhook 或凭据。
@@ -38,10 +50,11 @@
 npm run common-tools:verify-release-evidence -- --sbom C:\release\common-tools.spdx.json --manifest C:\release\common-tools.release.json
 ```
 
-4. 将 `COMMON_TOOLS_RELEASE_EVIDENCE_FILE` 指向该受保护 evidence 文件，运行 Plan。下方 `common-tools` 是项目示例，必须与已确认的实际项目一致：
+4. 将 `COMMON_TOOLS_RELEASE_EVIDENCE_FILE` 指向该受保护 evidence 文件，设置 `COMMON_TOOLS_RELEASE_REVISION` 为批准记录中的完整 Git revision（40 或 64 位十六进制），再运行 Plan。不要从待验 evidence 自动复制目标 revision，否则无法发现选错发布材料。缺失或不匹配会在 Compose 前失败；回滚时同样设置批准的旧 revision。下方 `common-tools` 是项目示例，必须与已确认的实际项目一致：
 
 ```powershell
 $env:COMMON_TOOLS_RELEASE_EVIDENCE_FILE = 'C:\release\common-tools.release.json'
+$env:COMMON_TOOLS_RELEASE_REVISION = '<approved-full-git-revision>'
 .\scripts\team-runtime-production-deploy.ps1 -Mode Plan -Project common-tools
 ```
 

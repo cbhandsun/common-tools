@@ -99,9 +99,24 @@ function parseTesseractTsv(value, dimensions) {
 
 function runProcess({ executable, args, timeoutMs, isCancellationRequested, spawn = childProcess.spawn }) {
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "ignore"], env: { PATH: process.env.PATH || "", LANG: "C.UTF-8" } });
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 600000) {
+      reject(new TypeError("raw image OCR process configuration is invalid"));
+      return;
+    }
+    let child;
+    try {
+      child = spawn(executable, args, { shell: false, windowsHide: true, detached: process.platform === "linux", stdio: ["ignore", "pipe", "ignore"], env: { PATH: process.env.PATH || "", LANG: "C.UTF-8" } });
+    } catch {
+      reject(new Error("raw image OCR process could not start"));
+      return;
+    }
+    const processGroup = process.platform === "linux" && Number.isSafeInteger(child.pid) && child.pid > 0 ? child.pid : null;
+    let groupSignalFailed = false;
     let settled = false;
     let terminationReason = "";
+    let escalationTimer;
+    let terminationTimer;
+    let cancellationPending = false;
     const output = [];
     let outputBytes = 0;
     const finish = (error, value) => {
@@ -109,31 +124,66 @@ function runProcess({ executable, args, timeoutMs, isCancellationRequested, spaw
       settled = true;
       clearTimeout(timeout);
       clearInterval(cancellationTimer);
+      clearTimeout(escalationTimer);
+      clearTimeout(terminationTimer);
+      output.length = 0;
       error ? reject(error) : resolve(value);
+    };
+    const terminationError = (unconfirmed = false) => {
+      const message = terminationReason === "cancelled" ? "raw image OCR was cancelled"
+        : terminationReason === "timeout" ? "raw image OCR timed out" : "raw image OCR output exceeds limits";
+      return new Error(`${message}${unconfirmed ? "; process termination was not confirmed" : ""}`);
+    };
+    const signal = (name) => {
+      try {
+        if (processGroup) process.kill(-processGroup, name);
+        else child.kill(name);
+      } catch (error) {
+        if (processGroup && error.code !== "ESRCH") groupSignalFailed = true;
+        // The bounded escalation and close deadline remain authoritative.
+      }
     };
     const stop = (reason) => {
       if (settled || terminationReason) return;
       terminationReason = reason;
-      child.kill("SIGTERM");
+      output.length = 0;
+      clearInterval(cancellationTimer);
+      escalationTimer = setTimeout(() => {
+        if (settled) return;
+        terminationTimer = setTimeout(() => finish(terminationError(true)), 1000);
+        signal("SIGKILL");
+      }, 1000);
+      signal("SIGTERM");
     };
     const timeout = setTimeout(() => stop("timeout"), timeoutMs);
     const checkCancellation = () => {
-      Promise.resolve().then(() => isCancellationRequested()).then((requested) => { if (requested) stop("cancelled"); }).catch(() => stop("cancelled"));
+      if (settled || terminationReason || cancellationPending) return;
+      cancellationPending = true;
+      Promise.resolve().then(() => isCancellationRequested())
+        .then((requested) => { if (requested) stop("cancelled"); })
+        .catch(() => stop("cancelled"))
+        .finally(() => { cancellationPending = false; });
     };
     // Do not wait for the first polling interval. Besides reducing cancellation
     // latency, this prevents a loaded Worker event loop from treating an
     // already-cancelled Job as a timeout.
     const cancellationTimer = typeof isCancellationRequested === "function" ? setInterval(checkCancellation, 250) : undefined;
     if (cancellationTimer) checkCancellation();
-    child.once("error", () => finish(new Error("raw image OCR process could not start")));
+    child.once("error", () => {
+      if (!terminationReason) finish(new Error("raw image OCR process could not start"));
+    });
     child.stdout.on("data", (chunk) => {
+      if (settled || terminationReason) return;
       outputBytes += chunk.length;
       if (outputBytes > MAX_OCR_OUTPUT_BYTES) stop("output-limit"); else output.push(chunk);
     });
     child.once("close", (code) => {
-      if (terminationReason === "cancelled") return finish(new Error("raw image OCR was cancelled"));
-      if (terminationReason === "timeout") return finish(new Error("raw image OCR timed out"));
-      if (terminationReason === "output-limit" || outputBytes > MAX_OCR_OUTPUT_BYTES) return finish(new Error("raw image OCR output exceeds limits"));
+      if (terminationReason) {
+        // The group leader can close before descendants with independent stdio.
+        // Kill the remaining group before clearing the escalation timer.
+        if (processGroup) signal("SIGKILL");
+        return finish(terminationError(groupSignalFailed));
+      }
       if (code !== 0) return finish(new Error("raw image OCR failed"));
       finish(null, Buffer.concat(output).toString("utf8"));
     });

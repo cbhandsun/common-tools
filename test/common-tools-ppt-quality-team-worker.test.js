@@ -5,6 +5,7 @@ const test = require("node:test");
 const { crc32 } = require("../packages/ppt-quality-core");
 const { createPptQualityHandler } = require("../packages/ppt-quality-core/team-worker");
 const { workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-quality-worker");
+const { TeamWorker } = require("../packages/team-runtime");
 
 function storedZip(entries) {
   const locals = [];
@@ -53,6 +54,20 @@ function fixture() {
     ["ppt/media/orphan.png", "not-used"]
   ]);
 }
+
+test("real quality handler writes and publishes the attempt namespace supplied by TeamWorker", async () => {
+  const writes = [];
+  const handler = createPptQualityHandler({ objectStore: { async readObject() { return fixture(); }, async putObject(value) { writes.push(value); } } });
+  const worker = new TeamWorker({ repository: {
+    async claim() { return { id: "job", attempt: 2, capability: "ppt-quality", inputObjectKey: "owners/a/inputs/deck.pptx", outputPrefix: "owners/a/jobs/job/" }; },
+    async heartbeat() { return true; }, async isCancellationRequested() { return false; }, async transition(value) { return value; }
+  }, handlers: { "ppt-quality": handler } });
+  const result = await worker.process({ id: "job" }, "worker");
+  assert.equal(result.to, "succeeded");
+  assert.equal(writes.length, 2);
+  assert.deepEqual(writes.map((item) => item.objectKey), result.artifacts.map((item) => item.objectKey));
+  assert.ok(writes.every((item) => item.objectKey.startsWith("owners/a/jobs/job/attempts/2/")));
+});
 
 test("team PPT quality worker audits a bounded PPTX and uploads only report artifacts", async () => {
   const writes = [];

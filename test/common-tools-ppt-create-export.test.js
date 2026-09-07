@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const { JSDOM } = require("jsdom");
 const { createPrintableHtml, deckIrFingerprint, inspectPdf, multiFormatQuality } = require("../packages/ppt-create-core/export");
 const { resolveLibreOffice } = require("../packages/ppt-create-core/libreoffice-pdf");
 
@@ -16,6 +17,32 @@ function writePdf(file, pages) {
   fs.writeFileSync(file, `%PDF-1.7\n${objects}\n99 0 obj << /Type /Pages /Count ${pages} >> endobj\n%%EOF`);
 }
 function writePptx(file) { fs.writeFileSync(file, Buffer.concat([Buffer.from("PK\u0003\u0004"), Buffer.alloc(64, 1)])); }
+
+test("font names cannot inject CSS declarations into printable HTML", () => {
+  const families = ["Arial;position:fixed;inset:0;background:url(https://example.invalid/font)", "Arial", "Microsoft YaHei", "中文字体", 'A "quoted" font', "A\\font", 'Arial";position:fixed;/*', "</style><script>bad()</script>"];
+  for (const family of families) {
+    const model = ir(); model.pages[0].textBoxes[0].font.family = family;
+    const dom = new JSDOM(createPrintableHtml(model));
+    try {
+      const element = dom.window.document.querySelector('[data-object-id="title"]');
+      assert.equal(element.style.position, "");
+      assert.equal(element.style.backgroundImage, "");
+      assert.equal(element.style.inset, "");
+      assert.equal(dom.window.document.querySelectorAll("script").length, 0);
+      assert.ok(element.getAttribute("style").includes(';font-family:"'), "font is represented as one quoted CSS family");
+      if (["Arial", "Microsoft YaHei", "中文字体"].includes(family)) assert.equal(element.style.fontFamily, `"${family}"`);
+    } finally { dom.window.close(); }
+  }
+});
+
+test("invalid or oversized font names use a bounded safe default", () => {
+  for (const family of [undefined, null, "", " ", 123, [], {}, "x".repeat(121), "bad\nfont", "bad\0font", "bad\u007ffont"]) {
+    const model = ir(); model.pages[0].textBoxes[0].font.family = family;
+    const dom = new JSDOM(createPrintableHtml(model));
+    try { assert.equal(dom.window.document.querySelector('[data-object-id="title"]').style.fontFamily, '"Arial"'); }
+    finally { dom.window.close(); }
+  }
+});
 
 test("printable HTML is self-contained, fingerprinted, paged, and escaped", () => {
   const model = ir('</div><script src="https://evil.invalid/x.js">alert(1)</script>');

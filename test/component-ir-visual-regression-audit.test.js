@@ -16,6 +16,26 @@ const {
 } = require("../skills/pd-hifi-slideclone/scripts/component-ir-visual-regression-audit");
 const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
 const { readPng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { writeRenderCacheMetadata } = require("../skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata");
+
+test("isolated render reuse requires matching identity and complete target pages", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "component-render-identity-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const renderDir = path.join(root, "render", "iteration-0", "attempt-fixture");
+  fs.mkdirSync(renderDir, { recursive: true });
+  writePng(path.join(renderDir, "page-1.png"), { width: 1, height: 1, rgba: Buffer.from([0, 0, 0, 255]) });
+  const identity = { provider: "slideclone-render-cache-v1", packageFingerprint: "a".repeat(64), renderer: "libreoffice", expectedPages: 1, dpi: 96 };
+  assert.equal(collectReusableRender(root, [1], identity), null, "unfinished output is not reusable");
+  writeRenderCacheMetadata(renderDir, identity);
+  assert.equal(collectReusableRender(root, [1], identity).renderDir, renderDir);
+  assert.equal(collectReusableRender(root, [1]), null, "modern attempts require explicit input identity");
+  for (const change of [{packageFingerprint: "b".repeat(64)}, {renderer: "powerpoint"}, {dpi: 144}, {expectedPages: 2}]) {
+    assert.equal(collectReusableRender(root, [1], { ...identity, ...change }), null);
+  }
+  assert.equal(collectReusableRender(root, [1, 2], identity), null);
+  fs.writeFileSync(path.join(renderDir, ".slideclone-render-cache.json"), "invalid json");
+  assert.equal(collectReusableRender(root, [1], identity), null);
+});
 
 test("component IR visual regression audit parses CLI flags", () => {
   const args = parseArgs([

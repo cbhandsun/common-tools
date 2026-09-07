@@ -556,6 +556,8 @@ npm run common-tools:verify-release-evidence -- --sbom artifacts/common-tools.sp
 
 无 `images` 的 evidence 只证明源码构建输入，不能作为部署批准；至少含一个 digest 镜像时才标记为 `deployable`。生产 `common-tools team production-preflight` 还要求 `COMMON_TOOLS_RELEASE_EVIDENCE_FILE` 指向已复验的 evidence，并要求其中的镜像集合与 `COMMON_TOOLS_REMOTE_IMAGE` / `COMMON_TOOLS_IMAGE_WORKER_IMAGE` 完全一致，之后才解析 Compose。该 evidence 也**不是数字签名**；受管发布可通过 `COMMON_TOOLS_REQUIRE_RELEASE_SIGNATURE=true`、受控的 signature/public-key 文件启用 cosign 门禁。该门禁验证 evidence blob，并验证 evidence 中每个实际部署的 immutable image digest；缺少 cosign、文件不安全、签名失败或映像集合不一致都在 Compose 前失败。私钥、OIDC 交换令牌和签名材料不得进入仓库、插件、镜像或此 JSON 文件。回滚只允许选择已验证 evidence 中的旧 digest，并再次运行 production preflight，禁止回滚到 tag 或分支头。
 
+生产预检还要求 `COMMON_TOOLS_RELEASE_REVISION` 指定批准记录中的完整 40/64 位 Git revision，并与 evidence 严格匹配。该值不能从待验 evidence 自动推导；缺失、非法或不匹配时，在 Compose 之前停止。回滚使用批准的旧 revision 与对应 evidence。
+
 ## 13. 实施前置门禁与架构决策
 
 本方案允许立即启动架构准备工作，但以下门禁未满足前，不得宣称本地 Docker 或团队 MCP 服务可用。

@@ -1,9 +1,10 @@
 "use strict";
 
+const { runBuilder, invokeBuilder, countMatches, createMinimalDeckIr, createComponentDeckIr, createComponentReplacementFixture, addSlideShapeTiming } = require("./helpers/openxml-contract-fixtures");
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
-const { spawnSync } = require("node:child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -34,7 +35,6 @@ const editableChartFallbackWriterFile = path.join(path.dirname(programFile), "Ed
 const nativeChartWriterFile = path.join(path.dirname(programFile), "NativeChartWriter.cs");
 const templatePlaceholderWriterFile = path.join(path.dirname(programFile), "TemplatePlaceholderWriter.cs");
 const projectFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
-const builderDll = path.join(path.dirname(projectFile), "bin", "Debug", "net8.0", "OpenXmlDeckBuilder.dll");
 const pythonBuilderFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "python", "build_pptx.py");
 
 test("OpenXmlDeckBuilder keeps transport models outside the composition entry point", () => {
@@ -120,7 +120,8 @@ test("OpenXmlDeckBuilder isolates the bounded SmartArt part graph from component
 
 test("Docker and host modes execute the same OpenXmlDeckBuilder implementation", () => {
   const root = path.join(__dirname, "..");
-  const adapter = fs.readFileSync(path.join(root, "skills", "pd-hifi-slideclone", "scripts", "adapters", "pptx-openxml-dotnet.js"), "utf8");
+  const adapter = fs.readFileSync(path.join(root, "packages", "slideclone-core", "pptx-openxml-dotnet.js"), "utf8");
+  assert.equal(require("../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet"), require("../packages/slideclone-core/pptx-openxml-dotnet"));
   const dockerfile = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable"), "utf8");
   assert.match(adapter, /path\.join\(context\.skillRoot, "dotnet", "OpenXmlDeckBuilder"\)/);
   assert.match(adapter, /process\.env\.OPENXML_BUILDER_EXE/);
@@ -402,6 +403,34 @@ test("OpenXmlDeckBuilder writes hybrid fidelity crops below native overlays", { 
 });
 
 
+test("OpenXmlDeckBuilder keeps production residual layers below foreground native objects", { timeout: 60_000 }, () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-residual-stack-"));
+  const irFile = path.join(tmp, "deck.json"); const pptxFile = path.join(tmp, "deck.pptx");
+  fs.writeFileSync(path.join(tmp, "crop.png"), Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8fK8QAAAABJRU5ErkJggg==", "base64"));
+  const box = { x: 0, y: 0, w: 300, h: 200 };
+  fs.writeFileSync(irFile, JSON.stringify({ version: "1.0", slideSize: { widthPt: 960, heightPt: 540 }, pages: [{
+    pageIndex: 0, sourceImage: "", background: { fill: "#FFFFFF" },
+    shapes: [
+      { id: "background-panel", type: "roundRect", box, style: { fill: "#EEEEEE" }, source: { preserveResidualInterior: true } },
+      { id: "foreground-line", type: "line", box: { x: 10, y: 50, w: 200, h: 0 }, style: { stroke: "#0080FF", strokeWidthPt: 2 } }
+    ],
+    images: [
+      { id: "full-residual", type: "fidelity-crop", box, assetPath: "crop.png", source: { fullSlideResidual: true, residualCrop: true, componentRenderStrategy: { mode: "preserve-crop-with-native-and-local-fidelity-overlays" } } },
+      { id: "local-residual", type: "fidelity-crop", box, assetPath: "crop.png", source: { residualCrop: true } }
+    ],
+    textBoxes: [{ id: "foreground-text", text: "Editable", box: { x: 20, y: 20, w: 100, h: 20 } }], tables: [], charts: []
+  }] }));
+  runBuilder(["--ir", irFile, "--out", pptxFile]);
+  const xml = readZipEntry(pptxFile, "ppt/slides/slide1.xml").toString("utf8");
+  const ids = ["background-panel", "full-residual", "local-residual", "foreground-line", "foreground-text"];
+  const offsets = ids.map((id) => xml.indexOf(`name="${id}"`));
+  for (let index = 0; index < ids.length; index += 1) {
+    assert.ok(offsets[index] >= 0, `missing ${ids[index]}`);
+    assert.equal(xml.split(`name="${ids[index]}"`).length - 1, 1, `duplicate ${ids[index]}`);
+    if (index > 0) assert.ok(offsets[index] > offsets[index - 1], `${ids[index]} must render above ${ids[index - 1]}`);
+  }
+});
+
 test("OpenXmlDeckBuilder writes textbox typeface and vertical alignment", () => {
   const source = fs.readFileSync(programFile, "utf8");
 
@@ -441,15 +470,40 @@ test("OpenXmlDeckBuilder hydrates legacy style font fields at the IR boundary", 
   assert.match(source, /string\.Equals\(value, "mid", StringComparison\.OrdinalIgnoreCase\)/);
 });
 
-test("OpenXmlDeckBuilder writes textbox rotation as DrawingML transform rotation", () => {
-  const source = fs.readFileSync(programFile, "utf8");
-  const models = fs.readFileSync(modelsFile, "utf8");
-
-  assert.match(models, /public sealed record TextBoxIr\([\s\S]*double\? Rotation = null,[\s\S]*JsonElement\? Source = null[\s\S]*\);/);
-  assert.match(source, /var transform = new A\.Transform2D\(/);
-  assert.match(source, /Math\.Abs\(textBox\.Rotation \?\? 0\) > 0\.001/);
-  assert.match(source, /transform\.Rotation = ToOpenXmlAngle\(textBox\.Rotation!\.Value\)/);
-  assert.match(source, /static int ToOpenXmlAngle\(double degrees\) => \(int\)Math\.Round\(degrees \* 60000\)/);
+test("OpenXmlDeckBuilder preserves equivalent rotations without integer overflow", {timeout:60000}, t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-rotation-boundary-"));
+  t.after(() => fs.rmSync(root, {recursive:true, force:true}));
+  fs.mkdirSync(path.join(root, "assets"));
+  require("../packages/slideclone-core/png").writePng(path.join(root, "assets", "pixel.png"), {width:2,height:2,rgba:Buffer.alloc(16,255)});
+  const deck = createMinimalDeckIr("rotation boundary");
+  const page = deck.pages[0];
+  const originalText = page.textBoxes[0];
+  page.textBoxes = [];
+  const cases = [[null,0],[0,0],[-90,-5400000],[45.25,2715000],[360,0],[720,0],[100000,16800000],[-100000,-16800000]];
+  cases.forEach(([degrees], index) => {
+    const rotation = degrees === null ? {} : {rotation:degrees};
+    const style = degrees === null ? {} : {rotationDeg:degrees};
+    page.textBoxes.push({...originalText, id:`text-${index}`, ...rotation});
+    page.shapes.push({id:`shape-${index}`,type:"rect",box:{x:10,y:10,w:20,h:20},style});
+    page.shapes.push({id:`freeform-${index}`,type:"freeform",box:{x:10,y:10,w:20,h:20},style:{...style,points:[{x:0,y:0},{x:1,y:0},{x:1,y:1}]}});
+    page.images.push({id:`image-${index}`,type:"image",assetPath:"assets/pixel.png",box:{x:10,y:10,w:20,h:20},style});
+  });
+  assert.equal(require("../packages/slideclone-core/team-worker").validateDeckIr(deck, root).pages, 1);
+  const ir = path.join(root,"deck.json"), output = path.join(root,"deck.pptx");
+  fs.writeFileSync(ir, JSON.stringify(deck));
+  const before = fs.readFileSync(ir);
+  runBuilder(["--ir",ir,"--out",output]);
+  const xml = readZipEntry(output,"ppt/slides/slide1.xml").toString("utf8");
+  for (const [index, [,expected]] of cases.entries()) for (const family of ["text","shape","freeform","image"]) {
+    const start = xml.indexOf(`name="${family}-${index}"`);
+    assert.ok(start >= 0, `${family}-${index} missing`);
+    const end = xml.indexOf(family === "image" ? "</p:pic>" : "</p:sp>", start);
+    const transform = xml.slice(start,end).match(/<a:xfrm\b[^>]*>/u)?.[0];
+    assert.ok(transform);
+    const actual = Number(transform.match(/\brot="(-?\d+)"/u)?.[1] || 0);
+    assert.equal(actual % 21600000 || 0, expected, `${family}-${index} rotation changed`);
+  }
+  assert.deepEqual(fs.readFileSync(ir), before);
 });
 
 test("OpenXmlDeckBuilder writes native shape rotation and flips into DrawingML", { timeout: 60_000 }, () => {
@@ -641,6 +695,8 @@ test("OpenXmlDeckBuilder emits component replacement anchors into PPTX XML", { t
 
 test("OpenXmlDeckBuilder emits native connector shapes with semantic anchors", () => {
   const source = fs.readFileSync(programFile, "utf8");
+  const lineEndSource = fs.readFileSync(path.join(path.dirname(programFile), "LineEndStyle.cs"), "utf8");
+  const pythonBuilderSource = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "python", "build_pptx.py"), "utf8");
 
   assert.match(source, /P\.ConnectionShape CreateConnectionShape\(VisualElementIr element, uint shapeId, IReadOnlyDictionary<string, BoxIr>\? boxIndex\)/);
   assert.match(source, /BuildBoxIndex\(page\)/);
@@ -653,8 +709,13 @@ test("OpenXmlDeckBuilder emits native connector shapes with semantic anchors", (
   assert.match(source, /"elbow-4" => A\.ShapeTypeValues\.BentConnector4/);
   assert.match(source, /"elbow-5" => A\.ShapeTypeValues\.BentConnector5/);
   assert.match(source, /new P\.NonVisualConnectionShapeProperties/);
-  assert.match(source, /new A\.HeadEnd \{ Type = A\.LineEndValues\.Triangle \}/);
-  assert.match(source, /new A\.TailEnd \{ Type = A\.LineEndValues\.Triangle \}/);
+  assert.match(source, /LineEndStyle\.Append\(outline, style\)/);
+  assert.match(lineEndSource, /new A\.HeadEnd/);
+  assert.match(lineEndSource, /new A\.TailEnd/);
+  assert.match(lineEndSource, /Width = ResolveWidth/);
+  assert.match(lineEndSource, /Length = ResolveLength/);
+  assert.match(pythonBuilderSource, /end\.set\("w", line_end_size\(arrow_width\)\)/);
+  assert.match(pythonBuilderSource, /end\.set\("len", line_end_size\(arrow_length\)\)/);
 });
 
 test("OpenXmlDeckBuilder clamps zero-size connector extents for renderer compatibility", { timeout: 60_000 }, () => {
@@ -679,7 +740,7 @@ test("OpenXmlDeckBuilder clamps zero-size connector extents for renderer compati
           id: "horizontal-line",
           type: "line",
           box: { x: 140, y: 160, w: 200, h: 0 },
-          style: { stroke: "#123456", strokeWidthPt: 1 }
+          style: { stroke: "#123456", strokeWidthPt: 1, endArrow: "triangle", endArrowWidth: "large", endArrowLength: "small" }
         }
       ],
       textBoxes: [],
@@ -700,6 +761,7 @@ test("OpenXmlDeckBuilder clamps zero-size connector extents for renderer compati
     .map((match) => ({ cx: Number(match[1]), cy: Number(match[2]) }));
   assert.ok(extents.some((extent) => extent.cx > 0 && extent.cy > 0), "expected positive connector extents");
   assert.equal(extents.some((extent) => extent.cx === 0 || extent.cy === 0), false);
+  assert.match(slideXml, /<a:tailEnd type="triangle" w="lg" len="sm"\s*\/>/);
 });
 
 test("OpenXmlDeckBuilder emits editable custom geometry for freeform IR", { timeout: 60_000 }, () => {
@@ -1839,160 +1901,4 @@ function addSharedSmartArtPng(sourcePptx, outputPptx, options = {}) {
   outputEntries.push({ name: dataRelsEntry, data: Buffer.from(imageRelationships) }, { name: drawingRelsEntry, data: Buffer.from(imageRelationships) }, { name: imageEntry, data: imageBytes });
   writeStoredZipAtomic(outputPptx, outputEntries);
   return { dataEntry, drawingEntry, imageEntry, dataRelsEntry, drawingRelsEntry, dataBytes, drawingBytes, imageBytes };
-}
-
-function resolveDotnet() {
-  if (process.env.DOTNET_BIN) return process.env.DOTNET_BIN;
-  const local = path.join(__dirname, "..", ".tools", "dotnet", process.platform === "win32" ? "dotnet.exe" : "dotnet");
-  return fs.existsSync(local) ? local : "dotnet";
-}
-
-function runBuilder(args) {
-  const result = invokeBuilder(args);
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  return result;
-}
-
-function invokeBuilder(args) {
-  const invocationArgs = freshBuilderDll()
-    ? [builderDll, ...args]
-    : ["run", "--project", projectFile, "--", ...args];
-  return spawnSync(resolveDotnet(), invocationArgs, {
-    cwd: path.dirname(projectFile),
-    encoding: "utf8",
-    windowsHide: true,
-    maxBuffer: 20 * 1024 * 1024
-  });
-}
-
-function freshBuilderDll() {
-  if (!fs.existsSync(builderDll)) return false;
-  const dllMtime = fs.statSync(builderDll).mtimeMs;
-  const sourceFiles = fs.readdirSync(path.dirname(projectFile))
-    .filter((name) => name.endsWith(".cs") || name.endsWith(".csproj"))
-    .map((name) => path.join(path.dirname(projectFile), name));
-  return sourceFiles.every((file) => fs.statSync(file).mtimeMs <= dllMtime);
-}
-
-function countMatches(value, pattern) {
-  return (value.match(pattern) || []).length;
-}
-
-function assertNear(actual, expected, tolerance) {
-  assert.ok(Math.abs(actual - expected) <= tolerance, `expected ${actual} to be within ${tolerance} of ${expected}`);
-}
-
-function createMinimalDeckIr(text) {
-  return {
-    version: "1.0",
-    slideSize: { widthPt: 960, heightPt: 540 },
-    pages: [{
-      pageIndex: 0,
-      sourceImage: "",
-      background: { fill: "#FFFFFF" },
-      shapes: [],
-      textBoxes: [{
-        id: "title",
-        role: "title",
-        text,
-        box: { x: 100, y: 100, w: 400, h: 60 },
-        font: { family: "Arial", sizePt: 24, weight: "bold", color: "#111111", align: "left", valign: "top", lineHeightMultiple: 1 },
-        style: {}
-      }],
-      images: [],
-      tables: [],
-      charts: []
-    }]
-  };
-}
-
-function createComponentDeckIr({ anchor = false, sample = false } = {}) {
-  const replacementPlan = {
-    sourceProvider: "local",
-    componentKind: "component",
-    componentId: "portable-card",
-    layerKey: "0:0",
-    suitabilityTier: "strong",
-    suitabilityScore: 99
-  };
-  return {
-    version: "1.0",
-    slideSize: { widthPt: 960, heightPt: 540 },
-    pages: [{
-      pageIndex: 0,
-      sourceImage: "",
-      background: {},
-      shapes: anchor ? [{
-        id: "portable-anchor",
-        type: "rect",
-        box: { x: 120, y: 100, w: 360, h: 220 },
-        style: { fill: "#E8EEF7" },
-        source: { componentReplacementPlan: replacementPlan }
-      }] : sample ? [{
-        id: "portable-sample-shape",
-        type: "roundrect",
-        box: { x: 20, y: 20, w: 300, h: 160 },
-        style: { fill: "#2F80ED", lineColor: "#165BAA" },
-        source: {}
-      }] : [],
-      textBoxes: sample ? [{
-        id: "portable-sample-text",
-        text: "Portable editable text",
-        box: { x: 60, y: 70, w: 220, h: 40 },
-        font: { family: "Arial", sizePt: 20, weight: "bold", color: "#FFFFFF", align: "center", valign: "mid", lineHeightMultiple: 1 },
-        style: {}
-      }] : [],
-      images: [],
-      tables: [],
-      charts: []
-    }]
-  };
-}
-
-function createComponentReplacementFixture(prefix) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  const targetIr = path.join(tmp, "target.json");
-  const sampleIr = path.join(tmp, "sample.json");
-  const targetPptx = path.join(tmp, "target.pptx");
-  const samplePptx = path.join(tmp, "sample.pptx");
-  const outPptx = path.join(tmp, "out.pptx");
-  const planFile = path.join(tmp, "plan.json");
-  fs.writeFileSync(targetIr, JSON.stringify(createComponentDeckIr({ anchor: true })), "utf8");
-  fs.writeFileSync(sampleIr, JSON.stringify(createComponentDeckIr({ sample: true })), "utf8");
-  runBuilder(["--ir", targetIr, "--out", targetPptx]);
-  runBuilder(["--ir", sampleIr, "--out", samplePptx]);
-  fs.writeFileSync(planFile, JSON.stringify({
-    pptx: targetPptx,
-    operations: [{
-      operation: "replace-anchor-group-with-component-sample",
-      status: "ready",
-      groupKey: "local:component:portable-card:0:0",
-      provider: "local",
-      componentId: "portable-card",
-      layer: "0:0",
-      slides: [1],
-      target: { slide: 1, box: { x: 120, y: 100, w: 360, h: 220 } },
-      sample: { provider: "local", path: samplePptx }
-    }]
-  }), "utf8");
-  return { tmp, targetPptx, samplePptx, outPptx, planFile };
-}
-
-function addSlideShapeTiming(sourcePptx, outputPptx, drawingName) {
-  const source = fs.readFileSync(sourcePptx);
-  const slideEntry = readZipEntries(source, { maxEntryBytes: 128 * 1024 * 1024 })
-    .map((entry) => entry.name)
-    .find((name) => /ppt\/slides\/slide1\.xml$/i.test(name));
-  assert.ok(slideEntry);
-  const slideXml = readZipBufferEntry(source, slideEntry, { maxEntryBytes: 16 * 1024 * 1024 }).toString("utf8");
-  const escapedName = drawingName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const shapeId = new RegExp(`<p:cNvPr[^>]*id="(\\d+)"[^>]*name="${escapedName}"`).exec(slideXml)?.[1]
-    || new RegExp(`<p:cNvPr[^>]*name="${escapedName}"[^>]*id="(\\d+)"`).exec(slideXml)?.[1];
-  assert.ok(shapeId, `missing shape id for ${drawingName}`);
-  const timing = `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst><p:par><p:cTn id="3" fill="hold"><p:childTnLst><p:set><p:cBhvr><p:cTn id="4" dur="1" fill="hold"/><p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="visible"/></p:to></p:set></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`;
-  const animated = /<p:extLst>/.test(slideXml)
-    ? slideXml.replace(/<p:extLst>/, `${timing}<p:extLst>`)
-    : slideXml.replace(/<\/p:sld>$/, `${timing}</p:sld>`);
-  assert.notEqual(animated, slideXml);
-  rewriteZipEntries(sourcePptx, outputPptx, { [slideEntry]: Buffer.from(animated) });
 }

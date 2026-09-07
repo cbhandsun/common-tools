@@ -2,6 +2,11 @@
 
 const assert = require("node:assert/strict");
 const path = require("node:path");
+const fs = require("node:fs");
+const os = require("node:os");
+const { spawnSync } = require("node:child_process");
+const { writeReleaseEvidence } = require("../scripts/release-evidence");
+const { createSbom } = require("../scripts/generate-sbom");
 const test = require("node:test");
 const { credentialSourceMode, immutableImageReference, inspectProductionRelease, releaseSignatureRequired, runProductionPreflight, validateResolvedProductionCompose } = require("../packages/cli/production-preflight");
 
@@ -26,6 +31,7 @@ function productionEnvironment(overrides = {}) {
     COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: "not-a-real-key",
     COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: "not-a-real-secret",
     COMMON_TOOLS_RELEASE_EVIDENCE_FILE: "C:\\release\\common-tools.release.json",
+    COMMON_TOOLS_RELEASE_REVISION: "b".repeat(40),
     ...overrides
   };
 }
@@ -81,6 +87,96 @@ test("production preflight rejects credential-bearing identity and public URLs b
     composeValidator() { composeCalled = true; }
   }), /OIDC_JWKS_URL must not embed credentials/);
   assert.equal(composeCalled, false);
+});
+
+test("production preflight rejects evidence from another approved revision before Compose", () => {
+  const environment = productionEnvironment({ COMMON_TOOLS_RELEASE_REVISION: "c".repeat(40) });
+  let composeCalled = false;
+  assert.throws(() => runProductionPreflight(environment, {
+    repositoryRoot: path.resolve(__dirname, ".."),
+    composeValidator() { composeCalled = true; },
+    evidenceVerifier: verifiedEvidence(environment)
+  }), /revision/);
+  assert.equal(composeCalled, false);
+});
+
+test("deployment resolver accepts the file sets emitted by real production preflight", () => {
+  const direct = inspectProductionRelease(productionEnvironment());
+  const environment = productionEnvironment();
+  for (const name of ["COMMON_TOOLS_DATABASE_USER", "COMMON_TOOLS_DATABASE_PASSWORD", "COMMON_TOOLS_REDIS_USERNAME", "COMMON_TOOLS_REDIS_PASSWORD", "COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID", "COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY"]) {
+    delete environment[name];
+    environment[`${name}_FILE`] = `C:/managed/${name}`;
+  }
+  const files = inspectProductionRelease(environment);
+  const siyuan = "deploy/compose.team-siyuan-secret.yaml";
+  const cases = [direct, files, { ...direct, composeFiles: [...direct.composeFiles, siyuan] }, { ...files, composeFiles: [...files.composeFiles, siyuan] }];
+  const invalid = [
+    { ...direct, composeFiles: [] },
+    { ...direct, composeFiles: [direct.composeFiles[0]] },
+    { ...direct, composeFiles: [...direct.composeFiles, direct.composeFiles[0]] },
+    { ...direct, composeFiles: [...direct.composeFiles, "../private.yaml"] },
+    { ...direct, composeFiles: [...direct.composeFiles, null] },
+    { ...direct, composeFiles: [...direct.composeFiles].reverse() },
+    { ...direct, composeFiles: files.composeFiles },
+    { ...files, composeFiles: direct.composeFiles },
+    { ...direct, credentialSource: "other" },
+    { ...direct, composeFiles: new Array(1000).fill(direct.composeFiles[0]) }
+  ];
+  const result = spawnSync(process.platform === "win32" ? "powershell.exe" : "pwsh", ["-NoProfile", "-NonInteractive", "-File", path.join(__dirname, "fixtures", "production-compose-files.ps1"), path.resolve(__dirname, "..")], {
+    input: JSON.stringify([...cases, ...invalid]), encoding: "utf8", windowsHide: true, timeout: 15000
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), [...cases.map((entry) => ({ accepted: true, count: entry.composeFiles.length, unique: entry.composeFiles.length })), ...invalid.map(() => ({ accepted: false, count: 0, unique: 0 }))]);
+});
+
+test("production revision is required, bounded and validated before evidence or Compose access", () => {
+  for (const revision of [undefined, null, "", "main", "a".repeat(39), "a".repeat(65), "private\nvalue", {}, true]) {
+    let accessed = false;
+    assert.throws(() => runProductionPreflight(productionEnvironment({ COMMON_TOOLS_RELEASE_REVISION: revision }), {
+      repositoryRoot: path.resolve(__dirname, ".."),
+      evidenceVerifier() { accessed = true; }, composeValidator() { accessed = true; }
+    }), (error) => /revision/i.test(error.message) && !error.message.includes("private"));
+    assert.equal(accessed, false);
+  }
+});
+
+test("production preflight passes the normalized approved revision into verification", () => {
+  for (const revision of ["b".repeat(40), "c".repeat(64)]) {
+    const environment = productionEnvironment({ COMMON_TOOLS_RELEASE_REVISION: revision.toUpperCase() });
+    let called = false;
+    const report = runProductionPreflight(environment, {
+      repositoryRoot: path.resolve(__dirname, ".."),
+      evidenceVerifier(options) {
+        assert.equal(options.revision, revision);
+        return verifiedEvidence(environment, { source: { revision } })();
+      },
+      composeValidator() { called = true; }
+    });
+    assert.equal(called, true);
+    assert.equal(report.releaseEvidence.revision, revision);
+  }
+});
+
+test("production admission verifies real release files against the independently selected revision", (t) => {
+  const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "production-revision-"));
+  t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+  const packagePath = path.join(repositoryRoot, "package.json");
+  const lockPath = path.join(repositoryRoot, "package-lock.json");
+  const sbomPath = path.join(repositoryRoot, "sbom.json");
+  const outputPath = path.join(repositoryRoot, "release.json");
+  const identity = { name: "common-tools", version: "1.2.3" };
+  const lock = { lockfileVersion: 3, packages: { "": identity } };
+  fs.writeFileSync(packagePath, JSON.stringify(identity));
+  fs.writeFileSync(lockPath, JSON.stringify(lock));
+  fs.writeFileSync(sbomPath, JSON.stringify(createSbom(lock)));
+  const environment = productionEnvironment({ COMMON_TOOLS_RELEASE_EVIDENCE_FILE: outputPath });
+  writeReleaseEvidence({ packagePath, lockPath, sbomPath, outputPath, revision: environment.COMMON_TOOLS_RELEASE_REVISION, images: [environment.COMMON_TOOLS_REMOTE_IMAGE, environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE] });
+  let composeCalls = 0;
+  const options = { repositoryRoot, composeValidator() { composeCalls++; } };
+  assert.equal(runProductionPreflight(environment, options).releaseEvidence.revision, environment.COMMON_TOOLS_RELEASE_REVISION);
+  assert.equal(composeCalls, 1);
+  assert.throws(() => runProductionPreflight({ ...environment, COMMON_TOOLS_RELEASE_REVISION: "d".repeat(40) }, options), /expected revision/);
+  assert.equal(composeCalls, 1);
 });
 
 test("production preflight requires verified evidence for exactly the deployment image digests", () => {

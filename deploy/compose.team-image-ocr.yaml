@@ -9,6 +9,7 @@ services:
         BASE_IMAGE: ${COMMON_TOOLS_IMAGE_OCR_BASE_IMAGE:-common-tools-image-to-editable:local}
     image: common-tools-image-to-editable-ocr:local
     environment:
+      COMMON_TOOLS_IMAGE_OCR_CHECKPOINT_REVISION: ${COMMON_TOOLS_IMAGE_OCR_CHECKPOINT_REVISION:-}
       COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE: ${COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE:?set tesseract-tsv-v1}
       COMMON_TOOLS_IMAGE_RAW_OCR_EXECUTABLE: ${COMMON_TOOLS_IMAGE_RAW_OCR_EXECUTABLE:-/usr/bin/tesseract}
       COMMON_TOOLS_IMAGE_RAW_OCR_SHA256: ${COMMON_TOOLS_IMAGE_RAW_OCR_SHA256:?set Tesseract binary SHA-256}

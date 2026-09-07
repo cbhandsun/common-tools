@@ -45,10 +45,63 @@ test("Worker trace wrapper retains the Job parent and cannot change handler outc
   const exporter = { exportSpan(value) { exported.push(value); return Promise.resolve(); } };
   const successful = createTracedWorkerHandler(async () => ({ artifacts: [] }), { exporter, capability: "project-audit", clock: (() => { let value = 100; return () => value++; })() });
   assert.deepEqual(await successful({ job: { traceParent } }), { artifacts: [] });
-  assert.deepEqual(exported[0], { spanName: "common-tools.worker", method: "worker/project-audit", statusCode: 200, traceParent, startedAt: 100, endedAt: 101 });
+  assert.deepEqual({ ...exported[0], identity: undefined }, { spanName: "common-tools.worker", method: "worker/project-audit", statusCode: 200, traceParent, startedAt: 100, endedAt: 101, identity: undefined });
   const failing = createTracedWorkerHandler(async () => { throw new Error("handler failure"); }, { exporter, capability: "image-to-editable", clock: () => 200 });
   await assert.rejects(() => failing({ job: { traceParent } }), /handler failure/);
-  assert.deepEqual(exported[1], { spanName: "common-tools.worker", method: "worker/image-to-editable", statusCode: 500, traceParent, startedAt: 200, endedAt: 200 });
+  assert.deepEqual({ ...exported[1], identity: undefined }, { spanName: "common-tools.worker", method: "worker/image-to-editable", statusCode: 500, traceParent, startedAt: 200, endedAt: 200, identity: undefined });
   const original = async () => ({ untouched: true });
   assert.equal(createTracedWorkerHandler(original, { capability: "project-audit" }), original);
+});
+
+test("concurrent Worker stages export bounded child spans with isolated identities and safe fields", async () => {
+  const { runWorkerStage } = require("../packages/team-runtime/worker-failure");
+  const spans = [];
+  const exporter = createOtlpTraceExporter({ endpoint: "https://collector.example.test/v1/traces", serviceName: "worker", timeoutMs: 1000 }, {
+    fetchImpl: async (_url, options) => { spans.push(JSON.parse(options.body).resourceSpans[0].scopeSpans[0].spans[0]); }
+  });
+  const handler = createTracedWorkerHandler(async ({ fail }) => {
+    return runWorkerStage(fail ? "IMAGE_BUILD_FAILED" : "IMAGE_OCR_FAILED", async () => {
+      await new Promise((resolve) => setImmediate(resolve));
+      if (fail) throw new Error("private-provider-token");
+      return "private-result-content";
+    });
+  }, { exporter, capability: "image-to-editable" });
+  const results = await Promise.allSettled([handler({ job: { traceParent } }), handler({ job: {}, fail: true })]);
+  assert.equal(results[0].status, "fulfilled");
+  assert.equal(results[1].status, "rejected");
+  const workers = spans.filter((span) => span.name === "common-tools.worker");
+  const stages = spans.filter((span) => span.name === "common-tools.worker.stage");
+  assert.equal(workers.length, 2);
+  assert.equal(stages.length, 2);
+  assert.notEqual(workers[0].traceId, workers[1].traceId);
+  for (const stage of stages) {
+    const worker = workers.find((item) => item.traceId === stage.traceId);
+    assert.equal(stage.parentSpanId, worker.spanId);
+    assert.equal(stage.status.code, worker.status.code);
+    assert.ok(BigInt(stage.endTimeUnixNano) >= BigInt(stage.startTimeUnixNano));
+  }
+  assert.doesNotMatch(JSON.stringify(spans), /private-|provider-token|result-content/);
+  const original = new Error("original");
+  for (const exportSpan of [() => { throw new Error("collector"); }, async () => { throw new Error("collector"); }]) {
+    const failed = createTracedWorkerHandler(() => runWorkerStage("IMAGE_OCR_FAILED", () => { throw original; }), { exporter: { exportSpan }, capability: "image-to-editable" });
+    await assert.rejects(failed({}), (error) => error.cause === original);
+  }
+});
+
+test("stage trace labels reject content and per-job span count is bounded", async () => {
+  const { runWorkerStage } = require("../packages/team-runtime/worker-failure");
+  const spans = [];
+  const handler = createTracedWorkerHandler(async () => {
+    for (let i = 0; i < 300; i++) await runWorkerStage("IMAGE_OCR_FAILED", () => i);
+  }, { exporter: { exportSpan(value) { spans.push(value); } }, capability: "image-to-editable" });
+  await handler({});
+  assert.equal(spans.filter((span) => span.stage).length, 256);
+  assert.equal(spans.length, 257);
+  const payload = tracePayload({ serviceName: "worker", spanName: "common-tools.worker.stage", stage: "private-token", statusCode: 200, startedAt: 0, endedAt: 1 });
+  assert.doesNotMatch(JSON.stringify(payload), /private-token/);
+  assert.equal(payload.resourceSpans[0].scopeSpans[0].spans[0].attributes.at(-1).value.stringValue, "other");
+  assert.throws(() => tracePayload({ serviceName: "worker", statusCode: 200, startedAt: 0, endedAt: 1, identity: { traceId: "a".repeat(32), spanId: "0".repeat(16) } }), /identity is invalid/);
+  for (const identity of [null, [], {}, "private-token", { traceId: "", spanId: "a".repeat(16) }, { traceId: "a".repeat(10000), spanId: "a".repeat(16) }, { traceId: "a".repeat(32), spanId: { toString() { throw new Error("private-token"); } } }]) {
+    assert.throws(() => tracePayload({ serviceName: "worker", statusCode: 200, startedAt: 0, endedAt: 1, identity }), { message: "trace identity is invalid" });
+  }
 });

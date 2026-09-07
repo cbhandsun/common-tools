@@ -39,10 +39,14 @@ function Invoke-ProductionPreflight {
   catch { throw 'Production deployment preflight returned an invalid result' }
 }
 
-function Resolve-PreflightComposeFiles([object[]]$ReportedFiles) {
+function Resolve-PreflightComposeFiles([object[]]$ReportedFiles, [string]$CredentialSource) {
+  if ($CredentialSource -cnotin @('direct', 'files')) {
+    throw 'Production deployment preflight returned an unsupported credential source'
+  }
   $allowedFiles = @(
     'deploy/compose.team-api.yaml',
     'deploy/compose.team-production.yaml',
+    'deploy/compose.team-production-secrets.yaml',
     'deploy/compose.team-siyuan-secret.yaml'
   )
   $relativeFiles = @($ReportedFiles)
@@ -55,9 +59,16 @@ function Resolve-PreflightComposeFiles([object[]]$ReportedFiles) {
   foreach ($requiredFile in @('deploy/compose.team-api.yaml', 'deploy/compose.team-production.yaml')) {
     if ($requiredFile -notin $relativeFiles) { throw 'Production deployment preflight omitted a required Compose file' }
   }
+  $hasSecrets = $relativeFiles -ccontains 'deploy/compose.team-production-secrets.yaml'
+  if ($hasSecrets -ne ($CredentialSource -ceq 'files')) {
+    throw 'Production deployment Compose files do not match the credential source'
+  }
+  $expectedFiles = @('deploy/compose.team-api.yaml', 'deploy/compose.team-production.yaml')
+  if ($hasSecrets) { $expectedFiles += 'deploy/compose.team-production-secrets.yaml' }
+  if ($relativeFiles -ccontains 'deploy/compose.team-siyuan-secret.yaml') { $expectedFiles += 'deploy/compose.team-siyuan-secret.yaml' }
   $resolvedFiles = @()
   foreach ($relativeFile in $relativeFiles) {
-    if ($relativeFile -isnot [string] -or $relativeFile -notin $allowedFiles) {
+    if ($relativeFile -isnot [string] -or $relativeFile -cnotin $allowedFiles) {
       throw 'Production deployment preflight returned an unsupported Compose file'
     }
     $resolvedFile = Join-Path $repositoryRoot $relativeFile
@@ -65,6 +76,11 @@ function Resolve-PreflightComposeFiles([object[]]$ReportedFiles) {
       throw 'Production deployment preflight returned a missing Compose file'
     }
     $resolvedFiles += $resolvedFile
+  }
+  for ($index = 0; $index -lt $relativeFiles.Count; $index++) {
+    if ($relativeFiles[$index] -cne $expectedFiles[$index]) {
+      throw 'Production deployment preflight returned an invalid Compose file order'
+    }
   }
   return $resolvedFiles
 }
@@ -89,12 +105,7 @@ function Read-DeploymentPlan([string[]]$Capabilities) {
 
 Assert-DockerEngineAvailable -TimeoutSeconds $DockerEngineTimeoutSeconds
 $preflight = Invoke-ProductionPreflight
-$composeFiles = @(Resolve-PreflightComposeFiles @($preflight.composeFiles))
-if ($preflight.credentialSource -eq 'files') {
-  $composeFiles += (Join-Path $repositoryRoot 'deploy/compose.team-production-secrets.yaml')
-} elseif ($preflight.credentialSource -ne 'direct') {
-  throw 'Production deployment preflight returned an unsupported credential source'
-}
+$composeFiles = @(Resolve-PreflightComposeFiles -ReportedFiles @($preflight.composeFiles) -CredentialSource $preflight.credentialSource)
 if ($null -eq $preflight.releaseSignature -or $preflight.releaseSignature.required -notin @($true, $false) -or $preflight.releaseSignature.verified -notin @($true, $false)) {
   throw 'Production deployment preflight returned an invalid release signature result'
 }

@@ -168,7 +168,7 @@ function finalPageCacheImplementationFingerprint() {
   if (cachedImplementationFingerprint) return cachedImplementationFingerprint;
   const scriptsDir = path.resolve(__dirname, "..");
   const scopedFiles = new Set(SCOPED_PAGE_ADAPTERS.map((adapter) => path.resolve(__dirname, adapter.file).toLowerCase()));
-  const files = [path.join(scriptsDir, "rebuild-real-pptx-native.js"), ...listJavaScriptFiles(__dirname)]
+  const files = [path.join(scriptsDir, "rebuild-real-pptx-native.js"), ...sharedImplementationFiles()]
     .filter((file) => !scopedFiles.has(path.resolve(file).toLowerCase()));
   cachedImplementationFingerprint = fingerprintFiles(files, scriptsDir);
   return cachedImplementationFingerprint;
@@ -200,14 +200,23 @@ function finalPageCachePageImplementationFingerprint(page = {}) {
 function finalPageCacheSharedImplementationFingerprint() {
   const scriptsDir = path.resolve(__dirname, "..");
   const scopedFiles = new Set(SCOPED_PAGE_ADAPTERS.map((adapter) => path.resolve(__dirname, adapter.file).toLowerCase()));
-  const files = listJavaScriptFiles(__dirname)
+  const files = sharedImplementationFiles()
     .filter((file) => !scopedFiles.has(path.resolve(file).toLowerCase()));
   return fingerprintFiles(files, scriptsDir);
 }
 
+function sharedImplementationFiles() {
+  // Core modules and their workspace dependencies now live outside the Skill.
+  // Include the runtime package tree conservatively so a migrated rule cannot
+  // reuse a draft produced by an older implementation. Relative names keep the
+  // digest portable across installed locations.
+  const packagesDir = path.resolve(__dirname, "..", "..", "..", "..", "packages");
+  return [...listJavaScriptFiles(__dirname), ...listJavaScriptFiles(packagesDir)];
+}
+
 function fingerprintNativeRebuildFunctions(functionNames = []) {
   const nativeRebuildFile = path.resolve(__dirname, "..", "rebuild-real-pptx-native.js");
-  let source = "";
+  let source;
   try {
     source = fs.readFileSync(nativeRebuildFile, "utf8");
   } catch {
@@ -245,7 +254,7 @@ function fingerprintFiles(files, rootDir) {
 
 function listJavaScriptFiles(dir) {
   const files = [];
-  let entries = [];
+  let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch {
@@ -253,7 +262,7 @@ function listJavaScriptFiles(dir) {
   }
   for (const entry of entries) {
     const file = path.join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...listJavaScriptFiles(file));
+    if (entry.isDirectory() && entry.name !== "node_modules") files.push(...listJavaScriptFiles(file));
     else if (entry.isFile() && entry.name.endsWith(".js")) files.push(file);
   }
   return files;

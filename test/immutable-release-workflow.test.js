@@ -19,10 +19,22 @@ test("immutable release workflow binds Marketplace source and both deployable im
     "cosign verify --certificate-identity",
     "actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6",
     "common-tools:verify-release-evidence",
+    'common-tools:verify-release-evidence -- --sbom artifacts/common-tools.spdx.json --manifest artifacts/common-tools.release.json --revision "${GITHUB_SHA}"',
     "cosign sign-blob --yes --bundle",
     "release already exists; refusing to overwrite immutable release",
     "gh release create"
   ]) assert.equal(workflow.includes(marker), true, `missing release protection: ${marker}`);
   assert.doesNotMatch(workflow, /uses:\s+[^\s]+@(main|master|v\d+)\s*$/mu);
   assert.match(workflow, /permissions:[\s\S]*id-token: write[\s\S]*attestations: write/);
+});
+
+test("CI checks both workflows with an immutable actionlint image and no suppressed rules", () => {
+  const workflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "ci.yml"), "utf8");
+  const step = workflow.split("- name: Validate CI and release workflows")[1]?.split(/\n\s*- name:/)[0];
+  assert.ok(step);
+  assert.match(step, /if: runner.os == 'Linux'/);
+  assert.match(step, /rhysd\/actionlint@sha256:[a-f0-9]{64}/);
+  assert.match(step, /\/work\/ci.yml \/work\/release.yml/);
+  assert.match(step, /--read-only/);
+  assert.doesNotMatch(step, /-ignore|continue-on-error|\|\| true/);
 });

@@ -68,3 +68,21 @@ test("connector shape audit fails closed for malformed metadata and axis drift",
   assert.equal(result.passed, false);
   assert.equal(result.findings[0].code, "connector-axis-drift");
 });
+
+test("connector shape audit verifies route family and explicit semantic anchors", () => {
+  const shape = {
+    id: expectation.id,
+    box: { x: 100, y: 80, w: 120, h: 0 },
+    style: {
+      connectorType: "elbow",
+      endArrow: "triangle",
+      startAnchor: { elementId: "perception", side: "right", position: 0.5 },
+      endAnchor: { elementId: "planning", side: "left", position: 0.5 },
+    },
+    source: { semanticConnector: { ...expectation, route: "elbow", requireExplicitAnchors: true } },
+  };
+  assert.equal(auditConnectorShapes([shape]).passed, true);
+
+  const failed = auditConnectorShapes([{ ...shape, style: { ...shape.style, connectorType: "straight", endAnchor: undefined } }]);
+  assert.deepEqual(failed.findings.map((item) => item.code), ["connector-route-mismatch", "connector-anchor-mismatch"]);
+});

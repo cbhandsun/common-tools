@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const {spawnSync} = require("node:child_process");
 const packageManifest = require("../package.json");
 const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe } = require("../scripts/verify-runtime-package");
 
@@ -15,6 +16,15 @@ function metadata(files = REQUIRED_FILES) {
     files: files.map((file) => ({ path: file, size: 1 }))
   }]);
 }
+
+test("installed image probe follows extracted admission and detects a missing page limit", () => {
+  const root=path.resolve(__dirname,"..");
+  const good=spawnSync(process.execPath,["-e",imageEditableEnhancementProbe(),root],{encoding:"utf8"});
+  assert.equal(good.status,0,good.stdout);assert.equal(good.stdout,"ready");
+  const bypass="const Module=require('node:module');const load=Module._load;Module._load=function(request,...args){if(request.endsWith('normalized-pages-admission.js'))return {admitNormalizedPages:()=>({})};return load.call(this,request,...args);};";
+  const bad=spawnSync(process.execPath,["-e",bypass+imageEditableEnhancementProbe(),root],{encoding:"utf8"});
+  assert.equal(bad.status,2);assert.equal(bad.stdout,"source-worker-contract");
+});
 
 test("runtime package verifier accepts a bounded release-only file manifest", () => {
   const result = parsePackMetadata(metadata([...REQUIRED_FILES, "README.md"]));
@@ -41,7 +51,7 @@ test("runtime package verification is an explicit release and CI gate", () => {
 test("runtime package release gate retains and probes the image residual deduplication implementation", () => {
   for (const file of IMAGE_EDITABLE_RELEASE_FILES) assert.ok(REQUIRED_FILES.includes(file));
   const probe = imageEditableEnhancementProbe();
-  for (const marker of ["residualEraseObjects", "residualDeduplicationStatus", "createEditableSourceArchive", "MAX_RAW_IMAGE_ARCHIVE_PAGES", "createTeamDocumentNormalizer", "MAX_DOCUMENT_PAGES", "createRawImageRenderQualityVerifier", "raw-image-batch-validated", "document-pages-normalized", "MAX_RAW_IMAGE_PAGES", "MAX_EDITABLE_BATCH_INPUTS", "editable batch", "editable-source-archive", "200,000,000 decoded pixels", "eraseObjectMask", "full-slide-object-erased-residual", "residual-native-duplicates-removed"]) assert.match(probe, new RegExp(marker));
+  for (const marker of ["native-rebuild-profile", "local-production-parity-v1", "preserveLocalFidelityImages", "local-production-profile-aligned", "residualEraseObjects", "residualDeduplicationStatus", "createEditableSourceArchive", "MAX_RAW_IMAGE_ARCHIVE_PAGES", "createTeamDocumentNormalizer", "MAX_DOCUMENT_PAGES", "createRawImageRenderQualityVerifier", "raw-image-batch-validated", "document-pages-normalized", "MAX_RAW_IMAGE_PAGES", "MAX_EDITABLE_BATCH_INPUTS", "editable batch", "editable-source-archive", "200,000,000 decoded pixels", "eraseObjectMask", "full-slide-object-erased-residual", "residual-native-duplicates-removed"]) assert.match(probe, new RegExp(marker));
   assert.match(probe, /remote-worker-wiring/);
 });
 

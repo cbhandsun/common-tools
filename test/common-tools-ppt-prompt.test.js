@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
-const { persistPromptPlan, promptToPresentation } = require("../packages/ppt-create-core/prompt");
+const { persistPromptPlan, persistPromptPlanAsync, promptToPresentation } = require("../packages/ppt-create-core/prompt");
 const { setCapabilityEnabled } = require("../packages/capability-runtime");
 const { createPptCreateJob, runPptCreateJob } = require("../packages/ppt-create-core");
 
@@ -86,15 +86,27 @@ test("natural-language creation persists a prompt-free generation manifest and d
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
-test("persistPromptPlan refuses symlinks, unsupported formats and overwrite", { skip: process.platform === "win32" }, () => {
+test("persistPromptPlan refuses unsupported formats and preserves existing output", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ppt-prompt-boundary-"));
   try {
-    fs.writeFileSync(path.join(root, "prompt.csv"), "title,content");
-    assert.throws(() => persistPromptPlan({ workspaceRoot: root, input: "prompt.csv", output: "out.json", audience: "A", purpose: "B" }), /text or Markdown/u);
-    fs.writeFileSync(path.join(root, "prompt.md"), "# Title\n\n- Fact");
-    fs.symlinkSync(path.join(root, "prompt.md"), path.join(root, "link.md"));
-    assert.throws(() => persistPromptPlan({ workspaceRoot: root, input: "link.md", output: "out.json", audience: "A", purpose: "B" }), /non-symbolic/u);
+    const csv = path.join(root, "prompt.csv"); const input = path.join(root, "prompt.md"); const output = path.join(root, "out.json");
+    fs.writeFileSync(csv, "title,content");
+    assert.throws(() => persistPromptPlan({ workspaceRoot: root, input: csv, output, audience: "A", purpose: "B" }), /text or Markdown/u);
+    fs.writeFileSync(input, "# Title\n\n- Fact"); fs.writeFileSync(output, "existing output");
+    assert.throws(() => persistPromptPlan({ workspaceRoot: root, input, output, audience: "A", purpose: "B" }), /new JSON file/u);
+    assert.equal(fs.readFileSync(output, "utf8"), "existing output");
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("prompt persistence refuses symbolic input files before sync or async generation", { skip: process.platform === "win32" }, async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ppt-prompt-symlink-"));
+  try {
+    const input = path.join(root, "prompt.md"); const link = path.join(root, "link.md"); const output = path.join(root, "out.json");
+    fs.writeFileSync(input, "# Title\n\n- Fact"); fs.symlinkSync(input, link);
+    assert.throws(() => persistPromptPlan({ workspaceRoot: root, input: link, output, audience: "A", purpose: "B" }), /non-symbolic/u);
+    await assert.rejects(persistPromptPlanAsync({ workspaceRoot: root, input: link, output, audience: "A", purpose: "B" }), /non-symbolic/u);
+    assert.equal(fs.existsSync(output), false);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

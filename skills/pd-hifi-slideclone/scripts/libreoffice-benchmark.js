@@ -2,8 +2,9 @@
 "use strict";
 
 const fs = require("fs");
+const { resolveLibreOffice, resolvePdfToPpm, fileUrl } = require("../../../packages/slideclone-core/libreoffice-tools");
 const path = require("path");
-const { execFile } = require("child_process");
+const { run: runTool } = require("../../../packages/slideclone-core/renderer-process");
 const { readImageSize } = require("./lib/image-size");
 const { countPptxSlides } = require("./lib/pptx-inventory");
 
@@ -120,70 +121,6 @@ async function renderPdf({ pdftoppm, pdf, renderDir, maxPages, dpi, timeoutMs })
       const image = path.join(renderDir, name);
       return { pageIndex: index, image, ...readImageSize(image) };
     });
-}
-
-function runTool(command, args, options = {}) {
-  const useCmd = process.platform === "win32" && /\.cmd$/i.test(command);
-  const actualCommand = useCmd ? "cmd.exe" : command;
-  const actualArgs = useCmd ? ["/d", "/s", "/c", command, ...args] : args;
-  return new Promise((resolve, reject) => {
-    execFile(actualCommand, actualArgs, {
-      windowsHide: true,
-      timeout: options.timeout,
-      maxBuffer: 20 * 1024 * 1024
-    }, (error, stdout, stderr) => {
-      if (error) {
-        error.stdout = stdout;
-        error.stderr = stderr;
-        reject(error);
-        return;
-      }
-      resolve({ stdout, stderr });
-    });
-  });
-}
-
-function isUsableExecutableCandidate(candidate, platform) {
-  if (!candidate) return false;
-  const windowsAbsolute = /^[A-Za-z]:[\\/]/.test(candidate);
-  if (windowsAbsolute && platform !== "win32") return false;
-  const pathLike = windowsAbsolute || path.isAbsolute(candidate) || candidate.includes("/") || candidate.includes("\\");
-  return !pathLike || fs.existsSync(candidate);
-}
-
-function resolveLibreOffice(value, { environment = process.env, platform = process.platform } = {}) {
-  const candidates = [
-    value,
-    environment.LIBREOFFICE_BIN,
-    ...(platform === "win32" ? [
-      "C:\\Program Files\\LibreOffice\\program\\soffice.com",
-      "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
-      "soffice.com"
-    ] : []),
-    "soffice"
-  ].filter(Boolean);
-  return candidates.find((candidate) => isUsableExecutableCandidate(candidate, platform)) || "soffice";
-}
-
-function resolvePdfToPpm(value, { environment = process.env, platform = process.platform } = {}) {
-  const runtimeRoot = platform === "win32" && environment.USERPROFILE
-    ? path.join(environment.USERPROFILE, ".cache", "codex-runtimes", "codex-primary-runtime", "dependencies")
-    : "";
-  const candidates = [
-    value,
-    environment.PDFTOPPM_BIN,
-    ...(runtimeRoot ? [
-      path.join(runtimeRoot, "native", "poppler", "Library", "bin", "pdftoppm.exe"),
-      path.join(runtimeRoot, "native", "poppler", "bin", "pdftoppm.cmd"),
-      path.join(runtimeRoot, "bin", "pdftoppm.cmd")
-    ] : []),
-    "pdftoppm"
-  ].filter(Boolean);
-  return candidates.find((candidate) => isUsableExecutableCandidate(candidate, platform)) || "pdftoppm";
-}
-
-function fileUrl(file) {
-  return `file:///${path.resolve(file).replace(/\\/g, "/").replace(/^([A-Za-z]):/, "$1:")}`;
 }
 
 function parseArgs(argv) {

@@ -23,9 +23,14 @@ function cssLineBox(box, slideSize = { widthPt: 960, heightPt: 540 }) {
   return `left:${box.x / width * 100}%;top:${box.y / height * 100}%;width:${length}%;height:0;transform-origin:0 50%;transform:rotate(${angle}deg)`;
 }
 function cssColor(value, fallback) { return /^#[0-9A-F]{6}$/u.test(value || "") ? value : fallback; }
+/** @param {unknown} value */
+function cssFontFamily(value) {
+  const family = typeof value === "string" && value.trim() && value.length <= 120 && ![...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127) ? value : "Arial";
+  return `"${family.replace(/["\\]/gu, (character) => `\\${character}`)}"`;
+}
 function textHtml(item, slideSize) {
   const font = item.font || {};
-  const style = `${cssBox(item.box, slideSize)};font-family:${escapeHtml(font.family || "Arial")};font-size:${Number(font.sizePt) || 16}pt;font-weight:${font.weight === "bold" ? 700 : 400};color:${cssColor(font.color, "#111827")};text-align:${font.align === "center" || font.align === "right" ? font.align : "left"}`;
+  const style = `${cssBox(item.box, slideSize)};font-family:${escapeHtml(cssFontFamily(font.family))};font-size:${Number(font.sizePt) || 16}pt;font-weight:${font.weight === "bold" ? 700 : 400};color:${cssColor(font.color, "#111827")};text-align:${font.align === "center" || font.align === "right" ? font.align : "left"}`;
   return `<div class="text" data-object-id="${escapeHtml(item.id)}" style="${style}">${escapeHtml(item.text)}</div>`;
 }
 function shapeHtml(item, slideSize) {

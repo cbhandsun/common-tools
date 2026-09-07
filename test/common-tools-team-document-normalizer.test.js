@@ -15,6 +15,29 @@ function fixtureRoot() {
   return { root, source, png: path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png") };
 }
 
+test("team document normalizer accepts Poppler zero-padded multi-page filenames in numeric order", async () => {
+  const fixture = fixtureRoot();
+  const execFile = (_command, args, _options, callback) => {
+    for (let page = 16; page >= 1; page -= 1) fs.copyFileSync(fixture.png, `${args.at(-1)}-${String(page).padStart(2, "0")}.png`);
+    callback(null);
+  };
+  try {
+    const result = await createTeamDocumentNormalizer({ execFile })({ root: fixture.root, metadata: { kind: "raw-document", documentKind: "pdf", inputFile: fixture.source }, isCancellationRequested: async () => false });
+    assert.equal(result.pages, 16);
+    assert.deepEqual(result.sources.map(source => source.pageIndex), Array.from({length:16}, (_,index)=>index));
+  } finally { fs.rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test("team document normalizer rejects duplicate or missing padded page numbers", async () => {
+  for (const names of [["01", "1"], ["01", "03"], ["00", "01"]]) {
+    const fixture = fixtureRoot();
+    const execFile = (_command,args,_options,callback) => { for (const name of names) fs.copyFileSync(fixture.png, `${args.at(-1)}-${name}.png`); callback(null); };
+    try {
+      await assert.rejects(createTeamDocumentNormalizer({execFile})({root:fixture.root,metadata:{kind:"raw-document",documentKind:"pdf",inputFile:fixture.source},isCancellationRequested:async()=>false}), /non-contiguous/u);
+    } finally { fs.rmSync(fixture.root,{recursive:true,force:true}); }
+  }
+});
+
 test("team document normalizer renders a bounded contiguous PDF page set with fixed arguments", async () => {
   const fixture = fixtureRoot(); const calls = [];
   const execFile = (command, args, _options, callback) => {

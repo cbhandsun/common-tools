@@ -15,6 +15,7 @@ RUN apt-get update \
 COPY package.json package-lock.json ./
 COPY packages ./packages
 COPY skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js ./skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js
+COPY skills/pd-hifi-slideclone/scripts/component-candidate-search.js ./skills/pd-hifi-slideclone/scripts/component-candidate-search.js
 COPY skills/pd-hifi-slideclone/scripts/lib ./skills/pd-hifi-slideclone/scripts/lib
 COPY skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet.js ./skills/pd-hifi-slideclone/scripts/adapters/
 COPY skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice.js skills/pd-hifi-slideclone/scripts/adapters/diff-pixel-png.js ./skills/pd-hifi-slideclone/scripts/adapters/

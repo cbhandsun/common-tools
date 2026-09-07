@@ -105,17 +105,21 @@ test("page selection, font evidence, crop materialization, output sanitization, 
     assert.match(main, new RegExp(`require\\(\"\\.\\/lib\\/${moduleName}\\"\\)`));
     assert.doesNotMatch(moduleSource, /rebuild-real-pptx-native/);
   }
-  const pipeline = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "native-rebuild-deck-pipeline.js"), "utf8");
-  const pageSelection = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "page-selection.js"), "utf8");
+  const pipeline = fs.readFileSync(path.join(ROOT, "packages", "slideclone-core", "native-rebuild-deck-pipeline.js"), "utf8");
+  const pageSelection = fs.readFileSync(path.join(ROOT, "packages", "slideclone-core", "page-selection.js"), "utf8");
   assert.match(main, /require\("\.\/lib\/native-rebuild-deck-pipeline"\)/);
   assert.match(pipeline, /require\("\.\/page-selection"\)/);
   assert.match(pipeline, /planSelectedPages\(sourcePages, pageSelection\)/);
+  assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/native-rebuild-deck-pipeline"), require("../packages/slideclone-core/native-rebuild-deck-pipeline"));
+  assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/page-selection"), require("../packages/slideclone-core/page-selection"));
   assert.doesNotMatch(pageSelection, /rebuild-real-pptx-native/);
   assert.doesNotMatch(main, /^function parsePageSelection/m);
   assert.match(main, /materializeFidelityCrop\(/);
   assert.doesNotMatch(main, /^function sanitizeNative(?:Chart|Charts|Shape|Shapes)/m);
-  const reconstruction = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "system-map-reconstruction.js"), "utf8");
-  const semantics = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "system-map-semantics.js"), "utf8");
+  const reconstruction = fs.readFileSync(path.join(ROOT, "packages", "slideclone-core", "system-map-reconstruction.js"), "utf8");
+  const semantics = fs.readFileSync(path.join(ROOT, "packages", "slideclone-core", "system-map-semantics.js"), "utf8");
+  assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/system-map-reconstruction"), require("../packages/slideclone-core/system-map-reconstruction"));
+  assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/system-map-semantics"), require("../packages/slideclone-core/system-map-semantics"));
   assert.match(reconstruction, /annotateSystemMapSemantics/);
   assert.doesNotMatch(semantics, /rebuild-real-pptx-native/);
 });

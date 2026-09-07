@@ -38,6 +38,36 @@ jobs:
       - name: Run portable architecture and boundary tests
         run: npm run test:portable
 
+      - name: Verify real Linux OCR process termination
+        if: runner.os == 'Linux'
+        run: npm run test:linux-process-recovery
+
+      - name: Verify container restart clears interrupted Worker scratch
+        if: runner.os == 'Linux'
+        run: npm run test:container-recovery
+
+      - name: Validate CI and release workflows
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --mount "type=bind,source=${GITHUB_WORKSPACE}/.github/workflows,target=/work,readonly" \
+            rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 \
+            /work/ci.yml /work/release.yml
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        if: runner.os == 'Linux'
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Verify PostgreSQL leases, Redis loss and Worker process recovery
+        if: runner.os == 'Linux'
+        run: npm run test:postgres-recovery
+
+      - name: Verify S3 attempt isolation and retention with isolated MinIO
+        if: runner.os == 'Linux'
+        run: npm run test:s3-retention
+
   verify:
     needs: portable-core
     runs-on: windows-latest
@@ -91,7 +121,7 @@ jobs:
         run: |
           npm run common-tools:sbom -- --output artifacts/common-tools.spdx.json
           npm run common-tools:release-evidence -- --sbom artifacts/common-tools.spdx.json --output artifacts/common-tools.release.json --revision "$env:GITHUB_SHA"
-          npm run common-tools:verify-release-evidence -- --sbom artifacts/common-tools.spdx.json --manifest artifacts/common-tools.release.json
+          npm run common-tools:verify-release-evidence -- --sbom artifacts/common-tools.spdx.json --manifest artifacts/common-tools.release.json --revision "$env:GITHUB_SHA"
 
       - name: Upload SPDX SBOM
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

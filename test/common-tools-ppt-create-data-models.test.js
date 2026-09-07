@@ -55,6 +55,36 @@ test("Deck IR emits native tables, verified native charts, editable analysis, an
   assert.ok(ir.pages[4].shapes.length >= 4);
 });
 
+test("quality accepts a valid cover page without items", () => {
+  const spec = validatePresentationSpec({
+    version: "1.0",
+    title: "封面省略项目",
+    variantCount: 1,
+    slides: [
+      { id: "cover", role: "cover", title: "封面省略项目" },
+      { id: "content", role: "content", title: "内容页", items: [{ id: "fact", label: "可验证内容" }] }
+    ]
+  });
+  const quality = qualityFor(spec, createDeckIr(spec), { passed: true, checks: [] });
+  assert.equal(quality.passed, true);
+  assert.equal(quality.checks.find((check) => check.name === "required-facts-covered").passed, true);
+  assert.equal(quality.checks.find((check) => check.name === "layout-candidates-available").passed, true);
+  assert.equal(quality.checks.find((check) => check.name === "slide-count-matches").passed, true);
+});
+
+test("quality keeps the two-candidate minimum when the requested upper bound is three", () => {
+  const spec = validatePresentationSpec({ version: "1.0", title: "Candidate limits", variantCount: 3,
+    slides: [{ id: "cover", role: "cover", title: "Candidate limits" },
+      { id: "content", role: "content", title: "Content", items: [{ id: "fact", label: "Verified fact" }] }] });
+  const ir = createDeckIr(spec);
+  const check = (deck) => qualityFor(spec, deck, { passed: true, checks: [] }).checks.find((item) => item.name === "layout-candidates-available").passed;
+  const withCount = (count) => ({ ...ir, pages: ir.pages.map((page) => ({ ...page, intent: { ...page.intent, candidateLayoutIds: page.intent.candidateLayoutIds.slice(0, count) } })) });
+  assert.equal(check(withCount(2)), true);
+  assert.equal(check(withCount(1)), false);
+  assert.equal(check(withCount(0)), false);
+  assert.equal(check({ ...ir, pages: ir.pages.map((page) => ({ ...page, intent: { ...page.intent, candidateLayoutIds: null } })) }), false);
+});
+
 test("OpenXML output retains an editable table and workbook-backed native chart without raster media", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-create-data-"));
   try {

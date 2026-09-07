@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const { spawnSync } = require("node:child_process");
 const { createReleaseEvidence, normalizeImageReference, parseArguments, verifyReleaseEvidence, verifyReleaseEvidenceFile, writeReleaseEvidence } = require("../scripts/release-evidence");
 const { createSbom } = require("../scripts/generate-sbom");
 
@@ -20,6 +21,23 @@ function fixture() {
   fs.writeFileSync(sbomPath, JSON.stringify(createSbom(lock)), "utf8");
   return { root, packagePath, lockPath, sbomPath };
 }
+
+test("release verification enforces the caller's expected revision through both APIs and CLI", (t) => {
+  const values = fixture();
+  t.after(() => fs.rmSync(values.root, { recursive: true, force: true }));
+  const manifestPath = path.join(values.root, "artifacts", "release.json");
+  const revision = "a".repeat(40);
+  writeReleaseEvidence({ ...values, outputPath: manifestPath, revision });
+  for (const verify of [verifyReleaseEvidence, verifyReleaseEvidenceFile]) {
+    assert.equal(verify({ ...values, manifestPath, revision }).evidence.source.revision, revision);
+    assert.throws(() => verify({ ...values, manifestPath, revision: "b".repeat(40) }), /expected revision/);
+    for (const invalid of ["", null, "private-content", "a".repeat(41)]) assert.throws(() => verify({ ...values, manifestPath, revision: invalid }));
+  }
+  const result = spawnSync(process.execPath, [path.join(__dirname, "..", "scripts", "release-evidence.js"), "--verify", "--manifest", manifestPath, "--package", values.packagePath, "--lock", values.lockPath, "--sbom", values.sbomPath, "--revision", "b".repeat(40)], { encoding: "utf8", windowsHide: true });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /expected revision/);
+  assert.doesNotMatch(result.stdout, /verified/);
+});
 
 test("release evidence is deterministic and retains only immutable deployment references", () => {
   const values = fixture();

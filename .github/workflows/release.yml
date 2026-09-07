@@ -43,9 +43,11 @@ jobs:
           test "${GITHUB_REF_NAME}" = "v${version}"
           test "$(git rev-list -n 1 "${GITHUB_REF_NAME}")" = "${GITHUB_SHA}"
           repository="${GITHUB_REPOSITORY,,}"
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "remote_image=${REGISTRY}/${repository}/remote-mcp" >> "${GITHUB_OUTPUT}"
-          echo "image_worker=${REGISTRY}/${repository}/image-to-editable-worker" >> "${GITHUB_OUTPUT}"
+          {
+            echo "version=${version}"
+            echo "remote_image=${REGISTRY}/${repository}/remote-mcp"
+            echo "image_worker=${REGISTRY}/${repository}/image-to-editable-worker"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Install locked dependencies
         run: npm ci --ignore-scripts
@@ -140,7 +142,7 @@ jobs:
           mkdir -p artifacts
           npm run common-tools:sbom -- --output artifacts/common-tools.spdx.json
           npm run common-tools:release-evidence -- --sbom artifacts/common-tools.spdx.json --output artifacts/common-tools.release.json --revision "${GITHUB_SHA}" --image "${REMOTE_IMAGE}@${REMOTE_DIGEST}" --image "${IMAGE_WORKER}@${IMAGE_WORKER_DIGEST}"
-          npm run common-tools:verify-release-evidence -- --sbom artifacts/common-tools.spdx.json --manifest artifacts/common-tools.release.json
+          npm run common-tools:verify-release-evidence -- --sbom artifacts/common-tools.spdx.json --manifest artifacts/common-tools.release.json --revision "${GITHUB_SHA}"
           cosign sign-blob --yes --bundle artifacts/common-tools.release.sigstore.json artifacts/common-tools.release.json
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
           cosign verify-blob --bundle artifacts/common-tools.release.sigstore.json --certificate-identity "${identity}" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" artifacts/common-tools.release.json

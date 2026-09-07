@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { deckIrFingerprint } = require("../packages/ppt-create-core/export");
 const { createIrEditorClientSource } = require("../packages/ppt-create-core/ir-editor-client");
-const { applyIrEditorPatch, createIrPreviewHtml } = require("../packages/ppt-create-core/ir-editor");
+const { applyIrEditorPatch, createIrPreviewHtml, validateEditableIr } = require("../packages/ppt-create-core/ir-editor");
 
 function deck() {
   return { version: "1.0", slideSize: { widthPt: 960, heightPt: 540 }, pages: [{ pageIndex: 0, textBoxes: [{ id: "title", role: "title", text: "Title", box: { x: 40, y: 40, w: 400, h: 60 }, font: { family: "Arial", sizePt: 28, color: "#111827" }, style: { fill: "none", stroke: "none" } }], shapes: [], images: [], tables: [], charts: [], icons: [] }] };
@@ -65,6 +65,71 @@ test("editable IR lifecycle safely edits native table cells and chart data", () 
   assert.equal(result.ir.pages[0].charts[0].nativePayload.dataVerified, true);
   assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-table-cell", pageIndex: 0, objectId: "table", rowIndex: 9, columnIndex: 0, value: "x" }])), /table cell target/u);
   assert.throws(() => applyIrEditorPatch(source, patch(source, [{ type: "set-chart-data", pageIndex: 0, objectId: "chart", chartType: "pie", categories: ["A", "B"], series: [{ name: "A", values: [1, 2] }, { name: "B", values: [3, 4] }] }])), /chart series/u);
+});
+
+test("editable IR rejects malformed native table and chart data before preview or patching", () => {
+  const malformedTable = deck();
+  malformedTable.pages[0].tables.push({ id: "table", type: "table", box: { x: 40, y: 140, w: 400, h: 180 }, rows: [["safe", "\u0000unsafe"]] });
+  assert.throws(() => validateEditableIr(malformedTable), /table cell/u);
+  assert.throws(() => createIrPreviewHtml(malformedTable), /table cell/u);
+  assert.throws(() => applyIrEditorPatch(malformedTable, patch(malformedTable, [{ type: "set-table-cell", pageIndex: 0, objectId: "table", rowIndex: 0, columnIndex: 0, value: "updated" }])), /table cell/u);
+
+  const malformedChart = deck();
+  malformedChart.pages[0].charts.push({ id: "chart", type: "line", box: { x: 480, y: 140, w: 400, h: 180 }, categories: ["Q1"], series: [{ name: "Revenue", values: [Number.POSITIVE_INFINITY] }] });
+  assert.throws(() => validateEditableIr(malformedChart), /chart values/u);
+  assert.throws(() => createIrPreviewHtml(malformedChart), /chart values/u);
+});
+
+test("editable IR preserves compatible irregular tables and historical chart cardinality without mutation", () => {
+  const source = deck();
+  const historicalCategories = Array.from({ length: 13 }, (_, index) => `Period ${index + 1}`);
+  source.pages[0].tables.push({ id: "irregular-table", type: "table", box: { x: 40, y: 140, w: 400, h: 180 }, rows: [[], ["header", "value"], ["first line\nsecond line\tvalue"]] });
+  source.pages[0].charts.push({ id: "legacy-chart", type: "column", box: { x: 480, y: 140, w: 400, h: 180 }, categories: historicalCategories, series: [{ name: "Revenue", values: [1] }, { name: "Forecast", values: historicalCategories.map((_, index) => index) }] });
+  const before = structuredClone(source);
+  assert.strictEqual(validateEditableIr(source), source);
+  assert.deepEqual(source, before);
+  const oneCategory = structuredClone(source);
+  oneCategory.pages[0].charts[0].categories = ["Only category"];
+  assert.doesNotThrow(() => validateEditableIr(oneCategory));
+  const legacyFallback = deck();
+  legacyFallback.pages[0].charts.push({ id: "fallback-chart", type: null, box: { x: 480, y: 140, w: 400, h: 180 }, categories: null, series: null, values: [1, 2, 3] });
+  assert.doesNotThrow(() => validateEditableIr(legacyFallback));
+  const legacyDoughnut = structuredClone(legacyFallback);
+  legacyDoughnut.pages[0].charts[0].type = "doughnut";
+  assert.doesNotThrow(() => validateEditableIr(legacyDoughnut));
+});
+
+test("editable IR bounds empty and extreme native data without imposing new-chart limits", () => {
+  const emptyTable = deck();
+  emptyTable.pages[0].tables.push({ id: "empty-table", type: "table", box: { x: 40, y: 140, w: 400, h: 180 }, rows: [] });
+  assert.throws(() => validateEditableIr(emptyTable), /table rows/u);
+  const oversizedCategory = deck();
+  oversizedCategory.pages[0].charts.push({ id: "wide-chart", type: "line", box: { x: 480, y: 140, w: 400, h: 180 }, categories: Array.from({ length: 10_001 }, (_, index) => String(index)), series: [{ name: "Revenue", values: [1] }] });
+  assert.throws(() => validateEditableIr(oversizedCategory), /chart categories/u);
+  const unsafeSeries = deck();
+  unsafeSeries.pages[0].charts.push({ id: "unsafe-chart", type: "line", box: { x: 480, y: 140, w: 400, h: 180 }, categories: ["Q1"], series: [{ name: "Revenue\u0007", values: [1] }] });
+  assert.throws(() => validateEditableIr(unsafeSeries), /series name/u);
+});
+
+test("raw native data rejects invalid containers, types and size boundaries", () => {
+  const invalidTables = [{ rows: "bad" }, { rows: [null] }, { rows: [[1]] }, { rows: [["x".repeat(32_769)]] }, { rows: Array.from({ length: 10_001 }, () => []) }, { rows: [Array(1_001).fill("")] }];
+  for (const table of invalidTables) {
+    const model = deck();
+    model.pages[0].tables.push({ id: "table-boundary", box: { x: 40, y: 140, w: 400, h: 180 }, ...table });
+    assert.throws(() => validateEditableIr(model), /editable table/u);
+  }
+  const invalidCharts = [
+    { type: "unknown" }, { categories: "bad" }, { categories: [1] }, { categories: ["x".repeat(4_097)] },
+    { series: "bad" }, { series: [null] }, { series: [{ name: 1, values: [1] }] },
+    { series: [{ name: "Series", values: "bad" }] }, { series: [{ name: "Series", values: ["1"] }] },
+    { series: [{ name: "Series", values: [NaN] }] }, { series: [{ name: "Series", values: Array(10_001).fill(1) }] },
+    { series: Array.from({ length: 65 }, () => ({ name: "Series", values: [1] })) }, { series: [] }, { series: [{ values: [] }] }
+  ];
+  for (const chart of invalidCharts) {
+    const model = deck();
+    model.pages[0].charts.push({ id: "chart-boundary", box: { x: 40, y: 140, w: 400, h: 180 }, type: "line", categories: ["A"], series: [{ name: "Series", values: [1] }], ...chart });
+    assert.throws(() => validateEditableIr(model), /editable chart/u);
+  }
 });
 
 test("editable page lifecycle rejects last-page deletion and invalid positions", () => {

@@ -4,7 +4,7 @@ const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { readRawImageDimensions } = require("./team-worker");
+const { readRawImageDimensions } = require("./archive-admission");
 
 const MAX_DOCUMENT_PAGES = 20;
 const MAX_DOCUMENT_TOTAL_BYTES = 60 * 1024 * 1024;
@@ -19,8 +19,10 @@ function runFixedTool(executable, args, { cwd, timeoutMs, execFile = childProces
 
 function numericRenderedPages(directory, prefix) {
   return fs.readdirSync(directory, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && new RegExp(`^${prefix}-[1-9]\\d*\\.png$`, "u").test(entry.name))
-    .map((entry) => ({ entry, page: Number(new RegExp(`^${prefix}-([1-9]\\d*)\\.png$`, "u").exec(entry.name)[1]) }))
+    // Poppler pads page numbers when the document has ten or more pages.
+    // Keep zero and duplicate numbers visible to the contiguous-page check.
+    .filter((entry) => entry.isFile() && new RegExp(`^${prefix}-\\d+\\.png$`, "u").test(entry.name))
+    .map((entry) => ({ entry, page: Number(new RegExp(`^${prefix}-(\\d+)\\.png$`, "u").exec(entry.name)[1]) }))
     .sort((left, right) => left.page - right.page);
 }
 
