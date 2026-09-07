@@ -358,6 +358,7 @@ test("team image worker accepts a bounded Deck IR archive and returns an owner-s
     assert.equal(output.artifacts[0].name, "deck.pptx");
     assert.equal(output.quality.passed, true);
     assert.deepEqual(output.quality.checks.map((check) => check.name), ["deck-ir-validated", "assets-resolved", "pptx-generated"]);
+    assert.equal(output.quality.checks.some((check) => check.name === "visual-fidelity"), false);
     assert.equal(output.quality.metrics.pages, 1);
     assert.equal(uploads.get("owners/a/jobs/job-1/deck.pptx").contentType, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
     assert.equal(fs.readdirSync(temporaryRoot).filter((entry) => entry !== "builder.js").length, 0);
@@ -398,7 +399,73 @@ test(`team image worker stops an active builder on cancellation (${cancellationM
     assert.equal(uploads, 1);
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
+
 }
+
+test("team image worker compares a fully sourced structured Deck IR against its admitted page images", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-structured-source-quality-"));
+  const builderFile = path.join(temporaryRoot, "builder.js");
+  fs.writeFileSync(builderFile, "const fs=require('node:fs'); const i=process.argv.indexOf('--out'); fs.writeFileSync(process.argv[i + 1], Buffer.from('PK\\x03\\x04'));", "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"));
+  const sourced = deck();
+  sourced.pages[0].source = { pageImage: "assets/source.png" };
+  let request;
+  const handler = createImageToEditableArchiveHandler({
+    temporaryRoot, builderExecutable: process.execPath, builderArgs: [builderFile],
+    rawImageQualityVerifier: async (value) => { request = value; return { checks: [{ name: "quality-rendered", passed: true }, { name: "visual-fidelity", passed: true }], metrics: { "pixel-diff-ratio": 0.01 } }; },
+    objectStore: { readObject: async () => archive([tarEntry("deck.json", JSON.stringify(sourced)), tarEntry("assets/source.png", source)]), putObject: async () => {} }
+  });
+  try {
+    const output = await handler({ job: { capability: "image-to-editable", inputObjectKey: "owners/a/inputs/deck.tar.gz", outputPrefix: "owners/a/jobs/structured-quality/" }, isCancellationRequested: async () => false });
+    assert.equal(output.quality.passed, true);
+    assert.deepEqual(output.quality.checks.map((check) => check.name), ["deck-ir-validated", "assets-resolved", "quality-rendered", "visual-fidelity", "pptx-generated"]);
+    assert.deepEqual(request.sourceImages, [path.join(request.root, "assets", "source.png")]);
+    assert.equal(request.deck.pages.length, 1);
+    assert.equal(request.deck.pages[0].source.pageImage, "assets/source.png");
+  } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
+});
+
+test("team image worker rejects partial structured source evidence before build and reports structured verifier failures", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-structured-source-reject-"));
+  const builderFile = path.join(temporaryRoot, "builder.js");
+  fs.writeFileSync(builderFile, "const fs=require('node:fs'); const i=process.argv.indexOf('--out'); fs.writeFileSync(process.argv[i + 1], Buffer.from('PK\\x03\\x04'));", "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"));
+  const partial = deck();
+  partial.pages.push(structuredClone(partial.pages[0])); partial.pages[1].pageIndex = 1;
+  partial.pages[0].source = { pageImage: "assets/source.png" };
+  const baseJob = { capability: "image-to-editable", inputObjectKey: "owners/a/inputs/deck.tar.gz", outputPrefix: "owners/a/jobs/structured-reject/" };
+  try {
+    const rejectHandler = createImageToEditableArchiveHandler({
+      temporaryRoot, builderExecutable: process.execPath, builderArgs: [builderFile],
+      rawImageQualityVerifier: async () => assert.fail("must not compare partial sources"),
+      objectStore: { readObject: async () => archive([tarEntry("deck.json", JSON.stringify(partial)), tarEntry("assets/source.png", source)]), putObject: async () => assert.fail("must not upload") }
+    });
+    await assert.rejects(() => rejectHandler({ job: baseJob, isCancellationRequested: async () => false }), /source\.pageImage must be declared for every page/);
+    const complete = deck(); complete.pages[0].source = { pageImage: "assets/source.png" };
+    for (const response of [null, { checks: [], metrics: {} }, { checks: [{ name: "quality-rendered", passed: false }], metrics: {} }]) {
+    const failedHandler = createImageToEditableArchiveHandler({
+      temporaryRoot, builderExecutable: process.execPath, builderArgs: [builderFile],
+      rawImageQualityVerifier: response === null ? undefined : async () => response,
+      objectStore: { readObject: async () => archive([tarEntry("deck.json", JSON.stringify(complete)), tarEntry("assets/source.png", source)]), putObject: async () => {} }
+    });
+    const output = await failedHandler({ job: { ...baseJob, outputPrefix: "owners/a/jobs/structured-failed/" }, isCancellationRequested: async () => false });
+    assert.equal(output.quality.passed, false);
+    assert.deepEqual(output.quality.checks.find((check) => check.name === "quality-rendered"), { name: "quality-rendered", passed: false });
+    }
+  } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
+});
+
+test("structured source image resolver rejects empty, malicious, missing, and ambiguous page evidence", t => {
+  const { resolveStructuredSourceImages } = require("../packages/slideclone-core/structured-source-images");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "structured-source-image-resolver-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, "assets")); fs.copyFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"), path.join(root, "assets", "source.png"));
+  assert.throws(() => resolveStructuredSourceImages({ pages: [] }, root), /invalid page count/);
+  assert.equal(resolveStructuredSourceImages({ pages: [{ source: { origin: "legacy" } }, {}] }, root), null);
+  assert.throws(() => resolveStructuredSourceImages({ pages: [{ source: { pageImage: "../private.png" } }] }, root), /unsafe asset path|inside assets/);
+  assert.throws(() => resolveStructuredSourceImages({ pages: [{ source: { pageImage: "assets/missing.png" } }] }, root), /missing/);
+  assert.throws(() => resolveStructuredSourceImages({ pages: [{ source: { pageImage: "assets/source.png" } }, {}] }, root), /declared for every page/);
+});
 
 test("team image worker can publish the same bounded multi-format delivery contract", async () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-delivery-"));

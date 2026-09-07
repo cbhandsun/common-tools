@@ -37,7 +37,9 @@ function validatePackage(root) {
   /** @type {unknown} */ let ir;
   try { ir = JSON.parse(fs.readFileSync(deckFile, "utf8")); }
   catch { throw new Error("editable deck.json is invalid JSON"); }
-  return { kind: /** @type {const} */ ("deck-ir"), deckFile, ...validateDeckIr(ir, root) };
+  const validated = validateDeckIr(ir, root);
+  const { resolveStructuredSourceImages } = require("./structured-source-images");
+  return { kind: /** @type {const} */ ("deck-ir"), deckFile, ...validated, structuredDeck: ir, structuredSourceImages: resolveStructuredSourceImages(ir, root) };
 }
 /** @param {string} root */
 function validateRawImagePackage(root) {

@@ -144,9 +144,12 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       if (!fs.existsSync(outputFile) || !fs.statSync(outputFile).isFile() || fs.statSync(outputFile).size < 1 || fs.statSync(outputFile).size > MAX_PPTX_BYTES) throw new Error("editable builder produced an invalid artifact");
       if (await isCancellationRequested()) throw new Error("editable job was cancelled");
       const raw = metadata.kind === "raw-image" || metadata.kind === "raw-document";
+      const sourceImages = raw ? metadata.normalizedSourceImages : metadata.structuredSourceImages;
+      const visualVerificationEnabled = Array.isArray(sourceImages);
+      const verificationDeck = raw ? metadata.generatedDeck : metadata.structuredDeck;
       let renderedImages = [];
-      let visualQuality = raw && rawImageQualityVerifier
-        ? await runWorkerStage("IMAGE_QUALITY_FAILED", () => rawImageQualityVerifier({ root, pptxFile: outputFile, sourceImage: metadata.normalizedSourceImages[0], sourceImages: metadata.normalizedSourceImages, deck: metadata.generatedDeck, isCancellationRequested, collectRenderedPages: pages => { renderedImages = pages; } }))
+      let visualQuality = visualVerificationEnabled && rawImageQualityVerifier
+        ? await runWorkerStage("IMAGE_QUALITY_FAILED", () => rawImageQualityVerifier({ root, pptxFile: outputFile, sourceImage: sourceImages[0], sourceImages, deck: verificationDeck, isCancellationRequested, collectRenderedPages: pages => { renderedImages = pages; } }))
         : null;
       if (raw && rawImageQualityVerifier && rawImageTextRefiner && renderedImages.length && visualQuality?.checks?.some(check => check.name === "quality-rendered" && check.passed === true)) {
         const refinementStartedAt = Date.now();
@@ -173,6 +176,10 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
         ...(metadata.residualDeduplication?.required ? [{ name: "residual-native-duplicates-removed", passed: metadata.residualDeduplication.passed }] : []),
         ...(visualQuality?.checks || [{ name: "quality-render-not-configured", passed: false }])
       );
+      if (!raw && visualVerificationEnabled) checks.push(...(visualQuality?.checks || [{ name: "quality-render-not-configured", passed: false }]));
+      if (!raw && visualVerificationEnabled) for (const name of ["quality-rendered", "visual-fidelity"]) {
+        if (!checks.some(check => check.name === name)) checks.push({ name, passed: false });
+      }
       checks.push({ name: "pptx-generated", passed: true });
       let delivered = null;
       if (await isCancellationRequested()) throw new Error("editable job was cancelled");
@@ -182,7 +189,7 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       if (await isCancellationRequested()) throw new Error("editable job was cancelled");
       if (delivered && (!Array.isArray(delivered.artifacts) || !Array.isArray(delivered.checks))) throw new Error("editable delivery adapter returned an invalid result");
       if (delivered) checks.push(...delivered.checks);
-      const quality = assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0, "residual-erased-native-objects": metadata.residualDeduplication?.erasedObjects || 0, ...(metadata.nativeComponentQuality ? { "component-quality-pages-audited": metadata.nativeComponentQuality.pagesAudited, "component-quality-connectors": metadata.nativeComponentQuality.connectors, "component-quality-minimum-unit-crops": metadata.nativeComponentQuality.minimumUnitCrops, "component-quality-evidenced-crops": metadata.nativeComponentQuality.evidencedMinimumUnitCrops, "component-quality-unverified-crops": metadata.nativeComponentQuality.unverifiedMinimumUnitCrops } : {}), ...(requiredReconstructionProfile ? { "production-profile-aligned": metadata.reconstructionProfile === requiredReconstructionProfile ? 1 : 0 } : {}), ...(visualQuality?.metrics || {}) } : {}), "pptx-bytes": fs.statSync(outputFile).size } });
+      const quality = assertQualityReport({ passed: checks.every((check) => check.passed), checks, metrics: { pages: metadata.pages, "referenced-assets": metadata.assets, ...(raw ? { "native-shapes": metadata.nativeMetrics?.shapes || 0, "native-connectors": metadata.nativeMetrics?.connectors || 0, "native-text-boxes": metadata.nativeMetrics?.textBoxes || 0, "native-tables": metadata.nativeMetrics?.tables || 0, "native-charts": metadata.nativeMetrics?.charts || 0, "residual-images": metadata.nativeMetrics?.images || 0, "residual-erased-native-objects": metadata.residualDeduplication?.erasedObjects || 0, ...(metadata.nativeComponentQuality ? { "component-quality-pages-audited": metadata.nativeComponentQuality.pagesAudited, "component-quality-connectors": metadata.nativeComponentQuality.connectors, "component-quality-minimum-unit-crops": metadata.nativeComponentQuality.minimumUnitCrops, "component-quality-evidenced-crops": metadata.nativeComponentQuality.evidencedMinimumUnitCrops, "component-quality-unverified-crops": metadata.nativeComponentQuality.unverifiedMinimumUnitCrops } : {}), ...(requiredReconstructionProfile ? { "production-profile-aligned": metadata.reconstructionProfile === requiredReconstructionProfile ? 1 : 0 } : {}), ...(visualQuality?.metrics || {}) } : {}), ...(!raw && visualVerificationEnabled ? (visualQuality?.metrics || {}) : {}), "pptx-bytes": fs.statSync(outputFile).size } });
       const outputArtifacts = prepareDeliveryArtifacts(delivered?.artifacts || [{ name: "deck.pptx", file: outputFile, mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }], root);
       const artifacts = [];
       for (const item of outputArtifacts) {

@@ -75,6 +75,7 @@ function createRawImageArchive({ inputFile, inputFiles, outputFile }) {
 }
 
 function createEditableSourceArchive({ inputFile, inputFiles, outputFile }) {
+  if (inputFiles === undefined && path.extname(String(inputFile || "")).toLowerCase() === ".json") return require("./team-structured-deck-archive").createStructuredDeckArchive({ inputFile, outputFile });
   if (inputFiles !== undefined || !EDITABLE_DOCUMENT_EXTENSIONS.has(path.extname(String(inputFile || "")).toLowerCase())) return createRawImageArchive({ inputFile, inputFiles, outputFile });
   if (typeof inputFile !== "string" || !path.isAbsolute(inputFile)) throw new TypeError("editable source archive input must be an absolute path");
   const admitted = assertEditableInputDocument(inputFile);
