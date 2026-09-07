@@ -156,9 +156,9 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   const repositoryMetadata = assertObject(readJson(path.join(root, "package.json"), "repository package metadata is invalid"), "repository package metadata is invalid");
   if (!SEMVER_PATTERN.test(repositoryMetadata.version || "") || pluginRuntimeVersion(metadata.version) !== repositoryMetadata.version) throw new Error("unified Codex plugin version does not match the repository release version");
   const mcp = assertObject(readJson(path.join(pluginRoot, ".mcp.json"), "unified Codex plugin MCP configuration is invalid"), "unified Codex plugin MCP configuration is invalid");
-  const server = mcp.mcpServers?.["common-tools"];
+  const server = mcp.mcpServers?.["common-tools-auth-v2"];
   if (!server || server.type !== "http" || server.url !== "https://plugins.iepose.cn/mcp" || server.oauth?.clientId !== "common-tools-mcp" || Object.keys(server).some((key) => !["type", "url", "oauth"].includes(key))) throw new Error("unified Codex plugin MCP configuration is invalid");
-  const hostedCapabilities = [..._capabilities].sort();
+  const hostedCapabilities = [..._capabilities, "common-tools-connection"].sort();
   const installedSkills = fs.readdirSync(path.join(pluginRoot, "skills"), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   if (JSON.stringify(installedSkills) !== JSON.stringify(hostedCapabilities)) throw new Error("unified Codex plugin capability surface does not match the hosted service");
   const imageSkillFile = path.join(pluginRoot, "skills", "image-to-editable", "SKILL.md");
@@ -169,7 +169,9 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   const auditSkill = fs.readFileSync(path.join(pluginRoot, "skills", "project-audit", "SKILL.md"), "utf8");
   if (!auditSkill.includes("Source-code privacy is the default boundary") || !auditSkill.includes("<plugin-root>/runtime/project-audit/") || !auditSkill.includes("contains no SlideClone, OCR, .NET, Docker") || !auditSkill.includes("obtain separate explicit user approval") || !auditSkill.includes("create_team_upload_target")) throw new Error("unified project-audit Skill is not embedded local-first with an explicit remote boundary");
   const siyuanSkill = fs.readFileSync(path.join(pluginRoot, "skills", "siyuan-note", "SKILL.md"), "utf8");
-  if (!siyuanSkill.includes("siyuan_save_note") || !siyuanSkill.includes("siyuan_list_notebooks") || !siyuanSkill.includes("不可信数据") || !siyuanSkill.includes("不提供删除") || !siyuanSkill.includes("codex mcp logout common-tools") || !siyuanSkill.includes("offline_access") || !siyuanSkill.includes("完全关闭并重新打开 Codex") || siyuanSkill.includes("create_team_upload_target")) throw new Error("unified SiYuan Skill does not enforce the direct private-note and OAuth recovery boundary");
+  if (!siyuanSkill.includes("siyuan_save_note") || !siyuanSkill.includes("siyuan_list_notebooks") || !siyuanSkill.includes("不可信数据") || !siyuanSkill.includes("不提供删除") || !siyuanSkill.includes("codex mcp logout common-tools-auth-v2") || !siyuanSkill.includes("不要让用户复制或执行命令") || !siyuanSkill.includes("offline_access") || !siyuanSkill.includes("完全关闭并重新打开 Codex") || siyuanSkill.includes("create_team_upload_target")) throw new Error("unified SiYuan Skill does not enforce the direct private-note and OAuth recovery boundary");
+  const connectionSkill = fs.readFileSync(path.join(pluginRoot, "skills", "common-tools-connection", "SKILL.md"), "utf8");
+  for (const marker of ["common-tools-auth-v2", "不要让用户复制或执行", "最小 scope", "严格等于", "完全退出并重新打开 Codex"]) if (!connectionSkill.includes(marker)) throw new Error("unified connection recovery Skill is invalid");
   // This source-only verifier is intentionally loaded lazily. Remote runtime
   // bundles reuse this file but do not ship the Git Marketplace sync tooling.
   const syncVerifier = path.join(root, "scripts", "sync-project-audit-plugin-runtime.js");

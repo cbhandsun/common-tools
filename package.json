@@ -1,6 +1,6 @@
 {
   "name": "common-tools",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "private": true,
   "description": "Reusable engineering tools and Codex skills.",
   "type": "commonjs",

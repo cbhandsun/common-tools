@@ -44,10 +44,10 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.equal(marketplace.plugins[0].source.path, "./plugins/common-tools");
   const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".codex-plugin", "plugin.json"), "utf8"));
   assert.equal(manifest.mcpServers, "./.mcp.json");
-  assert.match(manifest.version, /^0\.1\.22\+codex\./);
+  assert.match(manifest.version, /^0\.1\.23\+codex\./);
   assert.equal(manifest.version.split("+")[0], packageManifest.version);
   const mcp = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", ".mcp.json"), "utf8"));
-  assert.deepEqual(mcp.mcpServers["common-tools"], { type: "http", url: "https://plugins.iepose.cn/mcp", oauth: { clientId: "common-tools-mcp" } });
+  assert.deepEqual(mcp.mcpServers["common-tools-auth-v2"], { type: "http", url: "https://plugins.iepose.cn/mcp", oauth: { clientId: "common-tools-mcp" } });
   const imageSkill = fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "image-to-editable", "SKILL.md"), "utf8");
   assert.match(imageSkill, /heavy document normalization, OCR, reconstruction, rendering, and quality work runs on the server/);
   assert.match(imageSkill, /create_team_upload_target/);
@@ -59,7 +59,12 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.doesNotMatch(imageSkill, /common-tools doctor --capability image-to-editable/);
   assert.doesNotMatch(imageSkill, /common-tools editable run --input/);
   const installedSkills = fs.readdirSync(path.join(repositoryRoot, "plugins", "common-tools", "skills"), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
-  assert.deepEqual(installedSkills, capabilities);
+  assert.deepEqual(installedSkills, [...capabilities, "common-tools-connection"].sort());
+  const connectionSkill = fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "common-tools-connection", "SKILL.md"), "utf8");
+  assert.match(connectionSkill, /不要让用户复制或执行/);
+  assert.match(connectionSkill, /common-tools-auth-v2/);
+  assert.match(connectionSkill, /最小 scope/);
+  assert.match(connectionSkill, /完全退出并重新打开 Codex/);
   const auditSkill = fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "project-audit", "SKILL.md"), "utf8");
   assert.match(auditSkill, /Source-code privacy is the default boundary/);
   assert.match(auditSkill, /<plugin-root>\/runtime\/project-audit/);

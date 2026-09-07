@@ -91,7 +91,7 @@ common-tools runtime resolve --capability project-audit
 
 `common-tools runtime status` 输出当前策略和各能力的路由，不输出凭据。`common-tools runtime resolve --capability <id> [--execution local|remote]` 用于在执行前获得可解释决策。
 
-远程 MCP 继续保留一个 `common-tools` 服务入口。OAuth 只在存在需要远程执行的所选能力时发起；本机项目审计不需要 OAuth。MCP 服务端仍以实际可见工具、OAuth scope 和已部署 Worker 作为远程能力的最终边界。
+远程 MCP 继续保留一个统一服务入口；Codex 的受管连接名为 `common-tools-auth-v2`，Claude 保持 `common-tools`。OAuth 只在存在需要远程执行的所选能力时发起；本机项目审计不需要 OAuth。MCP 服务端仍以实际可见工具、OAuth scope 和已部署 Worker 作为远程能力的最终边界。
 
 ## 发布要求
 

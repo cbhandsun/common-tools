@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "common-tools": {
+    "common-tools-auth-v2": {
       "type": "http",
       "url": "https://plugins.iepose.cn/mcp",
       "oauth": { "clientId": "common-tools-mcp" }

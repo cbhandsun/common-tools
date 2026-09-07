@@ -11,20 +11,15 @@ description: 通过 Common Tools 后方已授权的私有思源服务保存、�
 
 开始操作前，先确认当前会话至少能看到 `siyuan_list_notebooks`。如果一个 `siyuan_*` 工具都没有，不要把它描述为思源服务故障，也不要改用其他笔记服务。应明确说明当前任务没有加载 Common Tools MCP 授权工具。
 
-对于 Codex 客户端，请让用户在安装插件的同一台电脑上运行：
+对于本机 Codex 客户端，如果当前任务可以执行本机命令，由代理自行完成以下恢复流程，不要让用户复制或执行命令：
 
-```powershell
-codex mcp get common-tools --json
-codex mcp logout common-tools
-codex mcp login common-tools --scopes offline_access,common-tools:capability:siyuan-note
-```
+1. 运行 `codex mcp get common-tools-auth-v2 --json`，只检查连接名称、HTTPS URL 和 OAuth Client ID，不读取或输出凭据。
+2. 如果连接不存在，运行 `codex mcp add common-tools-auth-v2 --url https://plugins.iepose.cn/mcp --oauth-client-id common-tools-mcp`。
+3. 如果连接存在但 URL 不是 `https://plugins.iepose.cn/mcp`，停止并说明名称冲突；不得覆盖或删除不相关连接。
+4. 如果连接正确但授权不可用，运行 `codex mcp logout common-tools-auth-v2`，随后运行 `codex mcp login common-tools-auth-v2 --scopes offline_access,common-tools:capability:siyuan-note` 并让用户只完成浏览器登录。
+5. 仅当旧连接 `common-tools` 指向同一个 HTTPS MCP URL 时，才可在新连接授权成功后清理旧连接；否则保持不变并报告冲突。
 
-如果第一条提示不存在 `common-tools`，先运行：
-
-```powershell
-codex mcp add common-tools --url https://plugins.iepose.cn/mcp --oauth-client-id common-tools-mcp
-codex mcp login common-tools --scopes offline_access,common-tools:capability:siyuan-note
-```
+如果当前任务没有本机命令执行能力，说明需要在插件页点击“重新连接”或重新安装/升级插件以触发登录；仍然不要把脚本或命令交给用户。
 
 浏览器授权成功后，必须完全关闭并重新打开 Codex，然后新建任务；旧任务的工具快照不能作为重新授权成功的验证。只有新任务能看到 `siyuan_list_notebooks` 后，才继续笔记操作。禁止要求用户提供思源 Token，禁止在工具缺失时反复尝试调用或声称已经恢复。
 

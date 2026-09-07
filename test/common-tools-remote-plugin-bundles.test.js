@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
-const { REMOTE_CAPABILITY_CODES, REMOTE_CAPABILITY_SCOPES, REMOTE_PLUGIN_VERSION, connectionVerificationScript, generateRemotePluginBundles, installGuide, installationScript, marketplaceMetadata, mcpConfiguration, parseArguments, parseCapabilities, parseLayout, parseOrigin, pluginName, remoteRouterSkill, remoteSkill } = require("../scripts/generate-remote-plugin-bundles");
+const { CODEX_MCP_SERVER_NAME, LEGACY_CODEX_MCP_SERVER_NAMES, REMOTE_CAPABILITY_CODES, REMOTE_CAPABILITY_SCOPES, REMOTE_PLUGIN_VERSION, connectionVerificationScript, generateRemotePluginBundles, installGuide, installationScript, marketplaceMetadata, mcpConfiguration, parseArguments, parseCapabilities, parseLayout, parseOrigin, pluginName, remoteRouterSkill, remoteSkill } = require("../scripts/generate-remote-plugin-bundles");
 const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
 const { createFakeLibreOffice, resolveFrameworkCompiler } = require("./helpers/fake-libreoffice");
 
@@ -68,8 +68,9 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
       const root = path.join(output, host, "plugins", "common-tools-remote");
       const mcp = JSON.parse(fs.readFileSync(path.join(root, ".mcp.json"), "utf8"));
       assert.deepEqual(mcp, mcpConfiguration(host, "https://tunnel.example.test"));
-      assert.equal(mcp.mcpServers["common-tools"].url, "https://tunnel.example.test/mcp");
-      assert.equal(mcp.mcpServers["common-tools"].oauth.clientId, "common-tools-mcp");
+      const serverName = host === "codex" ? CODEX_MCP_SERVER_NAME : "common-tools";
+      assert.equal(mcp.mcpServers[serverName].url, "https://tunnel.example.test/mcp");
+      assert.equal(mcp.mcpServers[serverName].oauth.clientId, "common-tools-mcp");
       if (host === "codex") {
         const manifest = JSON.parse(fs.readFileSync(path.join(root, ".codex-plugin", "plugin.json"), "utf8"));
         assert.equal(manifest.mcpServers, "./.mcp.json");
@@ -168,7 +169,7 @@ test("split remote plugin bundles expose one independently installable plugin pe
         const name = pluginName(capability);
         const root = path.join(output, host, "plugins", name);
         assert.deepEqual(fs.readdirSync(path.join(root, "skills")).sort(), [capability]);
-        const serverName = `common-tools-${capability}`;
+        const serverName = host === "codex" ? `${CODEX_MCP_SERVER_NAME}-${capability}` : `common-tools-${capability}`;
         const mcp = JSON.parse(fs.readFileSync(path.join(root, ".mcp.json"), "utf8"));
         assert.deepEqual(mcp, mcpConfiguration(host, "https://tunnel.example.test", serverName));
         assert.equal(mcp.mcpServers[serverName].url, "https://tunnel.example.test/mcp");
@@ -254,7 +255,7 @@ test("generated Windows installer enters capability selection when no parameter 
 
 test("generated Windows installer rejects an empty legacy MCP URL without a null-method failure", { skip: process.platform !== "win32" }, () => {
   const installer = installationScript("codex", "https://tunnel.example.test", ["image-to-editable"], "bundle");
-  const registrationStart = installer.indexOf('$serverName = "common-tools"');
+  const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
   const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
   assert.ok(registrationStart >= 0 && registrationEnd > registrationStart, "generated installer must contain a bounded Codex MCP registration block");
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-migration-"));
@@ -285,7 +286,7 @@ ${registration}`;
 
 test("generated Windows installer accepts the current Codex streamable HTTP configuration shape", { skip: process.platform !== "win32" }, () => {
   const installer = installationScript("codex", "https://tunnel.example.test", ["image-to-editable"], "bundle");
-  const registrationStart = installer.indexOf('$serverName = "common-tools"');
+  const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
   const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-current-shape-"));
   const harnessPath = path.join(parent, "current-shape.ps1");
@@ -295,7 +296,13 @@ test("generated Windows installer accepts the current Codex streamable HTTP conf
 function codex {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
   if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
+    if ($CommandArgs[2] -ne "${CODEX_MCP_SERVER_NAME}") {
+      $global:LASTEXITCODE = 1
+      return
+    }
     '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}'
+    $global:LASTEXITCODE = 0
+    return
   } else {
     Write-Output "CALL=$($CommandArgs -join ' ')"
   }
@@ -307,15 +314,15 @@ ${registration}`;
     fs.writeFileSync(harnessPath, harness, "utf8");
     const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
     assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
-    assert.match(result.stdout, /CALL=mcp logout common-tools/);
-    assert.match(result.stdout, /CALL=mcp login common-tools --scopes offline_access,common-tools:capability:image-to-editable/);
+    assert.match(result.stdout, /CALL=mcp logout common-tools-auth-v2/);
+    assert.match(result.stdout, /CALL=mcp login common-tools-auth-v2 --scopes offline_access,common-tools:capability:image-to-editable/);
     assert.doesNotMatch(result.stdout, /CALL=mcp (?:remove|add)/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
 test("generated Windows installer uses the add command's initial OAuth flow without a second login", { skip: process.platform !== "win32" }, () => {
   const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
-  const registrationStart = installer.indexOf('$serverName = "common-tools"');
+  const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
   const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-new-registration-"));
   const harnessPath = path.join(parent, "new-registration.ps1");
@@ -337,14 +344,88 @@ ${registration}`;
     fs.writeFileSync(harnessPath, harness, "utf8");
     const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
     assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
-    assert.match(result.stdout, /CALL=mcp add common-tools --url https:\/\/tunnel\.example\.test\/mcp --oauth-client-id common-tools-mcp/);
+    assert.match(result.stdout, /CALL=mcp add common-tools-auth-v2 --url https:\/\/tunnel\.example\.test\/mcp --oauth-client-id common-tools-mcp/);
     assert.doesNotMatch(result.stdout, /CALL=mcp (?:logout|login)/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
+test("generated Windows installer removes only a legacy Common Tools connection on the managed endpoint", { skip: process.platform !== "win32" }, () => {
+  const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
+  const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
+  const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-legacy-cleanup-"));
+  const harnessPath = path.join(parent, "legacy-cleanup.ps1");
+  try {
+    const registration = installer.slice(registrationStart, registrationEnd);
+    const harness = `$ErrorActionPreference = "Stop"
+function codex {
+  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
+  if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
+    if ($CommandArgs[2] -eq "${CODEX_MCP_SERVER_NAME}") {
+      '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}'
+    } else {
+      '{"url":"https://tunnel.example.test/mcp"}'
+    }
+    $global:LASTEXITCODE = 0
+    return
+  }
+  Write-Output "CALL=$($CommandArgs -join ' ')"
+  $global:LASTEXITCODE = 0
+}
+$selected = @("siyuan-note")
+$remoteSelected = @("siyuan-note")
+${registration}`;
+    fs.writeFileSync(harnessPath, harness, "utf8");
+    const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+    for (const legacyServerName of LEGACY_CODEX_MCP_SERVER_NAMES) {
+      assert.match(result.stdout, new RegExp(`CALL=mcp logout ${legacyServerName}`));
+      assert.match(result.stdout, new RegExp(`CALL=mcp remove ${legacyServerName}`));
+    }
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("generated Windows installer preserves unrelated or invalid legacy connections", { skip: process.platform !== "win32" }, () => {
+  for (const legacyJson of ['{"url":"https://unrelated.example.test/mcp"}', '{"url":null}', '{"url":"https://user@example.test/mcp"}']) {
+    const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
+    const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
+    const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-legacy-reject-"));
+    const harnessPath = path.join(parent, "legacy-reject.ps1");
+    try {
+      const registration = installer.slice(registrationStart, registrationEnd);
+      const harness = `$ErrorActionPreference = "Stop"
+function codex {
+  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
+  if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
+    if ($CommandArgs[2] -eq "${CODEX_MCP_SERVER_NAME}") {
+      '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}'
+    } else {
+      '${legacyJson}'
+    }
+    $global:LASTEXITCODE = 0
+    return
+  }
+  Write-Output "CALL=$($CommandArgs -join ' ')"
+  $global:LASTEXITCODE = 0
+}
+$selected = @("siyuan-note")
+$remoteSelected = @("siyuan-note")
+${registration}`;
+      fs.writeFileSync(harnessPath, harness, "utf8");
+      const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
+      const output = `${result.stdout}${result.stderr}`;
+      assert.notEqual(result.status, 0, output);
+      assert.match(output, /invalid URL|unrelated URL/);
+      assert.doesNotMatch(result.stdout, /CALL=mcp (?:logout|remove) common-tools(?:\r?\n|$)/);
+      assert.doesNotMatch(output, /null-valued expression/i);
+    } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+  }
+});
+
 test("generated Windows installer fails closed when the stale OAuth session cannot be reset", { skip: process.platform !== "win32" }, () => {
   const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
-  const registrationStart = installer.indexOf('$serverName = "common-tools"');
+  const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
   const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-reset-failure-"));
   const harnessPath = path.join(parent, "reset-failure.ps1");
@@ -494,10 +575,10 @@ test("SiYuan remote Skill uses direct restricted tools instead of the job protoc
   assert.match(skill, /siyuan_save_note/);
   assert.match(skill, /不可信数据/);
   assert.match(skill, /siyuan_list_notebooks/);
-  assert.match(skill, /codex mcp logout common-tools/);
+  assert.match(skill, /common-tools-auth-v2/);
   assert.match(skill, /offline_access/);
   assert.match(skill, /完全关闭并重新打开 Codex/);
-  assert.match(skill, /codex mcp add common-tools --url https:\/\/tunnel\.example\.test\/mcp/);
+  assert.match(skill, /不要让用户复制或执行/);
   assert.doesNotMatch(skill, /plugins\.iepose\.cn/);
   assert.doesNotMatch(skill, /create_team_upload_target/);
   assert.match(skill, /任意思源端点或任意 SQL/);

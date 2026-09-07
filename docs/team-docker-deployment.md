@@ -744,13 +744,15 @@ node .\scripts\generate-remote-plugin-bundles.js --origin https://mcp.example.te
 
 ### 推荐交付：一个插件，多个能力
 
+> 0.1.23 起，以下流程中的 Codex 受管 MCP 名称统一为 `common-tools-auth-v2`；文中历史名称 `common-tools` 仅表示待安全迁移的旧连接。Claude 的连接名不变。安装器只会在旧连接 URL 严格等于包内 HTTPS MCP 地址时自动清理它，并在需要时让用户完成浏览器登录。
+
 团队默认应使用 `bundle`，而不是 `split`。无论安装了多少能力，Codex Desktop 的预期结果都应是 **一个** `Common Tools Remote` 插件，以及 **一个**名为 `common-tools` 的全局 MCP 服务；图片转可编辑、项目审计等是该插件内部可选能力，不是额外的插件条目。为便于在插件页审阅，统一插件会显示一个总览/路由 Skill、一个 `common-tools-help` 中文帮助与导航 Skill，以及每项能力各自的 Skill，例如 `common-tools`、`image-to-editable`、`project-audit`；它们仍共享同一个 MCP。插件同时携带 `docs/zh-CN/README.md` 中文说明索引和各能力中文页；用户可直接询问“怎么用”“项目审计说明”等，由帮助 Skill 导航到对应说明，不会触发上传或执行任务。能力选择只决定 OAuth scope 和路由可见性：例如 `-Capabilities 1,4` 会在同一个插件中启用图片转可编辑和项目审计；请求未选择的能力时，路由 Skill 会明确提示“未选择、未授权或未部署”，不会擅自扩大权限或改用其他能力。
 
 如需改变已安装统一插件的能力集合，重新运行同一包的 `install.ps1 -Capabilities <编码>` 即可；不必新装一个插件，也不应手动登记第二个 MCP 服务。安装完成后可用下面的只读检查确认“一个插件 + 一个 MCP”：
 
 ```powershell
 codex plugin list --json
-codex mcp get common-tools --json
+codex mcp get common-tools-auth-v2 --json
 ```
 
 前者中 `common-tools-remote` 应只出现一次，后者应显示 `https://<公开域名>/mcp`。看到 `Common Tools: image-to-editable` 与 `Common Tools: project-audit` 等多个条目，表示仍保留了早期 `split` 包，而不是当前统一包的正常结果。
