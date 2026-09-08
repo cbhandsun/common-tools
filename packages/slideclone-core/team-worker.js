@@ -3,7 +3,7 @@
 const { safeAssetPath, validateDeckIr, admitRebuiltPage } = require("./deck-ir-admission");
 
 const { admitTemplateBuild } = require("./template-build-admission");
-const { MAX_ARTIFACT_BYTES: MAX_PPTX_BYTES, prepareDeliveryArtifacts, readDeliveryArtifact } = require("./delivery-artifacts");
+const { MAX_ARTIFACT_BYTES: MAX_PPTX_BYTES, prepareDeliveryArtifacts, readDeliveryArtifact } = require("../artifact-core");
 const { run: runProcess } = require("./renderer-process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");

@@ -34,12 +34,13 @@ test("slideclone core has no upward dependency on CLI or skill implementation pa
 test("workspace packages declare direct sibling dependencies without a team-runtime cycle", () => {
   const required = {
     "archive-core": [],
+    "artifact-core": [],
     "capability-runtime": ["@common-tools/capability-contracts"],
     "project-audit-core": ["@common-tools/archive-core", "@common-tools/capability-contracts", "@common-tools/capability-runtime"],
     "ooxml-core": [],
     "ppt-create-core": ["@common-tools/archive-core", "@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core"],
     "ppt-quality-core": ["@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core"],
-    "slideclone-core": ["@common-tools/archive-core", "@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core", "@common-tools/project-audit-core", "@common-tools/team-runtime"],
+    "slideclone-core": ["@common-tools/archive-core", "@common-tools/artifact-core", "@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core", "@common-tools/project-audit-core", "@common-tools/team-runtime"],
     "mcp-server": ["@common-tools/capability-runtime", "@common-tools/ppt-create-core", "@common-tools/ppt-improve-core", "@common-tools/ppt-quality-core", "@common-tools/project-audit-core", "@common-tools/slideclone-core"],
     "team-runtime": ["@common-tools/capability-contracts", "@common-tools/capability-runtime"],
     "remote-mcp-server": ["@common-tools/capability-runtime", "@common-tools/mcp-server", "@common-tools/ppt-create-core", "@common-tools/ppt-improve-core", "@common-tools/ppt-quality-core", "@common-tools/project-audit-core", "@common-tools/slideclone-core", "@common-tools/siyuan-note-core", "@common-tools/team-runtime"]
