@@ -14,7 +14,7 @@ const {
 } = require("../skills/pd-hifi-slideclone/scripts/component-ir-replacement-object-audit");
 const {
   readZipEntryText
-} = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+} = require("../packages/ooxml-core/pptx-zip");
 
 test("component IR replacement object audit counts target slide object changes", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "component-ir-object-audit-"));

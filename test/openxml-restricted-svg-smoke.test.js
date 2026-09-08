@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { expandRestrictedSvgGraphics } = require("../skills/pd-hifi-slideclone/scripts/lib/restricted-svg");
-const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 
 const projectDirectory = path.resolve(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder");
 

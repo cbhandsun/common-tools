@@ -29,7 +29,7 @@ const {
   readOpenXmlBuildCache,
   writeOpenXmlBuildCache
 } = require("../skills/pd-hifi-slideclone/scripts/lib/openxml-build-cache");
-const { writeStoredZipAtomic } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+const { writeStoredZipAtomic } = require("../packages/ooxml-core/pptx-zip");
 const nativeBuilderFileName = process.platform === "win32" ? "OpenXmlDeckBuilder.exe" : "OpenXmlDeckBuilder";
 
 test("OpenXML adapter prefers an explicitly configured builder executable", () => {

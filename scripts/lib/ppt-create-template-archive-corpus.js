@@ -9,7 +9,7 @@ const { inspectPptx } = require("../../packages/ppt-create-core/export");
 const { admitPptCreateArchive, createPptCreateArchive } = require("../../packages/ppt-create-core/team-archive");
 const { applyTemplateLayoutMap, inspectTemplate } = require("../../packages/ppt-create-core/template");
 const { extractEntry, readCentralDirectory } = require("../../packages/ppt-quality-core");
-const { writeStoredZipAtomic } = require("../../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+const { writeStoredZipAtomic } = require("../../packages/ooxml-core/pptx-zip");
 const { buildPptCreateUserTemplateArchiveSpec } = require("./ppt-create-office-corpus");
 
 function packagePartSha256(file, partName) {

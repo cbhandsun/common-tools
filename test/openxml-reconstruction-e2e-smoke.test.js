@@ -12,7 +12,7 @@ const {
   validateReconstructionContracts
 } = require("../skills/pd-hifi-slideclone/scripts/lib/reconstruction-contract");
 const { auditSourceMediaExclusion } = require("../skills/pd-hifi-slideclone/scripts/lib/source-media-exclusion");
-const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
 
 const skillRoot = path.resolve(__dirname, "..", "skills", "pd-hifi-slideclone");

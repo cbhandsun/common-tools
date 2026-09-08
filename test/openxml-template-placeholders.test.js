@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { promoteNativeChartPayload } = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-payload");
-const { readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 
 const projectFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
 

@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { attachNativeLineEndsToArcShapes, attachNativeLineEndsToPptx } = require("../skills/pd-hifi-slideclone/scripts/lib/arc-line-end-ooxml");
-const { readZipEntryText, writeStoredZipAtomic } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+const { readZipEntryText, writeStoredZipAtomic } = require("../packages/ooxml-core/pptx-zip");
 
 function arc(name, lineExtra = "") {
   return "<p:sp><p:nvSpPr><p:cNvPr id=\"1\" name=\"" + name

@@ -4,7 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { fingerprintOoxmlPackage } = require("../skills/pd-hifi-slideclone/scripts/lib/ooxml-package-fingerprint");
-const { listZipEntries } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { listZipEntries } = require("../packages/ooxml-core/pptx-inventory");
 const { validatePowerPointEditableRoundTrip } = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip");
 
 const REQUIRED_FAMILIES = Object.freeze(["list", "process", "hierarchy", "relationship", "matrix", "pyramid", "picture"]);

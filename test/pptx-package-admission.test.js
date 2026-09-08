@@ -7,7 +7,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const zlib = require("node:zlib");
 const test = require("node:test");
-const { readZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+const { readZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-zip");
 
 const project = path.resolve(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
 const dll = path.join(path.dirname(project), "bin", "Debug", "net8.0", "OpenXmlDeckBuilder.dll");

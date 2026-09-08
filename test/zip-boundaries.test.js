@@ -7,8 +7,8 @@ const path = require("node:path");
 const test = require("node:test");
 const zlib = require("node:zlib");
 
-const inventory = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
-const pptxZip = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+const inventory = require("../packages/ooxml-core/pptx-inventory");
+const pptxZip = require("../packages/ooxml-core/pptx-zip");
 
 test("PPTX readers accept a valid bounded deflated entry", () => {
   const fixture = createFixture({

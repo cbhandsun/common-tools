@@ -7,8 +7,8 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { promoteNativeChartPayload } = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-payload");
-const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
-const { readZipEntries } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
+const { readZipEntries } = require("../packages/ooxml-core/pptx-zip");
 
 const projectDirectory = path.resolve(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder");
 

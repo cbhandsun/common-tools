@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { readZipEntryText } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+const { readZipEntryText } = require("../packages/ooxml-core/pptx-zip");
 const {
   isolatePptxComponentGroup,
   isolateSlideXmlGroup

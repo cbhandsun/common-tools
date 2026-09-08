@@ -7,7 +7,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 const { CODEX_MCP_SERVER_NAME, LEGACY_CODEX_MCP_SERVER_NAMES, REMOTE_CAPABILITY_CODES, REMOTE_CAPABILITY_SCOPES, REMOTE_PLUGIN_VERSION, connectionVerificationScript, generateRemotePluginBundles, installGuide, installationScript, marketplaceMetadata, mcpConfiguration, parseArguments, parseCapabilities, parseLayout, parseOrigin, pluginName, remoteRouterSkill, remoteSkill } = require("../scripts/generate-remote-plugin-bundles");
-const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const { createFakeLibreOffice, resolveFrameworkCompiler } = require("./helpers/fake-libreoffice");
 
 test("fake LibreOffice compiler resolves only installed Framework executables", (t) => {

@@ -17,7 +17,7 @@ const {
   countPptxSlides,
   listZipEntries,
   readZipEntry
-} = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+} = require("../packages/ooxml-core/pptx-inventory");
 
 function roundBox(box = {}) {
   return Object.fromEntries(Object.entries(box).map(([key, value]) => [key, Math.round(Number(value) * 1000) / 1000]));

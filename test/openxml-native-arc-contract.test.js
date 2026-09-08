@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { buildOpenXmlDecksSync } = require("../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
-const { readZipEntryText } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+const { readZipEntryText } = require("../packages/ooxml-core/pptx-zip");
 
 test("OpenXML builder keeps fixed-cycle arrows attached to native arc geometry", { timeout: 60_000 }, () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-native-arc-"));

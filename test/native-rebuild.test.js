@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { cropPng, readPng, writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
-const { readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const {
   _private: componentAssetMatcherPrivate
 } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-matcher");

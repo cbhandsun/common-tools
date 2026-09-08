@@ -10,13 +10,13 @@ const os = require("os");
 const path = require("path");
 
 const { promoteNativeChartPayload } = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-payload");
-const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const {
   readZipEntries,
   readZipEntry: readZipBufferEntry,
   rewriteZipEntries,
   writeStoredZipAtomic
-} = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+} = require("../packages/ooxml-core/pptx-zip");
 
 const programFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "Program.cs");
 const modelsFile = path.join(path.dirname(programFile), "Models.cs");
