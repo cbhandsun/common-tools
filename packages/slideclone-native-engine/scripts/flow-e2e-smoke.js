@@ -6,10 +6,10 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const { writePng } = require("./lib/png");
+const visionFlowDiagramRules = require("./adapters/vision-flow-diagram-rules");
 
 const skillRoot = path.resolve(__dirname, "..");
 const slidecloneScript = path.join(skillRoot, "scripts", "slideclone.js");
-const visionFlowDiagramRules = require(path.join(skillRoot, "scripts", "adapters", "vision-flow-diagram-rules.js"));
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));

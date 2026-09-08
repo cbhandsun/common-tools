@@ -1663,12 +1663,12 @@
     },
     "smoke-flow-e2e": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": []
     },
     "smoke-flow-e2e-deep": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-deep.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--profile",
         "deep-polish",
@@ -1678,7 +1678,7 @@
     },
     "smoke-flow-e2e-fast": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-fast.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--profile",
         "fast-batch",
@@ -1687,7 +1687,7 @@
     },
     "smoke-flow-e2e-fast-3page": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-fast-3page.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--profile",
         "fast-batch",
@@ -1700,14 +1700,14 @@
     },
     "smoke-flow-e2e-fontfit": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-fontfit.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--font-fit"
       ]
     },
     "smoke-flow-e2e-hifi": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-hifi.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--profile",
         "balanced",
@@ -1719,12 +1719,12 @@
     },
     "smoke-flow-e2e-matrix": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-matrix.",
-      "script": "scripts/flow-e2e-matrix.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-matrix.js",
       "args": []
     },
     "smoke-flow-e2e-stylefit": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-stylefit.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--container-style-fit"
       ]

@@ -72,7 +72,7 @@
       "mode": "delivery",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/flow-e2e-smoke.js",
+        "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
         "--out",
         "runs/golden-set/flow-baseline"
       ]
@@ -83,7 +83,7 @@
       "mode": "delivery",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/flow-e2e-smoke.js",
+        "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
         "--profile",
         "balanced",
         "--font-fit",
@@ -98,7 +98,7 @@
       "mode": "delivery",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/flow-e2e-smoke.js",
+        "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
         "--profile",
         "fast-batch",
         "--font-fit",
@@ -115,7 +115,7 @@
       "timeoutMs": 360000,
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/flow-e2e-smoke.js",
+        "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
         "--profile",
         "fast-batch",
         "--font-fit",

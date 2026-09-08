@@ -98,6 +98,15 @@ test("golden-set manifest routes LibreOffice benchmark cases through the package
   assert.ok(benchmarkCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/libreoffice-benchmark.js`)));
 });
 
+test("golden-set manifest routes flow smoke cases through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const flowCases = manifest.cases.filter((entry) => entry.command?.includes("packages/slideclone-native-engine/scripts/flow-e2e-smoke.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(flowCases.length, 4);
+  assert.ok(flowCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/flow-e2e-smoke.js`)));
+});
+
 test("golden-set runner keeps report order while using bounded concurrency", async () => {
   let active = 0;
   let peak = 0;

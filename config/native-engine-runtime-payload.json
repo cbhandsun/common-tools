@@ -23,6 +23,8 @@
     "component-plugin-action-queue.js",
     "component-strategy-rebuild.js",
     "complex-graphic-golden-smoke.js",
+    "flow-e2e-matrix.js",
+    "flow-e2e-smoke.js",
     "golden-set-runner.js",
     "harvest-active-powerpoint-component.js",
     "harvest-applied-ppt-components.js",
@@ -43,6 +45,8 @@
     "renderingAndQualityHarness": [
       "complex-graphic-golden-smoke.js",
       "chart-native-render-golden-smoke.js",
+      "flow-e2e-matrix.js",
+      "flow-e2e-smoke.js",
       "golden-set-runner.js",
       "libreoffice-benchmark.js",
       "quality-gate-real-pptx.js",

@@ -23,9 +23,11 @@ test("slideclone registry centralizes package profiles and rejects direct skill-
   assert.equal(path.basename(loadProfile("component-strategy-rebuild-assets-native-turbo").script), "component-strategy-rebuild-parallel.js");
   assert.match(loadProfile("quality-gate-real-pptx").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/quality-gate-real-pptx\.js$/);
   assert.match(loadProfile("watch-plugin-component-downloads").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/watch-plugin-component-downloads\.js$/);
+  assert.match(loadProfile("smoke-flow-e2e").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/flow-e2e-smoke\.js$/);
+  assert.match(loadProfile("smoke-flow-e2e-matrix").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/flow-e2e-matrix\.js$/);
   const result = verifySlidecloneProfiles();
   assert.ok(result.profileCount >= 140);
-  assert.ok(result.nativeProfileCount >= 25);
+  assert.ok(result.nativeProfileCount >= 35);
   assert.ok(result.aliasCount >= 140);
 });
 
