@@ -42,7 +42,7 @@ function main() {
   runNode(["scripts/ppt-create-office-smoke.js", "--out", path.join(plan.outDir, "ppt-create-smoke")], plan.environment);
   const historyCohort = readHistoryCohort(plan.historyFile, environmentEvidence.fingerprint);
   const trendArgs = [
-    "skills/pd-hifi-slideclone/scripts/quality-trend-gate.js",
+    "packages/slideclone-native-engine/scripts/quality-trend-gate.js",
     "--current", reportFile,
     "--history", plan.historyFile,
     "--environment", plan.environmentFile,

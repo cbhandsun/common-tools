@@ -24,6 +24,7 @@
     "harvest-applied-ppt-components.js",
     "libreoffice-benchmark.js",
     "quality-gate-real-pptx.js",
+    "quality-trend-gate.js",
     "rebuild-real-pptx-native.js",
     "rendered-similarity-audit.js",
     "slideclone.js"
@@ -37,6 +38,7 @@
       "golden-set-runner.js",
       "libreoffice-benchmark.js",
       "quality-gate-real-pptx.js",
+      "quality-trend-gate.js",
       "rendered-similarity-audit.js"
     ],
     "componentAcquisitionTools": [
