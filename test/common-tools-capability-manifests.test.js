@@ -15,7 +15,8 @@ const {
   loadCapabilityManifests,
   parseRuntimeRange,
   runtimeSatisfiesRange,
-  validateCapabilityManifest
+  validateCapabilityManifest,
+  validateModuleSource
 } = require("../packages/capability-manifests");
 const runtime = require("../packages/capability-runtime");
 
@@ -30,6 +31,7 @@ test("capability-manifests is the direct package boundary for signed capability 
   assert.equal(runtime.CAPABILITY_MANIFESTS, CAPABILITY_MANIFESTS);
   assert.equal(runtime.RUNTIME_VERSION, RUNTIME_VERSION);
   assert.equal(runtime.validateCapabilityManifest, validateCapabilityManifest);
+  assert.equal(runtime.validateModuleSource, validateModuleSource);
   assert.equal(runtime.loadCapabilityManifests, loadCapabilityManifests);
 });
 

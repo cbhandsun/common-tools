@@ -6,7 +6,7 @@ const crypto = require("node:crypto");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { CAPABILITY_MANIFESTS, JobStore, LOCAL_CAPABILITIES, assertManifestDependencyGraph, canonicalManifest, compareManifestVersions, effectivePluginConfig, insideRoot, loadPluginConfig, parseRuntimeRange, readPluginConfig, readProjectCapabilityScope, resolvedCapabilityDependencies, rollbackPluginConfig, runtimeSatisfiesRange, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig, validateCapabilityManifest } = require("../packages/capability-runtime");
+const { CAPABILITY_MANIFESTS, JobStore, LOCAL_CAPABILITIES, assertManifestDependencyGraph, canonicalManifest, compareManifestVersions, effectivePluginConfig, insideRoot, loadPluginConfig, parseRuntimeRange, readPluginConfig, readProjectCapabilityScope, resolvedCapabilityDependencies, rollbackPluginConfig, runtimeSatisfiesRange, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig, validateCapabilityManifest, validateModuleSource } = require("../packages/capability-runtime");
 const { VISUAL_REPORT_NAME, collectArtifacts, createEditableJob, editableQuality, editableVisualSummary, getJob, runEditableJob } = require("../packages/slideclone-core");
 const { createBundledSlidecloneRunner } = require("../packages/cli/slideclone-runner");
 
@@ -83,6 +83,11 @@ test("capability manifests are hash-verified and plugin revisions can roll back"
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("capability runtime re-exports module source validation", () => {
+  assert.deepEqual(validateModuleSource({ packageName: "@common-tools/example-core", requirePath: "../example-core", exportName: "CAPABILITY_MODULE" }), { packageName: "@common-tools/example-core", requirePath: "../example-core", exportName: "CAPABILITY_MODULE" });
+  assert.throws(() => validateModuleSource({ packageName: "@common-tools/example-core", requirePath: "../../escape", exportName: "CAPABILITY_MODULE" }), /module source/);
 });
 
 test("capability manifests declare a bounded Runtime compatibility range and fail closed outside it", () => {
