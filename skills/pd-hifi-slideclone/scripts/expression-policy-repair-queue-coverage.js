@@ -7,7 +7,7 @@ const {
   buildExpressionPolicyRepairsByLayer,
   expressionPolicyRepairDispositionForImage,
   findExpressionPolicyRepairForLayer
-} = require("./component-strategy-rebuild");
+} = require("../../../packages/slideclone-native-engine/scripts/component-strategy-rebuild");
 
 function parseArgs(argv) {
   const args = {

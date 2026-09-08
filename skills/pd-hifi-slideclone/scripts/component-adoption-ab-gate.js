@@ -82,7 +82,7 @@ function parseArgs(argv = process.argv) {
 
 function buildRebuildArgs({ workRoot, out, deck, pages = "", qualityRoot, renderer, maxPages, candidate = false, promotionReports = [], componentAssetRoots = [], componentGroupMatchMinScore, pptxEngine }) {
   const args = [
-    path.join(__dirname, "component-strategy-rebuild.js"),
+    path.resolve(__dirname, "..", "..", "..", "packages", "slideclone-native-engine", "scripts", "component-strategy-rebuild.js"),
     "--work-root", path.resolve(workRoot),
     "--out", path.resolve(out),
     "--only", deck,

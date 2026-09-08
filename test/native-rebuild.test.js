@@ -8,10 +8,10 @@ const path = require("node:path");
 const { cropPng, readPng, writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
 const { readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const {
-  _private: componentAssetMatcherPrivate
+  _private: matcherPrivate
 } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-matcher");
 const {
-  _private: componentTemplateNativePrivate
+  _private: templatePrivate
 } = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-native-shapes");
 const {
   extractVisualAtoms,
@@ -20,7 +20,7 @@ const {
 const {
   annotateNativeElementsWithPluginReplacementPlans,
   isReplacementPlanCompatibleWithNativeItem
-} = require("../skills/pd-hifi-slideclone/scripts/component-strategy-rebuild");
+} = require("../packages/slideclone-native-engine/scripts/component-strategy-rebuild");
 
 const {
   aggregateForegroundComponent,
@@ -8770,8 +8770,8 @@ test("component asset matcher relearns stale applied plugin summaries without re
     roleTags: ["applied-component", "openxml-inspectable"]
   };
 
-  assert.equal(componentAssetMatcherPrivate.isReusableLearningSummaryFresh(staleSummary, asset), false);
-  assert.equal(componentAssetMatcherPrivate.isReusableLearningSummaryFresh(freshSummary, asset), true);
+  assert.equal(matcherPrivate.isReusableLearningSummaryFresh(staleSummary, asset), false);
+  assert.equal(matcherPrivate.isReusableLearningSummaryFresh(freshSummary, asset), true);
 });
 
 test("component template generation treats bbox-only cached plugin groups as stale", () => {
@@ -8808,8 +8808,8 @@ test("component template generation treats bbox-only cached plugin groups as sta
     }]
   };
 
-  assert.equal(componentTemplateNativePrivate.isGenerationComponentAssetStale(staleAsset), true);
-  assert.equal(componentTemplateNativePrivate.isGenerationComponentAssetStale(freshAsset), false);
+  assert.equal(templatePrivate.isGenerationComponentAssetStale(staleAsset), true);
+  assert.equal(templatePrivate.isGenerationComponentAssetStale(freshAsset), false);
 });
 
 test("component template cycle-loop shells reuse plugin arc-arrow child shapes", () => {

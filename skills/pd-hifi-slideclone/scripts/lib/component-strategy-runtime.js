@@ -6,7 +6,7 @@ module.exports = {
     return {
       ...require("./component-asset-store"),
       ...require("./component-asset-matcher"),
-      searchIrComponentCandidates: require("../component-candidate-search").searchIrComponentCandidates
+      searchIrComponentCandidates: require("../../../../packages/slideclone-native-engine/scripts/component-candidate-search").searchIrComponentCandidates
     };
   }
 };

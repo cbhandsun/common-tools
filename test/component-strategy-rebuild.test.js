@@ -42,7 +42,7 @@ const {
   normalizeComponentAssetRoots,
   summarizePipelineTotals,
   withAppliedComponentHarvestDefaults
-} = require("../skills/pd-hifi-slideclone/scripts/component-strategy-rebuild");
+} = require("../packages/slideclone-native-engine/scripts/component-strategy-rebuild");
 
 test("component strategy rebuild promoted-only inventory filters explicit assets using self-fidelity reports", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-promoted-inventory-"));

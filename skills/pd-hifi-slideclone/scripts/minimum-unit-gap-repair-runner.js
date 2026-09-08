@@ -247,7 +247,7 @@ function runDeckPlan({ plan, args, queueFile, outRoot }) {
   return new Promise((resolve) => {
     const deckOut = path.join(outRoot, safeFileStem(plan.deck));
     const childArgs = [
-      path.join(__dirname, "component-strategy-rebuild-page-shards.js"),
+      path.resolve(__dirname, "..", "..", "..", "packages", "slideclone-native-engine", "scripts", "component-strategy-rebuild-page-shards.js"),
       "--work-root", args.workRoot,
       "--out", deckOut,
       "--only", plan.deck,

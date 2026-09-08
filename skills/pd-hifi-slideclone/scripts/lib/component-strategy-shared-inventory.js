@@ -7,7 +7,7 @@ const {
   parseArgs: parseComponentStrategyArgs,
   resolveComponentInventory,
   withAppliedComponentHarvestDefaults
-} = require("../component-strategy-rebuild");
+} = require("../../../../packages/slideclone-native-engine/scripts/component-strategy-rebuild");
 
 const VALUE_OPTIONS = new Set([
   "--component-inventory",

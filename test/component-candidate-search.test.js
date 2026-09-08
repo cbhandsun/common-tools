@@ -11,7 +11,7 @@ const {
   parseArgs,
   searchIrComponentCandidates,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/component-candidate-search");
+} = require("../packages/slideclone-native-engine/scripts/component-candidate-search");
 
 test("IR component candidate search includes native semantic cycle shape groups", async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "component-candidate-ir-"));

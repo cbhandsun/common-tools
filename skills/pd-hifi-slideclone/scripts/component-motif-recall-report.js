@@ -362,7 +362,7 @@ function buildSuggestedCollectionActions(row) {
     actions.push({
       action: "run-live-component-acquisition-search",
       keywords,
-      command: `node skills\\pd-hifi-slideclone\\scripts\\component-acquisition-search.js --asset-manifest runs\\plugin-component-inventory\\component-asset-manifest.json --out runs\\plugin-component-inventory\\component-acquisition-search.json`,
+      command: `node packages\\slideclone-native-engine\\scripts\\component-acquisition-search.js --asset-manifest runs\\plugin-component-inventory\\component-asset-manifest.json --out runs\\plugin-component-inventory\\component-acquisition-search.json`,
       reason: "queries were planned but no matching candidate document was observed"
     });
   }

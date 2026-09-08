@@ -24,7 +24,7 @@ const {
 } = require("./component-harvest-shortlist");
 const {
   searchIrComponentCandidates
-} = require("./component-candidate-search");
+} = require("../../../packages/slideclone-native-engine/scripts/component-candidate-search");
 
 function parseArgs(argv) {
   const args = {

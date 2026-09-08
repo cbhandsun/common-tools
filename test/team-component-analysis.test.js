@@ -78,7 +78,7 @@ test("component analysis does not evaluate metadata accessors", async t => {
 
 test("component analysis accepts real offline search image and semantic shape layers", async t => {
   const f = fixture(t);
-  const { searchIrComponentCandidates } = require("../skills/pd-hifi-slideclone/scripts/component-candidate-search");
+  const { searchIrComponentCandidates } = require("../packages/slideclone-native-engine/scripts/component-candidate-search");
   const { buildComponentAssetManifest } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-matcher");
   const { buildComponentAssetIndex, buildComponentStrategyIndex } = require("../packages/slideclone-core/component-strategy-annotator");
   f.dependencies.rebuildDeckFromWorkDir = () => ({ pages: [{
