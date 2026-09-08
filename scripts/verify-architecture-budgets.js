@@ -3,6 +3,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { isRuntimePayloadPath } = require("./native-engine-runtime-payload");
 
 const root = path.resolve(__dirname, "..");
 const budgetFile = path.join(root, "config", "architecture-budgets.json");
@@ -13,9 +14,6 @@ const sourceRoots = [
   "scripts",
   "packages"
 ];
-const runtimePayloadDirectories = new Set([
-  "packages/slideclone-native-engine/scripts"
-]);
 
 function verifyArchitectureBudgets(options = {}) {
   const config = validateConfig(readJson(options.budgetFile || budgetFile));
@@ -95,7 +93,7 @@ function listCodeFiles(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     if (["bin", "node_modules", "obj"].includes(entry.name)) continue;
     const target = path.join(directory, entry.name);
-    if (entry.isDirectory() && runtimePayloadDirectories.has(relativePath(target))) continue;
+    if (entry.isDirectory() && isRuntimePayloadPath(target)) continue;
     if (entry.isDirectory()) files.push(...listCodeFiles(target));
     else if (entry.isFile() && /\.(?:cs|js)$/u.test(entry.name)) files.push(target);
   }

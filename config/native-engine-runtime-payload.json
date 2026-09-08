@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "packageName": "@common-tools/slideclone-native-engine",
+  "packageRoot": "packages/slideclone-native-engine",
+  "payloadRoot": "packages/slideclone-native-engine/scripts",
+  "entrypoint": "packages/slideclone-native-engine/index.js",
+  "runtimeEntrypoint": "rebuild-real-pptx-native.js",
+  "managedBy": [
+    "scripts/check-common-tools.js syntax check",
+    "scripts/verify-workspace-boundaries.js package boundary check",
+    "scripts/verify-runtime-package.js release payload probe"
+  ],
+  "directories": [
+    "adapters",
+    "lib"
+  ],
+  "rootScripts": [
+    "component-acquisition-search.js",
+    "component-candidate-search.js",
+    "component-plugin-action-queue.js",
+    "component-strategy-rebuild.js",
+    "golden-set-runner.js",
+    "harvest-applied-ppt-components.js",
+    "libreoffice-benchmark.js",
+    "rebuild-real-pptx-native.js",
+    "rendered-similarity-audit.js",
+    "slideclone.js"
+  ],
+  "forbiddenRepositoryPaths": [
+    "runtime/slideclone-native-engine"
+  ]
+}

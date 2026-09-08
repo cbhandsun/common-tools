@@ -116,6 +116,7 @@ test("local CI entry includes static gates and the actual lint/type commands inc
   assert.ok(scripts.lint.includes("packages/*/bin/**/*.js"));
   assert.ok(scripts.lint.includes("packages/*/verification/**/*.js"));
   assert.equal(/\beslint\b[^&]*\bpackages(?:\s|$)/u.test(scripts.lint), false);
+  assert.ok(scripts.lint.split(" && ").includes("node scripts/native-engine-runtime-payload.js"));
   assert.ok(scripts.lint.split(" && ").includes("node scripts/verify-workspace-boundaries.js"));
   assert.match(fs.readFileSync(path.join(root, ".gitignore"), "utf8"), /^\/\.cache\/$/m);
   assert.ok(scripts.typecheck.split(" && ").includes("tsc --project tsconfig.boundaries.json"));
