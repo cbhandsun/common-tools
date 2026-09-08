@@ -249,7 +249,7 @@
     "common-tools:test": "node scripts/test-sharded.js --suite common-tools",
     "lint": "eslint --cache --cache-location .cache/eslint/ packages scripts/*.js skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata.js skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice.js skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js scripts/lib/office-node*.js skills/pd-hifi-slideclone/scripts/lib/graphic-crop-materializer.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-roundtrip-evidence.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker.js skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session.js skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip.js skills/pd-hifi-slideclone/scripts/lib/progress-reporter.js skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com.js && node scripts/check-common-tools.js && node scripts/verify-slideclone-profiles.js && node scripts/verify-architecture-budgets.js && node scripts/verify-workspace-boundaries.js && node scripts/verify-skill-source-migration.js",
     "typecheck": "tsc --project tsconfig.json && tsc --project tsconfig.boundaries.json",
-    "test": "node --test",
+    "test": "node scripts/test-sharded.js --suite all --shards 4",
     "test:unit": "node scripts/test-sharded.js --suite unit --shards 4",
     "test:contract": "node scripts/test-sharded.js --suite contract --shards 2",
     "test:integration": "node scripts/test-sharded.js --suite integration --shards 2",
