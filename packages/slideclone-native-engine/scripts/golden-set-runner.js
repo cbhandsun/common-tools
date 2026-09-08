@@ -8,8 +8,9 @@ const { createProgressLineForwarder, redactSecrets } = require("./lib/progress-r
 
 const MAX_CHILD_OUTPUT_CHARS = 64 * 1024 * 1024;
 
-const skillRoot = path.resolve(__dirname, "..");
-const defaultManifest = path.join(skillRoot, "examples", "golden-set.manifest.json");
+const repositoryRoot = path.resolve(__dirname, "../../..");
+const resourceRoot = path.join(repositoryRoot, "skills", "pd-hifi-slideclone");
+const defaultManifest = path.join(resourceRoot, "examples", "golden-set.manifest.json");
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -563,6 +564,7 @@ if (require.main === module) {
 
 module.exports = {
   caseTimeoutMs,
+  defaultManifest,
   evaluateCase,
   evaluateDeliveryExpectations,
   parsePositiveInt,

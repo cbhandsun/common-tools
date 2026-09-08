@@ -2,6 +2,6 @@
   "version": 1,
   "legacySkillScriptPrefix": "skills/pd-hifi-slideclone/scripts",
   "scanRoots": ["packages", "scripts", "test"],
-  "maxReferenceCount": 327,
-  "maxFileCount": 218
+  "maxReferenceCount": 324,
+  "maxFileCount": 216
 }

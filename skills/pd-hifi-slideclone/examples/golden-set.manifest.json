@@ -64,7 +64,7 @@
       "pageType": "native-chart-render",
       "mode": "delivery",
       "timeoutMs": 180000,
-      "command": ["node", "skills/pd-hifi-slideclone/scripts/chart-native-render-golden-smoke.js", "--out", "runs/golden-set/chart-native-render-golden"]
+      "command": ["node", "packages/slideclone-native-engine/scripts/chart-native-render-golden-smoke.js", "--out", "runs/golden-set/chart-native-render-golden"]
     },
     {
       "id": "flow-baseline",

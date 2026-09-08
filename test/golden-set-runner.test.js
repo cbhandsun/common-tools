@@ -9,11 +9,12 @@ const {
   caseTimeoutMs,
   evaluateDeliveryExpectations,
   parsePositiveInt,
+  defaultManifest,
   goldenSetRunnerUsage,
   runCases,
   selectCases,
   summarizeTotals
-} = require("../skills/pd-hifi-slideclone/scripts/golden-set-runner");
+} = require("../packages/slideclone-native-engine/scripts/golden-set-runner");
 
 function deliveryReport(overrides = {}) {
   return {
@@ -69,6 +70,13 @@ test("golden-set runner documents a side-effect-free help path", () => {
   assert.match(usage, /--help, -h/);
   assert.match(usage, /without running any cases/);
   assert.match(usage, /Concurrent cases \(default: 2\)/);
+});
+
+test("golden-set runner defaults to the versioned skill resource manifest from the native package", () => {
+  assert.equal(defaultManifest, path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "golden-set.manifest.json"));
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const chart = manifest.cases.find((entry) => entry.id === "chart-native-render-golden");
+  assert.deepEqual(chart.command.slice(0, 2), ["node", "packages/slideclone-native-engine/scripts/chart-native-render-golden-smoke.js"]);
 });
 
 test("golden-set runner keeps report order while using bounded concurrency", async () => {

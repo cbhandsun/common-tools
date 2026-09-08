@@ -51,7 +51,7 @@
     },
     "chart-native-render-golden": {
       "description": "Versioned command profile for slideclone:chart-native-render-golden.",
-      "script": "scripts/chart-native-render-golden-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/chart-native-render-golden-smoke.js",
       "args": [
         "--out",
         "runs/chart-native-render-golden"

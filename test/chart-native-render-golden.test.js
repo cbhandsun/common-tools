@@ -5,14 +5,14 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { parseArgs, usage } = require("../skills/pd-hifi-slideclone/scripts/chart-native-render-golden-smoke");
+const { parseArgs, usage } = require("../packages/slideclone-native-engine/scripts/chart-native-render-golden-smoke");
 const {
   createChartFixtures,
   evaluateChartGolden,
   materializeLibreOfficeReport,
   normalizeThresholds,
   parseLastJsonObject
-} = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-render-golden");
+} = require("../packages/slideclone-native-engine/scripts/lib/chart-native-render-golden");
 
 test("chart native render golden exposes a side-effect-free help contract", () => {
   assert.match(usage(), /max-foreground-missing-ratio/);

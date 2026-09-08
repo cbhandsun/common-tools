@@ -19,6 +19,7 @@
   "rootScripts": [
     "component-acquisition-search.js",
     "component-candidate-search.js",
+    "chart-native-render-golden-smoke.js",
     "component-plugin-action-queue.js",
     "component-strategy-rebuild.js",
     "complex-graphic-golden-smoke.js",
@@ -41,6 +42,7 @@
     ],
     "renderingAndQualityHarness": [
       "complex-graphic-golden-smoke.js",
+      "chart-native-render-golden-smoke.js",
       "golden-set-runner.js",
       "libreoffice-benchmark.js",
       "quality-gate-real-pptx.js",
