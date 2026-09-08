@@ -1117,11 +1117,11 @@ test("image Worker Docker context contains only runtime sources and OpenXML buil
   const dockerfile = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable"), "utf8");
   const ignore = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable.dockerignore"), "utf8");
   assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
-  assert.match(dockerfile, /COPY runtime\/slideclone-native-engine \.\/runtime\/slideclone-native-engine/);
+  assert.match(dockerfile, /COPY packages \.\/packages/);
   assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
   assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/lib\b/);
   assert.match(dockerfile, /apt-get install --yes --no-install-recommends libicu72 libssl3 libreoffice-impress poppler-utils fonts-noto-cjk fonts-liberation/);
-  assert.match(ignore, /^!runtime\/slideclone-native-engine\/\*\*$/m);
+  assert.doesNotMatch(ignore, /^!runtime\/slideclone-native-engine\/\*\*$/m);
   assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone \.\/skills\/pd-hifi-slideclone/);
   assert.match(ignore, /^\*\*$/m);
   assert.match(ignore, /^!packages\/\*\*$/m);
@@ -1156,10 +1156,10 @@ test("PaddleOCR team image pins the runtime and remains an explicit deployment o
   assert.match(dockerfile, /PP-OCRv6_small_det/);
   assert.match(dockerfile, /PP-OCRv6_small_rec/);
   assert.match(dockerfile, /image_to_png\.py/);
-  assert.match(dockerfile, /runtime\/slideclone-native-engine/);
+  assert.match(dockerfile, /COPY --chown=worker:worker packages \.\/packages/);
   assert.doesNotMatch(dockerfile, /skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
   assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/python\/image_to_png\.py$/m);
-  assert.match(ignore, /^!runtime\/slideclone-native-engine\/\*\*$/m);
+  assert.doesNotMatch(ignore, /^!runtime\/slideclone-native-engine\/\*\*$/m);
   assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js$/m);
   assert.match(dockerfile, /--engine paddle_dynamic/);
   assert.match(compose, /paddleocr-ppocrv6-v1/);

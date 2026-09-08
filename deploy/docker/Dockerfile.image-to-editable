@@ -14,7 +14,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 COPY packages ./packages
-COPY runtime/slideclone-native-engine ./runtime/slideclone-native-engine
 # Keep the runtime image independent from a second remote base image.  The SDK
 # stage already contains the exact runtime used to publish OpenXmlDeckBuilder;
 # copy only the runtime host and shared framework, never the SDK itself.

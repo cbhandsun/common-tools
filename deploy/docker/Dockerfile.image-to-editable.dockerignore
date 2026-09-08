@@ -6,9 +6,6 @@
 !package-lock.json
 !packages/
 !packages/**
-!runtime/
-!runtime/slideclone-native-engine/
-!runtime/slideclone-native-engine/**
 !skills/
 !skills/pd-hifi-slideclone/
 !skills/pd-hifi-slideclone/dotnet/

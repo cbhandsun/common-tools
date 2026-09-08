@@ -51,4 +51,3 @@ ENV PADDLE_PDX_MODEL_SOURCE=BOS
 USER worker
 
 COPY --chown=worker:worker packages ./packages
-COPY --chown=worker:worker runtime/slideclone-native-engine ./runtime/slideclone-native-engine

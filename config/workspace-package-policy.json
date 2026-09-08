@@ -87,7 +87,9 @@
       "@common-tools/capability-runtime",
       "@common-tools/ooxml-core"
     ],
-    "slideclone-native-engine": [],
+    "slideclone-native-engine": [
+      "@common-tools/slideclone-core"
+    ],
     "slideclone-worker-adapter": [
       "@common-tools/archive-core",
       "@common-tools/artifact-core",

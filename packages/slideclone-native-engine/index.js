@@ -1,7 +1,7 @@
 "use strict";
 
 function loadNativeImageEngine() {
-  return require("../../runtime/slideclone-native-engine/scripts/rebuild-real-pptx-native");
+  return require("./scripts/rebuild-real-pptx-native");
 }
 
 function loadNativeImageRebuilder() {

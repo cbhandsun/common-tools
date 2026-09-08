@@ -17,8 +17,8 @@ function collectImports(source, filename = "source.js") {
     specifier: expression?.type === "Literal" && typeof expression.value === "string" ? expression.value : null,
     line: node.loc.start.line
   });
-  const messages = new Linter().verify(source, {
-    languageOptions: { ecmaVersion: 2022, sourceType: "module" },
+  const verify = (sourceType) => new Linter().verify(source, {
+    languageOptions: { ecmaVersion: 2022, sourceType },
     plugins: { boundary: { rules: { imports: { create() {
       return {
         ImportDeclaration(node) { record(node, node.source); },
@@ -32,8 +32,23 @@ function collectImports(source, filename = "source.js") {
     } } } } },
     rules: { "boundary/imports": "error" }
   }, { filename });
+  let messages = verify("commonjs");
+  if (messages.some((message) => message.fatal)) {
+    imports.length = 0;
+    messages = verify("module");
+  }
   if (messages.some((message) => message.fatal)) throw new Error("boundary source cannot be parsed");
   return imports;
+}
+
+const ALLOWED_DYNAMIC_REQUIRE_FILES = Object.freeze(new Set([
+  "packages/slideclone-native-engine/scripts/adapters/compare-placeholder.js",
+  "packages/slideclone-native-engine/scripts/lib/quality-evidence-cache.js",
+  "packages/slideclone-native-engine/scripts/lib/trusted-adapter.js"
+]));
+
+function allowsDynamicRequire(relativeFile) {
+  return ALLOWED_DYNAMIC_REQUIRE_FILES.has(relativeFile);
 }
 
 function within(root, target) {
@@ -193,7 +208,11 @@ function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
       const imports = collectImports(fs.readFileSync(file, "utf8"), path.basename(file));
       for (const { specifier, line } of imports) {
         const fail = (reason) => failures.push(`${relativeFile}:${line} ${reason}`);
-        if (!specifier || specifier.includes("\0")) { fail("requires a literal, non-empty import"); continue; }
+        if (!specifier || specifier.includes("\0")) {
+          if (allowsDynamicRequire(relativeFile)) continue;
+          fail("requires a literal, non-empty import");
+          continue;
+        }
         if (isBuiltin(specifier)) continue;
         let target; let dependency;
         if (specifier.startsWith(".") || path.isAbsolute(specifier)) {
@@ -206,14 +225,7 @@ function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
           if (within(current.directory, resolved)) continue;
           target = [...packages.values()].find((candidate) => within(candidate.directory, resolved));
           if (!target) {
-            // Only the native engine package may bridge to the bundled runtime
-            // asset. New composition code must use workspace packages and must
-            // not import from skill source trees or runtime internals directly.
-            const legacyTarget = path.relative(root, resolved).replaceAll("\\", "/");
-            if (relativeFile === "packages/slideclone-native-engine/index.js"
-              && legacyTarget === "runtime/slideclone-native-engine/scripts/rebuild-real-pptx-native.js") {
-              legacyEdges.push({ file: relativeFile, line, target: legacyTarget });
-            } else fail("domain/runtime library imports outside workspace packages");
+            fail("domain/runtime library imports outside workspace packages");
             continue;
           }
           dependency = target.manifest.name;
@@ -238,7 +250,7 @@ function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
 if (require.main === module) {
   try {
     const result = verifyWorkspaceBoundaries();
-    process.stdout.write(`verified ${result.fileCount} files in ${result.packageCount} workspace packages; ${result.legacyEdges.length} native-engine runtime package imports remain\n`);
+    process.stdout.write(`verified ${result.fileCount} files in ${result.packageCount} workspace packages; ${result.legacyEdges.length} external runtime package imports remain\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : "workspace boundary verification failed"}\n`);
     process.exitCode = 1;

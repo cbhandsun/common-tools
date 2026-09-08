@@ -52,6 +52,15 @@ void text; void module; void item;
   assert.throws(() => collectImports("require("), /cannot be parsed/);
 });
 
+test("boundary parser accepts CommonJS source files with legacy function redeclarations", () => {
+  const imports = collectImports(`
+function duplicate() { return 1; }
+function duplicate() { return 2; }
+const dependency = require("./dependency");
+`);
+  assert.deepEqual(imports.map((entry) => entry.specifier), ["./dependency"]);
+});
+
 test("boundary gate scans non-index and bin files and detects undeclared deep sibling dependencies", (t) => {
   const f = workspace(t);
   f.add("feature"); f.add("dependency");
@@ -112,15 +121,12 @@ test("boundary gate detects cycles created by non-index modules", (t) => {
   assert.throws(f.verify, /dependency cycle: one -> two -> one/);
 });
 
-test("only the native-engine package can import the bundled runtime asset", (t) => {
+test("native-engine package must not import bundled runtime assets outside workspace packages", (t) => {
   const f = workspace(t); f.add("slideclone-native-engine");
   const target = "runtime/slideclone-native-engine/scripts/rebuild-real-pptx-native.js";
   const file = "packages/slideclone-native-engine/index.js";
   f.write(target, "module.exports = {};");
   f.write(file, `require("../../${target}");`);
-  assert.deepEqual(f.verify().legacyEdges, [{ file, line: 1, target }]);
-  f.write("skills/other.js", "module.exports = {};");
-  f.write(file, 'require("../../skills/other.js");');
   assert.throws(f.verify, /imports outside workspace packages/);
 });
 

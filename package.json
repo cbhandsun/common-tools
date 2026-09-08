@@ -12,7 +12,6 @@
     "packages/",
     "plugins/",
     "marketplaces/",
-    "runtime/slideclone-native-engine/",
     "skills/pd-hifi-slideclone/scripts/",
     "skills/pd-hifi-slideclone/schemas/",
     "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",

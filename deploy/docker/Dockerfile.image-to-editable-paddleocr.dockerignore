@@ -2,9 +2,6 @@
 !package.json
 !package-lock.json
 !packages/**
-!runtime/
-!runtime/slideclone-native-engine/
-!runtime/slideclone-native-engine/**
 !scripts/paddleocr-requirements.lock.txt
 !skills/pd-hifi-slideclone/scripts/python/paddleocr_worker.py
 !skills/pd-hifi-slideclone/scripts/python/paddleocr_protocol.py
