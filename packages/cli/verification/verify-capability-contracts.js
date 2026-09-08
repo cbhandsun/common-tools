@@ -81,6 +81,9 @@ function assertTeamDeploymentComposeContracts({ deploymentCapabilities, composeS
     const expectedDockerfile = definition.imageKind === "image-worker" ? "deploy/docker/Dockerfile.image-to-editable" : "deploy/docker/Dockerfile.remote-mcp";
     if (!service.includes(`dockerfile: ${expectedDockerfile}`)) throw new Error(`team Worker image does not match deployment plan: ${capability}`);
   }
+  const expectedCapabilities = Object.keys(deploymentCapabilities).sort();
+  const actualCapabilities = [...composeSource.matchAll(/COMMON_TOOLS_WORKER_CAPABILITIES:\s*"?([a-z][a-z0-9-]*)"?/g)].map((match) => match[1]).sort();
+  if (JSON.stringify(actualCapabilities) !== JSON.stringify(expectedCapabilities)) throw new Error("team Compose Worker capabilities do not match deployment plan");
   const actualProfiles = new Set([...composeSource.matchAll(/profiles: \["(team-worker-[a-z0-9-]+)"\]/g)].map((match) => match[1]));
   if (JSON.stringify([...actualProfiles].sort()) !== JSON.stringify([...expectedProfiles].sort())) throw new Error("team Compose Worker profiles do not match deployment plan");
   const migration = composeServiceBlock(composeSource, "team-migrate");

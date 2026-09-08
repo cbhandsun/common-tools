@@ -142,6 +142,7 @@ test("team deployment plan is verified against the actual Compose Worker service
   assert.throws(() => assertTeamDeploymentCommandFiles({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerCommand: "../outside.js" } }, repositoryRoot: root }), /Worker command is invalid/);
   assert.throws(() => assertTeamDeploymentComposeContracts({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerProfile: "missing-profile" } }, composeSource }), /profile does not match/);
   assert.throws(() => assertTeamDeploymentComposeContracts({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerCommand: "packages/remote-mcp-server/bin/common-tools-team-missing-worker.js" } }, composeSource }), /command does not match/);
+  assert.throws(() => assertTeamDeploymentComposeContracts({ deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES, composeSource: `${composeSource}\nCOMMON_TOOLS_WORKER_CAPABILITIES: rogue-worker` }), /Worker capabilities do not match/);
 });
 
 test("local Keycloak realm exposes every remote capability as an optional scope", () => {
