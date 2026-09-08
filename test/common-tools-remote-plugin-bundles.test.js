@@ -268,136 +268,132 @@ test("generated Windows installer enters capability selection when no parameter 
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
-test("generated Windows installer rejects an empty legacy MCP URL without a null-method failure", { skip: process.platform !== "win32" }, () => {
-  const installer = installationScript("codex", "https://tunnel.example.test", ["image-to-editable"], "bundle");
+test("generated Windows installer handles Codex MCP registration scenarios", { skip: process.platform !== "win32" }, () => {
+  const installer = installationScript("codex", "https://tunnel.example.test", ["image-to-editable", "siyuan-note"], "bundle");
   const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
   const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
   assert.ok(registrationStart >= 0 && registrationEnd > registrationStart, "generated installer must contain a bounded Codex MCP registration block");
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-migration-"));
-  const harnessPath = path.join(parent, "migration.ps1");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-registration-"));
+  const harnessPath = path.join(parent, "registration.ps1");
+  const cases = [
+    {
+      name: "empty-url",
+      selected: ["image-to-editable"],
+      remoteSelected: ["image-to-editable"],
+      managedGet: '{"url":null,"oauth_client_id":"common-tools-mcp","oauth_resource":null}',
+      expectFailure: "already points to a different URL",
+      rejectFailure: "null-valued expression"
+    },
+    {
+      name: "current-shape",
+      selected: ["image-to-editable"],
+      remoteSelected: ["image-to-editable"],
+      managedGet: '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}',
+      expectCalls: [
+        "CALL=mcp logout common-tools-auth-v2",
+        "CALL=mcp login common-tools-auth-v2 --scopes offline_access,common-tools:capability:image-to-editable"
+      ],
+      rejectCalls: ["CALL=mcp remove", "CALL=mcp add"]
+    },
+    {
+      name: "new-registration",
+      selected: ["siyuan-note"],
+      remoteSelected: ["siyuan-note"],
+      managedMissing: true,
+      expectCalls: [
+        "CALL=mcp add common-tools-auth-v2 --url https://tunnel.example.test/mcp --oauth-client-id common-tools-mcp",
+        "CALL=mcp login common-tools-auth-v2 --scopes offline_access,common-tools:capability:siyuan-note"
+      ],
+      rejectCalls: ["CALL=mcp logout"]
+    },
+    {
+      name: "legacy-cleanup",
+      selected: ["siyuan-note"],
+      remoteSelected: ["siyuan-note"],
+      managedGet: '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}',
+      legacyGet: '{"url":"https://tunnel.example.test/mcp"}',
+      expectCalls: LEGACY_CODEX_MCP_SERVER_NAMES.flatMap((legacyServerName) => [
+        `CALL=mcp logout ${legacyServerName}`,
+        `CALL=mcp remove ${legacyServerName}`
+      ])
+    },
+    {
+      name: "reset-failure",
+      selected: ["siyuan-note"],
+      remoteSelected: ["siyuan-note"],
+      managedGet: '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}',
+      logoutExitCode: 2,
+      expectFailure: "Codex MCP OAuth session reset failed",
+      rejectCalls: ["CALL=mcp login"]
+    }
+  ];
   try {
     const registration = installer.slice(registrationStart, registrationEnd);
+    const casesJson = JSON.stringify(cases).replace(/'/g, "''");
     const harness = `$ErrorActionPreference = "Stop"
-function codex {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
-  if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
-    '{"url":null,"oauth_client_id":"common-tools-mcp","oauth_resource":null}'
-    $global:LASTEXITCODE = 0
-    return
-  }
-  $global:LASTEXITCODE = 0
-}
-$selected = @("image-to-editable")
-$remoteSelected = @("image-to-editable")
-${registration}`;
-    fs.writeFileSync(harnessPath, harness, "utf8");
-    const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
-    const output = `${result.stdout}${result.stderr}`;
-    assert.notEqual(result.status, 0, output);
-    assert.match(output, /already points to a different URL/);
-    assert.doesNotMatch(output, /null-valued expression/i);
-  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
-});
-
-test("generated Windows installer accepts the current Codex streamable HTTP configuration shape", { skip: process.platform !== "win32" }, () => {
-  const installer = installationScript("codex", "https://tunnel.example.test", ["image-to-editable"], "bundle");
-  const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
-  const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-current-shape-"));
-  const harnessPath = path.join(parent, "current-shape.ps1");
-  try {
-    const registration = installer.slice(registrationStart, registrationEnd);
-    const harness = `$ErrorActionPreference = "Stop"
-function codex {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
-  if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
-    if ($CommandArgs[2] -ne "${CODEX_MCP_SERVER_NAME}") {
-      $global:LASTEXITCODE = 1
+$cases = '${casesJson}' | ConvertFrom-Json
+foreach ($case in @($cases)) {
+  $global:Calls = @()
+  function codex {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
+    if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
+      if ($CommandArgs[2] -eq "${CODEX_MCP_SERVER_NAME}") {
+        if ($case.managedMissing) {
+          $global:LASTEXITCODE = 1
+          return
+        }
+        $case.managedGet
+      } else {
+        if ($null -ne $case.legacyGet) {
+          $case.legacyGet
+        } else {
+          $global:LASTEXITCODE = 1
+          return
+        }
+      }
+      $global:LASTEXITCODE = 0
       return
     }
-    '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}'
-    $global:LASTEXITCODE = 0
-    return
-  } else {
-    Write-Output "CALL=$($CommandArgs -join ' ')"
+    $global:Calls += "CALL=$($CommandArgs -join ' ')"
+    $global:LASTEXITCODE = if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "logout" -and $null -ne $case.logoutExitCode) { [int]$case.logoutExitCode } else { 0 }
   }
-  $global:LASTEXITCODE = 0
-}
-$selected = @("image-to-editable")
-$remoteSelected = @("image-to-editable")
-${registration}`;
-    fs.writeFileSync(harnessPath, harness, "utf8");
-    const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
-    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
-    assert.match(result.stdout, /CALL=mcp logout common-tools-auth-v2/);
-    assert.match(result.stdout, /CALL=mcp login common-tools-auth-v2 --scopes offline_access,common-tools:capability:image-to-editable/);
-    assert.doesNotMatch(result.stdout, /CALL=mcp (?:remove|add)/);
-  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
-});
-
-test("generated Windows installer performs scoped OAuth login after a new registration", { skip: process.platform !== "win32" }, () => {
-  const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
-  const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
-  const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-new-registration-"));
-  const harnessPath = path.join(parent, "new-registration.ps1");
+  $selected = @($case.selected)
+  $remoteSelected = @($case.remoteSelected)
+  $failed = $false
+  $message = ""
   try {
-    const registration = installer.slice(registrationStart, registrationEnd);
-    const harness = `$ErrorActionPreference = "Stop"
-function codex {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
-  if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
-    $global:LASTEXITCODE = 1
-    return
+${registration}
+  } catch {
+    $failed = $true
+    $message = $_.Exception.Message
   }
-  Write-Output "CALL=$($CommandArgs -join ' ')"
-  $global:LASTEXITCODE = 0
+  if ($case.expectFailure) {
+    if (-not $failed) { throw "Case $($case.name) unexpectedly succeeded" }
+    if ($message -notmatch [regex]::Escape($case.expectFailure)) { throw "Case $($case.name) produced an unexpected error: $message" }
+  } elseif ($failed) {
+    throw "Case $($case.name) unexpectedly failed: $message"
+  }
+  if ($case.rejectFailure -and $message -match [regex]::Escape($case.rejectFailure)) { throw "Case $($case.name) exposed a forbidden error: $message" }
+  if ($null -ne $case.expectCalls) {
+    foreach ($expected in @($case.expectCalls)) {
+      if ($global:Calls -notcontains $expected) { throw "Case $($case.name) missed expected call: $expected; calls=$($global:Calls -join '; ')" }
+    }
+  }
+  if ($null -ne $case.rejectCalls) {
+    foreach ($rejected in @($case.rejectCalls)) {
+      foreach ($call in @($global:Calls)) {
+        if ($call.Contains($rejected)) { throw "Case $($case.name) made rejected call: $call" }
+      }
+    }
+  }
+  Remove-Item Function:\\codex -ErrorAction SilentlyContinue
 }
-$selected = @("siyuan-note")
-$remoteSelected = @("siyuan-note")
-${registration}`;
+Write-Output "REGISTRATION_CASES=$(@($cases).Count)"
+`;
     fs.writeFileSync(harnessPath, harness, "utf8");
     const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
     assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
-    assert.match(result.stdout, /CALL=mcp add common-tools-auth-v2 --url https:\/\/tunnel\.example\.test\/mcp --oauth-client-id common-tools-mcp/);
-    assert.doesNotMatch(result.stdout, /CALL=mcp logout/);
-    assert.match(result.stdout, /CALL=mcp login common-tools-auth-v2 --scopes offline_access,common-tools:capability:siyuan-note/);
-  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
-});
-
-test("generated Windows installer removes only a legacy Common Tools connection on the managed endpoint", { skip: process.platform !== "win32" }, () => {
-  const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
-  const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
-  const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-legacy-cleanup-"));
-  const harnessPath = path.join(parent, "legacy-cleanup.ps1");
-  try {
-    const registration = installer.slice(registrationStart, registrationEnd);
-    const harness = `$ErrorActionPreference = "Stop"
-function codex {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
-  if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
-    if ($CommandArgs[2] -eq "${CODEX_MCP_SERVER_NAME}") {
-      '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}'
-    } else {
-      '{"url":"https://tunnel.example.test/mcp"}'
-    }
-    $global:LASTEXITCODE = 0
-    return
-  }
-  Write-Output "CALL=$($CommandArgs -join ' ')"
-  $global:LASTEXITCODE = 0
-}
-$selected = @("siyuan-note")
-$remoteSelected = @("siyuan-note")
-${registration}`;
-    fs.writeFileSync(harnessPath, harness, "utf8");
-    const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
-    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
-    for (const legacyServerName of LEGACY_CODEX_MCP_SERVER_NAMES) {
-      assert.match(result.stdout, new RegExp(`CALL=mcp logout ${legacyServerName}`));
-      assert.match(result.stdout, new RegExp(`CALL=mcp remove ${legacyServerName}`));
-    }
+    assert.match(result.stdout, /REGISTRATION_CASES=5/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
@@ -458,37 +454,6 @@ Write-Output "CASES=$(@($cases).Count)"
     const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
     assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
     assert.match(result.stdout, /CASES=3/);
-  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
-});
-
-test("generated Windows installer fails closed when the stale OAuth session cannot be reset", { skip: process.platform !== "win32" }, () => {
-  const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
-  const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
-  const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-reset-failure-"));
-  const harnessPath = path.join(parent, "reset-failure.ps1");
-  try {
-    const registration = installer.slice(registrationStart, registrationEnd);
-    const harness = `$ErrorActionPreference = "Stop"
-function codex {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
-  if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
-    '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}'
-    $global:LASTEXITCODE = 0
-    return
-  }
-  Write-Output "CALL=$($CommandArgs -join ' ')"
-  $global:LASTEXITCODE = if ($CommandArgs[1] -eq "logout") { 2 } else { 0 }
-}
-$selected = @("siyuan-note")
-$remoteSelected = @("siyuan-note")
-${registration}`;
-    fs.writeFileSync(harnessPath, harness, "utf8");
-    const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
-    const output = `${result.stdout}${result.stderr}`;
-    assert.notEqual(result.status, 0, output);
-    assert.match(output, /Codex MCP OAuth session reset failed/);
-    assert.doesNotMatch(result.stdout, /CALL=mcp login/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
