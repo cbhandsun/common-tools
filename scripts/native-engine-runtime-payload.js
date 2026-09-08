@@ -78,6 +78,30 @@ function resolveRepositoryPath(repositoryRoot, relativePath) {
   return path.join(repositoryRoot, relativePath);
 }
 
+function scriptNameForLocalImport(specifier) {
+  if (typeof specifier !== "string" || !specifier.startsWith("./")) return null;
+  const normalized = path.posix.normalize(specifier.slice(2));
+  if (normalized.includes("/") || normalized.startsWith("..")) return null;
+  return normalized.endsWith(".js") ? normalized : `${normalized}.js`;
+}
+
+function readLocalRootScriptImports(file) {
+  const source = fs.readFileSync(file, "utf8");
+  const imports = [];
+  const requirePattern = /require\s*\(\s*["']([^"']+)["']\s*\)/gu;
+  let match = requirePattern.exec(source);
+  while (match) {
+    const script = scriptNameForLocalImport(match[1]);
+    if (script) imports.push(script);
+    match = requirePattern.exec(source);
+  }
+  return Object.freeze([...new Set(imports)].sort());
+}
+
+function buildRootScriptGroupIndex(rootScriptGroups) {
+  return Object.freeze(Object.fromEntries(Object.entries(rootScriptGroups).flatMap(([group, scripts]) => scripts.map((script) => [script, group]))));
+}
+
 function isWithin(directory, file) {
   const relative = path.relative(directory, file);
   return relative === "" || (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`));
@@ -130,6 +154,18 @@ function verifyNativeEngineRuntimePayload(options = {}) {
       .sort();
     for (const script of rootScripts.filter((script) => !policy.rootScripts.includes(script))) fail(`payload root script is not declared: ${script}`);
     if (!policy.rootScriptGroups.productionEntrypoints?.includes(policy.runtimeEntrypoint)) fail(`runtime entrypoint is not classified as a production entrypoint: ${policy.runtimeEntrypoint}`);
+    const rootScriptGroupIndex = buildRootScriptGroupIndex(policy.rootScriptGroups);
+    for (const script of policy.rootScripts) {
+      const scriptPath = path.join(payloadRoot, script);
+      if (!fs.statSync(scriptPath, { throwIfNoEntry: false })?.isFile()) continue;
+      const sourceGroup = rootScriptGroupIndex[script];
+      for (const importedScript of readLocalRootScriptImports(scriptPath).filter((name) => policy.rootScripts.includes(name))) {
+        const targetGroup = rootScriptGroupIndex[importedScript];
+        if (targetGroup === "componentAcquisitionTools" && sourceGroup !== "componentAcquisitionTools") {
+          fail(`payload root script ${script} must not depend on component acquisition tool ${importedScript}`);
+        }
+      }
+    }
     const files = listFiles(payloadRoot);
     if (files.length === 0) fail("payload root is empty");
   }
@@ -161,6 +197,7 @@ if (require.main === module) {
 module.exports = {
   isRuntimePayloadPath,
   loadPolicy,
+  readLocalRootScriptImports,
   validatePolicy,
   verifyNativeEngineRuntimePayload
 };

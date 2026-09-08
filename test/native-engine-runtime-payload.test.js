@@ -62,3 +62,25 @@ test("native engine runtime payload verifier fails closed on missing payload con
     /payload root script is missing/
   );
 });
+
+test("native engine runtime payload verifier blocks production dependencies on acquisition tools", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "native-engine-payload-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const scripts = path.join(directory, "packages", "slideclone-native-engine", "scripts");
+  fs.mkdirSync(path.join(scripts, "adapters"), { recursive: true });
+  fs.mkdirSync(path.join(scripts, "lib"), { recursive: true });
+  fs.writeFileSync(path.join(directory, "packages", "slideclone-native-engine", "index.js"), 'require("./scripts/rebuild-real-pptx-native");\n');
+  fs.writeFileSync(path.join(scripts, "rebuild-real-pptx-native.js"), 'require("./component-candidate-search");\n');
+  fs.writeFileSync(path.join(scripts, "component-candidate-search.js"), "module.exports = {};\n");
+  const badPolicy = policy({
+    rootScripts: ["component-candidate-search.js", "rebuild-real-pptx-native.js"],
+    rootScriptGroups: {
+      componentAcquisitionTools: ["component-candidate-search.js"],
+      productionEntrypoints: ["rebuild-real-pptx-native.js"]
+    }
+  });
+  assert.throws(
+    () => verifyNativeEngineRuntimePayload({ policy: badPolicy, repositoryRoot: directory }),
+    /must not depend on component acquisition tool/
+  );
+});
