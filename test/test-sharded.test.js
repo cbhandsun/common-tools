@@ -43,6 +43,7 @@ test("parseReporter bounds CI output modes", () => {
 
 test("parseShardCount validates command and environment boundaries", () => {
   assert.equal(parseShardCount(["--shards", "4"], {}), 4);
+  assert.equal(parseShardCount(["--shards", "4", "--shards", "2"], {}), 2);
   assert.equal(parseShardCount([], { TEST_SHARDS: "3" }), 3);
   assert.throws(() => parseShardCount(["--shards", "0"], {}), /integer from 1 to 8/);
   assert.throws(() => parseShardCount(["--shards", "many"], {}), /integer from 1 to 8/);
@@ -76,6 +77,7 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.equal(includesSuite("test/common-tools-mcp.test.js", "integration"), true);
   assert.equal(includesSuite("test/font-fit.test.js", "all"), true);
   assert.equal(parseSuite(["--suite", "contract"], {}), "contract");
+  assert.equal(parseSuite(["--suite", "all", "--suite", "unit"], {}), "unit");
   assert.equal(parseSuite([], { TEST_SUITE: "integration" }), "integration");
   assert.equal(parseSuite(["--suite", "common-tools"], {}), "common-tools");
   assert.equal(includesSuite("test/common-tools-project-audit.test.js", "common-tools"), true);

@@ -6,7 +6,7 @@ const { spawn } = require("child_process");
 const { classifyTestResource, includesSuite, parseSuite, validateTestSuiteManifest } = require("./test-suites");
 
 function parseShardCount(argv = process.argv.slice(2), env = process.env) {
-  const index = argv.indexOf("--shards");
+  const index = argv.lastIndexOf("--shards");
   const raw = index >= 0 ? argv[index + 1] : env.TEST_SHARDS || "2";
   const count = Number(raw);
   if (!Number.isInteger(count) || count < 1 || count > 8) {

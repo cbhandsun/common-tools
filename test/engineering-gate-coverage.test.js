@@ -101,7 +101,7 @@ test("new crop and gate regressions are discovered by the unified CI suite", () 
 
 test("local CI entry includes static gates and the actual lint/type commands include new boundaries", () => {
   const { scripts } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-  assert.equal(scripts.test, "node scripts/test-sharded.js --suite all --shards 4");
+  assert.equal(scripts.test, "node scripts/test-sharded.js --shards 4");
   assert.equal(scripts["test:container-recovery"], "node --test test/container/worker-scratch-recovery.test.cjs");
   assert.ok(fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8").includes("run: npm run test:container-recovery"));
   for (const command of ["lint", "typecheck", "common-tools:verify-plugins", "common-tools:verify-observability", "common-tools:verify-adrs", "test:unit", "test:contract", "test:integration"]) {

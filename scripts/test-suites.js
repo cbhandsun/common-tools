@@ -63,7 +63,7 @@ const MEMORY_HEAVY_HINT = /^(?:real-pptx-native|component-template-native-shapes
 const MEMORY_HEAVY_TESTS = new Set(["common-tools-ppt-ir-editor-browser.test.js"]);
 
 function parseSuite(argv = process.argv.slice(2), env = process.env) {
-  const index = argv.indexOf("--suite");
+  const index = argv.lastIndexOf("--suite");
   const raw = index >= 0 ? argv[index + 1] : env.TEST_SUITE || "all";
   if (!SUITES.includes(raw)) {
     throw new Error(`--suite must be one of ${SUITES.join(", ")}; received ${JSON.stringify(raw)}`);
