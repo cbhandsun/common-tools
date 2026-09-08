@@ -6,7 +6,7 @@ const path = require("path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { cropPng, writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
-const { createChartFixtures, SLIDE_SIZE } = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-render-golden");
+const { createChartFixtures, SLIDE_SIZE } = require("../packages/slideclone-native-engine/scripts/lib/chart-native-render-golden");
 const { auditRealIrBlindLayers, chooseCanvasScale, isStronglyProtectedMinimumUnit, resolveContainedAsset } = require("../packages/slideclone-native-engine/scripts/lib/real-blind-layer-audit");
 const { parseArgs } = require("../skills/pd-hifi-slideclone/scripts/real-blind-layer-audit");
 
