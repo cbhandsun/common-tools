@@ -89,6 +89,15 @@ test("golden-set manifest routes native golden harnesses through the package run
   assert.ok(nativeGoldenCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/complex-graphic-golden-smoke.js`)));
 });
 
+test("golden-set manifest routes LibreOffice benchmark cases through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const benchmarkCases = manifest.cases.filter((entry) => entry.command?.includes("packages/slideclone-native-engine/scripts/libreoffice-benchmark.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(benchmarkCases.length, 3);
+  assert.ok(benchmarkCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/libreoffice-benchmark.js`)));
+});
+
 test("golden-set runner keeps report order while using bounded concurrency", async () => {
   let active = 0;
   let peak = 0;

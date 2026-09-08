@@ -255,7 +255,7 @@
       "mode": "delivery",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/libreoffice-benchmark.js",
+        "packages/slideclone-native-engine/scripts/libreoffice-benchmark.js",
         "--pptx",
         "runs/openxml-sample-deck/deck.pptx",
         "--max-pages",
@@ -270,7 +270,7 @@
       "mode": "delivery",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/libreoffice-benchmark.js",
+        "packages/slideclone-native-engine/scripts/libreoffice-benchmark.js",
         "--pptx",
         "runs/golden-set/openxml-chart-shadow-crop/deck.pptx",
         "--max-pages",
@@ -285,7 +285,7 @@
       "mode": "delivery",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/libreoffice-benchmark.js",
+        "packages/slideclone-native-engine/scripts/libreoffice-benchmark.js",
         "--pptx",
         "ppt文档/PM_Portal_AI_Skills_Engine.pptx",
         "--max-pages",
