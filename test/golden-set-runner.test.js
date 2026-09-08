@@ -79,6 +79,16 @@ test("golden-set runner defaults to the versioned skill resource manifest from t
   assert.deepEqual(chart.command.slice(0, 2), ["node", "packages/slideclone-native-engine/scripts/chart-native-render-golden-smoke.js"]);
 });
 
+test("golden-set manifest routes native golden harnesses through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const nativeGoldenCases = manifest.cases.filter((entry) => entry.id === "chart-native-render-golden" || entry.command?.includes("packages/slideclone-native-engine/scripts/complex-graphic-golden-smoke.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(nativeGoldenCases.length, 55);
+  assert.ok(nativeGoldenCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/chart-native-render-golden-smoke.js`)));
+  assert.ok(nativeGoldenCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/complex-graphic-golden-smoke.js`)));
+});
+
 test("golden-set runner keeps report order while using bounded concurrency", async () => {
   let active = 0;
   let peak = 0;
