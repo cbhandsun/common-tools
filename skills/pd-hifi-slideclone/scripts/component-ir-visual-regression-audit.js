@@ -15,7 +15,7 @@ const {
 const {
   comparePageImages,
   compareRasterImages
-} = require("./rendered-similarity-audit");
+} = require("../../../packages/slideclone-native-engine/scripts/rendered-similarity-audit");
 
 const DEFAULT_THRESHOLDS = {
   maxPixelDiffRatio: 0.42,

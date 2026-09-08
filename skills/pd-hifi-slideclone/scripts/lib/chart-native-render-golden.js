@@ -6,7 +6,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { classifyVisualLayer } = require("./layer-classifier");
 const { writePng } = require("./png");
-const { comparePageImages } = require("../rendered-similarity-audit");
+const { comparePageImages } = require("../../../../packages/slideclone-native-engine/scripts/rendered-similarity-audit");
 const {
   buildPptxBatch,
   createVisualAtomNativeShapes
@@ -179,7 +179,7 @@ function evaluateChartGolden(input = {}) {
 }
 
 function renderWithLibreOffice(options = {}) {
-  const benchmarkScript = path.resolve(__dirname, "..", "libreoffice-benchmark.js");
+  const benchmarkScript = path.resolve(__dirname, "..", "..", "..", "..", "packages", "slideclone-native-engine", "scripts", "libreoffice-benchmark.js");
   const runtimeNode = process.env.RUNTIME_NODE ? path.resolve(process.env.RUNTIME_NODE) : process.execPath;
   const outputDir = path.resolve(requiredPath(options.outputDir, "outputDir"));
   const isolatedOutputDir = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-chart-render-"));

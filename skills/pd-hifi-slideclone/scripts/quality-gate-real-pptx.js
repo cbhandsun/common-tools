@@ -440,7 +440,7 @@ async function renderWithLibreOffice({ pptxFile, outputDir, maxPages, progress, 
   if (!pptxFile) {
     throw new Error("--pptx is required when --render-dir is not provided");
   }
-  const script = path.join(__dirname, "libreoffice-benchmark.js");
+  const script = path.resolve(__dirname, "..", "..", "..", "packages", "slideclone-native-engine", "scripts", "libreoffice-benchmark.js");
   const result = await runJsonRenderer(process.execPath, [
     script,
     "--pptx",

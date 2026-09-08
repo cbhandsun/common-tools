@@ -10,7 +10,7 @@ const { readZipEntry } = require("./lib/pptx-inventory");
 const { buildOpenXmlDecks } = require("./adapters/pptx-openxml-dotnet");
 const { renderDeck } = require("./component-ir-visual-regression-audit");
 const { cropPng, readPng, writePng } = require("./lib/png");
-const { compareRasterImages } = require("./rendered-similarity-audit");
+const { compareRasterImages } = require("../../../packages/slideclone-native-engine/scripts/rendered-similarity-audit");
 
 function parseArgs(argv = process.argv) {
   const args = {
