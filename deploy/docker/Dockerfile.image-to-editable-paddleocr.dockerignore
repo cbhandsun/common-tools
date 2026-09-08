@@ -2,13 +2,13 @@
 !package.json
 !package-lock.json
 !packages/**
+!runtime/
+!runtime/slideclone-native-engine/
+!runtime/slideclone-native-engine/**
 !scripts/paddleocr-requirements.lock.txt
 !skills/pd-hifi-slideclone/scripts/python/paddleocr_worker.py
 !skills/pd-hifi-slideclone/scripts/python/paddleocr_protocol.py
 !skills/pd-hifi-slideclone/scripts/python/image_to_png.py
-!skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js
-!skills/pd-hifi-slideclone/scripts/lib/**
-!skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet.js
 !skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local.js
 !skills/pd-hifi-slideclone/scripts/lib/process-boundaries.js
 !skills/pd-hifi-slideclone/scripts/lib/python-env.js

@@ -1117,17 +1117,17 @@ test("image Worker Docker context contains only runtime sources and OpenXML buil
   const dockerfile = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable"), "utf8");
   const ignore = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable.dockerignore"), "utf8");
   assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
-  assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
-  assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/lib/);
+  assert.match(dockerfile, /COPY runtime\/slideclone-native-engine \.\/runtime\/slideclone-native-engine/);
+  assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
+  assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/lib\b/);
   assert.match(dockerfile, /apt-get install --yes --no-install-recommends libicu72 libssl3 libreoffice-impress poppler-utils fonts-noto-cjk fonts-liberation/);
-  assert.match(dockerfile, /scripts\/adapters\/render-libreoffice\.js/);
-  assert.match(dockerfile, /scripts\/adapters\/diff-pixel-png\.js/);
+  assert.match(ignore, /^!runtime\/slideclone-native-engine\/\*\*$/m);
   assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone \.\/skills\/pd-hifi-slideclone/);
   assert.match(ignore, /^\*\*$/m);
   assert.match(ignore, /^!packages\/\*\*$/m);
   assert.match(ignore, /^!skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder\/\*\*$/m);
-  assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/lib\/\*\*$/m);
-  assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/adapters\/render-libreoffice\.js$/m);
+  assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js$/m);
+  assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/lib\/\*\*$/m);
 });
 
 test("optional team OCR Docker profile is separate, version-bounded, and never part of the default Compose file", () => {
@@ -1156,8 +1156,11 @@ test("PaddleOCR team image pins the runtime and remains an explicit deployment o
   assert.match(dockerfile, /PP-OCRv6_small_det/);
   assert.match(dockerfile, /PP-OCRv6_small_rec/);
   assert.match(dockerfile, /image_to_png\.py/);
-  assert.match(dockerfile, /rebuild-real-pptx-native\.js/);
+  assert.match(dockerfile, /runtime\/slideclone-native-engine/);
+  assert.doesNotMatch(dockerfile, /skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
   assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/python\/image_to_png\.py$/m);
+  assert.match(ignore, /^!runtime\/slideclone-native-engine\/\*\*$/m);
+  assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js$/m);
   assert.match(dockerfile, /--engine paddle_dynamic/);
   assert.match(compose, /paddleocr-ppocrv6-v1/);
   assert.match(compose, /COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256/);

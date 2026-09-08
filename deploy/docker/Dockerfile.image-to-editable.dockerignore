@@ -6,20 +6,14 @@
 !package-lock.json
 !packages/
 !packages/**
+!runtime/
+!runtime/slideclone-native-engine/
+!runtime/slideclone-native-engine/**
 !skills/
 !skills/pd-hifi-slideclone/
 !skills/pd-hifi-slideclone/dotnet/
 !skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/
 !skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/**
-!skills/pd-hifi-slideclone/scripts/
-!skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js
-!skills/pd-hifi-slideclone/scripts/lib/
-!skills/pd-hifi-slideclone/scripts/lib/**
-!skills/pd-hifi-slideclone/scripts/adapters/
-!skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet.js
-!skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice.js
-!skills/pd-hifi-slideclone/scripts/adapters/diff-pixel-png.js
-!skills/pd-hifi-slideclone/scripts/libreoffice-benchmark.js
 # `dotnet publish` runs inside the SDK stage. Local bin/ and obj/ outputs can
 # contain platform-specific OCR/ONNX binaries totaling multiple GiB; they are
 # neither reproducible image inputs nor safe to copy into the build context.

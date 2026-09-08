@@ -51,6 +51,4 @@ ENV PADDLE_PDX_MODEL_SOURCE=BOS
 USER worker
 
 COPY --chown=worker:worker packages ./packages
-COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js ./skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js
-COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/lib ./skills/pd-hifi-slideclone/scripts/lib
-COPY --chown=worker:worker skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet.js ./skills/pd-hifi-slideclone/scripts/adapters/
+COPY --chown=worker:worker runtime/slideclone-native-engine ./runtime/slideclone-native-engine

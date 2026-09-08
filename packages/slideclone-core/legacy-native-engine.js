@@ -1,7 +1,7 @@
 "use strict";
 
 function loadLegacyNativeEngine() {
-  return require("../../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+  return require("../../runtime/slideclone-native-engine/scripts/rebuild-real-pptx-native");
 }
 
 function loadLegacyDeckRebuilder() {

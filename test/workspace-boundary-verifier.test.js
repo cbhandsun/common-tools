@@ -82,7 +82,7 @@ test("boundary gate detects cycles created by non-index modules", (t) => {
 
 test("only the existing legacy native-engine adapter edge is permitted", (t) => {
   const f = workspace(t); f.add("slideclone-core");
-  const target = "skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js";
+  const target = "runtime/slideclone-native-engine/scripts/rebuild-real-pptx-native.js";
   const file = "packages/slideclone-core/legacy-native-engine.js";
   f.write(target, "module.exports = {};");
   f.write(file, `require("../../${target}");`);
@@ -94,7 +94,7 @@ test("only the existing legacy native-engine adapter edge is permitted", (t) => 
 
 test("legacy native-engine exception cannot expand to CLI, Workers or other domain modules", (t) => {
   const f = workspace(t);
-  const target = "skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js";
+  const target = "runtime/slideclone-native-engine/scripts/rebuild-real-pptx-native.js";
   f.write(target, "module.exports = {};");
   for (const folder of ["cli", "remote-mcp-server", "feature-core", "slideclone-core"]) f.add(folder);
   for (const file of [
