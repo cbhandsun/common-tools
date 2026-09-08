@@ -6,24 +6,20 @@ const path = require("node:path");
 const test = require("node:test");
 
 const root = path.resolve(__dirname, "..");
+const {
+  loadWorkspacePackagePolicy,
+  verifyWorkspaceBoundaries
+} = require("../scripts/verify-workspace-boundaries");
+
+function readPackageManifest(packageName) {
+  return JSON.parse(fs.readFileSync(path.join(root, "packages", packageName, "package.json"), "utf8"));
+}
 
 test("CLI declares every workspace package used by its composition root", () => {
-  const manifest = JSON.parse(fs.readFileSync(path.join(root, "packages", "cli", "package.json"), "utf8"));
-  const expected = [
-    "@common-tools/capability-runtime",
-    "@common-tools/mcp-server",
-    "@common-tools/ppt-create-core",
-    "@common-tools/ppt-improve-core",
-    "@common-tools/ppt-quality-core",
-    "@common-tools/project-audit-core",
-    "@common-tools/remote-mcp-server",
-    "@common-tools/siyuan-note-core",
-    "@common-tools/slideclone-core",
-    "@common-tools/slideclone-worker-adapter",
-    "@common-tools/team-runtime"
-  ];
+  const manifest = readPackageManifest("cli");
+  const expected = loadWorkspacePackagePolicy().packages.cli;
   assert.deepEqual(Object.keys(manifest.dependencies || {}).sort(), expected);
-  for (const dependency of expected) assert.equal(manifest.dependencies[dependency], "0.1.0");
+  for (const dependency of expected) assert.equal(manifest.dependencies[dependency], loadWorkspacePackagePolicy().workspaceDependencyVersion);
 });
 
 test("slideclone core has no upward dependency on CLI or skill implementation paths", () => {
@@ -32,28 +28,45 @@ test("slideclone core has no upward dependency on CLI or skill implementation pa
   assert.match(source, /executeSlideclone/);
 });
 
-test("workspace packages declare direct sibling dependencies without a team-runtime cycle", () => {
-  const required = {
-    "archive-core": [],
-    "artifact-core": [],
-    "capability-runtime": ["@common-tools/capability-contracts"],
-    "project-audit-core": ["@common-tools/archive-core", "@common-tools/capability-contracts", "@common-tools/capability-runtime"],
-    "ooxml-core": [],
-    "ppt-create-core": ["@common-tools/archive-core", "@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core"],
-    "ppt-quality-core": ["@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core"],
-    "slideclone-core": ["@common-tools/archive-core", "@common-tools/artifact-core", "@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core"],
-    "slideclone-worker-adapter": ["@common-tools/archive-core", "@common-tools/artifact-core", "@common-tools/capability-contracts", "@common-tools/slideclone-core", "@common-tools/team-runtime"],
-    "mcp-server": ["@common-tools/capability-contracts", "@common-tools/capability-registry", "@common-tools/capability-runtime"],
-    "team-runtime": ["@common-tools/capability-contracts", "@common-tools/capability-runtime"],
-    "remote-mcp-server": ["@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/mcp-server", "@common-tools/ppt-create-core", "@common-tools/ppt-improve-core", "@common-tools/ppt-quality-core", "@common-tools/project-audit-core", "@common-tools/slideclone-core", "@common-tools/slideclone-worker-adapter", "@common-tools/siyuan-note-core", "@common-tools/team-runtime"]
+test("workspace packages match the declarative sibling dependency policy", () => {
+  const result = verifyWorkspaceBoundaries(root);
+  assert.equal(result.packageCount, Object.keys(loadWorkspacePackagePolicy().packages).length);
+});
+
+test("workspace package policy rejects unapproved sibling dependencies", () => {
+  const policy = loadWorkspacePackagePolicy();
+  const packagePolicy = {
+    ...policy,
+    packages: {
+      ...policy.packages,
+      "slideclone-core": policy.packages["slideclone-core"].filter((dependency) => dependency !== "@common-tools/ooxml-core")
+    }
   };
-  for (const [packageName, dependencies] of Object.entries(required)) {
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "packages", packageName, "package.json"), "utf8"));
-    for (const dependency of dependencies) assert.equal(manifest.dependencies?.[dependency], "0.1.0", `${packageName} must declare ${dependency}`);
-  }
-  const teamManifest = JSON.parse(fs.readFileSync(path.join(root, "packages", "team-runtime", "package.json"), "utf8"));
+  assert.throws(
+    () => verifyWorkspaceBoundaries({ workspaceRoot: root, packagePolicy }),
+    /slideclone-core declares unapproved workspace dependency @common-tools\/ooxml-core/
+  );
+});
+
+test("workspace package policy rejects package drift", () => {
+  const policy = loadWorkspacePackagePolicy();
+  const packagePolicy = {
+    ...policy,
+    packages: {
+      ...policy.packages,
+      "ghost-core": []
+    }
+  };
+  assert.throws(
+    () => verifyWorkspaceBoundaries({ workspaceRoot: root, packagePolicy }),
+    /package policy references unknown workspace package ghost-core/
+  );
+});
+
+test("workspace packages keep team runtime below server composition roots", () => {
+  const teamManifest = readPackageManifest("team-runtime");
   assert.equal(teamManifest.dependencies?.["@common-tools/remote-mcp-server"], undefined);
-  const slidecloneManifest = JSON.parse(fs.readFileSync(path.join(root, "packages", "slideclone-core", "package.json"), "utf8"));
+  const slidecloneManifest = readPackageManifest("slideclone-core");
   assert.equal(slidecloneManifest.dependencies?.["@common-tools/project-audit-core"], undefined);
   assert.equal(slidecloneManifest.dependencies?.["@common-tools/slideclone-worker-adapter"], undefined);
   assert.equal(slidecloneManifest.dependencies?.["@common-tools/team-runtime"], undefined);

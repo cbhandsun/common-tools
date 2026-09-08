@@ -6,6 +6,7 @@ const { isBuiltin } = require("node:module");
 const { Linter } = require("eslint");
 
 const DEFAULT_POLICY_FILE = path.resolve(__dirname, "..", "config", "layer-policy.json");
+const DEFAULT_PACKAGE_POLICY_FILE = path.resolve(__dirname, "..", "config", "workspace-package-policy.json");
 
 // Parse imports without loading or executing repository modules. ESLint is a
 // declared build dependency; this verifier is never part of the host Runtime.
@@ -73,6 +74,23 @@ function validateNameMap(value, label) {
   })));
 }
 
+function validateWorkspacePackageName(value, label) {
+  if (typeof value !== "string" || !/^[a-z][a-z0-9-]*$/.test(value)) throw new TypeError(`${label} is invalid`);
+  return value;
+}
+
+function validateWorkspaceDependencyName(value, label) {
+  if (typeof value !== "string" || !/^@common-tools\/[a-z][a-z0-9-]*$/.test(value)) throw new TypeError(`${label} is invalid`);
+  return value;
+}
+
+function validateWorkspaceDependencyList(value, label) {
+  if (!Array.isArray(value)) throw new TypeError(`${label} is invalid`);
+  const dependencies = value.map((dependency) => validateWorkspaceDependencyName(dependency, label)).sort();
+  if (new Set(dependencies).size !== dependencies.length) throw new TypeError(`${label} contains duplicate dependencies`);
+  return Object.freeze(dependencies);
+}
+
 function validateLayerPolicy(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1) throw new TypeError("layer policy is invalid");
   const keys = Object.keys(value).sort().join(",");
@@ -88,6 +106,26 @@ function validateLayerPolicy(value) {
 
 function loadLayerPolicy(file = DEFAULT_POLICY_FILE) {
   return validateLayerPolicy(readJson(file));
+}
+
+function validateWorkspacePackagePolicy(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1) throw new TypeError("workspace package policy is invalid");
+  const keys = Object.keys(value).sort().join(",");
+  if (keys !== "packages,version,workspaceDependencyVersion") throw new TypeError("workspace package policy is invalid");
+  if (value.workspaceDependencyVersion !== "0.1.0") throw new TypeError("workspace package policy dependency version is invalid");
+  if (!value.packages || typeof value.packages !== "object" || Array.isArray(value.packages)) throw new TypeError("workspace package policy packages are invalid");
+  return Object.freeze({
+    version: 1,
+    workspaceDependencyVersion: value.workspaceDependencyVersion,
+    packages: Object.freeze(Object.fromEntries(Object.entries(value.packages).map(([packageName, dependencies]) => [
+      validateWorkspacePackageName(packageName, "workspace package policy package"),
+      validateWorkspaceDependencyList(dependencies, `workspace package policy dependencies for ${packageName}`)
+    ]).sort(([left], [right]) => left.localeCompare(right))))
+  });
+}
+
+function loadWorkspacePackagePolicy(file = DEFAULT_PACKAGE_POLICY_FILE) {
+  return validateWorkspacePackagePolicy(readJson(file));
 }
 
 function forbiddenLayer(source, target, policy = loadLayerPolicy()) {
@@ -114,6 +152,9 @@ function findCycles(graph) {
 function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
   const workspaceRoot = typeof options === "string" ? options : options.workspaceRoot;
   const policy = typeof options === "string" ? loadLayerPolicy() : validateLayerPolicy(options.policy || loadLayerPolicy(options.policyFile));
+  const packagePolicy = typeof options === "string"
+    ? loadWorkspacePackagePolicy()
+    : validateWorkspacePackagePolicy(options.packagePolicy || loadWorkspacePackagePolicy(options.packagePolicyFile));
   const root = fs.realpathSync(workspaceRoot);
   const packageRoot = path.join(root, "packages");
   const packages = new Map(); const byName = new Map(); const graph = new Map();
@@ -130,6 +171,21 @@ function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
   }
   if (packages.size === 0) throw new Error("no workspace packages found");
   const failures = []; const legacyEdges = []; let fileCount = 0;
+  const actualFolders = [...packages.keys()].sort();
+  const policyFolders = Object.keys(packagePolicy.packages).sort();
+  for (const folder of actualFolders.filter((folder) => !Object.hasOwn(packagePolicy.packages, folder))) failures.push(`workspace package ${folder} is missing from package policy`);
+  for (const folder of policyFolders.filter((folder) => !packages.has(folder))) failures.push(`package policy references unknown workspace package ${folder}`);
+  for (const [folder, record] of packages) {
+    const expected = packagePolicy.packages[folder];
+    if (!expected) continue;
+    const actual = Object.keys(record.manifest.dependencies || {}).filter((dependency) => dependency.startsWith("@common-tools/")).sort();
+    for (const dependency of expected) {
+      const target = byName.get(dependency);
+      if (!target) failures.push(`package policy for ${folder} references unknown workspace dependency ${dependency}`);
+      if (record.manifest.dependencies?.[dependency] !== packagePolicy.workspaceDependencyVersion) failures.push(`${folder} must declare ${dependency}@${packagePolicy.workspaceDependencyVersion}`);
+    }
+    for (const dependency of actual.filter((dependency) => !expected.includes(dependency))) failures.push(`${folder} declares unapproved workspace dependency ${dependency}`);
+  }
   for (const current of packages.values()) {
     for (const file of sourceFiles(current.directory)) {
       fileCount += 1;
@@ -189,4 +245,13 @@ if (require.main === module) {
   }
 }
 
-module.exports = { collectImports, findCycles, forbiddenLayer, loadLayerPolicy, validateLayerPolicy, verifyWorkspaceBoundaries };
+module.exports = {
+  collectImports,
+  findCycles,
+  forbiddenLayer,
+  loadLayerPolicy,
+  loadWorkspacePackagePolicy,
+  validateLayerPolicy,
+  validateWorkspacePackagePolicy,
+  verifyWorkspaceBoundaries
+};
