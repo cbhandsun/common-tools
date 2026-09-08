@@ -7,7 +7,7 @@ const path = require("node:path");
 const test = require("node:test");
 const {spawnSync} = require("node:child_process");
 const packageManifest = require("../package.json");
-const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe } = require("../scripts/verify-runtime-package");
+const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, collectPackageSurfaceTargets, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe, verifyInstalledPackageSurfaces } = require("../scripts/verify-runtime-package");
 
 function metadata(files = REQUIRED_FILES) {
   return JSON.stringify([{
@@ -31,6 +31,33 @@ test("runtime package verifier accepts a bounded release-only file manifest", ()
   assert.equal(result.filename, `common-tools-${packageManifest.version}.tgz`);
   assert.equal(result.size, 1024);
   assert.deepEqual(result.files, [...REQUIRED_FILES, "README.md"]);
+});
+
+test("installed runtime package surfaces must remain package-owned files", () => {
+  assert.deepEqual(collectPackageSurfaceTargets({ main: "index.js", exports: { ".": "./index.js", "./feature": { require: "./feature.js" } } }), [
+    { label: "main", target: "index.js" },
+    { label: "exports[.]", target: "./index.js" },
+    { label: "exports[./feature].require", target: "./feature.js" }
+  ]);
+  assert.throws(() => collectPackageSurfaceTargets({ exports: ["./index.js"] }), /package surface/);
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installed-surface-"));
+  try {
+    const packageRoot = path.join(root, "common-tools");
+    const featureRoot = path.join(packageRoot, "packages", "feature-core");
+    fs.mkdirSync(featureRoot, { recursive: true });
+    fs.writeFileSync(path.join(featureRoot, "index.js"), "module.exports = {};\n");
+    fs.writeFileSync(path.join(featureRoot, "package.json"), JSON.stringify({ name: "@fixture/feature-core", version: "1.0.0", main: "index.js", exports: { ".": "./index.js" } }));
+    assert.deepEqual(verifyInstalledPackageSurfaces(packageRoot), ["feature-core"]);
+
+    fs.writeFileSync(path.join(featureRoot, "package.json"), JSON.stringify({ name: "@fixture/feature-core", version: "1.0.0", main: "index.js", exports: { ".": "../outside.js" } }));
+    assert.throws(() => verifyInstalledPackageSurfaces(packageRoot), /surface escapes the package/);
+
+    fs.writeFileSync(path.join(featureRoot, "package.json"), JSON.stringify({ name: "@fixture/other-core", version: "1.0.0", main: "index.js" }));
+    assert.throws(() => verifyInstalledPackageSurfaces(packageRoot), /package identity/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("runtime package verifier rejects missing, unsafe, duplicate, and oversized package metadata", () => {

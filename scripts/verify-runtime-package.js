@@ -446,6 +446,48 @@ function installedCliPath(installRoot) {
   return path.join(installRoot, "node_modules", "common-tools", "packages", "cli", "bin", "common-tools.js");
 }
 
+function collectPackageSurfaceTargets(value, label = "package surface") {
+  const targets = [];
+  function collect(current, currentLabel) {
+    if (typeof current === "string") {
+      targets.push(Object.freeze({ label: currentLabel, target: current }));
+      return;
+    }
+    if (!plainObject(current)) throw new TypeError(`${label} is invalid`);
+    for (const [name, child] of Object.entries(current).sort(([left], [right]) => left.localeCompare(right))) {
+      collect(child, currentLabel === "exports" ? `exports[${name}]` : `${currentLabel}.${name}`);
+    }
+  }
+  if (typeof value.main === "string") targets.push(Object.freeze({ label: "main", target: value.main }));
+  else if (Object.hasOwn(value, "main")) throw new TypeError(`${label} main is invalid`);
+  if (Object.hasOwn(value, "exports")) collect(value.exports, "exports");
+  return Object.freeze(targets);
+}
+
+function verifyInstalledPackageSurfaces(packageRoot) {
+  const packagesRoot = path.join(normalDirectory(packageRoot, "installed package root"), "packages");
+  const packageNames = [];
+  for (const entry of fs.readdirSync(packagesRoot, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+    if (!entry.isDirectory()) continue;
+    const packageDirectory = path.join(packagesRoot, entry.name);
+    const manifestPath = path.join(packageDirectory, "package.json");
+    if (!fs.existsSync(manifestPath)) continue;
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    if (typeof manifest.name !== "string" || manifest.name.split("/")[1] !== entry.name) throw new Error("installed runtime package identity is invalid");
+    packageNames.push(entry.name);
+    for (const { target } of collectPackageSurfaceTargets(manifest, "installed runtime package surface")) {
+      if (path.isAbsolute(target) || target.includes("\0")) throw new Error("installed runtime package surface is invalid");
+      const resolved = path.resolve(packageDirectory, target);
+      const relative = path.relative(packageDirectory, resolved);
+      if (relative === "" || path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) throw new Error("installed runtime package surface escapes the package");
+      const details = fs.statSync(fs.realpathSync(resolved));
+      if (!details.isFile()) throw new Error("installed runtime package surface is missing");
+    }
+  }
+  if (packageNames.length === 0) throw new Error("installed runtime package surfaces are missing");
+  return Object.freeze(packageNames);
+}
+
 function imageEditableEnhancementProbe() {
   return [
     "let stage='initialization';try{const fs=require('node:fs');const path=require('node:path');",
@@ -515,6 +557,7 @@ function pptCreateEnhancementProbe() {
 function verifyInstalledCli({ installRoot, commandRunner }) {
   const cli = installedCliPath(installRoot);
   const packageRoot = path.join(installRoot, "node_modules", "common-tools");
+  const packageNames = verifyInstalledPackageSurfaces(packageRoot);
   const help = run(commandRunner, process.execPath, [cli, "help"], installRoot, "installed runtime CLI help check failed");
   if (!help.includes("usage: common-tools <command>")) throw new Error("installed runtime CLI help is invalid");
   const listed = run(commandRunner, process.execPath, [cli, "plugin", "list"], installRoot, "installed runtime plugin check failed");
@@ -529,7 +572,7 @@ function verifyInstalledCli({ installRoot, commandRunner }) {
   runClassifiedProbe(commandRunner, ["-e", imageEditableEnhancementProbe(), packageRoot], installRoot, "installed image-to-editable residual deduplication check failed");
   runClassifiedProbe(commandRunner, ["-e", pptCreateLayoutProbe(), packageRoot], installRoot, "installed ppt-create layout candidate check failed");
   runClassifiedProbe(commandRunner, ["-e", pptCreateEnhancementProbe(), packageRoot], installRoot, "installed ppt-create enhancement check failed");
-  return Object.freeze({ capabilityCount: catalog.capabilities.length, imageToEditableEngine: true, residualDeduplication: true, rawImageBatch: true, pptCreateLayoutCandidates: true, pptCreatePlanning: true, pptCreateEnhancements: true });
+  return Object.freeze({ capabilityCount: catalog.capabilities.length, packageCount: packageNames.length, imageToEditableEngine: true, residualDeduplication: true, rawImageBatch: true, pptCreateLayoutCandidates: true, pptCreatePlanning: true, pptCreateEnhancements: true });
 }
 
 function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), commandRunner = childProcess.spawnSync, temporaryDirectory = fs.mkdtempSync } = {}) {
@@ -551,7 +594,7 @@ function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), 
     const installInvocation = npmInvocation(["install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", installRoot, tarball]);
     run(commandRunner, installInvocation.command, installInvocation.arguments, root, "runtime package installation failed");
     const installed = verifyInstalledCli({ installRoot, commandRunner });
-    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, imageToEditableEngine: installed.imageToEditableEngine, residualDeduplication: installed.residualDeduplication, rawImageBatch: installed.rawImageBatch, pptCreateLayoutCandidates: installed.pptCreateLayoutCandidates, pptCreatePlanning: installed.pptCreatePlanning, pptCreateEnhancements: installed.pptCreateEnhancements });
+    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, packageCount: installed.packageCount, imageToEditableEngine: installed.imageToEditableEngine, residualDeduplication: installed.residualDeduplication, rawImageBatch: installed.rawImageBatch, pptCreateLayoutCandidates: installed.pptCreateLayoutCandidates, pptCreatePlanning: installed.pptCreatePlanning, pptCreateEnhancements: installed.pptCreateEnhancements });
   } finally {
     if (cleanable) fs.rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
@@ -562,4 +605,4 @@ if (require.main === module) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-module.exports = { FORBIDDEN_PREFIXES, IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, installedCliPath, npmCliPath, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe, verifyInstalledCli, verifyRuntimePackage };
+module.exports = { FORBIDDEN_PREFIXES, IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, collectPackageSurfaceTargets, imageEditableEnhancementProbe, installedCliPath, npmCliPath, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe, verifyInstalledCli, verifyInstalledPackageSurfaces, verifyRuntimePackage };
