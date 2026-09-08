@@ -20,7 +20,18 @@ function workspace(t) {
     write(`packages/${name}/package.json`, JSON.stringify({ name: `@fixture/${name}`, version: "1.0.0", dependencies }));
     write(`packages/${name}/index.js`, '"use strict";\n');
   }
-  return { root, write, add, verify: () => verifyWorkspaceBoundaries(root) };
+  function packagePolicy() {
+    const packages = {};
+    for (const entry of fs.readdirSync(path.join(root, "packages"), { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const manifestPath = path.join(root, "packages", entry.name, "package.json");
+      if (!fs.existsSync(manifestPath)) continue;
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      packages[entry.name] = Object.keys(manifest.dependencies || {}).filter((dependency) => dependency.startsWith("@fixture/")).sort();
+    }
+    return { version: 1, workspaceDependencyVersion: "1.0.0", packages };
+  }
+  return { root, write, add, verify: () => verifyWorkspaceBoundaries({ workspaceRoot: root, packagePolicy: packagePolicy() }) };
 }
 
 test("boundary parser distinguishes imports from strings/comments and inspects ESM and dynamic imports", () => {

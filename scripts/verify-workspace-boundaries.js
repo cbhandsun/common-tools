@@ -80,7 +80,7 @@ function validateWorkspacePackageName(value, label) {
 }
 
 function validateWorkspaceDependencyName(value, label) {
-  if (typeof value !== "string" || !/^@common-tools\/[a-z][a-z0-9-]*$/.test(value)) throw new TypeError(`${label} is invalid`);
+  if (typeof value !== "string" || !/^@[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*$/.test(value)) throw new TypeError(`${label} is invalid`);
   return value;
 }
 
@@ -112,7 +112,7 @@ function validateWorkspacePackagePolicy(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1) throw new TypeError("workspace package policy is invalid");
   const keys = Object.keys(value).sort().join(",");
   if (keys !== "packages,version,workspaceDependencyVersion") throw new TypeError("workspace package policy is invalid");
-  if (value.workspaceDependencyVersion !== "0.1.0") throw new TypeError("workspace package policy dependency version is invalid");
+  if (typeof value.workspaceDependencyVersion !== "string" || !/^[0-9]+[.][0-9]+[.][0-9]+(?:[-+][A-Za-z0-9.-]+)?$/.test(value.workspaceDependencyVersion)) throw new TypeError("workspace package policy dependency version is invalid");
   if (!value.packages || typeof value.packages !== "object" || Array.isArray(value.packages)) throw new TypeError("workspace package policy packages are invalid");
   return Object.freeze({
     version: 1,
