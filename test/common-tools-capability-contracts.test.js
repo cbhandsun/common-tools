@@ -11,7 +11,7 @@ const { TOOLS } = require("../packages/mcp-server/core");
 const { JOB_SCHEMA: LOCAL_JOB_SCHEMA, annotations: localAnnotations, validateToolOutput } = require("../packages/mcp-server/tool-contracts");
 const { compileSchema } = require("../packages/mcp-server/schema-validator");
 const { CAPABILITY_SCOPES } = require("../packages/remote-mcp-server/team-mcp");
-const { DIRECT_CAPABILITY_CATALOG } = require("../packages/remote-mcp-server/direct-capability-catalog");
+const { DIRECT_CAPABILITY_CATALOG, DIRECT_CAPABILITY_SOURCE_CATALOG } = require("../packages/remote-mcp-server/direct-capability-catalog");
 const remotePackage = require("../packages/remote-mcp-server/package.json");
 const { JOB_SCHEMA: TEAM_JOB_SCHEMA, annotations: teamAnnotations } = require("../packages/remote-mcp-server/team-tool-contracts");
 const { assertDirectCapabilityCatalog } = require("../packages/cli/verification/verify-capability-catalogs");
@@ -119,13 +119,17 @@ test("team deployment mapping is derived exactly from capability manifests", () 
 });
 
 test("direct capability catalog is fail-closed against manifests and team definitions", () => {
-  assert.equal(assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage }), true);
+  assert.equal(assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage, sourceCatalog: DIRECT_CAPABILITY_SOURCE_CATALOG }), true);
   assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: [...DIRECT_CAPABILITY_CATALOG, DIRECT_CAPABILITY_CATALOG[0]], teamDefinitions: TEAM_CAPABILITY_DEFINITIONS }), /duplicate direct capability/);
   assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: { ...TEAM_CAPABILITY_DEFINITIONS, "siyuan-note": { ...TEAM_CAPABILITY_DEFINITIONS["siyuan-note"], mode: "worker" } } }), /team definition is not direct/);
   assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: [{ ...DIRECT_CAPABILITY_CATALOG[0], registration: { ...DIRECT_CAPABILITY_CATALOG[0].registration, toolNames: ["siyuan_save_note", "siyuan_save_note"] } }], teamDefinitions: TEAM_CAPABILITY_DEFINITIONS }), /duplicate tools/);
   assert.throws(
-    () => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage: { dependencies: {} } }),
+    () => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage: { dependencies: {} }, sourceCatalog: DIRECT_CAPABILITY_SOURCE_CATALOG }),
     /direct capability package is not a direct dependency/
+  );
+  assert.throws(
+    () => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage, sourceCatalog: [{ ...DIRECT_CAPABILITY_SOURCE_CATALOG[0], packageName: "@common-tools/other-core" }] }),
+    /module source does not match manifest/
   );
 });
 

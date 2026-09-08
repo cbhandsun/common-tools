@@ -8,7 +8,7 @@ const {
   idempotencyStorageKey, normalizeSiyuanBaseUrl, searchStatement
 } = require("../packages/siyuan-note-core");
 const { callTeamTool, toolsFor } = require("../packages/remote-mcp-server/team-mcp");
-const { DIRECT_CAPABILITY_CATALOG, directToolArguments, directToolContracts, directToolMethods } = require("../packages/remote-mcp-server/direct-capability-catalog");
+const { DIRECT_CAPABILITY_CATALOG, DIRECT_CAPABILITY_SOURCE_CATALOG, directToolArguments, directToolContracts, directToolMethods } = require("../packages/remote-mcp-server/direct-capability-catalog");
 const { TEAM_TOOLS } = require("../packages/remote-mcp-server/team-tool-contracts");
 const { TEAM_TOOL_ARGUMENTS, assertDirectCapabilityModuleContracts, assertDirectSiyuanModuleContracts } = require("../packages/remote-mcp-server/team-tool-registry");
 const { createRedisIdempotencyStore } = require("../packages/remote-mcp-server/team-providers");
@@ -36,6 +36,7 @@ test("SiYuan remote capability module matches its signed manifest and team regis
   assert.equal(REMOTE_CAPABILITY_MODULE.directToolArguments, SIYUAN_TOOL_ARGUMENTS);
   assert.equal(REMOTE_CAPABILITY_MODULE.directToolContracts, SIYUAN_DIRECT_TEAM_TOOLS);
   assert.ok(DIRECT_CAPABILITY_CATALOG.includes(REMOTE_CAPABILITY_MODULE));
+  assert.deepEqual(DIRECT_CAPABILITY_SOURCE_CATALOG[0], { packageName: "@common-tools/siyuan-note-core", module: REMOTE_CAPABILITY_MODULE });
   assert.equal(directToolArguments().siyuan_save_note, SIYUAN_TOOL_ARGUMENTS.siyuan_save_note);
   assert.equal(directToolMethods().siyuan_save_note, SIYUAN_TOOL_METHODS.siyuan_save_note);
   assert.ok(directToolContracts().includes(SIYUAN_DIRECT_TEAM_TOOLS[1]));

@@ -38,6 +38,25 @@ function assertDirectToolCatalog(module) {
   }
 }
 
+function assertDirectCapabilitySourceCatalog({ manifests, catalog, sourceCatalog, remotePackage }) {
+  if (!Array.isArray(sourceCatalog)) throw new TypeError("direct capability source catalog is invalid");
+  const modules = new Set(catalog);
+  const capabilities = new Set();
+  for (const entry of sourceCatalog) {
+    if (!entry || typeof entry !== "object" || typeof entry.packageName !== "string" || !entry.module) throw new Error("direct capability source catalog entry is invalid");
+    if (!modules.has(entry.module)) throw new Error("direct capability source catalog module is not in the direct catalog");
+    const capability = entry.module.registration?.capability;
+    if (typeof capability !== "string") throw new Error("direct capability source catalog module registration is invalid");
+    if (capabilities.has(capability)) throw new Error(`duplicate direct capability source: ${capability}`);
+    capabilities.add(capability);
+    const manifest = manifests.get(capability);
+    if (!manifest || manifest.requiredWorkerProfile !== "direct") throw new Error(`direct capability source does not match a direct manifest: ${capability}`);
+    assertModuleSourceMatchesManifest({ capability, moduleSource: manifest.moduleSource, packageName: entry.packageName, label: "direct" });
+    assertPackageDependency(remotePackage, entry.packageName, "direct");
+  }
+  if (!sameStringSet([...capabilities], catalog.map((module) => module.registration.capability))) throw new Error("direct capability source catalog does not cover all direct modules");
+}
+
 function assertLocalCapabilityCatalog({ manifests, catalog, registryPackage }) {
   if (!(manifests instanceof Map)) throw new TypeError("capability manifests are invalid");
   if (!Array.isArray(catalog)) throw new TypeError("local capability catalog is invalid");
@@ -60,7 +79,7 @@ function assertLocalCapabilityCatalog({ manifests, catalog, registryPackage }) {
   return true;
 }
 
-function assertDirectCapabilityCatalog({ manifests, catalog, teamDefinitions = {}, remotePackage } = {}) {
+function assertDirectCapabilityCatalog({ manifests, catalog, teamDefinitions = {}, remotePackage, sourceCatalog } = {}) {
   if (!(manifests instanceof Map)) throw new TypeError("capability manifests are invalid");
   if (!Array.isArray(catalog)) throw new TypeError("direct capability catalog is invalid");
   if (!teamDefinitions || typeof teamDefinitions !== "object" || Array.isArray(teamDefinitions)) throw new TypeError("team capability definitions are invalid");
@@ -79,8 +98,6 @@ function assertDirectCapabilityCatalog({ manifests, catalog, teamDefinitions = {
     actual.push(capability);
     const manifest = manifests.get(capability);
     if (!manifest || manifest.requiredWorkerProfile !== "direct") throw new Error(`direct capability catalog entry does not match a direct manifest: ${capability}`);
-    assertModuleSourceMatchesManifest({ capability, moduleSource: manifest.moduleSource, packageName: manifest.moduleSource.packageName, label: "direct" });
-    if (remotePackage) assertPackageDependency(remotePackage, manifest.moduleSource.packageName, "direct");
     if (teamDefinitions[capability]?.mode !== "direct") throw new Error(`direct capability team definition is not direct: ${capability}`);
     for (const name of module.registration.toolNames) {
       if (toolNames.has(name)) throw new Error(`duplicate direct capability tool: ${name}`);
@@ -88,6 +105,7 @@ function assertDirectCapabilityCatalog({ manifests, catalog, teamDefinitions = {
     }
   }
   if (!sameStringSet(actual, expected)) throw new Error("direct capability catalog does not cover all direct manifests");
+  if (sourceCatalog || remotePackage) assertDirectCapabilitySourceCatalog({ manifests, catalog, sourceCatalog, remotePackage });
   return true;
 }
 
@@ -96,10 +114,10 @@ function verifyCapabilityCatalogs(root = REPOSITORY_ROOT) {
   const { TEAM_CAPABILITY_DEFINITIONS } = require("../../capability-runtime");
   const { LOCAL_CAPABILITY_CATALOG } = require("../../capability-registry");
   const registryPackage = require("../../capability-registry/package.json");
-  const { DIRECT_CAPABILITY_CATALOG } = require("../../remote-mcp-server/direct-capability-catalog");
+  const { DIRECT_CAPABILITY_CATALOG, DIRECT_CAPABILITY_SOURCE_CATALOG } = require("../../remote-mcp-server/direct-capability-catalog");
   const remotePackage = require("../../remote-mcp-server/package.json");
   assertLocalCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: LOCAL_CAPABILITY_CATALOG, registryPackage });
-  assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage });
+  assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage, sourceCatalog: DIRECT_CAPABILITY_SOURCE_CATALOG });
   return Object.freeze({
     directCapabilities: Object.freeze(sorted(DIRECT_CAPABILITY_CATALOG.map((module) => module.registration.capability))),
     localCapabilities: Object.freeze(sorted(LOCAL_CAPABILITY_CATALOG.map((entry) => entry.module.registration.capability))),
@@ -109,6 +127,7 @@ function verifyCapabilityCatalogs(root = REPOSITORY_ROOT) {
 
 module.exports = {
   assertDirectCapabilityCatalog,
+  assertDirectCapabilitySourceCatalog,
   assertDirectToolCatalog,
   assertLocalCapabilityCatalog,
   verifyCapabilityCatalogs
