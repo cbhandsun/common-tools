@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { collectImports, verifyWorkspaceBoundaries } = require("../scripts/verify-workspace-boundaries");
+const { collectImports, forbiddenLayer, loadLayerPolicy, validateLayerPolicy, verifyWorkspaceBoundaries } = require("../scripts/verify-workspace-boundaries");
 
 function workspace(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "workspace-boundary-"));
@@ -70,6 +70,17 @@ test("boundary gate rejects upward domain dependencies even when explicitly decl
   f.add("feature-core", { "@fixture/cli": "1.0.0" }); f.add("cli");
   f.write("packages/feature-core/deep.js", 'require("../cli");');
   assert.throws(f.verify, /forbidden layer dependency feature-core -> cli/);
+});
+
+test("layer policy is declarative and fails closed on malformed rules", () => {
+  const policy = loadLayerPolicy(path.resolve(__dirname, "..", "config", "layer-policy.json"));
+  assert.equal(forbiddenLayer("feature-core", "mcp-server", policy), true);
+  assert.equal(forbiddenLayer("mcp-server", "feature-core", policy), false);
+  assert.equal(forbiddenLayer("capability-runtime", "capability-contracts", policy), false);
+  assert.equal(forbiddenLayer("capability-runtime", "ppt-quality-core", policy), true);
+  assert.equal(forbiddenLayer("slideclone-core", "team-runtime", policy), true);
+  assert.throws(() => validateLayerPolicy({ version: 1, transports: ["cli"], forbiddenSources: [], allowedDependencies: {}, forbiddenDependencies: {}, extra: true }), /layer policy/);
+  assert.throws(() => validateLayerPolicy({ version: 1, transports: ["cli", "cli"], forbiddenSources: [], allowedDependencies: {}, forbiddenDependencies: {} }), /transports/);
 });
 
 test("boundary gate keeps slideclone core below worker orchestration and unrelated capabilities", (t) => {

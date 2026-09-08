@@ -5,6 +5,8 @@ const path = require("node:path");
 const { isBuiltin } = require("node:module");
 const { Linter } = require("eslint");
 
+const DEFAULT_POLICY_FILE = path.resolve(__dirname, "..", "config", "layer-policy.json");
+
 // Parse imports without loading or executing repository modules. ESLint is a
 // declared build dependency; this verifier is never part of the host Runtime.
 function collectImports(source, filename = "source.js") {
@@ -54,12 +56,45 @@ function packageName(specifier) {
   return specifier.startsWith("@") ? specifier.split("/").slice(0, 2).join("/") : specifier.split("/")[0];
 }
 
-function forbiddenLayer(source, target) {
-  const transports = new Set(["cli", "mcp-server", "remote-mcp-server"]);
-  if (source === "capability-contracts" || source === "capability-manifests") return true;
-  if (source === "capability-runtime") return !["capability-contracts", "capability-manifests"].includes(target);
-  if (source === "team-runtime") return !["capability-contracts", "capability-runtime", "capability-manifests"].includes(target);
-  if (source === "slideclone-core" && ["project-audit-core", "slideclone-worker-adapter", "team-runtime"].includes(target)) return true;
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, "utf8").replace(/^\uFEFF/u, ""));
+}
+
+function validateNameList(value, label) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !/^[a-z][a-z0-9-]*$/.test(item)) || new Set(value).size !== value.length) throw new TypeError(`${label} is invalid`);
+  return Object.freeze([...value]);
+}
+
+function validateNameMap(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} is invalid`);
+  return Object.freeze(Object.fromEntries(Object.entries(value).map(([name, list]) => {
+    if (!/^[a-z][a-z0-9-]*$/.test(name)) throw new TypeError(`${label} is invalid`);
+    return [name, validateNameList(list, label)];
+  })));
+}
+
+function validateLayerPolicy(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1) throw new TypeError("layer policy is invalid");
+  const keys = Object.keys(value).sort().join(",");
+  if (keys !== "allowedDependencies,forbiddenDependencies,forbiddenSources,transports,version") throw new TypeError("layer policy is invalid");
+  return Object.freeze({
+    version: 1,
+    transports: validateNameList(value.transports, "layer policy transports"),
+    forbiddenSources: validateNameList(value.forbiddenSources, "layer policy forbidden sources"),
+    allowedDependencies: validateNameMap(value.allowedDependencies, "layer policy allowed dependencies"),
+    forbiddenDependencies: validateNameMap(value.forbiddenDependencies, "layer policy forbidden dependencies")
+  });
+}
+
+function loadLayerPolicy(file = DEFAULT_POLICY_FILE) {
+  return validateLayerPolicy(readJson(file));
+}
+
+function forbiddenLayer(source, target, policy = loadLayerPolicy()) {
+  const transports = new Set(policy.transports);
+  if (policy.forbiddenSources.includes(source)) return true;
+  if (Object.hasOwn(policy.allowedDependencies, source)) return !policy.allowedDependencies[source].includes(target);
+  if ((policy.forbiddenDependencies[source] || []).includes(target)) return true;
   return !transports.has(source) && transports.has(target);
 }
 
@@ -76,7 +111,9 @@ function findCycles(graph) {
   return cycles;
 }
 
-function verifyWorkspaceBoundaries(workspaceRoot = path.resolve(__dirname, "..")) {
+function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
+  const workspaceRoot = typeof options === "string" ? options : options.workspaceRoot;
+  const policy = typeof options === "string" ? loadLayerPolicy() : validateLayerPolicy(options.policy || loadLayerPolicy(options.policyFile));
   const root = fs.realpathSync(workspaceRoot);
   const packageRoot = path.join(root, "packages");
   const packages = new Map(); const byName = new Map(); const graph = new Map();
@@ -132,7 +169,7 @@ function verifyWorkspaceBoundaries(workspaceRoot = path.resolve(__dirname, "..")
         if (!Object.hasOwn(current.manifest.dependencies || {}, dependency)) fail(`missing direct runtime dependency ${dependency}`);
         if (target) {
           graph.get(current.folder).add(target.folder);
-          if (forbiddenLayer(current.folder, target.folder)) fail(`forbidden layer dependency ${current.folder} -> ${target.folder}`);
+          if (forbiddenLayer(current.folder, target.folder, policy)) fail(`forbidden layer dependency ${current.folder} -> ${target.folder}`);
         }
       }
     }
@@ -152,4 +189,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { collectImports, findCycles, forbiddenLayer, verifyWorkspaceBoundaries };
+module.exports = { collectImports, findCycles, forbiddenLayer, loadLayerPolicy, validateLayerPolicy, verifyWorkspaceBoundaries };
