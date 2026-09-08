@@ -402,41 +402,63 @@ ${registration}`;
 });
 
 test("generated Windows installer preserves unrelated or invalid legacy connections", { skip: process.platform !== "win32" }, () => {
-  for (const legacyJson of ['{"url":"https://unrelated.example.test/mcp"}', '{"url":null}', '{"url":"https://user@example.test/mcp"}']) {
-    const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
-    const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
-    const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
-    const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-legacy-reject-"));
-    const harnessPath = path.join(parent, "legacy-reject.ps1");
-    try {
-      const registration = installer.slice(registrationStart, registrationEnd);
-      const harness = `$ErrorActionPreference = "Stop"
+  const installer = installationScript("codex", "https://tunnel.example.test", ["siyuan-note"], "bundle");
+  const registrationStart = installer.indexOf(`$serverName = "${CODEX_MCP_SERVER_NAME}"`);
+  const registrationEnd = installer.indexOf('\n}\n$marketplaceName = "common-tools-remote"', registrationStart);
+  assert.ok(registrationStart >= 0 && registrationEnd > registrationStart, "generated installer must contain a bounded Codex MCP registration block");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-legacy-reject-"));
+  const harnessPath = path.join(parent, "legacy-reject.ps1");
+  const cases = [
+    { name: "unrelated", legacyJson: '{"url":"https://unrelated.example.test/mcp"}' },
+    { name: "empty", legacyJson: '{"url":null}' },
+    { name: "credentialed", legacyJson: '{"url":"https://user@example.test/mcp"}' }
+  ];
+  try {
+    const registration = installer.slice(registrationStart, registrationEnd);
+    const casesJson = JSON.stringify(cases).replace(/'/g, "''");
+    const harness = `$ErrorActionPreference = "Stop"
+$cases = '${casesJson}' | ConvertFrom-Json
+foreach ($case in @($cases)) {
+  $global:Calls = @()
 function codex {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)
   if ($CommandArgs[0] -eq "mcp" -and $CommandArgs[1] -eq "get") {
     if ($CommandArgs[2] -eq "${CODEX_MCP_SERVER_NAME}") {
       '{"transport":{"type":"streamable_http","url":"https://tunnel.example.test/mcp"}}'
     } else {
-      '${legacyJson}'
+      $case.legacyJson
     }
     $global:LASTEXITCODE = 0
     return
   }
-  Write-Output "CALL=$($CommandArgs -join ' ')"
+  $global:Calls += "CALL=$($CommandArgs -join ' ')"
   $global:LASTEXITCODE = 0
 }
 $selected = @("siyuan-note")
 $remoteSelected = @("siyuan-note")
-${registration}`;
-      fs.writeFileSync(harnessPath, harness, "utf8");
-      const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
-      const output = `${result.stdout}${result.stderr}`;
-      assert.notEqual(result.status, 0, output);
-      assert.match(output, /invalid URL|unrelated URL/);
-      assert.doesNotMatch(result.stdout, /CALL=mcp (?:logout|remove) common-tools(?:\r?\n|$)/);
-      assert.doesNotMatch(output, /null-valued expression/i);
-    } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+  $failed = $false
+  $message = ""
+  try {
+${registration}
+  } catch {
+    $failed = $true
+    $message = $_.Exception.Message
   }
+  if (-not $failed) { throw "Case $($case.name) unexpectedly succeeded" }
+  if ($message -notmatch "invalid URL|unrelated URL") { throw "Case $($case.name) produced an unexpected error: $message" }
+  if ($message -match "null-valued expression") { throw "Case $($case.name) exposed a null-valued expression failure" }
+  foreach ($call in @($global:Calls)) {
+    if ($call -match "CALL=mcp (?:logout|remove) common-tools(?:\\r?\\n|$)") { throw "Case $($case.name) tried to remove an unmanaged legacy connection: $call" }
+  }
+  Remove-Item Function:\\codex -ErrorAction SilentlyContinue
+}
+Write-Output "CASES=$(@($cases).Count)"
+`;
+    fs.writeFileSync(harnessPath, harness, "utf8");
+    const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+    assert.match(result.stdout, /CASES=3/);
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
 test("generated Windows installer fails closed when the stale OAuth session cannot be reset", { skip: process.platform !== "win32" }, () => {
