@@ -3,28 +3,10 @@
 const {
   cancelJob,
   editableVisualSummary,
-  getJob,
-  CAPABILITY_MODULE: EDITABLE_CAPABILITY_MODULE
+  getJob
 } = require("../slideclone-core");
-const {
-  CAPABILITY: PROJECT_AUDIT_CAPABILITY,
-  CAPABILITY_MODULE: PROJECT_AUDIT_CAPABILITY_MODULE
-} = require("../project-audit-core");
-const {
-  CAPABILITY: PPT_QUALITY_CAPABILITY,
-  CAPABILITY_MODULE: PPT_QUALITY_CAPABILITY_MODULE
-} = require("../ppt-quality-core");
-const {
-  CAPABILITY: PPT_IMPROVE_CAPABILITY,
-  CAPABILITY_MODULE: PPT_IMPROVE_CAPABILITY_MODULE
-} = require("../ppt-improve-core");
-const {
-  CAPABILITY: PPT_CREATE_CAPABILITY,
-  CAPABILITY_MODULE: PPT_CREATE_CAPABILITY_MODULE
-} = require("../ppt-create-core");
 const { CAPABILITY_MANIFESTS } = require("../capability-manifests");
-
-const IMAGE_TO_EDITABLE_CAPABILITY = EDITABLE_CAPABILITY_MODULE.registration.capability;
+const { LOCAL_CAPABILITY_CATALOG, loadLocalCapabilityModules } = require("./local-capability-catalog");
 
 function defineCapabilityModule(definition) {
   if (!definition || typeof definition !== "object" || Array.isArray(definition)) throw new TypeError("capability module definition is invalid");
@@ -65,19 +47,25 @@ function assertCapabilityModulesMatchManifests(modules, manifests = CAPABILITY_M
   return true;
 }
 
-const CAPABILITY_MODULES = Object.freeze([
-  EDITABLE_CAPABILITY_MODULE,
-  PROJECT_AUDIT_CAPABILITY_MODULE,
-  PPT_QUALITY_CAPABILITY_MODULE,
-  PPT_IMPROVE_CAPABILITY_MODULE,
-  PPT_CREATE_CAPABILITY_MODULE
-].map(defineCapabilityModule));
+const CAPABILITY_MODULES = Object.freeze(loadLocalCapabilityModules().map(defineCapabilityModule));
 assertCapabilityModulesMatchManifests(CAPABILITY_MODULES);
 
 const LOCAL_REGISTRATIONS = Object.freeze(CAPABILITY_MODULES.map((module) => module.registration));
 const UI_CONTRIBUTIONS = Object.freeze(CAPABILITY_MODULES.flatMap((module) => module.uiContributions));
 const CREATE_TOOL_HANDLERS = Object.freeze(Object.fromEntries(CAPABILITY_MODULES.flatMap((module) => Object.entries(module.createHandlers).map(([name, create]) => [name, Object.freeze({ capability: module.registration.capability, create })]))));
 const REPORT_TOOL_HANDLERS = Object.freeze(Object.fromEntries(CAPABILITY_MODULES.flatMap((module) => Object.entries(module.reportHandlers).map(([name, handler]) => [name, Object.freeze({ capability: module.registration.capability, ...handler })]))));
+
+function capabilityByToolName(toolName) {
+  const module = CAPABILITY_MODULES.find((candidate) => candidate.registration.toolNames.includes(toolName));
+  if (!module) throw new Error(`capability tool registration is missing: ${toolName}`);
+  return module.registration.capability;
+}
+
+const IMAGE_TO_EDITABLE_CAPABILITY = capabilityByToolName("get_job");
+const PROJECT_AUDIT_CAPABILITY = capabilityByToolName("create_project_audit_job");
+const PPT_QUALITY_CAPABILITY = capabilityByToolName("create_ppt_quality_job");
+const PPT_IMPROVE_CAPABILITY = capabilityByToolName("create_ppt_improve_job");
+const PPT_CREATE_CAPABILITY = capabilityByToolName("create_ppt_create_job");
 
 function createLocalJob(name, args, context) {
   const handler = CREATE_TOOL_HANDLERS[name];
@@ -100,6 +88,7 @@ function readLocalJob(name, args, context) {
 
 module.exports = {
   CAPABILITY_MODULES,
+  LOCAL_CAPABILITY_CATALOG,
   IMAGE_TO_EDITABLE_CAPABILITY,
   LOCAL_REGISTRATIONS,
   PPT_CREATE_CAPABILITY,

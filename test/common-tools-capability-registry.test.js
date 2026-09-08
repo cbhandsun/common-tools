@@ -3,8 +3,10 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { CAPABILITY_MANIFESTS } = require("../packages/capability-manifests");
+const registryPackage = require("../packages/capability-registry/package.json");
 const {
   CAPABILITY_MODULES,
+  LOCAL_CAPABILITY_CATALOG,
   LOCAL_REGISTRATIONS,
   assertCapabilityModulesMatchManifests,
   defineCapabilityModule
@@ -28,14 +30,16 @@ test("capability registry modules are verified against the signed manifest catal
 });
 
 test("capability registry consumes package-owned capability modules", () => {
-  const packageModules = [
+  const packageModules = LOCAL_CAPABILITY_CATALOG.map((entry) => entry.module);
+  assert.deepEqual(CAPABILITY_MODULES.map((module) => module.registration.capability), packageModules.map((module) => module.registration.capability));
+  assert.deepEqual(packageModules, [
     EDITABLE_CAPABILITY_MODULE,
     PROJECT_AUDIT_CAPABILITY_MODULE,
     PPT_QUALITY_CAPABILITY_MODULE,
     PPT_IMPROVE_CAPABILITY_MODULE,
     PPT_CREATE_CAPABILITY_MODULE
-  ];
-  assert.deepEqual(CAPABILITY_MODULES.map((module) => module.registration.capability), packageModules.map((module) => module.registration.capability));
+  ]);
+  for (const entry of LOCAL_CAPABILITY_CATALOG) assert.equal(registryPackage.dependencies[entry.packageName], "0.1.0");
   for (const packageModule of packageModules) {
     const registryModule = CAPABILITY_MODULES.find((module) => module.registration.capability === packageModule.registration.capability);
     assert.ok(registryModule);
