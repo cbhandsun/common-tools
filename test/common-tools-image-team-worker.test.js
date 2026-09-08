@@ -1153,12 +1153,16 @@ test("PaddleOCR team image pins the runtime and remains an explicit deployment o
   assert.match(requirements, /^paddleocr==3\.7\.0$/m);
   assert.match(requirements, /^paddlepaddle==3\.3\.1$/m);
   assert.match(dockerfile, /paddleocr-requirements\.lock\.txt/);
+  assert.match(dockerfile, /COPY packages\/slideclone-native-engine\/scripts\/python\/paddleocr_worker\.py \/opt\/paddleocr\/paddleocr_worker\.py/);
+  assert.match(dockerfile, /COPY packages\/slideclone-native-engine\/scripts\/adapters\/ocr-paddleocr-local\.js \/opt\/paddleocr\/skill\/scripts\/adapters\/ocr-paddleocr-local\.js/);
   assert.match(dockerfile, /PP-OCRv6_small_det/);
   assert.match(dockerfile, /PP-OCRv6_small_rec/);
   assert.match(dockerfile, /image_to_png\.py/);
   assert.match(dockerfile, /COPY --chown=worker:worker packages \.\/packages/);
+  assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\//);
   assert.doesNotMatch(dockerfile, /skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
-  assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/python\/image_to_png\.py$/m);
+  assert.match(ignore, /^!packages\/slideclone-native-engine\/scripts\/python\/image_to_png\.py$/m);
+  assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\//m);
   assert.doesNotMatch(ignore, /^!runtime\/slideclone-native-engine\/\*\*$/m);
   assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js$/m);
   assert.match(dockerfile, /--engine paddle_dynamic/);

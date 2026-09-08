@@ -10,14 +10,14 @@ RUN python3 -m venv /opt/paddleocr/venv \
     && /opt/paddleocr/venv/bin/python -m pip install --no-cache-dir --upgrade pip \
     && /opt/paddleocr/venv/bin/python -m pip install --no-cache-dir --requirement /opt/paddleocr/requirements.lock.txt
 
-COPY skills/pd-hifi-slideclone/scripts/python/paddleocr_worker.py /opt/paddleocr/paddleocr_worker.py
-COPY skills/pd-hifi-slideclone/scripts/python/paddleocr_protocol.py /opt/paddleocr/paddleocr_protocol.py
-COPY skills/pd-hifi-slideclone/scripts/python/image_to_png.py /opt/paddleocr/image_to_png.py
-COPY skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local.js /opt/paddleocr/skill/scripts/adapters/ocr-paddleocr-local.js
-COPY skills/pd-hifi-slideclone/scripts/lib/process-boundaries.js /opt/paddleocr/skill/scripts/lib/process-boundaries.js
-COPY skills/pd-hifi-slideclone/scripts/lib/python-env.js /opt/paddleocr/skill/scripts/lib/python-env.js
-COPY skills/pd-hifi-slideclone/scripts/lib/ocr-result-contract.js /opt/paddleocr/skill/scripts/lib/ocr-result-contract.js
-COPY skills/pd-hifi-slideclone/scripts/lib/paddleocr-worker-shutdown.js /opt/paddleocr/skill/scripts/lib/paddleocr-worker-shutdown.js
+COPY packages/slideclone-native-engine/scripts/python/paddleocr_worker.py /opt/paddleocr/paddleocr_worker.py
+COPY packages/slideclone-native-engine/scripts/python/paddleocr_protocol.py /opt/paddleocr/paddleocr_protocol.py
+COPY packages/slideclone-native-engine/scripts/python/image_to_png.py /opt/paddleocr/image_to_png.py
+COPY packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local.js /opt/paddleocr/skill/scripts/adapters/ocr-paddleocr-local.js
+COPY packages/slideclone-native-engine/scripts/lib/process-boundaries.js /opt/paddleocr/skill/scripts/lib/process-boundaries.js
+COPY packages/slideclone-native-engine/scripts/lib/python-env.js /opt/paddleocr/skill/scripts/lib/python-env.js
+COPY packages/slideclone-native-engine/scripts/lib/ocr-result-contract.js /opt/paddleocr/skill/scripts/lib/ocr-result-contract.js
+COPY packages/slideclone-native-engine/scripts/lib/paddleocr-worker-shutdown.js /opt/paddleocr/skill/scripts/lib/paddleocr-worker-shutdown.js
 COPY skills/pd-hifi-slideclone/examples/ocr-text-smoke.source.png /opt/paddleocr/healthcheck.png
 
 ENV PADDLE_PDX_CACHE_HOME=/opt/paddleocr/models

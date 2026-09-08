@@ -34,4 +34,4 @@ function buildOpenXmlDecksSync(jobs, context = {}, options = {}) {
   return builder.buildOpenXmlDecksSync(jobs, { ...context, skillRoot }, builderRoot, options);
 }
 
-module.exports = { buildOpenXmlDecksSync, loadNativeImageEngine, loadNativeImageRebuilder, resolveOpenXmlBuilderRoot, resolveSlidecloneRuntimeRoot };
+module.exports = { buildOpenXmlDecksSync, loadNativeImageEngine, loadNativeImageRebuilder, resolveOpenXmlBuilderRoot, resolveRepositoryRoot, resolveSlidecloneRuntimeRoot };
