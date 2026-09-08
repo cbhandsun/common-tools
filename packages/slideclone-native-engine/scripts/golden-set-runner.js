@@ -567,6 +567,7 @@ module.exports = {
   defaultManifest,
   evaluateCase,
   evaluateDeliveryExpectations,
+  main,
   parsePositiveInt,
   goldenSetRunnerUsage,
   runCases,

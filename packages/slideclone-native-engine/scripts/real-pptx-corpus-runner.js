@@ -214,4 +214,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { applyFreshExecution, parseArgs, parseCsv, positiveInteger, readTrendMetrics, resolveCorpusConcurrency, summarizeCorpusPerformance };
+module.exports = { applyFreshExecution, main, parseArgs, parseCsv, positiveInteger, readTrendMetrics, resolveCorpusConcurrency, summarizeCorpusPerformance };

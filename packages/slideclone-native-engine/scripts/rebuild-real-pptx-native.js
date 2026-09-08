@@ -26667,6 +26667,7 @@ module.exports = {
   sampleUniformPageBackgroundFill,
   sampleMaskBackgroundColor,
   sanitizeNativeCharts,
+  main,
   scoreDiagramCandidate,
   sourceNativeSlideIndexes,
   sourceNativeSlideMetadata,

@@ -364,6 +364,7 @@ if (require.main === module) {
 module.exports = {
   buildQualityArgs,
   buildRebuildArgs,
+  main,
   normalizeDeckId,
   normalizePages,
   normalizeRenderer,

@@ -2044,6 +2044,7 @@ module.exports = {
   findRenderDirsByIdentity,
   findRenderDirsFromQualityReports,
   hydrateSourceImages,
+  main,
   normalizeRenderer,
   readRenderedPages,
   readRenderCacheMetadata,
