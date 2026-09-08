@@ -10,13 +10,18 @@ const {
   describeRoleOption,
   getRoleFitPlan,
   normalizeFontTargetRole
-} = require(path.join(skillRoot, "scripts", "lib", "font-fit"));
+} = require("./lib/font-fit");
 const {
   applyTextBoxMicroAdjustments,
   applyTextBoxEvidenceFit,
   applyTextBoxSuggestionSet
-} = require(path.join(skillRoot, "scripts", "lib", "text-box-micro-adjust"));
-const { readPng, cropPng } = require(path.join(skillRoot, "scripts", "lib", "png"));
+} = require("./lib/text-box-micro-adjust");
+const { readPng, cropPng } = require("./lib/png");
+const pptxPythonPptx = require("./adapters/pptx-python-pptx");
+const renderPowerpointCom = require("./adapters/render-powerpoint-com");
+const renderLibreOffice = require("./adapters/render-libreoffice");
+const diffPixelPng = require("./adapters/diff-pixel-png");
+const comparePlaceholder = require("./adapters/compare-placeholder");
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -32,10 +37,10 @@ async function main() {
   ensureDir(path.join(outputDir, "reports"));
 
   const ir = resolveIrPaths(readJson(fixtureFile), fixtureDir);
-  const pptx = require(path.join(skillRoot, "scripts", "adapters", "pptx-python-pptx.js"));
+  const pptx = pptxPythonPptx;
   const render = resolveRenderAdapter(args.renderer || args.render, skillRoot);
-  const diff = require(path.join(skillRoot, "scripts", "adapters", "diff-pixel-png.js"));
-  const compare = require(path.join(skillRoot, "scripts", "adapters", "compare-placeholder.js"));
+  const diff = diffPixelPng;
+  const compare = comparePlaceholder;
 
   const context = {
     skillRoot,
@@ -275,7 +280,7 @@ function resolveMaybeRelative(baseDir, value) {
   return path.isAbsolute(value) ? value : path.resolve(baseDir, value);
 }
 
-async function optimizeIrFontsByRole({ fixtureFile, ir, baseline, context, outputDir, adapters }) {
+async function optimizeIrFontsByRole({ fixtureFile: _fixtureFile, ir, baseline, context, outputDir, adapters }) {
   const plan = getRoleFitPlan(ir, context.config.fontFit || {});
   const searchContext = contextForSearch(context);
   const summary = {
@@ -354,7 +359,7 @@ async function optimizeIrFontsByRole({ fixtureFile, ir, baseline, context, outpu
   return { best: current, summary };
 }
 
-async function optimizeIrTextBoxes({ fixtureFile, baseline, context, outputDir, adapters }) {
+async function optimizeIrTextBoxes({ fixtureFile: _fixtureFile, baseline, context, outputDir, adapters }) {
   const config = context.config.textMicroAdjust || {};
   // OCR identifies candidates on the baseline. Candidate selection is visual-only,
   // then the winning variant gets one final OCR pass before it can be delivered.
@@ -492,7 +497,7 @@ async function optimizeIrTextBoxes({ fixtureFile, baseline, context, outputDir, 
   return { best: bestVariant, summary };
 }
 
-async function optimizeTableStyles({ fixtureFile, baseline, context, outputDir, adapters }) {
+async function optimizeTableStyles({ fixtureFile: _fixtureFile, baseline, context, outputDir, adapters }) {
   const config = context.config.tableStyleFit || {};
   const searchContext = contextForSearch(context);
   const plan = collectTableStylePlan(baseline.ir, config);
@@ -616,7 +621,7 @@ async function evaluateIrVariant({ fixtureFile, ir, label, outputDir, context, a
   };
 }
 
-async function ensureFullTextOcrVariant({ variant, labelSuffix, fixtureFile, outputDir, context, adapters }) {
+async function ensureFullTextOcrVariant({ variant, labelSuffix, fixtureFile: _fixtureFile, outputDir, context, adapters }) {
   if (!needsTextOcrRefresh(variant, context)) return variant;
   const label = `${variant.label}-${labelSuffix}`;
   return evaluateIrVariant({
@@ -1007,13 +1012,13 @@ function sanitizeName(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "trial";
 }
 
-function resolveRenderAdapter(renderer, root) {
+function resolveRenderAdapter(renderer, _root) {
   const normalized = String(renderer || "powerpoint").trim().toLowerCase();
   if (["powerpoint", "com", "powerpoint-com"].includes(normalized)) {
-    return require(path.join(root, "scripts", "adapters", "render-powerpoint-com.js"));
+    return renderPowerpointCom;
   }
   if (["libreoffice", "libre-office", "lo"].includes(normalized)) {
-    return require(path.join(root, "scripts", "adapters", "render-libreoffice.js"));
+    return renderLibreOffice;
   }
   throw new Error(`Unsupported --renderer '${renderer}'. Use 'powerpoint' or 'libreoffice'.`);
 }

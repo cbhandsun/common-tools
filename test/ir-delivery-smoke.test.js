@@ -4,10 +4,10 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const test = require("node:test");
 
-const deliverySmoke = require("../skills/pd-hifi-slideclone/scripts/ir-delivery-smoke");
+const deliverySmoke = require("../packages/slideclone-native-engine/scripts/ir-delivery-smoke");
 
 test("ir delivery smoke selects the requested local render engine", () => {
-  const root = path.resolve(__dirname, "..", "skills", "pd-hifi-slideclone");
+  const root = path.resolve(__dirname, "..", "packages", "slideclone-native-engine");
   const { resolveRenderAdapter } = deliverySmoke._private;
 
   assert.equal(typeof resolveRenderAdapter("powerpoint", root), "function");

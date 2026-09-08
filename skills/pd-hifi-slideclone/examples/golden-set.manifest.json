@@ -131,7 +131,7 @@
       "mode": "delivery",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/ir-delivery-smoke.js",
+        "packages/slideclone-native-engine/scripts/ir-delivery-smoke.js",
         "--ir",
         "skills/pd-hifi-slideclone/examples/sample-deck.json",
         "--out",
@@ -159,7 +159,7 @@
       "mode": "score-improves",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/ir-delivery-smoke.js",
+        "packages/slideclone-native-engine/scripts/ir-delivery-smoke.js",
         "--ir",
         "skills/pd-hifi-slideclone/examples/sample-deck.json",
         "--font-fit",

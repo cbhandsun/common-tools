@@ -1748,7 +1748,7 @@
     },
     "smoke-sample-deck-hifi": {
       "description": "Versioned command profile for slideclone:smoke-sample-deck-hifi.",
-      "script": "scripts/ir-delivery-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/ir-delivery-smoke.js",
       "args": [
         "--ir",
         "skills/pd-hifi-slideclone/examples/sample-deck.json",
