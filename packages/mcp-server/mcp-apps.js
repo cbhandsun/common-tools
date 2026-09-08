@@ -1,17 +1,10 @@
 "use strict";
 
 const fs = require("node:fs");
-const {
-  QUALITY_REPORT_RESOURCE,
-  QUALITY_REPORT_RESOURCE_URI,
-  QUALITY_REPORT_UI_CONTRIBUTION
-} = require("../ppt-quality-core/ui-contribution");
+const { UI_CONTRIBUTIONS } = require("../capability-registry");
 
 const MCP_UI_EXTENSION = "io.modelcontextprotocol/ui";
 const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
-const UI_CONTRIBUTIONS = Object.freeze([
-  QUALITY_REPORT_UI_CONTRIBUTION
-]);
 const UI_CONTRIBUTIONS_BY_URI = new Map(UI_CONTRIBUTIONS.map((contribution) => [contribution.resource.uri, contribution]));
 
 function plainObject(value) { return !!value && typeof value === "object" && !Array.isArray(value); }
@@ -45,4 +38,4 @@ function readAppResource(uri) {
   })]) });
 }
 
-module.exports = { MCP_APP_MIME_TYPE, MCP_UI_EXTENSION, QUALITY_REPORT_RESOURCE, QUALITY_REPORT_RESOURCE_URI, UI_CONTRIBUTIONS, appServerCapabilities, clientSupportsMcpApps, listAppResources, readAppResource, withQualityReportApp, withRegisteredApp };
+module.exports = { MCP_APP_MIME_TYPE, MCP_UI_EXTENSION, UI_CONTRIBUTIONS, appServerCapabilities, clientSupportsMcpApps, listAppResources, readAppResource, withQualityReportApp, withRegisteredApp };

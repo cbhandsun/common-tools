@@ -7,8 +7,7 @@
   },
   "dependencies": {
     "@common-tools/capability-registry": "0.1.0",
-    "@common-tools/capability-runtime": "0.1.0",
-    "@common-tools/ppt-quality-core": "0.1.0"
+    "@common-tools/capability-runtime": "0.1.0"
   },
   "type": "commonjs"
 }

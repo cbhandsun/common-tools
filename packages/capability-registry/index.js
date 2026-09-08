@@ -1,43 +1,105 @@
 "use strict";
 
-const { cancelJob, createEditableJob, editableVisualSummary, getJob, REGISTRATION: EDITABLE_REGISTRATION } = require("../slideclone-core");
-const { CAPABILITY: PROJECT_AUDIT_CAPABILITY, REGISTRATION: PROJECT_AUDIT_REGISTRATION, createProjectAuditJob, projectAuditSummary } = require("../project-audit-core");
-const { CAPABILITY: PPT_QUALITY_CAPABILITY, REGISTRATION: PPT_QUALITY_REGISTRATION, createPptQualityJob, pptQualitySummary } = require("../ppt-quality-core");
-const { CAPABILITY: PPT_IMPROVE_CAPABILITY, REGISTRATION: PPT_IMPROVE_REGISTRATION, createPptImproveJob, pptImproveSummary } = require("../ppt-improve-core");
-const { CAPABILITY: PPT_CREATE_CAPABILITY, REGISTRATION: PPT_CREATE_REGISTRATION, createPptCreateJob, pptCreateSummary } = require("../ppt-create-core");
+const {
+  cancelJob,
+  createEditableJob,
+  editableVisualSummary,
+  getJob,
+  REGISTRATION: EDITABLE_REGISTRATION
+} = require("../slideclone-core");
+const {
+  CAPABILITY: PROJECT_AUDIT_CAPABILITY,
+  REGISTRATION: PROJECT_AUDIT_REGISTRATION,
+  createProjectAuditJob,
+  projectAuditSummary
+} = require("../project-audit-core");
+const {
+  CAPABILITY: PPT_QUALITY_CAPABILITY,
+  REGISTRATION: PPT_QUALITY_REGISTRATION,
+  createPptQualityJob,
+  pptQualitySummary
+} = require("../ppt-quality-core");
+const { QUALITY_REPORT_UI_CONTRIBUTION } = require("../ppt-quality-core/ui-contribution");
+const {
+  CAPABILITY: PPT_IMPROVE_CAPABILITY,
+  REGISTRATION: PPT_IMPROVE_REGISTRATION,
+  createPptImproveJob,
+  pptImproveSummary
+} = require("../ppt-improve-core");
+const {
+  CAPABILITY: PPT_CREATE_CAPABILITY,
+  REGISTRATION: PPT_CREATE_REGISTRATION,
+  createPptCreateJob,
+  pptCreateSummary
+} = require("../ppt-create-core");
 
 const IMAGE_TO_EDITABLE_CAPABILITY = EDITABLE_REGISTRATION.capability;
-const LOCAL_REGISTRATIONS = Object.freeze([EDITABLE_REGISTRATION, PROJECT_AUDIT_REGISTRATION, PPT_QUALITY_REGISTRATION, PPT_IMPROVE_REGISTRATION, PPT_CREATE_REGISTRATION]);
 
-const CREATE_TOOL_HANDLERS = Object.freeze({
-  create_editable_job: Object.freeze({
-    capability: IMAGE_TO_EDITABLE_CAPABILITY,
-    create: (args, context) => createEditableJob({ ...context, input: args.input, inputs: args.inputs, output: args.output, config: args.config, idempotencyKey: args.idempotencyKey })
+function defineCapabilityModule(definition) {
+  if (!definition || typeof definition !== "object" || Array.isArray(definition)) throw new TypeError("capability module definition is invalid");
+  if (!definition.registration || typeof definition.registration.capability !== "string" || !Array.isArray(definition.registration.toolNames)) throw new TypeError("capability module registration is invalid");
+  const createHandlers = definition.createHandlers || {};
+  const reportHandlers = definition.reportHandlers || {};
+  const uiContributions = definition.uiContributions || [];
+  if (typeof createHandlers !== "object" || Array.isArray(createHandlers) || typeof reportHandlers !== "object" || Array.isArray(reportHandlers) || !Array.isArray(uiContributions)) throw new TypeError("capability module handlers are invalid");
+  return Object.freeze({
+    registration: definition.registration,
+    createHandlers: Object.freeze({ ...createHandlers }),
+    reportHandlers: Object.freeze({ ...reportHandlers }),
+    uiContributions: Object.freeze([...uiContributions])
+  });
+}
+
+const CAPABILITY_MODULES = Object.freeze([
+  defineCapabilityModule({
+    registration: EDITABLE_REGISTRATION,
+    createHandlers: {
+      create_editable_job: (args, context) => createEditableJob({ ...context, input: args.input, inputs: args.inputs, output: args.output, config: args.config, idempotencyKey: args.idempotencyKey })
+    }
   }),
-  create_project_audit_job: Object.freeze({
-    capability: PROJECT_AUDIT_CAPABILITY,
-    create: (args, context) => createProjectAuditJob({ ...context, projectRoot: args.projectRoot || context.workspaceRoot, output: args.output, level: args.level, scope: args.scope, idempotencyKey: args.idempotencyKey })
+  defineCapabilityModule({
+    registration: PROJECT_AUDIT_REGISTRATION,
+    createHandlers: {
+      create_project_audit_job: (args, context) => createProjectAuditJob({ ...context, projectRoot: args.projectRoot || context.workspaceRoot, output: args.output, level: args.level, scope: args.scope, idempotencyKey: args.idempotencyKey })
+    },
+    reportHandlers: {
+      get_project_audit_report: { label: "project audit", key: "audit", summary: projectAuditSummary }
+    }
   }),
-  create_ppt_quality_job: Object.freeze({
-    capability: PPT_QUALITY_CAPABILITY,
-    create: (args, context) => createPptQualityJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey })
+  defineCapabilityModule({
+    registration: PPT_QUALITY_REGISTRATION,
+    createHandlers: {
+      create_ppt_quality_job: (args, context) => createPptQualityJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey })
+    },
+    reportHandlers: {
+      get_ppt_quality_report: { label: "PPT quality audit", key: "audit", summary: pptQualitySummary }
+    },
+    uiContributions: [QUALITY_REPORT_UI_CONTRIBUTION]
   }),
-  create_ppt_improve_job: Object.freeze({
-    capability: PPT_IMPROVE_CAPABILITY,
-    create: (args, context) => createPptImproveJob({ ...context, input: args.input, report: args.report, output: args.output, idempotencyKey: args.idempotencyKey, profile: args.profile })
+  defineCapabilityModule({
+    registration: PPT_IMPROVE_REGISTRATION,
+    createHandlers: {
+      create_ppt_improve_job: (args, context) => createPptImproveJob({ ...context, input: args.input, report: args.report, output: args.output, idempotencyKey: args.idempotencyKey, profile: args.profile })
+    },
+    reportHandlers: {
+      get_ppt_improve_report: { label: "PPT improvement", key: "improvement", summary: pptImproveSummary }
+    }
   }),
-  create_ppt_create_job: Object.freeze({
-    capability: PPT_CREATE_CAPABILITY,
-    create: (args, context) => createPptCreateJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey })
+  defineCapabilityModule({
+    registration: PPT_CREATE_REGISTRATION,
+    createHandlers: {
+      create_ppt_create_job: (args, context) => createPptCreateJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey })
+    },
+    reportHandlers: {
+      get_ppt_create_report: { label: "PPT creation", key: "creation", summary: pptCreateSummary }
+    }
   })
-});
+]);
 
-const REPORT_TOOL_HANDLERS = Object.freeze({
-  get_project_audit_report: Object.freeze({ capability: PROJECT_AUDIT_CAPABILITY, label: "project audit", key: "audit", summary: projectAuditSummary }),
-  get_ppt_quality_report: Object.freeze({ capability: PPT_QUALITY_CAPABILITY, label: "PPT quality audit", key: "audit", summary: pptQualitySummary }),
-  get_ppt_improve_report: Object.freeze({ capability: PPT_IMPROVE_CAPABILITY, label: "PPT improvement", key: "improvement", summary: pptImproveSummary }),
-  get_ppt_create_report: Object.freeze({ capability: PPT_CREATE_CAPABILITY, label: "PPT creation", key: "creation", summary: pptCreateSummary })
-});
+const LOCAL_REGISTRATIONS = Object.freeze(CAPABILITY_MODULES.map((module) => module.registration));
+const UI_CONTRIBUTIONS = Object.freeze(CAPABILITY_MODULES.flatMap((module) => module.uiContributions));
+const CREATE_TOOL_HANDLERS = Object.freeze(Object.fromEntries(CAPABILITY_MODULES.flatMap((module) => Object.entries(module.createHandlers).map(([name, create]) => [name, Object.freeze({ capability: module.registration.capability, create })]))));
+const REPORT_TOOL_HANDLERS = Object.freeze(Object.fromEntries(CAPABILITY_MODULES.flatMap((module) => Object.entries(module.reportHandlers).map(([name, handler]) => [name, Object.freeze({ capability: module.registration.capability, ...handler })]))));
 
 function createLocalJob(name, args, context) {
   const handler = CREATE_TOOL_HANDLERS[name];
@@ -59,12 +121,15 @@ function readLocalJob(name, args, context) {
 }
 
 module.exports = {
+  CAPABILITY_MODULES,
   IMAGE_TO_EDITABLE_CAPABILITY,
   LOCAL_REGISTRATIONS,
   PPT_CREATE_CAPABILITY,
   PPT_IMPROVE_CAPABILITY,
   PPT_QUALITY_CAPABILITY,
   PROJECT_AUDIT_CAPABILITY,
+  UI_CONTRIBUTIONS,
   createLocalJob,
+  defineCapabilityModule,
   readLocalJob
 };

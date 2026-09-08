@@ -8,10 +8,10 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { JobStore, setCapabilityEnabled } = require("../packages/capability-runtime");
+const { UI_CONTRIBUTIONS: REGISTRY_UI_CONTRIBUTIONS } = require("../packages/capability-registry");
 const { VISUAL_REPORT_NAME } = require("../packages/slideclone-core");
 const { callTool } = require("../packages/mcp-server/core");
 const { UI_CONTRIBUTIONS } = require("../packages/mcp-server/mcp-apps");
-const { QUALITY_REPORT_UI_CONTRIBUTION } = require("../packages/ppt-quality-core/ui-contribution");
 const cli = path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
 const { doctorReport, optionalUmiOcr } = require("../packages/cli/bin/common-tools");
 
@@ -243,10 +243,10 @@ test("stdio MCP exposes a negotiated read-only quality-report App with a safe lo
 
 test("quality-report App contribution is owned by the PPT quality capability", () => {
   assert.equal(UI_CONTRIBUTIONS.length, 1);
-  assert.equal(UI_CONTRIBUTIONS[0], QUALITY_REPORT_UI_CONTRIBUTION);
-  assert.equal(path.basename(QUALITY_REPORT_UI_CONTRIBUTION.file), "quality-report.html");
-  assert.equal(path.basename(path.dirname(QUALITY_REPORT_UI_CONTRIBUTION.file)), "apps");
-  assert.match(QUALITY_REPORT_UI_CONTRIBUTION.file, /ppt-quality-core/);
+  assert.equal(UI_CONTRIBUTIONS, REGISTRY_UI_CONTRIBUTIONS);
+  assert.equal(path.basename(UI_CONTRIBUTIONS[0].file), "quality-report.html");
+  assert.equal(path.basename(path.dirname(UI_CONTRIBUTIONS[0].file)), "apps");
+  assert.match(UI_CONTRIBUTIONS[0].file, /ppt-quality-core/);
 });
 
 test("MCP get_job returns a verified local visual summary without raw delivery data", () => {
