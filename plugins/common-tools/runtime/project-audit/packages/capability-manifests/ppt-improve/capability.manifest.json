@@ -19,5 +19,10 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-ppt-improve-worker.js"
     }
   },
-  "contentSha256": "4d3b261c74fa95ef47632fbadd022f2b22dfa9861b7f5e37683fff7255208a6b"
+  "moduleSource": {
+    "packageName": "@common-tools/ppt-improve-core",
+    "requirePath": "../ppt-improve-core",
+    "exportName": "CAPABILITY_MODULE"
+  },
+  "contentSha256": "24ba3b1729af8644e74e70c984a8eaf6efb5fc494d80fdace64a68a4f82aa615"
 }

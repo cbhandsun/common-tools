@@ -165,7 +165,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
     "packages/slideclone-core/color-component-bounds.js",
   "packages/slideclone-core/image-layer-metadata.js",
   "packages/slideclone-core/graphic-expression-policy.js",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/NativeResidualLayerPlan.cs",
+  "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/NativeResidualLayerPlan.cs",
   "packages/slideclone-core/page-output-finalizer.js",
   "packages/slideclone-core/page-shape-finalizer.js",
   "packages/slideclone-core/page-text-finalizer.js",
@@ -288,10 +288,10 @@ const PPT_CREATE_RELEASE_FILES = Object.freeze([
   "packages/ppt-create-core/layout.js",
   "packages/ppt-create-core/presentation-brief.schema.json",
   "packages/ppt-create-core/presentation-spec.schema.json",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/DeckPackageWriter.cs",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/Models.cs",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/PptxPackageAdmissionValidator.cs",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/SpeakerNotesWriter.cs",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/DeckPackageWriter.cs",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/Models.cs",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/PptxPackageAdmissionValidator.cs",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/SpeakerNotesWriter.cs",
   "plugins/common-tools/skills/ppt-create/SKILL.md"
 ]);
 const REQUIRED_FILES = Object.freeze([
@@ -331,7 +331,7 @@ const REQUIRED_FILES = Object.freeze([
   "skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session.js",
   "skills/pd-hifi-slideclone/scripts/lib/progress-reporter.js",
   "skills/pd-hifi-slideclone/schemas/slideclone.config.schema.json",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
   "packages/remote-mcp-server/worker-settings.js",
   "packages/remote-mcp-server/image-worker-settings.js",
   "packages/team-runtime/team-config.js",
@@ -346,8 +346,8 @@ const FORBIDDEN_PREFIXES = Object.freeze([
   "runs/",
   "test/",
   "skills/pd-hifi-slideclone/examples/",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/bin/",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/obj/"
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/bin/",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/obj/"
 ]);
 
 function plainObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
@@ -556,7 +556,7 @@ function pptCreateEnhancementProbe() {
     "stage='document-ingest';const outline=ingest.extractMarkdownOutline('# Probe\\n\\n## Facts\\n\\n- Verified point');const brief=ingest.outlineToBrief(outline,{audience:'Reviewers',purpose:'Approve direction',theme:'clean-light-v1',deckVariantCount:2,maxSlides:4});",
     "stage='template-safety';let generatedTemplateRejected=false;try{template.normalizeTemplate({path:'template.pptx',sha256:'b'.repeat(64),source:{kind:'generated',locator:'probe',license:'generated'},mode:'master-and-theme'});}catch{generatedTemplateRejected=true;}",
     "stage='variants';const spec={version:'1.0',title:'Enhancement probe',theme:'clean-light-v1',seed:'enhancement-probe',variantCount:2,deckVariantCount:2,slides:[{id:'cover',role:'cover',title:'Enhancement probe'},{id:'facts',role:'content',title:'Facts',items:[{id:'fact',label:'Verified point'}],citations:[{id:'source-1',title:'Primary source',locator:'https://example.com/source'}],speakerNotes:'Explain the verified point.'},{id:'close',role:'closing',title:'Next step'}]};const deckVariants=layout.createDeckVariants(spec);const variantRecords=variants.describeVariants(deckVariants);const notes=metadata.composeSpeakerNotes(spec.slides[1].speakerNotes,spec.slides[1].citations);const semanticBounds={x:0,y:0,w:800,h:300};const semanticEntries=Array.from({length:4},(_,index)=>({id:'n'+index,label:'N'+index}));const roadmap=semantic.planSemanticAnalysis({kind:'analysis',model:'roadmap',entries:semanticEntries},semanticBounds);const gantt=semantic.planSemanticAnalysis({kind:'analysis',model:'gantt',entries:semanticEntries},semanticBounds);",
-    "stage='source-read';const skill=fs.readFileSync(path.join(root,'plugins','common-tools','skills','ppt-create','SKILL.md'),'utf8');const irEditorSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','ir-editor.js'),'utf8');const irEditorClientSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','ir-editor-client.js'),'utf8');const providerConfigSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','content-provider-config.js'),'utf8');const packageWriter=fs.readFileSync(path.join(root,'skills','pd-hifi-slideclone','dotnet','OpenXmlDeckBuilder','DeckPackageWriter.cs'),'utf8');const admission=fs.readFileSync(path.join(root,'skills','pd-hifi-slideclone','dotnet','OpenXmlDeckBuilder','PptxPackageAdmissionValidator.cs'),'utf8');const notesWriter=fs.readFileSync(path.join(root,'skills','pd-hifi-slideclone','dotnet','OpenXmlDeckBuilder','SpeakerNotesWriter.cs'),'utf8');",
+    "stage='source-read';const skill=fs.readFileSync(path.join(root,'plugins','common-tools','skills','ppt-create','SKILL.md'),'utf8');const irEditorSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','ir-editor.js'),'utf8');const irEditorClientSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','ir-editor-client.js'),'utf8');const providerConfigSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','content-provider-config.js'),'utf8');const packageWriter=fs.readFileSync(path.join(root,'packages','slideclone-native-engine','dotnet','OpenXmlDeckBuilder','DeckPackageWriter.cs'),'utf8');const admission=fs.readFileSync(path.join(root,'packages','slideclone-native-engine','dotnet','OpenXmlDeckBuilder','PptxPackageAdmissionValidator.cs'),'utf8');const notesWriter=fs.readFileSync(path.join(root,'packages','slideclone-native-engine','dotnet','OpenXmlDeckBuilder','SpeakerNotesWriter.cs'),'utf8');",
     "stage='editable-data-admission';const admissionDeck=structuredClone(deckVariants[0].ir);admissionDeck.pages[0].tables=[{id:'admission-table',box:{x:10,y:10,w:100,h:100},rows:[['valid']]}];irEditor.validateEditableIr(admissionDeck);admissionDeck.pages[0].tables[0].rows=[null];let malformedTableRejected=false;try{irEditor.validateEditableIr(admissionDeck);}catch{malformedTableRejected=true;}if(!malformedTableRejected){process.stdout.write(stage);process.exit(2);}",
     "const versionReady=version.length===3&&version.every(Number.isSafeInteger)&&(version[0]>0||version[1]>1||(version[1]===1&&version[2]>=13));",
     "if(!(irEditorClientSource.includes('showModal')&&irEditorClientSource.includes('openTableEditor')&&irEditorClientSource.includes('openChartEditor')&&!irEditorClientSource.includes('编辑图表 JSON'))){process.stdout.write('controlled-semantic-editor');process.exit(2);}",

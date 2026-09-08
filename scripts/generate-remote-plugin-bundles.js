@@ -21,9 +21,9 @@ const LOCAL_RUNTIME_VERSION = REMOTE_PLUGIN_VERSION;
 const LOCAL_RUNTIME_CAPABILITIES = Object.freeze(["ppt-create", "project-audit"]);
 const LOCAL_RUNTIME_SOURCE_PATHS = Object.freeze([
   "packages/archive-core", "packages/artifact-core", "packages/capability-contracts", "packages/capability-manifests", "packages/capability-registry", "packages/capability-runtime", "packages/cli", "packages/mcp-server", "packages/ooxml-core", "packages/remote-mcp-server", "packages/project-audit-core", "packages/ppt-create-core", "packages/ppt-improve-core", "packages/ppt-quality-core", "packages/slideclone-core", "packages/slideclone-worker-adapter", "packages/siyuan-note-core", "packages/team-runtime",
-  "scripts/verify-plugins.js", "scripts/verify-capability-contracts.js", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder", "package.json"
+  "scripts/verify-plugins.js", "scripts/verify-capability-contracts.js", "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder", "package.json"
 ]);
-const OPENXML_BUILDER_ROOT = path.join(REPOSITORY_ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder");
+const OPENXML_BUILDER_ROOT = path.join(REPOSITORY_ROOT, "packages", "slideclone-native-engine", "dotnet", "OpenXmlDeckBuilder");
 const REMOTE_CAPABILITY_GUIDANCE = Object.freeze({
   "image-to-editable": Object.freeze({ contentType: "application/gzip", input: "one approved source archive containing one image, an explicitly ordered image batch, one PDF, or one image-based PPTX accepted by the service" }),
   "project-audit": Object.freeze({ contentType: "application/gzip", input: "a single approved project archive containing only the intended audit input" }),

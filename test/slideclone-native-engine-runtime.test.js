@@ -47,7 +47,7 @@ test("production native engine package mirrors the reviewed SlideClone JavaScrip
 
 test("production workers resolve SlideClone native roots through the native engine package", () => {
   assert.equal(nativeEngine.resolveSlidecloneRuntimeRoot(ROOT), path.join(ROOT, "skills", "pd-hifi-slideclone"));
-  assert.equal(nativeEngine.resolveOpenXmlBuilderRoot(ROOT), path.join(ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder"));
+  assert.equal(nativeEngine.resolveOpenXmlBuilderRoot(ROOT), path.join(ROOT, "packages", "slideclone-native-engine", "dotnet", "OpenXmlDeckBuilder"));
   const worker = fs.readFileSync(path.join(ROOT, "packages", "remote-mcp-server", "bin", "common-tools-team-ppt-create-worker.js"), "utf8");
   assert.doesNotMatch(worker, /skills[\\/]+pd-hifi-slideclone/);
   assert.doesNotMatch(worker, /slideclone-core[\\/]pptx-openxml-dotnet|resolveOpenXmlBuilderRoot|resolveSlidecloneRuntimeRoot/);
@@ -72,6 +72,6 @@ test("native engine package owns OpenXML builder execution roots", () => {
   }
   assert.equal(calls.length, 1);
   assert.equal(calls[0].context.skillRoot, path.join(ROOT, "skills", "pd-hifi-slideclone"));
-  assert.equal(calls[0].builderRoot, path.join(ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder"));
+  assert.equal(calls[0].builderRoot, path.join(ROOT, "packages", "slideclone-native-engine", "dotnet", "OpenXmlDeckBuilder"));
   assert.deepEqual(calls[0].options, { powerPointSafe: true });
 });

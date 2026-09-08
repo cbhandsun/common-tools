@@ -125,10 +125,10 @@ test("Docker and host modes execute the same OpenXmlDeckBuilder implementation",
   const dockerfile = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable"), "utf8");
   assert.match(adapter, /path\.join\(context\.skillRoot, "dotnet", "OpenXmlDeckBuilder"\)/);
   assert.match(adapter, /process\.env\.OPENXML_BUILDER_EXE/);
-  assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
+  assert.match(dockerfile, /COPY packages\/slideclone-native-engine\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
   assert.match(dockerfile, /ENV OPENXML_BUILDER_EXE=\/opt\/openxml\/OpenXmlDeckBuilder/);
   assert.ok(dockerfile.indexOf("OpenXmlDeckBuilder.csproj") < dockerfile.indexOf("dotnet restore"));
-  assert.ok(dockerfile.indexOf("dotnet restore") < dockerfile.lastIndexOf("COPY skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder ./OpenXmlDeckBuilder"));
+  assert.ok(dockerfile.indexOf("dotnet restore") < dockerfile.lastIndexOf("COPY packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder ./OpenXmlDeckBuilder"));
   assert.doesNotMatch(dockerfile, /PowerPoint|Aspose|OfficePLUS|iSlide/i);
 });
 

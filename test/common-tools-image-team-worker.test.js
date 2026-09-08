@@ -1116,7 +1116,7 @@ test("image Worker Docker context contains only runtime sources and OpenXML buil
   const root = path.resolve(__dirname, "..");
   const dockerfile = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable"), "utf8");
   const ignore = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable.dockerignore"), "utf8");
-  assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
+  assert.match(dockerfile, /COPY packages\/slideclone-native-engine\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
   assert.match(dockerfile, /COPY packages \.\/packages/);
   assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
   assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/lib\b/);
@@ -1125,7 +1125,7 @@ test("image Worker Docker context contains only runtime sources and OpenXML buil
   assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone \.\/skills\/pd-hifi-slideclone/);
   assert.match(ignore, /^\*\*$/m);
   assert.match(ignore, /^!packages\/\*\*$/m);
-  assert.match(ignore, /^!skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder\/\*\*$/m);
+  assert.match(ignore, /^!packages\/slideclone-native-engine\/\*\*$/m);
   assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js$/m);
   assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/lib\/\*\*$/m);
 });

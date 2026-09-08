@@ -18,5 +18,10 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-ppt-quality-worker.js"
     }
   },
-  "contentSha256": "47dc9cbb8199a0bfed1fbfae58a2a1ee69b4fd959bd20cfcc056893efc55b139"
+  "moduleSource": {
+    "packageName": "@common-tools/ppt-quality-core",
+    "requirePath": "../ppt-quality-core",
+    "exportName": "CAPABILITY_MODULE"
+  },
+  "contentSha256": "799114e1ffa347ae444200b2c596ba5c2cbc9634dc4ef76e28f52d3f0ac16b50"
 }

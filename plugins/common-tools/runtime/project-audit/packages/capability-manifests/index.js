@@ -149,11 +149,23 @@ function validateExecutionDefinition(value) {
   return Object.freeze({ localSupported: value.localSupported });
 }
 
+/** @param {unknown} value */
+function validateModuleSource(value) {
+  assertPlainObject(value, "capability module source");
+  if (Object.keys(value).sort().join(",") !== "exportName,packageName,requirePath" || typeof value.packageName !== "string" || !/^@common-tools\/[a-z][a-z0-9-]*$/.test(value.packageName) || typeof value.requirePath !== "string" || !/^\.\.\/[a-z][a-z0-9-]*$/.test(value.requirePath) || typeof value.exportName !== "string" || !/^[A-Za-z][A-Za-z0-9_]*$/.test(value.exportName)) throw new Error("capability module source is invalid");
+  const packageName = value.packageName;
+  const requirePath = value.requirePath;
+  const exportName = value.exportName;
+  const packageDirectory = packageName.slice("@common-tools/".length);
+  if (requirePath !== `../${packageDirectory}`) throw new Error("capability module source package and require path must match");
+  return Object.freeze({ packageName, requirePath, exportName });
+}
+
 /** @param {unknown} value @param {{runtimeVersion?: string}} [options] */
 function validateCapabilityManifest(value, { runtimeVersion = RUNTIME_VERSION } = {}) {
   assertPlainObject(value, "capability manifest");
   const capability = assertNonEmptyString(value.capability, "manifest.capability");
-  const expectedKeys = ["capability", "contentSha256", "execution", "manifestVersion", "minimumRuntimeVersion", "requiredWorkerProfile", "team", "toolNames", "version"];
+  const expectedKeys = ["capability", "contentSha256", "execution", "manifestVersion", "minimumRuntimeVersion", "moduleSource", "requiredWorkerProfile", "team", "toolNames", "version"];
   if (Object.hasOwn(value, "deprecation")) expectedKeys.push("deprecation");
   if (Object.hasOwn(value, "dependencies")) expectedKeys.push("dependencies");
   const runtimeRange = parseRuntimeRange(value.minimumRuntimeVersion);
@@ -162,10 +174,12 @@ function validateCapabilityManifest(value, { runtimeVersion = RUNTIME_VERSION } 
   if (!runtimeSatisfiesRange(runtimeVersion, runtimeRange)) throw new Error(`capability manifest requires an incompatible Runtime version: ${capability}`);
   const team = validateTeamDefinition(value.team, capability);
   const execution = validateExecutionDefinition(value.execution);
+  if (team.deployment && team.deployment.workerService !== `${capability}-worker`) throw new Error(`capability team Worker service does not match capability: ${capability}`);
+  const moduleSource = validateModuleSource(value.moduleSource);
   const deprecation = validateDeprecation(value.deprecation, capability);
   const dependencies = validateDependencies(value.dependencies, capability);
   if (value.contentSha256 !== manifestDigest(/** @type {JsonObject} */ (value))) throw new Error(`capability manifest hash mismatch: ${capability}`);
-  return Object.freeze({ manifestVersion: value.manifestVersion, capability, version: value.version, toolNames: Object.freeze([...toolNames]), minimumRuntimeVersion: value.minimumRuntimeVersion, requiredWorkerProfile: value.requiredWorkerProfile, execution, team, dependencies, deprecation, contentSha256: value.contentSha256 });
+  return Object.freeze({ manifestVersion: value.manifestVersion, capability, version: value.version, toolNames: Object.freeze([...toolNames]), minimumRuntimeVersion: value.minimumRuntimeVersion, requiredWorkerProfile: value.requiredWorkerProfile, execution, team, moduleSource, dependencies, deprecation, contentSha256: value.contentSha256 });
 }
 
 /** @param {Map<string, {dependencies?: readonly string[]}>} manifests */
@@ -223,5 +237,6 @@ module.exports = {
   runtimeSatisfiesRange,
   validateCapabilityManifest,
   validateDependencies,
-  validateDeprecation
+  validateDeprecation,
+  validateModuleSource
 };

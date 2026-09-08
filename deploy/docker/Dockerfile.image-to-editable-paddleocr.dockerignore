@@ -12,5 +12,5 @@
 !skills/pd-hifi-slideclone/scripts/lib/ocr-result-contract.js
 !skills/pd-hifi-slideclone/scripts/lib/paddleocr-worker-shutdown.js
 !skills/pd-hifi-slideclone/examples/ocr-text-smoke.source.png
-!skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/**
+!packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/**
 !deploy/docker/Dockerfile.image-to-editable

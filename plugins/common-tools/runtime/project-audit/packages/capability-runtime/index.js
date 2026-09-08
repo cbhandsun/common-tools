@@ -17,7 +17,8 @@ const {
   runtimeSatisfiesRange,
   validateCapabilityManifest,
   validateDependencies,
-  validateDeprecation
+  validateDeprecation,
+  validateModuleSource
 } = require("../capability-manifests");
 const executionMode = require("./execution-mode");
 
@@ -254,4 +255,4 @@ function rollbackPluginConfig(root) {
   return writePluginConfig(requestedRoot, normalizePluginConfig({ ...previous, generation: config.generation + 1 }));
 }
 
-module.exports = { ...executionMode, CAPABILITY_MANIFESTS, DEFAULT_CAPABILITIES, LOCAL_CAPABILITIES, RUNTIME_VERSION, SUPPORTED_CAPABILITIES, TEAM_CAPABILITY_DEFINITIONS, JobStore, assertManifestDependencyGraph, canonicalManifest, compareManifestVersions, compareVersions, effectivePluginConfig, insideRoot, loadCapabilityManifests, loadPluginConfig, manifestIdentityMatches, parseManifestVersion, parseRuntimeRange, readPluginConfig, readProjectCapabilityScope, resolvedCapabilityDependencies, resolveExecutionRoute, rollbackPluginConfig, runtimeSatisfiesRange, setCapabilityEnabled, setEnabledCapabilities, sha256File, upgradePluginConfig, validateCapabilityManifest, validateDependencies, validateDeprecation };
+module.exports = { ...executionMode, CAPABILITY_MANIFESTS, DEFAULT_CAPABILITIES, LOCAL_CAPABILITIES, RUNTIME_VERSION, SUPPORTED_CAPABILITIES, TEAM_CAPABILITY_DEFINITIONS, JobStore, assertManifestDependencyGraph, canonicalManifest, compareManifestVersions, compareVersions, effectivePluginConfig, insideRoot, loadCapabilityManifests, loadPluginConfig, manifestIdentityMatches, parseManifestVersion, parseRuntimeRange, readPluginConfig, readProjectCapabilityScope, resolvedCapabilityDependencies, resolveExecutionRoute, rollbackPluginConfig, runtimeSatisfiesRange, setCapabilityEnabled, setEnabledCapabilities, sha256File, upgradePluginConfig, validateCapabilityManifest, validateDependencies, validateDeprecation, validateModuleSource };

@@ -18,5 +18,10 @@
     "mode": "direct",
     "oauthScope": "common-tools:capability:siyuan-note"
   },
-  "contentSha256": "892a7b4827ea6d90f39f753f786d9bb1891d023dd165ea01b90b7ca5252c5d00"
+  "moduleSource": {
+    "packageName": "@common-tools/siyuan-note-core",
+    "requirePath": "../siyuan-note-core",
+    "exportName": "REMOTE_CAPABILITY_MODULE"
+  },
+  "contentSha256": "5bb576362cfd24da3ef9644cb838175d6bd0627a311b779d97a6f076aa10653f"
 }

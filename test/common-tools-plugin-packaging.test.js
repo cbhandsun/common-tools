@@ -16,8 +16,8 @@ test("Runtime package declares an installable CLI and a release-only file allowl
   assert.equal(packageManifest.private, true);
   assert.deepEqual(packageManifest.bin, { "common-tools": "packages/cli/bin/common-tools.js" });
   assert.equal(Array.isArray(packageManifest.files), true);
-  for (const required of ["packages/", "plugins/", "marketplaces/", "skills/pd-hifi-slideclone/scripts/", "skills/pd-hifi-slideclone/schemas/", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj", "scripts/verify-capability-contracts.js", "scripts/verify-plugins.js", "scripts/generate-sbom.js", "scripts/team-keycloak-volume-restore-drill.ps1", "deploy/"]) assert.equal(packageManifest.files.includes(required), true);
-  for (const forbidden of ["test/", ".codex-tmp/", "runs/", "node_modules/", "skills/pd-hifi-slideclone/", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/bin/", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/obj/"]) assert.equal(packageManifest.files.includes(forbidden), false);
+  for (const required of ["packages/", "plugins/", "marketplaces/", "skills/pd-hifi-slideclone/scripts/", "skills/pd-hifi-slideclone/schemas/", "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj", "scripts/verify-capability-contracts.js", "scripts/verify-plugins.js", "scripts/generate-sbom.js", "scripts/team-keycloak-volume-restore-drill.ps1", "deploy/"]) assert.equal(packageManifest.files.includes(required), true);
+  for (const forbidden of ["test/", ".codex-tmp/", "runs/", "node_modules/", "skills/pd-hifi-slideclone/", "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/bin/", "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/obj/"]) assert.equal(packageManifest.files.includes(forbidden), false);
 });
 
 function copiedPluginRoot() {

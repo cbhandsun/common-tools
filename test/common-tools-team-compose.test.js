@@ -419,7 +419,7 @@ test("isolated Compose smoke script uses a unique project, temporary credentials
 test("image Worker Docker context excludes local .NET outputs while retaining builder sources", () => {
   const root = path.resolve(__dirname, "..");
   const ignore = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable.dockerignore"), "utf8");
-  assert.match(ignore, /!skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder\/\*\*/);
+  assert.match(ignore, /!packages\/slideclone-native-engine\/\*\*/);
   assert.match(ignore, /OpenXmlDeckBuilder\/bin\/\*\*/);
   assert.match(ignore, /OpenXmlDeckBuilder\/obj\/\*\*/);
   assert.match(ignore, /package-lock\.json/);

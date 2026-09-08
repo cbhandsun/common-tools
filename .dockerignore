@@ -6,6 +6,7 @@
 !package-lock.json
 !packages/
 !packages/**
+!packages/slideclone-native-engine/**
 !skills/
 !skills/pd-hifi-slideclone/
 !skills/pd-hifi-slideclone/**

@@ -23,7 +23,7 @@ function resolveSlidecloneRuntimeRoot(repositoryRoot = resolveRepositoryRoot()) 
 }
 
 function resolveOpenXmlBuilderRoot(repositoryRoot = resolveRepositoryRoot()) {
-  return path.join(resolveSlidecloneRuntimeRoot(repositoryRoot), "dotnet", "OpenXmlDeckBuilder");
+  return path.join(repositoryRoot, "packages", "slideclone-native-engine", "dotnet", "OpenXmlDeckBuilder");
 }
 
 function buildOpenXmlDecksSync(jobs, context = {}, options = {}) {
