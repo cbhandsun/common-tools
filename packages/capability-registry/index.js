@@ -59,6 +59,9 @@ function assertCapabilityModulesMatchManifests(modules, manifests = CAPABILITY_M
       throw new Error(`capability module manifest mismatch: ${registration.capability}`);
     }
   }
+  const expectedLocalCapabilities = [...manifests.values()].filter((manifest) => manifest.requiredWorkerProfile !== "direct").map((manifest) => manifest.capability).sort();
+  const registeredLocalCapabilities = [...seen].sort();
+  if (JSON.stringify(registeredLocalCapabilities) !== JSON.stringify(expectedLocalCapabilities)) throw new Error("capability registry is missing a local capability module");
   return true;
 }
 

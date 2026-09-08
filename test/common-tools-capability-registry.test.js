@@ -61,4 +61,5 @@ test("capability registry rejects orphan, duplicate, and stale module metadata",
   assert.throws(() => assertCapabilityModulesMatchManifests([
     defineCapabilityModule({ registration: { ...image.registration, requiredWorkerProfile: "stale-profile" } })
   ]), /manifest mismatch/);
+  assert.throws(() => assertCapabilityModulesMatchManifests(CAPABILITY_MODULES.filter((module) => module.registration.capability !== image.registration.capability)), /missing a local capability module/);
 });

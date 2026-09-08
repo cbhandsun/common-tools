@@ -69,7 +69,7 @@ flowchart TD
 
 | 评估项 | 当前状态 | 判断 |
 | --- | --- | --- |
-| 能力发现与门控 | 各本地 Job 能力包直接导出自己的 `CAPABILITY_MODULE`，`packages/capability-registry` 只聚合、冻结并校验这些模块，统一暴露本地能力、工具 handler、报告 reader 与 UI contribution；`siyuan-note-core` 作为 direct remote 能力导出 `REMOTE_CAPABILITY_MODULE`，team registry 从中读取 direct tool 参数键、方法映射与 MCP contract；加载时会对齐签名 manifest 的 capability、toolNames、runtime range 和 worker profile；MCP 层消费注册结果 | 合理 |
+| 能力发现与门控 | 各本地 Job 能力包直接导出自己的 `CAPABILITY_MODULE`，`packages/capability-registry` 只聚合、冻结并校验这些模块，统一暴露本地能力、工具 handler、报告 reader 与 UI contribution；registry 加载时会对齐签名 manifest 的 capability、toolNames、runtime range 和 worker profile，并要求每个非 direct manifest 都有本地 module；`siyuan-note-core` 作为 direct remote 能力导出 `REMOTE_CAPABILITY_MODULE`，team registry 从中读取 direct tool 参数键、方法映射与 MCP contract；MCP 层消费注册结果 | 合理 |
 | 能力 manifest 事实源 | `packages/capability-manifests` 现在直接导出签名 manifest 读取、版本范围、依赖图、弃用窗口和 hash 校验；`capability-runtime` 只消费已验证目录并处理状态配置 | 合理 |
 | MCP 协议边界 | local/team MCP 主要负责协议、鉴权上下文、工具列表和资源读取；team 工具定义已抽到 `team-tool-registry`；本地与团队工具合同共用 `capability-contracts` 的合同构造器 | 合理 |
 | 共享基础设施 | archive、OOXML、artifact 相关通用逻辑已抽到独立 core 包；PPTX ZIP/Inventory 已迁入 `ooxml-core` 并由旧入口兼容转发 | 合理 |
