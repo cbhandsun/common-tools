@@ -189,6 +189,11 @@ function validateResolvedProductionCompose(configuration, { remoteImage, imageWo
   };
   const workerCapabilities = deployedWorkerCapabilities(enabledCapabilities);
   for (const capability of workerCapabilities) expectedImages[WORKER_SERVICES[capability]] = TEAM_DEPLOYMENT_CAPABILITIES[capability].imageKind === "image-worker" ? imageWorkerImage : remoteImage;
+  const expectedWorkerServices = workerCapabilities.map((capability) => WORKER_SERVICES[capability]).sort();
+  const actualWorkerServices = Object.keys(services).filter((name) => name.endsWith("-worker")).sort();
+  if (JSON.stringify(actualWorkerServices) !== JSON.stringify(expectedWorkerServices)) {
+    throw new Error("Docker Compose production Worker services do not match enabled capabilities");
+  }
   for (const [name, image] of Object.entries(expectedImages)) {
     const service = services[name];
     if (!service || typeof service !== "object" || Array.isArray(service) || service.image !== image || Object.hasOwn(service, "build") || !service.environment || typeof service.environment !== "object" || Array.isArray(service.environment) || service.environment.NODE_ENV !== "production" || service.environment.COMMON_TOOLS_TEAM_MODE !== "production") {

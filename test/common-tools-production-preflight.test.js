@@ -354,6 +354,7 @@ test("resolved production Compose cannot regain build paths, local ports, or loc
     "ppt-quality-worker": service(remoteImage)
   } };
   assert.equal(validateResolvedProductionCompose(pptQualityOnly, { remoteImage, enabledCapabilities: ["ppt-quality"] }), true);
+  assert.throws(() => validateResolvedProductionCompose({ services: { ...pptQualityOnly.services, "project-audit-worker": service(remoteImage) } }, { remoteImage, enabledCapabilities: ["ppt-quality"] }), /Worker services do not match/);
   const pptImproveOnly = { services: {
     "team-migrate": { image: remoteImage, environment },
     "remote-mcp": { ...service(remoteImage), environment: { ...environment, COMMON_TOOLS_REMOTE_BACKEND: "postgres-redis-s3", COMMON_TOOLS_REQUIRE_PROJECT_RBAC: "true", COMMON_TOOLS_REMOTE_HOST: "0.0.0.0" } },
