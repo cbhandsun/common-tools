@@ -45,7 +45,7 @@ const {
   summarizePages,
   summarizeRasterImages,
   writeRenderCacheMetadata
-} = require("../skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx");
+} = require("../packages/slideclone-native-engine/scripts/quality-gate-real-pptx");
 
 test("quality CLI consumes broker credentials before input loading or renderer startup", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quality-gate-env-boundary-"));
@@ -60,7 +60,7 @@ test("quality CLI consumes broker credentials before input loading or renderer s
     for (const credentials of [{}, { [urlKey]: "http://127.0.0.1:12345" }, { [tokenKey]: "PRIVATE_BROKER_TOKEN" }, { [urlKey]: "http://127.0.0.1:12345", [tokenKey]: "PRIVATE_BROKER_TOKEN" }]) {
       const result = spawnSync(process.execPath, [
         "--require", path.join(__dirname, "fixtures/quality-gate-env-boundary.js"),
-        path.join(__dirname, "../skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx.js"),
+        path.join(__dirname, "../packages/slideclone-native-engine/scripts/quality-gate-real-pptx.js"),
         "--ir", input, "--out", path.join(directory, "output")
       ], { env: { ...environment, ...credentials }, encoding: "utf8", windowsHide: true, timeout: 10000 });
       assert.equal(result.error, undefined);
@@ -213,7 +213,7 @@ test("alignRenderedPageIndexesToIr remaps ordinal render pages for sparse page-s
 });
 
 test("render cache reuse is enabled by default and can be disabled explicitly", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-native-engine/scripts/quality-gate-real-pptx.js"), "utf8");
   assert.match(source, /args\["reuse-render"\] \|\| "true"/);
   assert.match(source, /=== "false"\) return null/);
 });

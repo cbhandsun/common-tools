@@ -8,7 +8,7 @@ const {
 } = require("../skills/pd-hifi-slideclone/scripts/lib/native-object-conflict-audit");
 const {
   summarizeQualityGateStatus
-} = require("../skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx");
+} = require("../packages/slideclone-native-engine/scripts/quality-gate-real-pptx");
 
 function textBox(id, text, box, detector = "") {
   return { id, text, box, source: { detector } };

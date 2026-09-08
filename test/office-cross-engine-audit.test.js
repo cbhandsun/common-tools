@@ -37,7 +37,7 @@ test("cross-renderer audit builds bounded PowerPoint quality plans from corpus e
   }, { renderer: "powerpoint", maxCases: 1, outputDir: path.join(directory, "out") });
   assert.equal(plans.length, 1);
   assert.equal(plans[0].id, "system-map");
-  assert.deepEqual(plans[0].args.slice(0, 2), ["skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx.js", "--ir"]);
+  assert.deepEqual(plans[0].args.slice(0, 2), ["packages/slideclone-native-engine/scripts/quality-gate-real-pptx.js", "--ir"]);
   assert.equal(plans[0].args[plans[0].args.indexOf("--renderer") + 1], "powerpoint");
   assert.equal(plans[0].args[plans[0].args.indexOf("--reuse-render") + 1], "false");
 });

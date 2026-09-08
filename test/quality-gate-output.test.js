@@ -66,7 +66,7 @@ test("quality gate output rejects invalid, empty, and extreme boundary data safe
 });
 
 test("quality gate rejects an invalid output format before file or renderer work", () => {
-  const script = path.resolve(__dirname, "../skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx.js");
+  const script = path.resolve(__dirname, "../packages/slideclone-native-engine/scripts/quality-gate-real-pptx.js");
   const result = spawnSync(process.execPath, [script, "--output-format", "xml"], {
     encoding: "utf8",
     windowsHide: true,
