@@ -16,8 +16,7 @@ function parseShardCount(argv = process.argv.slice(2), env = process.env) {
 }
 
 function parseReporter(env = process.env) {
-  const reporter = String(env.TEST_REPORTER || "").trim();
-  if (!reporter) return "";
+  const reporter = String(env.TEST_REPORTER || "dot").trim();
   if (!["dot", "spec", "tap"].includes(reporter)) {
     throw new Error(`TEST_REPORTER must be dot, spec, or tap; received ${JSON.stringify(reporter)}`);
   }

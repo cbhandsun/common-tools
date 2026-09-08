@@ -35,8 +35,9 @@ test("balanceTestFiles deterministically distributes the largest files first", (
 });
 
 test("parseReporter bounds CI output modes", () => {
-  assert.equal(parseReporter({}), "");
+  assert.equal(parseReporter({}), "dot");
   assert.equal(parseReporter({ TEST_REPORTER: "dot" }), "dot");
+  assert.equal(parseReporter({ TEST_REPORTER: "tap" }), "tap");
   assert.throws(() => parseReporter({ TEST_REPORTER: "json" }), /dot, spec, or tap/);
 });
 
