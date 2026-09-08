@@ -10,16 +10,41 @@ function directCapabilityModules() {
   return Object.freeze([...DIRECT_CAPABILITY_CATALOG]);
 }
 
+function mergeDirectToolMap(label, pick) {
+  const merged = {};
+  for (const module of DIRECT_CAPABILITY_CATALOG) {
+    const entries = pick(module);
+    if (!entries || typeof entries !== "object" || Array.isArray(entries)) throw new Error(`direct capability ${label} map is invalid`);
+    for (const [name, value] of Object.entries(entries)) {
+      if (Object.prototype.hasOwnProperty.call(merged, name)) throw new Error(`duplicate direct capability ${label}: ${name}`);
+      merged[name] = value;
+    }
+  }
+  return Object.freeze(merged);
+}
+
 function directToolContracts() {
-  return Object.freeze(DIRECT_CAPABILITY_CATALOG.flatMap((module) => module.directToolContracts || []));
+  const seen = new Set();
+  const contracts = [];
+  for (const module of DIRECT_CAPABILITY_CATALOG) {
+    const tools = module.directToolContracts || [];
+    if (!Array.isArray(tools)) throw new Error("direct capability tool contracts are invalid");
+    for (const tool of tools) {
+      if (!tool || typeof tool !== "object" || typeof tool.name !== "string") throw new Error("direct capability tool contract is invalid");
+      if (seen.has(tool.name)) throw new Error(`duplicate direct capability contract: ${tool.name}`);
+      seen.add(tool.name);
+      contracts.push(tool);
+    }
+  }
+  return Object.freeze(contracts);
 }
 
 function directToolArguments() {
-  return Object.freeze(Object.assign({}, ...DIRECT_CAPABILITY_CATALOG.map((module) => module.directToolArguments || {})));
+  return mergeDirectToolMap("argument", (module) => module.directToolArguments || {});
 }
 
 function directToolMethods() {
-  return Object.freeze(Object.assign({}, ...DIRECT_CAPABILITY_CATALOG.map((module) => module.directToolMethods || {})));
+  return mergeDirectToolMap("method", (module) => module.directToolMethods || {});
 }
 
 module.exports = {
@@ -27,5 +52,6 @@ module.exports = {
   directCapabilityModules,
   directToolArguments,
   directToolContracts,
-  directToolMethods
+  directToolMethods,
+  mergeDirectToolMap
 };

@@ -18,6 +18,7 @@ function assertDirectToolCatalog(module) {
   const registration = module.registration;
   if (!registration || typeof registration.capability !== "string" || !Array.isArray(registration.toolNames)) throw new Error("direct capability module registration is invalid");
   const toolNames = registration.toolNames;
+  if (new Set(toolNames).size !== toolNames.length) throw new Error(`direct capability module declares duplicate tools: ${registration.capability}`);
   for (const [label, value] of [["arguments", module.directToolArguments], ["methods", module.directToolMethods]]) {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`direct capability tool ${label} are invalid`);
     if (!sameStringSet(Object.keys(value), toolNames)) throw new Error(`direct capability tool ${label} do not match registration: ${registration.capability}`);
@@ -50,17 +51,30 @@ function assertLocalCapabilityCatalog({ manifests, catalog, registryPackage }) {
   return true;
 }
 
-function assertDirectCapabilityCatalog({ manifests, catalog }) {
+function assertDirectCapabilityCatalog({ manifests, catalog, teamDefinitions = {} }) {
   if (!(manifests instanceof Map)) throw new TypeError("capability manifests are invalid");
   if (!Array.isArray(catalog)) throw new TypeError("direct capability catalog is invalid");
+  if (!teamDefinitions || typeof teamDefinitions !== "object" || Array.isArray(teamDefinitions)) throw new TypeError("team capability definitions are invalid");
   const expected = [...manifests.values()].filter((manifest) => manifest.requiredWorkerProfile === "direct").map((manifest) => manifest.capability);
   const actual = [];
+  const capabilities = new Set();
+  const serviceNames = new Set();
+  const toolNames = new Set();
   for (const module of catalog) {
     assertDirectToolCatalog(module);
     const capability = module.registration.capability;
+    if (capabilities.has(capability)) throw new Error(`duplicate direct capability: ${capability}`);
+    capabilities.add(capability);
+    if (serviceNames.has(module.serviceName)) throw new Error(`duplicate direct capability service owner: ${module.serviceName}`);
+    serviceNames.add(module.serviceName);
     actual.push(capability);
     const manifest = manifests.get(capability);
     if (!manifest || manifest.requiredWorkerProfile !== "direct") throw new Error(`direct capability catalog entry does not match a direct manifest: ${capability}`);
+    if (teamDefinitions[capability]?.mode !== "direct") throw new Error(`direct capability team definition is not direct: ${capability}`);
+    for (const name of module.registration.toolNames) {
+      if (toolNames.has(name)) throw new Error(`duplicate direct capability tool: ${name}`);
+      toolNames.add(name);
+    }
   }
   if (!sameStringSet(actual, expected)) throw new Error("direct capability catalog does not cover all direct manifests");
   return true;
@@ -68,11 +82,12 @@ function assertDirectCapabilityCatalog({ manifests, catalog }) {
 
 function verifyCapabilityCatalogs(root = REPOSITORY_ROOT) {
   const { CAPABILITY_MANIFESTS } = require("../../capability-manifests");
+  const { TEAM_CAPABILITY_DEFINITIONS } = require("../../capability-runtime");
   const { LOCAL_CAPABILITY_CATALOG } = require("../../capability-registry");
   const registryPackage = require("../../capability-registry/package.json");
   const { DIRECT_CAPABILITY_CATALOG } = require("../../remote-mcp-server/direct-capability-catalog");
   assertLocalCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: LOCAL_CAPABILITY_CATALOG, registryPackage });
-  assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG });
+  assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS });
   return Object.freeze({
     directCapabilities: Object.freeze(sorted(DIRECT_CAPABILITY_CATALOG.map((module) => module.registration.capability))),
     localCapabilities: Object.freeze(sorted(LOCAL_CAPABILITY_CATALOG.map((entry) => entry.module.registration.capability))),

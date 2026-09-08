@@ -4,14 +4,16 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { CAPABILITY_MANIFESTS } = require("../packages/capability-runtime");
+const { CAPABILITY_MANIFESTS, TEAM_CAPABILITY_DEFINITIONS } = require("../packages/capability-runtime");
 const { MCP_JOB_SCHEMA, defineMcpObjectSchema, defineMcpToolContract, mcpToolAnnotations } = require("../packages/capability-contracts");
 const { CAPABILITIES, TEAM_DEPLOYABLE_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, teamDeploymentPlan, validUploadRequest } = require("../packages/team-runtime");
 const { TOOLS } = require("../packages/mcp-server/core");
 const { JOB_SCHEMA: LOCAL_JOB_SCHEMA, annotations: localAnnotations, validateToolOutput } = require("../packages/mcp-server/tool-contracts");
 const { compileSchema } = require("../packages/mcp-server/schema-validator");
 const { CAPABILITY_SCOPES } = require("../packages/remote-mcp-server/team-mcp");
+const { DIRECT_CAPABILITY_CATALOG } = require("../packages/remote-mcp-server/direct-capability-catalog");
 const { JOB_SCHEMA: TEAM_JOB_SCHEMA, annotations: teamAnnotations } = require("../packages/remote-mcp-server/team-tool-contracts");
+const { assertDirectCapabilityCatalog } = require("../packages/cli/verification/verify-capability-catalogs");
 const { assertCapabilityToolContracts, assertTeamDeploymentComposeContracts, assertTeamDeploymentManifestContracts, verifyCapabilityToolContracts } = require("../scripts/verify-capability-contracts");
 
 function contractTool(name, capability) {
@@ -113,6 +115,13 @@ test("team deployment plan is derived from one bounded capability-to-worker mapp
 test("team deployment mapping is derived exactly from capability manifests", () => {
   assert.equal(assertTeamDeploymentManifestContracts({ manifests: CAPABILITY_MANIFESTS, deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES }), true);
   assert.throws(() => assertTeamDeploymentManifestContracts({ manifests: CAPABILITY_MANIFESTS, deploymentCapabilities: { ...TEAM_DEPLOYMENT_CAPABILITIES, "unexpected-worker": TEAM_DEPLOYMENT_CAPABILITIES["project-audit"] } }), /do not match/);
+});
+
+test("direct capability catalog is fail-closed against manifests and team definitions", () => {
+  assert.equal(assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS }), true);
+  assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: [...DIRECT_CAPABILITY_CATALOG, DIRECT_CAPABILITY_CATALOG[0]], teamDefinitions: TEAM_CAPABILITY_DEFINITIONS }), /duplicate direct capability/);
+  assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: { ...TEAM_CAPABILITY_DEFINITIONS, "siyuan-note": { ...TEAM_CAPABILITY_DEFINITIONS["siyuan-note"], mode: "worker" } } }), /team definition is not direct/);
+  assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: [{ ...DIRECT_CAPABILITY_CATALOG[0], registration: { ...DIRECT_CAPABILITY_CATALOG[0].registration, toolNames: ["siyuan_save_note", "siyuan_save_note"] } }], teamDefinitions: TEAM_CAPABILITY_DEFINITIONS }), /duplicate tools/);
 });
 
 test("team deployment plan is verified against the actual Compose Worker services", () => {
