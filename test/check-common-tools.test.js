@@ -1,8 +1,11 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const test = require("node:test");
-const { runLimited, syntaxCheckConcurrency } = require("../scripts/check-common-tools");
+const { checkCommonTools, collectCommonToolFiles, runLimited, syntaxCheckConcurrency } = require("../scripts/check-common-tools");
 
 test("common-tools syntax checker uses bounded parallelism without dropping work", async () => {
   const seen = [];
@@ -28,4 +31,15 @@ test("common-tools syntax checker propagates worker failures", async () => {
     }),
     /boom/
   );
+});
+
+test("common-tools syntax checker collects repository files lazily and accepts bounded file lists", async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "check-common-tools-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const file = path.join(directory, "valid.js");
+  fs.writeFileSync(file, '"use strict";\nmodule.exports = true;\n');
+  assert.equal(await checkCommonTools({ files: [file] }), 1);
+  assert.equal(collectCommonToolFiles().some((candidate) => candidate.endsWith(path.join("packages", "cli", "bin", "common-tools.js"))), true);
+  await assert.rejects(checkCommonTools({ files: [path.join(directory, "missing.js")] }));
+  await assert.rejects(checkCommonTools({ files: [null] }), /files are invalid/);
 });

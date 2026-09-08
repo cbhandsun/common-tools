@@ -7,16 +7,21 @@ const { spawn } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
 const packages = path.join(root, "packages");
-const files = [];
-function walk(directory) {
+
+function walkJavaScriptFiles(directory, files) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const target = path.join(directory, entry.name);
-    if (entry.isDirectory()) walk(target);
+    if (entry.isDirectory()) walkJavaScriptFiles(target, files);
     else if (entry.isFile() && entry.name.endsWith(".js")) files.push(target);
   }
 }
-walk(packages);
-files.push(path.join(root, "scripts", "generate-sbom.js"), path.join(root, "scripts", "release-evidence.js"), path.join(root, "scripts", "verify-capability-contracts.js"), path.join(root, "scripts", "verify-capability-catalogs.js"), path.join(root, "scripts", "verify-plugins.js"), path.join(root, "scripts", "verify-release-signature.js"), path.join(root, "scripts", "verify-runtime-package.js"), path.join(root, "scripts", "verify-observability-config.js"), path.join(root, "scripts", "verify-adrs.js"));
+
+function collectCommonToolFiles(workspaceRoot = root) {
+  const files = [];
+  walkJavaScriptFiles(path.join(workspaceRoot, "packages"), files);
+  files.push(path.join(workspaceRoot, "scripts", "generate-sbom.js"), path.join(workspaceRoot, "scripts", "release-evidence.js"), path.join(workspaceRoot, "scripts", "verify-capability-contracts.js"), path.join(workspaceRoot, "scripts", "verify-capability-catalogs.js"), path.join(workspaceRoot, "scripts", "verify-plugins.js"), path.join(workspaceRoot, "scripts", "verify-release-signature.js"), path.join(workspaceRoot, "scripts", "verify-runtime-package.js"), path.join(workspaceRoot, "scripts", "verify-observability-config.js"), path.join(workspaceRoot, "scripts", "verify-adrs.js"));
+  return Object.freeze(files);
+}
 
 function syntaxCheck(file) {
   return new Promise((resolve, reject) => {
@@ -53,7 +58,10 @@ function syntaxCheckConcurrency() {
   return Math.max(1, Math.min(8, os.availableParallelism ? os.availableParallelism() : os.cpus().length || 1));
 }
 
-async function checkCommonTools() {
+async function checkCommonTools(options = {}) {
+  if (!options || typeof options !== "object" || Array.isArray(options)) throw new TypeError("common-tools check options are invalid");
+  const files = options.files === undefined ? collectCommonToolFiles() : options.files;
+  if (!Array.isArray(files) || files.some((file) => typeof file !== "string" || file.length === 0)) throw new TypeError("common-tools check files are invalid");
   for (const file of files) {
     const content = fs.readFileSync(file, "utf8");
     if (/console\.log\(/.test(content) && !/bin[\\/]/.test(path.relative(packages, file))) {
@@ -74,6 +82,7 @@ if (require.main === module) {
 
 module.exports = {
   checkCommonTools,
+  collectCommonToolFiles,
   runLimited,
   syntaxCheckConcurrency
 };
