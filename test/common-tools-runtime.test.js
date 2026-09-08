@@ -88,6 +88,7 @@ test("capability manifests are hash-verified and plugin revisions can roll back"
 test("capability runtime re-exports module source validation", () => {
   assert.deepEqual(validateModuleSource({ packageName: "@common-tools/example-core", requirePath: "../example-core", exportName: "CAPABILITY_MODULE" }), { packageName: "@common-tools/example-core", requirePath: "../example-core", exportName: "CAPABILITY_MODULE" });
   assert.throws(() => validateModuleSource({ packageName: "@common-tools/example-core", requirePath: "../../escape", exportName: "CAPABILITY_MODULE" }), /module source/);
+  assert.throws(() => validateModuleSource({ packageName: "@common-tools/example-core", requirePath: "../other-core", exportName: "CAPABILITY_MODULE" }), /package and require path/);
 });
 
 test("capability manifests declare a bounded Runtime compatibility range and fail closed outside it", () => {

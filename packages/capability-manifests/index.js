@@ -153,7 +153,12 @@ function validateExecutionDefinition(value) {
 function validateModuleSource(value) {
   assertPlainObject(value, "capability module source");
   if (Object.keys(value).sort().join(",") !== "exportName,packageName,requirePath" || typeof value.packageName !== "string" || !/^@common-tools\/[a-z][a-z0-9-]*$/.test(value.packageName) || typeof value.requirePath !== "string" || !/^\.\.\/[a-z][a-z0-9-]*$/.test(value.requirePath) || typeof value.exportName !== "string" || !/^[A-Za-z][A-Za-z0-9_]*$/.test(value.exportName)) throw new Error("capability module source is invalid");
-  return Object.freeze({ packageName: value.packageName, requirePath: value.requirePath, exportName: value.exportName });
+  const packageName = value.packageName;
+  const requirePath = value.requirePath;
+  const exportName = value.exportName;
+  const packageDirectory = packageName.slice("@common-tools/".length);
+  if (requirePath !== `../${packageDirectory}`) throw new Error("capability module source package and require path must match");
+  return Object.freeze({ packageName, requirePath, exportName });
 }
 
 /** @param {unknown} value @param {{runtimeVersion?: string}} [options] */
