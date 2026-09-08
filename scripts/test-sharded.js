@@ -23,6 +23,10 @@ function parseReporter(env = process.env) {
   return reporter;
 }
 
+function parseListMode(argv = process.argv.slice(2)) {
+  return argv.includes("--list");
+}
+
 function balanceTestFiles(files, shardCount) {
   const shards = Array.from({ length: shardCount }, () => ({ size: 0, files: [], resources: new Set() }));
   for (const file of [...files].sort((a, b) => b.size - a.size || a.file.localeCompare(b.file))) {
@@ -65,6 +69,16 @@ function discoverTestFiles(root, suite = "all") {
   return entries.filter(({ file }) => includesSuite(file, suite));
 }
 
+function summarizeTestFiles(files) {
+  const resources = {};
+  for (const file of files) resources[file.resource] = (resources[file.resource] || 0) + 1;
+  return {
+    fileCount: files.length,
+    resources,
+    files: files.map((file) => file.file).sort()
+  };
+}
+
 function runShard(root, shard, index) {
   return new Promise((resolve, reject) => {
     const startedAt = Date.now();
@@ -100,6 +114,10 @@ async function main() {
   if (files.length === 0) {
     throw new Error(`No test files found for suite ${JSON.stringify(suite)}`);
   }
+  if (parseListMode()) {
+    console.log(JSON.stringify({ suite, ...summarizeTestFiles(files) }, null, 2));
+    return;
+  }
   const waves = createExecutionWaves(files, shardCount);
   const startedAt = Date.now();
   const results = [];
@@ -126,8 +144,10 @@ module.exports = {
   balanceTestFiles,
   createExecutionWaves,
   discoverTestFiles,
+  parseListMode,
   parseShardCount,
   parseReporter,
   runShard,
+  summarizeTestFiles,
   parseSuite
 };

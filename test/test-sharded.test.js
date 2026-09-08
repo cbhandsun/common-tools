@@ -9,6 +9,7 @@ const { spawnSync } = require("node:child_process");
 const {
   balanceTestFiles,
   createExecutionWaves,
+  parseListMode,
   parseReporter,
   parseShardCount,
   parseSuite
@@ -39,6 +40,12 @@ test("parseReporter bounds CI output modes", () => {
   assert.equal(parseReporter({ TEST_REPORTER: "dot" }), "dot");
   assert.equal(parseReporter({ TEST_REPORTER: "tap" }), "tap");
   assert.throws(() => parseReporter({ TEST_REPORTER: "json" }), /dot, spec, or tap/);
+});
+
+test("parseListMode enables a read-only suite inventory", () => {
+  assert.equal(parseListMode([]), false);
+  assert.equal(parseListMode(["--suite", "unit"]), false);
+  assert.equal(parseListMode(["--suite", "unit", "--list"]), true);
 });
 
 test("parseShardCount validates command and environment boundaries", () => {
