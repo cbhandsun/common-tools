@@ -1,21 +1,19 @@
 // @ts-check
 "use strict";
 
+const {
+  MCP_JOB_SCHEMA,
+  MCP_NON_EMPTY_STRING,
+  MCP_SHORT_NOTICE_SCHEMA,
+  MCP_SIYUAN_ID_SCHEMA,
+  mcpToolAnnotations
+} = require("../capability-contracts");
 const { compileSchema } = require("../mcp-server/schema-validator");
 
-const NON_EMPTY_STRING = Object.freeze({ type: "string", minLength: 1, maxLength: 4096 });
-const SIYUAN_ID = Object.freeze({ type: "string", pattern: "^[0-9]{14}-[a-z0-9]{7}$" });
-const SIYUAN_NOTICE = Object.freeze({ type: "string", minLength: 1, maxLength: 256 });
-const JOB_SCHEMA = Object.freeze({
-  type: "object",
-  required: ["id", "capability", "status"],
-  properties: {
-    id: Object.freeze({ type: "string", minLength: 1, maxLength: 256 }),
-    capability: Object.freeze({ type: "string", minLength: 1, maxLength: 64 }),
-    status: Object.freeze({ type: "string", minLength: 1, maxLength: 64 })
-  },
-  additionalProperties: true
-});
+const NON_EMPTY_STRING = MCP_NON_EMPTY_STRING;
+const SIYUAN_ID = MCP_SIYUAN_ID_SCHEMA;
+const SIYUAN_NOTICE = MCP_SHORT_NOTICE_SCHEMA;
+const JOB_SCHEMA = MCP_JOB_SCHEMA;
 const NOTE_RESULT_SCHEMA = Object.freeze({
   type: "object",
   required: ["id", "documentId", "notebookId", "path", "content", "contentTruncated", "updated", "type"],
@@ -29,7 +27,7 @@ const NOTE_RESULT_SCHEMA = Object.freeze({
 
 /** @param {boolean} readOnlyHint @param {boolean} destructiveHint @param {boolean} idempotentHint */
 function annotations(readOnlyHint, destructiveHint, idempotentHint) {
-  return Object.freeze({ readOnlyHint, destructiveHint, idempotentHint, openWorldHint: false });
+  return mcpToolAnnotations(readOnlyHint, destructiveHint, idempotentHint);
 }
 
 const TEAM_TOOLS = Object.freeze([

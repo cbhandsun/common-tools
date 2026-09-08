@@ -3,6 +3,13 @@
 
 const { compileSchema } = require("./schema-validator");
 const {
+  MCP_JOB_ID_SCHEMA,
+  MCP_JOB_SCHEMA,
+  MCP_JOB_STATUS_SCHEMA,
+  MCP_NON_EMPTY_STRING,
+  mcpToolAnnotations
+} = require("../capability-contracts");
+const {
   IMAGE_TO_EDITABLE_CAPABILITY,
   PPT_CREATE_CAPABILITY,
   PPT_IMPROVE_CAPABILITY,
@@ -21,23 +28,14 @@ const {
  * @property {{readOnlyHint: boolean, destructiveHint: boolean, idempotentHint: boolean, openWorldHint: boolean}} annotations
  */
 
-const STRING = Object.freeze({ type: "string", minLength: 1, maxLength: 4096 });
+const STRING = MCP_NON_EMPTY_STRING;
 const EDITABLE_INPUTS = Object.freeze({ type: "array", minItems: 1, maxItems: 20, uniqueItems: true, items: STRING });
-const JOB_ID = Object.freeze({ type: "string", minLength: 1, maxLength: 256 });
-const JOB_SCHEMA = Object.freeze({
-  type: "object",
-  required: ["id", "capability", "status"],
-  properties: {
-    id: JOB_ID,
-    capability: Object.freeze({ type: "string", minLength: 1, maxLength: 64 }),
-    status: Object.freeze({ type: "string", enum: ["queued", "running", "input_required", "cancel_requested", "succeeded", "failed", "cancelled", "expired"] })
-  },
-  additionalProperties: true
-});
+const JOB_ID = MCP_JOB_ID_SCHEMA;
+const JOB_SCHEMA = MCP_JOB_SCHEMA;
 
 /** @param {boolean} readOnly @param {boolean} destructive @param {boolean} idempotent */
 function annotations(readOnly, destructive, idempotent) {
-  return Object.freeze({ readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: false });
+  return mcpToolAnnotations(readOnly, destructive, idempotent);
 }
 
 /**
@@ -64,7 +62,7 @@ const REPORT_SCHEMA = Object.freeze({
   properties: {
     id: JOB_ID,
     capability: Object.freeze({ type: "string", minLength: 1, maxLength: 64 }),
-    status: JOB_SCHEMA.properties.status,
+    status: MCP_JOB_STATUS_SCHEMA,
     artifacts: Object.freeze({ type: "array", maxItems: 64, items: Object.freeze({ type: "object", additionalProperties: true }) })
   },
   additionalProperties: true

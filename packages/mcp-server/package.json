@@ -6,6 +6,7 @@
     "common-tools-mcp": "bin/common-tools-mcp.js"
   },
   "dependencies": {
+    "@common-tools/capability-contracts": "0.1.0",
     "@common-tools/capability-registry": "0.1.0",
     "@common-tools/capability-runtime": "0.1.0"
   },

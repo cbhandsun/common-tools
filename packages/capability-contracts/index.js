@@ -18,6 +18,27 @@ const TRANSITIONS = Object.freeze({
   succeeded: transitionSet(), failed: transitionSet(), cancelled: transitionSet(), expired: transitionSet()
 });
 
+const MCP_NON_EMPTY_STRING = Object.freeze({ type: "string", minLength: 1, maxLength: 4096 });
+const MCP_JOB_ID_SCHEMA = Object.freeze({ type: "string", minLength: 1, maxLength: 256 });
+const MCP_JOB_STATUS_SCHEMA = Object.freeze({ type: "string", enum: Object.freeze([...JOB_STATUSES]) });
+const MCP_JOB_SCHEMA = Object.freeze({
+  type: "object",
+  required: Object.freeze(["id", "capability", "status"]),
+  properties: Object.freeze({
+    id: MCP_JOB_ID_SCHEMA,
+    capability: Object.freeze({ type: "string", minLength: 1, maxLength: 64 }),
+    status: MCP_JOB_STATUS_SCHEMA
+  }),
+  additionalProperties: true
+});
+const MCP_SIYUAN_ID_SCHEMA = Object.freeze({ type: "string", pattern: "^[0-9]{14}-[a-z0-9]{7}$" });
+const MCP_SHORT_NOTICE_SCHEMA = Object.freeze({ type: "string", minLength: 1, maxLength: 256 });
+
+/** @param {boolean} readOnlyHint @param {boolean} destructiveHint @param {boolean} idempotentHint */
+function mcpToolAnnotations(readOnlyHint, destructiveHint, idempotentHint) {
+  return Object.freeze({ readOnlyHint, destructiveHint, idempotentHint, openWorldHint: false });
+}
+
 /** @param {unknown} value @param {string} label @returns {asserts value is Record<string, unknown>} */
 function assertPlainObject(value, label) {
   if (value == null || typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
@@ -101,4 +122,4 @@ function assertQualityReport(value) {
   return Object.freeze({ passed: value.passed, checks: Object.freeze(checks), metrics: Object.freeze(metrics) });
 }
 
-module.exports = { JOB_STATUSES, TERMINAL_JOB_STATUSES, assertJob, assertPlainObject, assertNonEmptyString, assertQualityReport, assertTransition, canTransition, containsControlCharacter, createCapabilityRegistration };
+module.exports = { JOB_STATUSES, MCP_JOB_ID_SCHEMA, MCP_JOB_SCHEMA, MCP_JOB_STATUS_SCHEMA, MCP_NON_EMPTY_STRING, MCP_SHORT_NOTICE_SCHEMA, MCP_SIYUAN_ID_SCHEMA, TERMINAL_JOB_STATUSES, assertJob, assertPlainObject, assertNonEmptyString, assertQualityReport, assertTransition, canTransition, containsControlCharacter, createCapabilityRegistration, mcpToolAnnotations };

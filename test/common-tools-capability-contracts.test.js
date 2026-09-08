@@ -5,11 +5,13 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const { CAPABILITY_MANIFESTS } = require("../packages/capability-runtime");
+const { MCP_JOB_SCHEMA, mcpToolAnnotations } = require("../packages/capability-contracts");
 const { CAPABILITIES, TEAM_DEPLOYABLE_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, teamDeploymentPlan, validUploadRequest } = require("../packages/team-runtime");
 const { TOOLS } = require("../packages/mcp-server/core");
-const { validateToolOutput } = require("../packages/mcp-server/tool-contracts");
+const { JOB_SCHEMA: LOCAL_JOB_SCHEMA, annotations: localAnnotations, validateToolOutput } = require("../packages/mcp-server/tool-contracts");
 const { compileSchema } = require("../packages/mcp-server/schema-validator");
 const { CAPABILITY_SCOPES } = require("../packages/remote-mcp-server/team-mcp");
+const { JOB_SCHEMA: TEAM_JOB_SCHEMA, annotations: teamAnnotations } = require("../packages/remote-mcp-server/team-tool-contracts");
 const { assertCapabilityToolContracts, assertTeamDeploymentComposeContracts, assertTeamDeploymentManifestContracts, verifyCapabilityToolContracts } = require("../scripts/verify-capability-contracts");
 
 function contractTool(name, capability) {
@@ -49,6 +51,13 @@ test("every local MCP tool publishes a closed input contract, output contract, a
     assert.deepEqual(Object.keys(tool.annotations).sort(), ["destructiveHint", "idempotentHint", "openWorldHint", "readOnlyHint"]);
   }
   assert.throws(() => validateToolOutput("get_job", { id: "job-1" }), /output does not match/);
+});
+
+test("local and team MCP contracts share the common job and annotation primitives", () => {
+  assert.equal(LOCAL_JOB_SCHEMA, MCP_JOB_SCHEMA);
+  assert.equal(TEAM_JOB_SCHEMA, MCP_JOB_SCHEMA);
+  assert.deepEqual(localAnnotations(true, false, true), mcpToolAnnotations(true, false, true));
+  assert.deepEqual(teamAnnotations(false, true, true), mcpToolAnnotations(false, true, true));
 });
 
 test("portable schema validation covers empty, invalid, extreme, and undeclared values", () => {
