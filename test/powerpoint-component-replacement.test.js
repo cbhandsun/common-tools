@@ -10,7 +10,7 @@ const {
   powerPointComponentReplacementScript,
   requiredFile,
   safeOutputFile
-} = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-component-replacement");
+} = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-component-replacement");
 
 test("PowerPoint component replacement script uses native editable shape copy and paste", () => {
   const script = powerPointComponentReplacementScript();

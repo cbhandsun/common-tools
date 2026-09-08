@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
-const { auditSourceMediaExclusion } = require("../skills/pd-hifi-slideclone/scripts/lib/source-media-exclusion");
+const { auditSourceMediaExclusion } = require("../packages/slideclone-native-engine/scripts/lib/source-media-exclusion");
 const { enrichReconstructionContracts } = require("../skills/pd-hifi-slideclone/scripts/lib/reconstruction-contract");
 
 function setup() {

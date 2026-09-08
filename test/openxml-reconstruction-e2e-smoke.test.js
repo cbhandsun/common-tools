@@ -11,7 +11,7 @@ const {
   enrichReconstructionContracts,
   validateReconstructionContracts
 } = require("../skills/pd-hifi-slideclone/scripts/lib/reconstruction-contract");
-const { auditSourceMediaExclusion } = require("../skills/pd-hifi-slideclone/scripts/lib/source-media-exclusion");
+const { auditSourceMediaExclusion } = require("../packages/slideclone-native-engine/scripts/lib/source-media-exclusion");
 const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
 

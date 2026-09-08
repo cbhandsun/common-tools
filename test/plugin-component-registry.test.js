@@ -13,7 +13,7 @@ const {
   inferProvider,
   inferReusePolicy,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/lib/plugin-component-registry");
+} = require("../packages/slideclone-native-engine/scripts/lib/plugin-component-registry");
 
 test("plugin component registry classifies installed PPT component assets", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-components-"));
@@ -232,7 +232,7 @@ test("plugin component registry recognizes component-like OfficePLUS temp downlo
 });
 
 test("plugin component registry keeps provider folders out of default roots and exposes explicit acquisition roots", () => {
-  const registry = require("../skills/pd-hifi-slideclone/scripts/lib/plugin-component-registry");
+  const registry = require("../packages/slideclone-native-engine/scripts/lib/plugin-component-registry");
   const environment = {
       APPDATA: "C:\\Users\\demo\\AppData\\Roaming",
       LOCALAPPDATA: "C:\\Users\\demo\\AppData\\Local",
