@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const { resolveOpenXmlBuilderRoot, resolveSlidecloneRuntimeRoot } = require("../packages/slideclone-native-engine");
 
 const ROOT = path.resolve(__dirname, "..");
 const SKILL_SCRIPTS = path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts");
@@ -42,4 +43,12 @@ test("production native engine package mirrors the reviewed SlideClone JavaScrip
       relative
     );
   }
+});
+
+test("production workers resolve SlideClone native roots through the native engine package", () => {
+  assert.equal(resolveSlidecloneRuntimeRoot(ROOT), path.join(ROOT, "skills", "pd-hifi-slideclone"));
+  assert.equal(resolveOpenXmlBuilderRoot(ROOT), path.join(ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder"));
+  const worker = fs.readFileSync(path.join(ROOT, "packages", "remote-mcp-server", "bin", "common-tools-team-ppt-create-worker.js"), "utf8");
+  assert.doesNotMatch(worker, /skills[\\/]+pd-hifi-slideclone/);
+  assert.match(worker, /resolveOpenXmlBuilderRoot|resolveSlidecloneRuntimeRoot/);
 });
