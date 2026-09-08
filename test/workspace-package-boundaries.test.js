@@ -8,6 +8,7 @@ const test = require("node:test");
 const root = path.resolve(__dirname, "..");
 const {
   loadWorkspacePackagePolicy,
+  productionEntrypointBoundaryFailures,
   verifyWorkspaceBoundaries
 } = require("../scripts/verify-workspace-boundaries");
 
@@ -31,6 +32,14 @@ test("slideclone core has no upward dependency on CLI or skill implementation pa
 test("workspace packages match the declarative sibling dependency policy", () => {
   const result = verifyWorkspaceBoundaries(root);
   assert.equal(result.packageCount, Object.keys(loadWorkspacePackagePolicy().packages).length);
+});
+
+test("production worker entrypoints keep SlideClone native details behind package boundaries", () => {
+  const relative = "packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker.js";
+  assert.deepEqual(productionEntrypointBoundaryFailures(relative, "require('../../slideclone-native-engine')"), []);
+  assert.match(productionEntrypointBoundaryFailures(relative, "skills/pd-hifi-slideclone").join("\n"), /runtime paths/);
+  assert.match(productionEntrypointBoundaryFailures(relative, "require('../../slideclone-core/pptx-openxml-dotnet')").join("\n"), /slideclone-native-engine/);
+  assert.deepEqual(productionEntrypointBoundaryFailures("packages/slideclone-native-engine/index.js", "require('../slideclone-core/pptx-openxml-dotnet')"), []);
 });
 
 test("workspace package policy rejects unapproved sibling dependencies", () => {

@@ -200,6 +200,15 @@ function findCycles(graph) {
   return cycles;
 }
 
+function productionEntrypointBoundaryFailures(relativeFile, source) {
+  if (typeof relativeFile !== "string" || typeof source !== "string") throw new TypeError("production entrypoint boundary input is invalid");
+  if (!/^packages\/remote-mcp-server\/bin\/common-tools-team.*-worker[.]js$/.test(relativeFile)) return [];
+  const failures = [];
+  if (/skills[\\/]+pd-hifi-slideclone/.test(source)) failures.push(`${relativeFile} must resolve SlideClone runtime paths through package boundaries`);
+  if (/slideclone-core[\\/]+pptx-openxml-dotnet/.test(source)) failures.push(`${relativeFile} must call OpenXML builds through slideclone-native-engine`);
+  return failures;
+}
+
 function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
   const workspaceRoot = typeof options === "string" ? options : options.workspaceRoot;
   const policy = typeof options === "string" ? loadLayerPolicy() : validateLayerPolicy(options.policy || loadLayerPolicy(options.policyFile));
@@ -269,7 +278,9 @@ function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
     for (const file of sourceFiles(current.directory)) {
       fileCount += 1;
       const relativeFile = path.relative(root, file).replaceAll("\\", "/");
-      const imports = collectImports(fs.readFileSync(file, "utf8"), path.basename(file));
+      const source = fs.readFileSync(file, "utf8");
+      failures.push(...productionEntrypointBoundaryFailures(relativeFile, source));
+      const imports = collectImports(source, path.basename(file));
       for (const { specifier, line } of imports) {
         const fail = (reason) => failures.push(`${relativeFile}:${line} ${reason}`);
         if (!specifier || specifier.includes("\0")) {
@@ -329,6 +340,7 @@ module.exports = {
   loadWorkspacePackagePolicy,
   packageSurfaceTargets,
   policyPackageReferences,
+  productionEntrypointBoundaryFailures,
   validateLayerPolicy,
   validateWorkspacePackagePolicy,
   workspacePackageFolder,
