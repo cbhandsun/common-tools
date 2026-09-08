@@ -14,6 +14,7 @@ const CONTRACT_TESTS = new Set([
   "openxml-native-arc-contract.test.js",
   "package-scripts.test.js",
   "pptx-engine-architecture.test.js",
+  "skill-lib-wrapper-boundary.test.js",
   "test-sharded.test.js",
   "workspace-package-boundaries.test.js"
 ]);
@@ -41,6 +42,7 @@ const INTEGRATION_TESTS = new Set([
   "native-page-lifecycle.test.js",
   "openxml-cache-recovery-smoke.test.js",
   "openxml-native-chart-smoke.test.js",
+  "ocr-text-smoke.test.js",
   "openxml-reconstruction-e2e-smoke.test.js",
   "openxml-restricted-svg-smoke.test.js",
   "pptx-build-engine-benchmark.test.js",
