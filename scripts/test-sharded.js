@@ -27,6 +27,10 @@ function parseListMode(argv = process.argv.slice(2)) {
   return argv.includes("--list");
 }
 
+function parseListFilesMode(argv = process.argv.slice(2)) {
+  return argv.includes("--list-files");
+}
+
 function balanceTestFiles(files, shardCount) {
   const shards = Array.from({ length: shardCount }, () => ({ size: 0, files: [], resources: new Set() }));
   for (const file of [...files].sort((a, b) => b.size - a.size || a.file.localeCompare(b.file))) {
@@ -69,14 +73,15 @@ function discoverTestFiles(root, suite = "all") {
   return entries.filter(({ file }) => includesSuite(file, suite));
 }
 
-function summarizeTestFiles(files) {
+function summarizeTestFiles(files, options = {}) {
   const resources = {};
   for (const file of files) resources[file.resource] = (resources[file.resource] || 0) + 1;
-  return {
+  const summary = {
     fileCount: files.length,
-    resources,
-    files: files.map((file) => file.file).sort()
+    resources
   };
+  if (options.includeFiles === true) summary.files = files.map((file) => file.file).sort();
+  return summary;
 }
 
 function runShard(root, shard, index) {
@@ -115,7 +120,7 @@ async function main() {
     throw new Error(`No test files found for suite ${JSON.stringify(suite)}`);
   }
   if (parseListMode()) {
-    console.log(JSON.stringify({ suite, ...summarizeTestFiles(files) }, null, 2));
+    console.log(JSON.stringify({ suite, ...summarizeTestFiles(files, { includeFiles: parseListFilesMode() }) }, null, 2));
     return;
   }
   const waves = createExecutionWaves(files, shardCount);
@@ -144,6 +149,7 @@ module.exports = {
   balanceTestFiles,
   createExecutionWaves,
   discoverTestFiles,
+  parseListFilesMode,
   parseListMode,
   parseShardCount,
   parseReporter,
