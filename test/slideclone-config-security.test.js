@@ -7,7 +7,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 const { createConfig, loadAdapter, validateIr } = require("../skills/pd-hifi-slideclone/scripts/slideclone");
-const { assertValidConfig, validateConfig } = require("../skills/pd-hifi-slideclone/scripts/lib/config-validation");
+const { assertValidConfig, validateConfig } = require("../packages/slideclone-native-engine/scripts/lib/config-validation");
 const configSchema = require("../skills/pd-hifi-slideclone/schemas/slideclone.config.schema.json");
 
 test("config rejects embedded NUL and oversized paths before execution", () => {

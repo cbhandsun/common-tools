@@ -8,7 +8,7 @@ const test = require("node:test");
 const { spawnSync } = require("node:child_process");
 const paddleOcr = require("../packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local");
 const { startPaddleOcrBatchBroker } = require("../packages/slideclone-native-engine/scripts/lib/paddleocr-batch-broker");
-const { consumePaddleOcrBrokerEnvironment } = require("../skills/pd-hifi-slideclone/scripts/lib/quality-gate-policy");
+const { consumePaddleOcrBrokerEnvironment } = require("../packages/slideclone-native-engine/scripts/lib/quality-gate-policy");
 const { resolveNativeEngineRuntimeRoot, resolveSlidecloneRuntimeRoot } = require("../packages/slideclone-native-engine");
 
 const workspaceRoot = path.resolve(__dirname, "..");

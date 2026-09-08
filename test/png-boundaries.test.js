@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { readPng, writePng, withPngReadCache } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { readPng, writePng, withPngReadCache } = require("../packages/slideclone-native-engine/scripts/lib/png");
 
 test("PNG reader accepts a valid bounded image", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-png-valid-"));

@@ -7,7 +7,7 @@ const os = require("os");
 const path = require("path");
 
 const visionFlowDiagramRules = require("../packages/slideclone-native-engine/scripts/adapters/vision-flow-diagram-rules");
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { writePng } = require("../packages/slideclone-native-engine/scripts/lib/png");
 
 const flowAdapterFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "adapters", "vision-flow-diagram-rules.js");
 const pythonGeneratorFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "python", "build_pptx.py");

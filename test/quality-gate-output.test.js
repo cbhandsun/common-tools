@@ -8,7 +8,7 @@ const { spawnSync } = require("node:child_process");
 const {
   buildQualityGateOutput,
   readQualityGateOutputFormat
-} = require("../skills/pd-hifi-slideclone/scripts/lib/quality-gate-output");
+} = require("../packages/slideclone-native-engine/scripts/lib/quality-gate-output");
 
 function report() {
   return {
