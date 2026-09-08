@@ -48,7 +48,7 @@ test("rebuilt metadata admits local sources and bounded counters without evaluat
   assert.throws(() => admitRebuiltPageMetadata({ nativeComponentQuality: { passed: "true" } }, context), /status/);
 });
 
-test("Worker residual composition needs only the historical deck rebuilder and preserves pixels", async (t) => {
+test("Worker residual composition needs only the runtime deck rebuilder and preserves pixels", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "worker-core-residual-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const png = require("../packages/slideclone-core/png");

@@ -14,7 +14,7 @@ flowchart TD
   Archive["Archive Core\npackages/archive-core"]
   Ooxml["OOXML Core\npackages/ooxml-core"]
 
-  ImageCap["image-to-editable\npackages/slideclone-core\nruntime/slideclone-native-engine"]
+  ImageCap["image-to-editable\npackages/slideclone-core\npackages/slideclone-native-engine\nruntime/slideclone-native-engine"]
   PptCreate["ppt-create\npackages/ppt-create-core"]
   PptQuality["ppt-quality\npackages/ppt-quality-core\nUI contribution + report"]
   PptImprove["ppt-improve\npackages/ppt-improve-core"]
@@ -64,11 +64,11 @@ flowchart TD
 | MCP 协议边界 | local/team MCP 主要负责协议、鉴权上下文、工具列表和资源读取；team 工具定义已抽到 `team-tool-registry` | 合理 |
 | 共享基础设施 | archive、OOXML、artifact 相关通用逻辑已抽到独立 core 包 | 合理 |
 | UI 归属 | 质量报告 UI 已由 `ppt-quality-core` 导出 contribution，MCP 层只汇总与读取 | 合理 |
-| Skill / runtime 边界 | 生产不再直接加载 `skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js`，改为 `runtime/slideclone-native-engine` 的受测镜像 | 基本合理，但仍是 legacy runtime mirror，后续可继续瘦身 |
+| Skill / runtime 边界 | 生产 Worker 不再依赖 skill 脚本或旧式兼容适配器；图片重建经 `@common-tools/slideclone-native-engine` 这个受测 runtime package 入口加载 `runtime/slideclone-native-engine` 镜像 | 合理；历史大实现被隔离为 runtime asset，不再冒充核心包源码 |
 | 分发策略 | `plugin.json`、manifest、skills 镜像与 runtime 镜像已有校验和文档约束 | 合理 |
 
 ## 仍建议保留的技术债口径
 
-1. `runtime/slideclone-native-engine` 仍是历史原生引擎的兼容镜像，不应再让新能力依赖它的内部脚本路径。后续应继续把可复用能力拆成稳定包接口。
+1. `runtime/slideclone-native-engine` 仍是历史原生引擎的运行时资产，不应再让新能力依赖它的内部脚本路径。后续如果要继续瘦身，应按业务能力迁移到稳定包接口，而不是恢复旧式兼容适配入口。
 2. UI contribution 现在已能力化，但如果未来有更多 UI，建议形成统一 `ui-contributions` 聚合约定，例如每个 capability package 暴露同名子路径。
 3. 当前旧 A–F 验收文档覆盖的是更大的产品交付闭环，包括远程真实任务、PDF 独立样本和 Office 质量验收；它不等同于本轮通用插件架构五项整改。

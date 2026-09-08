@@ -7,7 +7,8 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const budgetFile = path.join(root, "config", "architecture-budgets.json");
 const sourceRoots = [
-  "skills/pd-hifi-slideclone/scripts",
+  // Skills are distribution mirrors. Production architecture budgets are kept
+  // on package/runtime entrypoints, repo scripts and managed native projects.
   "skills/pd-hifi-slideclone/dotnet",
   "scripts",
   "packages"
