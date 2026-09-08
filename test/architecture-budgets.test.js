@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { listCodeFiles, measureFile, validateConfig } = require("../scripts/verify-architecture-budgets");
+const { listCodeFiles, measureFile, validateConfig, verifyArchitectureBudgets } = require("../scripts/verify-architecture-budgets");
 
 function validConfig() {
   return {
@@ -14,6 +14,7 @@ function validConfig() {
       source: { maxLines: 1500, maxBytes: 163840, maxRelativeImports: 15 },
       test: { maxLines: 2000, maxBytes: 204800, maxRelativeImports: 30 }
     },
+    maxLegacyExceptions: 0,
     legacyExceptions: {}
   };
 }
@@ -29,6 +30,23 @@ test("architecture budget config accepts bounded defaults and rejects unsafe exc
     ...validConfig(),
     defaults: { ...validConfig().defaults, source: { maxLines: -1, maxBytes: 1, maxRelativeImports: 1 } }
   }), /maxLines is invalid/);
+  assert.throws(() => validateConfig({ ...validConfig(), maxLegacyExceptions: -1 }), /maxLegacyExceptions/);
+});
+
+test("architecture budget exception count is itself a decreasing-only budget", () => {
+  const current = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "config", "architecture-budgets.json"), "utf8"));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "architecture-exception-count-"));
+  try {
+    const lowBudget = path.join(directory, "low.json");
+    fs.writeFileSync(lowBudget, JSON.stringify({ ...current, maxLegacyExceptions: Object.keys(current.legacyExceptions).length - 1 }));
+    assert.throws(() => verifyArchitectureBudgets({ budgetFile: lowBudget }), /exception count \d+ exceeds/);
+
+    const staleBudget = path.join(directory, "stale.json");
+    fs.writeFileSync(staleBudget, JSON.stringify({ ...current, maxLegacyExceptions: Object.keys(current.legacyExceptions).length + 1 }));
+    assert.throws(() => verifyArchitectureBudgets({ budgetFile: staleBudget }), /ratchet maxLegacyExceptions down/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("architecture measurement counts lines, bytes and unique relative imports", () => {

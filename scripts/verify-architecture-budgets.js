@@ -39,13 +39,16 @@ function verifyArchitectureBudgets(options = {}) {
   for (const file of Object.keys(config.legacyExceptions)) {
     if (!observed.has(file)) failures.push(`legacy architecture exception references a missing file: ${file}`);
   }
+  const legacyExceptionCount = Object.keys(config.legacyExceptions).length;
+  if (legacyExceptionCount > config.maxLegacyExceptions) failures.push(`legacy architecture exception count ${legacyExceptionCount} exceeds ${config.maxLegacyExceptions}`);
+  if (legacyExceptionCount < config.maxLegacyExceptions) failures.push(`legacy architecture exception count improved to ${legacyExceptionCount}; ratchet maxLegacyExceptions down from ${config.maxLegacyExceptions}`);
   if (failures.length > 0) throw new Error(`architecture budget verification failed:\n- ${failures.join("\n- ")}`);
-  return Object.freeze({ fileCount: observed.size, legacyExceptionCount: Object.keys(config.legacyExceptions).length });
+  return Object.freeze({ fileCount: observed.size, legacyExceptionCount });
 }
 
 function validateConfig(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1
-    || Object.keys(value).some((key) => !["version", "defaults", "legacyExceptions"].includes(key))) {
+    || Object.keys(value).some((key) => !["version", "defaults", "legacyExceptions", "maxLegacyExceptions"].includes(key))) {
     throw new TypeError("architecture budget config is invalid");
   }
   const defaults = value.defaults;
@@ -54,6 +57,9 @@ function validateConfig(value) {
   validateLimits(defaults.test, "test defaults", true);
   if (!value.legacyExceptions || typeof value.legacyExceptions !== "object" || Array.isArray(value.legacyExceptions)) {
     throw new TypeError("architecture budget exceptions are invalid");
+  }
+  if (!Number.isSafeInteger(value.maxLegacyExceptions) || value.maxLegacyExceptions < 0 || value.maxLegacyExceptions > 100) {
+    throw new TypeError("architecture budget maxLegacyExceptions is invalid");
   }
   for (const [file, limits] of Object.entries(value.legacyExceptions)) {
     if (!safeRelativePath(file)) throw new TypeError(`architecture budget exception path is invalid: ${file}`);

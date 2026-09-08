@@ -4,6 +4,7 @@
     "source": { "maxLines": 1500, "maxBytes": 163840, "maxRelativeImports": 15 },
     "test": { "maxLines": 2000, "maxBytes": 204800, "maxRelativeImports": 30 }
   },
+  "maxLegacyExceptions": 5,
   "legacyExceptions": {
     "test/native-rebuild.test.js": { "maxLines": 27165, "maxBytes": 1230592 },
     "test/component-template-native-shapes.test.js": { "maxLines": 3175 },
