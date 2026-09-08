@@ -13,7 +13,8 @@ const {
   parseListMode,
   parseReporter,
   parseShardCount,
-  parseSuite
+  parseSuite,
+  summarizeExecutionWaves
 } = require("../scripts/test-sharded");
 const {
   classifyTestFile,
@@ -49,6 +50,40 @@ test("parseListMode enables a read-only suite inventory", () => {
   assert.equal(parseListMode(["--suite", "unit", "--list"]), true);
   assert.equal(parseListFilesMode(["--suite", "unit", "--list"]), false);
   assert.equal(parseListFilesMode(["--suite", "unit", "--list", "--list-files"]), true);
+});
+
+test("suite inventory summarizes scheduled waves without listing files by default", () => {
+  const waves = createExecutionWaves([
+    { file: "test/a.test.js", size: 10, resource: "standard" },
+    { file: "test/b.test.js", size: 8, resource: "standard" },
+    { file: "test/heavy.test.js", size: 7, resource: "memory-heavy" }
+  ], 2);
+  assert.deepEqual(summarizeExecutionWaves(waves), {
+    waveCount: 2,
+    shardCount: 3,
+    waves: [
+      {
+        wave: 1,
+        shardCount: 2,
+        resources: ["standard"],
+        fileCount: 2,
+        shards: [
+          { shard: 1, fileCount: 1, resources: ["standard"] },
+          { shard: 2, fileCount: 1, resources: ["standard"] }
+        ]
+      },
+      {
+        wave: 2,
+        shardCount: 1,
+        resources: ["memory-heavy"],
+        fileCount: 1,
+        shards: [
+          { shard: 1, fileCount: 1, resources: ["memory-heavy"] }
+        ]
+      }
+    ]
+  });
+  assert.deepEqual(summarizeExecutionWaves(waves, { includeFiles: true }).waves[1].shards[0].files, ["test/heavy.test.js"]);
 });
 
 test("parseShardCount validates command and environment boundaries", () => {
@@ -146,12 +181,14 @@ test("resource-aware execution isolates heavy shards while retaining standard pa
     { file: "test/a.test.js", size: 10, resource: "standard" },
     { file: "test/b.test.js", size: 8, resource: "standard" },
     { file: "test/heavy.test.js", size: 7, resource: "memory-heavy" },
-    { file: "test/external.test.js", size: 6, resource: "external-process" }
+    { file: "test/heavy-2.test.js", size: 5, resource: "memory-heavy" },
+    { file: "test/external.test.js", size: 6, resource: "external-process" },
+    { file: "test/external-2.test.js", size: 4, resource: "external-process" }
   ], 2);
   assert.equal(waves[0].length, 2);
   assert.deepEqual(waves.slice(1).map((wave) => wave[0].files), [
-    ["test/heavy.test.js"],
-    ["test/external.test.js"]
+    ["test/heavy.test.js", "test/heavy-2.test.js"],
+    ["test/external.test.js", "test/external-2.test.js"]
   ]);
   assert.ok(waves.slice(1).every((wave) => wave.length === 1));
 });

@@ -54,7 +54,7 @@ function createExecutionWaves(files, shardCount) {
   if (standard.length > 0) waves.push(standard);
   for (const resource of ["memory-heavy", "external-process"]) {
     const resourceFiles = groups.get(resource);
-    const dedicated = balanceTestFiles(resourceFiles, Math.min(shardCount, Math.max(1, resourceFiles.length)));
+    const dedicated = balanceTestFiles(resourceFiles, 1);
     for (const shard of dedicated) waves.push([shard]);
   }
   return waves;
@@ -82,6 +82,25 @@ function summarizeTestFiles(files, options = {}) {
   };
   if (options.includeFiles === true) summary.files = files.map((file) => file.file).sort();
   return summary;
+}
+
+function summarizeExecutionWaves(waves, options = {}) {
+  return {
+    waveCount: waves.length,
+    shardCount: waves.reduce((total, wave) => total + wave.length, 0),
+    waves: waves.map((wave, waveIndex) => ({
+      wave: waveIndex + 1,
+      shardCount: wave.length,
+      resources: [...new Set(wave.flatMap((shard) => [...shard.resources]))].sort(),
+      fileCount: wave.reduce((total, shard) => total + shard.files.length, 0),
+      shards: wave.map((shard, shardIndex) => ({
+        shard: shardIndex + 1,
+        fileCount: shard.files.length,
+        resources: [...shard.resources].sort(),
+        ...(options.includeFiles === true ? { files: [...shard.files].sort() } : {})
+      }))
+    }))
+  };
 }
 
 function runShard(root, shard, index) {
@@ -119,11 +138,16 @@ async function main() {
   if (files.length === 0) {
     throw new Error(`No test files found for suite ${JSON.stringify(suite)}`);
   }
+  const waves = createExecutionWaves(files, shardCount);
   if (parseListMode()) {
-    console.log(JSON.stringify({ suite, ...summarizeTestFiles(files, { includeFiles: parseListFilesMode() }) }, null, 2));
+    const includeFiles = parseListFilesMode();
+    console.log(JSON.stringify({
+      suite,
+      ...summarizeTestFiles(files, { includeFiles }),
+      schedule: summarizeExecutionWaves(waves, { includeFiles })
+    }, null, 2));
     return;
   }
-  const waves = createExecutionWaves(files, shardCount);
   const startedAt = Date.now();
   const results = [];
   let shardIndex = 0;
@@ -154,6 +178,7 @@ module.exports = {
   parseShardCount,
   parseReporter,
   runShard,
+  summarizeExecutionWaves,
   summarizeTestFiles,
   parseSuite
 };
