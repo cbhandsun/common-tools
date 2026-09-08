@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { collectImports, forbiddenLayer, loadLayerPolicy, packageSurfaceTargets, policyPackageReferences, validateLayerPolicy, verifyWorkspaceBoundaries } = require("../scripts/verify-workspace-boundaries");
+const { collectImports, forbiddenLayer, loadLayerPolicy, packageSurfaceTargets, policyPackageReferences, validateLayerPolicy, verifyWorkspaceBoundaries, workspacePackageFolder } = require("../scripts/verify-workspace-boundaries");
 
 function workspace(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "workspace-boundary-"));
@@ -198,7 +198,16 @@ test("boundary gate fails closed on empty and duplicate package inventories", (t
   assert.throws(f.verify, /no workspace packages/);
   f.add("one"); f.add("two");
   f.write("packages/two/package.json", JSON.stringify({ name: "@fixture/one" }));
-  assert.throws(f.verify, /unique non-empty/);
+  assert.throws(f.verify, /unique non-empty|manifest name must match its folder/);
+});
+
+test("boundary gate requires package manifest identity to match its folder", (t) => {
+  assert.equal(workspacePackageFolder("@fixture/feature-core"), "feature-core");
+  assert.equal(workspacePackageFolder("feature-core"), null);
+  const f = workspace(t);
+  f.add("feature-core");
+  f.write("packages/feature-core/package.json", JSON.stringify({ name: "@fixture/other-core", version: "1.0.0" }));
+  assert.throws(f.verify, /workspace package feature-core manifest name must match its folder/);
 });
 
 test("actual repository passes the whole-package boundary gate", () => {

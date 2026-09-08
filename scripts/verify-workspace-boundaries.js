@@ -72,6 +72,11 @@ function packageName(specifier) {
   return specifier.startsWith("@") ? specifier.split("/").slice(0, 2).join("/") : specifier.split("/")[0];
 }
 
+function workspacePackageFolder(name) {
+  if (typeof name !== "string" || !/^@[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*$/.test(name)) return null;
+  return name.split("/")[1];
+}
+
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8").replace(/^\uFEFF/u, ""));
 }
@@ -213,6 +218,7 @@ function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
     if (!fs.existsSync(manifestPath)) continue;
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
     if (typeof manifest.name !== "string" || !manifest.name || byName.has(manifest.name)) throw new Error("workspace package names must be unique non-empty strings");
+    if (workspacePackageFolder(manifest.name) !== entry.name) throw new Error(`workspace package ${entry.name} manifest name must match its folder`);
     const record = { directory, folder: entry.name, manifest };
     packages.set(entry.name, record); byName.set(manifest.name, record); graph.set(entry.name, new Set());
   }
@@ -325,5 +331,6 @@ module.exports = {
   policyPackageReferences,
   validateLayerPolicy,
   validateWorkspacePackagePolicy,
+  workspacePackageFolder,
   verifyWorkspaceBoundaries
 };
