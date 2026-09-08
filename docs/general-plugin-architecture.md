@@ -73,7 +73,7 @@ flowchart TD
 | UI 归属 | 质量报告 UI 已由 `ppt-quality-core` 导出 contribution，经 `capability-registry` 聚合，MCP 层只汇总与读取 | 合理 |
 | Skill / runtime 边界 | 生产 Worker 不再依赖 skill 脚本或旧式兼容适配器；图片 worker 编排、归档、文档归一化、质量渲染和 OCR checkpoint 已移到 `@common-tools/slideclone-worker-adapter`；图片重建经 `@common-tools/slideclone-native-engine` 这个受测 runtime package 入口加载 `runtime/slideclone-native-engine` 镜像 | 合理；历史大实现被隔离为 runtime asset，不再冒充核心包源码 |
 | 分发策略 | `plugin.json`、manifest、skills 镜像与 runtime 镜像已有校验和文档约束；历史 Skill 脚本引用已进入 decreasing-only 迁移预算 | 合理 |
-| 架构治理 | workspace layer policy 已从脚本 if 条件抽到 `config/layer-policy.json`；精确 sibling package dependency policy 已抽到 `config/workspace-package-policy.json`，边界 verifier 读取声明式策略并阻止包漂移 | 合理 |
+| 架构治理 | workspace layer policy 已从脚本 if 条件抽到 `config/layer-policy.json`；精确 sibling package dependency policy 已抽到 `config/workspace-package-policy.json`，边界 verifier 读取声明式策略并阻止包漂移；remote MCP 配置解析已从入口抽到独立模块 | 合理 |
 
 ## 仍建议保留的技术债口径
 
