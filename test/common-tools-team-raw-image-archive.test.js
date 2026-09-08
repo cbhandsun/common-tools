@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const zlib = require("node:zlib");
-const { extractProjectArchive } = require("../packages/project-audit-core/team-worker");
+const { extractProjectArchive } = require("../packages/archive-core");
 const { createEditableSourceArchive, createRawImageArchive } = require("../packages/slideclone-core/team-raw-image-archive");
 const { validatePackage } = require("../packages/slideclone-core/team-worker");
 

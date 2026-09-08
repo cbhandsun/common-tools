@@ -38,6 +38,7 @@ test("lightweight project audit runtime package excludes every heavy capability 
     for (const marker of FORBIDDEN_MARKERS) assert.doesNotMatch(names, new RegExp(marker));
     assert.match(names, /project-audit-core\/index\.js/);
     assert.match(names, /project-audit-core\/browser-startup\.js/);
+    assert.match(names, /archive-core\/index\.js/);
     assert.match(names, /common-tools-audit\.js/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
@@ -74,7 +75,7 @@ test("standalone audit CLI validates input and runs locally without the unified 
 });
 
 test("Git Marketplace embeds a byte-synchronized runnable audit Runtime", () => {
-  assert.deepEqual(verifyProjectAuditPluginRuntime({ repositoryRoot }), { fileCount: 23, synchronized: true });
+  assert.deepEqual(verifyProjectAuditPluginRuntime({ repositoryRoot }), { fileCount: 25, synchronized: true });
   const root = temporaryRoot();
   try {
     const result = childProcess.spawnSync(process.execPath, [embeddedCli, "doctor", "--workspace", root], { cwd: root, encoding: "utf8", windowsHide: true });

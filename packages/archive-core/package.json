@@ -1,0 +1,10 @@
+{
+  "name": "@common-tools/archive-core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "type": "commonjs"
+}

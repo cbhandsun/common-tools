@@ -6,7 +6,8 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const zlib = require("node:zlib");
-const { createProjectAuditArchiveHandler, extractProjectArchive } = require("../packages/project-audit-core/team-worker");
+const { extractProjectArchive } = require("../packages/archive-core");
+const { createProjectAuditArchiveHandler } = require("../packages/project-audit-core/team-worker");
 const { workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-worker");
 
 function field(buffer, offset, length, value) { buffer.write(value.slice(0, length), offset, length, "utf8"); }

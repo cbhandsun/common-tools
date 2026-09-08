@@ -47,7 +47,7 @@ function parsePackResult(stdout) {
   if (!Array.isArray(parsed) || parsed.length !== 1 || !plainObject(parsed[0]) || typeof parsed[0].filename !== "string" || !/^[a-zA-Z0-9._-]+\.tgz$/.test(parsed[0].filename) || !Number.isSafeInteger(parsed[0].size) || parsed[0].size < 1 || parsed[0].size > MAX_PACKAGE_BYTES || !Array.isArray(parsed[0].files)) throw new Error("project audit npm package metadata is invalid");
   const files = parsed[0].files.map((entry) => plainObject(entry) && typeof entry.path === "string" ? entry.path.replace(/\\/g, "/").toLowerCase() : "");
   if (files.some((file) => !file || file.includes("../") || FORBIDDEN_MARKERS.some((marker) => file.includes(marker)))) throw new Error("project audit npm package contains a forbidden file");
-  for (const required of ["package.json", "packages/project-audit-runtime/bin/common-tools-audit.js", "packages/project-audit-core/index.js", "packages/capability-runtime/index.js", "packages/capability-contracts/index.js"]) if (!files.includes(required)) throw new Error("project audit npm package is incomplete");
+  for (const required of ["package.json", "packages/project-audit-runtime/bin/common-tools-audit.js", "packages/project-audit-core/index.js", "packages/archive-core/index.js", "packages/capability-runtime/index.js", "packages/capability-contracts/index.js"]) if (!files.includes(required)) throw new Error("project audit npm package is incomplete");
   return Object.freeze({ filename: parsed[0].filename, size: parsed[0].size, files: Object.freeze(files) });
 }
 function run(commandRunner, command, argumentsList, cwd, message) {

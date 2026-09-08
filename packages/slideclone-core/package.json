@@ -203,6 +203,7 @@
     "./workflow-collaboration-multiplier-scope": "./workflow-collaboration-multiplier-scope.js"
   },
   "dependencies": {
+    "@common-tools/archive-core": "0.1.0",
     "@common-tools/capability-contracts": "0.1.0",
     "@common-tools/capability-runtime": "0.1.0",
     "@common-tools/project-audit-core": "0.1.0",

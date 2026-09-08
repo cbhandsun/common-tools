@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const REPOSITORY_ROOT = path.resolve(__dirname, "../../..");
 const INCLUDED_DIRECTORIES = Object.freeze([
+  "packages/archive-core",
   "packages/capability-contracts",
   "packages/capability-manifests",
   "packages/capability-runtime",

@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { createEditableSourceArchive } = require("../packages/slideclone-core/team-raw-image-archive");
-const { extractProjectArchive } = require("../packages/project-audit-core/team-worker");
+const { extractProjectArchive } = require("../packages/archive-core");
 const { validatePackage } = require("../packages/slideclone-core/team-worker");
 
 function fixture(t) {
