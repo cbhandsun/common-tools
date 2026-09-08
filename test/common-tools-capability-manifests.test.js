@@ -48,6 +48,7 @@ test("capability manifest validation fails closed for version, hash, dependency,
   assert.throws(() => validateCapabilityManifest(signedManifest({ dependencies: ["ppt-improve"] })), /dependencies/);
   assert.throws(() => validateCapabilityManifest(signedManifest({ deprecation: { announcedIn: "0.1.1", removalAfter: "0.1.0", message: "Invalid version window." } })), /deprecation/);
   assert.throws(() => validateCapabilityManifest(signedManifest({ moduleSource: { packageName: "@common-tools/ppt-improve-core", requirePath: "../ppt-quality-core", exportName: "CAPABILITY_MODULE" } })), /package and require path/);
+  assert.throws(() => validateCapabilityManifest(signedManifest({ team: { ...CAPABILITY_MANIFESTS.get("ppt-improve").team, deployment: { ...CAPABILITY_MANIFESTS.get("ppt-improve").team.deployment, workerService: "ppt-quality-worker" } } })), /Worker service does not match/);
 });
 
 test("manifest loading validates directory identity and dependency graph without runtime state", () => {

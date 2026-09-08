@@ -174,6 +174,7 @@ function validateCapabilityManifest(value, { runtimeVersion = RUNTIME_VERSION } 
   if (!runtimeSatisfiesRange(runtimeVersion, runtimeRange)) throw new Error(`capability manifest requires an incompatible Runtime version: ${capability}`);
   const team = validateTeamDefinition(value.team, capability);
   const execution = validateExecutionDefinition(value.execution);
+  if (team.deployment && team.deployment.workerService !== `${capability}-worker`) throw new Error(`capability team Worker service does not match capability: ${capability}`);
   const moduleSource = validateModuleSource(value.moduleSource);
   const deprecation = validateDeprecation(value.deprecation, capability);
   const dependencies = validateDependencies(value.dependencies, capability);
