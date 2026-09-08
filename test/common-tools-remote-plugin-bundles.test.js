@@ -206,7 +206,8 @@ test("generated Windows installer accepts capability codes, safely migrates lega
   assert.match(split, /codex plugin marketplace list --json/);
   assert.match(split, /codex plugin marketplace remove \$marketplaceName/);
   assert.match(split, /codex plugin list --json/);
-  assert.match(split, /codex plugin remove "\$\(\$legacyPlugin\.name\)@\$marketplaceName"/);
+  assert.match(split, /codex plugin remove "\$\(\$legacyPlugin\.name\)@\$\(\$legacyPlugin\.marketplaceName\)"/);
+  assert.match(split, /function Test-ReplacedCommonToolsPlugin/);
   assert.match(split, /\.agents\/plugins\/marketplace\.json/);
   assert.match(split, /codex mcp remove \$serverName/);
   assert.match(split, /codex mcp add \$serverName --url \$serverUrl --oauth-client-id "common-tools-mcp"/);
@@ -470,7 +471,25 @@ test("generated Windows installer safely replaces a prior managed Common Tools m
       JSON.stringify({ name: "common-tools-remote", plugins: [{ name: "common-tools-remote", source: { source: "local" } }] }),
       "utf8"
     );
+    const legacyPluginRoot = path.join(parent, "legacy-image-to-editable");
+    fs.mkdirSync(legacyPluginRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(legacyPluginRoot, ".mcp.json"),
+      JSON.stringify({ mcpServers: { "common-tools-image-to-editable": { type: "http", url: "https://tunnel.example.test/mcp", oauth: { clientId: "common-tools-mcp" } } } }),
+      "utf8"
+    );
+    const authEpochPluginRoot = path.join(parent, "auth-epoch-project-audit");
+    fs.mkdirSync(authEpochPluginRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(authEpochPluginRoot, ".mcp.json"),
+      JSON.stringify({ mcpServers: { "common-tools-auth-v2-project-audit": { type: "http", url: "https://tunnel.example.test/mcp", oauth: { clientId: "common-tools-mcp" } } } }),
+      "utf8"
+    );
     const marketplaceJson = JSON.stringify({ marketplaces: [{ name: "common-tools-remote", root: legacyRoot }] });
+    const installedPluginsJson = JSON.stringify({ installed: [
+      { name: "common-tools-image-to-editable", marketplaceName: "common-tools", source: { path: legacyPluginRoot } },
+      { name: "common-tools-remote-project-audit", marketplaceName: "common-tools-remote", source: { path: authEpochPluginRoot } }
+    ] });
     const marketplace = installer.slice(marketplaceStart, marketplaceEnd);
     const harness = [
       '$ErrorActionPreference = "Stop"',
@@ -482,7 +501,7 @@ test("generated Windows installer safely replaces a prior managed Common Tools m
       '    return',
       '  }',
       '  if ($CommandArgs[0] -eq "plugin" -and $CommandArgs[1] -eq "list") {',
-      "    '{\"installed\":[{\"name\":\"common-tools-remote-image-to-editable\",\"marketplaceName\":\"common-tools-remote\"}]}'",
+      "    '" + installedPluginsJson + "'",
       '    $global:LASTEXITCODE = 0',
       '    return',
       '  }',
@@ -497,7 +516,52 @@ test("generated Windows installer safely replaces a prior managed Common Tools m
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /CALL=plugin marketplace remove common-tools-remote/);
     assert.match(result.stdout, /CALL=plugin marketplace add /);
-    assert.match(result.stdout, /CALL=plugin remove common-tools-remote-image-to-editable@common-tools-remote/);
+    assert.match(result.stdout, /CALL=plugin remove common-tools-image-to-editable@common-tools/);
+    assert.match(result.stdout, /CALL=plugin remove common-tools-remote-project-audit@common-tools-remote/);
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("generated Windows installer preserves a similarly named plugin with an unrelated MCP endpoint", { skip: process.platform !== "win32" }, () => {
+  const installer = installationScript("codex", "https://tunnel.example.test", ["project-audit"], "bundle");
+  const marketplaceStart = installer.indexOf('$marketplaceName = "common-tools-remote"');
+  const marketplaceEnd = installer.indexOf("foreach ($pluginName in $pluginNames)", marketplaceStart);
+  assert.ok(marketplaceStart >= 0 && marketplaceEnd > marketplaceStart, "generated installer must contain a bounded marketplace registration block");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installer-unrelated-plugin-"));
+  const pluginRoot = path.join(parent, "unrelated-project-audit");
+  const harnessPath = path.join(parent, "unrelated-plugin.ps1");
+  try {
+    fs.mkdirSync(pluginRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(pluginRoot, ".mcp.json"),
+      JSON.stringify({ mcpServers: { "common-tools-project-audit": { type: "http", url: "https://unrelated.example.test/mcp", oauth: { clientId: "common-tools-mcp" } } } }),
+      "utf8"
+    );
+    const installedPluginsJson = JSON.stringify({ installed: [{ name: "common-tools-project-audit", marketplaceName: "common-tools", source: { path: pluginRoot } }] });
+    const marketplace = installer.slice(marketplaceStart, marketplaceEnd);
+    const harness = [
+      '$ErrorActionPreference = "Stop"',
+      'function codex {',
+      '  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)',
+      '  if ($CommandArgs[0] -eq "plugin" -and $CommandArgs[1] -eq "marketplace" -and $CommandArgs[2] -eq "list") {',
+      "    '{\"marketplaces\":[]}'",
+      '    $global:LASTEXITCODE = 0',
+      '    return',
+      '  }',
+      '  if ($CommandArgs[0] -eq "plugin" -and $CommandArgs[1] -eq "list") {',
+      "    '" + installedPluginsJson + "'",
+      '    $global:LASTEXITCODE = 0',
+      '    return',
+      '  }',
+      '  Write-Output ("CALL=" + ($CommandArgs -join " "))',
+      '  $global:LASTEXITCODE = 0',
+      '}',
+      "$root = " + JSON.stringify(parent),
+      marketplace
+    ].join("\n");
+    fs.writeFileSync(harnessPath, harness, "utf8");
+    const result = spawnSync("powershell", ["-NoProfile", "-File", harnessPath], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.doesNotMatch(result.stdout, /CALL=plugin remove common-tools-project-audit@common-tools/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 

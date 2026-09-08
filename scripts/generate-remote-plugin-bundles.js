@@ -324,7 +324,7 @@ ${layout === "split" ? "$pluginNames = @($selected | ForEach-Object { $plugins[$
       `if (-not $registeredNow) {\n  & codex mcp logout $serverName 2>$null\n  if ($LASTEXITCODE -notin @(0, 1)) { throw "Codex MCP OAuth session reset failed" }\n  & codex mcp login $serverName --scopes $oauthScopes\n  if ($LASTEXITCODE -ne 0) { throw "Codex MCP OAuth login failed" }\n}`,
       `if (-not $registeredNow) {\n  & codex mcp logout $serverName 2>$null\n  if ($LASTEXITCODE -notin @(0, 1)) { throw "Codex MCP OAuth session reset failed" }\n}\n& codex mcp login $serverName --scopes $oauthScopes\nif ($LASTEXITCODE -ne 0) { throw "Codex MCP OAuth login failed" }`
     );
-  const managedPluginNames = [pluginName(), ...CAPABILITIES.map((capability) => pluginName(capability))];
+  const replacedPluginNames = [pluginName(), ...CAPABILITIES.flatMap((capability) => [pluginName(capability), `common-tools-${capability}`])];
   const marketplaceRegistration = host === "codex" ? `$marketplaceName = "common-tools-remote"
 function Get-NormalizedLocalPath([string]$Value) {
   if ([string]::IsNullOrWhiteSpace($Value)) { return $null }
@@ -361,14 +361,43 @@ if ($addMarketplace) {
   & codex plugin marketplace add $root
   if ($LASTEXITCODE -ne 0) { throw "Codex plugin marketplace add failed" }
 }
-$managedPluginNames = @(${managedPluginNames.map((name) => `"${name}"`).join(", ")})
+$replacedPluginNames = @(${replacedPluginNames.map((name) => `"${name}"`).join(", ")})
+$expectedMcpUrl = "${origin}/mcp".TrimEnd("/")
+function Test-ReplacedCommonToolsPlugin([object]$Plugin) {
+  if ($replacedPluginNames -notcontains [string]$Plugin.name) { return $false }
+  $pluginRoot = Get-NormalizedLocalPath ([string]$Plugin.source.path)
+  if ($null -eq $pluginRoot) { return $false }
+  $mcpPath = Join-Path $pluginRoot ".mcp.json"
+  if (-not (Test-Path -LiteralPath $mcpPath -PathType Leaf)) { return $false }
+  try { $mcp = Get-Content -LiteralPath $mcpPath -Raw | ConvertFrom-Json -ErrorAction Stop } catch { return $false }
+  if ($null -eq $mcp.mcpServers) { return $false }
+  $candidateServerNames = if ($Plugin.name -eq "common-tools-remote") {
+    @("common-tools-auth-v2")
+  } elseif ($Plugin.name.StartsWith("common-tools-remote-")) {
+    $capability = $Plugin.name.Substring("common-tools-remote-".Length)
+    @("common-tools-auth-v2-$capability", "common-tools-$capability")
+  } elseif ($Plugin.name.StartsWith("common-tools-")) {
+    $capability = $Plugin.name.Substring("common-tools-".Length)
+    @("common-tools-$capability", "common-tools-auth-v2-$capability")
+  } else {
+    @()
+  }
+  foreach ($candidateServerName in $candidateServerNames) {
+    $serverProperty = $mcp.mcpServers.PSObject.Properties[$candidateServerName]
+    if ($null -eq $serverProperty) { continue }
+    $server = $serverProperty.Value
+    $configuredUrl = if ($null -ne $server.transport -and -not [string]::IsNullOrWhiteSpace([string]$server.transport.url)) { [string]$server.transport.url } else { [string]$server.url }
+    if (-not [string]::IsNullOrWhiteSpace($configuredUrl) -and $configuredUrl.TrimEnd("/") -eq $expectedMcpUrl -and [string]$server.oauth.clientId -eq "common-tools-mcp") { return $true }
+  }
+  return $false
+}
 $pluginListJson = @(& codex plugin list --json 2>$null)
 $pluginListExitCode = $LASTEXITCODE
 if ($pluginListExitCode -ne 0) { throw "Unable to inspect installed Codex plugins" }
 try { $pluginSnapshot = (($pluginListJson -join [Environment]::NewLine) | ConvertFrom-Json -ErrorAction Stop) } catch { throw "Installed Codex plugins are invalid" }
-$legacyPlugins = @($pluginSnapshot.installed | Where-Object { $_.marketplaceName -eq $marketplaceName -and $managedPluginNames -contains $_.name })
+$legacyPlugins = @($pluginSnapshot.installed | Where-Object { Test-ReplacedCommonToolsPlugin $_ })
 foreach ($legacyPlugin in $legacyPlugins) {
-  & codex plugin remove "$($legacyPlugin.name)@$marketplaceName"
+  & codex plugin remove "$($legacyPlugin.name)@$($legacyPlugin.marketplaceName)"
   if ($LASTEXITCODE -ne 0) { throw "Codex Common Tools plugin migration failed" }
 }
 
