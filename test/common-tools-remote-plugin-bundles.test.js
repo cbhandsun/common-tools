@@ -478,8 +478,18 @@ test("generated Windows installer safely replaces a prior managed Common Tools m
       JSON.stringify({ mcpServers: { "common-tools-image-to-editable": { type: "http", url: "https://tunnel.example.test/mcp", oauth: { clientId: "common-tools-mcp" } } } }),
       "utf8"
     );
+    const authEpochPluginRoot = path.join(parent, "auth-epoch-project-audit");
+    fs.mkdirSync(authEpochPluginRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(authEpochPluginRoot, ".mcp.json"),
+      JSON.stringify({ mcpServers: { "common-tools-auth-v2-project-audit": { type: "http", url: "https://tunnel.example.test/mcp", oauth: { clientId: "common-tools-mcp" } } } }),
+      "utf8"
+    );
     const marketplaceJson = JSON.stringify({ marketplaces: [{ name: "common-tools-remote", root: legacyRoot }] });
-    const installedPluginsJson = JSON.stringify({ installed: [{ name: "common-tools-image-to-editable", marketplaceName: "common-tools", source: { path: legacyPluginRoot } }] });
+    const installedPluginsJson = JSON.stringify({ installed: [
+      { name: "common-tools-image-to-editable", marketplaceName: "common-tools", source: { path: legacyPluginRoot } },
+      { name: "common-tools-remote-project-audit", marketplaceName: "common-tools-remote", source: { path: authEpochPluginRoot } }
+    ] });
     const marketplace = installer.slice(marketplaceStart, marketplaceEnd);
     const harness = [
       '$ErrorActionPreference = "Stop"',
@@ -507,6 +517,7 @@ test("generated Windows installer safely replaces a prior managed Common Tools m
     assert.match(result.stdout, /CALL=plugin marketplace remove common-tools-remote/);
     assert.match(result.stdout, /CALL=plugin marketplace add /);
     assert.match(result.stdout, /CALL=plugin remove common-tools-image-to-editable@common-tools/);
+    assert.match(result.stdout, /CALL=plugin remove common-tools-remote-project-audit@common-tools-remote/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 

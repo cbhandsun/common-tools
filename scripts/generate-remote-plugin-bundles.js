@@ -371,11 +371,25 @@ function Test-ReplacedCommonToolsPlugin([object]$Plugin) {
   if (-not (Test-Path -LiteralPath $mcpPath -PathType Leaf)) { return $false }
   try { $mcp = Get-Content -LiteralPath $mcpPath -Raw | ConvertFrom-Json -ErrorAction Stop } catch { return $false }
   if ($null -eq $mcp.mcpServers) { return $false }
-  $serverProperty = $mcp.mcpServers.PSObject.Properties[[string]$Plugin.name]
-  if ($null -eq $serverProperty) { return $false }
-  $server = $serverProperty.Value
-  $configuredUrl = if ($null -ne $server.transport -and -not [string]::IsNullOrWhiteSpace([string]$server.transport.url)) { [string]$server.transport.url } else { [string]$server.url }
-  return -not [string]::IsNullOrWhiteSpace($configuredUrl) -and $configuredUrl.TrimEnd("/") -eq $expectedMcpUrl -and [string]$server.oauth.clientId -eq "common-tools-mcp"
+  $candidateServerNames = if ($Plugin.name -eq "common-tools-remote") {
+    @("common-tools-auth-v2")
+  } elseif ($Plugin.name.StartsWith("common-tools-remote-")) {
+    $capability = $Plugin.name.Substring("common-tools-remote-".Length)
+    @("common-tools-auth-v2-$capability", "common-tools-$capability")
+  } elseif ($Plugin.name.StartsWith("common-tools-")) {
+    $capability = $Plugin.name.Substring("common-tools-".Length)
+    @("common-tools-$capability", "common-tools-auth-v2-$capability")
+  } else {
+    @()
+  }
+  foreach ($candidateServerName in $candidateServerNames) {
+    $serverProperty = $mcp.mcpServers.PSObject.Properties[$candidateServerName]
+    if ($null -eq $serverProperty) { continue }
+    $server = $serverProperty.Value
+    $configuredUrl = if ($null -ne $server.transport -and -not [string]::IsNullOrWhiteSpace([string]$server.transport.url)) { [string]$server.transport.url } else { [string]$server.url }
+    if (-not [string]::IsNullOrWhiteSpace($configuredUrl) -and $configuredUrl.TrimEnd("/") -eq $expectedMcpUrl -and [string]$server.oauth.clientId -eq "common-tools-mcp") { return $true }
+  }
+  return $false
 }
 $pluginListJson = @(& codex plugin list --json 2>$null)
 $pluginListExitCode = $LASTEXITCODE
