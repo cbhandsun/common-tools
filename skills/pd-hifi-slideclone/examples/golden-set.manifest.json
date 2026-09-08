@@ -212,7 +212,7 @@
         "node",
         "scripts/run-local-dotnet.js",
         "build",
-        "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj"
+        "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj"
       ]
     },
     {
@@ -224,7 +224,7 @@
         "scripts/run-local-dotnet.js",
         "run",
         "--project",
-        "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
+        "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
         "--",
         "--ir",
         "skills/pd-hifi-slideclone/examples/sample-deck.json",
@@ -241,7 +241,7 @@
         "scripts/run-local-dotnet.js",
         "run",
         "--project",
-        "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
+        "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
         "--",
         "--ir",
         "skills/pd-hifi-slideclone/examples/openxml-chart-shadow-crop.ir.json",

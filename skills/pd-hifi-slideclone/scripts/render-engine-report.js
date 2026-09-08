@@ -31,7 +31,7 @@ function main() {
 }
 
 function detectOpenXml() {
-  const project = path.resolve("skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
+  const project = path.resolve("packages", "slideclone-native-engine", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
   const localDotnet = path.resolve(".tools", "dotnet", process.platform === "win32" ? "dotnet.exe" : "dotnet");
   return {
     available: fs.existsSync(project) && (fs.existsSync(localDotnet) || commandExists("dotnet")),
