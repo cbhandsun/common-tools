@@ -68,7 +68,7 @@ flowchart TD
 | 评估项 | 当前状态 | 判断 |
 | --- | --- | --- |
 | 能力发现与门控 | `packages/capability-registry` 聚合 capability module，统一暴露本地能力、工具 handler、报告 reader 与 UI contribution；MCP 层消费注册结果 | 合理 |
-| MCP 协议边界 | local/team MCP 主要负责协议、鉴权上下文、工具列表和资源读取；team 工具定义已抽到 `team-tool-registry` | 合理 |
+| MCP 协议边界 | local/team MCP 主要负责协议、鉴权上下文、工具列表和资源读取；team 工具定义已抽到 `team-tool-registry`；本地与团队工具合同共用 `capability-contracts` 的合同构造器 | 合理 |
 | 共享基础设施 | archive、OOXML、artifact 相关通用逻辑已抽到独立 core 包；PPTX ZIP/Inventory 已迁入 `ooxml-core` 并由旧入口兼容转发 | 合理 |
 | UI 归属 | 质量报告 UI 已由 `ppt-quality-core` 导出 contribution，经 `capability-registry` 聚合，MCP 层只汇总与读取 | 合理 |
 | Skill / runtime 边界 | 生产 Worker 不再依赖 skill 脚本或旧式兼容适配器；图片 worker 编排、归档、文档归一化、质量渲染和 OCR checkpoint 已移到 `@common-tools/slideclone-worker-adapter`；图片重建经 `@common-tools/slideclone-native-engine` 这个受测 runtime package 入口加载 `runtime/slideclone-native-engine` 镜像 | 合理；历史大实现被隔离为 runtime asset，不再冒充核心包源码 |

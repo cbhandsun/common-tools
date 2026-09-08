@@ -50,6 +50,64 @@ function assertNonEmptyString(value, label) {
   return value.trim();
 }
 
+/** @param {unknown} value @param {string} label @returns {readonly string[]} */
+function assertStringList(value, label) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) throw new TypeError(`${label} must be a string array`);
+  return Object.freeze(value.map((item) => item.trim()));
+}
+
+/** @param {unknown} value @param {string} label @returns {Record<string, unknown>} */
+function assertObjectSchema(value, label) {
+  assertPlainObject(value, label);
+  if (value.type !== "object") throw new TypeError(`${label} must be an object schema`);
+  return value;
+}
+
+/** @param {unknown} value @param {string} label @returns {{readOnlyHint: boolean, destructiveHint: boolean, idempotentHint: boolean, openWorldHint: boolean}} */
+function assertMcpToolAnnotations(value, label) {
+  assertPlainObject(value, label);
+  const keys = Object.keys(value).sort().join(",");
+  if (keys !== "destructiveHint,idempotentHint,openWorldHint,readOnlyHint") throw new TypeError(`${label} is invalid`);
+  if (typeof value.readOnlyHint !== "boolean" || typeof value.destructiveHint !== "boolean" || typeof value.idempotentHint !== "boolean" || value.openWorldHint !== false) throw new TypeError(`${label} is invalid`);
+  return Object.freeze({
+    readOnlyHint: value.readOnlyHint,
+    destructiveHint: value.destructiveHint,
+    idempotentHint: value.idempotentHint,
+    openWorldHint: false
+  });
+}
+
+/** @param {Record<string, unknown>} properties @param {readonly string[]} [required] @returns {Readonly<Record<string, unknown>>} */
+function defineMcpObjectSchema(properties, required = []) {
+  assertPlainObject(properties, "schema properties");
+  return Object.freeze({
+    type: "object",
+    properties: Object.freeze({ ...properties }),
+    required: assertStringList(required, "schema required"),
+    additionalProperties: false
+  });
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Readonly<{capability: string | null, name: string, description: string, inputSchema: Record<string, unknown>, outputSchema: Record<string, unknown>, annotations: ReturnType<typeof assertMcpToolAnnotations>}>}
+ */
+function defineMcpToolContract(value) {
+  assertPlainObject(value, "MCP tool contract");
+  const capability = value.capability === null ? null : assertNonEmptyString(value.capability, "MCP tool capability");
+  const name = assertNonEmptyString(value.name, "MCP tool name");
+  if (!/^[a-z][a-z0-9_]{0,127}$/.test(name)) throw new TypeError("MCP tool name is invalid");
+  const description = assertNonEmptyString(value.description, "MCP tool description");
+  return Object.freeze({
+    capability,
+    name,
+    description,
+    inputSchema: Object.freeze({ ...assertObjectSchema(value.inputSchema, "MCP tool input schema") }),
+    outputSchema: Object.freeze({ ...assertObjectSchema(value.outputSchema, "MCP tool output schema") }),
+    annotations: assertMcpToolAnnotations(value.annotations, "MCP tool annotations")
+  });
+}
+
 /** @param {unknown} value @returns {boolean} */
 function containsControlCharacter(value) {
   if (typeof value !== "string") return false;
@@ -122,4 +180,24 @@ function assertQualityReport(value) {
   return Object.freeze({ passed: value.passed, checks: Object.freeze(checks), metrics: Object.freeze(metrics) });
 }
 
-module.exports = { JOB_STATUSES, MCP_JOB_ID_SCHEMA, MCP_JOB_SCHEMA, MCP_JOB_STATUS_SCHEMA, MCP_NON_EMPTY_STRING, MCP_SHORT_NOTICE_SCHEMA, MCP_SIYUAN_ID_SCHEMA, TERMINAL_JOB_STATUSES, assertJob, assertPlainObject, assertNonEmptyString, assertQualityReport, assertTransition, canTransition, containsControlCharacter, createCapabilityRegistration, mcpToolAnnotations };
+module.exports = {
+  JOB_STATUSES,
+  MCP_JOB_ID_SCHEMA,
+  MCP_JOB_SCHEMA,
+  MCP_JOB_STATUS_SCHEMA,
+  MCP_NON_EMPTY_STRING,
+  MCP_SHORT_NOTICE_SCHEMA,
+  MCP_SIYUAN_ID_SCHEMA,
+  TERMINAL_JOB_STATUSES,
+  assertJob,
+  assertPlainObject,
+  assertNonEmptyString,
+  assertQualityReport,
+  assertTransition,
+  canTransition,
+  containsControlCharacter,
+  createCapabilityRegistration,
+  defineMcpObjectSchema,
+  defineMcpToolContract,
+  mcpToolAnnotations
+};

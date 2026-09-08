@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const { CAPABILITY_MANIFESTS } = require("../packages/capability-runtime");
-const { MCP_JOB_SCHEMA, mcpToolAnnotations } = require("../packages/capability-contracts");
+const { MCP_JOB_SCHEMA, defineMcpObjectSchema, defineMcpToolContract, mcpToolAnnotations } = require("../packages/capability-contracts");
 const { CAPABILITIES, TEAM_DEPLOYABLE_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, teamDeploymentPlan, validUploadRequest } = require("../packages/team-runtime");
 const { TOOLS } = require("../packages/mcp-server/core");
 const { JOB_SCHEMA: LOCAL_JOB_SCHEMA, annotations: localAnnotations, validateToolOutput } = require("../packages/mcp-server/tool-contracts");
@@ -58,6 +58,22 @@ test("local and team MCP contracts share the common job and annotation primitive
   assert.equal(TEAM_JOB_SCHEMA, MCP_JOB_SCHEMA);
   assert.deepEqual(localAnnotations(true, false, true), mcpToolAnnotations(true, false, true));
   assert.deepEqual(teamAnnotations(false, true, true), mcpToolAnnotations(false, true, true));
+});
+
+test("MCP tool contracts use one validated shared shape", () => {
+  const contract = defineMcpToolContract({
+    capability: "example-capability",
+    name: "example_tool",
+    description: "Example tool.",
+    inputSchema: defineMcpObjectSchema({ id: { type: "string", minLength: 1 } }, ["id"]),
+    outputSchema: defineMcpObjectSchema({ ok: { type: "boolean" } }, ["ok"]),
+    annotations: mcpToolAnnotations(true, false, true)
+  });
+  assert.deepEqual(Object.keys(contract).sort(), ["annotations", "capability", "description", "inputSchema", "name", "outputSchema"]);
+  assert.equal(contract.inputSchema.additionalProperties, false);
+  assert.throws(() => defineMcpToolContract({ ...contract, name: "Invalid-Name" }), /name is invalid/);
+  assert.throws(() => defineMcpToolContract({ ...contract, inputSchema: { type: "string" } }), /object schema/);
+  assert.throws(() => defineMcpToolContract({ ...contract, annotations: { readOnlyHint: true } }), /annotations/);
 });
 
 test("portable schema validation covers empty, invalid, extreme, and undeclared values", () => {

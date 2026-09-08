@@ -7,6 +7,8 @@ const {
   MCP_JOB_SCHEMA,
   MCP_JOB_STATUS_SCHEMA,
   MCP_NON_EMPTY_STRING,
+  defineMcpObjectSchema,
+  defineMcpToolContract,
   mcpToolAnnotations
 } = require("../capability-contracts");
 const {
@@ -48,12 +50,12 @@ function annotations(readOnly, destructive, idempotent) {
  * @returns {Readonly<ToolDefinition>}
  */
 function tool(capability, name, description, inputSchema, outputSchema, toolAnnotations) {
-  return Object.freeze({ capability, name, description, inputSchema, outputSchema, annotations: toolAnnotations });
+  return defineMcpToolContract({ capability, name, description, inputSchema, outputSchema, annotations: toolAnnotations });
 }
 
 /** @param {Record<string, JsonObject>} properties @param {string[]} required @returns {JsonObject} */
 function objectInput(properties, required = []) {
-  return Object.freeze({ type: "object", properties: Object.freeze(properties), required: Object.freeze(required), additionalProperties: false });
+  return defineMcpObjectSchema(properties, required);
 }
 
 const REPORT_SCHEMA = Object.freeze({
