@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { assertUnifiedGitMarketplace, capabilityNames, verifyPluginPackaging } = require("../scripts/verify-plugins");
+const { UNIFIED_REMOTE_SKILL_OVERRIDES, assertUnifiedGitMarketplace, capabilityNames, verifyPluginPackaging } = require("../scripts/verify-plugins");
 const { spawnSync } = require("node:child_process");
 
 const repositoryRoot = path.resolve(__dirname, "..");
@@ -72,6 +72,13 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.match(auditSkill, /obtain separate explicit user approval/);
   assert.match(auditSkill, /Do not silently reduce the selected level/);
   assert.match(auditSkill, /Completion gate/);
+});
+
+test("unified plugin skill mirror policy covers every runtime capability", () => {
+  const mirrored = capabilities.filter((capability) => !UNIFIED_REMOTE_SKILL_OVERRIDES.includes(capability)).sort();
+  assert.deepEqual(mirrored, ["ppt-create", "ppt-improve", "ppt-quality"]);
+  assert.deepEqual([...UNIFIED_REMOTE_SKILL_OVERRIDES].sort(), ["image-to-editable", "project-audit", "siyuan-note"]);
+  assert.deepEqual([...new Set([...mirrored, ...UNIFIED_REMOTE_SKILL_OVERRIDES])].sort(), capabilities);
 });
 
 test("Git Marketplace rejects removal of the image residual deduplication release contract", () => {

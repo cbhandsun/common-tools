@@ -7,6 +7,7 @@ const path = require("node:path");
 const REPOSITORY_ROOT = path.resolve(__dirname, "../../..");
 const CAPABILITY_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
 const SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+const UNIFIED_REMOTE_SKILL_OVERRIDES = Object.freeze(["image-to-editable", "project-audit", "siyuan-note"]);
 
 function assertObject(value, message) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(message);
@@ -177,7 +178,7 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
     const { verifyProjectAuditPluginRuntime } = require("./project-audit-runtime");
     verifyProjectAuditPluginRuntime({ repositoryRoot: root, targetRoot: path.join(pluginRoot, "runtime", "project-audit") });
   }
-  for (const capability of ["ppt-create", "ppt-improve", "ppt-quality"]) assertMirroredPackage(path.join(root, "plugins", "codex", capability, "skills", capability), path.join(pluginRoot, "skills", capability));
+  for (const capability of _capabilities.filter((name) => !UNIFIED_REMOTE_SKILL_OVERRIDES.includes(name))) assertMirroredPackage(path.join(root, "plugins", "codex", capability, "skills", capability), path.join(pluginRoot, "skills", capability));
   return true;
 }
 function verifyPluginPackaging(root = REPOSITORY_ROOT, capabilities = capabilityNames(root)) {
@@ -209,4 +210,4 @@ function verifyPluginPackaging(root = REPOSITORY_ROOT, capabilities = capability
   return Object.freeze({ capabilities: Object.freeze(uniqueCapabilities), hosts: Object.freeze(["codex", "claude"]), marketplaces: Object.freeze(["claude", "codex"]) });
 }
 
-module.exports = { assertCodexMarketplace, assertImageToEditableSkill, assertMirroredPackage, assertPluginPackage, assertPptCreateSkill, assertSafeSkill, assertUnifiedGitMarketplace, capabilityNames, capabilityVersions, pluginRuntimeVersion, verifyPluginPackaging, versionAtLeast };
+module.exports = { UNIFIED_REMOTE_SKILL_OVERRIDES, assertCodexMarketplace, assertImageToEditableSkill, assertMirroredPackage, assertPluginPackage, assertPptCreateSkill, assertSafeSkill, assertUnifiedGitMarketplace, capabilityNames, capabilityVersions, pluginRuntimeVersion, verifyPluginPackaging, versionAtLeast };
