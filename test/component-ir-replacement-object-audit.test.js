@@ -11,7 +11,7 @@ const {
   countSlideObjects,
   extractDrawingNames,
   runComponentIrReplacementObjectAudit
-} = require("../skills/pd-hifi-slideclone/scripts/component-ir-replacement-object-audit");
+} = require("../packages/slideclone-native-engine/scripts/component-ir-replacement-object-audit");
 const {
   readZipEntryText
 } = require("../packages/ooxml-core/pptx-zip");

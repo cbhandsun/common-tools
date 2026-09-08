@@ -19,6 +19,8 @@
   "rootScripts": [
     "component-acquisition-search.js",
     "component-candidate-search.js",
+    "component-ir-replacement-object-audit.js",
+    "component-ir-visual-regression-audit.js",
     "chart-native-render-golden-smoke.js",
     "component-plugin-action-queue.js",
     "component-strategy-rebuild.js",
@@ -53,6 +55,8 @@
     "renderingAndQualityHarness": [
       "complex-graphic-golden-smoke.js",
       "chart-native-render-golden-smoke.js",
+      "component-ir-replacement-object-audit.js",
+      "component-ir-visual-regression-audit.js",
       "flow-e2e-matrix.js",
       "flow-e2e-smoke.js",
       "golden-set-runner.js",

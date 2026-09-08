@@ -13,7 +13,7 @@ const {
   runComponentIrVisualRegressionAudit,
   selectJobs,
   summarizeDeckResults
-} = require("../skills/pd-hifi-slideclone/scripts/component-ir-visual-regression-audit");
+} = require("../packages/slideclone-native-engine/scripts/component-ir-visual-regression-audit");
 const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
 const { readPng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
 const { writeRenderCacheMetadata } = require("../packages/slideclone-native-engine/scripts/lib/render-cache-metadata");
