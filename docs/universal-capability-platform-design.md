@@ -108,7 +108,10 @@ common-tools/
   packages/
     capability-contracts/       # TypeScript 类型、Zod schema、错误码、审计事件
     capability-runtime/         # 任务生命周期、路径策略、工件与质量门禁
+    capability-registry/        # 能力注册、local job 入口和工具聚合事实源
     slideclone-core/            # 从 pd-hifi-slideclone 抽出的稳定核心
+    slideclone-native-engine/   # 受测的原生重建 runtime package 入口
+    slideclone-worker-adapter/  # 图片转 PPT 的 worker、归档、OCR checkpoint、质量渲染适配
     project-audit-core/         # 规则、证据采集器、报告生成器
     ppt-quality-core/           # 只读 PPTX OOXML 结构审计、独立报告生成器
     ppt-improve-core/           # 仅报告约束下的副本式 PPTX 结构修复

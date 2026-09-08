@@ -2,7 +2,7 @@
 
 ## 通用插件架构五项整改
 
-本轮面向“通用插件项目”的架构图与合理性评估见 [通用插件项目架构图与合理性评估](general-plugin-architecture.md)。五项整改已经按小批次提交：生产 SlideClone 依赖移出 skill 树、图片重建改走 `@common-tools/slideclone-native-engine` runtime package 且不再保留旧式兼容入口、能力注册表落地、archive/OOXML/artifact 共享基础包抽出、质量报告 UI contribution 归属到 `ppt-quality-core`、分发和镜像策略收口。旧 A–F 文档仍代表更大的产品验收范围，不能与本轮五项架构整改混为同一个完成口径。
+本轮面向“通用插件项目”的架构图与合理性评估见 [通用插件项目架构图与合理性评估](general-plugin-architecture.md)。五项整改已经按小批次提交：生产 SlideClone 依赖移出 skill 树、图片重建改走 `@common-tools/slideclone-native-engine` runtime package 且不再保留旧式兼容入口、能力注册表落地、local 执行支持由 capability manifest 派生、图片转 PPT 的 worker/归档/归一化/质量渲染/OCR checkpoint 编排移入 `@common-tools/slideclone-worker-adapter`、archive/OOXML/artifact 共享基础包抽出、质量报告 UI contribution 归属到 `ppt-quality-core`、分发和镜像策略收口。旧 A–F 文档仍代表更大的产品验收范围，不能与本轮五项架构整改混为同一个完成口径。
 
 ## 最近合并验收：交接边界组
 
@@ -19,7 +19,7 @@
 | 项目 | 已有证据 | 完成前还需要什么 |
 | --- | --- | --- |
 | A 工程预算 | 预算及增量门禁持续通过；architecture budget 不再把 skill 分发镜像作为核心源码治理对象 | 后续改动持续保持门禁 |
-| B 核心引擎拆分 | 页面阶段、构建、文字策略及多组重建职责已进入核心包；生产 Worker 不再依赖 skill 脚本或旧式兼容入口，改经 runtime package 入口加载受测资产 | 若继续追求引擎内部瘦身，应按能力面迁移，而不是让历史大文件重新进入核心包或 production adapter |
+| B 核心引擎拆分 | 页面阶段、构建、文字策略及多组重建职责已进入核心包；生产 Worker 不再依赖 skill 脚本或旧式兼容入口，改经 runtime package 入口加载受测资产；图片 worker 编排已从 `slideclone-core` 移到 `slideclone-worker-adapter`，core 不再直接依赖 `team-runtime` | 若继续追求引擎内部瘦身，应按能力面迁移，而不是让历史大文件重新进入核心包或 production adapter |
 | C 类型和输入边界 | Job、OCR、Worker 配置及多项 Deck IR/模板/图表准入已纳入严格类型与回归；工具平台重建及 Deck IR 数据属性/头部边界已补齐 | 完整 Deck IR 和剩余核心边界尚未证明覆盖完整；逐项补足，不能用全量测试通过代替覆盖证明 |
 | D 远程交付 | 本地工具和发布/验收能力已有实现，当前连接可查询、取消、下载作业 | 当前连接缺上传、创建工具；恢复后完成两条真实流程、版本绑定、授权负例和回滚验证 |
 | E 阶段恢复 | [本地恢复验收](stage-recovery-acceptance.md)覆盖故障、缓存、取消、租约和清理 | 实际 OCR 发布版本绑定、部署启用及线上观测验收，与 D 合并执行 |
