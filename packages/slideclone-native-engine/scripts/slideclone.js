@@ -1702,6 +1702,7 @@ if (require.main === module) {
 module.exports = {
   createConfig,
   loadAdapter,
+  main,
   parseArgs,
   prepareReconstructionIrForBuild,
   readJson,
