@@ -20,7 +20,7 @@ const REPOSITORY_ROOT = path.resolve(__dirname, "..");
 const LOCAL_RUNTIME_VERSION = REMOTE_PLUGIN_VERSION;
 const LOCAL_RUNTIME_CAPABILITIES = Object.freeze(["ppt-create", "project-audit"]);
 const LOCAL_RUNTIME_SOURCE_PATHS = Object.freeze([
-  "packages/archive-core", "packages/artifact-core", "packages/capability-contracts", "packages/capability-manifests", "packages/capability-runtime", "packages/cli", "packages/mcp-server", "packages/ooxml-core", "packages/remote-mcp-server", "packages/project-audit-core", "packages/ppt-create-core", "packages/ppt-improve-core", "packages/ppt-quality-core", "packages/slideclone-core", "packages/siyuan-note-core", "packages/team-runtime",
+  "packages/archive-core", "packages/artifact-core", "packages/capability-contracts", "packages/capability-manifests", "packages/capability-registry", "packages/capability-runtime", "packages/cli", "packages/mcp-server", "packages/ooxml-core", "packages/remote-mcp-server", "packages/project-audit-core", "packages/ppt-create-core", "packages/ppt-improve-core", "packages/ppt-quality-core", "packages/slideclone-core", "packages/siyuan-note-core", "packages/team-runtime",
   "runtime/slideclone-native-engine", "scripts/verify-plugins.js", "scripts/verify-capability-contracts.js", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder", "package.json"
 ]);
 const OPENXML_BUILDER_ROOT = path.join(REPOSITORY_ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder");

@@ -5,6 +5,9 @@
   "toolNames": ["create_ppt_quality_job", "get_ppt_quality_report"],
   "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
   "requiredWorkerProfile": "base",
+  "execution": {
+    "localSupported": false
+  },
   "team": {
     "oauthScope": "common-tools:capability:ppt-quality",
     "acceptedUploadMediaTypes": ["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
@@ -15,5 +18,5 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-ppt-quality-worker.js"
     }
   },
-  "contentSha256": "8997bb06d2c70a3df88385412173d4c93e71630995a70bb675fec3622d521657"
+  "contentSha256": "47dc9cbb8199a0bfed1fbfae58a2a1ee69b4fd959bd20cfcc056893efc55b139"
 }

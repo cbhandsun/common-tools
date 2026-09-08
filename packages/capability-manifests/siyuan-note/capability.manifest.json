@@ -11,9 +11,12 @@
   ],
   "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
   "requiredWorkerProfile": "direct",
+  "execution": {
+    "localSupported": false
+  },
   "team": {
     "mode": "direct",
     "oauthScope": "common-tools:capability:siyuan-note"
   },
-  "contentSha256": "6dfb22a9f008a8ef4da890e0a3edbc290113ee24cb702e7f822d32d651ba4851"
+  "contentSha256": "892a7b4827ea6d90f39f753f786d9bb1891d023dd165ea01b90b7ca5252c5d00"
 }

@@ -294,6 +294,8 @@ const REQUIRED_FILES = Object.freeze([
   ".agents/plugins/marketplace.json",
   "package.json",
   "packages/cli/bin/common-tools.js",
+  "packages/capability-registry/index.js",
+  "packages/capability-registry/package.json",
   "packages/mcp-server/core.js",
   "packages/team-runtime/schema/010_retention_recheck.sql",
   "packages/team-runtime/schema/011_delivery_outbox.sql",
