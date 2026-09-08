@@ -15,7 +15,7 @@ const { DIRECT_CAPABILITY_CATALOG, DIRECT_CAPABILITY_SOURCE_CATALOG } = require(
 const remotePackage = require("../packages/remote-mcp-server/package.json");
 const { JOB_SCHEMA: TEAM_JOB_SCHEMA, annotations: teamAnnotations } = require("../packages/remote-mcp-server/team-tool-contracts");
 const { assertDirectCapabilityCatalog } = require("../packages/cli/verification/verify-capability-catalogs");
-const { assertCapabilityToolContracts, assertTeamDeploymentComposeContracts, assertTeamDeploymentManifestContracts, verifyCapabilityToolContracts } = require("../scripts/verify-capability-contracts");
+const { assertCapabilityToolContracts, assertTeamDeploymentCommandFiles, assertTeamDeploymentComposeContracts, assertTeamDeploymentManifestContracts, verifyCapabilityToolContracts } = require("../scripts/verify-capability-contracts");
 
 function contractTool(name, capability) {
   return { name, capability, inputSchema: { type: "object" }, outputSchema: { type: "object" }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } };
@@ -136,7 +136,10 @@ test("direct capability catalog is fail-closed against manifests and team defini
 test("team deployment plan is verified against the actual Compose Worker services", () => {
   const root = path.resolve(__dirname, "..");
   const composeSource = fs.readFileSync(path.join(root, "deploy", "compose.team-api.yaml"), "utf8");
+  assert.equal(assertTeamDeploymentCommandFiles({ deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES, repositoryRoot: root }), true);
   assert.equal(assertTeamDeploymentComposeContracts({ deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES, composeSource }), true);
+  assert.throws(() => assertTeamDeploymentCommandFiles({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerCommand: "packages/remote-mcp-server/bin/common-tools-team-missing-worker.js" } }, repositoryRoot: root }), /Worker command is missing/);
+  assert.throws(() => assertTeamDeploymentCommandFiles({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerCommand: "../outside.js" } }, repositoryRoot: root }), /Worker command is invalid/);
   assert.throws(() => assertTeamDeploymentComposeContracts({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerProfile: "missing-profile" } }, composeSource }), /profile does not match/);
   assert.throws(() => assertTeamDeploymentComposeContracts({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerCommand: "packages/remote-mcp-server/bin/common-tools-team-missing-worker.js" } }, composeSource }), /command does not match/);
 });
