@@ -15,7 +15,7 @@ const {
   isGenericInstalledTemplate,
   officePlusDiscoveryRoots,
   parseArgs
-} = require("../skills/pd-hifi-slideclone/scripts/harvest-applied-ppt-components");
+} = require("../packages/slideclone-native-engine/scripts/harvest-applied-ppt-components");
 
 test("harvest applied PPT components copies supported decks and writes a manifest", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-harvest-components-"));

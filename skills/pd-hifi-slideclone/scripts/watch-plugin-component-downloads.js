@@ -8,7 +8,7 @@ const { spawnSync } = require("node:child_process");
 const {
   harvestAppliedPptComponents,
   officePlusDiscoveryRoots
-} = require("./harvest-applied-ppt-components");
+} = require("../../../packages/slideclone-native-engine/scripts/harvest-applied-ppt-components");
 const {
   powerPointComBootstrapScript
 } = require("./harvest-active-powerpoint-component");

@@ -5,6 +5,11 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const SCRIPT_DIR = __dirname;
+const PACKAGE_SCRIPT_DIR = path.resolve(__dirname, "..", "..", "..", "packages", "slideclone-native-engine", "scripts");
+const PACKAGE_SCRIPT_FILES = new Set([
+  "component-candidate-search.js",
+  "harvest-applied-ppt-components.js"
+]);
 
 function parseArgs(argv) {
   const args = {
@@ -435,6 +440,7 @@ function splitList(value) {
 }
 
 function scriptPath(file) {
+  if (PACKAGE_SCRIPT_FILES.has(file)) return path.join(PACKAGE_SCRIPT_DIR, file);
   return path.join(SCRIPT_DIR, file);
 }
 

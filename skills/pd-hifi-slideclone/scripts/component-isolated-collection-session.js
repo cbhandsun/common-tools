@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { buildOpenXmlDecks } = require("./adapters/pptx-openxml-dotnet");
 const { runComponentAssetSelfFidelityBatch } = require("./component-asset-self-fidelity-batch");
-const { harvestAppliedPptComponents, sanitizeProvider } = require("./harvest-applied-ppt-components");
+const { harvestAppliedPptComponents, sanitizeProvider } = require("../../../packages/slideclone-native-engine/scripts/harvest-applied-ppt-components");
 
 const DEFAULT_OUT = path.join("runs", "plugin-component-inventory", "isolated-collection");
 const DEFAULT_PROVIDER = "islide";

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   harvestAppliedPptComponents
-} = require("./harvest-applied-ppt-components");
+} = require("../../../packages/slideclone-native-engine/scripts/harvest-applied-ppt-components");
 const {
   buildPluginComponentInventory,
   defaultPluginComponentRoots

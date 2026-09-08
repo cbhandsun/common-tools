@@ -6,7 +6,7 @@ const { spawnSync } = require("node:child_process");
 const {
   harvestAppliedPptComponents,
   sanitizeProvider
-} = require("./harvest-applied-ppt-components");
+} = require("../../../packages/slideclone-native-engine/scripts/harvest-applied-ppt-components");
 
 const DEFAULT_MANUAL_ROOT = path.join("runs", "plugin-component-inventory", "manual-applied-components");
 const DEFAULT_HARVEST_ROOT = path.join("runs", "plugin-component-inventory");
