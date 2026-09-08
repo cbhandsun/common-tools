@@ -13,7 +13,8 @@
   ],
   "directories": [
     "adapters",
-    "lib"
+    "lib",
+    "python"
   ],
   "rootScripts": [
     "component-acquisition-search.js",

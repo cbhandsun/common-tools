@@ -18,7 +18,7 @@ function policy(overrides = {}) {
     entrypoint: "packages/slideclone-native-engine/index.js",
     runtimeEntrypoint: "rebuild-real-pptx-native.js",
     managedBy: ["syntax", "boundary", "release"],
-    directories: ["adapters", "lib"],
+    directories: ["adapters", "lib", "python"],
     rootScripts: ["rebuild-real-pptx-native.js"],
     rootScriptGroups: {
       productionEntrypoints: ["rebuild-real-pptx-native.js"]
@@ -41,6 +41,7 @@ test("native engine runtime payload verifier proves the current package boundary
   assert.equal(result.packageRoot, "packages/slideclone-native-engine");
   assert.equal(result.payloadRoot, "packages/slideclone-native-engine/scripts");
   assert.equal(result.rootScriptGroupCount >= 3, true);
+  assert.equal(result.directoryCount >= 3, true);
   assert.equal(isRuntimePayloadPath(path.join(root, "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js")), true);
   assert.equal(isRuntimePayloadPath(path.join(root, "packages", "slideclone-native-engine", "index.js")), false);
 });
@@ -60,6 +61,22 @@ test("native engine runtime payload verifier fails closed on missing payload con
   assert.throws(
     () => verifyNativeEngineRuntimePayload({ policy: badPolicy, repositoryRoot: directory }),
     /payload root script is missing/
+  );
+});
+
+test("native engine runtime payload verifier rejects undeclared top-level directories", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "native-engine-payload-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const scripts = path.join(directory, "packages", "slideclone-native-engine", "scripts");
+  fs.mkdirSync(path.join(scripts, "adapters"), { recursive: true });
+  fs.mkdirSync(path.join(scripts, "lib"), { recursive: true });
+  fs.mkdirSync(path.join(scripts, "python"), { recursive: true });
+  fs.mkdirSync(path.join(scripts, "undocumented"), { recursive: true });
+  fs.writeFileSync(path.join(directory, "packages", "slideclone-native-engine", "index.js"), 'require("./scripts/rebuild-real-pptx-native");\n');
+  fs.writeFileSync(path.join(scripts, "rebuild-real-pptx-native.js"), "module.exports = {};\n");
+  assert.throws(
+    () => verifyNativeEngineRuntimePayload({ policy: policy(), repositoryRoot: directory }),
+    /payload directory is not declared/
   );
 });
 

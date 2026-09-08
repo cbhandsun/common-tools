@@ -145,6 +145,13 @@ function verifyNativeEngineRuntimePayload(options = {}) {
       const directoryPath = path.join(payloadRoot, directory);
       if (!fs.statSync(directoryPath, { throwIfNoEntry: false })?.isDirectory()) fail(`payload directory is missing: ${directory}`);
     }
+    const topLevelDirectories = fs.readdirSync(payloadRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+    for (const directory of topLevelDirectories.filter((directory) => !policy.directories.includes(directory))) {
+      fail(`payload directory is not declared: ${directory}`);
+    }
     for (const script of policy.rootScripts) {
       if (!fs.statSync(path.join(payloadRoot, script), { throwIfNoEntry: false })?.isFile()) fail(`payload root script is missing: ${script}`);
     }

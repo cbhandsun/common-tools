@@ -7,8 +7,8 @@ const test = require("node:test");
 const nativeEngine = require("../packages/slideclone-native-engine");
 
 const ROOT = path.resolve(__dirname, "..");
-const SKILL_SCRIPTS = path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts");
 const PACKAGE_SCRIPTS = path.join(ROOT, "packages", "slideclone-native-engine", "scripts");
+const payloadPolicy = require("../config/native-engine-runtime-payload.json");
 
 function filesUnder(directory, base = directory) {
   const files = [];
@@ -22,35 +22,18 @@ function filesUnder(directory, base = directory) {
 
 test("production native engine package bundles reviewed SlideClone JavaScript support modules", () => {
   const expected = [
-    "component-acquisition-search.js",
-    "component-candidate-search.js",
-    "component-plugin-action-queue.js",
-    "component-strategy-rebuild.js",
-    "golden-set-runner.js",
-    "harvest-applied-ppt-components.js",
-    "libreoffice-benchmark.js",
-    "rebuild-real-pptx-native.js",
-    "rendered-similarity-audit.js",
-    "slideclone.js",
-    ...filesUnder(path.join(SKILL_SCRIPTS, "adapters")).map((file) => `adapters/${file}`),
-    ...filesUnder(path.join(SKILL_SCRIPTS, "lib")).map((file) => `lib/${file}`)
+    ...payloadPolicy.rootScripts,
+    ...payloadPolicy.directories.flatMap((directory) => filesUnder(path.join(PACKAGE_SCRIPTS, directory)).map((file) => `${directory}/${file}`))
   ].sort();
   assert.deepEqual(filesUnder(PACKAGE_SCRIPTS).sort(), expected);
-  for (const relative of expected) {
-    if (relative === "rebuild-real-pptx-native.js") continue;
-    assert.deepEqual(
-      fs.readFileSync(path.join(PACKAGE_SCRIPTS, relative)),
-      fs.readFileSync(path.join(SKILL_SCRIPTS, relative)),
-      relative
-    );
-  }
   const entrypoint = fs.readFileSync(path.join(PACKAGE_SCRIPTS, "rebuild-real-pptx-native.js"), "utf8");
   assert.match(entrypoint, /openXmlBuilderRoot: path\.resolve\(__dirname, "\.\.", "dotnet", "OpenXmlDeckBuilder"\)/);
   assert.doesNotMatch(entrypoint, /openXmlBuilderRoot: path\.resolve\(__dirname, "\.\.", "\.\.", "\.\.", "skills"/);
 });
 
 test("production workers resolve SlideClone native roots through the native engine package", () => {
-  assert.equal(nativeEngine.resolveSlidecloneRuntimeRoot(ROOT), path.join(ROOT, "skills", "pd-hifi-slideclone"));
+  assert.equal(nativeEngine.resolveSlidecloneRuntimeRoot(ROOT), path.join(ROOT, "packages", "slideclone-native-engine"));
+  assert.equal(nativeEngine.resolveSlidecloneResourceRoot(ROOT), path.join(ROOT, "skills", "pd-hifi-slideclone"));
   assert.equal(nativeEngine.resolveOpenXmlBuilderRoot(ROOT), path.join(ROOT, "packages", "slideclone-native-engine", "dotnet", "OpenXmlDeckBuilder"));
   const worker = fs.readFileSync(path.join(ROOT, "packages", "remote-mcp-server", "bin", "common-tools-team-ppt-create-worker.js"), "utf8");
   assert.doesNotMatch(worker, /skills[\\/]+pd-hifi-slideclone/);
@@ -75,7 +58,7 @@ test("native engine package owns OpenXML builder execution roots", () => {
     else delete require.cache[builderPath];
   }
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].context.skillRoot, path.join(ROOT, "skills", "pd-hifi-slideclone"));
+  assert.equal(calls[0].context.skillRoot, path.join(ROOT, "packages", "slideclone-native-engine"));
   assert.equal(calls[0].builderRoot, path.join(ROOT, "packages", "slideclone-native-engine", "dotnet", "OpenXmlDeckBuilder"));
   assert.deepEqual(calls[0].options, { powerPointSafe: true });
 });

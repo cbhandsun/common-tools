@@ -3,14 +3,14 @@
 
 const fs = require("fs");
 const path = require("path");
-const { resolveNativeEngineRuntimeRoot, resolveSlidecloneRuntimeRoot } = require("../packages/slideclone-native-engine");
+const { resolveNativeEngineRuntimeRoot, resolveSlidecloneResourceRoot } = require("../packages/slideclone-native-engine");
 const paddleOcr = require("../packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local");
 
 async function main() {
   const workspaceRoot = path.resolve(__dirname, "..");
-  const skillRoot = resolveSlidecloneRuntimeRoot(workspaceRoot);
+  const resourceRoot = resolveSlidecloneResourceRoot(workspaceRoot);
   const nativeEngineRoot = resolveNativeEngineRuntimeRoot(workspaceRoot);
-  const sourceImage = path.resolve(process.argv[2] || path.join(skillRoot, "examples", "ocr-text-smoke.source.png"));
+  const sourceImage = path.resolve(process.argv[2] || path.join(resourceRoot, "examples", "ocr-text-smoke.source.png"));
   if (!fs.existsSync(sourceImage) || !fs.statSync(sourceImage).isFile()) throw new Error("PaddleOCR smoke input is unavailable");
   const result = await paddleOcr({
     sourceImage,

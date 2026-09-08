@@ -9,11 +9,11 @@ const { spawnSync } = require("node:child_process");
 const paddleOcr = require("../packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local");
 const { startPaddleOcrBatchBroker } = require("../packages/slideclone-native-engine/scripts/lib/paddleocr-batch-broker");
 const { consumePaddleOcrBrokerEnvironment } = require("../packages/slideclone-native-engine/scripts/lib/quality-gate-policy");
-const { resolveNativeEngineRuntimeRoot, resolveSlidecloneRuntimeRoot } = require("../packages/slideclone-native-engine");
+const { resolveNativeEngineRuntimeRoot, resolveSlidecloneResourceRoot } = require("../packages/slideclone-native-engine");
 
 const workspaceRoot = path.resolve(__dirname, "..");
 const skillRoot = resolveNativeEngineRuntimeRoot(workspaceRoot);
-const sourceImage = path.join(resolveSlidecloneRuntimeRoot(workspaceRoot), "examples", "ocr-text-smoke.source.png");
+const sourceImage = path.join(resolveSlidecloneResourceRoot(workspaceRoot), "examples", "ocr-text-smoke.source.png");
 const fakeWorker = path.join(__dirname, "fixtures", "fake-paddleocr-worker.js");
 
 function context(tempDir, overrides = {}) {

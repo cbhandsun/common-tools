@@ -19,11 +19,15 @@ function resolveRepositoryRoot() {
 }
 
 function resolveSlidecloneRuntimeRoot(repositoryRoot = resolveRepositoryRoot()) {
-  return path.join(repositoryRoot, "skills", "pd-hifi-slideclone");
+  return resolveNativeEngineRuntimeRoot(repositoryRoot);
 }
 
 function resolveNativeEngineRuntimeRoot(repositoryRoot = resolveRepositoryRoot()) {
   return path.join(repositoryRoot, "packages", "slideclone-native-engine");
+}
+
+function resolveSlidecloneResourceRoot(repositoryRoot = resolveRepositoryRoot()) {
+  return path.join(repositoryRoot, "skills", "pd-hifi-slideclone");
 }
 
 function resolveOpenXmlBuilderRoot(repositoryRoot = resolveRepositoryRoot()) {
@@ -32,10 +36,10 @@ function resolveOpenXmlBuilderRoot(repositoryRoot = resolveRepositoryRoot()) {
 
 function buildOpenXmlDecksSync(jobs, context = {}, options = {}) {
   const repositoryRoot = resolveRepositoryRoot();
-  const skillRoot = resolveSlidecloneRuntimeRoot(repositoryRoot);
+  const skillRoot = resolveNativeEngineRuntimeRoot(repositoryRoot);
   const builderRoot = resolveOpenXmlBuilderRoot(repositoryRoot);
   const builder = require("../slideclone-core/pptx-openxml-dotnet");
   return builder.buildOpenXmlDecksSync(jobs, { ...context, skillRoot }, builderRoot, options);
 }
 
-module.exports = { buildOpenXmlDecksSync, loadNativeImageEngine, loadNativeImageRebuilder, resolveNativeEngineRuntimeRoot, resolveOpenXmlBuilderRoot, resolveRepositoryRoot, resolveSlidecloneRuntimeRoot };
+module.exports = { buildOpenXmlDecksSync, loadNativeImageEngine, loadNativeImageRebuilder, resolveNativeEngineRuntimeRoot, resolveOpenXmlBuilderRoot, resolveRepositoryRoot, resolveSlidecloneResourceRoot, resolveSlidecloneRuntimeRoot };
