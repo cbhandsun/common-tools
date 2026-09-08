@@ -14,7 +14,8 @@
       "@common-tools/slideclone-core"
     ],
     "capability-runtime": [
-      "@common-tools/capability-contracts"
+      "@common-tools/capability-contracts",
+      "@common-tools/capability-manifests"
     ],
     "cli": [
       "@common-tools/capability-runtime",

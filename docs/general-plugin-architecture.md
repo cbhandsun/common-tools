@@ -9,6 +9,7 @@ flowchart TD
   RemoteMcp["Remote / Team MCP Server\npackages/remote-mcp-server"]
   Registry["Capability Registry\npackages/capability-registry"]
   Runtime["Capability Runtime\npackages/capability-runtime"]
+  Manifests["Capability Manifests\npackages/capability-manifests"]
   Contracts["Capability Contracts\npackages/capability-contracts"]
   Artifacts["Artifact Core\npackages/artifact-core"]
   Archive["Archive Core\npackages/archive-core"]
@@ -48,6 +49,7 @@ flowchart TD
   PptQuality --> Runtime
   PptImprove --> Runtime
   ProjectAudit --> Runtime
+  Runtime --> Manifests
   Runtime --> Contracts
   ImageWorker --> Archive
   PptCreate --> Archive
@@ -63,11 +65,12 @@ flowchart TD
 
 ## 当前合理性结论
 
-整体方向已经合理：主入口现在更像 composition root，能力注册、运行时、协议适配、共享基础设施和 UI 资源已经分层。尤其是 capability module 聚合、共享 archive/OOXML/artifact core、team MCP 工具注册表、能力拥有的 UI contribution，以及 SlideClone 原生运行时镜像，已经把过去“中心文件堆逻辑、skill 目录承担生产依赖”的形态往通用插件架构推进了一大步。
+整体方向已经合理：主入口现在更像 composition root，能力注册、能力 manifest、运行时、协议适配、共享基础设施和 UI 资源已经分层。尤其是 capability module 聚合、共享 archive/OOXML/artifact core、team MCP 工具注册表、能力拥有的 UI contribution，以及 SlideClone 原生运行时镜像，已经把过去“中心文件堆逻辑、skill 目录承担生产依赖”的形态往通用插件架构推进了一大步。
 
 | 评估项 | 当前状态 | 判断 |
 | --- | --- | --- |
 | 能力发现与门控 | `packages/capability-registry` 聚合 capability module，统一暴露本地能力、工具 handler、报告 reader 与 UI contribution；MCP 层消费注册结果 | 合理 |
+| 能力 manifest 事实源 | `packages/capability-manifests` 现在直接导出签名 manifest 读取、版本范围、依赖图、弃用窗口和 hash 校验；`capability-runtime` 只消费已验证目录并处理状态配置 | 合理 |
 | MCP 协议边界 | local/team MCP 主要负责协议、鉴权上下文、工具列表和资源读取；team 工具定义已抽到 `team-tool-registry`；本地与团队工具合同共用 `capability-contracts` 的合同构造器 | 合理 |
 | 共享基础设施 | archive、OOXML、artifact 相关通用逻辑已抽到独立 core 包；PPTX ZIP/Inventory 已迁入 `ooxml-core` 并由旧入口兼容转发 | 合理 |
 | UI 归属 | 质量报告 UI 已由 `ppt-quality-core` 导出 contribution，经 `capability-registry` 聚合，MCP 层只汇总与读取 | 合理 |

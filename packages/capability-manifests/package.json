@@ -1,5 +1,7 @@
 {
   "name": "@common-tools/capability-manifests",
   "version": "0.1.0",
-  "private": true
+  "private": true,
+  "main": "index.js",
+  "type": "commonjs"
 }
