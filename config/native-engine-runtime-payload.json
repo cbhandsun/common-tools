@@ -32,6 +32,7 @@
     "quality-gate-real-pptx.js",
     "quality-trend-gate.js",
     "real-pptx-corpus-runner.js",
+    "real-pptx-normalize-smoke.js",
     "rebuild-real-pptx-native.js",
     "rendered-similarity-audit.js",
     "slideclone.js",
@@ -52,6 +53,7 @@
       "quality-gate-real-pptx.js",
       "quality-trend-gate.js",
       "real-pptx-corpus-runner.js",
+      "real-pptx-normalize-smoke.js",
       "rendered-similarity-audit.js"
     ],
     "componentAcquisitionTools": [

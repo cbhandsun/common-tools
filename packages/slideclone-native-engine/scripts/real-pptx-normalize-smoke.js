@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 
 const skillRoot = path.resolve(__dirname, "..");
+const normalize = require("./adapters/normalize-powerpoint-com");
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -21,7 +22,6 @@ async function main() {
   const copiedPptx = path.join(inputDir, path.basename(pptxFile));
   fs.copyFileSync(pptxFile, copiedPptx);
 
-  const normalize = require(path.join(skillRoot, "scripts", "adapters", "normalize-powerpoint-com.js"));
   const maxPages = parsePositiveInt(args["max-pages"], 2);
   const result = await normalize({ inputDir, outputDir }, {
     skillRoot,

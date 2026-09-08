@@ -107,6 +107,15 @@ test("golden-set manifest routes flow smoke cases through the package runtime", 
   assert.ok(flowCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/flow-e2e-smoke.js`)));
 });
 
+test("golden-set manifest routes real PPTX normalize smoke through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const normalizeCases = manifest.cases.filter((entry) => entry.command?.includes("packages/slideclone-native-engine/scripts/real-pptx-normalize-smoke.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(normalizeCases.length, 1);
+  assert.ok(normalizeCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/real-pptx-normalize-smoke.js`)));
+});
+
 test("golden-set runner keeps report order while using bounded concurrency", async () => {
   let active = 0;
   let peak = 0;

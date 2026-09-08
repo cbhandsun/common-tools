@@ -144,7 +144,7 @@
       "mode": "delivery",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/real-pptx-normalize-smoke.js",
+        "packages/slideclone-native-engine/scripts/real-pptx-normalize-smoke.js",
         "--pptx",
         "ppt文档/PM_Portal_AI_Skills_Engine.pptx",
         "--max-pages",
