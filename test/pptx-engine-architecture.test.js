@@ -43,7 +43,7 @@ test("native rebuild keeps detection, residual ownership, and visual caching beh
 });
 
 test("component template styling and package services cannot flow back into composition roots", () => {
-  const component = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "component-template-native-shapes.js"), "utf8");
+  const component = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "lib", "component-template-native-shapes.js"), "utf8");
   const style = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "component-template-style.js"), "utf8");
   const program = fs.readFileSync(path.join(OPENXML_BUILDER_ROOT, "Program.cs"), "utf8");
   const writer = fs.readFileSync(path.join(OPENXML_BUILDER_ROOT, "DeckPackageWriter.cs"), "utf8");

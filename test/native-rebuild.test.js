@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
-const path = require("node:path");
+const path = require("node:path"), CTNS = "../packages/slideclone-native-engine/scripts/lib/component-template-native-shapes";
 const { cropPng, readPng, writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
 const { readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const {
@@ -12,7 +12,7 @@ const {
 } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-matcher");
 const {
   _private: tp
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-native-shapes");
+} = require(CTNS);
 const {
   extractVisualAtoms,
   detectDenseLinkedNodeAtoms
@@ -348,7 +348,7 @@ const {
   _private: {
     timelineShapes
   }
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-native-shapes");
+} = require(CTNS);
 const {
   summarizeComponentTemplateCropStatus,
   summarizeEditabilityProfile,

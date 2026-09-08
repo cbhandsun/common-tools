@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   createComponentTemplateNativeObjects,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-native-shapes");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-template-native-shapes");
 
 function cardGridImage() {
   return {
