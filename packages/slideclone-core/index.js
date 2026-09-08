@@ -10,7 +10,7 @@ const { hasCompleteImageContainer, readImageSizeBuffer } = require("./image-size
 const { EDITABLE_DOCUMENT_EXTENSIONS, MAX_EDITABLE_DOCUMENT_BYTES, MAX_EDITABLE_DOCUMENT_PAGES, assertEditableInputDocument } = require("./document-input");
 
 const CAPABILITY = "image-to-editable";
-const REGISTRATION = Object.freeze({ capability: CAPABILITY, toolNames: ["create_editable_job", "get_job", "cancel_job", "list_job_artifacts"], minimumRuntimeVersion: ">=0.1.0 <1.0.0", requiredWorkerProfile: "base" });
+const REGISTRATION = Object.freeze({ capability: CAPABILITY, toolNames: ["create_editable_job", "get_job", "cancel_job", "list_job_artifacts"], minimumRuntimeVersion: ">=0.1.0 <1.0.0", requiredWorkerProfile: "image-to-editable" });
 const MAX_ARTIFACTS = 32;
 const MAX_ARTIFACT_CANDIDATES = 512;
 const MAX_VISUAL_REPORT_BYTES = 1024 * 1024;

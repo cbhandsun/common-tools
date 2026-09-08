@@ -32,6 +32,7 @@ const {
   createPptCreateJob,
   pptCreateSummary
 } = require("../ppt-create-core");
+const { CAPABILITY_MANIFESTS } = require("../capability-manifests");
 
 const IMAGE_TO_EDITABLE_CAPABILITY = EDITABLE_REGISTRATION.capability;
 
@@ -48,6 +49,27 @@ function defineCapabilityModule(definition) {
     reportHandlers: Object.freeze({ ...reportHandlers }),
     uiContributions: Object.freeze([...uiContributions])
   });
+}
+
+function assertCapabilityModulesMatchManifests(modules, manifests = CAPABILITY_MANIFESTS) {
+  if (!Array.isArray(modules) || !(manifests instanceof Map)) throw new TypeError("capability registry metadata is invalid");
+  const seen = new Set();
+  for (const module of modules) {
+    const registration = module?.registration;
+    if (!registration || typeof registration.capability !== "string") throw new TypeError("capability module registration is invalid");
+    if (seen.has(registration.capability)) throw new Error("duplicate capability module registration");
+    seen.add(registration.capability);
+    const manifest = manifests.get(registration.capability);
+    if (!manifest) throw new Error(`capability module manifest is missing: ${registration.capability}`);
+    const expectedTools = [...manifest.toolNames].sort();
+    const registeredTools = [...registration.toolNames].sort();
+    if (JSON.stringify(registeredTools) !== JSON.stringify(expectedTools)
+      || registration.minimumRuntimeVersion !== manifest.minimumRuntimeVersion
+      || registration.requiredWorkerProfile !== manifest.requiredWorkerProfile) {
+      throw new Error(`capability module manifest mismatch: ${registration.capability}`);
+    }
+  }
+  return true;
 }
 
 const CAPABILITY_MODULES = Object.freeze([
@@ -95,6 +117,7 @@ const CAPABILITY_MODULES = Object.freeze([
     }
   })
 ]);
+assertCapabilityModulesMatchManifests(CAPABILITY_MODULES);
 
 const LOCAL_REGISTRATIONS = Object.freeze(CAPABILITY_MODULES.map((module) => module.registration));
 const UI_CONTRIBUTIONS = Object.freeze(CAPABILITY_MODULES.flatMap((module) => module.uiContributions));
@@ -129,6 +152,7 @@ module.exports = {
   PPT_QUALITY_CAPABILITY,
   PROJECT_AUDIT_CAPABILITY,
   UI_CONTRIBUTIONS,
+  assertCapabilityModulesMatchManifests,
   createLocalJob,
   defineCapabilityModule,
   readLocalJob

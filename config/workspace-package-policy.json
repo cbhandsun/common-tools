@@ -7,6 +7,7 @@
     "capability-contracts": [],
     "capability-manifests": [],
     "capability-registry": [
+      "@common-tools/capability-manifests",
       "@common-tools/ppt-create-core",
       "@common-tools/ppt-improve-core",
       "@common-tools/ppt-quality-core",
