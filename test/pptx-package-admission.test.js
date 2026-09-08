@@ -8,8 +8,9 @@ const { spawnSync } = require("node:child_process");
 const zlib = require("node:zlib");
 const test = require("node:test");
 const { readZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-zip");
+const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 
-const project = path.resolve(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
+const project = path.join(resolveOpenXmlBuilderRoot(path.join(__dirname, "..")), "OpenXmlDeckBuilder.csproj");
 const dll = path.join(path.dirname(project), "bin", "Debug", "net8.0", "OpenXmlDeckBuilder.dll");
 
 test("PPTX admission rejects a high-ratio entry before Open XML parsing", { timeout: 60_000 }, () => {

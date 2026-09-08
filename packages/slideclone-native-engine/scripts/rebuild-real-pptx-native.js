@@ -26059,6 +26059,7 @@ const { createPptxBuildExecutor, normalizePptxBuildJobs, shouldRunPowerPointOpen
 const { buildPptx, buildPptxBatch } = createPptxBuildExecutor({
   skillRoot: path.resolve(__dirname, ".."),
   projectRoot: path.resolve(__dirname, "..", "..", ".."),
+  openXmlBuilderRoot: path.resolve(__dirname, "..", "dotnet", "OpenXmlDeckBuilder"),
   buildOpenXmlDecksSync: (...args) => require("@common-tools/slideclone-core/pptx-openxml-dotnet").buildOpenXmlDecksSync(...args)
 });
 

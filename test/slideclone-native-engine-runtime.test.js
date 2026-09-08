@@ -20,7 +20,7 @@ function filesUnder(directory, base = directory) {
   return files;
 }
 
-test("production native engine package mirrors the reviewed SlideClone JavaScript implementation", () => {
+test("production native engine package bundles reviewed SlideClone JavaScript support modules", () => {
   const expected = [
     "component-acquisition-search.js",
     "component-candidate-search.js",
@@ -37,12 +37,16 @@ test("production native engine package mirrors the reviewed SlideClone JavaScrip
   ].sort();
   assert.deepEqual(filesUnder(PACKAGE_SCRIPTS).sort(), expected);
   for (const relative of expected) {
+    if (relative === "rebuild-real-pptx-native.js") continue;
     assert.deepEqual(
       fs.readFileSync(path.join(PACKAGE_SCRIPTS, relative)),
       fs.readFileSync(path.join(SKILL_SCRIPTS, relative)),
       relative
     );
   }
+  const entrypoint = fs.readFileSync(path.join(PACKAGE_SCRIPTS, "rebuild-real-pptx-native.js"), "utf8");
+  assert.match(entrypoint, /openXmlBuilderRoot: path\.resolve\(__dirname, "\.\.", "dotnet", "OpenXmlDeckBuilder"\)/);
+  assert.doesNotMatch(entrypoint, /openXmlBuilderRoot: path\.resolve\(__dirname, "\.\.", "\.\.", "\.\.", "skills"/);
 });
 
 test("production workers resolve SlideClone native roots through the native engine package", () => {

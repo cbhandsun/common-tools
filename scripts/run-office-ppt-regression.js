@@ -6,6 +6,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { resolveLibreOffice, resolvePdfToPpm } = require("../skills/pd-hifi-slideclone/scripts/libreoffice-benchmark");
 const { collectOfficeRegressionEvidence } = require("./lib/office-regression-evidence");
+const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 
 const DEFAULT_OUT = "artifacts/ppt-office-regression";
 const ALLOWED_SUITES = new Set(["smoke", "full"]);
@@ -82,7 +83,7 @@ function buildOfficeRegressionPlan(args, environment, cwd, platform) {
     ? path.join(persistentHistoryRoot, `ppt-quality-history-${suite}.json`)
     : workspaceHistoryFile;
   const corpusFile = path.resolve(cwd, "skills", "pd-hifi-slideclone", "examples", "real-pptx-corpus.manifest.json");
-  const builderRoot = path.resolve(cwd, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder");
+  const builderRoot = resolveOpenXmlBuilderRoot(cwd);
   return Object.freeze({
     suite,
     workRoot,

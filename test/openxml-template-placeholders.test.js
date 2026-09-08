@@ -8,8 +8,9 @@ const path = require("node:path");
 const test = require("node:test");
 const { promoteNativeChartPayload } = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-payload");
 const { readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
+const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 
-const projectFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
+const projectFile = path.join(resolveOpenXmlBuilderRoot(path.join(__dirname, "..")), "OpenXmlDeckBuilder.csproj");
 
 function build(irFile, pptxFile) {
   const result = spawnSync(process.env.DOTNET_BIN || "dotnet", ["run", "--project", projectFile, "--", "--ir", irFile, "--out", pptxFile], { cwd: path.dirname(projectFile), encoding: "utf8", windowsHide: true, maxBuffer: 20 * 1024 * 1024 });

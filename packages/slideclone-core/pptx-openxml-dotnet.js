@@ -25,7 +25,7 @@ function run(command, args, cwd) {
 }
 
 module.exports = async function pptxOpenXmlDotnet(input, context) {
-  const projectDir = path.join(context.skillRoot, "dotnet", "OpenXmlDeckBuilder");
+  const projectDir = resolveDefaultOpenXmlBuilderRoot(context);
   const outFile = path.join(context.outputDir, "pptx", "deck.pptx");
   await buildOpenXmlDecks([{ irFile: input.irFile, outFile }], context, projectDir);
   return {
@@ -37,7 +37,7 @@ module.exports = async function pptxOpenXmlDotnet(input, context) {
   };
 };
 
-async function buildOpenXmlDecks(jobs, context, projectDir = path.join(context.skillRoot, "dotnet", "OpenXmlDeckBuilder")) {
+async function buildOpenXmlDecks(jobs, context, projectDir = resolveDefaultOpenXmlBuilderRoot(context)) {
   const normalizedJobs = normalizeBuildJobs(jobs);
   const artifacts = createOpenXmlBuildArtifacts(normalizedJobs);
   try {
@@ -71,7 +71,7 @@ async function buildOpenXmlDecks(jobs, context, projectDir = path.join(context.s
   }
 }
 
-function buildOpenXmlDecksSync(jobs, context, projectDir = path.join(context.skillRoot, "dotnet", "OpenXmlDeckBuilder"), options = {}) {
+function buildOpenXmlDecksSync(jobs, context, projectDir = resolveDefaultOpenXmlBuilderRoot(context), options = {}) {
   const normalizedJobs = normalizeBuildJobs(jobs);
   const artifacts = createOpenXmlBuildArtifacts(normalizedJobs);
   try {
@@ -100,6 +100,12 @@ function buildOpenXmlDecksSync(jobs, context, projectDir = path.join(context.ski
   } finally {
     if (context.config?.openXmlBuilder?.retainBuildArtifacts !== true) cleanupOpenXmlBuildArtifacts(artifacts);
   }
+}
+
+function resolveDefaultOpenXmlBuilderRoot(context = {}) {
+  const configured = context.config?.openXmlBuilder?.projectDir ?? context.openXmlBuilderRoot;
+  if (typeof configured === "string" && configured.trim()) return path.resolve(configured);
+  return path.resolve(process.cwd(), "packages", "slideclone-native-engine", "dotnet", "OpenXmlDeckBuilder");
 }
 
 function resolveBuildCache(context) {
@@ -366,6 +372,7 @@ function normalizeTargetFramework(value) {
 
 module.exports.resolveOpenXmlBuilderCommand = resolveOpenXmlBuilderCommand;
 module.exports.resolveOpenXmlBuilderWorkingDirectory = resolveOpenXmlBuilderWorkingDirectory;
+module.exports.resolveDefaultOpenXmlBuilderRoot = resolveDefaultOpenXmlBuilderRoot;
 module.exports.resolveDotnet = resolveDotnet;
 module.exports.buildBatchArgs = buildBatchArgs;
 module.exports.buildOpenXmlDecks = buildOpenXmlDecks;

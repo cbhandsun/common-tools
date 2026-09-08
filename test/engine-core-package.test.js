@@ -125,9 +125,11 @@ test("rebuild planning, pixel IO and residual generation run from package export
   let isolatedBuildCalls = 0;
   const isolatedBuilder = api["pptx-build-execution"].createPptxBuildExecutor({
     skillRoot: directory, projectRoot: directory,
-    buildOpenXmlDecksSync(jobs, context) {
+    openXmlBuilderRoot: path.join(directory, "runtime", "OpenXmlDeckBuilder"),
+    buildOpenXmlDecksSync(jobs, context, builderDirectory) {
       isolatedBuildCalls++;
       assert.equal(context.skillRoot, directory);
+      assert.equal(builderDirectory, path.join(directory, "runtime", "OpenXmlDeckBuilder"));
       return jobs.map(job => job.outFile);
     }
   });

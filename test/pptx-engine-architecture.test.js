@@ -4,8 +4,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 
 const ROOT = path.resolve(__dirname, "..");
+const OPENXML_BUILDER_ROOT = resolveOpenXmlBuilderRoot(ROOT);
 
 test("production packages keep one Deck IR to OpenXML writer boundary", () => {
   const rootPackage = readJson("package.json");
@@ -42,9 +44,9 @@ test("native rebuild keeps detection, residual ownership, and visual caching beh
 test("component template styling and package services cannot flow back into composition roots", () => {
   const component = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "component-template-native-shapes.js"), "utf8");
   const style = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "component-template-style.js"), "utf8");
-  const program = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "Program.cs"), "utf8");
-  const writer = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "DeckPackageWriter.cs"), "utf8");
-  const scaffold = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "PresentationScaffoldFactory.cs"), "utf8");
+  const program = fs.readFileSync(path.join(OPENXML_BUILDER_ROOT, "Program.cs"), "utf8");
+  const writer = fs.readFileSync(path.join(OPENXML_BUILDER_ROOT, "DeckPackageWriter.cs"), "utf8");
+  const scaffold = fs.readFileSync(path.join(OPENXML_BUILDER_ROOT, "PresentationScaffoldFactory.cs"), "utf8");
   assert.match(component, /require\("\.\/component-template-style"\)/);
   assert.doesNotMatch(component, /^function mergeTemplateStyle/m);
   assert.doesNotMatch(component, /^function sanitizeTemplateFreeform/m);

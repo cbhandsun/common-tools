@@ -13,7 +13,7 @@ test("Office regression scope selects PowerPoint implementation and dependency c
   for (const file of [
     "packages/ppt-create-core/layout.js",
     "packages/ppt-improve-core/index.js",
-    "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/Program.cs",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/Program.cs",
     "scripts/ppt-create-office-smoke.js",
     "scripts/lib/ppt-create-office-corpus.js",
     "scripts/lib/ppt-create-template-archive-corpus.js",

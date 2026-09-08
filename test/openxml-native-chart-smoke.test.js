@@ -9,8 +9,9 @@ const test = require("node:test");
 const { promoteNativeChartPayload } = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-payload");
 const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const { readZipEntries } = require("../packages/ooxml-core/pptx-zip");
+const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 
-const projectDirectory = path.resolve(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder");
+const projectDirectory = resolveOpenXmlBuilderRoot(path.join(__dirname, ".."));
 
 test("OpenXML builder emits a real ChartPart with an embedded editable workbook", (t) => {
   const builder = findBuilder();

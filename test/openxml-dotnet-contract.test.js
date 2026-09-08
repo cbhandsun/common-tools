@@ -17,8 +17,10 @@ const {
   rewriteZipEntries,
   writeStoredZipAtomic
 } = require("../packages/ooxml-core/pptx-zip");
+const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 
-const programFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "Program.cs");
+const openXmlBuilderRoot = resolveOpenXmlBuilderRoot(path.join(__dirname, ".."));
+const programFile = path.join(openXmlBuilderRoot, "Program.cs");
 const modelsFile = path.join(path.dirname(programFile), "Models.cs");
 const commandLineFile = path.join(path.dirname(programFile), "CommandLineOptions.cs");
 const batchBuilderFile = path.join(path.dirname(programFile), "DeckBatchBuilder.cs");
@@ -34,7 +36,7 @@ const nativeTableWriterFile = path.join(path.dirname(programFile), "NativeTableW
 const editableChartFallbackWriterFile = path.join(path.dirname(programFile), "EditableChartFallbackWriter.cs");
 const nativeChartWriterFile = path.join(path.dirname(programFile), "NativeChartWriter.cs");
 const templatePlaceholderWriterFile = path.join(path.dirname(programFile), "TemplatePlaceholderWriter.cs");
-const projectFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
+const projectFile = path.join(openXmlBuilderRoot, "OpenXmlDeckBuilder.csproj");
 const pythonBuilderFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "python", "build_pptx.py");
 
 test("OpenXmlDeckBuilder keeps transport models outside the composition entry point", () => {
@@ -123,7 +125,8 @@ test("Docker and host modes execute the same OpenXmlDeckBuilder implementation",
   const adapter = fs.readFileSync(path.join(root, "packages", "slideclone-core", "pptx-openxml-dotnet.js"), "utf8");
   assert.equal(require("../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet"), require("../packages/slideclone-core/pptx-openxml-dotnet"));
   const dockerfile = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable"), "utf8");
-  assert.match(adapter, /path\.join\(context\.skillRoot, "dotnet", "OpenXmlDeckBuilder"\)/);
+  assert.doesNotMatch(adapter, /path\.join\(context\.skillRoot, "dotnet", "OpenXmlDeckBuilder"\)/);
+  assert.match(adapter, /resolveDefaultOpenXmlBuilderRoot/);
   assert.match(adapter, /process\.env\.OPENXML_BUILDER_EXE/);
   assert.match(dockerfile, /COPY packages\/slideclone-native-engine\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
   assert.match(dockerfile, /ENV OPENXML_BUILDER_EXE=\/opt\/openxml\/OpenXmlDeckBuilder/);

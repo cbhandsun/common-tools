@@ -7,6 +7,8 @@ const os = require("node:os");
 const {runBuilder, invokeBuilder, createMinimalDeckIr, resolveDotnet} = require("./helpers/openxml-contract-fixtures");
 const {validateDeckTemplateContext} = require("../packages/slideclone-core/deck-template-context");
 const {admitTemplateBuild} = require("../packages/slideclone-core/template-build-admission");
+const {resolveOpenXmlBuilderRoot} = require("../packages/slideclone-native-engine");
+const openXmlBuilderRoot = resolveOpenXmlBuilderRoot(path.join(__dirname, ".."));
 function absoluteDotnet() {
   const command = resolveDotnet();
   if (path.isAbsolute(command)) return command;
@@ -41,7 +43,7 @@ test("actual OpenXML template inspection agrees with successful and rejected bui
       const output = path.join(root, `result-${index}.pptx`);
       const admission = {
         executable: absoluteDotnet(),
-        builderArgs: [path.resolve(__dirname, "../skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/bin/Debug/net8.0/OpenXmlDeckBuilder.dll"), "--template-pptx", template],
+        builderArgs: [path.join(openXmlBuilderRoot, "bin", "Debug", "net8.0", "OpenXmlDeckBuilder.dll"), "--template-pptx", template],
         deckFile: irFile, cwd: root, timeoutMs: 60000, isCancellationRequested: () => false
       };
       const result = invokeBuilder(["--ir", irFile, "--out", output, "--template-pptx", template]);
