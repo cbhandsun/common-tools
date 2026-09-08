@@ -76,11 +76,11 @@ flowchart TD
 | UI 归属 | 质量报告 UI 已由 `ppt-quality-core` 导出 contribution，经 `capability-registry` 聚合，MCP 层只汇总与读取 | 合理 |
 | Skill / runtime 边界 | 生产 Worker 不再依赖 skill 脚本或旧式兼容适配器；图片 worker 编排、归档、文档归一化、质量渲染和 OCR checkpoint 已移到 `@common-tools/slideclone-worker-adapter`；图片重建经 `@common-tools/slideclone-native-engine` 这个受测 package 入口加载包内 engine 实现 | 更合理；历史大实现已收进 workspace package 边界，不再通过顶层 runtime 资产绕过包边界 |
 | 分发策略 | `plugin.json`、manifest、skills 镜像与 runtime 镜像已有校验和文档约束；历史 Skill 脚本引用已进入 decreasing-only 迁移预算 | 合理 |
-| 架构治理 | workspace layer policy 已从脚本 if 条件抽到 `config/layer-policy.json`；精确 sibling package dependency policy 已抽到 `config/workspace-package-policy.json`，边界 verifier 读取声明式策略并阻止包漂移；remote MCP 配置解析已从入口抽到独立模块 | 合理 |
+| 架构治理 | workspace layer policy 已从脚本 if 条件抽到 `config/layer-policy.json`；精确 sibling package dependency policy 已抽到 `config/workspace-package-policy.json`，边界 verifier 读取声明式策略并阻止包漂移；native engine payload 由 `config/native-engine-runtime-payload.json` 声明并通过 `scripts/native-engine-runtime-payload.js` 接入 lint 门禁；remote MCP 配置解析已从入口抽到独立模块 | 合理 |
 
 ## 仍建议保留的技术债口径
 
-1. `packages/slideclone-native-engine/scripts` 仍镜像历史原生引擎实现，但已位于 package 边界内；后续如果要继续瘦身，应按业务能力迁移到稳定包接口，而不是恢复旧式兼容适配入口。
+1. `packages/slideclone-native-engine/scripts` 仍镜像历史原生引擎实现，但已位于 package 边界内，并由 native engine payload manifest 校验入口、目录、根脚本和禁止回潮路径；后续如果要继续瘦身，应按业务能力迁移到稳定包接口，而不是恢复旧式兼容适配入口。
 2. `slideclone-core` 已从 team worker 编排中解耦，但内部仍有若干历史命名模块；后续优化应按“算法能力面”继续收敛命名与 exports，而不是把生产编排放回 core。
 3. local 与 direct remote 的 capability module 已经下放到能力包导出，registry 入口通过独立 local catalog 消费本地能力模块，remote MCP 通过 direct capability catalog 消费直连能力模块，SiYuan 这类 direct remote tool 的参数键、服务 owner、方法映射和 MCP contract 也由能力包拥有；下一步如果继续增强，可把这些 catalog 升级为生成物，进一步减少新增能力时的人工同步。
 4. `skills/pd-hifi-slideclone/scripts` 的历史引用已从 441/273 降到 418/266 并纳入预算；后续应持续按小组迁移并 ratchet，不应一次性大爆破。
