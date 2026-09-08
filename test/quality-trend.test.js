@@ -7,7 +7,7 @@ const {
   evaluateQualityTrend,
   extractQualitySnapshot,
   validateHistory
-} = require("../skills/pd-hifi-slideclone/scripts/lib/quality-trend");
+} = require("../packages/slideclone-native-engine/scripts/lib/quality-trend");
 
 function snapshot(id, values) {
   return {

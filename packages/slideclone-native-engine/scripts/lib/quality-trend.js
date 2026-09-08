@@ -267,8 +267,16 @@ function boundedRatio(value, label) {
 
 function safeId(value, label, maximum) {
   const text = String(value ?? "").trim();
-  if (!text || text.length > maximum || /[\u0000-\u001F\u007F]/u.test(text)) throw new TypeError(`${label} is invalid`);
+  if (!text || text.length > maximum || hasControlCharacter(text)) throw new TypeError(`${label} is invalid`);
   return text;
+}
+
+function hasControlCharacter(text) {
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    if (code <= 0x1F || code === 0x7F) return true;
+  }
+  return false;
 }
 
 function numberOrNull(value) { return Number.isFinite(Number(value)) ? Number(value) : null; }

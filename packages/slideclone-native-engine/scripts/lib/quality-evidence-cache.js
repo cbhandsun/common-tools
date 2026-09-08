@@ -76,7 +76,9 @@ function qualityEvidenceImplementationFiles(context = {}, entryFile = "") {
     try {
       const resolved = resolveContextPath(context, configured);
       if (resolved && fs.existsSync(resolved) && fs.statSync(resolved).isFile()) files.push(resolved);
-    } catch {}
+    } catch {
+      continue;
+    }
   }
   return [...new Set(files.map((file) => path.resolve(file)))];
 }
