@@ -99,6 +99,8 @@ test("layer policy is declarative and fails closed on malformed rules", () => {
   assert.equal(forbiddenLayer("capability-runtime", "capability-contracts", policy), false);
   assert.equal(forbiddenLayer("capability-runtime", "ppt-quality-core", policy), true);
   assert.equal(forbiddenLayer("slideclone-core", "team-runtime", policy), true);
+  assert.equal(forbiddenLayer("slideclone-core", "slideclone-native-engine", policy), true);
+  assert.equal(forbiddenLayer("slideclone-worker-adapter", "slideclone-native-engine", policy), true);
   assert.ok(policyPackageReferences(policy).includes("remote-mcp-server"));
   assert.ok(policyPackageReferences(policy).includes("slideclone-core"));
   assert.throws(() => validateLayerPolicy({ version: 1, transports: ["cli"], forbiddenSources: [], allowedDependencies: {}, forbiddenDependencies: {}, extra: true }), /layer policy/);
@@ -116,14 +118,22 @@ test("boundary gate validates strict layer policy references against workspace p
   }), /layer policy references unknown workspace package missing-core/);
 });
 
-test("boundary gate keeps slideclone core below worker orchestration and unrelated capabilities", (t) => {
+test("boundary gate keeps slideclone core below worker orchestration, native engine, and unrelated capabilities", (t) => {
   const f = workspace(t);
-  for (const target of ["team-runtime", "project-audit-core", "slideclone-worker-adapter"]) {
+  for (const target of ["team-runtime", "project-audit-core", "slideclone-native-engine", "slideclone-worker-adapter"]) {
     f.add("slideclone-core", { [`@fixture/${target}`]: "1.0.0" });
     f.add(target);
     f.write("packages/slideclone-core/deep.js", `require("../${target}");`);
     assert.throws(f.verify, new RegExp(`forbidden layer dependency slideclone-core -> ${target}`));
   }
+});
+
+test("boundary gate keeps worker adapter independent from the native engine payload", (t) => {
+  const f = workspace(t);
+  f.add("slideclone-worker-adapter", { "@fixture/slideclone-native-engine": "1.0.0" });
+  f.add("slideclone-native-engine");
+  f.write("packages/slideclone-worker-adapter/deep.js", 'require("../slideclone-native-engine");');
+  assert.throws(f.verify, /forbidden layer dependency slideclone-worker-adapter -> slideclone-native-engine/);
 });
 
 test("boundary gate detects cycles created by non-index modules", (t) => {

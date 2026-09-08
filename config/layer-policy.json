@@ -7,6 +7,7 @@
     "team-runtime": ["capability-contracts", "capability-runtime", "capability-manifests"]
   },
   "forbiddenDependencies": {
-    "slideclone-core": ["project-audit-core", "slideclone-worker-adapter", "team-runtime"]
+    "slideclone-core": ["project-audit-core", "slideclone-native-engine", "slideclone-worker-adapter", "team-runtime"],
+    "slideclone-worker-adapter": ["slideclone-native-engine"]
   }
 }
