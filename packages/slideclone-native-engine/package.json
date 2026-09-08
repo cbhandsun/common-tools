@@ -1,0 +1,10 @@
+{
+  "name": "@common-tools/slideclone-native-engine",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "type": "commonjs"
+}

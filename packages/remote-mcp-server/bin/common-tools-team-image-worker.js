@@ -10,7 +10,7 @@ const { createImageDeliveryArtifacts } = require("../../ppt-create-core/image-de
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { createPinnedRawImageOcr, readPinnedRawImageOcrProfile, verifyPinnedRawImageOcrProfile } = require("../../slideclone-core/team-ocr-profile");
 const { createRawImageNativeRebuilder } = require("../../slideclone-core/team-native-rebuild");
-const { loadLegacyDeckRebuilder } = require("../../slideclone-core/legacy-native-engine");
+const { loadNativeImageRebuilder } = require("../../slideclone-native-engine");
 const { refineRenderedTextOnce } = require("../../slideclone-core/text-refinement-coordinator");
 const { PRODUCTION_PROFILE_NAME } = require("../../slideclone-core/native-rebuild-profile");
 const { PROFILE_NAME: PADDLE_PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, readPinnedPaddleOcrProfile, verifyPinnedPaddleOcrProfile } = require("../../slideclone-core/team-paddleocr-profile");
@@ -27,7 +27,7 @@ function startupFailureCode(error) {
   return "provider-initialization";
 }
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
-function createNativeRebuilder(settings, { loadImplementation = loadLegacyDeckRebuilder, componentCatalogRoot } = {}) {
+function createNativeRebuilder(settings, { loadImplementation = loadNativeImageRebuilder, componentCatalogRoot } = {}) {
   const implementation = loadImplementation();
   if (typeof implementation?.rebuildDeckFromWorkDir !== "function") throw new Error("native image rebuild implementation is unavailable");
   const { createImageComponentResolver } = require("../image-component-analysis");

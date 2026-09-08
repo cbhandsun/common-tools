@@ -112,11 +112,11 @@ function verifyWorkspaceBoundaries(workspaceRoot = path.resolve(__dirname, "..")
           if (within(current.directory, resolved)) continue;
           target = [...packages.values()].find((candidate) => within(candidate.directory, resolved));
           if (!target) {
-            // Freeze the remaining native-engine runtime adapter, not entire
-            // entry-point directories. New composition code must use workspace
-            // packages and must not import from skill source trees directly.
+            // Only the native engine package may bridge to the bundled runtime
+            // asset. New composition code must use workspace packages and must
+            // not import from skill source trees or runtime internals directly.
             const legacyTarget = path.relative(root, resolved).replaceAll("\\", "/");
-            if (relativeFile === "packages/slideclone-core/legacy-native-engine.js"
+            if (relativeFile === "packages/slideclone-native-engine/index.js"
               && legacyTarget === "runtime/slideclone-native-engine/scripts/rebuild-real-pptx-native.js") {
               legacyEdges.push({ file: relativeFile, line, target: legacyTarget });
             } else fail("domain/runtime library imports outside workspace packages");
@@ -144,7 +144,7 @@ function verifyWorkspaceBoundaries(workspaceRoot = path.resolve(__dirname, "..")
 if (require.main === module) {
   try {
     const result = verifyWorkspaceBoundaries();
-    process.stdout.write(`verified ${result.fileCount} files in ${result.packageCount} workspace packages; ${result.legacyEdges.length} native-engine runtime adapter imports remain\n`);
+    process.stdout.write(`verified ${result.fileCount} files in ${result.packageCount} workspace packages; ${result.legacyEdges.length} native-engine runtime package imports remain\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : "workspace boundary verification failed"}\n`);
     process.exitCode = 1;

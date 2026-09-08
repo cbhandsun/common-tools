@@ -80,10 +80,10 @@ test("boundary gate detects cycles created by non-index modules", (t) => {
   assert.throws(f.verify, /dependency cycle: one -> two -> one/);
 });
 
-test("only the existing legacy native-engine adapter edge is permitted", (t) => {
-  const f = workspace(t); f.add("slideclone-core");
+test("only the native-engine package can import the bundled runtime asset", (t) => {
+  const f = workspace(t); f.add("slideclone-native-engine");
   const target = "runtime/slideclone-native-engine/scripts/rebuild-real-pptx-native.js";
-  const file = "packages/slideclone-core/legacy-native-engine.js";
+  const file = "packages/slideclone-native-engine/index.js";
   f.write(target, "module.exports = {};");
   f.write(file, `require("../../${target}");`);
   assert.deepEqual(f.verify().legacyEdges, [{ file, line: 1, target }]);
@@ -92,7 +92,7 @@ test("only the existing legacy native-engine adapter edge is permitted", (t) => 
   assert.throws(f.verify, /imports outside workspace packages/);
 });
 
-test("legacy native-engine exception cannot expand to CLI, Workers or other domain modules", (t) => {
+test("native-engine runtime import cannot expand to CLI, Workers or other domain modules", (t) => {
   const f = workspace(t);
   const target = "runtime/slideclone-native-engine/scripts/rebuild-real-pptx-native.js";
   f.write(target, "module.exports = {};");
