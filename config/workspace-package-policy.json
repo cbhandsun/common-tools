@@ -19,6 +19,8 @@
       "@common-tools/capability-manifests"
     ],
     "cli": [
+      "@common-tools/capability-manifests",
+      "@common-tools/capability-registry",
       "@common-tools/capability-runtime",
       "@common-tools/mcp-server",
       "@common-tools/ppt-create-core",

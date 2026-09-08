@@ -125,6 +125,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/cli/verification/project-audit-runtime.js",
   "packages/cli/verification/verify-plugins.js",
   "packages/cli/verification/verify-capability-contracts.js",
+  "packages/cli/verification/verify-capability-catalogs.js",
   "packages/cli/verification/release-evidence.js",
   "packages/cli/verification/verify-release-signature.js",
   "packages/cli/verification/generate-sbom.js",

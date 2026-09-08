@@ -15,7 +15,7 @@ function walk(directory) {
   }
 }
 walk(packages);
-files.push(path.join(root, "scripts", "generate-sbom.js"), path.join(root, "scripts", "release-evidence.js"), path.join(root, "scripts", "verify-capability-contracts.js"), path.join(root, "scripts", "verify-plugins.js"), path.join(root, "scripts", "verify-release-signature.js"), path.join(root, "scripts", "verify-runtime-package.js"), path.join(root, "scripts", "verify-observability-config.js"), path.join(root, "scripts", "verify-adrs.js"));
+files.push(path.join(root, "scripts", "generate-sbom.js"), path.join(root, "scripts", "release-evidence.js"), path.join(root, "scripts", "verify-capability-contracts.js"), path.join(root, "scripts", "verify-capability-catalogs.js"), path.join(root, "scripts", "verify-plugins.js"), path.join(root, "scripts", "verify-release-signature.js"), path.join(root, "scripts", "verify-runtime-package.js"), path.join(root, "scripts", "verify-observability-config.js"), path.join(root, "scripts", "verify-adrs.js"));
 for (const file of files) {
   const result = spawnSync(process.execPath, ["--check", file], { encoding: "utf8", windowsHide: true });
   if (result.status !== 0) throw new Error(result.stderr || result.stdout || `syntax check failed: ${file}`);
