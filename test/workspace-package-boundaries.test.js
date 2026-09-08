@@ -19,6 +19,7 @@ test("CLI declares every workspace package used by its composition root", () => 
     "@common-tools/remote-mcp-server",
     "@common-tools/siyuan-note-core",
     "@common-tools/slideclone-core",
+    "@common-tools/slideclone-worker-adapter",
     "@common-tools/team-runtime"
   ];
   assert.deepEqual(Object.keys(manifest.dependencies || {}).sort(), expected);
@@ -40,10 +41,11 @@ test("workspace packages declare direct sibling dependencies without a team-runt
     "ooxml-core": [],
     "ppt-create-core": ["@common-tools/archive-core", "@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core"],
     "ppt-quality-core": ["@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core"],
-    "slideclone-core": ["@common-tools/archive-core", "@common-tools/artifact-core", "@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core", "@common-tools/project-audit-core", "@common-tools/team-runtime"],
-    "mcp-server": ["@common-tools/capability-runtime", "@common-tools/ppt-create-core", "@common-tools/ppt-improve-core", "@common-tools/ppt-quality-core", "@common-tools/project-audit-core", "@common-tools/slideclone-core"],
+    "slideclone-core": ["@common-tools/archive-core", "@common-tools/artifact-core", "@common-tools/capability-contracts", "@common-tools/capability-runtime", "@common-tools/ooxml-core"],
+    "slideclone-worker-adapter": ["@common-tools/archive-core", "@common-tools/artifact-core", "@common-tools/capability-contracts", "@common-tools/slideclone-core", "@common-tools/team-runtime"],
+    "mcp-server": ["@common-tools/capability-registry", "@common-tools/capability-runtime", "@common-tools/ppt-quality-core"],
     "team-runtime": ["@common-tools/capability-contracts", "@common-tools/capability-runtime"],
-    "remote-mcp-server": ["@common-tools/capability-runtime", "@common-tools/mcp-server", "@common-tools/ppt-create-core", "@common-tools/ppt-improve-core", "@common-tools/ppt-quality-core", "@common-tools/project-audit-core", "@common-tools/slideclone-core", "@common-tools/siyuan-note-core", "@common-tools/team-runtime"]
+    "remote-mcp-server": ["@common-tools/capability-runtime", "@common-tools/mcp-server", "@common-tools/ppt-create-core", "@common-tools/ppt-improve-core", "@common-tools/ppt-quality-core", "@common-tools/project-audit-core", "@common-tools/slideclone-core", "@common-tools/slideclone-worker-adapter", "@common-tools/siyuan-note-core", "@common-tools/team-runtime"]
   };
   for (const [packageName, dependencies] of Object.entries(required)) {
     const manifest = JSON.parse(fs.readFileSync(path.join(root, "packages", packageName, "package.json"), "utf8"));
@@ -51,6 +53,10 @@ test("workspace packages declare direct sibling dependencies without a team-runt
   }
   const teamManifest = JSON.parse(fs.readFileSync(path.join(root, "packages", "team-runtime", "package.json"), "utf8"));
   assert.equal(teamManifest.dependencies?.["@common-tools/remote-mcp-server"], undefined);
+  const slidecloneManifest = JSON.parse(fs.readFileSync(path.join(root, "packages", "slideclone-core", "package.json"), "utf8"));
+  assert.equal(slidecloneManifest.dependencies?.["@common-tools/project-audit-core"], undefined);
+  assert.equal(slidecloneManifest.dependencies?.["@common-tools/slideclone-worker-adapter"], undefined);
+  assert.equal(slidecloneManifest.dependencies?.["@common-tools/team-runtime"], undefined);
   for (const legacyName of [
     "common-tools-team-migrate.js",
     "common-tools-team-object-store-restore-drill.js",
