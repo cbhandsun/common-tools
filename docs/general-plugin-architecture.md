@@ -69,7 +69,7 @@ flowchart TD
 
 | 评估项 | 当前状态 | 判断 |
 | --- | --- | --- |
-| 能力发现与门控 | 各本地 Job 能力包直接导出自己的 `CAPABILITY_MODULE`，`packages/capability-registry` 通过独立 local catalog 聚合、冻结并校验这些模块，统一暴露本地能力、工具 handler、报告 reader 与 UI contribution；registry 加载时会对齐签名 manifest 的 capability、toolNames、runtime range 和 worker profile，并要求每个非 direct manifest 都有本地 module；`siyuan-note-core` 作为 direct remote 能力导出 `REMOTE_CAPABILITY_MODULE`，remote MCP 通过 direct capability catalog 读取 direct tool 参数键、方法映射、服务 owner 与 MCP contract；MCP 层消费注册结果 | 合理 |
+| 能力发现与门控 | 各本地 Job 能力包直接导出自己的 `CAPABILITY_MODULE`，`packages/capability-manifests/capability-module-sources.json` 声明能力到拥有包的来源，local/direct catalog 由 `scripts/generate-capability-catalogs.js` 生成并在 `common-tools:verify-capabilities` 中检查；`packages/capability-registry` 聚合、冻结并校验本地模块，统一暴露本地能力、工具 handler、报告 reader 与 UI contribution；registry 加载时会对齐签名 manifest 的 capability、toolNames、runtime range 和 worker profile，并要求每个非 direct manifest 都有本地 module；`siyuan-note-core` 作为 direct remote 能力导出 `REMOTE_CAPABILITY_MODULE`，remote MCP 通过 direct capability catalog 读取 direct tool 参数键、方法映射、服务 owner 与 MCP contract；MCP 层消费注册结果 | 更合理 |
 | 能力 manifest 事实源 | `packages/capability-manifests` 现在直接导出签名 manifest 读取、版本范围、依赖图、弃用窗口和 hash 校验；`capability-runtime` 只消费已验证目录并处理状态配置 | 合理 |
 | MCP 协议边界 | local/team MCP 主要负责协议、鉴权上下文、工具列表和资源读取；team 工具定义已抽到 `team-tool-registry`；本地与团队工具合同共用 `capability-contracts` 的合同构造器；`verify-capability-catalogs` 已进入统一能力门禁，校验 local/direct catalog、签名 manifest 和 direct tool contract 一致性 | 合理 |
 | 共享基础设施 | archive、OOXML、artifact 相关通用逻辑已抽到独立 core 包；PPTX ZIP/Inventory 已迁入 `ooxml-core` 并由旧入口兼容转发 | 合理 |
@@ -82,6 +82,6 @@ flowchart TD
 
 1. `packages/slideclone-native-engine/scripts` 仍镜像历史原生引擎实现，但已位于 package 边界内，并由 native engine payload manifest 校验入口、目录、根脚本分组和禁止回潮路径。当前根脚本分为三组：`productionEntrypoints` 保持生产入口稳定，`renderingAndQualityHarness` 留作 native-engine 质量/渲染闭环，`componentAcquisitionTools` 是后续优先拆分或收敛的候选。继续瘦身时应按业务能力迁移到稳定包接口，而不是恢复旧式兼容适配入口。
 2. `slideclone-core` 已从 team worker 编排中解耦，但内部仍有若干历史命名模块；后续优化应按“算法能力面”继续收敛命名与 exports，而不是把生产编排放回 core。
-3. local 与 direct remote 的 capability module 已经下放到能力包导出，registry 入口通过独立 local catalog 消费本地能力模块，remote MCP 通过 direct capability catalog 消费直连能力模块，SiYuan 这类 direct remote tool 的参数键、服务 owner、方法映射和 MCP contract 也由能力包拥有；下一步如果继续增强，可把这些 catalog 升级为生成物，进一步减少新增能力时的人工同步。
+3. local 与 direct remote 的 capability module 已经下放到能力包导出，registry 入口通过生成式 local catalog 消费本地能力模块，remote MCP 通过生成式 direct capability catalog 消费直连能力模块，SiYuan 这类 direct remote tool 的参数键、服务 owner、方法映射和 MCP contract 也由能力包拥有；下一步如果继续增强，可把 `capability-module-sources.json` 与签名 manifest 的 owner 字段进一步合并，减少一个声明文件。
 4. `skills/pd-hifi-slideclone/scripts` 的历史引用已从 441/273 降到 418/266 并纳入预算；后续应持续按小组迁移并 ratchet，不应一次性大爆破。
 5. 当前旧 A–F 验收文档覆盖的是更大的产品交付闭环，包括远程真实任务、PDF 独立样本和 Office 质量验收；它不等同于本轮通用插件架构五项整改。

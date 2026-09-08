@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "local": [
+    {
+      "capability": "image-to-editable",
+      "packageName": "@common-tools/slideclone-core",
+      "requirePath": "../slideclone-core",
+      "exportName": "CAPABILITY_MODULE"
+    },
+    {
+      "capability": "project-audit",
+      "packageName": "@common-tools/project-audit-core",
+      "requirePath": "../project-audit-core",
+      "exportName": "CAPABILITY_MODULE"
+    },
+    {
+      "capability": "ppt-quality",
+      "packageName": "@common-tools/ppt-quality-core",
+      "requirePath": "../ppt-quality-core",
+      "exportName": "CAPABILITY_MODULE"
+    },
+    {
+      "capability": "ppt-improve",
+      "packageName": "@common-tools/ppt-improve-core",
+      "requirePath": "../ppt-improve-core",
+      "exportName": "CAPABILITY_MODULE"
+    },
+    {
+      "capability": "ppt-create",
+      "packageName": "@common-tools/ppt-create-core",
+      "requirePath": "../ppt-create-core",
+      "exportName": "CAPABILITY_MODULE"
+    }
+  ],
+  "direct": [
+    {
+      "capability": "siyuan-note",
+      "packageName": "@common-tools/siyuan-note-core",
+      "requirePath": "../siyuan-note-core",
+      "exportName": "REMOTE_CAPABILITY_MODULE"
+    }
+  ]
+}
