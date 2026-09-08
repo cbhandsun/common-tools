@@ -66,8 +66,8 @@ function parseSuite(argv = process.argv.slice(2), env = process.env) {
 
 function classifyTestFile(file) {
   const name = path.basename(file);
-  if (INTEGRATION_TESTS.has(name)) return "integration";
   if (CONTRACT_TESTS.has(name)) return "contract";
+  if (INTEGRATION_TESTS.has(name) || classifyTestResource(file) === "external-process") return "integration";
   return "unit";
 }
 

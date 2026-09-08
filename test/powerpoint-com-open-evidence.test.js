@@ -22,7 +22,7 @@ function evidence() {
 }
 
 test("open-gate evidence tests belong to the unified external-process wave", () => {
-  const entry = discoverTestFiles(path.resolve(__dirname, ".."), "unit").find(item => path.basename(item.file) === "powerpoint-com-open-evidence.test.js");
+  const entry = discoverTestFiles(path.resolve(__dirname, ".."), "integration").find(item => path.basename(item.file) === "powerpoint-com-open-evidence.test.js");
   assert.equal(entry?.resource, "external-process");
   const manifest = require("../package.json");
   const lintConfig = require("../eslint.config");

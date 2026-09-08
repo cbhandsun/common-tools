@@ -70,8 +70,8 @@ test("PaddleOCR private stream is non-inheritable and stays isolated after closi
   assert.deepEqual(run("lifecycle"), { status: 0, messages: [{ type: "lifecycle" }] });
 });
 
-test("PaddleOCR protocol regression is included in unified CI with external-process isolation", () => {
-  const discovered = discoverTestFiles(root, "unit").find(({ file }) => path.basename(file) === path.basename(__filename));
+test("PaddleOCR protocol regression is included in integration CI with external-process isolation", () => {
+  const discovered = discoverTestFiles(root, "integration").find(({ file }) => path.basename(file) === path.basename(__filename));
   assert.equal(discovered.resource, "external-process");
   assert.match(require("../package.json").scripts["test:portable"], /&& node --test test\/paddleocr-worker-protocol\.test\.js$/);
   const dockerfile = fs.readFileSync(path.join(root, "deploy/docker/Dockerfile.image-to-editable-paddleocr"), "utf8");

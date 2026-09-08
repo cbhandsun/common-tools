@@ -59,10 +59,10 @@ test("new crop and gate regressions are discovered by the unified CI suite", () 
   assert.ok(names.includes("test/graphic-crop-materializer.test.js"));
   assert.ok(names.includes("test/final-page-cache.test.js"));
   assert.ok(names.includes("test/slideclone-config-security.test.js"));
-  assert.ok(names.includes("test/common-tools-team-ocr-profile.test.js"));
   assert.ok(names.includes("test/common-tools-worker-settings.test.js"));
   assert.ok(names.includes("test/common-tools-release-evidence.test.js"));
   const integration = discoverTestFiles(root, "integration").map(({ file }) => file.replaceAll("\\", "/"));
+  assert.ok(integration.includes("test/common-tools-team-ocr-profile.test.js"));
   assert.ok(integration.includes("test/render-libreoffice.test.js"));
   assert.ok(names.includes("test/page-image-finalizer.test.js"));
   assert.ok(names.includes("test/page-graphics-stage.test.js"));
@@ -79,7 +79,7 @@ test("new crop and gate regressions are discovered by the unified CI suite", () 
   assert.ok(names.includes("test/pixel-diff-package.test.js"));
   assert.ok(integration.includes("test/libreoffice-core-package.test.js"));
   assert.ok(names.includes("test/diagram-text-candidates.test.js"));
-  assert.ok(names.includes("test/common-tools-production-preflight.test.js"));
+  assert.ok(integration.includes("test/common-tools-production-preflight.test.js"));
   assert.ok(names.includes("test/common-tools-team-runtime.test.js"));
   assert.ok(names.includes("test/team-config-boundary.test.js"));
   assert.ok(names.includes("test/job-input-boundary.test.js"));
@@ -93,7 +93,8 @@ test("new crop and gate regressions are discovered by the unified CI suite", () 
   assert.ok(names.includes("test/engineering-gate-coverage.test.js"));
   assert.ok(names.includes("test/worker-failure-boundary.test.js"));
   assert.ok(names.includes("test/workspace-boundary-verifier.test.js"));
-  for (const name of ["page-selection-boundary", "ocr-source-deck", "graphic-crop-policy", "engine-core-package"]) assert.ok(names.includes(`test/${name}.test.js`));
+  assert.ok(integration.includes("test/ocr-source-deck.test.js"));
+  for (const name of ["page-selection-boundary", "graphic-crop-policy", "engine-core-package"]) assert.ok(names.includes(`test/${name}.test.js`));
 });
 
 test("local CI entry includes static gates and the actual lint/type commands include new boundaries", () => {

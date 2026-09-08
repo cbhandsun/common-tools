@@ -53,12 +53,18 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.equal(classifyTestFile("test/quality-gate-real-pptx.test.js"), "integration");
   assert.equal(classifyTestFile("test/common-tools-project-audit.test.js"), "integration");
   assert.equal(classifyTestFile("test/common-tools-remote-plugin-bundles.test.js"), "integration");
+  assert.equal(classifyTestFile("test/common-tools-mcp.test.js"), "integration");
+  assert.equal(classifyTestFile("test/common-tools-team-ocr-profile.test.js"), "integration");
+  assert.equal(classifyTestFile("test/openxml-native-chart-smoke.test.js"), "integration");
+  assert.equal(classifyTestFile("test/openxml-dotnet-contract.test.js"), "contract");
   assert.equal(includesSuite("test/font-fit.test.js", "unit"), true);
   assert.equal(includesSuite("test/font-fit.test.js", "integration"), false);
   assert.equal(includesSuite("test/common-tools-project-audit.test.js", "unit"), false);
   assert.equal(includesSuite("test/common-tools-project-audit.test.js", "integration"), true);
   assert.equal(includesSuite("test/common-tools-remote-plugin-bundles.test.js", "unit"), false);
   assert.equal(includesSuite("test/common-tools-remote-plugin-bundles.test.js", "integration"), true);
+  assert.equal(includesSuite("test/common-tools-mcp.test.js", "unit"), false);
+  assert.equal(includesSuite("test/common-tools-mcp.test.js", "integration"), true);
   assert.equal(includesSuite("test/font-fit.test.js", "all"), true);
   assert.equal(parseSuite(["--suite", "contract"], {}), "contract");
   assert.equal(parseSuite([], { TEST_SUITE: "integration" }), "integration");
@@ -76,6 +82,16 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.equal(classifyTestResource("test/common-tools-team-ocr-profile.test.js"), "external-process");
   assert.equal(classifyTestResource("test/common-tools-mcp.test.js"), "external-process");
   assert.equal(classifyTestResource("test/common-tools-production-preflight.test.js"), "external-process");
+});
+
+test("unit suite excludes external-process tests so fast feedback stays local", () => {
+  const root = path.resolve(__dirname, "..");
+  const externalUnitTests = require("../scripts/test-sharded")
+    .discoverTestFiles(root, "unit")
+    .filter(({ resource }) => resource === "external-process")
+    .map(({ file }) => path.basename(file))
+    .sort();
+  assert.deepEqual(externalUnitTests, []);
 });
 
 test("real shards serialize files even for standard resources and propagate failures", () => {
