@@ -9,7 +9,7 @@ const {
   getRoleFitPlan,
   normalizeFontTargetRole,
   normalizeTextRole
-} = require("../skills/pd-hifi-slideclone/scripts/lib/font-fit");
+} = require("../packages/slideclone-native-engine/scripts/lib/font-fit");
 
 test("normalizeTextRole respects explicit role and useful id fallbacks", () => {
   assert.equal(normalizeTextRole({ role: "Title", id: "ignored" }), "title");

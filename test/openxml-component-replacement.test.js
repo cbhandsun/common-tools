@@ -9,7 +9,7 @@ const test = require("node:test");
 const {
   applyComponentReplacementsWithOpenXml,
   parseOpenXmlComponentReport
-} = require("../skills/pd-hifi-slideclone/scripts/lib/openxml-component-replacement");
+} = require("../packages/slideclone-native-engine/scripts/lib/openxml-component-replacement");
 
 test("portable component wrapper validates paths and emits bounded OpenXML arguments", async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-component-wrapper-"));

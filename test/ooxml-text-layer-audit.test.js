@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { auditSlideTextLayers, canonicalText, extractSlideShapeTexts } = require("../skills/pd-hifi-slideclone/scripts/lib/ooxml-text-layer-audit");
+const { auditSlideTextLayers, canonicalText, extractSlideShapeTexts } = require("../packages/slideclone-native-engine/scripts/lib/ooxml-text-layer-audit");
 
 test("OOXML text layer audit flags duplicate generated title shapes", () => {
   const title = "AI Skills 核心能力矩阵";

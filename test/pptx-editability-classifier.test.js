@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   classifyDeckFromSlides,
   classifySlideXml
-} = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-editability-classifier");
+} = require("../packages/slideclone-native-engine/scripts/lib/pptx-editability-classifier");
 
 function slideXml({ shapes = 0, pictures = 0, textRuns = 0, groups = 0 } = {}) {
   return [

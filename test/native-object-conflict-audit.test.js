@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   findDuplicateTextPairs,
   summarizeNativeObjectConflicts
-} = require("../skills/pd-hifi-slideclone/scripts/lib/native-object-conflict-audit");
+} = require("../packages/slideclone-native-engine/scripts/lib/native-object-conflict-audit");
 const {
   summarizeQualityGateStatus
 } = require("../packages/slideclone-native-engine/scripts/quality-gate-real-pptx");

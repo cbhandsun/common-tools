@@ -7,7 +7,7 @@ const {
   normalizeIslideKind,
   searchIslideContents,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/lib/islide-search");
+} = require("../packages/slideclone-native-engine/scripts/lib/islide-search");
 
 test("iSlide search normalizes anonymous diagram content results", async () => {
   const calls = [];
