@@ -3,7 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
-const { extractEntry, inspectPptx, readCentralDirectory } = require("../ppt-quality-core");
+const { extractEntry, inspectPptx, readCentralDirectory } = require("../ooxml-core");
 const { sourceRecord } = require("./assets");
 
 const MAX_TEMPLATE_BYTES = 100 * 1024 * 1024;
