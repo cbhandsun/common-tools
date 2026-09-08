@@ -65,6 +65,9 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.match(connectionSkill, /common-tools-auth-v2/);
   assert.match(connectionSkill, /最小 scope/);
   assert.match(connectionSkill, /完全退出并重新打开 Codex/);
+  assert.match(connectionSkill, /common-tools-image-to-editable/);
+  assert.match(connectionSkill, /URL 严格等于 `https:\/\/plugins\.iepose\.cn\/mcp`/);
+  assert.match(connectionSkill, /只响应用户的明确请求/);
   const auditSkill = fs.readFileSync(path.join(repositoryRoot, "plugins", "common-tools", "skills", "project-audit", "SKILL.md"), "utf8");
   assert.match(auditSkill, /Source-code privacy is the default boundary/);
   assert.match(auditSkill, /<plugin-root>\/runtime\/project-audit/);

@@ -1,6 +1,6 @@
 ---
 name: common-tools-connection
-description: 检查并恢复 Common Tools 插件升级或安装后缺失的远程 MCP 工具；仅在工具未加载、授权失效或连接异常时使用。
+description: 检查并恢复 Common Tools 插件升级或安装后缺失、重复的远程 MCP 工具；仅在工具未加载、授权失效、连接异常或用户要求清理旧条目时使用。
 ---
 
 # Common Tools 连接恢复
@@ -20,3 +20,12 @@ description: 检查并恢复 Common Tools 插件升级或安装后缺失的远�
 7. 当前任务的工具快照不会因此改变。明确要求完全退出并重新打开 Codex，然后新建任务验证所请求工具；不得在新任务实际看到工具前声称修复成功。
 
 恢复流程只允许改变 `common-tools-auth-v2` 以及经过严格同源验证的旧 `common-tools` 连接。它不运行 Docker、不修改服务端、不扩大 OAuth scope，也不触碰其他插件或 MCP 配置。
+
+当用户明确要求清理插件升级后残留的重复 Common Tools MCP 条目时：
+
+1. 由代理运行 `codex plugin list --json`，只读取插件名称、marketplace 名称和本地插件路径；不要显示完整输出或读取凭据。
+2. 只考虑精确名称 `common-tools-image-to-editable`、`common-tools-project-audit`，以及相同 `common-tools-<capability-id>` 格式且 capability-id 属于当前 Common Tools 能力清单的旧拆分插件。不得按模糊名称、描述或 marketplace 名称删除。
+3. 对每个候选项读取其本地 `.mcp.json`，仅在其中存在同名 MCP、URL 严格等于 `https://plugins.iepose.cn/mcp`、且 OAuth Client ID 严格等于 `common-tools-mcp` 时，才运行 `codex plugin remove <plugin-name>@<marketplace-name>`。路径不可用、配置无效、URL 不一致或 Client ID 不一致时保持不变并报告冲突。
+4. 清理完成后要求完全退出并重新打开 Codex；只有重启后重复条目消失，才可报告清理成功。
+
+这项清理只响应用户的明确请求，不在普通授权恢复时自动删除插件。
