@@ -72,6 +72,16 @@ test("boundary gate rejects upward domain dependencies even when explicitly decl
   assert.throws(f.verify, /forbidden layer dependency feature-core -> cli/);
 });
 
+test("boundary gate keeps slideclone core below worker orchestration and unrelated capabilities", (t) => {
+  const f = workspace(t);
+  for (const target of ["team-runtime", "project-audit-core", "slideclone-worker-adapter"]) {
+    f.add("slideclone-core", { [`@fixture/${target}`]: "1.0.0" });
+    f.add(target);
+    f.write("packages/slideclone-core/deep.js", `require("../${target}");`);
+    assert.throws(f.verify, new RegExp(`forbidden layer dependency slideclone-core -> ${target}`));
+  }
+});
+
 test("boundary gate detects cycles created by non-index modules", (t) => {
   const f = workspace(t);
   f.add("one", { "@fixture/two": "1.0.0" }); f.add("two", { "@fixture/one": "1.0.0" });

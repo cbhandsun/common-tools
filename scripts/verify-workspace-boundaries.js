@@ -59,6 +59,7 @@ function forbiddenLayer(source, target) {
   if (source === "capability-contracts" || source === "capability-manifests") return true;
   if (source === "capability-runtime") return !["capability-contracts", "capability-manifests"].includes(target);
   if (source === "team-runtime") return !["capability-contracts", "capability-runtime", "capability-manifests"].includes(target);
+  if (source === "slideclone-core" && ["project-audit-core", "slideclone-worker-adapter", "team-runtime"].includes(target)) return true;
   return !transports.has(source) && transports.has(target);
 }
 
