@@ -20,7 +20,8 @@ test("slideclone profiles resolve a versioned script and bounded arguments", () 
 test("slideclone registry centralizes package profiles and rejects direct skill-script aliases", () => {
   const registry = loadRegistry();
   assert.ok(Object.keys(registry).length >= 140);
-  assert.equal(path.basename(loadProfile("component-strategy-rebuild-assets-native-turbo").script), "component-strategy-rebuild-parallel.js");
+  assert.match(loadProfile("component-strategy-rebuild-assets-native-turbo").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/component-strategy-rebuild-parallel\.js$/);
+  assert.match(loadProfile("component-strategy-rebuild-assets-native-page-shards").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/component-strategy-rebuild-page-shards\.js$/);
   assert.match(loadProfile("quality-gate-real-pptx").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/quality-gate-real-pptx\.js$/);
   assert.match(loadProfile("watch-plugin-component-downloads").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/watch-plugin-component-downloads\.js$/);
   assert.match(loadProfile("smoke-flow-e2e").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/flow-e2e-smoke\.js$/);
@@ -33,7 +34,7 @@ test("slideclone registry centralizes package profiles and rejects direct skill-
   assert.match(loadProfile("rebuild-real-pptx-native-parallel").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/rebuild-real-pptx-native-parallel\.js$/);
   const result = verifySlidecloneProfiles();
   assert.ok(result.profileCount >= 140);
-  assert.ok(result.nativeProfileCount >= 44);
+  assert.ok(result.nativeProfileCount >= 65);
   assert.ok(result.aliasCount >= 140);
 });
 

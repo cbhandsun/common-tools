@@ -540,7 +540,7 @@
     },
     "component-strategy-rebuild-assets-cached": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-cached.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -568,7 +568,7 @@
     },
     "component-strategy-rebuild-assets-fast": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-fast.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -595,7 +595,7 @@
     },
     "component-strategy-rebuild-assets-ir-fast": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-fast.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -621,7 +621,7 @@
     },
     "component-strategy-rebuild-assets-ir-one-deck-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-one-deck-turbo.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -651,7 +651,7 @@
     },
     "component-strategy-rebuild-assets-ir-page": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-page.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -679,7 +679,7 @@
     },
     "component-strategy-rebuild-assets-ir-page-shards": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-page-shards.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -709,7 +709,7 @@
     },
     "component-strategy-rebuild-assets-ir-page-shards-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-page-shards-turbo.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -739,7 +739,7 @@
     },
     "component-strategy-rebuild-assets-ir-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-turbo.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -767,7 +767,7 @@
     },
     "component-strategy-rebuild-assets-native-one-deck-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-one-deck-turbo.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -798,7 +798,7 @@
     },
     "component-strategy-rebuild-assets-native-page": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-page.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -827,7 +827,7 @@
     },
     "component-strategy-rebuild-assets-native-page-shards": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-page-shards.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -858,7 +858,7 @@
     },
     "component-strategy-rebuild-assets-native-page-shards-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-page-shards-turbo.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -889,7 +889,7 @@
     },
     "component-strategy-rebuild-assets-native-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-turbo.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -920,7 +920,7 @@
     },
     "component-strategy-rebuild-assets-native-turbo-repaired": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-turbo-repaired.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -972,7 +972,7 @@
     },
     "component-strategy-rebuild-assets-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-turbo.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1001,7 +1001,7 @@
     },
     "component-strategy-rebuild-cached": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-cached.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1018,7 +1018,7 @@
     },
     "component-strategy-rebuild-fast": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-fast.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1034,7 +1034,7 @@
     },
     "component-strategy-rebuild-ir-cached": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-ir-cached.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1050,7 +1050,7 @@
     },
     "component-strategy-rebuild-ir-fast": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-ir-fast.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1065,7 +1065,7 @@
     },
     "component-strategy-rebuild-parallel": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-parallel.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1085,7 +1085,7 @@
     },
     "component-strategy-rebuild-quality-smoke": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-quality-smoke.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",

@@ -22,6 +22,8 @@
     "chart-native-render-golden-smoke.js",
     "component-plugin-action-queue.js",
     "component-strategy-rebuild.js",
+    "component-strategy-rebuild-page-shards.js",
+    "component-strategy-rebuild-parallel.js",
     "complex-graphic-golden-smoke.js",
     "flow-e2e-matrix.js",
     "flow-e2e-smoke.js",
@@ -69,6 +71,8 @@
       "component-candidate-search.js",
       "component-plugin-action-queue.js",
       "component-strategy-rebuild.js",
+      "component-strategy-rebuild-page-shards.js",
+      "component-strategy-rebuild-parallel.js",
       "harvest-active-powerpoint-component.js",
       "harvest-applied-ppt-components.js",
       "watch-plugin-component-downloads.js"

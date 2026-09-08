@@ -110,14 +110,14 @@ const {
   shouldBatchPptxAfterWorkers,
   toComponentStrategyArgs,
   writeHeartbeat
-} = require("../skills/pd-hifi-slideclone/scripts/component-strategy-rebuild-parallel");
+} = require("../packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel");
 const {
   chunk: chunkPageShards,
   mergeShardDecks,
   pageRangeName,
   selectedPageNumbers,
   workerArgv: pageShardWorkerArgv
-} = require("../skills/pd-hifi-slideclone/scripts/component-strategy-rebuild-page-shards");
+} = require("../packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards");
 
 test("component strategy rebuild injects gated plugin action candidates back into report layers", () => {
   const report = {

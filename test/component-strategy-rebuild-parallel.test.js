@@ -12,8 +12,8 @@ test("component strategy parallel help is side-effect free", () => {
   const script = path.join(
     __dirname,
     "..",
-    "skills",
-    "pd-hifi-slideclone",
+    "packages",
+    "slideclone-native-engine",
     "scripts",
     "component-strategy-rebuild-parallel.js"
   );

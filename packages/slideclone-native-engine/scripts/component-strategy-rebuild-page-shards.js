@@ -328,7 +328,8 @@ function isTruthy(value) {
 }
 
 function safeFileStem(value) {
-  return String(value || "deck").replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 160) || "deck";
+  const unsafeFileNamePattern = new RegExp(`[<>:"/\\\\|?*${String.fromCharCode(0)}-${String.fromCharCode(31)}]`, "g");
+  return String(value || "deck").replace(unsafeFileNamePattern, "_").slice(0, 160) || "deck";
 }
 
 function readJson(file) {
