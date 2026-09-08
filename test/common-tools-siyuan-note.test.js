@@ -2,11 +2,13 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const { CAPABILITY_MANIFESTS } = require("../packages/capability-manifests");
 const {
-  MAX_MARKDOWN_BYTES, SiyuanApiError, createSiyuanClient, createSiyuanNoteService,
+  CAPABILITY, MAX_MARKDOWN_BYTES, REGISTRATION, REMOTE_CAPABILITY_MODULE, SIYUAN_TOOL_METHODS, SiyuanApiError, createSiyuanClient, createSiyuanNoteService,
   idempotencyStorageKey, normalizeSiyuanBaseUrl, searchStatement
 } = require("../packages/siyuan-note-core");
 const { callTeamTool, toolsFor } = require("../packages/remote-mcp-server/team-mcp");
+const { assertDirectSiyuanModuleContracts } = require("../packages/remote-mcp-server/team-tool-registry");
 const { createRedisIdempotencyStore } = require("../packages/remote-mcp-server/team-providers");
 
 const NOTEBOOK_ID = "20260829123456-abc1234";
@@ -16,6 +18,19 @@ const BLOCK_ID = "20260829123458-ghi9012";
 function principal(capabilities) {
   return { subject: "user-1", capabilities: new Set(capabilities), projects: new Map() };
 }
+
+test("SiYuan remote capability module matches its signed manifest and team registry contracts", () => {
+  const manifest = CAPABILITY_MANIFESTS.get("siyuan-note");
+  assert.ok(manifest);
+  assert.equal(CAPABILITY, "siyuan-note");
+  assert.equal(REMOTE_CAPABILITY_MODULE.registration, REGISTRATION);
+  assert.equal(REMOTE_CAPABILITY_MODULE.teamMode, "direct");
+  assert.deepEqual([...REGISTRATION.toolNames].sort(), [...manifest.toolNames].sort());
+  assert.equal(REGISTRATION.minimumRuntimeVersion, manifest.minimumRuntimeVersion);
+  assert.equal(REGISTRATION.requiredWorkerProfile, manifest.requiredWorkerProfile);
+  assert.deepEqual(Object.keys(SIYUAN_TOOL_METHODS).sort(), [...manifest.toolNames].sort());
+  assert.equal(assertDirectSiyuanModuleContracts(), true);
+});
 
 test("SiYuan URL validation blocks credentials, paths, and unapproved plaintext hosts", () => {
   assert.equal(normalizeSiyuanBaseUrl("http://host.docker.internal:6806"), "http://host.docker.internal:6806");
