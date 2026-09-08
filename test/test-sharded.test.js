@@ -87,6 +87,7 @@ test("suite inventory summarizes scheduled waves without listing files by defaul
 });
 
 test("parseShardCount validates command and environment boundaries", () => {
+  assert.equal(parseShardCount([], {}), 4);
   assert.equal(parseShardCount(["--shards", "4"], {}), 4);
   assert.equal(parseShardCount(["--shards", "4", "--shards", "2"], {}), 2);
   assert.equal(parseShardCount([], { TEST_SHARDS: "3" }), 3);

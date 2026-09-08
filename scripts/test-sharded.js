@@ -7,7 +7,7 @@ const { classifyTestResource, includesSuite, parseSuite, validateTestSuiteManife
 
 function parseShardCount(argv = process.argv.slice(2), env = process.env) {
   const index = argv.lastIndexOf("--shards");
-  const raw = index >= 0 ? argv[index + 1] : env.TEST_SHARDS || "2";
+  const raw = index >= 0 ? argv[index + 1] : env.TEST_SHARDS || "4";
   const count = Number(raw);
   if (!Number.isInteger(count) || count < 1 || count > 8) {
     throw new Error(`--shards must be an integer from 1 to 8; received ${JSON.stringify(raw)}`);
