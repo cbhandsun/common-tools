@@ -24,6 +24,10 @@ function verifySlidecloneProfiles(packageFile = path.join(root, "package.json"))
       errors.push(`${name} bypasses the versioned profile registry`);
       continue;
     }
+    if (command.startsWith("node packages/slideclone-native-engine/scripts/")) {
+      errors.push(`${name} bypasses the versioned profile registry`);
+      continue;
+    }
     const match = /^node scripts\/slideclone-profile\.js ([a-z0-9][a-z0-9-]{0,63})$/u.exec(command);
     if (!match) continue;
     try {
@@ -34,13 +38,14 @@ function verifySlidecloneProfiles(packageFile = path.join(root, "package.json"))
     }
   }
   if (errors.length > 0) throw new Error(`slideclone profile verification failed:\n- ${errors.join("\n- ")}`);
-  return Object.freeze({ profileCount: Object.keys(registry).length, aliasCount: aliases.length });
+  const nativeProfileCount = Object.values(registry).filter((profile) => profile.script.startsWith("packages/slideclone-native-engine/scripts/")).length;
+  return Object.freeze({ profileCount: Object.keys(registry).length, aliasCount: aliases.length, nativeProfileCount });
 }
 
 if (require.main === module) {
   try {
     const result = verifySlidecloneProfiles();
-    process.stdout.write(`verified ${result.profileCount} slideclone profiles and ${result.aliasCount} package aliases\n`);
+    process.stdout.write(`verified ${result.profileCount} slideclone profiles, ${result.nativeProfileCount} native-engine profiles, and ${result.aliasCount} package aliases\n`);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

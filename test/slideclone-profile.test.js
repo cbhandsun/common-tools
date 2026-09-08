@@ -9,18 +9,23 @@ const { verifySlidecloneProfiles } = require("../scripts/verify-slideclone-profi
 test("slideclone profiles resolve a versioned script and bounded arguments", () => {
   const profile = loadProfile("real-pptx-native");
   assert.equal(path.basename(profile.script), "rebuild-real-pptx-native.js");
+  assert.match(profile.script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/rebuild-real-pptx-native\.js$/);
   assert.deepEqual(profile.args.slice(0, 2), ["--work-root", "ppt文档/可编辑版本"]);
   const invocation = buildInvocation("real-pptx-native", ["--help"]);
   assert.equal(invocation.command, process.execPath);
   assert.equal(invocation.args.at(-1), "--help");
+  assert.match(invocation.args[0].replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/rebuild-real-pptx-native\.js$/);
 });
 
 test("slideclone registry centralizes package profiles and rejects direct skill-script aliases", () => {
   const registry = loadRegistry();
   assert.ok(Object.keys(registry).length >= 140);
   assert.equal(path.basename(loadProfile("component-strategy-rebuild-assets-native-turbo").script), "component-strategy-rebuild-parallel.js");
+  assert.match(loadProfile("quality-gate-real-pptx").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/quality-gate-real-pptx\.js$/);
+  assert.match(loadProfile("watch-plugin-component-downloads").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/watch-plugin-component-downloads\.js$/);
   const result = verifySlidecloneProfiles();
   assert.ok(result.profileCount >= 140);
+  assert.ok(result.nativeProfileCount >= 25);
   assert.ok(result.aliasCount >= 140);
 });
 
