@@ -80,7 +80,7 @@ flowchart TD
 
 ## 仍建议保留的技术债口径
 
-1. `packages/slideclone-native-engine/scripts` 仍镜像历史原生引擎实现，但已位于 package 边界内，并由 native engine payload manifest 校验入口、目录、根脚本和禁止回潮路径；后续如果要继续瘦身，应按业务能力迁移到稳定包接口，而不是恢复旧式兼容适配入口。
+1. `packages/slideclone-native-engine/scripts` 仍镜像历史原生引擎实现，但已位于 package 边界内，并由 native engine payload manifest 校验入口、目录、根脚本分组和禁止回潮路径。当前根脚本分为三组：`productionEntrypoints` 保持生产入口稳定，`renderingAndQualityHarness` 留作 native-engine 质量/渲染闭环，`componentAcquisitionTools` 是后续优先拆分或收敛的候选。继续瘦身时应按业务能力迁移到稳定包接口，而不是恢复旧式兼容适配入口。
 2. `slideclone-core` 已从 team worker 编排中解耦，但内部仍有若干历史命名模块；后续优化应按“算法能力面”继续收敛命名与 exports，而不是把生产编排放回 core。
 3. local 与 direct remote 的 capability module 已经下放到能力包导出，registry 入口通过独立 local catalog 消费本地能力模块，remote MCP 通过 direct capability catalog 消费直连能力模块，SiYuan 这类 direct remote tool 的参数键、服务 owner、方法映射和 MCP contract 也由能力包拥有；下一步如果继续增强，可把这些 catalog 升级为生成物，进一步减少新增能力时的人工同步。
 4. `skills/pd-hifi-slideclone/scripts` 的历史引用已从 441/273 降到 418/266 并纳入预算；后续应持续按小组迁移并 ratchet，不应一次性大爆破。
