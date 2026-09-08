@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { editableRoundTripScript, normalizeCases } = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip");
+const { editableRoundTripScript, normalizeCases } = require("../packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-editable-roundtrip");
 
 test("editable round-trip gate validates bounded PPTX cases", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ppt-edit-roundtrip-"));

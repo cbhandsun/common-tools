@@ -17,7 +17,7 @@ test("production entries and the extracted crop stage receive executable lint ru
     "packages/mcp-server/bin/common-tools-mcp.js",
     "skills/pd-hifi-slideclone/scripts/lib/graphic-crop-materializer.js",
     "skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js",
-    "skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice.js",
+    "packages/slideclone-native-engine/scripts/adapters/render-libreoffice.js",
     "packages/slideclone-core/render-libreoffice.js",
     "packages/slideclone-core/pptx-openxml-dotnet.js",
     "packages/slideclone-core/openxml-build-jobs.js",
@@ -108,7 +108,7 @@ test("local CI entry includes static gates and the actual lint/type commands inc
     assert.ok(scripts["verify:ci"].split(" && ").includes(`npm run ${command}`), command);
   }
   assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/graphic-crop-materializer.js"));
-  assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice.js"));
+  assert.ok(scripts.lint.includes("packages/slideclone-native-engine/scripts/adapters/render-libreoffice.js"));
   assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata.js"));
   assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js"));
   assert.ok(scripts.lint.includes("eslint --cache --cache-location .cache/eslint/"));

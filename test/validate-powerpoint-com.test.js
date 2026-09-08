@@ -13,9 +13,9 @@ const {
   powerPointOpenValidationScript,
   resolveAsciiTempRoot,
   validatePowerPointOpen
-} = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com");
-const { STAGES } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence");
-const { URL_KEY, TOKEN_KEY } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client");
+} = require("../packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-com");
+const { STAGES } = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-open-evidence");
+const { URL_KEY, TOKEN_KEY } = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-session-client");
 
 test("PowerPoint open gate validates PPTX files at its boundary", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "powerpoint-open-gate-"));

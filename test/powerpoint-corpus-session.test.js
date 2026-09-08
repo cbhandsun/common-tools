@@ -12,14 +12,14 @@ const {
   authorizePowerPointSession,
   cleanPowerPointSessionEnvironment,
   takePowerPointSessionEnvironment
-} = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client");
-const { keeperCleanupError, keeperScript, startPowerPointSessionBroker } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker");
+} = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-session-client");
+const { keeperCleanupError, keeperScript, startPowerPointSessionBroker } = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-session-broker");
 const {
   eligibleForPowerPointSession,
   powerPointSessionEnabled,
   runPowerPointCorpusSession,
   safeCleanupDiagnostic
-} = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session");
+} = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-corpus-session");
 
 const root = path.resolve(__dirname, "..");
 const token = "z".repeat(43);

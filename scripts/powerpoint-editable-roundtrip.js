@@ -2,7 +2,7 @@
 "use strict";
 
 const path = require("node:path");
-const { validatePowerPointEditableRoundTrip } = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip");
+const { validatePowerPointEditableRoundTrip } = require("../packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-editable-roundtrip");
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));

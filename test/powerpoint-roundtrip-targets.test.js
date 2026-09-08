@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
-const { editableRoundTripScript } = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip");
+const { editableRoundTripScript } = require("../packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-editable-roundtrip");
 const { discoverTestFiles } = require("../scripts/test-sharded");
 
 test("PowerPoint target regression runs in the integration suite as an external-process test", () => {

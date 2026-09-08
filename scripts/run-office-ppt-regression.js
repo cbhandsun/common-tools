@@ -4,7 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const { resolveLibreOffice, resolvePdfToPpm } = require("../skills/pd-hifi-slideclone/scripts/libreoffice-benchmark");
+const { resolveLibreOffice, resolvePdfToPpm } = require("../packages/slideclone-native-engine/scripts/libreoffice-benchmark");
 const { collectOfficeRegressionEvidence } = require("./lib/office-regression-evidence");
 const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 

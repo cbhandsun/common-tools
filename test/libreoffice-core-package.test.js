@@ -57,9 +57,9 @@ test("renderer termination uses taskkill to stop the complete Windows process tr
 });
 
 test("legacy rendering and benchmark entry points share the core implementation", () => {
-  assert.equal(require("../skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice"), require("../packages/slideclone-core/render-libreoffice"));
+  assert.equal(require("../packages/slideclone-native-engine/scripts/adapters/render-libreoffice"), require("../packages/slideclone-core/render-libreoffice"));
   assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/exec"), require("../packages/slideclone-core/renderer-process"));
-  const benchmark = require("../skills/pd-hifi-slideclone/scripts/libreoffice-benchmark");
+  const benchmark = require("../packages/slideclone-native-engine/scripts/libreoffice-benchmark");
   const tools = require("../packages/slideclone-core/libreoffice-tools");
   for (const name of ["fileUrl", "resolveLibreOffice", "resolvePdfToPpm"]) assert.equal(benchmark[name], tools[name]);
   assert.equal(require("../scripts/verify-workspace-boundaries").verifyWorkspaceBoundaries().legacyEdges.some((edge) => edge.target.endsWith("/render-libreoffice.js")), false);

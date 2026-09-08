@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const renderLibreOffice = require("../skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice");
+const renderLibreOffice = require("../packages/slideclone-native-engine/scripts/adapters/render-libreoffice");
 
 test("render LibreOffice recognizes retryable transient PDF read errors", () => {
   const { isRetryablePdfReadError } = renderLibreOffice._private;

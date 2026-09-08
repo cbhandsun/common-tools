@@ -6,7 +6,7 @@ const {
   createProgressLineForwarder,
   createProgressReporter,
   sanitizeEvent
-} = require("../skills/pd-hifi-slideclone/scripts/lib/progress-reporter");
+} = require("../packages/slideclone-native-engine/scripts/lib/progress-reporter");
 
 test("progress reporter emits safe structured events without paths or secrets", () => {
   let output = "";
