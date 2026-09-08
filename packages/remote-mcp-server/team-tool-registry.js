@@ -1,8 +1,8 @@
 "use strict";
 
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
-const { REMOTE_CAPABILITY_MODULE: SIYUAN_REMOTE_CAPABILITY_MODULE } = require("../siyuan-note-core");
 const { normalizeTeamJobOptions } = require("../team-runtime");
+const { directCapabilityModules, directToolArguments } = require("./direct-capability-catalog");
 const { TEAM_TOOLS, validateTeamToolOutput } = require("./team-tool-contracts");
 
 const CAPABILITY_SCOPES = Object.freeze(Object.fromEntries(Object.entries(TEAM_CAPABILITY_DEFINITIONS).map(([capability, definition]) => [capability, definition.oauthScope])));
@@ -33,11 +33,10 @@ const TEAM_TOOL_ARGUMENTS = Object.freeze({
   get_team_job: Object.freeze(["id"]),
   cancel_team_job: Object.freeze(["id"]),
   get_team_artifact_target: Object.freeze(["id", "name"]),
-  ...SIYUAN_REMOTE_CAPABILITY_MODULE.directToolArguments
+  ...directToolArguments()
 });
 
-const SIYUAN_CAPABILITY = SIYUAN_REMOTE_CAPABILITY_MODULE.registration.capability;
-const SIYUAN_METHODS = SIYUAN_REMOTE_CAPABILITY_MODULE.directToolMethods;
+const DIRECT_CAPABILITY_MODULES = directCapabilityModules();
 
 function assertObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError("tool arguments must be an object");
@@ -73,15 +72,16 @@ function teamArgs(rawArgs, allowed, required, requireProjectRbac) {
   return requireProjectRbac ? assertKeys(rawArgs, [...allowed, "projectId"], [...required, "projectId"]) : assertKeys(rawArgs, allowed, required);
 }
 
-function directSiyuanOperation(name, method) {
-  return async function callDirectSiyuanTool(rawArgs, context, enabledCapabilities) {
-    authorizedCapability(context.principal, SIYUAN_CAPABILITY, enabledCapabilities);
-    if (!context.services.siyuan || typeof context.services.siyuan.forOwner !== "function") throw new Error("SiYuan service is unavailable");
-    const siyuan = context.services.siyuan.forOwner(context.principal.subject);
+function directCapabilityOperation(capability, serviceName, name, method) {
+  return async function callDirectCapabilityTool(rawArgs, context, enabledCapabilities) {
+    authorizedCapability(context.principal, capability, enabledCapabilities);
+    const provider = context.services[serviceName];
+    if (!provider || typeof provider.forOwner !== "function") throw new Error("direct capability service is unavailable");
+    const service = provider.forOwner(context.principal.subject);
     const tool = TEAM_TOOLS.find((candidate) => candidate.name === name);
     const args = assertKeys(rawArgs, teamToolArgumentKeys(name), tool?.required || []);
-    if (typeof siyuan[method] !== "function") throw new Error("SiYuan service is unavailable");
-    return validateTeamToolOutput(name, await siyuan[method](args));
+    if (typeof service[method] !== "function") throw new Error("direct capability service is unavailable");
+    return validateTeamToolOutput(name, await service[method](args));
   };
 }
 
@@ -115,17 +115,19 @@ const TEAM_TOOL_OPERATIONS = Object.freeze({
     if (context.requireProjectRbac !== true) return validateTeamToolOutput("get_team_artifact_target", await context.services.getArtifactTarget({ id: args.id, name: args.name, ownerId: context.principal.subject }));
     return validateTeamToolOutput("get_team_artifact_target", await context.services.getProjectArtifactTarget({ id: args.id, name: args.name, projectId: projectAccess(context.principal, args.projectId, ["viewer", "editor", "admin"]) }));
   },
-  ...Object.fromEntries(Object.entries(SIYUAN_METHODS).map(([name, method]) => [name, directSiyuanOperation(name, method)]))
+  ...Object.fromEntries(DIRECT_CAPABILITY_MODULES.flatMap((module) => Object.entries(module.directToolMethods || {}).map(([name, method]) => [name, directCapabilityOperation(module.registration.capability, module.serviceName, name, method)])))
 });
 
-function assertDirectSiyuanModuleContracts() {
-  if (SIYUAN_REMOTE_CAPABILITY_MODULE.teamMode !== "direct") throw new Error("SiYuan capability module must be direct");
-  for (const name of SIYUAN_REMOTE_CAPABILITY_MODULE.registration.toolNames) {
-    if (!Object.prototype.hasOwnProperty.call(SIYUAN_METHODS, name) || !Object.prototype.hasOwnProperty.call(SIYUAN_REMOTE_CAPABILITY_MODULE.directToolArguments, name) || !TEAM_TOOLS.some((tool) => tool.name === name && tool.capability === SIYUAN_CAPABILITY)) throw new Error("SiYuan capability module contract is incomplete");
+function assertDirectCapabilityModuleContracts() {
+  for (const module of DIRECT_CAPABILITY_MODULES) {
+    if (module.teamMode !== "direct" || typeof module.serviceName !== "string") throw new Error("direct capability module must declare direct service ownership");
+    for (const name of module.registration.toolNames) {
+      if (!Object.prototype.hasOwnProperty.call(module.directToolMethods, name) || !Object.prototype.hasOwnProperty.call(module.directToolArguments, name) || !TEAM_TOOLS.some((tool) => tool.name === name && tool.capability === module.registration.capability)) throw new Error("direct capability module contract is incomplete");
+    }
   }
   return true;
 }
-assertDirectSiyuanModuleContracts();
+assertDirectCapabilityModuleContracts();
 
 function teamToolArgumentKeys(name) {
   const keys = TEAM_TOOL_ARGUMENTS[name];
@@ -148,4 +150,13 @@ async function callTeamTool(name, rawArgs, context) {
   return operation(rawArgs, { ...context, now: context.now || (() => Date.now()) }, enabledCapabilities);
 }
 
-module.exports = { CAPABILITY_SCOPES, JOB_CAPABILITIES, TEAM_TOOL_ARGUMENTS, assertDirectSiyuanModuleContracts, callTeamTool, configuredCapabilities, teamToolProperties };
+module.exports = {
+  CAPABILITY_SCOPES,
+  JOB_CAPABILITIES,
+  TEAM_TOOL_ARGUMENTS,
+  assertDirectCapabilityModuleContracts,
+  assertDirectSiyuanModuleContracts: assertDirectCapabilityModuleContracts,
+  callTeamTool,
+  configuredCapabilities,
+  teamToolProperties
+};

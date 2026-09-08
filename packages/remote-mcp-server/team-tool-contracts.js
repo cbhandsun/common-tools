@@ -9,7 +9,7 @@ const {
   mcpToolAnnotations
 } = require("../capability-contracts");
 const { compileSchema } = require("../mcp-server/schema-validator");
-const { SIYUAN_DIRECT_TEAM_TOOLS } = require("../siyuan-note-core");
+const { directToolContracts } = require("./direct-capability-catalog");
 
 const NON_EMPTY_STRING = MCP_NON_EMPTY_STRING;
 const JOB_SCHEMA = MCP_JOB_SCHEMA;
@@ -45,7 +45,7 @@ const TEAM_TOOLS = Object.freeze([
   teamTool(null, "get_team_job", "Read a team job owned by the current principal.", ["id"], JOB_SCHEMA, annotations(true, false, true)),
   teamTool(null, "cancel_team_job", "Request cancellation of a team job owned by the current principal.", ["id"], JOB_SCHEMA, annotations(false, true, true)),
   teamTool(null, "get_team_artifact_target", "Create a short-lived download target for a completed team artifact.", ["id", "name"], Object.freeze({ type: "object", required: ["downloadUrl"], properties: { objectKey: NON_EMPTY_STRING, downloadUrl: NON_EMPTY_STRING, expiresAt: NON_EMPTY_STRING }, additionalProperties: false }), annotations(false, false, false)),
-  ...SIYUAN_DIRECT_TEAM_TOOLS
+  ...directToolContracts()
 ]);
 
 /** @type {Map<string, (value: unknown) => boolean>} */

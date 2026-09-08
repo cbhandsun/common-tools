@@ -87,6 +87,7 @@ const SIYUAN_DIRECT_TEAM_TOOLS = Object.freeze([
 ]);
 const REMOTE_CAPABILITY_MODULE = Object.freeze({
   registration: REGISTRATION,
+  serviceName: "siyuan",
   teamMode: "direct",
   directToolArguments: SIYUAN_TOOL_ARGUMENTS,
   directToolContracts: SIYUAN_DIRECT_TEAM_TOOLS,
