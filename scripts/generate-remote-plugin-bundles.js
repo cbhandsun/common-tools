@@ -595,7 +595,8 @@ function writePluginPackage(host, origin, hostRoot, details) {
     : "All selected capabilities require remote execution through the MCP service.";
   fs.writeFileSync(path.join(pluginRoot, "README.md"), `# ${name}\n\nEnabled capabilities: ${capabilities.join(", ")}. ${localRuntimeNote}\n\nRun the host-level \`install.ps1\` to select capabilities and an execution mode. When remote work is selected, it connects to \`${origin}/mcp\` and opens OAuth sign-in. See [中文使用说明](./docs/zh-CN/README.md) for capability navigation, execution boundaries and natural-language examples. The service address, database, workers and object storage remain on the server.\n`, "utf8");
 }
-function writePlugin(host, origin, output, capabilities, layout) {
+function writePlugin(host, origin, output, capabilities, layout, dependencies = {}) {
+  const localRuntimePayloadWriter = dependencies.localRuntimePayloadWriter || writeLocalRuntimePayload;
   const hostRoot = path.join(output, host);
   const marketplaceDirectory = host === "codex" ? path.join(hostRoot, ".agents", "plugins") : path.join(hostRoot, ".claude-plugin");
   fs.mkdirSync(marketplaceDirectory, { recursive: true });
@@ -607,19 +608,20 @@ function writePlugin(host, origin, output, capabilities, layout) {
   fs.writeFileSync(path.join(hostRoot, "INSTALL.md"), installGuide(host, origin, capabilities, layout), "utf8");
   fs.writeFileSync(path.join(hostRoot, "install.ps1"), installationScript(host, origin, capabilities, layout), "utf8");
   fs.writeFileSync(path.join(hostRoot, "verify-connection.ps1"), connectionVerificationScript(origin, capabilities), "utf8");
-  if (capabilities.some((capability) => LOCAL_RUNTIME_CAPABILITIES.includes(capability))) writeLocalRuntimePayload(hostRoot);
+  if (capabilities.some((capability) => LOCAL_RUNTIME_CAPABILITIES.includes(capability))) localRuntimePayloadWriter(hostRoot);
   for (const details of plugins) writePluginPackage(host, origin, hostRoot, details);
 }
 function generateRemotePluginBundles(options) {
   const capabilities = options?.capabilities === undefined ? CAPABILITIES : options.capabilities;
   const layout = options?.layout === undefined ? "bundle" : options.layout;
-  if (!options || typeof options !== "object" || !Array.isArray(options.hosts) || options.hosts.some((host) => !["codex", "claude"].includes(host)) || !Array.isArray(capabilities) || !capabilities.length || capabilities.some((capability) => !CAPABILITIES.includes(capability)) || new Set(capabilities).size !== capabilities.length || !["bundle", "split"].includes(layout)) throw new TypeError("plugin bundle options are invalid");
+  const localRuntimePayloadWriter = options?.localRuntimePayloadWriter || writeLocalRuntimePayload;
+  if (!options || typeof options !== "object" || !Array.isArray(options.hosts) || options.hosts.some((host) => !["codex", "claude"].includes(host)) || !Array.isArray(capabilities) || !capabilities.length || capabilities.some((capability) => !CAPABILITIES.includes(capability)) || new Set(capabilities).size !== capabilities.length || !["bundle", "split"].includes(layout) || typeof localRuntimePayloadWriter !== "function") throw new TypeError("plugin bundle options are invalid");
   const origin = parseOrigin(options.origin);
   const output = path.resolve(options.output);
   assertEmptyNewDirectory(output);
   fs.mkdirSync(output, { recursive: true });
   try {
-    for (const host of options.hosts) writePlugin(host, origin, output, capabilities, layout);
+    for (const host of options.hosts) writePlugin(host, origin, output, capabilities, layout, { localRuntimePayloadWriter });
   } catch (error) {
     fs.rmSync(output, { recursive: true, force: true });
     throw error;

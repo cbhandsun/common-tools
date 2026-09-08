@@ -10,6 +10,13 @@ const { CODEX_MCP_SERVER_NAME, LEGACY_CODEX_MCP_SERVER_NAMES, REMOTE_CAPABILITY_
 const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const { createFakeLibreOffice, resolveFrameworkCompiler } = require("./helpers/fake-libreoffice");
 
+function writeFixtureLocalRuntimePayload(hostRoot) {
+  const payloadRoot = path.join(hostRoot, "local-runtime");
+  fs.mkdirSync(payloadRoot, { recursive: true });
+  fs.writeFileSync(path.join(payloadRoot, "payload-manifest.json"), `${JSON.stringify({ schemaVersion: 1, runtimeVersion: "fixture", files: [] }, null, 2)}\n`, "utf8");
+  fs.writeFileSync(path.join(payloadRoot, "install-local-runtime.ps1"), "# fixture local runtime installer\n", "utf8");
+}
+
 test("fake LibreOffice compiler resolves only installed Framework executables", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "fake-lo-compiler-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -143,7 +150,7 @@ test("remote plugin bundles can include only deployed capabilities", () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-plugin-bundles-"));
   const output = path.join(parent, "bundle");
   try {
-    const result = generateRemotePluginBundles({ origin: "https://tunnel.example.test", output, hosts: ["codex"], capabilities: ["ppt-quality", "project-audit"] });
+    const result = generateRemotePluginBundles({ origin: "https://tunnel.example.test", output, hosts: ["codex"], capabilities: ["ppt-quality", "project-audit"], localRuntimePayloadWriter: writeFixtureLocalRuntimePayload });
     assert.deepEqual(result.capabilities, ["ppt-quality", "project-audit"]);
     const skills = fs.readdirSync(path.join(output, "codex", "plugins", "common-tools-remote", "skills")).sort();
      assert.deepEqual(skills, ["common-tools", "common-tools-help", "ppt-quality", "project-audit"]);
@@ -158,7 +165,7 @@ test("split remote plugin bundles expose one independently installable plugin pe
   const output = path.join(parent, "split");
   const capabilities = ["image-to-editable", "project-audit"];
   try {
-    const result = generateRemotePluginBundles({ origin: "https://tunnel.example.test", output, hosts: ["codex", "claude"], capabilities, layout: "split" });
+    const result = generateRemotePluginBundles({ origin: "https://tunnel.example.test", output, hosts: ["codex", "claude"], capabilities, layout: "split", localRuntimePayloadWriter: writeFixtureLocalRuntimePayload });
     assert.equal(result.layout, "split");
     for (const host of result.hosts) {
       const marketplacePath = host === "codex" ? path.join(output, host, ".agents", "plugins", "marketplace.json") : path.join(output, host, ".claude-plugin", "marketplace.json");
@@ -538,6 +545,7 @@ test("remote plugin bundle input rejects paths, insecure origins and unknown opt
   assert.throws(() => parseArguments(["--origin", "https://tunnel.example.test", "--output", "out"]), /--capabilities is required/);
   assert.throws(() => parseArguments(["--origin", "https://tunnel.example.test", "--output", "out", "--host", "other"]), /host/);
   assert.throws(() => parseArguments(["--origin", "https://tunnel.example.test", "--output", "out", "--capabilities", "project-audit", "--layout", "many"]), /layout/);
+  assert.throws(() => generateRemotePluginBundles({ origin: "https://tunnel.example.test", output: path.join(os.tmpdir(), "unused"), hosts: ["codex"], capabilities: ["project-audit"], localRuntimePayloadWriter: "bad" }), /plugin bundle options/);
 });
 
 test("remote capability Skills are self-contained and use the team job protocol", () => {
