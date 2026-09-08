@@ -6,8 +6,7 @@ const { createPptCreateHandler } = require("../../ppt-create-core/team-worker");
 const { ContentProviderRegistry, createHttpsJsonContentProvider } = require("../../ppt-create-core/content-provider");
 const { loadContentProviderConfig } = require("../../ppt-create-core/content-provider-config");
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
-const { buildOpenXmlDecksSync } = require("../../slideclone-core/pptx-openxml-dotnet");
-const { resolveOpenXmlBuilderRoot, resolveSlidecloneRuntimeRoot } = require("../../slideclone-native-engine");
+const { buildOpenXmlDecksSync } = require("../../slideclone-native-engine");
 const { createTeamProviderBundle, loadTeamSecrets, optionalSecretFromEnvironment, startWorkerHeartbeat } = require("../team-providers");
 const { createOtlpTraceExporter, createTracedWorkerHandler, loadOtlpTraceConfig } = require("../telemetry");
 const { readWorkerSettings } = require("../worker-settings");
@@ -34,8 +33,7 @@ function loadContentProviderRegistry(environment = process.env) {
   return new ContentProviderRegistry([createHttpsJsonContentProvider({ id, endpoint, model, token, timeoutMs })]);
 }
 function buildPptx({ irFile, outFile, templatePptx }) {
-  const skillRoot = resolveSlidecloneRuntimeRoot();
-  buildOpenXmlDecksSync([{ irFile, outFile, ...(templatePptx ? { templatePptx } : {}) }], { skillRoot, config: { openXmlBuilder: { cache: false, configuration: "Release", targetFramework: "net8.0" } }, metrics: {} }, resolveOpenXmlBuilderRoot(), { powerPointSafe: true });
+  buildOpenXmlDecksSync([{ irFile, outFile, ...(templatePptx ? { templatePptx } : {}) }], { config: { openXmlBuilder: { cache: false, configuration: "Release", targetFramework: "net8.0" } }, metrics: {} }, { powerPointSafe: true });
 }
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
 async function main(environment = process.env) {

@@ -26,4 +26,12 @@ function resolveOpenXmlBuilderRoot(repositoryRoot = resolveRepositoryRoot()) {
   return path.join(resolveSlidecloneRuntimeRoot(repositoryRoot), "dotnet", "OpenXmlDeckBuilder");
 }
 
-module.exports = { loadNativeImageEngine, loadNativeImageRebuilder, resolveOpenXmlBuilderRoot, resolveSlidecloneRuntimeRoot };
+function buildOpenXmlDecksSync(jobs, context = {}, options = {}) {
+  const repositoryRoot = resolveRepositoryRoot();
+  const skillRoot = resolveSlidecloneRuntimeRoot(repositoryRoot);
+  const builderRoot = resolveOpenXmlBuilderRoot(repositoryRoot);
+  const builder = require("../slideclone-core/pptx-openxml-dotnet");
+  return builder.buildOpenXmlDecksSync(jobs, { ...context, skillRoot }, builderRoot, options);
+}
+
+module.exports = { buildOpenXmlDecksSync, loadNativeImageEngine, loadNativeImageRebuilder, resolveOpenXmlBuilderRoot, resolveSlidecloneRuntimeRoot };
