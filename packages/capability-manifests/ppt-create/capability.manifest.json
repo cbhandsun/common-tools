@@ -18,5 +18,10 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker.js"
     }
   },
-  "contentSha256": "e36aef1e183fbce61b757eed55c59e83218ddfef484dd5e56efce30621f0892e"
+  "moduleSource": {
+    "packageName": "@common-tools/ppt-create-core",
+    "requirePath": "../ppt-create-core",
+    "exportName": "CAPABILITY_MODULE"
+  },
+  "contentSha256": "3c183e507e978497d71d4e97335deb08860fd8235a126e1119f780576c5e7eae"
 }

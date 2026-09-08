@@ -34,10 +34,10 @@ test("capability registry consumes package-owned capability modules", () => {
   assert.deepEqual(CAPABILITY_MODULES.map((module) => module.registration.capability), packageModules.map((module) => module.registration.capability));
   assert.deepEqual(packageModules, [
     EDITABLE_CAPABILITY_MODULE,
-    PROJECT_AUDIT_CAPABILITY_MODULE,
-    PPT_QUALITY_CAPABILITY_MODULE,
+    PPT_CREATE_CAPABILITY_MODULE,
     PPT_IMPROVE_CAPABILITY_MODULE,
-    PPT_CREATE_CAPABILITY_MODULE
+    PPT_QUALITY_CAPABILITY_MODULE,
+    PROJECT_AUDIT_CAPABILITY_MODULE
   ]);
   for (const entry of LOCAL_CAPABILITY_CATALOG) assert.equal(registryPackage.dependencies[entry.packageName], "0.1.0");
   for (const packageModule of packageModules) {

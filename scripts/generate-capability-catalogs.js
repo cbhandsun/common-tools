@@ -5,47 +5,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const sourceFile = path.join(root, "packages", "capability-manifests", "capability-module-sources.json");
+const { CAPABILITY_MANIFESTS } = require("../packages/capability-manifests");
 
-function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, "utf8").replace(/^\uFEFF/u, ""));
-}
-
-function assertName(value, label) {
-  if (typeof value !== "string" || !/^[A-Za-z][A-Za-z0-9_]*$/u.test(value)) throw new TypeError(`${label} is invalid`);
-  return value;
-}
-
-function assertCapability(value, label) {
-  if (typeof value !== "string" || !/^[a-z][a-z0-9-]{2,63}$/u.test(value)) throw new TypeError(`${label} is invalid`);
-  return value;
-}
-
-function assertPackageName(value, label) {
-  if (typeof value !== "string" || !/^@common-tools\/[a-z][a-z0-9-]*$/u.test(value)) throw new TypeError(`${label} is invalid`);
-  return value;
-}
-
-function assertRequirePath(value, label) {
-  if (typeof value !== "string" || !/^\.\.\/[a-z][a-z0-9-]*$/u.test(value)) throw new TypeError(`${label} is invalid`);
-  return value;
-}
-
-function assertSourceEntry(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} is invalid`);
-  const keys = Object.keys(value).sort().join(",");
-  if (keys !== "capability,exportName,packageName,requirePath") throw new TypeError(`${label} keys are invalid`);
-  return Object.freeze({
-    capability: assertCapability(value.capability, `${label}.capability`),
-    packageName: assertPackageName(value.packageName, `${label}.packageName`),
-    requirePath: assertRequirePath(value.requirePath, `${label}.requirePath`),
-    exportName: assertName(value.exportName, `${label}.exportName`)
-  });
-}
-
-function assertSourceEntries(value, label) {
-  if (!Array.isArray(value)) throw new TypeError(`${label} is invalid`);
-  const entries = value.map((entry, index) => assertSourceEntry(entry, `${label}[${index}]`));
+function assertSourceEntries(entries, label) {
+  if (!Array.isArray(entries)) throw new TypeError(`${label} is invalid`);
   for (const key of ["capability", "packageName", "requirePath"]) {
     const seen = new Set();
     for (const entry of entries) {
@@ -56,13 +19,19 @@ function assertSourceEntries(value, label) {
   return Object.freeze(entries);
 }
 
-function validateSourceCatalog(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1) throw new TypeError("capability module sources are invalid");
-  if (Object.keys(value).sort().join(",") !== "direct,local,version") throw new TypeError("capability module sources keys are invalid");
+function sourceCatalogFromManifests(manifests = CAPABILITY_MANIFESTS) {
+  if (!(manifests instanceof Map)) throw new TypeError("capability manifests are invalid");
+  const local = [];
+  const direct = [];
+  for (const manifest of [...manifests.values()].sort((left, right) => left.capability.localeCompare(right.capability))) {
+    const entry = Object.freeze({ capability: manifest.capability, ...manifest.moduleSource });
+    if (manifest.requiredWorkerProfile === "direct") direct.push(entry);
+    else local.push(entry);
+  }
   return Object.freeze({
     version: 1,
-    local: assertSourceEntries(value.local, "local capability module sources"),
-    direct: assertSourceEntries(value.direct, "direct capability module sources")
+    local: assertSourceEntries(local, "local capability module sources"),
+    direct: assertSourceEntries(direct, "direct capability module sources")
   });
 }
 
@@ -157,7 +126,7 @@ module.exports = {
 `;
 }
 
-function generatedCatalogFiles(catalog = validateSourceCatalog(readJson(sourceFile))) {
+function generatedCatalogFiles(catalog = sourceCatalogFromManifests()) {
   return Object.freeze([
     Object.freeze({
       path: path.join(root, "packages", "capability-registry", "local-capability-catalog.js"),
@@ -192,7 +161,7 @@ if (require.main === module) {
 
 module.exports = {
   generatedCatalogFiles,
-  validateSourceCatalog,
+  sourceCatalogFromManifests,
   verifyGeneratedCatalogs,
   writeGeneratedCatalogs
 };

@@ -18,5 +18,10 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-worker.js"
     }
   },
-  "contentSha256": "1726571d9f9ff76fdd0a47885f2bb50a62be2c29309c573dbe96260d417fe041"
+  "moduleSource": {
+    "packageName": "@common-tools/project-audit-core",
+    "requirePath": "../project-audit-core",
+    "exportName": "CAPABILITY_MODULE"
+  },
+  "contentSha256": "07ea62d7a6033aa6741f7f4db5f13d31db4248eedae58216a428a51d23c4edce"
 }

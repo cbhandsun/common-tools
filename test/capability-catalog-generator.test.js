@@ -4,24 +4,34 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const { CAPABILITY_MANIFESTS, validateCapabilityManifest } = require("../packages/capability-manifests");
 const {
   generatedCatalogFiles,
-  validateSourceCatalog,
+  sourceCatalogFromManifests,
   verifyGeneratedCatalogs
 } = require("../scripts/generate-capability-catalogs");
 
 const root = path.resolve(__dirname, "..");
 
-test("capability module source catalog validates local and direct owners", () => {
-  const source = JSON.parse(fs.readFileSync(path.join(root, "packages", "capability-manifests", "capability-module-sources.json"), "utf8"));
-  const catalog = validateSourceCatalog(source);
-  assert.deepEqual(catalog.local.map((entry) => entry.capability), ["image-to-editable", "project-audit", "ppt-quality", "ppt-improve", "ppt-create"]);
+test("capability module sources are derived from signed manifests", () => {
+  const catalog = sourceCatalogFromManifests();
+  assert.deepEqual(catalog.local.map((entry) => entry.capability), ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit"]);
   assert.deepEqual(catalog.direct.map((entry) => entry.capability), ["siyuan-note"]);
-  assert.throws(() => validateSourceCatalog({ ...source, local: [...source.local, source.local[0]] }), /duplicate capability/);
-  assert.throws(() => validateSourceCatalog({ ...source, direct: [{ ...source.direct[0], requirePath: "../../escape" }] }), /requirePath is invalid/);
+  assert.equal(catalog.local[0].packageName, "@common-tools/slideclone-core");
+  assert.deepEqual(CAPABILITY_MANIFESTS.get("image-to-editable").moduleSource, {
+    packageName: catalog.local[0].packageName,
+    requirePath: catalog.local[0].requirePath,
+    exportName: catalog.local[0].exportName
+  });
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "packages", "capability-manifests", "image-to-editable", "capability.manifest.json"), "utf8"));
+  assert.throws(() => validateCapabilityManifest({ ...manifest, moduleSource: { ...manifest.moduleSource, requirePath: "../../escape" } }), /module source is invalid/);
+  assert.throws(() => sourceCatalogFromManifests(new Map([
+    ["first", { capability: "first", requiredWorkerProfile: "base", moduleSource: { packageName: "@common-tools/one", requirePath: "../one", exportName: "CAPABILITY_MODULE" } }],
+    ["second", { capability: "second", requiredWorkerProfile: "base", moduleSource: { packageName: "@common-tools/one", requirePath: "../two", exportName: "CAPABILITY_MODULE" } }]
+  ])), /duplicate packageName/);
 });
 
-test("capability catalogs are generated from capability module sources", () => {
+test("capability catalogs are generated from manifest-owned module sources", () => {
   assert.equal(verifyGeneratedCatalogs(), true);
   for (const file of generatedCatalogFiles()) {
     const relative = path.relative(root, file.path).replaceAll("\\", "/");
