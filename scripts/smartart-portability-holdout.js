@@ -3,7 +3,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { fingerprintOoxmlPackage } = require("../skills/pd-hifi-slideclone/scripts/lib/ooxml-package-fingerprint");
+const { fingerprintOoxmlPackage } = require("../packages/slideclone-native-engine/scripts/lib/ooxml-package-fingerprint");
 const { listZipEntries } = require("../packages/ooxml-core/pptx-inventory");
 const { validatePowerPointEditableRoundTrip } = require("../packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-editable-roundtrip");
 

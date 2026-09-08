@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
-const { fingerprintOoxmlPackage } = require("../skills/pd-hifi-slideclone/scripts/lib/ooxml-package-fingerprint");
+const { fingerprintOoxmlPackage } = require("../packages/slideclone-native-engine/scripts/lib/ooxml-package-fingerprint");
 
 test("OOXML fingerprint ignores ZIP container timestamps but detects content changes", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ooxml-fingerprint-"));

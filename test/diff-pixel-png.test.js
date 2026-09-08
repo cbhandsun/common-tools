@@ -6,7 +6,7 @@ const assert = require("node:assert/strict");
 const {
   compareImages,
   resolveDiffConcurrency
-} = require("../skills/pd-hifi-slideclone/scripts/adapters/diff-pixel-png");
+} = require("../packages/slideclone-native-engine/scripts/adapters/diff-pixel-png");
 
 test("pixel diff concurrency is bounded and can be forced to serial", () => {
   assert.equal(resolveDiffConcurrency(11, { SLIDECLONE_DIFF_CONCURRENCY: "1" }), 1);

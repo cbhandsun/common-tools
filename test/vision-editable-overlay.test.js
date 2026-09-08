@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const visionEditableOverlay = require("../skills/pd-hifi-slideclone/scripts/adapters/vision-editable-overlay");
+const visionEditableOverlay = require("../packages/slideclone-native-engine/scripts/adapters/vision-editable-overlay");
 
 test("editable overlay hides OCR text by default to avoid visual double-rendering", async () => {
   const result = await visionEditableOverlay({

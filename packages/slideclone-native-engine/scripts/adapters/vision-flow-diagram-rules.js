@@ -516,18 +516,6 @@ function roundRect(id, box, fill, stroke, strokeWidthPt, sampleKey = null, palet
   };
 }
 
-function diamond(id, box, fill) {
-  return { id, type: "diamond", box, style: { fill, stroke: "none" }, source: source(box, true) };
-}
-
-function ellipse(id, box, fill, stroke, strokeWidthPt) {
-  return { id, type: "ellipse", box, style: { fill, stroke, strokeWidthPt }, source: source(box, true) };
-}
-
-function rightTriangle(id, box, fill) {
-  return { id, type: "right-triangle", box, style: { fill, stroke: "none" }, source: source(box, true) };
-}
-
 function line(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = null, palette = null, anchors = null, connectorType = "straight") {
   const direction = endArrow ? "forward" : "undirected";
   const component = resolveConnectorComponent({ role: "flow", connectorType, direction, stroke, strokeWidthPt: widthPt });
@@ -557,10 +545,6 @@ function line(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = 
 
 function elbow(id, x1, y1, x2, y2, stroke, widthPt, endArrow = null, sampleKey = null, palette = null, anchors = null) {
   return line(id, x1, y1, x2, y2, stroke, widthPt, endArrow, sampleKey, palette, anchors, "elbow");
-}
-
-function lineGroup(prefix, items) {
-  return items.map((item, index) => line(`${prefix}-${index + 1}`, item[0], item[1], item[2], item[3], item[4], item[5], item[6] || null));
 }
 
 function arrow(id, x1, y1, x2, y2, stroke, sampleKey = null, palette = null, anchors = null) {
