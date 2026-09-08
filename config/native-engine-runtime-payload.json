@@ -23,6 +23,7 @@
     "component-strategy-rebuild.js",
     "complex-graphic-golden-smoke.js",
     "golden-set-runner.js",
+    "harvest-active-powerpoint-component.js",
     "harvest-applied-ppt-components.js",
     "libreoffice-benchmark.js",
     "quality-gate-real-pptx.js",
@@ -30,7 +31,8 @@
     "real-pptx-corpus-runner.js",
     "rebuild-real-pptx-native.js",
     "rendered-similarity-audit.js",
-    "slideclone.js"
+    "slideclone.js",
+    "watch-plugin-component-downloads.js"
   ],
   "rootScriptGroups": {
     "productionEntrypoints": [
@@ -51,7 +53,9 @@
       "component-candidate-search.js",
       "component-plugin-action-queue.js",
       "component-strategy-rebuild.js",
-      "harvest-applied-ppt-components.js"
+      "harvest-active-powerpoint-component.js",
+      "harvest-applied-ppt-components.js",
+      "watch-plugin-component-downloads.js"
     ]
   },
   "forbiddenRepositoryPaths": [

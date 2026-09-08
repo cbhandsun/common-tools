@@ -13,7 +13,7 @@ const {
   quotePowerShellString,
   sanitizeLabel,
   saveActivePowerPointCopy
-} = require("../skills/pd-hifi-slideclone/scripts/harvest-active-powerpoint-component");
+} = require("../packages/slideclone-native-engine/scripts/harvest-active-powerpoint-component");
 
 test("harvest active PowerPoint component parses and clamps external arguments", () => {
   const args = parseArgs([

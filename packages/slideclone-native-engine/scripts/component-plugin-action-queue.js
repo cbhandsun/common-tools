@@ -1472,7 +1472,7 @@ function renderPluginActionQueueMarkdown(queue = {}) {
     "Run this watcher before applying plugin components so downloaded/applied PPTX components are harvested automatically:",
     "",
     "```powershell",
-    "node skills\\pd-hifi-slideclone\\scripts\\watch-plugin-component-downloads.js --provider all --active-powerpoint --duration-ms 30000 --poll-ms 500 --out runs\\plugin-component-inventory\\watched-plugin-components",
+    "node packages\\slideclone-native-engine\\scripts\\watch-plugin-component-downloads.js --provider all --active-powerpoint --duration-ms 30000 --poll-ms 500 --out runs\\plugin-component-inventory\\watched-plugin-components",
     "```",
     ""
   ];
