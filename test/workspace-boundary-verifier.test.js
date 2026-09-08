@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { collectImports, forbiddenLayer, loadLayerPolicy, validateLayerPolicy, verifyWorkspaceBoundaries } = require("../scripts/verify-workspace-boundaries");
+const { collectImports, forbiddenLayer, loadLayerPolicy, policyPackageReferences, validateLayerPolicy, verifyWorkspaceBoundaries } = require("../scripts/verify-workspace-boundaries");
 
 function workspace(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "workspace-boundary-"));
@@ -99,8 +99,21 @@ test("layer policy is declarative and fails closed on malformed rules", () => {
   assert.equal(forbiddenLayer("capability-runtime", "capability-contracts", policy), false);
   assert.equal(forbiddenLayer("capability-runtime", "ppt-quality-core", policy), true);
   assert.equal(forbiddenLayer("slideclone-core", "team-runtime", policy), true);
+  assert.ok(policyPackageReferences(policy).includes("remote-mcp-server"));
+  assert.ok(policyPackageReferences(policy).includes("slideclone-core"));
   assert.throws(() => validateLayerPolicy({ version: 1, transports: ["cli"], forbiddenSources: [], allowedDependencies: {}, forbiddenDependencies: {}, extra: true }), /layer policy/);
   assert.throws(() => validateLayerPolicy({ version: 1, transports: ["cli", "cli"], forbiddenSources: [], allowedDependencies: {}, forbiddenDependencies: {} }), /transports/);
+});
+
+test("boundary gate validates strict layer policy references against workspace packages", (t) => {
+  const f = workspace(t);
+  f.add("feature-core");
+  assert.throws(() => verifyWorkspaceBoundaries({
+    workspaceRoot: f.root,
+    packagePolicy: { version: 1, workspaceDependencyVersion: "1.0.0", packages: { "feature-core": [] } },
+    policy: { version: 1, transports: [], forbiddenSources: [], allowedDependencies: { "feature-core": ["missing-core"] }, forbiddenDependencies: {} },
+    strictPolicyReferences: true
+  }), /layer policy references unknown workspace package missing-core/);
 });
 
 test("boundary gate keeps slideclone core below worker orchestration and unrelated capabilities", (t) => {

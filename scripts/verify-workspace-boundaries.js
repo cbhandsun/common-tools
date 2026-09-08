@@ -151,6 +151,19 @@ function forbiddenLayer(source, target, policy = loadLayerPolicy()) {
   return !transports.has(source) && transports.has(target);
 }
 
+function policyPackageReferences(policy) {
+  const references = new Set([...policy.transports, ...policy.forbiddenSources]);
+  for (const [source, targets] of Object.entries(policy.allowedDependencies)) {
+    references.add(source);
+    for (const target of targets) references.add(target);
+  }
+  for (const [source, targets] of Object.entries(policy.forbiddenDependencies)) {
+    references.add(source);
+    for (const target of targets) references.add(target);
+  }
+  return [...references].sort();
+}
+
 function findCycles(graph) {
   const done = new Set(); const active = new Set(); const stack = []; const cycles = [];
   function visit(name) {
@@ -170,6 +183,7 @@ function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
   const packagePolicy = typeof options === "string"
     ? loadWorkspacePackagePolicy()
     : validateWorkspacePackagePolicy(options.packagePolicy || loadWorkspacePackagePolicy(options.packagePolicyFile));
+  const strictPolicyReferences = typeof options === "string" || options.strictPolicyReferences === true;
   const root = fs.realpathSync(workspaceRoot);
   const packageRoot = path.join(root, "packages");
   const packages = new Map(); const byName = new Map(); const graph = new Map();
@@ -190,6 +204,9 @@ function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
   const policyFolders = Object.keys(packagePolicy.packages).sort();
   for (const folder of actualFolders.filter((folder) => !Object.hasOwn(packagePolicy.packages, folder))) failures.push(`workspace package ${folder} is missing from package policy`);
   for (const folder of policyFolders.filter((folder) => !packages.has(folder))) failures.push(`package policy references unknown workspace package ${folder}`);
+  if (strictPolicyReferences) {
+    for (const folder of policyPackageReferences(policy).filter((folder) => !packages.has(folder))) failures.push(`layer policy references unknown workspace package ${folder}`);
+  }
   for (const [folder, record] of packages) {
     const expected = packagePolicy.packages[folder];
     if (!expected) continue;
@@ -263,6 +280,7 @@ module.exports = {
   forbiddenLayer,
   loadLayerPolicy,
   loadWorkspacePackagePolicy,
+  policyPackageReferences,
   validateLayerPolicy,
   validateWorkspacePackagePolicy,
   verifyWorkspaceBoundaries
