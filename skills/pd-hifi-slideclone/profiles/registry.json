@@ -1103,7 +1103,7 @@
     },
     "convert-real-pptx": {
       "description": "Convert the standard PPTX input directory into editable analysis workspaces.",
-      "script": "scripts/real-pptx-editable-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-editable-batch.js",
       "args": [
         "--input",
         "ppt文档",
@@ -1113,7 +1113,7 @@
     },
     "convert-real-pptx-turbo": {
       "description": "Convert the standard PPTX input directory with bounded parallelism.",
-      "script": "scripts/real-pptx-editable-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-editable-batch.js",
       "args": [
         "--input",
         "ppt文档",
@@ -1626,7 +1626,7 @@
     },
     "rebuild-real-pptx-native-parallel": {
       "description": "Versioned command profile for slideclone:rebuild-real-pptx-native-parallel.",
-      "script": "scripts/rebuild-real-pptx-native-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/rebuild-real-pptx-native-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",

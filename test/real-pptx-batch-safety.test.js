@@ -24,7 +24,7 @@ const {
   selectPptxFileEntries,
   selectPptxFiles,
   summarizeError
-} = require("../skills/pd-hifi-slideclone/scripts/real-pptx-editable-batch");
+} = require("../packages/slideclone-native-engine/scripts/real-pptx-editable-batch");
 const {
   recommend
 } = require("../skills/pd-hifi-slideclone/scripts/render-engine-report");
@@ -34,7 +34,7 @@ const {
   safeFileStem,
   summarizeWorkerFailure,
   workerArgv
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native-parallel");
+} = require("../packages/slideclone-native-engine/scripts/rebuild-real-pptx-native-parallel");
 
 test("real PPTX batch treats CLI flag strings as enabled", () => {
   assert.equal(isFlagEnabled("true"), true);

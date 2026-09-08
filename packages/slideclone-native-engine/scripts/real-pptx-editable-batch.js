@@ -6,6 +6,11 @@ const os = require("os");
 const path = require("path");
 const { countPptxSlides, findEndOfCentralDirectory } = require("./lib/pptx-inventory");
 const { classifyPptxEditability } = require("./lib/pptx-editability-classifier");
+const normalizeCli = require("./adapters/normalize-cli");
+const normalizePowerPointCom = require("./adapters/normalize-powerpoint-com");
+const ocrPaddleOcrLocal = require("./adapters/ocr-paddleocr-local");
+const visionEditableOverlay = require("./adapters/vision-editable-overlay");
+const pptxPythonPptx = require("./adapters/pptx-python-pptx");
 
 const skillRoot = path.resolve(__dirname, "..");
 
@@ -233,19 +238,13 @@ function normalizeSampleStrategy(value) {
 }
 
 function pptxInventoryForSelection(file) {
-  let slideCount = 0;
   try {
-    slideCount = countPptxSlides(file);
+    const slideCount = countPptxSlides(file);
+    const sizeBytes = fs.statSync(file).size;
+    return { slideCount, sizeBytes };
   } catch {
-    slideCount = 0;
+    return { slideCount: 0, sizeBytes: 0 };
   }
-  let sizeBytes = 0;
-  try {
-    sizeBytes = fs.statSync(file).size;
-  } catch {
-    sizeBytes = 0;
-  }
-  return { slideCount, sizeBytes };
 }
 
 function collectPptxFiles({ inputDir, pptx }) {
@@ -331,9 +330,9 @@ async function convertOne(pptxFile, options) {
 
   const normalizer = options.normalizer || "libreoffice";
   const normalize = loadNormalizer(normalizer);
-  const ocr = require(path.join(skillRoot, "scripts", "adapters", "ocr-paddleocr-local.js"));
-  const vision = require(path.join(skillRoot, "scripts", "adapters", "vision-editable-overlay.js"));
-  const pptx = require(path.join(skillRoot, "scripts", "adapters", "pptx-python-pptx.js"));
+  const ocr = ocrPaddleOcrLocal;
+  const vision = visionEditableOverlay;
+  const pptx = pptxPythonPptx;
 
   emitProgress(options, { stage: "normalize:start" });
   const normalizeStartedAt = Date.now();
@@ -417,10 +416,10 @@ function assertOk(stage, result) {
 
 function loadNormalizer(normalizer) {
   if (normalizer === "libreoffice") {
-    return require(path.join(skillRoot, "scripts", "adapters", "normalize-cli.js"));
+    return normalizeCli;
   }
   if (normalizer === "powerpoint-com") {
-    return require(path.join(skillRoot, "scripts", "adapters", "normalize-powerpoint-com.js"));
+    return normalizePowerPointCom;
   }
   throw new Error(`Unsupported normalizer: ${normalizer}`);
 }
