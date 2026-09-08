@@ -69,7 +69,7 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-plugin-bundles-"));
   const output = path.join(parent, "bundle");
   try {
-    const result = generateRemotePluginBundles({ origin: "https://tunnel.example.test", output, hosts: ["codex", "claude"] });
+    const result = generateRemotePluginBundles({ origin: "https://tunnel.example.test", output, hosts: ["codex", "claude"], localRuntimePayloadWriter: writeFixtureLocalRuntimePayload });
     assert.equal(result.origin, "https://tunnel.example.test");
     for (const host of result.hosts) {
       const root = path.join(output, host, "plugins", "common-tools-remote");
@@ -89,16 +89,6 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
       assert.equal(fs.readFileSync(path.join(output, host, "INSTALL.md"), "utf8"), installGuide(host, "https://tunnel.example.test", result.capabilities));
       assert.equal(fs.readFileSync(path.join(output, host, "install.ps1"), "utf8"), installationScript(host, "https://tunnel.example.test", result.capabilities, "bundle"));
       assert.equal(fs.readFileSync(path.join(output, host, "verify-connection.ps1"), "utf8"), connectionVerificationScript("https://tunnel.example.test", result.capabilities));
-      const localRuntimeRoot = path.join(output, host, "local-runtime");
-      const payloadManifest = JSON.parse(fs.readFileSync(path.join(localRuntimeRoot, "payload-manifest.json"), "utf8"));
-      assert.equal(payloadManifest.schemaVersion, 1);
-      assert.equal(payloadManifest.runtimeVersion, REMOTE_PLUGIN_VERSION, "a plugin release must install a fresh local runtime revision");
-      assert.ok(payloadManifest.files.some((entry) => entry.path === "packages/cli/bin/common-tools.js"));
-      assert.equal(payloadManifest.files.some((entry) => /OpenXmlDeckBuilder\/(?:bin|obj)\//u.test(entry.path)), false);
-      const localRuntimeInstaller = fs.readFileSync(path.join(localRuntimeRoot, "install-local-runtime.ps1"), "utf8");
-      assert.match(localRuntimeInstaller, /Get-FileHash/);
-      assert.match(localRuntimeInstaller, /Refusing to replace an unmanaged common-tools command shim/);
-      assert.match(localRuntimeInstaller, /Node.js 18 or newer/);
        assert.deepEqual(fs.readdirSync(path.join(root, "skills")).sort(), ["common-tools", "common-tools-help", "image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit", "siyuan-note"]);
        const skill = fs.readFileSync(path.join(root, "skills", "common-tools", "SKILL.md"), "utf8");
       assert.match(skill, /MCP tools visible in the current session are authoritative/);
@@ -116,7 +106,26 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
        assert.match(helpSkill, /用中文说明/);
        assert.match(fs.readFileSync(path.join(root, "docs", "zh-CN", "README.md"), "utf8"), /中文使用说明/);
     }
-    const payloadCli = path.join(output, "codex", "local-runtime", "packages", "cli", "bin", "common-tools.js");
+    assert.throws(() => generateRemotePluginBundles({ origin: "https://tunnel.example.test", output, hosts: ["codex"], localRuntimePayloadWriter: writeFixtureLocalRuntimePayload }), /must not already exist/);
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("remote plugin bundle ships a verified local runtime payload", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-plugin-bundles-"));
+  const output = path.join(parent, "bundle");
+  try {
+    generateRemotePluginBundles({ origin: "https://tunnel.example.test", output, hosts: ["codex"], capabilities: ["ppt-create", "project-audit"] });
+    const localRuntimeRoot = path.join(output, "codex", "local-runtime");
+    const payloadManifest = JSON.parse(fs.readFileSync(path.join(localRuntimeRoot, "payload-manifest.json"), "utf8"));
+    assert.equal(payloadManifest.schemaVersion, 1);
+    assert.equal(payloadManifest.runtimeVersion, REMOTE_PLUGIN_VERSION, "a plugin release must install a fresh local runtime revision");
+    assert.ok(payloadManifest.files.some((entry) => entry.path === "packages/cli/bin/common-tools.js"));
+    assert.equal(payloadManifest.files.some((entry) => /OpenXmlDeckBuilder\/(?:bin|obj)\//u.test(entry.path)), false);
+    const localRuntimeInstaller = fs.readFileSync(path.join(localRuntimeRoot, "install-local-runtime.ps1"), "utf8");
+    assert.match(localRuntimeInstaller, /Get-FileHash/);
+    assert.match(localRuntimeInstaller, /Refusing to replace an unmanaged common-tools command shim/);
+    assert.match(localRuntimeInstaller, /Node.js 18 or newer/);
+    const payloadCli = path.join(localRuntimeRoot, "packages", "cli", "bin", "common-tools.js");
     const localRoute = spawnSync(process.execPath, [payloadCli, "runtime", "resolve", "--capability", "project-audit"], { encoding: "utf8" });
     assert.equal(localRoute.status, 0, `${localRoute.stdout}${localRoute.stderr}`);
     assert.match(localRoute.stdout, /"execution": "local"/);
@@ -142,7 +151,6 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
     const packagedSlide = readZipEntry(packagedDeck, "ppt/slides/slide2.xml").toString("utf8");
     assert.match(packagedSlide, /<p:sp>/);
     assert.doesNotMatch(packagedSlide, /<p:pic>/);
-    assert.throws(() => generateRemotePluginBundles({ origin: "https://tunnel.example.test", output, hosts: ["codex"] }), /must not already exist/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
