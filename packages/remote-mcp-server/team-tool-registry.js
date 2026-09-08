@@ -2,7 +2,7 @@
 
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 const { normalizeTeamJobOptions } = require("../team-runtime");
-const { directCapabilityModules, directToolArguments } = require("./direct-capability-catalog");
+const { directCapabilityModules, directToolArguments, directToolMethods } = require("./direct-capability-catalog");
 const { TEAM_TOOLS, validateTeamToolOutput } = require("./team-tool-contracts");
 
 const CAPABILITY_SCOPES = Object.freeze(Object.fromEntries(Object.entries(TEAM_CAPABILITY_DEFINITIONS).map(([capability, definition]) => [capability, definition.oauthScope])));
@@ -37,6 +37,7 @@ const TEAM_TOOL_ARGUMENTS = Object.freeze({
 });
 
 const DIRECT_CAPABILITY_MODULES = directCapabilityModules();
+const DIRECT_TOOL_METHODS = directToolMethods();
 
 function assertObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError("tool arguments must be an object");
@@ -115,7 +116,11 @@ const TEAM_TOOL_OPERATIONS = Object.freeze({
     if (context.requireProjectRbac !== true) return validateTeamToolOutput("get_team_artifact_target", await context.services.getArtifactTarget({ id: args.id, name: args.name, ownerId: context.principal.subject }));
     return validateTeamToolOutput("get_team_artifact_target", await context.services.getProjectArtifactTarget({ id: args.id, name: args.name, projectId: projectAccess(context.principal, args.projectId, ["viewer", "editor", "admin"]) }));
   },
-  ...Object.fromEntries(DIRECT_CAPABILITY_MODULES.flatMap((module) => Object.entries(module.directToolMethods || {}).map(([name, method]) => [name, directCapabilityOperation(module.registration.capability, module.serviceName, name, method)])))
+  ...Object.fromEntries(Object.entries(DIRECT_TOOL_METHODS).map(([name, method]) => {
+    const module = DIRECT_CAPABILITY_MODULES.find((candidate) => candidate.registration.toolNames.includes(name));
+    if (!module) throw new Error(`direct capability method is missing an owner: ${name}`);
+    return [name, directCapabilityOperation(module.registration.capability, module.serviceName, name, method)];
+  }))
 });
 
 function assertDirectCapabilityModuleContracts() {
