@@ -10,6 +10,7 @@ const { IMAGE_EDITABLE_RELEASE_FILES } = require("../scripts/verify-runtime-pack
 
 const root = path.resolve(__dirname, "..");
 const modules = ["page-hybrid-graphics-stage", "page-native-graphics-stage", "demand-understanding-shapes", "workflow-shape-primitives", "prd-generation-shapes", "prototype-validation-shapes", "prd-auto-generation-narrative", "color-component-bounds", "diagram-residual-crops", "residual-splitting", "structured-residual-splitting", "residual-component-analysis", "residual-primitive-erasure", "image-layer-metadata", "graphic-expression-policy", "raster-native-detection", "page-semantic-claims", "skills-capability-matrix", "demand-intake-funnel", "smart-review-branch-gate", "skill-chain-orchestration", "asset-landing-triad", "edge-background-alpha", "icon-crop-refiner", "knowledge-graph-icon-crops", "residual-publication", "png", "arc-residual-masks", "full-slide-native-residual", "diagram-text-candidates", "page-reuse", "page-selection", "progress-reporter", "native-rebuild-deck-pipeline", "ocr-source-deck", "graphic-crop-policy", "page-image-finalizer", "page-progress-lifecycle", "page-graphics-stage", "slide-size"];
+const ooxmlModules = ["pptx-inventory", "pptx-zip"];
 
 modules.push("native-output-sanitizer");
 modules.push("source-horizontal-connector-fit");
@@ -45,6 +46,9 @@ test("rebuild planning, pixel IO and residual generation run from package export
   const installed = path.join(directory, "node_modules", "@common-tools", "slideclone-core");
   fs.mkdirSync(installed, { recursive: true });
   for (const name of ["package.json", "screenshot-texture-evidence.js", ...modules.map((module) => `${module}.js`)]) fs.copyFileSync(path.join(root, "packages", "slideclone-core", name), path.join(installed, name));
+  const installedOoxml = path.join(directory, "node_modules", "@common-tools", "ooxml-core");
+  fs.mkdirSync(installedOoxml, { recursive: true });
+  for (const name of ["package.json", ...ooxmlModules.map((module) => `${module}.js`)]) fs.copyFileSync(path.join(root, "packages", "ooxml-core", name), path.join(installedOoxml, name));
   const load = createRequire(path.join(directory, "consumer.cjs"));
   const api = Object.fromEntries(modules.map((name) => [name, load(`@common-tools/slideclone-core/${name}`)]));
   const textRules = api["page-text-rules"];
