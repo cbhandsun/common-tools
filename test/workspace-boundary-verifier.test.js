@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { collectImports, forbiddenLayer, loadLayerPolicy, policyPackageReferences, validateLayerPolicy, verifyWorkspaceBoundaries } = require("../scripts/verify-workspace-boundaries");
+const { collectImports, forbiddenLayer, loadLayerPolicy, packageSurfaceTargets, policyPackageReferences, validateLayerPolicy, verifyWorkspaceBoundaries } = require("../scripts/verify-workspace-boundaries");
 
 function workspace(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "workspace-boundary-"));
@@ -105,6 +105,26 @@ test("layer policy is declarative and fails closed on malformed rules", () => {
   assert.ok(policyPackageReferences(policy).includes("slideclone-core"));
   assert.throws(() => validateLayerPolicy({ version: 1, transports: ["cli"], forbiddenSources: [], allowedDependencies: {}, forbiddenDependencies: {}, extra: true }), /layer policy/);
   assert.throws(() => validateLayerPolicy({ version: 1, transports: ["cli", "cli"], forbiddenSources: [], allowedDependencies: {}, forbiddenDependencies: {} }), /transports/);
+});
+
+test("boundary gate validates package main and exports as package-owned files", (t) => {
+  assert.deepEqual(packageSurfaceTargets({ main: "index.js", exports: { ".": "./index.js", "./feature": { require: "./feature.js" } } }), [
+    { label: "main", target: "index.js" },
+    { label: "exports[.]", target: "./index.js" },
+    { label: "exports[./feature].require", target: "./feature.js" }
+  ]);
+  assert.throws(() => packageSurfaceTargets({ exports: ["./index.js"] }), /package surface/);
+
+  const f = workspace(t);
+  f.add("feature");
+  f.write("packages/feature/package.json", JSON.stringify({ name: "@fixture/feature", version: "1.0.0", main: "../outside.js" }));
+  assert.throws(f.verify, /feature package main escapes the package/);
+
+  f.write("packages/feature/package.json", JSON.stringify({ name: "@fixture/feature", version: "1.0.0", main: "index.js", exports: { ".": "./missing.js" } }));
+  assert.throws(f.verify, /feature package exports\[.\] references a missing file/);
+
+  f.write("packages/feature/package.json", JSON.stringify({ name: "@fixture/feature", version: "1.0.0", main: "index.js", exports: { ".": "../outside.js" } }));
+  assert.throws(f.verify, /feature package exports\[.\] must target a relative package export file/);
 });
 
 test("boundary gate validates strict layer policy references against workspace packages", (t) => {

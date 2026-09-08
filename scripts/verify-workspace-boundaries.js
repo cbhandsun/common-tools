@@ -143,6 +143,24 @@ function loadWorkspacePackagePolicy(file = DEFAULT_PACKAGE_POLICY_FILE) {
   return validateWorkspacePackagePolicy(readJson(file));
 }
 
+function packageSurfaceTargets(value, label = "package surface") {
+  const targets = [];
+  function collect(current, currentLabel) {
+    if (typeof current === "string") {
+      targets.push(Object.freeze({ label: currentLabel, target: current }));
+      return;
+    }
+    if (!current || typeof current !== "object" || Array.isArray(current)) throw new TypeError(`${label} is invalid`);
+    for (const [name, child] of Object.entries(current).sort(([left], [right]) => left.localeCompare(right))) {
+      collect(child, currentLabel === "exports" ? `exports[${name}]` : `${currentLabel}.${name}`);
+    }
+  }
+  if (typeof value.main === "string") targets.push(Object.freeze({ label: "main", target: value.main }));
+  else if (Object.hasOwn(value, "main")) throw new TypeError(`${label} main is invalid`);
+  if (Object.hasOwn(value, "exports")) collect(value.exports, "exports");
+  return Object.freeze(targets);
+}
+
 function forbiddenLayer(source, target, policy = loadLayerPolicy()) {
   const transports = new Set(policy.transports);
   if (policy.forbiddenSources.includes(source)) return true;
@@ -208,6 +226,29 @@ function verifyWorkspaceBoundaries(options = path.resolve(__dirname, "..")) {
     for (const folder of policyPackageReferences(policy).filter((folder) => !packages.has(folder))) failures.push(`layer policy references unknown workspace package ${folder}`);
   }
   for (const [folder, record] of packages) {
+    for (const { label, target: packageTarget } of packageSurfaceTargets(record.manifest, `${folder} package surface`)) {
+      const fail = (reason) => failures.push(`${folder} package ${label} ${reason}`);
+      if (path.isAbsolute(packageTarget) || packageTarget.includes("\0")) {
+        fail("must target a relative package file");
+        continue;
+      }
+      if (label.startsWith("exports") && !packageTarget.startsWith("./")) {
+        fail("must target a relative package export file");
+        continue;
+      }
+      const targetPath = path.resolve(record.directory, packageTarget);
+      if (!within(record.directory, targetPath)) {
+        fail("escapes the package");
+        continue;
+      }
+      let targetInfo;
+      try { targetInfo = fs.statSync(fs.realpathSync(targetPath)); }
+      catch {
+        fail("references a missing file");
+        continue;
+      }
+      if (!targetInfo.isFile()) fail("must reference a file");
+    }
     const expected = packagePolicy.packages[folder];
     if (!expected) continue;
     const actual = Object.keys(record.manifest.dependencies || {}).filter((dependency) => dependency.startsWith("@common-tools/")).sort();
@@ -280,6 +321,7 @@ module.exports = {
   forbiddenLayer,
   loadLayerPolicy,
   loadWorkspacePackagePolicy,
+  packageSurfaceTargets,
   policyPackageReferences,
   validateLayerPolicy,
   validateWorkspacePackagePolicy,
