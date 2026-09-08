@@ -3,7 +3,7 @@
 const path = require("node:path");
 const readline = require("node:readline");
 const { RUNTIME_VERSION, effectivePluginConfig } = require("../capability-runtime");
-const { LOCAL_REGISTRATIONS, createLocalJob, readLocalJob } = require("./capability-registry");
+const { LOCAL_REGISTRATIONS, createLocalJob, readLocalJob } = require("../capability-registry");
 const { appServerCapabilities, clientSupportsMcpApps, listAppResources, readAppResource, withQualityReportApp } = require("./mcp-apps");
 const { TOOLS, validateToolArguments, validateToolOutput } = require("./tool-contracts");
 

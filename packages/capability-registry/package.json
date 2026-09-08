@@ -1,0 +1,17 @@
+{
+  "name": "@common-tools/capability-registry",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@common-tools/ppt-improve-core": "0.1.0",
+    "@common-tools/ppt-create-core": "0.1.0",
+    "@common-tools/ppt-quality-core": "0.1.0",
+    "@common-tools/project-audit-core": "0.1.0",
+    "@common-tools/slideclone-core": "0.1.0"
+  },
+  "type": "commonjs"
+}

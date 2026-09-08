@@ -2,11 +2,13 @@
 "use strict";
 
 const { compileSchema } = require("./schema-validator");
-const { REGISTRATION } = require("../slideclone-core");
-const { CAPABILITY: PROJECT_AUDIT_CAPABILITY } = require("../project-audit-core");
-const { CAPABILITY: PPT_QUALITY_CAPABILITY } = require("../ppt-quality-core");
-const { CAPABILITY: PPT_IMPROVE_CAPABILITY } = require("../ppt-improve-core");
-const { CAPABILITY: PPT_CREATE_CAPABILITY } = require("../ppt-create-core");
+const {
+  IMAGE_TO_EDITABLE_CAPABILITY,
+  PPT_CREATE_CAPABILITY,
+  PPT_IMPROVE_CAPABILITY,
+  PPT_QUALITY_CAPABILITY,
+  PROJECT_AUDIT_CAPABILITY
+} = require("../capability-registry");
 
 /** @typedef {Record<string, unknown>} JsonObject */
 /**
@@ -71,16 +73,16 @@ const REPORT_SCHEMA = Object.freeze({
 /** @type {ReadonlyArray<Readonly<ToolDefinition>>} */
 const TOOLS = Object.freeze([
   tool(null, "health_check", "Inspect locally available common-tools capability metadata.", objectInput({}, []), Object.freeze({ type: "object", required: ["runtime", "enabledCapabilities", "registrations"], properties: { runtime: STRING, enabledCapabilities: { type: "array", items: STRING }, registrations: { type: "array", items: { type: "object", additionalProperties: true } } }, additionalProperties: false }), annotations(true, false, true)),
-  tool(REGISTRATION.capability, "create_editable_job", "Create a controlled local image-to-editable job from one PNG/JPEG/PDF/PPTX source or an ordered image batch, with an explicit workspace-contained slideclone config.", Object.freeze({
+  tool(IMAGE_TO_EDITABLE_CAPABILITY, "create_editable_job", "Create a controlled local image-to-editable job from one PNG/JPEG/PDF/PPTX source or an ordered image batch, with an explicit workspace-contained slideclone config.", Object.freeze({
     ...objectInput({ input: STRING, inputs: EDITABLE_INPUTS, output: STRING, config: STRING, idempotencyKey: STRING }, ["output", "config"]),
     oneOf: Object.freeze([
       Object.freeze({ type: "object", required: Object.freeze(["input"]), properties: Object.freeze({ input: STRING }), additionalProperties: true }),
       Object.freeze({ type: "object", required: Object.freeze(["inputs"]), properties: Object.freeze({ inputs: EDITABLE_INPUTS }), additionalProperties: true })
     ])
   }), JOB_SCHEMA, annotations(false, false, false)),
-  tool(REGISTRATION.capability, "get_job", "Read a previously created job.", objectInput({ id: JOB_ID }, ["id"]), JOB_SCHEMA, annotations(true, false, true)),
-  tool(REGISTRATION.capability, "cancel_job", "Request cooperative cancellation of a local job.", objectInput({ id: JOB_ID }, ["id"]), JOB_SCHEMA, annotations(false, false, true)),
-  tool(REGISTRATION.capability, "list_job_artifacts", "List verified artifacts for a local job.", objectInput({ id: JOB_ID }, ["id"]), Object.freeze({ type: "object", required: ["id", "artifacts"], properties: { id: JOB_ID, artifacts: { type: "array", maxItems: 64, items: { type: "object", additionalProperties: true } } }, additionalProperties: false }), annotations(true, false, true)),
+  tool(IMAGE_TO_EDITABLE_CAPABILITY, "get_job", "Read a previously created job.", objectInput({ id: JOB_ID }, ["id"]), JOB_SCHEMA, annotations(true, false, true)),
+  tool(IMAGE_TO_EDITABLE_CAPABILITY, "cancel_job", "Request cooperative cancellation of a local job.", objectInput({ id: JOB_ID }, ["id"]), JOB_SCHEMA, annotations(false, false, true)),
+  tool(IMAGE_TO_EDITABLE_CAPABILITY, "list_job_artifacts", "List verified artifacts for a local job.", objectInput({ id: JOB_ID }, ["id"]), Object.freeze({ type: "object", required: ["id", "artifacts"], properties: { id: JOB_ID, artifacts: { type: "array", maxItems: 64, items: { type: "object", additionalProperties: true } } }, additionalProperties: false }), annotations(true, false, true)),
   tool(PROJECT_AUDIT_CAPABILITY, "create_project_audit_job", "Create a read-only, evidence-based local project audit job for an explicit audit level and scope.", objectInput({ projectRoot: STRING, output: STRING, level: Object.freeze({ type: "string", enum: ["1", "2", "3", "quick", "standard", "deep"], description: "Audit depth; defaults to standard." }), scope: Object.freeze({ ...STRING, description: "1 for all domains, or comma-separated choices 2 to 5 / scope IDs." }), idempotencyKey: STRING }, ["output"]), JOB_SCHEMA, annotations(false, false, false)),
   tool(PROJECT_AUDIT_CAPABILITY, "get_project_audit_report", "Read verified artifacts for a completed project audit.", objectInput({ id: JOB_ID }, ["id"]), REPORT_SCHEMA, annotations(true, false, true)),
   tool(PPT_QUALITY_CAPABILITY, "create_ppt_quality_job", "Create a read-only local PPTX quality audit job.", objectInput({ input: STRING, output: STRING, idempotencyKey: STRING }, ["input", "output"]), JOB_SCHEMA, annotations(false, false, false)),
