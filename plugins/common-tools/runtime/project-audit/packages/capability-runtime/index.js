@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { assertJob, assertNonEmptyString, assertTransition, containsControlCharacter, TERMINAL_JOB_STATUSES } = require("../capability-contracts");
+const executionMode = require("./execution-mode");
 
 const RUNTIME_VERSION = "0.1.0";
 const MANIFEST_ROOT = path.resolve(__dirname, "..", "capability-manifests");
@@ -95,20 +96,25 @@ function validateDependencies(value, capability) {
   if (!Array.isArray(value) || value.length > 16 || value.some((dependency) => typeof dependency !== "string" || !CAPABILITY_ID_PATTERN.test(dependency) || dependency === capability) || new Set(value).size !== value.length) throw new Error("capability dependencies are invalid");
   return Object.freeze([...value].sort());
 }
+function validateExecutionDefinition(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).sort().join(",") !== "localSupported" || typeof value.localSupported !== "boolean") throw new Error("capability execution definition is invalid");
+  return Object.freeze({ localSupported: value.localSupported });
+}
 function validateCapabilityManifest(value, { runtimeVersion = RUNTIME_VERSION } = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("capability manifest is invalid");
   const capability = assertNonEmptyString(value.capability, "manifest.capability");
-  const expectedKeys = ["capability", "contentSha256", "manifestVersion", "minimumRuntimeVersion", "requiredWorkerProfile", "team", "toolNames", "version"];
+  const expectedKeys = ["capability", "contentSha256", "execution", "manifestVersion", "minimumRuntimeVersion", "requiredWorkerProfile", "team", "toolNames", "version"];
   if (Object.hasOwn(value, "deprecation")) expectedKeys.push("deprecation");
   if (Object.hasOwn(value, "dependencies")) expectedKeys.push("dependencies");
   const runtimeRange = parseRuntimeRange(value.minimumRuntimeVersion);
   if (Object.keys(value).sort().join(",") !== expectedKeys.sort().join(",") || !CAPABILITY_ID_PATTERN.test(capability) || value.manifestVersion !== 1 || !SEMVER_PATTERN.test(value.version || "") || !Array.isArray(value.toolNames) || value.toolNames.some((tool) => typeof tool !== "string" || !tool) || !runtimeRange || typeof value.requiredWorkerProfile !== "string" || !/^[a-f0-9]{64}$/.test(value.contentSha256 || "")) throw new Error("capability manifest is invalid");
   if (!runtimeSatisfiesRange(runtimeVersion, runtimeRange)) throw new Error(`capability manifest requires an incompatible Runtime version: ${capability}`);
   const team = validateTeamDefinition(value.team, capability);
+  const execution = validateExecutionDefinition(value.execution);
   const deprecation = validateDeprecation(value.deprecation, capability);
   const dependencies = validateDependencies(value.dependencies, capability);
   if (value.contentSha256 !== manifestDigest(value)) throw new Error(`capability manifest hash mismatch: ${capability}`);
-  return Object.freeze({ manifestVersion: value.manifestVersion, capability, version: value.version, toolNames: Object.freeze([...value.toolNames]), minimumRuntimeVersion: value.minimumRuntimeVersion, requiredWorkerProfile: value.requiredWorkerProfile, team, dependencies, deprecation, contentSha256: value.contentSha256 });
+  return Object.freeze({ manifestVersion: value.manifestVersion, capability, version: value.version, toolNames: Object.freeze([...value.toolNames]), minimumRuntimeVersion: value.minimumRuntimeVersion, requiredWorkerProfile: value.requiredWorkerProfile, execution, team, dependencies, deprecation, contentSha256: value.contentSha256 });
 }
 function assertManifestDependencyGraph(manifests) {
   if (!(manifests instanceof Map)) throw new TypeError("capability manifests are invalid");
@@ -147,9 +153,13 @@ function loadCapabilityManifests(root = MANIFEST_ROOT) {
 }
 const CAPABILITY_MANIFESTS = loadCapabilityManifests();
 const SUPPORTED_CAPABILITIES = Object.freeze([...CAPABILITY_MANIFESTS.keys()].sort());
+const LOCAL_CAPABILITIES = Object.freeze(SUPPORTED_CAPABILITIES.filter((capability) => CAPABILITY_MANIFESTS.get(capability).execution.localSupported));
 const DEFAULT_CAPABILITIES = Object.freeze(["image-to-editable"]);
 const TEAM_CAPABILITY_DEFINITIONS = Object.freeze(Object.fromEntries(SUPPORTED_CAPABILITIES.map((capability) => [capability, CAPABILITY_MANIFESTS.get(capability).team])));
-function manifestSummary(capability) { const manifest = CAPABILITY_MANIFESTS.get(capability); if (!manifest) throw new Error("capability is not installed"); return { version: manifest.version, contentSha256: manifest.contentSha256, requiredWorkerProfile: manifest.requiredWorkerProfile, dependencies: manifest.dependencies, deprecation: manifest.deprecation }; }
+function manifestSummary(capability) { const manifest = CAPABILITY_MANIFESTS.get(capability); if (!manifest) throw new Error("capability is not installed"); return { version: manifest.version, contentSha256: manifest.contentSha256, requiredWorkerProfile: manifest.requiredWorkerProfile, execution: manifest.execution, dependencies: manifest.dependencies, deprecation: manifest.deprecation }; }
+function resolveExecutionRoute(options = {}) {
+  return executionMode.resolveExecutionRoute({ ...options, localCapabilities: options.localCapabilities || LOCAL_CAPABILITIES });
+}
 
 function replaceAtomically(temporaryFile, destination) {
   let lastError;
@@ -352,4 +362,4 @@ function rollbackPluginConfig(root) {
   return writePluginConfig(requestedRoot, normalizePluginConfig({ ...previous, generation: config.generation + 1 }));
 }
 
-module.exports = { ...require("./execution-mode"), CAPABILITY_MANIFESTS, DEFAULT_CAPABILITIES, RUNTIME_VERSION, SUPPORTED_CAPABILITIES, TEAM_CAPABILITY_DEFINITIONS, JobStore, assertManifestDependencyGraph, canonicalManifest, compareManifestVersions, compareVersions, effectivePluginConfig, insideRoot, loadCapabilityManifests, loadPluginConfig, manifestIdentityMatches, parseManifestVersion, parseRuntimeRange, readPluginConfig, readProjectCapabilityScope, resolvedCapabilityDependencies, rollbackPluginConfig, runtimeSatisfiesRange, setCapabilityEnabled, setEnabledCapabilities, sha256File, upgradePluginConfig, validateCapabilityManifest, validateDependencies, validateDeprecation };
+module.exports = { ...executionMode, CAPABILITY_MANIFESTS, DEFAULT_CAPABILITIES, LOCAL_CAPABILITIES, RUNTIME_VERSION, SUPPORTED_CAPABILITIES, TEAM_CAPABILITY_DEFINITIONS, JobStore, assertManifestDependencyGraph, canonicalManifest, compareManifestVersions, compareVersions, effectivePluginConfig, insideRoot, loadCapabilityManifests, loadPluginConfig, manifestIdentityMatches, parseManifestVersion, parseRuntimeRange, readPluginConfig, readProjectCapabilityScope, resolvedCapabilityDependencies, resolveExecutionRoute, rollbackPluginConfig, runtimeSatisfiesRange, setCapabilityEnabled, setEnabledCapabilities, sha256File, upgradePluginConfig, validateCapabilityManifest, validateDependencies, validateDeprecation };

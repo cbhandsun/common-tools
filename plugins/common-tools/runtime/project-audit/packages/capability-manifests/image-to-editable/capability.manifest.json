@@ -5,6 +5,9 @@
   "toolNames": ["create_editable_job", "get_job", "cancel_job", "list_job_artifacts"],
   "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
   "requiredWorkerProfile": "image-to-editable",
+  "execution": {
+    "localSupported": false
+  },
   "team": {
     "oauthScope": "common-tools:capability:image-to-editable",
     "acceptedUploadMediaTypes": ["application/gzip", "application/x-gzip"],
@@ -15,5 +18,5 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-image-worker.js"
     }
   },
-  "contentSha256": "54d4b782d6e05f315689c067958c937a5a509890063ffb521c407d68b6ca71dd"
+  "contentSha256": "26812d35abb48f75cf30afe6a9c366a63142875cd51e0871e57afb910e2b09fb"
 }
