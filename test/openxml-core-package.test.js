@@ -8,6 +8,7 @@ const test = require("node:test");
 const { IMAGE_EDITABLE_RELEASE_FILES } = require("../scripts/verify-runtime-package");
 
 const modules = ["pptx-openxml-dotnet", "chart-native-payload", "restricted-svg", "openxml-build-cache", "pptx-zip", "cache-budget", "openxml-build-jobs"];
+const ooxmlModules = ["pptx-inventory", "pptx-zip"];
 const repository = path.resolve(__dirname, "..");
 
 function copyCore(destination) {
@@ -17,10 +18,18 @@ function copyCore(destination) {
   }
 }
 
+function copyOoxmlCore(destination) {
+  fs.mkdirSync(destination, { recursive: true });
+  for (const name of ["package.json", ...ooxmlModules.map((name) => `${name}.js`)]) {
+    fs.copyFileSync(path.join(repository, "packages/ooxml-core", name), path.join(destination, name));
+  }
+}
+
 test("OpenXML preparation, graphics, ZIP and cache run from the isolated core package", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-core-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   copyCore(path.join(root, "node_modules/@common-tools/slideclone-core"));
+  copyOoxmlCore(path.join(root, "node_modules/@common-tools/ooxml-core"));
   const load = createRequire(path.join(root, "consumer.cjs"));
   const api = Object.fromEntries(modules.map((name) => [name, load(`@common-tools/slideclone-core/${name}`)]));
   const chart = { type: "column", categories: ["Q1"], series: [{ name: "Revenue", values: [12] }], box: { x: 0, y: 0, w: 400, h: 240 } };
@@ -50,6 +59,7 @@ test("OpenXML preparation, graphics, ZIP and cache run from the isolated core pa
   assert.deepEqual(fs.readFileSync(restored), fs.readFileSync(outFile));
   assert.equal(fs.existsSync(path.join(root, "skills")), false);
   for (const name of modules) assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/slideclone-core/${name}.js`));
+  for (const name of ooxmlModules) assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/ooxml-core/${name}.js`));
 });
 
 test("legacy OpenXML entry points share the core implementation without workspace package links", (t) => {
@@ -57,6 +67,7 @@ test("legacy OpenXML entry points share the core implementation without workspac
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const core = path.join(root, "packages/slideclone-core");
   copyCore(core);
+  copyOoxmlCore(path.join(root, "packages/ooxml-core"));
   for (const name of modules) {
     if (name === "openxml-build-jobs") continue;
     const relative = `skills/pd-hifi-slideclone/scripts/${name === "pptx-openxml-dotnet" ? "adapters" : "lib"}/${name}.js`;
