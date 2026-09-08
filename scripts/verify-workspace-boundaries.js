@@ -112,10 +112,11 @@ function verifyWorkspaceBoundaries(workspaceRoot = path.resolve(__dirname, "..")
           if (within(current.directory, resolved)) continue;
           target = [...packages.values()].find((candidate) => within(candidate.directory, resolved));
           if (!target) {
-            // Freeze the remaining migration edge, not entire entry-point
-            // directories. New composition code must use workspace packages.
+            // Freeze the remaining native-engine migration adapter, not entire
+            // entry-point directories. New composition code must use workspace
+            // packages and must not import from skill source trees directly.
             const legacyTarget = path.relative(root, resolved).replaceAll("\\", "/");
-            if (relativeFile === "packages/remote-mcp-server/bin/common-tools-team-image-worker.js"
+            if (relativeFile === "packages/slideclone-core/legacy-native-engine.js"
               && legacyTarget === "skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js") {
               legacyEdges.push({ file: relativeFile, line, target: legacyTarget });
             } else fail("domain/runtime library imports outside workspace packages");
@@ -143,7 +144,7 @@ function verifyWorkspaceBoundaries(workspaceRoot = path.resolve(__dirname, "..")
 if (require.main === module) {
   try {
     const result = verifyWorkspaceBoundaries();
-    process.stdout.write(`verified ${result.fileCount} files in ${result.packageCount} workspace packages; ${result.legacyEdges.length} composition adapter imports remain for migration\n`);
+    process.stdout.write(`verified ${result.fileCount} files in ${result.packageCount} workspace packages; ${result.legacyEdges.length} legacy native-engine adapter imports remain for migration\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : "workspace boundary verification failed"}\n`);
     process.exitCode = 1;

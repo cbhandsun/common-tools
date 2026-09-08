@@ -80,25 +80,26 @@ test("boundary gate detects cycles created by non-index modules", (t) => {
   assert.throws(f.verify, /dependency cycle: one -> two -> one/);
 });
 
-test("only the existing Worker-to-native-engine composition edge is permitted", (t) => {
-  const f = workspace(t); f.add("remote-mcp-server");
+test("only the existing legacy native-engine adapter edge is permitted", (t) => {
+  const f = workspace(t); f.add("slideclone-core");
   const target = "skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js";
-  const file = "packages/remote-mcp-server/bin/common-tools-team-image-worker.js";
+  const file = "packages/slideclone-core/legacy-native-engine.js";
   f.write(target, "module.exports = {};");
-  f.write(file, `require("../../../${target}");`);
+  f.write(file, `require("../../${target}");`);
   assert.deepEqual(f.verify().legacyEdges, [{ file, line: 1, target }]);
   f.write("skills/other.js", "module.exports = {};");
-  f.write(file, 'require("../../../skills/other.js");');
+  f.write(file, 'require("../../skills/other.js");');
   assert.throws(f.verify, /imports outside workspace packages/);
 });
 
-test("composition exceptions cannot expand to CLI, other Workers or domain modules", (t) => {
+test("legacy native-engine exception cannot expand to CLI, Workers or other domain modules", (t) => {
   const f = workspace(t);
   const target = "skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js";
   f.write(target, "module.exports = {};");
-  for (const folder of ["cli", "remote-mcp-server", "feature-core"]) f.add(folder);
+  for (const folder of ["cli", "remote-mcp-server", "feature-core", "slideclone-core"]) f.add(folder);
   for (const file of [
     "packages/cli/index.js",
+    "packages/slideclone-core/index.js",
     "packages/remote-mcp-server/bin/other-worker.js",
     "packages/remote-mcp-server/bin/nested/common-tools-team-image-worker.js",
     "packages/remote-mcp-server/common-tools-team-image-worker.js",
