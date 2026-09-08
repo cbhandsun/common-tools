@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { auditConnectorSemantics, auditConnectorShapes } = require("../skills/pd-hifi-slideclone/scripts/lib/connector-semantic-audit");
+const { auditConnectorSemantics, auditConnectorShapes } = require("../packages/slideclone-native-engine/scripts/lib/connector-semantic-audit");
 
 const expectation = { id: "perception-to-planning", fromId: "perception", toId: "planning", direction: "forward", axis: "horizontal" };
 

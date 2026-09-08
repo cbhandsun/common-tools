@@ -9,7 +9,7 @@ const { readZipEntryText } = require("../packages/ooxml-core/pptx-zip");
 const {
   isolatePptxComponentGroup,
   isolateSlideXmlGroup
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-pptx-group-isolator");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-pptx-group-isolator");
 
 const SLIDE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" showMasterSp="1">

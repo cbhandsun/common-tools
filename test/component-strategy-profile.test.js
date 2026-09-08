@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 
 const {
   summarizeComponentStrategyProfile
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-strategy-profile");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-strategy-profile");
 
 test("component strategy profile summarizes plugin and fidelity strategy coverage", () => {
   const profile = summarizeComponentStrategyProfile({

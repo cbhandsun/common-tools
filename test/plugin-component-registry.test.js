@@ -263,7 +263,7 @@ test("plugin component registry loads a materialized asset offline without provi
   fs.mkdirSync(providerRoot, { recursive: true });
   const source = path.join(providerRoot, "islide-applied-cycle.pptx");
   fs.writeFileSync(source, "offline component");
-  const { materializeComponentInventory } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-store");
+  const { materializeComponentInventory } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-store");
   materializeComponentInventory({
     provider: "plugin-component-registry-v1",
     candidates: [{

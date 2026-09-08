@@ -11,7 +11,7 @@ const {
   readComponentAssetRegistry,
   registryCandidates,
   shouldMaterializeCandidate
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-store");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-asset-store");
 
 function inventory(candidates) {
   return { provider: "plugin-component-registry-v1", candidates };
