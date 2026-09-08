@@ -5,10 +5,16 @@ const path = require("path");
 const SUITES = Object.freeze(["all", "unit", "contract", "integration", "common-tools"]);
 const CONTRACT_TESTS = new Set([
   "cli-scaffold-generator.test.js",
+  "cli-verification-package.test.js",
+  "engine-core-package.test.js",
+  "native-ownership-core-package.test.js",
+  "openxml-core-package.test.js",
   "openxml-dotnet-contract.test.js",
   "openxml-native-arc-contract.test.js",
   "package-scripts.test.js",
-  "test-sharded.test.js"
+  "pptx-engine-architecture.test.js",
+  "test-sharded.test.js",
+  "workspace-package-boundaries.test.js"
 ]);
 const INTEGRATION_TESTS = new Set([
   "deck-template-openxml-admission.test.js",

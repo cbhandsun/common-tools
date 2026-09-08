@@ -56,6 +56,7 @@ test("MCP and Worker production entries reject console logging while build outpu
 
 test("new crop and gate regressions are discovered by the unified CI suite", () => {
   const names = discoverTestFiles(root, "unit").map(({ file }) => file.replaceAll("\\", "/"));
+  const contracts = discoverTestFiles(root, "contract").map(({ file }) => file.replaceAll("\\", "/"));
   assert.ok(names.includes("test/graphic-crop-materializer.test.js"));
   assert.ok(names.includes("test/final-page-cache.test.js"));
   assert.ok(names.includes("test/slideclone-config-security.test.js"));
@@ -68,10 +69,10 @@ test("new crop and gate regressions are discovered by the unified CI suite", () 
   assert.ok(names.includes("test/page-graphics-stage.test.js"));
   assert.ok(names.includes("test/slide-size.test.js"));
   assert.ok(names.includes("test/page-reuse.test.js"));
-  assert.ok(names.includes("test/openxml-core-package.test.js"));
+  assert.ok(contracts.includes("test/openxml-core-package.test.js"));
   assert.ok(names.includes("test/openxml-build-jobs.test.js"));
   assert.ok(names.includes("test/page-semantic-claims.test.js"));
-  assert.ok(names.includes("test/native-ownership-core-package.test.js"));
+  assert.ok(contracts.includes("test/native-ownership-core-package.test.js"));
   assert.ok(names.includes("test/full-slide-residual-publication.test.js"));
   assert.ok(names.includes("test/full-slide-residual-crop.test.js"));
   assert.ok(names.includes("test/full-slide-residual-arc.test.js"));
@@ -83,7 +84,7 @@ test("new crop and gate regressions are discovered by the unified CI suite", () 
   assert.ok(names.includes("test/common-tools-team-runtime.test.js"));
   assert.ok(names.includes("test/team-config-boundary.test.js"));
   assert.ok(names.includes("test/job-input-boundary.test.js"));
-  assert.ok(names.includes("test/cli-verification-package.test.js"));
+  assert.ok(contracts.includes("test/cli-verification-package.test.js"));
   assert.ok(names.includes("test/redis-connection.test.js"));
   assert.ok(names.includes("test/page-text-finalizer.test.js"));
   assert.ok(names.includes("test/page-shape-finalizer.test.js"));
@@ -94,7 +95,8 @@ test("new crop and gate regressions are discovered by the unified CI suite", () 
   assert.ok(names.includes("test/worker-failure-boundary.test.js"));
   assert.ok(names.includes("test/workspace-boundary-verifier.test.js"));
   assert.ok(integration.includes("test/ocr-source-deck.test.js"));
-  for (const name of ["page-selection-boundary", "graphic-crop-policy", "engine-core-package"]) assert.ok(names.includes(`test/${name}.test.js`));
+  assert.ok(contracts.includes("test/engine-core-package.test.js"));
+  for (const name of ["page-selection-boundary", "graphic-crop-policy"]) assert.ok(names.includes(`test/${name}.test.js`));
 });
 
 test("local CI entry includes static gates and the actual lint/type commands include new boundaries", () => {

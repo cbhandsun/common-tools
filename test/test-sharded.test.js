@@ -51,6 +51,8 @@ test("parseShardCount validates command and environment boundaries", () => {
 test("test suites classify fast feedback, contracts, and integration checks", () => {
   assert.equal(classifyTestFile("test/font-fit.test.js"), "unit");
   assert.equal(classifyTestFile("test/package-scripts.test.js"), "contract");
+  assert.equal(classifyTestFile("test/workspace-package-boundaries.test.js"), "contract");
+  assert.equal(classifyTestFile("test/engine-core-package.test.js"), "contract");
   assert.equal(classifyTestFile("test/quality-gate-real-pptx.test.js"), "integration");
   assert.equal(classifyTestFile("test/common-tools-project-audit.test.js"), "integration");
   assert.equal(classifyTestFile("test/common-tools-remote-plugin-bundles.test.js"), "integration");
@@ -60,6 +62,8 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.equal(classifyTestFile("test/openxml-dotnet-contract.test.js"), "contract");
   assert.equal(includesSuite("test/font-fit.test.js", "unit"), true);
   assert.equal(includesSuite("test/font-fit.test.js", "integration"), false);
+  assert.equal(includesSuite("test/workspace-package-boundaries.test.js", "unit"), false);
+  assert.equal(includesSuite("test/workspace-package-boundaries.test.js", "contract"), true);
   assert.equal(includesSuite("test/common-tools-project-audit.test.js", "unit"), false);
   assert.equal(includesSuite("test/common-tools-project-audit.test.js", "integration"), true);
   assert.equal(includesSuite("test/common-tools-remote-plugin-bundles.test.js", "unit"), false);
