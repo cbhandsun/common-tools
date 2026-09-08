@@ -29,6 +29,12 @@ test("capability module sources are derived from signed manifests", () => {
     ["first", { capability: "first", requiredWorkerProfile: "base", moduleSource: { packageName: "@common-tools/one", requirePath: "../one", exportName: "CAPABILITY_MODULE" } }],
     ["second", { capability: "second", requiredWorkerProfile: "base", moduleSource: { packageName: "@common-tools/one", requirePath: "../two", exportName: "CAPABILITY_MODULE" } }]
   ])), /duplicate packageName/);
+  assert.throws(() => sourceCatalogFromManifests(new Map([
+    ["direct", { capability: "direct", requiredWorkerProfile: "direct", moduleSource: { packageName: "@common-tools/direct-core", requirePath: "../direct-core", exportName: "CAPABILITY_MODULE" } }]
+  ])), /must export REMOTE_CAPABILITY_MODULE/);
+  assert.throws(() => sourceCatalogFromManifests(new Map([
+    ["local", { capability: "local", requiredWorkerProfile: "base", moduleSource: { packageName: "@common-tools/local-core", requirePath: "../local-core", exportName: "REMOTE_CAPABILITY_MODULE" } }]
+  ])), /must export CAPABILITY_MODULE/);
 });
 
 test("capability catalogs are generated from manifest-owned module sources", () => {

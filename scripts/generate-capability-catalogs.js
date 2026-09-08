@@ -19,14 +19,23 @@ function assertSourceEntries(entries, label) {
   return Object.freeze(entries);
 }
 
+function assertExpectedExportName(entry, expectedExportName, label) {
+  if (entry.exportName !== expectedExportName) throw new TypeError(`${label} must export ${expectedExportName}: ${entry.capability}`);
+}
+
 function sourceCatalogFromManifests(manifests = CAPABILITY_MANIFESTS) {
   if (!(manifests instanceof Map)) throw new TypeError("capability manifests are invalid");
   const local = [];
   const direct = [];
   for (const manifest of [...manifests.values()].sort((left, right) => left.capability.localeCompare(right.capability))) {
     const entry = Object.freeze({ capability: manifest.capability, ...manifest.moduleSource });
-    if (manifest.requiredWorkerProfile === "direct") direct.push(entry);
-    else local.push(entry);
+    if (manifest.requiredWorkerProfile === "direct") {
+      assertExpectedExportName(entry, "REMOTE_CAPABILITY_MODULE", "direct capability module source");
+      direct.push(entry);
+    } else {
+      assertExpectedExportName(entry, "CAPABILITY_MODULE", "local capability module source");
+      local.push(entry);
+    }
   }
   return Object.freeze({
     version: 1,
