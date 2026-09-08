@@ -293,4 +293,13 @@ function editableVisualSummary(job, workspaceRoot) {
   } catch { return null; }
 }
 
-module.exports = { CAPABILITY, EDITABLE_DOCUMENT_EXTENSIONS, EDITABLE_IMAGE_EXTENSIONS, MAX_EDITABLE_DOCUMENT_BYTES, MAX_EDITABLE_DOCUMENT_PAGES, REGISTRATION, VISUAL_REPORT_NAME, assertEditableInput, assertEditableInputDocument, cancelJob, collectArtifacts, createEditableJob, editableQuality, editableVisualSummary, getJob, runEditableJob };
+const CAPABILITY_MODULE = Object.freeze({
+  registration: REGISTRATION,
+  createHandlers: Object.freeze({
+    create_editable_job: (args, context) => createEditableJob({ ...context, input: args.input, inputs: args.inputs, output: args.output, config: args.config, idempotencyKey: args.idempotencyKey })
+  }),
+  reportHandlers: Object.freeze({}),
+  uiContributions: Object.freeze([])
+});
+
+module.exports = { CAPABILITY, CAPABILITY_MODULE, EDITABLE_DOCUMENT_EXTENSIONS, EDITABLE_IMAGE_EXTENSIONS, MAX_EDITABLE_DOCUMENT_BYTES, MAX_EDITABLE_DOCUMENT_PAGES, REGISTRATION, VISUAL_REPORT_NAME, assertEditableInput, assertEditableInputDocument, cancelJob, collectArtifacts, createEditableJob, editableQuality, editableVisualSummary, getJob, runEditableJob };

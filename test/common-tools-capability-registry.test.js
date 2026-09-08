@@ -9,6 +9,11 @@ const {
   assertCapabilityModulesMatchManifests,
   defineCapabilityModule
 } = require("../packages/capability-registry");
+const { CAPABILITY_MODULE: EDITABLE_CAPABILITY_MODULE } = require("../packages/slideclone-core");
+const { CAPABILITY_MODULE: PROJECT_AUDIT_CAPABILITY_MODULE } = require("../packages/project-audit-core");
+const { CAPABILITY_MODULE: PPT_QUALITY_CAPABILITY_MODULE } = require("../packages/ppt-quality-core");
+const { CAPABILITY_MODULE: PPT_IMPROVE_CAPABILITY_MODULE } = require("../packages/ppt-improve-core");
+const { CAPABILITY_MODULE: PPT_CREATE_CAPABILITY_MODULE } = require("../packages/ppt-create-core");
 
 test("capability registry modules are verified against the signed manifest catalog", () => {
   assert.equal(assertCapabilityModulesMatchManifests(CAPABILITY_MODULES), true);
@@ -19,6 +24,27 @@ test("capability registry modules are verified against the signed manifest catal
     assert.deepEqual([...module.registration.toolNames].sort(), [...manifest.toolNames].sort());
     assert.equal(module.registration.minimumRuntimeVersion, manifest.minimumRuntimeVersion);
     assert.equal(module.registration.requiredWorkerProfile, manifest.requiredWorkerProfile);
+  }
+});
+
+test("capability registry consumes package-owned capability modules", () => {
+  const packageModules = [
+    EDITABLE_CAPABILITY_MODULE,
+    PROJECT_AUDIT_CAPABILITY_MODULE,
+    PPT_QUALITY_CAPABILITY_MODULE,
+    PPT_IMPROVE_CAPABILITY_MODULE,
+    PPT_CREATE_CAPABILITY_MODULE
+  ];
+  assert.deepEqual(CAPABILITY_MODULES.map((module) => module.registration.capability), packageModules.map((module) => module.registration.capability));
+  for (const packageModule of packageModules) {
+    const registryModule = CAPABILITY_MODULES.find((module) => module.registration.capability === packageModule.registration.capability);
+    assert.ok(registryModule);
+    assert.equal(registryModule.registration, packageModule.registration);
+    assert.deepEqual(Object.keys(registryModule.createHandlers).sort(), Object.keys(packageModule.createHandlers).sort());
+    for (const [name, handler] of Object.entries(packageModule.createHandlers)) assert.equal(registryModule.createHandlers[name], handler);
+    assert.deepEqual(Object.keys(registryModule.reportHandlers).sort(), Object.keys(packageModule.reportHandlers).sort());
+    for (const [name, handler] of Object.entries(packageModule.reportHandlers)) assert.equal(registryModule.reportHandlers[name].summary, handler.summary);
+    assert.deepEqual(registryModule.uiContributions, packageModule.uiContributions);
   }
 });
 

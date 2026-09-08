@@ -6,6 +6,7 @@ const path = require("node:path");
 const { JobStore, insideRoot, sha256File } = require("../capability-runtime");
 const { assertNonEmptyString, assertQualityReport } = require("../capability-contracts");
 const { MAX_PPTX_BYTES, MAX_RELATIONSHIPS, MAX_SLIDES, MAX_TOTAL_XML_BYTES, crc32, extractEntry, inspectPptx, inspectRelationships, readCentralDirectory, unusedMediaEntries } = require("../ooxml-core");
+const { QUALITY_REPORT_UI_CONTRIBUTION } = require("./ui-contribution");
 
 const CAPABILITY = "ppt-quality";
 const REGISTRATION = Object.freeze({ capability: CAPABILITY, toolNames: ["create_ppt_quality_job", "get_ppt_quality_report"], minimumRuntimeVersion: ">=0.1.0 <1.0.0", requiredWorkerProfile: "base" });
@@ -132,4 +133,15 @@ function pptQualitySummary(job, workspaceRoot) {
   } catch { return null; }
 }
 
-module.exports = { CAPABILITY, REGISTRATION, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, assertSafeExistingPptx, auditPptx, createPptQualityJob, crc32, ensureSafeOutputDirectory, extractEntry, inspectPptx, inspectRelationships, pptQualitySummary, qualityFromReport, readCentralDirectory, renderMarkdown, runPptQualityJob, unusedMediaEntries, writeReport };
+const CAPABILITY_MODULE = Object.freeze({
+  registration: REGISTRATION,
+  createHandlers: Object.freeze({
+    create_ppt_quality_job: (args, context) => createPptQualityJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey })
+  }),
+  reportHandlers: Object.freeze({
+    get_ppt_quality_report: Object.freeze({ label: "PPT quality audit", key: "audit", summary: pptQualitySummary })
+  }),
+  uiContributions: Object.freeze([QUALITY_REPORT_UI_CONTRIBUTION])
+});
+
+module.exports = { CAPABILITY, CAPABILITY_MODULE, REGISTRATION, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, assertSafeExistingPptx, auditPptx, createPptQualityJob, crc32, ensureSafeOutputDirectory, extractEntry, inspectPptx, inspectRelationships, pptQualitySummary, qualityFromReport, readCentralDirectory, renderMarkdown, runPptQualityJob, unusedMediaEntries, writeReport };

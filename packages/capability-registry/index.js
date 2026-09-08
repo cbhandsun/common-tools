@@ -2,39 +2,29 @@
 
 const {
   cancelJob,
-  createEditableJob,
   editableVisualSummary,
   getJob,
-  REGISTRATION: EDITABLE_REGISTRATION
+  CAPABILITY_MODULE: EDITABLE_CAPABILITY_MODULE
 } = require("../slideclone-core");
 const {
   CAPABILITY: PROJECT_AUDIT_CAPABILITY,
-  REGISTRATION: PROJECT_AUDIT_REGISTRATION,
-  createProjectAuditJob,
-  projectAuditSummary
+  CAPABILITY_MODULE: PROJECT_AUDIT_CAPABILITY_MODULE
 } = require("../project-audit-core");
 const {
   CAPABILITY: PPT_QUALITY_CAPABILITY,
-  REGISTRATION: PPT_QUALITY_REGISTRATION,
-  createPptQualityJob,
-  pptQualitySummary
+  CAPABILITY_MODULE: PPT_QUALITY_CAPABILITY_MODULE
 } = require("../ppt-quality-core");
-const { QUALITY_REPORT_UI_CONTRIBUTION } = require("../ppt-quality-core/ui-contribution");
 const {
   CAPABILITY: PPT_IMPROVE_CAPABILITY,
-  REGISTRATION: PPT_IMPROVE_REGISTRATION,
-  createPptImproveJob,
-  pptImproveSummary
+  CAPABILITY_MODULE: PPT_IMPROVE_CAPABILITY_MODULE
 } = require("../ppt-improve-core");
 const {
   CAPABILITY: PPT_CREATE_CAPABILITY,
-  REGISTRATION: PPT_CREATE_REGISTRATION,
-  createPptCreateJob,
-  pptCreateSummary
+  CAPABILITY_MODULE: PPT_CREATE_CAPABILITY_MODULE
 } = require("../ppt-create-core");
 const { CAPABILITY_MANIFESTS } = require("../capability-manifests");
 
-const IMAGE_TO_EDITABLE_CAPABILITY = EDITABLE_REGISTRATION.capability;
+const IMAGE_TO_EDITABLE_CAPABILITY = EDITABLE_CAPABILITY_MODULE.registration.capability;
 
 function defineCapabilityModule(definition) {
   if (!definition || typeof definition !== "object" || Array.isArray(definition)) throw new TypeError("capability module definition is invalid");
@@ -73,50 +63,12 @@ function assertCapabilityModulesMatchManifests(modules, manifests = CAPABILITY_M
 }
 
 const CAPABILITY_MODULES = Object.freeze([
-  defineCapabilityModule({
-    registration: EDITABLE_REGISTRATION,
-    createHandlers: {
-      create_editable_job: (args, context) => createEditableJob({ ...context, input: args.input, inputs: args.inputs, output: args.output, config: args.config, idempotencyKey: args.idempotencyKey })
-    }
-  }),
-  defineCapabilityModule({
-    registration: PROJECT_AUDIT_REGISTRATION,
-    createHandlers: {
-      create_project_audit_job: (args, context) => createProjectAuditJob({ ...context, projectRoot: args.projectRoot || context.workspaceRoot, output: args.output, level: args.level, scope: args.scope, idempotencyKey: args.idempotencyKey })
-    },
-    reportHandlers: {
-      get_project_audit_report: { label: "project audit", key: "audit", summary: projectAuditSummary }
-    }
-  }),
-  defineCapabilityModule({
-    registration: PPT_QUALITY_REGISTRATION,
-    createHandlers: {
-      create_ppt_quality_job: (args, context) => createPptQualityJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey })
-    },
-    reportHandlers: {
-      get_ppt_quality_report: { label: "PPT quality audit", key: "audit", summary: pptQualitySummary }
-    },
-    uiContributions: [QUALITY_REPORT_UI_CONTRIBUTION]
-  }),
-  defineCapabilityModule({
-    registration: PPT_IMPROVE_REGISTRATION,
-    createHandlers: {
-      create_ppt_improve_job: (args, context) => createPptImproveJob({ ...context, input: args.input, report: args.report, output: args.output, idempotencyKey: args.idempotencyKey, profile: args.profile })
-    },
-    reportHandlers: {
-      get_ppt_improve_report: { label: "PPT improvement", key: "improvement", summary: pptImproveSummary }
-    }
-  }),
-  defineCapabilityModule({
-    registration: PPT_CREATE_REGISTRATION,
-    createHandlers: {
-      create_ppt_create_job: (args, context) => createPptCreateJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey })
-    },
-    reportHandlers: {
-      get_ppt_create_report: { label: "PPT creation", key: "creation", summary: pptCreateSummary }
-    }
-  })
-]);
+  EDITABLE_CAPABILITY_MODULE,
+  PROJECT_AUDIT_CAPABILITY_MODULE,
+  PPT_QUALITY_CAPABILITY_MODULE,
+  PPT_IMPROVE_CAPABILITY_MODULE,
+  PPT_CREATE_CAPABILITY_MODULE
+].map(defineCapabilityModule));
 assertCapabilityModulesMatchManifests(CAPABILITY_MODULES);
 
 const LOCAL_REGISTRATIONS = Object.freeze(CAPABILITY_MODULES.map((module) => module.registration));

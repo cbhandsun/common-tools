@@ -203,4 +203,15 @@ function pptImproveSummary(job, workspaceRoot) {
   } catch { return null; }
 }
 
-module.exports = { CAPABILITY, IMPROVED_PPTX_NAME, POST_QUALITY_REPORT_JSON_NAME, POST_QUALITY_REPORT_MARKDOWN_NAME, REGISTRATION, REPAIR_PROFILES, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, createPptImproveJob, normalizeRepairProfile, pptImproveSummary, rebuildZip, runPptImproveJob };
+const CAPABILITY_MODULE = Object.freeze({
+  registration: REGISTRATION,
+  createHandlers: Object.freeze({
+    create_ppt_improve_job: (args, context) => createPptImproveJob({ ...context, input: args.input, report: args.report, output: args.output, idempotencyKey: args.idempotencyKey, profile: args.profile })
+  }),
+  reportHandlers: Object.freeze({
+    get_ppt_improve_report: Object.freeze({ label: "PPT improvement", key: "improvement", summary: pptImproveSummary })
+  }),
+  uiContributions: Object.freeze([])
+});
+
+module.exports = { CAPABILITY, CAPABILITY_MODULE, IMPROVED_PPTX_NAME, POST_QUALITY_REPORT_JSON_NAME, POST_QUALITY_REPORT_MARKDOWN_NAME, REGISTRATION, REPAIR_PROFILES, REPORT_JSON_NAME, REPORT_MARKDOWN_NAME, createPptImproveJob, normalizeRepairProfile, pptImproveSummary, rebuildZip, runPptImproveJob };
