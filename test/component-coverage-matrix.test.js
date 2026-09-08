@@ -18,7 +18,7 @@ const {
   summarizeComponentRebuildReport,
   summarizeExpressionPolicyReport,
   summarizeFinalIrNativeOpportunities
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-coverage-matrix");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-coverage-matrix");
 const {
   applyCoverageGates,
   normalizeMotifTargetMinimums,

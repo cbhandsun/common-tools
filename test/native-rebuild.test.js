@@ -8,10 +8,10 @@ const path = require("node:path");
 const { cropPng, readPng, writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
 const { readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const {
-  _private: matcherPrivate
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-matcher");
+  _private: mp
+} = require("../packages/slideclone-native-engine/scripts/lib/component-asset-matcher");
 const {
-  _private: templatePrivate
+  _private: tp
 } = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-native-shapes");
 const {
   extractVisualAtoms,
@@ -8770,8 +8770,8 @@ test("component asset matcher relearns stale applied plugin summaries without re
     roleTags: ["applied-component", "openxml-inspectable"]
   };
 
-  assert.equal(matcherPrivate.isReusableLearningSummaryFresh(staleSummary, asset), false);
-  assert.equal(matcherPrivate.isReusableLearningSummaryFresh(freshSummary, asset), true);
+  assert.equal(mp.isReusableLearningSummaryFresh(staleSummary, asset), false);
+  assert.equal(mp.isReusableLearningSummaryFresh(freshSummary, asset), true);
 });
 
 test("component template generation treats bbox-only cached plugin groups as stale", () => {
@@ -8808,8 +8808,8 @@ test("component template generation treats bbox-only cached plugin groups as sta
     }]
   };
 
-  assert.equal(templatePrivate.isGenerationComponentAssetStale(staleAsset), true);
-  assert.equal(templatePrivate.isGenerationComponentAssetStale(freshAsset), false);
+  assert.equal(tp.isGenerationComponentAssetStale(staleAsset), true);
+  assert.equal(tp.isGenerationComponentAssetStale(freshAsset), false);
 });
 
 test("component template cycle-loop shells reuse plugin arc-arrow child shapes", () => {

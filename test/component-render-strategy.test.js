@@ -6,7 +6,7 @@ const assert = require("node:assert/strict");
 const {
   recommendComponentRenderStrategy,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-render-strategy");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-render-strategy");
 
 test("component render strategy prefers grouped editable component candidates", () => {
   const result = recommendComponentRenderStrategy({
