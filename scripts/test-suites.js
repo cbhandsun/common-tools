@@ -6,6 +6,7 @@ const SUITES = Object.freeze(["all", "unit", "contract", "integration", "common-
 const CONTRACT_TESTS = new Set([
   "cli-scaffold-generator.test.js",
   "cli-verification-package.test.js",
+  "common-tools-project-audit-runtime-package.test.js",
   "engine-core-package.test.js",
   "native-ownership-core-package.test.js",
   "openxml-core-package.test.js",
