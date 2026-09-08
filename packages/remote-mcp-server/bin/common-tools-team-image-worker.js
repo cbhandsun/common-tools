@@ -4,8 +4,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { TeamWorker, TeamWorkerRunner, loadTeamConfig, recoverWorkerLeases } = require("../../team-runtime");
-const { createImageToEditableArchiveHandler } = require("../../slideclone-core/team-worker");
-const { createTeamDocumentNormalizer } = require("../../slideclone-core/team-document-normalizer");
+const { createImageToEditableArchiveHandler } = require("../../slideclone-worker-adapter/team-worker");
+const { createTeamDocumentNormalizer } = require("../../slideclone-worker-adapter/team-document-normalizer");
 const { createImageDeliveryArtifacts } = require("../../ppt-create-core/image-delivery");
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { createPinnedRawImageOcr, readPinnedRawImageOcrProfile, verifyPinnedRawImageOcrProfile } = require("../../slideclone-core/team-ocr-profile");
@@ -58,7 +58,7 @@ function createNativeRebuilder(settings, { loadImplementation = loadNativeImageR
 function createRenderQualityVerifier() {
   const renderPresentation = require("../../slideclone-core/render-libreoffice");
   const { comparePageFiles } = require("../../slideclone-core/diff-pixel-png");
-  const { createRawImageRenderQualityVerifier } = require("../../slideclone-core/team-render-quality");
+  const { createRawImageRenderQualityVerifier } = require("../../slideclone-worker-adapter/team-render-quality");
   return createRawImageRenderQualityVerifier({ renderPresentation, comparePageFiles });
 }
 function createTeamImageDelivery({ root, irFile, pptxFile }) {

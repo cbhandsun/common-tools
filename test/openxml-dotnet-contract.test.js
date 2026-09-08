@@ -488,7 +488,7 @@ test("OpenXmlDeckBuilder preserves equivalent rotations without integer overflow
     page.shapes.push({id:`freeform-${index}`,type:"freeform",box:{x:10,y:10,w:20,h:20},style:{...style,points:[{x:0,y:0},{x:1,y:0},{x:1,y:1}]}});
     page.images.push({id:`image-${index}`,type:"image",assetPath:"assets/pixel.png",box:{x:10,y:10,w:20,h:20},style});
   });
-  assert.equal(require("../packages/slideclone-core/team-worker").validateDeckIr(deck, root).pages, 1);
+  assert.equal(require("../packages/slideclone-worker-adapter/team-worker").validateDeckIr(deck, root).pages, 1);
   const ir = path.join(root,"deck.json"), output = path.join(root,"deck.pptx");
   fs.writeFileSync(ir, JSON.stringify(deck));
   const before = fs.readFileSync(ir);

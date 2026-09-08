@@ -2,7 +2,7 @@
 
 const { S3Client } = require("@aws-sdk/client-s3");
 const { createObjectStore } = require("../../packages/remote-mcp-server/team-providers");
-const { createImageToEditableArchiveHandler } = require("../../packages/slideclone-core/team-worker");
+const { createImageToEditableArchiveHandler } = require("../../packages/slideclone-worker-adapter/team-worker");
 const { boundedOcrSourceDeck } = require("../../packages/slideclone-core/team-native-rebuild");
 
 function imageRecoveryHandler(settings) {

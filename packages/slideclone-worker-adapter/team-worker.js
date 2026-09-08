@@ -1,26 +1,26 @@
 "use strict";
 
-const { safeAssetPath, validateDeckIr, admitRebuiltPage } = require("./deck-ir-admission");
+const { safeAssetPath, validateDeckIr, admitRebuiltPage } = require("../slideclone-core/deck-ir-admission");
 
-const { admitTemplateBuild } = require("./template-build-admission");
+const { admitTemplateBuild } = require("../slideclone-core/template-build-admission");
 const { MAX_ARTIFACT_BYTES: MAX_PPTX_BYTES, prepareDeliveryArtifacts, readDeliveryArtifact } = require("../artifact-core");
-const { run: runProcess } = require("./renderer-process");
+const { run: runProcess } = require("../slideclone-core/renderer-process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { MAX_ARCHIVE_BYTES, extractProjectArchive } = require("../archive-core");
 const { assertQualityReport } = require("../capability-contracts");
-const { nativeObjectMetrics } = require("./team-native-rebuild");
-const { assertEditableInputDocument } = require("./document-input");
+const { nativeObjectMetrics } = require("../slideclone-core/team-native-rebuild");
+const { assertEditableInputDocument } = require("../slideclone-core/document-input");
 const { QUALITY_GATE_REQUIRED } = require("../team-runtime/worker-completion");
 const { WorkerFailure, runWorkerStage } = require("../team-runtime/worker-failure");
 const { createOcrCheckpoint } = require("./ocr-checkpoint");
-const { admitOcrResult } = require("./ocr-result-admission");
-const { admitRebuiltPageMetadata } = require("./rebuilt-page-metadata");
-const { admitNormalizedPages } = require("./normalized-pages-admission");
+const { admitOcrResult } = require("../slideclone-core/ocr-result-admission");
+const { admitRebuiltPageMetadata } = require("../slideclone-core/rebuilt-page-metadata");
+const { admitNormalizedPages } = require("../slideclone-core/normalized-pages-admission");
 
-const { createArchiveAdmission, IMAGE_EXTENSIONS, MAX_DECK_BYTES } = require("./archive-admission");
+const { createArchiveAdmission, IMAGE_EXTENSIONS, MAX_DECK_BYTES } = require("../slideclone-core/archive-admission");
 const { validatePackage, validateDocumentPackage, readRawImageDimensions } = createArchiveAdmission(assertEditableInputDocument);
 
 function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }

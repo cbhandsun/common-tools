@@ -4,7 +4,7 @@ const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { readRawImageDimensions } = require("./archive-admission");
+const { readRawImageDimensions } = require("../slideclone-core/archive-admission");
 
 const MAX_DOCUMENT_PAGES = 20;
 const MAX_DOCUMENT_TOTAL_BYTES = 60 * 1024 * 1024;

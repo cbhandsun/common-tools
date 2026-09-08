@@ -4,7 +4,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { readRawImageDimensions } = require("./team-worker");
-const { EDITABLE_DOCUMENT_EXTENSIONS, assertEditableInputDocument } = require("./document-input");
+const { EDITABLE_DOCUMENT_EXTENSIONS, assertEditableInputDocument } = require("../slideclone-core/document-input");
 
 const MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES = 20 * 1024 * 1024;
 const MAX_RAW_IMAGE_ARCHIVE_TOTAL_BYTES = 60 * 1024 * 1024;

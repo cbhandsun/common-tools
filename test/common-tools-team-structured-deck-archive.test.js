@@ -5,9 +5,9 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { createEditableSourceArchive } = require("../packages/slideclone-core/team-raw-image-archive");
+const { createEditableSourceArchive } = require("../packages/slideclone-worker-adapter/team-raw-image-archive");
 const { extractProjectArchive } = require("../packages/archive-core");
-const { validatePackage } = require("../packages/slideclone-core/team-worker");
+const { validatePackage } = require("../packages/slideclone-worker-adapter/team-worker");
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "native-archive-"));

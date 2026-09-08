@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const zlib = require("node:zlib");
-const { createImageToEditableArchiveHandler, residualDeduplicationStatus } = require("../packages/slideclone-core/team-worker");
+const { createImageToEditableArchiveHandler, residualDeduplicationStatus } = require("../packages/slideclone-worker-adapter/team-worker");
 const { boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, nativeObjectMetrics, residualEraseObjects, shouldOmitFullSlideResidual } = require("../packages/slideclone-core/team-native-rebuild");
 const { PRODUCTION_PROFILE_NAME } = require("../packages/slideclone-core/native-rebuild-profile");
 const { PROFILE_NAME, sha256File } = require("../packages/slideclone-core/team-ocr-profile");
@@ -1204,7 +1204,7 @@ test("local deployment script keeps raw OCR opt-in and Plan mode non-mutating", 
 
 
 test("Deck IR admission rejects malformed page collections and boxes before building", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   assert.deepEqual(validateDeckIr(deck(), os.tmpdir()), { pages: 1, assets: 0 });
   assert.deepEqual(validateDeckIr(deck({ pages: [{}] }), os.tmpdir()), { pages: 1, assets: 0 });
   for (const page of [null, 1, [], { pageIndex: -1 }, { pageIndex: 0.5 }, { shapes: {} }, { images: [null] }, { textBoxes: [{ text: 4 }] }, { shapes: [{ box: { x: 0, y: 0, w: -1, h: 10 } }] }, { shapes: [{ box: { x: 0, y: 0, w: "1", h: 10 } }] }, { shapes: [{ box: { x: 0 } }] }]) {
@@ -1225,7 +1225,7 @@ test("Deck IR admission rejects malformed page collections and boxes before buil
 
 
 test("Deck IR checks table and chart data before OpenXML deserialization", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const admit = (page) => validateDeckIr(deck({ pages: [Object.fromEntries(Object.entries(page).map(([key, items]) => [key, items.map(item => ({ box: { x: 0, y: 0, w: 100, h: 50 }, ...item }))]))] }), os.tmpdir());
   assert.equal(admit({ tables: [{ rows: [["A", "42"], ["B"]] }], charts: [{ categories: ["A"], series: [{ name: "Value", values: [1, -2] }] }] }).pages, 1);
   assert.equal(admit({ tables: [{ rows: null }], charts: [{ categories: null, values: [], series: null }] }).pages, 1);
@@ -1242,7 +1242,7 @@ test("Deck IR checks table and chart data before OpenXML deserialization", () =>
 
 
 test("Deck IR validates declared reconstruction contracts using the shared policy", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const { enrichReconstructionContracts } = require("../packages/slideclone-core/reconstruction-contract");
   const enriched = JSON.parse(JSON.stringify(enrichReconstructionContracts(deck(), { baseDir: os.tmpdir() })));
   assert.equal(validateDeckIr(enriched, os.tmpdir()).pages, 1);
@@ -1264,7 +1264,7 @@ test("Deck IR validates declared reconstruction contracts using the shared polic
 
 
 test("Deck IR rejects rendered objects without boxes instead of crashing the builder", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   for (const collection of ["textBoxes", "shapes", "images", "tables", "charts"]) {
     assert.throws(() => validateDeckIr(deck({ pages: [{ [collection]: [{ id: "missing-box", rows: [["A", "B"]] }] }] }), os.tmpdir()), (error) => error.message === "editable deck object box is required");
     assert.throws(() => validateDeckIr(deck({ pages: [{ [collection]: [{ box: null }] }] }), os.tmpdir()), /editable deck/);
@@ -1273,7 +1273,7 @@ test("Deck IR rejects rendered objects without boxes instead of crashing the bui
 
 
 test("Deck IR rejects case-insensitive model aliases and ambiguous fields", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const box = { x: 0, y: 0, w: 10, h: 10 };
   for (const page of [{ Shapes: [{ box }] }, { images: [{ box, AssetPath: "../private.png" }] }, { images: [{ box, Source: { pageImage: "../private.png" } }] }, { textBoxes: [{ box, Text: "unvalidated" }] }]) {
     assert.throws(() => validateDeckIr(deck({ pages: [page] }), os.tmpdir()), /field casing/);
@@ -1285,7 +1285,7 @@ test("Deck IR rejects case-insensitive model aliases and ambiguous fields", () =
 
 
 test("Deck IR validates font and text run types while preserving nullable style defaults", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const admit = (patch) => validateDeckIr(deck({ pages: [{ textBoxes: [{ text: "Text", box: { x: 0, y: 0, w: 100, h: 30 }, ...patch }] }] }), os.tmpdir());
   assert.equal(admit({ font: { family: "Arial", sizePt: 20, opacity: 0.5, weight: "bold" }, wrap: false, rotation: 15, runs: [{ text: "", font: null }, { text: "你好", font: { sizePt: null } }] }).pages, 1);
   assert.equal(admit({ font: null, runs: null, rotation: null, wrap: null }).pages, 1);
@@ -1294,7 +1294,7 @@ test("Deck IR validates font and text run types while preserving nullable style 
 
 
 test("Deck IR page model admission matches builder indices and optional dimensions", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const admit = (pages) => validateDeckIr(deck({ pages }), os.tmpdir());
   assert.equal(admit([{}]).pages, 1);
   assert.equal(admit([{}, { pageIndex: 9999, slideSize: { widthPt: 960, heightPt: 540 } }]).pages, 2);
@@ -1309,7 +1309,7 @@ test("Deck IR page model admission matches builder indices and optional dimensio
 });
 
 test("Deck IR validates page metadata, placeholder bindings and model point lists", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const admit = (page) => validateDeckIr(deck({ pages: [page] }), os.tmpdir());
   const box = { x: 0, y: 0, w: 100, h: 100 };
   assert.equal(admit({ speakerNotes: "Note", preserveTemplateSlide: false, citations: [{ id: "ref", title: "Source", locator: "local reference" }], intent: { templatePlaceholderCapacity: 1, templatePlaceholderBindings: [{ objectId: "shape", collection: "charts", placeholderType: "chart", placeholderIndex: 0 }] }, shapes: [{ id: "shape", box, points: [{ x: -1, y: 2 }, { x: 3, y: 4 }] }] }).pages, 1);

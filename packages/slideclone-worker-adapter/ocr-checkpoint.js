@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { ownerPrefix } = require("../team-runtime/job-input");
 const { attemptOutputPrefix } = require("../team-runtime/worker-lease");
-const { admitOcrResult } = require("./ocr-result-admission");
+const { admitOcrResult } = require("../slideclone-core/ocr-result-admission");
 
 const CACHE_VERSION = "ocr-checkpoint-v1";
 const MAX_SOURCE_BYTES = 60 * 1024 * 1024;

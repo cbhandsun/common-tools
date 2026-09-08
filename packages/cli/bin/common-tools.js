@@ -35,7 +35,7 @@ const { assertMirroredPackage, assertPluginPackage, verifyPluginPackaging } = re
 const { verifyCapabilityToolContracts } = require("../verification/verify-capability-contracts");
 const { scaffoldPlan, writeScaffold } = require("../capability-scaffold");
 const { assertValidConfig } = require("../../slideclone-core/config-validation");
-const { createEditableSourceArchive, createRawImageArchive } = require("../../slideclone-core/team-raw-image-archive");
+const { createEditableSourceArchive, createRawImageArchive } = require("../../slideclone-worker-adapter/team-raw-image-archive");
 const { createBundledSlidecloneRunner, inspectBundledSlideclone } = require("../slideclone-runner");
 
 const REPOSITORY_ROOT = path.resolve(__dirname, "../../..");

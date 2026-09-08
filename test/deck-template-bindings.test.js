@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const os = require("node:os");
 const test = require("node:test");
-const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
 
 function deck(bindings) {
   const page = {

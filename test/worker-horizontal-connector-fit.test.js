@@ -38,7 +38,7 @@ test("production Worker fits footer arrows and gray nodes while preserving the o
   const translator = result.deck.pages[0].shapes.find(shape => shape.id === "team-knowledge-graph-node-2");
   assert.deepEqual(translator.box, { x: 414, y: 181, w: 132, h: 43 });
   assert.equal(result.deck.meta.grayBorderRefinement.acceptedNodes, 1);
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   assert.doesNotThrow(() => validateDeckIr(result.deck, root), "in-memory semantic output must satisfy the same boundary as serialized IR");
   const feedback = result.deck.pages[0].shapes.filter(shape => /feedback-(left|right)-horizontal$/u.test(shape.id));
   assert.equal(feedback.length, 2);

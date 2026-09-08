@@ -14,6 +14,7 @@
     "@common-tools/project-audit-core": "0.1.0",
     "@common-tools/remote-mcp-server": "0.1.0",
     "@common-tools/slideclone-core": "0.1.0",
+    "@common-tools/slideclone-worker-adapter": "0.1.0",
     "@common-tools/team-runtime": "0.1.0",
     "@common-tools/siyuan-note-core": "0.1.0"
   },

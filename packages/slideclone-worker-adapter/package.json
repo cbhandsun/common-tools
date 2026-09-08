@@ -1,0 +1,22 @@
+{
+  "name": "@common-tools/slideclone-worker-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "main": "team-worker.js",
+  "exports": {
+    "./ocr-checkpoint": "./ocr-checkpoint.js",
+    "./team-document-normalizer": "./team-document-normalizer.js",
+    "./team-raw-image-archive": "./team-raw-image-archive.js",
+    "./team-render-quality": "./team-render-quality.js",
+    "./team-structured-deck-archive": "./team-structured-deck-archive.js",
+    "./team-worker": "./team-worker.js"
+  },
+  "dependencies": {
+    "@common-tools/archive-core": "0.1.0",
+    "@common-tools/artifact-core": "0.1.0",
+    "@common-tools/capability-contracts": "0.1.0",
+    "@common-tools/slideclone-core": "0.1.0",
+    "@common-tools/team-runtime": "0.1.0"
+  },
+  "type": "commonjs"
+}

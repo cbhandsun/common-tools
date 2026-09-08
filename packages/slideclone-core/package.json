@@ -34,8 +34,6 @@
     "./image-size": "./image-size.js",
     "./team-ocr-profile": "./team-ocr-profile.js",
     "./team-native-rebuild": "./team-native-rebuild.js",
-    "./team-raw-image-archive": "./team-raw-image-archive.js",
-    "./team-worker": "./team-worker.js",
     "./graphic-crop-policy": "./graphic-crop-policy.js",
     "./page-image-finalizer": "./page-image-finalizer.js",
     "./page-progress-lifecycle": "./page-progress-lifecycle.js",
@@ -45,7 +43,6 @@
     "./page-reuse": "./page-reuse.js",
     "./ocr-source-deck": "./ocr-source-deck.js",
     "./ocr-glyph-residual": "./ocr-glyph-residual.js",
-    "./ocr-checkpoint": "./ocr-checkpoint.js",
     "./page-selection": "./page-selection.js",
     "./native-rebuild-deck-pipeline": "./native-rebuild-deck-pipeline.js",
     "./progress-reporter": "./progress-reporter.js",
@@ -207,9 +204,7 @@
     "@common-tools/artifact-core": "0.1.0",
     "@common-tools/capability-contracts": "0.1.0",
     "@common-tools/capability-runtime": "0.1.0",
-    "@common-tools/ooxml-core": "0.1.0",
-    "@common-tools/project-audit-core": "0.1.0",
-    "@common-tools/team-runtime": "0.1.0"
+    "@common-tools/ooxml-core": "0.1.0"
   },
   "type": "commonjs"
 }

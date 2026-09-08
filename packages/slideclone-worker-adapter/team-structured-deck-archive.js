@@ -4,8 +4,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { gzipSync } = require("node:zlib");
-const { validateDeckIr, safeAssetPath } = require("./deck-ir-admission");
-const { MAX_DECK_BYTES, IMAGE_EXTENSIONS } = require("./archive-admission");
+const { validateDeckIr, safeAssetPath } = require("../slideclone-core/deck-ir-admission");
+const { MAX_DECK_BYTES, IMAGE_EXTENSIONS } = require("../slideclone-core/archive-admission");
 
 const MAX_ASSET_BYTES = 20 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
@@ -58,7 +58,7 @@ function createStructuredDeckArchive({ inputFile, outputFile }) {
     }));
   }
   const archivedDeck = rewrite(deck);
-  const { resolveStructuredSourceImages } = require("./structured-source-images");
+  const { resolveStructuredSourceImages } = require("../slideclone-core/structured-source-images");
   resolveStructuredSourceImages(deck, root);
   const { tarEntry } = require("./team-raw-image-archive");
   const deckBody = Buffer.from(JSON.stringify(archivedDeck));

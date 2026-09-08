@@ -1,4 +1,4 @@
-import { createOcrCheckpoint } from "../../packages/slideclone-core/ocr-checkpoint";
+import { createOcrCheckpoint } from "../../packages/slideclone-worker-adapter/ocr-checkpoint";
 
 const run = createOcrCheckpoint({ objectStore: {}, profileFingerprint: "" });
 const result = run({ job: {}, source: {}, runOcr: null, isCancellationRequested: null });

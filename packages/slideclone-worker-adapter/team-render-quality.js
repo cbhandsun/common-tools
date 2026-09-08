@@ -2,7 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { buildComponentRegions } = require("./component-region-quality");
+const { buildComponentRegions } = require("../slideclone-core/component-region-quality");
 
 const DEFAULT_THRESHOLDS = Object.freeze({ maximumPixelDiffRatio: 0.08, maximumForegroundMissingRatio: 0.12, maximumMeanAbsoluteDelta: 12 });
 
