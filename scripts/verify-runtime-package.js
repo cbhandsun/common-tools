@@ -251,7 +251,6 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/team-runtime/worker-runner.js",
   "packages/team-runtime/retention-output-keys.js",
   "packages/remote-mcp-server/bin/common-tools-team-image-worker.js",
-  "skills/pd-hifi-slideclone/scripts/lib/full-slide-native-residual.js",
   "plugins/common-tools/skills/image-to-editable/SKILL.md",
   "plugins/codex/image-to-editable/skills/image-to-editable/SKILL.md"
 ]);
@@ -512,7 +511,7 @@ function imageEditableEnhancementProbe() {
     "const native=require(path.join(root,'packages','slideclone-core','team-native-rebuild.js'));const profile=require(path.join(root,'packages','slideclone-core','native-rebuild-profile.js'));",
     "const worker=require(path.join(root,'packages','slideclone-worker-adapter','team-worker.js'));const archive=require(path.join(root,'packages','slideclone-worker-adapter','team-raw-image-archive.js'));const documentNormalizer=require(path.join(root,'packages','slideclone-worker-adapter','team-document-normalizer.js'));const quality=require(path.join(root,'packages','slideclone-worker-adapter','team-render-quality.js'));",
     "const archiveAdmission=require(path.join(root,'packages','slideclone-core','archive-admission.js'));const normalizedAdmission=require(path.join(root,'packages','slideclone-core','normalized-pages-admission.js'));let oversizedPagesRejected=false;try{normalizedAdmission.admitNormalizedPages({sources:Array.from({length:21},()=>({})),pages:21,assets:21},root);}catch(error){oversizedPagesRejected=error instanceof TypeError&&error.message==='document normalization returned an invalid page set';}",
-    "const residual=require(path.join(root,'skills','pd-hifi-slideclone','scripts','lib','full-slide-native-residual.js'));",
+    "const residual=require(path.join(root,'packages','slideclone-core','full-slide-native-residual.js'));",
     "stage='source-read';",
     "const nativeSource=fs.readFileSync(path.join(root,'packages','slideclone-core','team-native-rebuild.js'),'utf8');const localCoreSource=fs.readFileSync(path.join(root,'packages','slideclone-core','index.js'),'utf8');const cliSource=fs.readFileSync(path.join(root,'packages','cli','bin','common-tools.js'),'utf8');",
     "const workerSource=fs.readFileSync(path.join(root,'packages','slideclone-worker-adapter','team-worker.js'),'utf8');",

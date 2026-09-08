@@ -6,8 +6,6 @@ const { startPowerPointSessionBroker } = require("./powerpoint-session-broker");
 const { cleanPowerPointSessionEnvironment, takePowerPointSessionEnvironment } = require("./powerpoint-session-client");
 
 const PACKAGE_GOLDEN_SCRIPT = path.resolve(__dirname, "../complex-graphic-golden-smoke.js");
-const SKILL_GOLDEN_SCRIPT = path.resolve(__dirname, "../../../../skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js");
-const ELIGIBLE_GOLDEN_SCRIPTS = new Set([PACKAGE_GOLDEN_SCRIPT, SKILL_GOLDEN_SCRIPT]);
 
 function powerPointSessionEnabled(value) {
   if (value === undefined || value === false || value === "false") return false;
@@ -19,7 +17,7 @@ function eligibleForPowerPointSession(entry) {
   const command = entry?.command;
   if (!Array.isArray(command) || !command.every((value) => typeof value === "string")) return false;
   if (command[0] !== "node" && command[0] !== process.execPath) return false;
-  return Boolean(command[1]) && ELIGIBLE_GOLDEN_SCRIPTS.has(path.resolve(command[1]));
+  return Boolean(command[1]) && path.resolve(command[1]) === PACKAGE_GOLDEN_SCRIPT;
 }
 
 function safeSessionMetrics(metrics, eligibleCases) {

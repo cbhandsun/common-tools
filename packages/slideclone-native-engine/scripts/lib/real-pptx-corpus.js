@@ -4,6 +4,8 @@ const path = require("path");
 
 const MAX_CASES = 512;
 const MAX_CATEGORIES = 64;
+const PACKAGE_COMPLEX_GOLDEN_SCRIPT = "packages/slideclone-native-engine/scripts/complex-graphic-golden-smoke.js";
+const SKILL_COMPLEX_GOLDEN_SCRIPT = path.posix.join("skills", "pd-hifi-slideclone", "scripts", "complex-graphic-golden-smoke.js");
 
 function resolveCorpusCases(corpusManifest = {}, goldenManifest = {}, options = {}) {
   const corpus = validateCorpusManifest(corpusManifest);
@@ -14,9 +16,10 @@ function resolveCorpusCases(corpusManifest = {}, goldenManifest = {}, options = 
     if (selectedIds && !selectedIds.has(corpusCase.id)) continue;
     const golden = goldenCases.get(corpusCase.goldenCaseId);
     if (!golden) throw new Error(`Corpus case "${corpusCase.id}" references unknown golden case "${corpusCase.goldenCaseId}".`);
+    const command = normalizeGoldenCommand(applyRendererOverride(golden.command, corpusCase.renderer));
     resolved.push({
       ...golden,
-      command: applyRendererOverride(golden.command, corpusCase.renderer),
+      command,
       expect: { ...(golden.expect || {}), ...corpusCase.qualityExpect },
       id: corpusCase.id,
       goldenCaseId: corpusCase.goldenCaseId,
@@ -31,6 +34,17 @@ function resolveCorpusCases(corpusManifest = {}, goldenManifest = {}, options = 
     throw new Error(`Corpus coverage is incomplete: ${coverage.missingCategories.join(", ")}`);
   }
   return { id: corpus.id, description: corpus.description, cases: resolved, coverage };
+}
+
+function normalizeGoldenCommand(command) {
+  if (!Array.isArray(command)) return command;
+  const output = [...command];
+  if (typeof output[1] !== "string") return output;
+  const normalized = output[1].replace(/\\/gu, "/");
+  if (normalized === SKILL_COMPLEX_GOLDEN_SCRIPT || normalized.endsWith(`/${SKILL_COMPLEX_GOLDEN_SCRIPT}`)) {
+    output[1] = PACKAGE_COMPLEX_GOLDEN_SCRIPT;
+  }
+  return output;
 }
 
 function validateCorpusManifest(manifest) {
@@ -187,5 +201,6 @@ module.exports = {
   resolveCorpusCases,
   resolveManifestPath,
   summarizeCorpusCoverage,
+  normalizeGoldenCommand,
   validateCorpusManifest
 };

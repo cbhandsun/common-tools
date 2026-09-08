@@ -85,7 +85,7 @@ test("disabled, empty, single-eligible and ineligible corpora start no broker or
 });
 
 test("actual full corpus reports OCR eligibility without claiming cross-case reuse for one client", async () => {
-  const { resolveCorpusCases } = require("../skills/pd-hifi-slideclone/scripts/lib/real-pptx-corpus");
+  const { resolveCorpusCases } = require("../packages/slideclone-native-engine/scripts/lib/real-pptx-corpus");
   const corpus = require("../skills/pd-hifi-slideclone/examples/real-pptx-corpus.manifest.json");
   const golden = require("../skills/pd-hifi-slideclone/examples/golden-set.manifest.json");
   const selected = resolveCorpusCases(corpus, golden, { suites: ["full"], manifestSuites: corpus.suites, requireCoverage: false });
