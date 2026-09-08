@@ -7,7 +7,7 @@ const path = require("node:path");
 const test = require("node:test");
 const {spawnSync} = require("node:child_process");
 const packageManifest = require("../package.json");
-const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, collectPackageSurfaceTargets, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe, verifyInstalledPackageSurfaces } = require("../scripts/verify-runtime-package");
+const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, collectPackageSurfaceTargets, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe, runtimePackageFolders, verifyInstalledPackageSurfaces } = require("../scripts/verify-runtime-package");
 
 function metadata(files = REQUIRED_FILES) {
   return JSON.stringify([{
@@ -49,6 +49,8 @@ test("installed runtime package surfaces must remain package-owned files", () =>
     fs.writeFileSync(path.join(featureRoot, "index.js"), "module.exports = {};\n");
     fs.writeFileSync(path.join(featureRoot, "package.json"), JSON.stringify({ name: "@fixture/feature-core", version: "1.0.0", main: "index.js", exports: { ".": "./index.js" } }));
     assert.deepEqual(verifyInstalledPackageSurfaces(packageRoot), ["feature-core"]);
+    assert.deepEqual(verifyInstalledPackageSurfaces(packageRoot, ["feature-core"]), ["feature-core"]);
+    assert.throws(() => verifyInstalledPackageSurfaces(packageRoot, ["feature-core", "missing-core"]), /package set/);
 
     fs.writeFileSync(path.join(featureRoot, "package.json"), JSON.stringify({ name: "@fixture/feature-core", version: "1.0.0", main: "index.js", exports: { ".": "../outside.js" } }));
     assert.throws(() => verifyInstalledPackageSurfaces(packageRoot), /surface escapes the package/);
@@ -58,6 +60,15 @@ test("installed runtime package surfaces must remain package-owned files", () =>
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("runtime package verifier derives the release package set from workspace packages", () => {
+  const packages = runtimePackageFolders(path.resolve(__dirname, ".."));
+  assert.ok(packages.includes("cli"));
+  assert.ok(packages.includes("slideclone-core"));
+  assert.ok(packages.includes("slideclone-native-engine"));
+  assert.equal(new Set(packages).size, packages.length);
+  assert.deepEqual(packages, [...packages].sort());
 });
 
 test("runtime package verifier rejects missing, unsafe, duplicate, and oversized package metadata", () => {
