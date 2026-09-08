@@ -69,7 +69,7 @@ flowchart TD
 
 | 评估项 | 当前状态 | 判断 |
 | --- | --- | --- |
-| 能力发现与门控 | 各本地 Job 能力包直接导出自己的 `CAPABILITY_MODULE`，`packages/capability-registry` 只聚合、冻结并校验这些模块，统一暴露本地能力、工具 handler、报告 reader 与 UI contribution；`siyuan-note-core` 作为 direct remote 能力导出 `REMOTE_CAPABILITY_MODULE`，team registry 从中读取 direct tool 方法映射；加载时会对齐签名 manifest 的 capability、toolNames、runtime range 和 worker profile；MCP 层消费注册结果 | 合理 |
+| 能力发现与门控 | 各本地 Job 能力包直接导出自己的 `CAPABILITY_MODULE`，`packages/capability-registry` 只聚合、冻结并校验这些模块，统一暴露本地能力、工具 handler、报告 reader 与 UI contribution；`siyuan-note-core` 作为 direct remote 能力导出 `REMOTE_CAPABILITY_MODULE`，team registry 从中读取 direct tool 参数键、方法映射与 MCP contract；加载时会对齐签名 manifest 的 capability、toolNames、runtime range 和 worker profile；MCP 层消费注册结果 | 合理 |
 | 能力 manifest 事实源 | `packages/capability-manifests` 现在直接导出签名 manifest 读取、版本范围、依赖图、弃用窗口和 hash 校验；`capability-runtime` 只消费已验证目录并处理状态配置 | 合理 |
 | MCP 协议边界 | local/team MCP 主要负责协议、鉴权上下文、工具列表和资源读取；team 工具定义已抽到 `team-tool-registry`；本地与团队工具合同共用 `capability-contracts` 的合同构造器 | 合理 |
 | 共享基础设施 | archive、OOXML、artifact 相关通用逻辑已抽到独立 core 包；PPTX ZIP/Inventory 已迁入 `ooxml-core` 并由旧入口兼容转发 | 合理 |
@@ -82,6 +82,6 @@ flowchart TD
 
 1. `runtime/slideclone-native-engine` 仍是历史原生引擎的运行时资产，不应再让新能力依赖它的内部脚本路径。后续如果要继续瘦身，应按业务能力迁移到稳定包接口，而不是恢复旧式兼容适配入口。
 2. `slideclone-core` 已从 team worker 编排中解耦，但内部仍有若干历史命名模块；后续优化应按“算法能力面”继续收敛命名与 exports，而不是把生产编排放回 core。
-3. local 与 direct remote 的 capability module 已经下放到能力包导出；下一步如果继续增强，可把 registry 的静态 require 清单升级为声明式发现清单或生成物，进一步减少新增能力时的中心文件改动。
+3. local 与 direct remote 的 capability module 已经下放到能力包导出，SiYuan 这类 direct remote tool 的参数键、服务方法映射和 MCP contract 也由能力包拥有；下一步如果继续增强，可把 registry 的静态 require 清单升级为声明式发现清单或生成物，进一步减少新增能力时的中心文件改动。
 4. `skills/pd-hifi-slideclone/scripts` 的历史引用已从 441/273 降到 418/266 并纳入预算；后续应持续按小组迁移并 ratchet，不应一次性大爆破。
 5. 当前旧 A–F 验收文档覆盖的是更大的产品交付闭环，包括远程真实任务、PDF 独立样本和 Office 质量验收；它不等同于本轮通用插件架构五项整改。

@@ -33,11 +33,7 @@ const TEAM_TOOL_ARGUMENTS = Object.freeze({
   get_team_job: Object.freeze(["id"]),
   cancel_team_job: Object.freeze(["id"]),
   get_team_artifact_target: Object.freeze(["id", "name"]),
-  siyuan_list_notebooks: Object.freeze([]),
-  siyuan_save_note: Object.freeze(["notebookId", "title", "markdown", "folder", "idempotencyKey"]),
-  siyuan_append_note: Object.freeze(["documentId", "markdown", "idempotencyKey"]),
-  siyuan_search_notes: Object.freeze(["query", "limit"]),
-  siyuan_get_note: Object.freeze(["documentId"])
+  ...SIYUAN_REMOTE_CAPABILITY_MODULE.directToolArguments
 });
 
 const SIYUAN_CAPABILITY = SIYUAN_REMOTE_CAPABILITY_MODULE.registration.capability;
@@ -125,7 +121,7 @@ const TEAM_TOOL_OPERATIONS = Object.freeze({
 function assertDirectSiyuanModuleContracts() {
   if (SIYUAN_REMOTE_CAPABILITY_MODULE.teamMode !== "direct") throw new Error("SiYuan capability module must be direct");
   for (const name of SIYUAN_REMOTE_CAPABILITY_MODULE.registration.toolNames) {
-    if (!Object.prototype.hasOwnProperty.call(SIYUAN_METHODS, name) || !Object.prototype.hasOwnProperty.call(TEAM_TOOL_ARGUMENTS, name) || !TEAM_TOOLS.some((tool) => tool.name === name && tool.capability === SIYUAN_CAPABILITY)) throw new Error("SiYuan capability module contract is incomplete");
+    if (!Object.prototype.hasOwnProperty.call(SIYUAN_METHODS, name) || !Object.prototype.hasOwnProperty.call(SIYUAN_REMOTE_CAPABILITY_MODULE.directToolArguments, name) || !TEAM_TOOLS.some((tool) => tool.name === name && tool.capability === SIYUAN_CAPABILITY)) throw new Error("SiYuan capability module contract is incomplete");
   }
   return true;
 }

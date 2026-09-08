@@ -4,11 +4,12 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { CAPABILITY_MANIFESTS } = require("../packages/capability-manifests");
 const {
-  CAPABILITY, MAX_MARKDOWN_BYTES, REGISTRATION, REMOTE_CAPABILITY_MODULE, SIYUAN_TOOL_METHODS, SiyuanApiError, createSiyuanClient, createSiyuanNoteService,
+  CAPABILITY, MAX_MARKDOWN_BYTES, REGISTRATION, REMOTE_CAPABILITY_MODULE, SIYUAN_DIRECT_TEAM_TOOLS, SIYUAN_TOOL_ARGUMENTS, SIYUAN_TOOL_METHODS, SiyuanApiError, createSiyuanClient, createSiyuanNoteService,
   idempotencyStorageKey, normalizeSiyuanBaseUrl, searchStatement
 } = require("../packages/siyuan-note-core");
 const { callTeamTool, toolsFor } = require("../packages/remote-mcp-server/team-mcp");
-const { assertDirectSiyuanModuleContracts } = require("../packages/remote-mcp-server/team-tool-registry");
+const { TEAM_TOOLS } = require("../packages/remote-mcp-server/team-tool-contracts");
+const { TEAM_TOOL_ARGUMENTS, assertDirectSiyuanModuleContracts } = require("../packages/remote-mcp-server/team-tool-registry");
 const { createRedisIdempotencyStore } = require("../packages/remote-mcp-server/team-providers");
 
 const NOTEBOOK_ID = "20260829123456-abc1234";
@@ -29,6 +30,11 @@ test("SiYuan remote capability module matches its signed manifest and team regis
   assert.equal(REGISTRATION.minimumRuntimeVersion, manifest.minimumRuntimeVersion);
   assert.equal(REGISTRATION.requiredWorkerProfile, manifest.requiredWorkerProfile);
   assert.deepEqual(Object.keys(SIYUAN_TOOL_METHODS).sort(), [...manifest.toolNames].sort());
+  assert.deepEqual(Object.keys(SIYUAN_TOOL_ARGUMENTS).sort(), [...manifest.toolNames].sort());
+  assert.equal(REMOTE_CAPABILITY_MODULE.directToolArguments, SIYUAN_TOOL_ARGUMENTS);
+  assert.equal(REMOTE_CAPABILITY_MODULE.directToolContracts, SIYUAN_DIRECT_TEAM_TOOLS);
+  for (const [name, allowed] of Object.entries(SIYUAN_TOOL_ARGUMENTS)) assert.deepEqual(TEAM_TOOL_ARGUMENTS[name], allowed);
+  for (const tool of SIYUAN_DIRECT_TEAM_TOOLS) assert.ok(TEAM_TOOLS.includes(tool));
   assert.equal(assertDirectSiyuanModuleContracts(), true);
 });
 

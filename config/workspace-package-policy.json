@@ -75,7 +75,9 @@
       "@common-tools/slideclone-worker-adapter",
       "@common-tools/team-runtime"
     ],
-    "siyuan-note-core": [],
+    "siyuan-note-core": [
+      "@common-tools/capability-contracts"
+    ],
     "slideclone-core": [
       "@common-tools/archive-core",
       "@common-tools/artifact-core",
