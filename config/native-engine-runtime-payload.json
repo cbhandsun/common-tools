@@ -7,6 +7,7 @@
   "runtimeEntrypoint": "rebuild-real-pptx-native.js",
   "managedBy": [
     "scripts/check-common-tools.js syntax check",
+    "scripts/native-engine-runtime-payload.js manifest check",
     "scripts/verify-workspace-boundaries.js package boundary check",
     "scripts/verify-runtime-package.js release payload probe"
   ],
@@ -26,6 +27,24 @@
     "rendered-similarity-audit.js",
     "slideclone.js"
   ],
+  "rootScriptGroups": {
+    "productionEntrypoints": [
+      "rebuild-real-pptx-native.js",
+      "slideclone.js"
+    ],
+    "renderingAndQualityHarness": [
+      "golden-set-runner.js",
+      "libreoffice-benchmark.js",
+      "rendered-similarity-audit.js"
+    ],
+    "componentAcquisitionTools": [
+      "component-acquisition-search.js",
+      "component-candidate-search.js",
+      "component-plugin-action-queue.js",
+      "component-strategy-rebuild.js",
+      "harvest-applied-ppt-components.js"
+    ]
+  },
   "forbiddenRepositoryPaths": [
     "runtime/slideclone-native-engine"
   ]

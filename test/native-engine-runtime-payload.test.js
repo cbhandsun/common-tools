@@ -20,6 +20,9 @@ function policy(overrides = {}) {
     managedBy: ["syntax", "boundary", "release"],
     directories: ["adapters", "lib"],
     rootScripts: ["rebuild-real-pptx-native.js"],
+    rootScriptGroups: {
+      productionEntrypoints: ["rebuild-real-pptx-native.js"]
+    },
     forbiddenRepositoryPaths: ["runtime/slideclone-native-engine"],
     ...overrides
   };
@@ -29,6 +32,7 @@ test("native engine runtime payload policy rejects unsafe or ambiguous paths", (
   assert.equal(validatePolicy(policy()).payloadRoot, "packages/slideclone-native-engine/scripts");
   assert.throws(() => validatePolicy(policy({ payloadRoot: "../escape" })), /escapes repository/);
   assert.throws(() => validatePolicy(policy({ rootScripts: ["ok.js", "ok.js"] })), /duplicates/);
+  assert.throws(() => validatePolicy(policy({ rootScriptGroups: { productionEntrypoints: ["other.js"] } })), /cover rootScripts exactly once/);
   assert.throws(() => validatePolicy(policy({ packageName: "@common-tools/other" })), /package is invalid/);
 });
 
@@ -36,6 +40,7 @@ test("native engine runtime payload verifier proves the current package boundary
   const result = verifyNativeEngineRuntimePayload();
   assert.equal(result.packageRoot, "packages/slideclone-native-engine");
   assert.equal(result.payloadRoot, "packages/slideclone-native-engine/scripts");
+  assert.equal(result.rootScriptGroupCount >= 3, true);
   assert.equal(isRuntimePayloadPath(path.join(root, "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js")), true);
   assert.equal(isRuntimePayloadPath(path.join(root, "packages", "slideclone-native-engine", "index.js")), false);
 });
@@ -46,7 +51,12 @@ test("native engine runtime payload verifier fails closed on missing payload con
   fs.mkdirSync(path.join(directory, "packages", "slideclone-native-engine", "scripts", "adapters"), { recursive: true });
   fs.mkdirSync(path.join(directory, "packages", "slideclone-native-engine", "scripts", "lib"), { recursive: true });
   fs.writeFileSync(path.join(directory, "packages", "slideclone-native-engine", "index.js"), 'require("./scripts/rebuild-real-pptx-native");\n');
-  const badPolicy = policy({ rootScripts: ["missing.js"] });
+  const badPolicy = policy({
+    rootScripts: ["missing.js"],
+    rootScriptGroups: {
+      productionEntrypoints: ["missing.js"]
+    }
+  });
   assert.throws(
     () => verifyNativeEngineRuntimePayload({ policy: badPolicy, repositoryRoot: directory }),
     /payload root script is missing/

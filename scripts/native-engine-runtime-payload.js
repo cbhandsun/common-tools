@@ -33,16 +33,28 @@ function safeNameList(value, label) {
   return Object.freeze(names);
 }
 
+function safeNameMap(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length === 0) throw new TypeError(`${label} is invalid`);
+  return Object.freeze(Object.fromEntries(Object.entries(value).map(([name, list]) => [
+    safeName(name, label),
+    safeNameList(list, `${label}.${name}`)
+  ]).sort(([left], [right]) => left.localeCompare(right))));
+}
+
 function validatePolicy(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1) throw new TypeError("native engine runtime payload policy is invalid");
   const keys = Object.keys(value).sort().join(",");
-  if (keys !== "directories,entrypoint,forbiddenRepositoryPaths,managedBy,packageName,packageRoot,payloadRoot,rootScripts,runtimeEntrypoint,version") {
+  if (keys !== "directories,entrypoint,forbiddenRepositoryPaths,managedBy,packageName,packageRoot,payloadRoot,rootScriptGroups,rootScripts,runtimeEntrypoint,version") {
     throw new TypeError("native engine runtime payload policy keys are invalid");
   }
   if (value.packageName !== "@common-tools/slideclone-native-engine") throw new TypeError("native engine runtime payload package is invalid");
   if (!Array.isArray(value.managedBy) || value.managedBy.some((item) => typeof item !== "string" || item.length === 0 || item.length > 128)) {
     throw new TypeError("native engine runtime payload managedBy is invalid");
   }
+  const rootScripts = safeNameList(value.rootScripts, "rootScripts");
+  const rootScriptGroups = safeNameMap(value.rootScriptGroups, "rootScriptGroups");
+  const groupedScripts = Object.values(rootScriptGroups).flat().sort();
+  if (groupedScripts.join("\n") !== rootScripts.join("\n")) throw new TypeError("native engine runtime payload root script groups must cover rootScripts exactly once");
   return Object.freeze({
     version: 1,
     packageName: value.packageName,
@@ -52,7 +64,8 @@ function validatePolicy(value) {
     runtimeEntrypoint: safeName(value.runtimeEntrypoint, "runtimeEntrypoint"),
     managedBy: Object.freeze([...value.managedBy]),
     directories: safeNameList(value.directories, "directories"),
-    rootScripts: safeNameList(value.rootScripts, "rootScripts"),
+    rootScripts,
+    rootScriptGroups,
     forbiddenRepositoryPaths: Object.freeze(value.forbiddenRepositoryPaths.map((item) => safeRelativePath(item, "forbiddenRepositoryPaths")).sort())
   });
 }
@@ -116,6 +129,7 @@ function verifyNativeEngineRuntimePayload(options = {}) {
       .map((entry) => entry.name)
       .sort();
     for (const script of rootScripts.filter((script) => !policy.rootScripts.includes(script))) fail(`payload root script is not declared: ${script}`);
+    if (!policy.rootScriptGroups.productionEntrypoints?.includes(policy.runtimeEntrypoint)) fail(`runtime entrypoint is not classified as a production entrypoint: ${policy.runtimeEntrypoint}`);
     const files = listFiles(payloadRoot);
     if (files.length === 0) fail("payload root is empty");
   }
@@ -131,13 +145,13 @@ function verifyNativeEngineRuntimePayload(options = {}) {
   }
 
   if (failures.length > 0) throw new Error(`native engine runtime payload verification failed:\n- ${failures.join("\n- ")}`);
-  return Object.freeze({ packageRoot: policy.packageRoot, payloadRoot: policy.payloadRoot, rootScriptCount: policy.rootScripts.length, directoryCount: policy.directories.length });
+  return Object.freeze({ packageRoot: policy.packageRoot, payloadRoot: policy.payloadRoot, rootScriptCount: policy.rootScripts.length, rootScriptGroupCount: Object.keys(policy.rootScriptGroups).length, directoryCount: policy.directories.length });
 }
 
 if (require.main === module) {
   try {
     const result = verifyNativeEngineRuntimePayload();
-    process.stdout.write(`verified native engine runtime payload at ${result.payloadRoot} with ${result.rootScriptCount} root scripts and ${result.directoryCount} directories\n`);
+    process.stdout.write(`verified native engine runtime payload at ${result.payloadRoot} with ${result.rootScriptCount} root scripts across ${result.rootScriptGroupCount} groups and ${result.directoryCount} directories\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : "native engine runtime payload verification failed"}\n`);
     process.exitCode = 1;
