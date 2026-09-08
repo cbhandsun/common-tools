@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { CAPABILITY_MANIFESTS } = require("../packages/capability-manifests");
 const registryPackage = require("../packages/capability-registry/package.json");
+const { assertLocalCapabilityCatalog } = require("../packages/cli/verification/verify-capability-catalogs");
 const {
   CAPABILITY_MODULES,
   LOCAL_CAPABILITY_CATALOG,
@@ -66,4 +67,16 @@ test("capability registry rejects orphan, duplicate, and stale module metadata",
     defineCapabilityModule({ registration: { ...image.registration, requiredWorkerProfile: "stale-profile" } })
   ]), /manifest mismatch/);
   assert.throws(() => assertCapabilityModulesMatchManifests(CAPABILITY_MODULES.filter((module) => module.registration.capability !== image.registration.capability)), /missing a local capability module/);
+});
+
+test("local capability catalog package ownership matches manifest moduleSource", () => {
+  assert.equal(assertLocalCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: LOCAL_CAPABILITY_CATALOG, registryPackage }), true);
+  assert.throws(
+    () => assertLocalCapabilityCatalog({
+      manifests: CAPABILITY_MANIFESTS,
+      catalog: [{ ...LOCAL_CAPABILITY_CATALOG[0], packageName: "@common-tools/project-audit-core" }, ...LOCAL_CAPABILITY_CATALOG.slice(1)],
+      registryPackage
+    }),
+    /module source does not match manifest/
+  );
 });

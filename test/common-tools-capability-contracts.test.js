@@ -12,6 +12,7 @@ const { JOB_SCHEMA: LOCAL_JOB_SCHEMA, annotations: localAnnotations, validateToo
 const { compileSchema } = require("../packages/mcp-server/schema-validator");
 const { CAPABILITY_SCOPES } = require("../packages/remote-mcp-server/team-mcp");
 const { DIRECT_CAPABILITY_CATALOG } = require("../packages/remote-mcp-server/direct-capability-catalog");
+const remotePackage = require("../packages/remote-mcp-server/package.json");
 const { JOB_SCHEMA: TEAM_JOB_SCHEMA, annotations: teamAnnotations } = require("../packages/remote-mcp-server/team-tool-contracts");
 const { assertDirectCapabilityCatalog } = require("../packages/cli/verification/verify-capability-catalogs");
 const { assertCapabilityToolContracts, assertTeamDeploymentComposeContracts, assertTeamDeploymentManifestContracts, verifyCapabilityToolContracts } = require("../scripts/verify-capability-contracts");
@@ -118,10 +119,14 @@ test("team deployment mapping is derived exactly from capability manifests", () 
 });
 
 test("direct capability catalog is fail-closed against manifests and team definitions", () => {
-  assert.equal(assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS }), true);
+  assert.equal(assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage }), true);
   assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: [...DIRECT_CAPABILITY_CATALOG, DIRECT_CAPABILITY_CATALOG[0]], teamDefinitions: TEAM_CAPABILITY_DEFINITIONS }), /duplicate direct capability/);
   assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: { ...TEAM_CAPABILITY_DEFINITIONS, "siyuan-note": { ...TEAM_CAPABILITY_DEFINITIONS["siyuan-note"], mode: "worker" } } }), /team definition is not direct/);
   assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: [{ ...DIRECT_CAPABILITY_CATALOG[0], registration: { ...DIRECT_CAPABILITY_CATALOG[0].registration, toolNames: ["siyuan_save_note", "siyuan_save_note"] } }], teamDefinitions: TEAM_CAPABILITY_DEFINITIONS }), /duplicate tools/);
+  assert.throws(
+    () => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage: { dependencies: {} } }),
+    /direct capability package is not a direct dependency/
+  );
 });
 
 test("team deployment plan is verified against the actual Compose Worker services", () => {
