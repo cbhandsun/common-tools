@@ -323,7 +323,7 @@ const REQUIRED_FILES = Object.freeze([
   "scripts/team-minio-volume-backup.ps1",
   "scripts/team-runtime-local-fresh-reset.ps1",
   "scripts/team-runtime-doctor.js",
-  "skills/pd-hifi-slideclone/scripts/slideclone.js",
+  "packages/slideclone-native-engine/scripts/slideclone.js",
   "packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-com.js",
   "packages/slideclone-native-engine/scripts/lib/powerpoint-roundtrip-evidence.js",
   "packages/slideclone-native-engine/scripts/lib/powerpoint-open-evidence.js",

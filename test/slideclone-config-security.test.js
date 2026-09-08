@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { createConfig, loadAdapter, validateIr } = require("../skills/pd-hifi-slideclone/scripts/slideclone");
+const { createConfig, loadAdapter, validateIr } = require("../packages/slideclone-native-engine/scripts/slideclone");
 const { assertValidConfig, validateConfig } = require("../packages/slideclone-native-engine/scripts/lib/config-validation");
 const configSchema = require("../skills/pd-hifi-slideclone/schemas/slideclone.config.schema.json");
 

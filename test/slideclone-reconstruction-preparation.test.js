@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
-const { prepareReconstructionIrForBuild } = require("../skills/pd-hifi-slideclone/scripts/slideclone");
+const { prepareReconstructionIrForBuild } = require("../packages/slideclone-native-engine/scripts/slideclone");
 
 test("every IR build preparation enriches and validates reconstruction evidence", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-prepare-ir-"));
