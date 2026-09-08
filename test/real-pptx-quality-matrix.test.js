@@ -19,7 +19,7 @@ const {
   summarizeReport,
   topDetectorCounts,
   truthyArg
-} = require("../skills/pd-hifi-slideclone/scripts/real-pptx-quality-matrix");
+} = require("../packages/slideclone-native-engine/scripts/real-pptx-quality-matrix");
 
 function writeReport(dir, name, report) {
   const reportDir = path.join(dir, name);

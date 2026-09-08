@@ -355,9 +355,9 @@ const {
   summarizeQualityGateStatus
 } = require("../skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx");
 const {
-  aggregateMatrix: aggregateRealPptxQualityMatrix,
-  summarizeReport: summarizeRealPptxQualityReport
-} = require("../skills/pd-hifi-slideclone/scripts/real-pptx-quality-matrix");
+  aggregateMatrix: qmAggregate,
+  summarizeReport: qmReport
+} = require("../packages/slideclone-native-engine/scripts/real-pptx-quality-matrix");
 
 test("native rebuild selects only source-native rich slides for direct preservation", () => {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "native-slide-preservation-"));
@@ -852,8 +852,8 @@ test("real pptx quality matrix carries component template crop status", () => {
     }
   }, null, 2)}\n`, "utf8");
 
-  const row = summarizeRealPptxQualityReport(reportFile);
-  const matrix = aggregateRealPptxQualityMatrix([row]);
+  const row = qmReport(reportFile);
+  const matrix = qmAggregate([row]);
 
   assert.equal(row.componentTemplateCropStatusImages, 5);
   assert.equal(row.componentTemplateCropStatusReplacedImages, 3);
