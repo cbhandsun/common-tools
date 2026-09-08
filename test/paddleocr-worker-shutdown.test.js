@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
 const test = require("node:test");
-const { waitForWorkersToClose } = require("../skills/pd-hifi-slideclone/scripts/lib/paddleocr-worker-shutdown");
+const { waitForWorkersToClose } = require("../packages/slideclone-native-engine/scripts/lib/paddleocr-worker-shutdown");
 
 function worker(close) {
   const child = Object.assign(new EventEmitter(), { exitCode: null, signalCode: null });

@@ -5,12 +5,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
-const { resolvePythonExecutable } = require("../skills/pd-hifi-slideclone/scripts/lib/python-env");
-const { resolveRepositoryRoot } = require("../packages/slideclone-native-engine");
+const { resolvePythonExecutable } = require("../packages/slideclone-native-engine/scripts/lib/python-env");
+const { resolveNativeEngineRuntimeRoot } = require("../packages/slideclone-native-engine");
 const { discoverTestFiles } = require("../scripts/test-sharded");
 
 const root = path.resolve(__dirname, "..");
-const worker = path.join(resolveRepositoryRoot(), "packages", "slideclone-native-engine", "scripts", "python", "paddleocr_worker.py");
+const worker = path.join(resolveNativeEngineRuntimeRoot(root), "scripts", "python", "paddleocr_worker.py");
 const fixture = path.join(__dirname, "fixtures/paddleocr-noisy-pipeline.py");
 const request = (count = 1) => JSON.stringify({ id: "request-1", imagePaths: Array(count).fill(fixture) }) + "\n";
 

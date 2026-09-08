@@ -22,8 +22,12 @@ function resolveSlidecloneRuntimeRoot(repositoryRoot = resolveRepositoryRoot()) 
   return path.join(repositoryRoot, "skills", "pd-hifi-slideclone");
 }
 
+function resolveNativeEngineRuntimeRoot(repositoryRoot = resolveRepositoryRoot()) {
+  return path.join(repositoryRoot, "packages", "slideclone-native-engine");
+}
+
 function resolveOpenXmlBuilderRoot(repositoryRoot = resolveRepositoryRoot()) {
-  return path.join(repositoryRoot, "packages", "slideclone-native-engine", "dotnet", "OpenXmlDeckBuilder");
+  return path.join(resolveNativeEngineRuntimeRoot(repositoryRoot), "dotnet", "OpenXmlDeckBuilder");
 }
 
 function buildOpenXmlDecksSync(jobs, context = {}, options = {}) {
@@ -34,4 +38,4 @@ function buildOpenXmlDecksSync(jobs, context = {}, options = {}) {
   return builder.buildOpenXmlDecksSync(jobs, { ...context, skillRoot }, builderRoot, options);
 }
 
-module.exports = { buildOpenXmlDecksSync, loadNativeImageEngine, loadNativeImageRebuilder, resolveOpenXmlBuilderRoot, resolveRepositoryRoot, resolveSlidecloneRuntimeRoot };
+module.exports = { buildOpenXmlDecksSync, loadNativeImageEngine, loadNativeImageRebuilder, resolveNativeEngineRuntimeRoot, resolveOpenXmlBuilderRoot, resolveRepositoryRoot, resolveSlidecloneRuntimeRoot };

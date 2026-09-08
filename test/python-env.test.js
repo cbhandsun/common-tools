@@ -10,7 +10,7 @@ const {
   pythonEnv,
   resolvePythonExecutable,
   usesBundledPython
-} = require("../skills/pd-hifi-slideclone/scripts/lib/python-env");
+} = require("../packages/slideclone-native-engine/scripts/lib/python-env");
 
 test("resolvePythonExecutable honors explicit and slideclone python overrides", () => {
   const previousPythonBin = process.env.PYTHON_BIN;

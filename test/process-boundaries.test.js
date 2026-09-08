@@ -9,7 +9,7 @@ const test = require("node:test");
 const {
   normalizeTimeoutMs,
   readBoundedUtf8
-} = require("../skills/pd-hifi-slideclone/scripts/lib/process-boundaries");
+} = require("../packages/slideclone-native-engine/scripts/lib/process-boundaries");
 
 test("process timeout accepts normal values and applies a safe default", () => {
   assert.equal(normalizeTimeoutMs(undefined, 120000), 120000);

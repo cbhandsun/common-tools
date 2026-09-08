@@ -6,13 +6,14 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
-const paddleOcr = require("../skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local");
-const { startPaddleOcrBatchBroker } = require("../skills/pd-hifi-slideclone/scripts/lib/paddleocr-batch-broker");
+const paddleOcr = require("../packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local");
+const { startPaddleOcrBatchBroker } = require("../packages/slideclone-native-engine/scripts/lib/paddleocr-batch-broker");
 const { consumePaddleOcrBrokerEnvironment } = require("../skills/pd-hifi-slideclone/scripts/lib/quality-gate-policy");
+const { resolveNativeEngineRuntimeRoot, resolveSlidecloneRuntimeRoot } = require("../packages/slideclone-native-engine");
 
 const workspaceRoot = path.resolve(__dirname, "..");
-const skillRoot = path.join(workspaceRoot, "skills", "pd-hifi-slideclone");
-const sourceImage = path.join(skillRoot, "examples", "ocr-text-smoke.source.png");
+const skillRoot = resolveNativeEngineRuntimeRoot(workspaceRoot);
+const sourceImage = path.join(resolveSlidecloneRuntimeRoot(workspaceRoot), "examples", "ocr-text-smoke.source.png");
 const fakeWorker = path.join(__dirname, "fixtures", "fake-paddleocr-worker.js");
 
 function context(tempDir, overrides = {}) {

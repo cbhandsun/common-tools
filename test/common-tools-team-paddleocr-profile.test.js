@@ -7,11 +7,11 @@ const path = require("node:path");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
 const { EXPECTED_VERSIONS, MIN_TEXT_CONFIDENCE, PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile } = require("../packages/slideclone-core/team-paddleocr-profile");
-const { resolveRepositoryRoot } = require("../packages/slideclone-native-engine");
+const { resolveNativeEngineRuntimeRoot } = require("../packages/slideclone-native-engine");
 
 function environment(overrides = {}) {
   const fixture = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png");
-  const worker = path.join(resolveRepositoryRoot(), "packages", "slideclone-native-engine", "scripts", "python", "paddleocr_worker.py");
+  const worker = path.join(resolveNativeEngineRuntimeRoot(path.join(__dirname, "..")), "scripts", "python", "paddleocr_worker.py");
   return {
     COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE: PROFILE_NAME,
     COMMON_TOOLS_IMAGE_PADDLEOCR_PYTHON: process.execPath,
