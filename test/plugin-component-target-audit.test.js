@@ -12,7 +12,7 @@ const {
   classifyStructuralExpression,
   parseArgs,
   renderMarkdown
-} = require("../skills/pd-hifi-slideclone/scripts/plugin-component-target-audit");
+} = require("../packages/slideclone-native-engine/scripts/plugin-component-target-audit");
 
 function pluginStrategy(overrides = {}) {
   return {

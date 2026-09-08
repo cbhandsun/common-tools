@@ -11,7 +11,7 @@ const {
   inferImageOrdinal,
   parseArgs,
   renderRepairQueueMarkdown
-} = require("../skills/pd-hifi-slideclone/scripts/expression-policy-repair-queue");
+} = require("../packages/slideclone-native-engine/scripts/expression-policy-repair-queue");
 
 test("expression policy repair queue parses bounded CLI args", () => {
   const args = parseArgs([

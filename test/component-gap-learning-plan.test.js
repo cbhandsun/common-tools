@@ -11,7 +11,7 @@ const {
   buildGapLearningPlan,
   parseArgs,
   renderPlanMarkdown
-} = require("../skills/pd-hifi-slideclone/scripts/component-gap-learning-plan");
+} = require("../packages/slideclone-native-engine/scripts/component-gap-learning-plan");
 
 test("gap learning plan prioritizes collected components before new plugin collection", () => {
   const plan = buildGapLearningPlan({
