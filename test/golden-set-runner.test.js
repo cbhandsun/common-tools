@@ -125,6 +125,15 @@ test("golden-set manifest routes IR delivery smoke cases through the package run
   assert.ok(irDeliveryCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/ir-delivery-smoke.js`)));
 });
 
+test("golden-set manifest routes OCR text smoke cases through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const ocrTextCases = manifest.cases.filter((entry) => entry.command?.includes("packages/slideclone-native-engine/scripts/ocr-text-smoke.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(ocrTextCases.length, 2);
+  assert.ok(ocrTextCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/ocr-text-smoke.js`)));
+});
+
 test("golden-set runner keeps report order while using bounded concurrency", async () => {
   let active = 0;
   let peak = 0;

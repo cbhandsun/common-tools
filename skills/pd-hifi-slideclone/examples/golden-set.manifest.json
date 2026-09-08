@@ -184,7 +184,7 @@
       "mode": "sentinel-fail",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/ocr-text-smoke.js",
+        "packages/slideclone-native-engine/scripts/ocr-text-smoke.js",
         "--out",
         "runs/golden-set/ocr-text-sentinel"
       ]
@@ -195,7 +195,7 @@
       "mode": "coverage-improves",
       "command": [
         "node",
-        "skills/pd-hifi-slideclone/scripts/ocr-text-smoke.js",
+        "packages/slideclone-native-engine/scripts/ocr-text-smoke.js",
         "--ir",
         "skills/pd-hifi-slideclone/examples/text-micro-adjust-smoke.ir.json",
         "--rendered",

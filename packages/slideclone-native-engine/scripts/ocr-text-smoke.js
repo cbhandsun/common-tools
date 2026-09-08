@@ -5,10 +5,13 @@ const fs = require("fs");
 const path = require("path");
 
 const skillRoot = path.resolve(__dirname, "..");
+const resourceRoot = path.resolve(__dirname, "..", "..", "..", "skills", "pd-hifi-slideclone");
+const comparePlaceholder = require("./adapters/compare-placeholder");
+const polishTextBoxMicroAdjust = require("./adapters/polish-text-box-micro-adjust");
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const fixtureFile = path.resolve(args.ir || path.join(skillRoot, "examples", "ocr-text-smoke.ir.json"));
+  const fixtureFile = path.resolve(args.ir || path.join(resourceRoot, "examples", "ocr-text-smoke.ir.json"));
   const fixtureDir = path.dirname(fixtureFile);
   const renderedImage = path.resolve(args.rendered || path.join(fixtureDir, "ocr-text-smoke.rendered.png"));
   const outputDir = path.resolve(args.out || path.join(process.cwd(), "runs", "ocr-text-smoke"));
@@ -18,8 +21,8 @@ async function main() {
   ensureDir(path.join(outputDir, "reports"));
 
   const ir = resolveIrPaths(readJson(fixtureFile), fixtureDir);
-  const compare = require(path.join(skillRoot, "scripts", "adapters", "compare-placeholder.js"));
-  const polish = require(path.join(skillRoot, "scripts", "adapters", "polish-text-box-micro-adjust.js"));
+  const compare = comparePlaceholder;
+  const polish = polishTextBoxMicroAdjust;
   const context = {
     skillRoot,
     outputDir,
@@ -179,7 +182,11 @@ function metricDelta(next, base) {
   return Math.round((next - base) * 1000000) / 1000000;
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error && error.stack ? error.stack : String(error)}\n`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`${error && error.stack ? error.stack : String(error)}\n`);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { main, parseArgs };

@@ -1731,7 +1731,7 @@
     },
     "smoke-ocr-text": {
       "description": "Versioned command profile for slideclone:smoke-ocr-text.",
-      "script": "scripts/ocr-text-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/ocr-text-smoke.js",
       "args": []
     },
     "smoke-real-pptx": {
@@ -1770,7 +1770,7 @@
     },
     "smoke-text-micro-adjust": {
       "description": "Versioned command profile for slideclone:smoke-text-micro-adjust.",
-      "script": "scripts/ocr-text-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/ocr-text-smoke.js",
       "args": [
         "--ir",
         "skills/pd-hifi-slideclone/examples/text-micro-adjust-smoke.ir.json",
