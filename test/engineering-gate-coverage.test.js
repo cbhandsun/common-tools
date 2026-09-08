@@ -107,7 +107,9 @@ test("local CI entry includes static gates and the actual lint/type commands inc
   assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice.js"));
   assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata.js"));
   assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js"));
+  assert.ok(scripts.lint.includes("eslint --cache --cache-location .cache/eslint/"));
   assert.ok(scripts.lint.split(" && ").includes("node scripts/verify-workspace-boundaries.js"));
+  assert.match(fs.readFileSync(path.join(root, ".gitignore"), "utf8"), /^\/\.cache\/$/m);
   assert.ok(scripts.typecheck.split(" && ").includes("tsc --project tsconfig.boundaries.json"));
   const boundaries = JSON.parse(fs.readFileSync(path.join(root, "tsconfig.boundaries.json"), "utf8"));
   assert.equal(boundaries.compilerOptions.strict, true);
