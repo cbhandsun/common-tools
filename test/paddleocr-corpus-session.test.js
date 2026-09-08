@@ -5,16 +5,16 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { brokerEnabled, eligibleForBroker, runCorpusCases, takeBrokerEnvironment } = require("../skills/pd-hifi-slideclone/scripts/lib/paddleocr-corpus-session");
-const { runCases } = require("../skills/pd-hifi-slideclone/scripts/golden-set-runner");
-const { startPaddleOcrBatchBroker } = require("../skills/pd-hifi-slideclone/scripts/lib/paddleocr-batch-broker");
+const { brokerEnabled, eligibleForBroker, runCorpusCases, takeBrokerEnvironment } = require("../packages/slideclone-native-engine/scripts/lib/paddleocr-corpus-session");
+const { runCases } = require("../packages/slideclone-native-engine/scripts/golden-set-runner");
+const { startPaddleOcrBatchBroker } = require("../packages/slideclone-native-engine/scripts/lib/paddleocr-batch-broker");
 const adapter = require("../packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local");
 const root = path.resolve(__dirname, "..");
 const urlKey = "SLIDECLONE_PADDLE_OCR_BROKER_URL";
 const tokenKey = "SLIDECLONE_PADDLE_OCR_BROKER_TOKEN";
 const env = { [urlKey]: "http://127.0.0.1:12345", [tokenKey]: "z".repeat(43) };
 const metrics = { requests: 2, completed: 2, failed: 0, queueWaitMs: 0, serviceMs: 1 };
-const entry = (id = "case") => ({ id, timeoutMs: 180000, mode: "command-passes", command: [process.execPath, path.join(root, "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js"), "--ocr", "true"] });
+const entry = (id = "case") => ({ id, timeoutMs: 180000, mode: "command-passes", command: [process.execPath, path.join(root, "packages/slideclone-native-engine/scripts/complex-graphic-golden-smoke.js"), "--ocr", "true"] });
 
 test("corpus broker selection rejects unsupported modes and only routes approved OCR scripts", async () => {
   for (const value of [undefined, false, "false"]) assert.equal(brokerEnabled(value), false);

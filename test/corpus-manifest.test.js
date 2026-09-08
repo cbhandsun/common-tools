@@ -9,7 +9,7 @@ const {
   summarizeCorpusCoverage,
   validateCorpusManifest
 } = require("../skills/pd-hifi-slideclone/scripts/lib/real-pptx-corpus");
-const { applyFreshExecution, readTrendMetrics, resolveCorpusConcurrency, summarizeCorpusPerformance } = require("../skills/pd-hifi-slideclone/scripts/real-pptx-corpus-runner");
+const { applyFreshExecution, readTrendMetrics, resolveCorpusConcurrency, summarizeCorpusPerformance } = require("../packages/slideclone-native-engine/scripts/real-pptx-corpus-runner");
 
 const root = path.resolve(__dirname, "..");
 const corpus = JSON.parse(fs.readFileSync(path.join(root, "skills/pd-hifi-slideclone/examples/real-pptx-corpus.manifest.json"), "utf8"));
@@ -89,7 +89,7 @@ test("real PPTX corpus serializes Office cases unless isolated workers are expli
 
 test("fresh corpus execution disables reuse only for golden commands that support force", () => {
   const cases = [
-    { id: "golden", command: ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "safe"] },
+    { id: "golden", command: ["node", "packages/slideclone-native-engine/scripts/complex-graphic-golden-smoke.js", "--deck", "safe"] },
     { id: "chart", command: ["node", "scripts/chart-native-render-golden.js"] }
   ];
   const fresh = applyFreshExecution(cases, true);

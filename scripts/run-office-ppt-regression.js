@@ -98,7 +98,7 @@ function buildOfficeRegressionPlan(args, environment, cwd, platform) {
     libreOfficeExecutable: resolveLibreOffice(),
     pdfToPpmExecutable: resolvePdfToPpm(),
     corpusArgs: Object.freeze([
-      "skills/pd-hifi-slideclone/scripts/real-pptx-corpus-runner.js",
+      "packages/slideclone-native-engine/scripts/real-pptx-corpus-runner.js",
       "--suite", suite,
       "--concurrency", "1",
       "--fresh", "true",

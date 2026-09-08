@@ -20,11 +20,13 @@
     "component-candidate-search.js",
     "component-plugin-action-queue.js",
     "component-strategy-rebuild.js",
+    "complex-graphic-golden-smoke.js",
     "golden-set-runner.js",
     "harvest-applied-ppt-components.js",
     "libreoffice-benchmark.js",
     "quality-gate-real-pptx.js",
     "quality-trend-gate.js",
+    "real-pptx-corpus-runner.js",
     "rebuild-real-pptx-native.js",
     "rendered-similarity-audit.js",
     "slideclone.js"
@@ -35,10 +37,12 @@
       "slideclone.js"
     ],
     "renderingAndQualityHarness": [
+      "complex-graphic-golden-smoke.js",
       "golden-set-runner.js",
       "libreoffice-benchmark.js",
       "quality-gate-real-pptx.js",
       "quality-trend-gate.js",
+      "real-pptx-corpus-runner.js",
       "rendered-similarity-audit.js"
     ],
     "componentAcquisitionTools": [
