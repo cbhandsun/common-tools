@@ -1,5 +1,9 @@
 # 架构改进当前状态
 
+## 通用插件架构五项整改
+
+本轮面向“通用插件项目”的架构图与合理性评估见 [通用插件项目架构图与合理性评估](general-plugin-architecture.md)。五项整改已经按小批次提交：生产 SlideClone 依赖移出 skill 树、能力注册表落地、archive/OOXML/artifact 共享基础包抽出、质量报告 UI contribution 归属到 `ppt-quality-core`、分发和镜像策略收口。旧 A–F 文档仍代表更大的产品验收范围，不能与本轮五项架构整改混为同一个完成口径。
+
 ## 最近合并验收：交接边界组
 
 证据：`.codex-tmp/handoff-consolidated-ci-evidence.json`。完整 CI 前 11 个阶段通过，最后的运行包探针因查找旧文件中的常量而失败；修正探针并增加真实通过/绕过失败回归后，13 项探针测试、受影响 ESLint 与打包安装复测通过。运行包 794 文件、6 项能力探针通过。此为组合验收证据，不能表述为单次完整 CI 全绿。
