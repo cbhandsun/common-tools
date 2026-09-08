@@ -415,6 +415,7 @@ if (require.main === module) {
 module.exports = {
   diffSnapshots,
   inferProviderForPath,
+  main,
   parseArgs,
   resolveActivePowerPointFile,
   resolveWatchRoots,

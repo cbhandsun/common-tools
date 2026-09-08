@@ -1556,6 +1556,7 @@ module.exports = {
   collectMotifRecallActions,
   collectRepairCoverageBacklogActions,
   collectTargetAuditActions,
+  main,
   parseArgs,
   renderPluginActionQueueMarkdown,
   _private: {

@@ -320,6 +320,7 @@ if (require.main === module) {
 module.exports = {
   buildPowerPointSaveCopyScript,
   harvestActivePowerPointComponent,
+  main,
   parseArgs,
   powerPointComBootstrapScript,
   quotePowerShellString,

@@ -8,7 +8,10 @@ const SCRIPT_DIR = __dirname;
 const PACKAGE_SCRIPT_DIR = path.resolve(__dirname, "..", "..", "..", "packages", "slideclone-native-engine", "scripts");
 const PACKAGE_SCRIPT_FILES = new Set([
   "component-candidate-search.js",
-  "harvest-applied-ppt-components.js"
+  "component-plugin-action-queue.js",
+  "harvest-active-powerpoint-component.js",
+  "harvest-applied-ppt-components.js",
+  "watch-plugin-component-downloads.js"
 ]);
 
 function parseArgs(argv) {
