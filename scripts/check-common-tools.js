@@ -7,6 +7,7 @@ const { spawn } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
 const packages = path.join(root, "packages");
+const nativeEngineRuntimePayload = path.join(packages, "slideclone-native-engine", "scripts");
 
 function walkJavaScriptFiles(directory, files) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -58,13 +59,18 @@ function syntaxCheckConcurrency() {
   return Math.max(1, Math.min(8, os.availableParallelism ? os.availableParallelism() : os.cpus().length || 1));
 }
 
+function isNativeEngineRuntimePayload(file) {
+  const relative = path.relative(nativeEngineRuntimePayload, file);
+  return relative === "" || (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`));
+}
+
 async function checkCommonTools(options = {}) {
   if (!options || typeof options !== "object" || Array.isArray(options)) throw new TypeError("common-tools check options are invalid");
   const files = options.files === undefined ? collectCommonToolFiles() : options.files;
   if (!Array.isArray(files) || files.some((file) => typeof file !== "string" || file.length === 0)) throw new TypeError("common-tools check files are invalid");
   for (const file of files) {
     const content = fs.readFileSync(file, "utf8");
-    if (/console\.log\(/.test(content) && !/bin[\\/]/.test(path.relative(packages, file))) {
+    if (/console\.log\(/.test(content) && !/bin[\\/]/.test(path.relative(packages, file)) && !isNativeEngineRuntimePayload(file)) {
       throw new Error(`library code must not use console.log: ${path.relative(root, file)}`);
     }
   }

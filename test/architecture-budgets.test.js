@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { measureFile, validateConfig } = require("../scripts/verify-architecture-budgets");
+const { listCodeFiles, measureFile, validateConfig } = require("../scripts/verify-architecture-budgets");
 
 function validConfig() {
   return {
@@ -43,4 +43,11 @@ test("architecture measurement counts lines, bytes and unique relative imports",
   assert.equal(lfMetrics.relativeImports, 2);
   assert.equal(lfMetrics.bytes, Buffer.byteLength(source));
   assert.deepEqual(crlfMetrics, lfMetrics);
+});
+
+test("architecture budgets keep native-engine entrypoints but leave runtime payload sizing to package gates", () => {
+  const files = listCodeFiles(path.resolve(__dirname, "..", "packages"))
+    .map((file) => path.relative(path.resolve(__dirname, ".."), file).replaceAll("\\", "/"));
+  assert.ok(files.includes("packages/slideclone-native-engine/index.js"));
+  assert.equal(files.some((file) => file.startsWith("packages/slideclone-native-engine/scripts/")), false);
 });
