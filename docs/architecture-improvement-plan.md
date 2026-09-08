@@ -1035,7 +1035,7 @@ PDF 实际转换随后明确失败于 IMAGE_NORMALIZATION_FAILED。容器内真�
 
 继续验证时完成以下实际修复：
 - 新建 PPT 的合法封面省略 items 导致质量汇总抛异常；合法 variantCount=1 却被硬编码至少2个候选布局的门禁拒绝。已对齐规格，完整 handler 及远程 Job fbee1d34-42e3-4668-bb05-44de78143920 成功，27/27 质量检查通过；下载的两页 PPTX 均含可编辑文本。
-- PDF 重建真实输出的 structureSignature.laneCount 和 textBoxes.style.wrap 可能为 undefined。已在生成端省略未设置字段，保留0、false和有效值，不放宽IR校验。相关最终43项回归及类型、定向Lint通过；当时曾同步收紧主脚本预算。当前通用插件架构已把 skill 脚本视为分发镜像，核心架构预算改管生产包、仓库脚本和 runtime package 入口。
+- PDF 重建真实输出的 structureSignature.laneCount 和 textBoxes.style.wrap 可能为 undefined。已在生成端省略未设置字段，保留0、false和有效值，不放宽IR校验。相关最终43项回归及类型、定向Lint通过；当时曾同步收紧主脚本预算。当前通用插件架构已把 skill 脚本视为分发镜像，核心架构预算改管生产包、仓库脚本和 native engine package 入口。
 - PDF尚未验收通过：上述修复后继续发现数字字段准入失败，目前使用第一页做有界定位；未将单页诊断视为整份16页验收。
 
 本轮运行问题修复收尾：数据库010/011已应用并验证幂等；两类Worker心跳各1个；正式镜像已移除临时诊断启动项，旧容器及旧local镜像标签保留回滚，Compose默认local标签已指向修复镜像。
