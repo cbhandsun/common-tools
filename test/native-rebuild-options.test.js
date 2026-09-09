@@ -7,6 +7,8 @@ const path = require("node:path");
 const test = require("node:test");
 const {
   isFlagEnabled,
+  parseNativeRebuildArgs,
+  rebuildRealPptxNativeUsage,
   resolveComponentAssetIndex,
   resolveComponentStrategyIndex,
   resolveSmartNativeRebuildOptions,
@@ -39,6 +41,17 @@ test("native rebuild options can be resolved without loading the monolithic CLI 
   assert.equal(options.forcePreserveWmsRouteGraphic, true);
   assert.equal(options.componentGroupMatchMinScore, 72);
   assert.equal(shouldVectorizeStatusIcons(options), true);
+});
+
+test("native rebuild cli args and usage are owned by the lightweight boundary", () => {
+  assert.deepEqual(parseNativeRebuildArgs(["--work-root", "in", "--help", "--out", "out"]), {
+    "work-root": "in",
+    help: true,
+    out: "out"
+  });
+  const usage = rebuildRealPptxNativeUsage();
+  assert.match(usage, /rebuild-real-pptx-native\.js/);
+  assert.match(usage, /--powerpoint-open-gate true/);
 });
 
 test("native rebuild options resolve component evidence indexes from bounded json files", () => {

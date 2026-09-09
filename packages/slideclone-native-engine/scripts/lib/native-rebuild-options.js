@@ -15,6 +15,23 @@ function shouldVectorizeStatusIcons(options = {}) {
   return options.vectorizeStatusIcons === true;
 }
 
+function parseNativeRebuildArgs(argv = []) {
+  const args = {};
+  for (let index = 0; index < argv.length; index += 1) {
+    const item = argv[index];
+    if (!item.startsWith("--")) continue;
+    const key = item.slice(2);
+    const next = argv[index + 1];
+    if (!next || next.startsWith("--")) {
+      args[key] = true;
+    } else {
+      args[key] = next;
+      index += 1;
+    }
+  }
+  return args;
+}
+
 function isFlagEnabled(value) {
   return value === true || value === "true" || value === "1" || value === "yes";
 }
@@ -88,8 +105,30 @@ function sanitizeCommandArgs(argv = []) {
   return result;
 }
 
+function rebuildRealPptxNativeUsage() {
+  return [
+    "Usage: node rebuild-real-pptx-native.js [options]",
+    "  --work-root <dir>       Source .work directories (default: ppt文档/可编辑版本)",
+    "  --only <deck>           Rebuild one deck only",
+    "  --pages <selection>     Rebuild selected 1-based pages, for example: 4,8,13",
+    "  --out <dir>             Output directory (default: ppt文档/真可编辑版本)",
+    "  --smart-native-layers true",
+    "  --force-preserve-wms-route-graphic true  Preserve matching WMS pictorial routes as protected local crops",
+    "  --pptx-engine openxml",
+    "  --powerpoint-open-gate true  Open every generated PPTX in PowerPoint before delivery",
+    "  --final-page-cache-dir <dir>  Override the shared safe page-cache directory",
+    "  --reuse-final-page-cache [true|false]  Reuse unchanged cached pages (default: true)",
+    "  --no-final-page-cache         Disable writing and reading page cache",
+    "  --page-cache-salt <value>      Explicitly invalidate otherwise matching cache entries",
+    "  --progress false         Disable safe per-page progress events on stderr",
+    "  --help, -h              Print this help without creating output"
+  ].join("\n");
+}
+
 module.exports = {
   isFlagEnabled,
+  parseNativeRebuildArgs,
+  rebuildRealPptxNativeUsage,
   resolveComponentAssetIndex,
   resolveComponentStrategyIndex,
   resolveSmartNativeRebuildOptions,

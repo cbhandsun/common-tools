@@ -209,6 +209,8 @@ const {
 } = require("./lib/native-output-sanitizer");
 const {
   isFlagEnabled,
+  parseNativeRebuildArgs,
+  rebuildRealPptxNativeUsage,
   resolveComponentAssetIndex,
   resolveComponentStrategyIndex,
   resolveSmartNativeRebuildOptions,
@@ -482,25 +484,6 @@ const networkRebuildOrchestrator = createNetworkRebuildOrchestrator({
   modes: DENSE_RADIAL_NETWORK_MODES,
   shouldObjectify: shouldObjectifyNetworkDiagram
 });
-
-function parseArgs(argv) {
-  const args = {};
-  for (let index = 0; index < argv.length; index += 1) {
-    const item = argv[index];
-    if (!item.startsWith("--")) continue;
-    const key = item.slice(2);
-    const next = argv[index + 1];
-    if (!next || next.startsWith("--")) {
-      args[key] = true;
-    } else {
-      args[key] = next;
-      index += 1;
-    }
-  }
-  return args;
-}
-
-
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8").replace(/^\uFEFF/, ""));
@@ -26072,7 +26055,7 @@ const { buildPptx, buildPptxBatch } = createPptxBuildExecutor({
 });
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
+  const args = parseNativeRebuildArgs(process.argv.slice(2));
   if (args.help === true || args.h === true) {
     console.log(rebuildRealPptxNativeUsage());
     return;
@@ -26269,26 +26252,6 @@ async function main() {
   progressReporter.emit({ phase: "run", status: report.totals.failed > 0 ? "failed" : "done", deckTotal: workDirs.length });
   console.log(JSON.stringify(report, null, 2));
   if (report.totals.failed > 0) process.exitCode = 1;
-}
-
-function rebuildRealPptxNativeUsage() {
-  return [
-    "Usage: node rebuild-real-pptx-native.js [options]",
-    "  --work-root <dir>       Source .work directories (default: ppt文档/可编辑版本)",
-    "  --only <deck>           Rebuild one deck only",
-    "  --pages <selection>     Rebuild selected 1-based pages, for example: 4,8,13",
-    "  --out <dir>             Output directory (default: ppt文档/真可编辑版本)",
-    "  --smart-native-layers true",
-    "  --force-preserve-wms-route-graphic true  Preserve matching WMS pictorial routes as protected local crops",
-    "  --pptx-engine openxml",
-    "  --powerpoint-open-gate true  Open every generated PPTX in PowerPoint before delivery",
-    "  --final-page-cache-dir <dir>  Override the shared safe page-cache directory",
-    "  --reuse-final-page-cache [true|false]  Reuse unchanged cached pages (default: true)",
-    "  --no-final-page-cache         Disable writing and reading page cache",
-    "  --page-cache-salt <value>      Explicitly invalidate otherwise matching cache entries",
-    "  --progress false         Disable safe per-page progress events on stderr",
-    "  --help, -h              Print this help without creating output"
-  ].join("\n");
 }
 
 function summarizeDeckComposition(deck) {
