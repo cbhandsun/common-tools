@@ -1,5 +1,51 @@
 # 架构改进当前状态
 
+## 2026-09-09 收口：native engine 继续按生产边界拆分
+
+基于“通用插件项目 = MCP 能力目录 + skill 薄壳 + UI contribution + 本地/远程 runtime + 可验收生产闭环”的共识，本轮没有继续按历史 `project-audit` 细项机械扩展，而是直接收敛生产图片/PPT 链路里仍然过大的 native engine。新增边界均落在 `packages/slideclone-native-engine/scripts/lib/`，skill 根目录不承载生产实现。
+
+本轮提交：
+
+- `3a55204 Extract component template palette boundary`
+- `9f1fb9a Extract component template geometry boundary`
+- `0b2f2af Extract component template family evidence`
+- `bda537c Extract component template sanitizers`
+- `361ba01 Extract native rebuild strategy profile`
+- `cb175a7 Extract native rebuild workdir boundary`
+- `ac19f15 Extract component template motif boundary`
+- `b34d85f Extract page background fill sampler`
+
+本轮拆出的职责边界：
+
+- component template palette：组件模板颜色提取、soft fill 推导和颜色混合。
+- component template geometry：相对/绝对 box、overlap、union、center、distance、anchor 计算。
+- component template family evidence：matrix、quadrant、cycle、process、timeline、chart 等结构证据和 family 判定。
+- component template sanitizers：文本、颜色、relationship id、本地 PPTX 路径、媒体 target、输出 asset 目录、组件 token 的输入清洗。
+- component template motifs：目标 motif、fallback motif、whole-process 判定、asset/group motif 集合。
+- native rebuild strategy profile：hybrid native rebuild 的策略说明和运行元数据。
+- native rebuild workdir：workdir 枚举、JSON 读取、source native slide metadata/index。
+- page background fill sampler：页面背景采样从主 rebuild 编排中移出。
+
+验证证据：
+
+- `node --check` 覆盖每个新增模块及受影响主文件。
+- `test/component-template-native-shapes.test.js` 通过。
+- `npm run lint` 通过，新增模块均进入统一 lint 入口。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,203 个文件、20 个 workspace package、6 项能力探针通过。
+- `node scripts/verify-architecture-budgets.js` 通过。
+- `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
+
+当前剩余架构事实：
+
+- `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
+- `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 2 个超大文件：
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：26,505 行。
+  - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js`：4,482 行。
+- `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
+- `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
+
+结论：整体架构方向已经从“历史 skill 大实现”迁出到“插件平台 + native runtime + core/lib 边界”的轨道上。剩余不需要推倒重来，主线是继续拆 `rebuild-real-pptx-native.js` 与 `component-template-native-shapes.js`，并完成本地/生产 authenticated acceptance evidence。
+
 ## 2026-09-09 收口：本地部署入口简化为一条命令、一次密码、自动 smoke
 
 本轮把本机 Docker 部署路径从“用户需要理解 production env、image digest、release evidence、多个服务密码和后续 smoke 命令”收敛为 `.\scripts\team-runtime-local-apply.ps1` 一条入口。默认行为会自动推导本地 Docker URL/端口，Apply 模式提示一次共享本地部署密码，并在 Apply 成功后运行 `team-runtime-local-smoke.ps1` 校验 gateway readiness、OAuth resource metadata、能力 scope 和未授权 MCP challenge。需要本地浏览器登录验收时传 `-EnableIdentityProvider` 启动 Keycloak，自动 smoke 也会随之要求 IdP discovery 通过；需要分开密码时可显式传 `-SeparatePasswords`；只想部署不 smoke 时可显式传 `-SkipSmoke`；Plan 模式使用临时占位 secret 通过 Compose 配置校验，不提示密码、不写入用户环境。
