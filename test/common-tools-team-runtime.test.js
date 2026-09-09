@@ -523,6 +523,18 @@ test("team runtime reports Compose health without requiring team connection conf
   assert.throws(() => teamRuntimeReport({ capabilities: "unknown" }, { docker: { available: true, version: "available" }, runtime: () => ({ available: true, ok: true, services: {} }) }), /invalid/);
 });
 
+test("team runtime local diagnostics stay outside the CLI composition root", () => {
+  const root = path.resolve(__dirname, "..");
+  const cli = fs.readFileSync(path.join(root, "packages", "cli", "bin", "common-tools.js"), "utf8");
+  const runtimeLocal = require("../packages/cli/team-runtime-local");
+  assert.match(cli, /require\("\.\.\/team-runtime-local"\)/);
+  assert.doesNotMatch(cli, /function composeRuntimeSnapshot/);
+  assert.doesNotMatch(cli, /function localTeamConfigReport/);
+  assert.equal(runtimeLocal.teamRuntimeReport, teamRuntimeReport);
+  assert.equal(runtimeLocal.localTeamConfigReport, localTeamConfigReport);
+  assert.equal(runtimeLocal.composeRuntimeSnapshot, composeRuntimeSnapshot);
+});
+
 test("team local-config derives only fixed non-secret local endpoints from loopback mappings", () => {
   const rows = [
     { Labels: "com.docker.compose.project=deploy,com.docker.compose.service=remote-mcp-gateway", Ports: "127.0.0.1:54000->8080/tcp" },
