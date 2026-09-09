@@ -12,18 +12,23 @@
 - `25c4e80 Simplify local deployment secret prompts`
 - `a0560c8 Run local smoke after apply`
 - `34a1566 Make local apply plan noninteractive`
+- `7574c0b Add browser PKCE local job smoke login`
+- `df3f5fe Add optional local identity provider deployment`
+- `10cf679 Require IdP smoke when enabled locally`
 
 验证证据：
 
 - PowerShell 脚本语法检查通过。
-- `test/common-tools-team-compose.test.js`：23/23 通过。
+- `test/common-tools-team-compose.test.js`：24/24 通过。
 - 受影响 ESLint 通过。
-- `node scripts/verify-runtime-package.js` 通过：运行包 1,179 个文件、20 个 workspace package、6 项能力探针全通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,180 个文件、20 个 workspace package、6 项能力探针全通过。
 - `node scripts/verify-architecture-budgets.js` 与 `node scripts/verify-workspace-boundaries.js` 通过。
+- `.\scripts\team-runtime-local-apply.ps1 -Mode Plan -EnableIdentityProvider` 通过 Compose 配置校验且不修改容器，输出 `identityProviderEnabled:true`。
+- 当前已运行的本地 gateway smoke 通过，确认 5 个能力 metadata 与未认证 challenge；因现有 Docker 栈未启动 Keycloak，本次只读 smoke 显示 `identityProviderVerified:false`，需要重新 Apply `-EnableIdentityProvider` 后再做浏览器登录 Job smoke。
 
 结论：本地验收链路已经从“工程师式多步排障”明显向“用户只输入密码”的方向收敛。它仍不等同于真正生产发布验收；生产发布仍需要 immutable image digest、release evidence、迁移/备份/回滚和远程认证 Job smoke 证据。
 
-后续增量 `514e86c Add local authenticated job smoke wrapper` 新增 `.\scripts\team-runtime-local-job-smoke.ps1` / `npm run common-tools:team-local-job-smoke`。该入口会自动生成最小 PNG 输入、打包为 team raw-image archive、发现本地 gateway 并调用受保护 MCP 的 authenticated Job smoke。默认仍可通过 `COMMON_TOOLS_JOB_SMOKE_TOKEN` 显式提供 OAuth bearer token；若本地 Keycloak 已运行，也可传 `-Login`，脚本会打开浏览器走 Authorization Code + PKCE S256，loopback 收到 code 后只把 access token 临时放入当前 PowerShell 进程再调用 smoke，不保存、不打印 token。默认不等待 Worker 终态；传 `-Wait` 时，`image-to-editable` 会同时验证 `deck.pptx` artifact target。运行包文件数随该脚本增加到 1,180。
+后续增量 `514e86c Add local authenticated job smoke wrapper` 新增 `.\scripts\team-runtime-local-job-smoke.ps1` / `npm run common-tools:team-local-job-smoke`。该入口会自动生成最小 PNG 输入、打包为 team raw-image archive、发现本地 gateway 并调用受保护 MCP 的 authenticated Job smoke。默认仍可通过 `COMMON_TOOLS_JOB_SMOKE_TOKEN` 显式提供 OAuth bearer token；若本地 Keycloak 已运行，也可传 `-Login`，脚本会打开浏览器走 Authorization Code + PKCE S256，loopback 收到 code 后只把 access token 临时放入当前 PowerShell 进程再调用 smoke，不保存、不打印 token。默认不等待 Worker 终态；传 `-Wait` 时，`image-to-editable` 会同时验证 `deck.pptx` artifact target。
 
 ## 2026-09-09 收口：历史 skill lib 引用进入尾部兼容治理
 
