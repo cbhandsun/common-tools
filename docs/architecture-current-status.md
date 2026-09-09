@@ -15,6 +15,7 @@
 - `7574c0b Add browser PKCE local job smoke login`
 - `df3f5fe Add optional local identity provider deployment`
 - `10cf679 Require IdP smoke when enabled locally`
+- 本批新增 `team-keycloak-local-test-user.ps1` 和 `team keycloak-local-test-user`，用于本机 Keycloak 准备可登录测试用户与 `common_tools_projects` claim；密码只走交互式安全输入或当前进程环境变量，不放命令行参数、不写仓库、不出现在结果 JSON。
 
 验证证据：
 

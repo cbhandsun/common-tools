@@ -33,6 +33,7 @@ const { teamDoctorReport } = require("../team-doctor");
 const { composeProjectName, composeRuntimeSnapshot, gatewayReadiness, localTeamConfigReport, loopbackTcpPort, probeReadyEndpoint, summarizeContainerStatus, teamRuntimeReport } = require("../team-runtime-local");
 const { runKeycloakMcpClientCommand, runKeycloakProjectMapperCommand } = require("../keycloak-project-mapper");
 const { runKeycloakRealmCommand } = require("../keycloak-realm-hardening");
+const { runKeycloakLocalTestUserCommand } = require("../keycloak-local-test-user");
 const { environmentWithProductionEnvFile } = require("../production-env-file");
 const { collectProductionAcceptanceEvidence, productionAcceptancePlan } = require("../production-acceptance-plan");
 const { serveStdio } = require("../../mcp-server/core");
@@ -51,7 +52,7 @@ function bundledSlidecloneRunner() {
 const COMMAND_USAGE = [
   "usage: common-tools <command>",
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
-  "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team migration-status [--production-env-file <absolute.env>] | team production-acceptance-plan [--production-env-file <absolute.env>] [--out <json>] | team production-acceptance-evidence [--production-env-file <absolute.env>] --out <directory> | team editable-source-archive (--input <png|jpg|pdf|pptx|deck.json> | --inputs <ordered-images,csv>) --out <archive.tar.gz> | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) --out <archive.tar.gz> | team production-preflight [--production-env-file <absolute.env>] | team keycloak-realm [--apply --backup-file <new.json> --evidence-file <new.json>] | team keycloak-mcp-client [--apply --backup-file <new.json>]",
+  "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team migration-status [--production-env-file <absolute.env>] | team production-acceptance-plan [--production-env-file <absolute.env>] [--out <json>] | team production-acceptance-evidence [--production-env-file <absolute.env>] --out <directory> | team editable-source-archive (--input <png|jpg|pdf|pptx|deck.json> | --inputs <ordered-images,csv>) --out <archive.tar.gz> | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) --out <archive.tar.gz> | team production-preflight [--production-env-file <absolute.env>] | team keycloak-realm [--apply --backup-file <new.json> --evidence-file <new.json>] | team keycloak-mcp-client [--apply --backup-file <new.json>] | team keycloak-local-test-user --apply [--username <name>] [--project-id <id>] [--role viewer|editor|admin]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
   "  editable init|create|run|batch|apply-edit | editable batch --inputs <ordered,csv> --out <directory> --config <json> | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose [--provider-config <json> --provider-id <id>]|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|edit-session|apply-edit|apply-ir-edit|finalize-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|layout-safe|typography-safe|editability-safe|audit-only] | job get|run|cancel"
 ].join("\n");
@@ -223,6 +224,11 @@ async function main() {
   }
   if (area === "team" && action === "keycloak-mcp-client") {
     const result = await runKeycloakMcpClientCommand(args);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return 0;
+  }
+  if (area === "team" && action === "keycloak-local-test-user") {
+    const result = await runKeycloakLocalTestUserCommand(args);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return 0;
   }

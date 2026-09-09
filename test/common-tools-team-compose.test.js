@@ -688,6 +688,26 @@ test("local authenticated job smoke wrapper prepares input and can use browser P
   assert.doesNotMatch(output, /create_team_job|uploadUrl|Authorization/u);
 });
 
+test("local Keycloak test user helper is packaged and keeps passwords interactive", () => {
+  const root = path.resolve(__dirname, "..");
+  const script = fs.readFileSync(path.join(root, "scripts", "team-keycloak-local-test-user.ps1"), "utf8");
+  const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
+  const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
+  const cli = fs.readFileSync(path.join(root, "packages", "cli", "bin", "common-tools.js"), "utf8");
+  assert.match(script, /\[string\]\$Username = 'local-tester'/);
+  assert.match(script, /\[string\]\$ProjectId = 'deploy'/);
+  assert.match(script, /Read-Host -Prompt \$Prompt -AsSecureString/);
+  assert.match(script, /COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD/);
+  assert.match(script, /COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD/);
+  assert.match(script, /team', 'keycloak-local-test-user', '--apply'/);
+  assert.doesNotMatch(script, /--password|--admin-password/);
+  assert.match(script, /SetEnvironmentVariable\(\$name, \$originalEnvironment\[\$name\], 'Process'\)/);
+  assert.match(cli, /team keycloak-local-test-user --apply/);
+  assert.match(packageJson, /scripts\/team-keycloak-local-test-user\.ps1/);
+  assert.match(packageJson, /common-tools:keycloak-local-test-user/);
+  assert.match(packageVerifier, /scripts\/team-keycloak-local-test-user\.ps1/);
+});
+
 test("image Worker Docker context excludes local .NET outputs while retaining builder sources", () => {
   const root = path.resolve(__dirname, "..");
   const ignore = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable.dockerignore"), "utf8");

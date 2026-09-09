@@ -481,10 +481,11 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 
 ```powershell
 .\scripts\team-runtime-local-apply.ps1 -EnableIdentityProvider
+.\scripts\team-keycloak-local-test-user.ps1
 .\scripts\team-runtime-local-job-smoke.ps1 -Login -Wait
 ```
 
-`team-runtime-local-job-smoke.ps1 -Login` 使用 `common-tools-mcp` public client 的 Authorization Code + PKCE S256 流程，只在当前 PowerShell 进程中临时设置 access token，并在结束后清除；脚本不会读取、保存或打印密码/token。下面的显式 Compose 命令保留给排障和手动演练。
+`team-keycloak-local-test-user.ps1` 只面向本机 loopback Keycloak，默认创建/修复 `local-tester` 用户并写入 `deploy/editor` 项目 claim；管理员密码和测试用户密码都通过安全提示输入，不进入命令行参数。`team-runtime-local-job-smoke.ps1 -Login` 使用 `common-tools-mcp` public client 的 Authorization Code + PKCE S256 流程，只在当前 PowerShell 进程中临时设置 access token，并在结束后清除；脚本不会读取、保存或打印密码/token。下面的显式 Compose 命令保留给排障和手动演练。
 
 ```powershell
 $env:COMMON_TOOLS_KEYCLOAK_ADMIN = '<local admin username>'
