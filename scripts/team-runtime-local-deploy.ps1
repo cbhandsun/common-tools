@@ -109,6 +109,48 @@ function Invoke-Compose([string[]]$Arguments) {
   if ($LASTEXITCODE -ne 0) { throw 'Docker Compose command failed' }
 }
 
+function Remove-LocalStatelessComposeContainers([string[]]$Services) {
+  $allowedServices = @(
+    'remote-mcp',
+    'remote-mcp-gateway',
+    'team-migrate',
+    'team-retention',
+    'image-to-editable-worker',
+    'ppt-create-worker',
+    'ppt-improve-worker',
+    'ppt-quality-worker',
+    'project-audit-worker'
+  )
+  $containerIds = @()
+  foreach ($service in $Services) {
+    if ($service -notin $allowedServices) { throw "Refusing to clean unsupported service: $service" }
+    $reported = @(& docker ps -a --filter "label=com.docker.compose.project=$Project" --filter "label=com.docker.compose.service=$service" --format '{{.ID}}')
+    if ($LASTEXITCODE -ne 0) { throw 'Docker container inventory failed' }
+    foreach ($id in $reported) {
+      if (-not [string]::IsNullOrWhiteSpace($id)) { $containerIds += $id.Trim() }
+    }
+  }
+  $containerIds = @($containerIds | Select-Object -Unique)
+  if ($containerIds.Count -eq 0) { return }
+  $safeIds = @()
+  foreach ($id in $containerIds) {
+    $raw = & docker inspect $id
+    if ($LASTEXITCODE -ne 0) { throw 'Docker container inspection failed' }
+    try { $container = @($raw | Out-String | ConvertFrom-Json -ErrorAction Stop)[0] }
+    catch { throw 'Docker container inspection returned invalid JSON' }
+    $labels = $container.Config.Labels
+    if ($labels.'com.docker.compose.project' -ne $Project) { throw 'Refusing to clean a container from another Compose project' }
+    if ($labels.'com.docker.compose.service' -notin $Services) { throw 'Refusing to clean an unexpected Compose service' }
+    $namedVolumeMounts = @($container.Mounts | Where-Object { $_.Type -eq 'volume' })
+    if ($namedVolumeMounts.Count -gt 0) { throw 'Refusing to clean a container with Docker volume mounts' }
+    $safeIds += $container.Id
+  }
+  if ($safeIds.Count -gt 0) {
+    & docker rm --force @safeIds | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Docker stateless container cleanup failed' }
+  }
+}
+
 function Invoke-RawImageOcrImageBuild {
   $dockerfileName = if ($RawImageOcrProvider -eq 'PaddleOCR') { 'Dockerfile.image-to-editable-paddleocr' } else { 'Dockerfile.image-to-editable-ocr' }
   $dockerfile = Join-Path $repositoryRoot "deploy/docker/$dockerfileName"
@@ -354,6 +396,17 @@ if ($Mode -eq 'Plan') {
 # Do not replace it with --no-deps: API and Workers must wait for team-migrate.
 # Validate the existing persistent object store before rebuilding the API and
 # Workers. A root-password mismatch must not trigger a costly partial rollout.
+Remove-LocalStatelessComposeContainers @(
+  'remote-mcp',
+  'remote-mcp-gateway',
+  'team-migrate',
+  'team-retention',
+  'image-to-editable-worker',
+  'ppt-create-worker',
+  'ppt-improve-worker',
+  'ppt-quality-worker',
+  'project-audit-worker'
+)
 Invoke-Compose @('up', '--detach', '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, 'minio')
 Invoke-Compose @('up', '--detach', '--build', '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, '--scale', "remote-mcp=$ApiReplicas")
 Assert-LocalRuntime @($deploymentPlan.capabilities)

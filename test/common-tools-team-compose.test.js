@@ -256,6 +256,15 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /\[switch\]\$DiscoverLocalPorts/);
   assert.match(script, /Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds/);
   assert.match(script, /Invoke-Compose @\('config', '--quiet'\)/);
+  assert.match(script, /function Remove-LocalStatelessComposeContainers/);
+  assert.match(script, /'remote-mcp-gateway'/);
+  assert.match(script, /'image-to-editable-worker'/);
+  assert.match(script, /'ppt-create-worker'/);
+  assert.match(script, /label=com\.docker\.compose\.project=\$Project/);
+  assert.match(script, /label=com\.docker\.compose\.service=\$service/);
+  assert.match(script, /Refusing to clean a container with Docker volume mounts/);
+  assert.match(script, /docker rm --force @safeIds/);
+  assert.match(script, /Remove-LocalStatelessComposeContainers @\(/);
   assert.match(script, /Invoke-Compose @\('up', '--detach', '--build', '--remove-orphans', '--wait'/);
   assert.match(script, /Invoke-Compose @\('up', '--detach', '--remove-orphans', '--wait', '--wait-timeout', \$WaitTimeoutSeconds, 'minio'\)/);
   assert.match(script, /A root-password mismatch must not trigger a costly partial rollout/);
