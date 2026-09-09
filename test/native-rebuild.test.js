@@ -349,11 +349,7 @@ const {
     timelineShapes
   }
 } = require(CTNS);
-const {
-  summarizeComponentTemplateCropStatus,
-  summarizeEditabilityProfile,
-  summarizeQualityGateStatus
-} = require("../skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx");
+const {summarizeComponentTemplateCropStatus,summarizeEditabilityProfile,summarizeQualityGateStatus} = require("../packages/slideclone-native-engine/scripts/quality-gate-real-pptx");
 const {
   aggregateMatrix: qmAggregate,
   summarizeReport: qmReport

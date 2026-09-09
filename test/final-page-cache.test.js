@@ -373,7 +373,7 @@ test("final page cache rejects relative asset traversal", () => {
 });
 
 test("direct native rebuild CLI exposes safe page cache controls", () => {
-  const script = path.join(__dirname, "../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js");
+  const script = path.join(__dirname, "../packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js");
   const result = spawnSync(process.execPath, [script, "--help"], { encoding: "utf8" });
 
   assert.equal(result.status, 0, result.stderr);
