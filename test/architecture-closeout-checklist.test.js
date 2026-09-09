@@ -21,6 +21,9 @@ test("architecture closeout checklist validates current open and verified eviden
   assert.ok(result.counts.partial >= 1);
   assert.ok(result.counts.open >= 1);
   assert.ok(result.items.some((item) => item.id === "local-authenticated-acceptance" && item.status === "open"));
+  const localAcceptance = result.items.find((item) => item.id === "local-authenticated-acceptance");
+  assert.equal(localAcceptance.configuredStatus, "open");
+  assert.equal(localAcceptance.evidenceCheck.passed, false);
 });
 
 test("architecture closeout checklist cannot mark missing evidence as verified", () => {
@@ -64,6 +67,89 @@ test("architecture closeout checklist require-complete mode rejects open work", 
   const result = summarizeCloseout({ repositoryRoot: workspace, requireComplete: true });
   assert.equal(result.complete, false);
   assert.match(result.failures.join("\n"), /still-open is not verified/u);
+});
+
+test("architecture closeout checklist verifies local acceptance dynamically when evidence exists", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  fs.mkdirSync(path.join(workspace, "marker"), { recursive: true });
+  fs.writeFileSync(path.join(workspace, "marker", "local-script.txt"), "placeholder");
+  const evidenceDirectory = path.join(workspace, "artifacts", "local-acceptance");
+  fs.mkdirSync(evidenceDirectory, { recursive: true });
+  writeJson(path.join(evidenceDirectory, "local-acceptance-20260909T010203-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json"), {
+    schemaVersion: 1,
+    capturedAt: "2026-09-09T00:00:00.000Z",
+    startedAt: "2026-09-09T00:00:00.000Z",
+    project: "deploy",
+    capability: "image-to-editable",
+    capabilities: ["image-to-editable", "ppt-create", "ppt-quality", "ppt-improve", "project-audit"],
+    username: "local-tester",
+    projectId: "deploy",
+    role: "editor",
+    localSmoke: {
+      runtimeOk: true,
+      identityProviderVerified: true,
+      unauthorizedChallengeVerified: true,
+      metadataScopesVerified: 5
+    },
+    testUser: { status: "current", changed: false },
+    authenticatedJobSmoke: { passed: true, capability: "image-to-editable", jobId: "job_123", status: "succeeded" },
+    passed: true
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "local-authenticated-acceptance",
+      area: "D",
+      status: "open",
+      summary: "This item is dynamically verified when local acceptance evidence exists.",
+      evidenceFiles: ["marker/local-script.txt"],
+      verificationCommands: ["npm run common-tools:verify-local-acceptance"],
+      remaining: ["Run real acceptance evidence."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.verified, 1);
+  assert.equal(result.counts.open, 0);
+  assert.equal(result.complete, true);
+  assert.equal(result.items[0].configuredStatus, "open");
+  assert.equal(result.items[0].status, "verified");
+  assert.equal(result.items[0].evidenceCheck.passed, true);
+});
+
+test("architecture closeout checklist keeps local acceptance open when evidence is unsafe or incomplete", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  fs.mkdirSync(path.join(workspace, "artifacts", "local-acceptance"), { recursive: true });
+  writeJson(path.join(workspace, "artifacts", "local-acceptance", "local-acceptance-20260909T010203-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json"), {
+    schemaVersion: 1,
+    project: "deploy",
+    capability: "image-to-editable",
+    capabilities: ["image-to-editable", "ppt-create", "ppt-quality", "ppt-improve", "project-audit"],
+    localSmoke: { runtimeOk: true, identityProviderVerified: false, unauthorizedChallengeVerified: true, metadataScopesVerified: 5 },
+    testUser: { status: "current", changed: false },
+    authenticatedJobSmoke: { passed: true, jobId: "job_123", token: "Bearer abcdefghijklmnopqrstuvwxyz" },
+    passed: false
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "local-authenticated-acceptance",
+      area: "D",
+      status: "open",
+      summary: "This item stays open when the evidence verifier fails.",
+      evidenceFiles: ["missing-until-verified.txt"],
+      verificationCommands: ["npm run common-tools:verify-local-acceptance"],
+      remaining: ["Run real acceptance evidence."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.open, 1);
+  assert.equal(result.items[0].status, "open");
+  assert.equal(result.items[0].evidenceCheck.passed, false);
+  assert.match(result.items[0].evidenceCheck.failures.join("\n"), /identity provider|secret-shaped/u);
 });
 
 test("architecture closeout checklist rejects absolute or parent-relative evidence paths", () => {

@@ -3,6 +3,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { verifyLocalAcceptanceEvidence } = require("./verify-local-acceptance-evidence");
 
 const VALID_STATUS = new Set(["verified", "partial", "open"]);
 const VALID_AREAS = new Set(["A", "B", "C", "D", "E", "F"]);
@@ -81,18 +82,49 @@ function validateChecklist(checklist) {
   return checklist.items;
 }
 
+function localAcceptanceEvidenceStatus(repositoryRoot) {
+  try {
+    const result = verifyLocalAcceptanceEvidence({ repositoryRoot });
+    return Object.freeze({
+      available: true,
+      passed: result.passed === true,
+      evidenceFile: path.relative(repositoryRoot, result.evidenceFile).replaceAll("\\", "/"),
+      failures: result.failures
+    });
+  } catch (error) {
+    return Object.freeze({
+      available: false,
+      passed: false,
+      evidenceFile: null,
+      failures: [error instanceof Error ? error.message : "local acceptance evidence is unavailable"]
+    });
+  }
+}
+
+function currentItemState(item, repositoryRoot) {
+  if (item.id === "local-authenticated-acceptance") {
+    const evidenceCheck = localAcceptanceEvidenceStatus(repositoryRoot);
+    if (evidenceCheck.passed) return Object.freeze({ status: "verified", remainingCount: 0, evidenceCheck });
+    return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
+  }
+  return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0 });
+}
+
 function summarizeCloseout({ repositoryRoot = path.resolve(__dirname, ".."), config = DEFAULT_CONFIG, requireComplete = false } = {}) {
   if (typeof repositoryRoot !== "string" || !path.isAbsolute(repositoryRoot)) throw new TypeError("repository root is invalid");
   const checklist = readJsonFile(repositoryRoot, config, "architecture closeout checklist");
   const items = validateChecklist(checklist);
   const itemSummaries = items.map((item) => {
     const missingEvidence = item.evidenceFiles.filter((file) => !fileExists(repositoryRoot, file));
+    const current = currentItemState(item, repositoryRoot);
     return Object.freeze({
       id: item.id,
       area: item.area,
-      status: item.status,
+      configuredStatus: item.status,
+      status: current.status,
       missingEvidence,
-      remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0
+      remainingCount: current.remainingCount,
+      ...(current.evidenceCheck ? { evidenceCheck: current.evidenceCheck } : {})
     });
   });
   const counts = Object.freeze({
