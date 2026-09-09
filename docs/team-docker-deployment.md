@@ -139,6 +139,20 @@ Invoke-WebRequest http://127.0.0.1:54000/readyz | Select-Object -Expand Content
 
 Apply 现在会先只启动并等待 `minio`；只有对象存储健康后才构建或重建 API、迁移器和 Worker。因此密码不匹配会在第一阶段失败，不再留下整套服务的半重建状态。
 
+若本机长期迭代后 `team-migrate` 报 `migration_checksum_mismatch`，先确认这是本机开发库而不是生产库，再运行只读计划：
+
+```powershell
+.\scripts\team-runtime-local-repair-migration-ledger.ps1 -Mode Plan
+```
+
+只有计划显示漂移的是 `010_retention_recheck.sql` / `011_delivery_outbox.sql`，且当前 schema 对象已存在时，才可应用本机 ledger 修复：
+
+```powershell
+.\scripts\team-runtime-local-repair-migration-ledger.ps1 -Mode Apply
+```
+
+该脚本只接受本机 Compose 的 `deploy-postgres-1` PostgreSQL 服务，只更新 `common_tools_schema_migrations` 中这两个文件的 SHA256；不删除卷、不改业务表、不用于生产环境。生产环境出现 migration checksum drift 时，应通过不可变迁移和前向修复流程处理。
+
 如果 MinIO root password 已遗失，先创建一个不覆盖源卷的备份计划：
 
 ```powershell

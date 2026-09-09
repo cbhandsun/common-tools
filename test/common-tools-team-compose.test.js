@@ -324,6 +324,31 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(packageVerifier, /scripts\/team-runtime-local-apply\.ps1/);
 });
 
+test("local migration ledger repair is narrow, local-only, and packaged", () => {
+  const root = path.resolve(__dirname, "..");
+  const script = fs.readFileSync(path.join(root, "scripts", "team-runtime-local-repair-migration-ledger.ps1"), "utf8");
+  const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
+  const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
+  assert.match(script, /ValidateSet\('Plan', 'Apply'\)/);
+  assert.match(script, /\[string\]\$Mode = 'Plan'/);
+  assert.match(script, /\[string\]\$Project = 'deploy'/);
+  assert.match(script, /common_tools_schema_migrations/);
+  assert.match(script, /010_retention_recheck\.sql/);
+  assert.match(script, /011_delivery_outbox\.sql/);
+  assert.match(script, /Refusing to repair another Compose project/);
+  assert.match(script, /Refusing to repair a non-PostgreSQL service/);
+  assert.match(script, /Local PostgreSQL container volume layout is unexpected/);
+  assert.match(script, /retention_last_swept_at/);
+  assert.match(script, /capability_job_deliveries/);
+  assert.match(script, /maintain_capability_job_delivery/);
+  assert.match(script, /capability_job_delivery_intent/);
+  assert.match(script, /UPDATE common_tools_schema_migrations SET sha256/);
+  assert.doesNotMatch(script, /DROP\s+DATABASE/i);
+  assert.doesNotMatch(script, /docker\s+volume\s+rm/i);
+  assert.match(packageJson, /scripts\/team-runtime-local-repair-migration-ledger\.ps1/);
+  assert.match(packageVerifier, /scripts\/team-runtime-local-repair-migration-ledger\.ps1/);
+});
+
 test("production deployment script requires the read-only release preflight and never builds locally", () => {
   const root = path.resolve(__dirname, "..");
   const script = fs.readFileSync(path.join(root, "scripts", "team-runtime-production-deploy.ps1"), "utf8");
