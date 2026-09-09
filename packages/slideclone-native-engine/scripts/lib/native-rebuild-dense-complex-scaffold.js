@@ -7,13 +7,21 @@ function createDenseComplexScaffoldFactory(dependencies = {}) {
     boxCenterY,
     centerOfBox,
     normalizeCjkText,
-    rb,
     round,
     roundedBox,
     safeComponentToken,
     temporaryAnswerWorkflowTextBox,
     unionPtBoxes
   } = dependencies;
+
+  function rb(box = {}, x, y, w, h) {
+    return {
+      x: Number(box.x || 0) + Number(box.w || 0) * x,
+      y: Number(box.y || 0) + Number(box.h || 0) * y,
+      w: Number(box.w || 0) * w,
+      h: Number(box.h || 0) * h
+    };
+  }
 
   function createDenseComplexDiagramScaffoldShapes(images = [], textBoxes = [], slideSize = DEFAULT_SLIDE) {  
     return createDenseComplexDiagramScaffoldObjects(images, textBoxes, slideSize).shapes;  

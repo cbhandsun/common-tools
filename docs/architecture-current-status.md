@@ -69,6 +69,7 @@
 - native rebuild workflow demand + semantic cycle：Workflow demand understanding assistant 并入 workflow 子域 composition；saturated diagram text 与 semantic cycle 双环图抽到独立 factory，内部文字擦除、最小单元 crop、图标 crop 和 native cycle primitives 不再留在主 rebuild 编排。
 - native rebuild dense complex scaffold：title-driven dense complex scaffold 的主题识别、可编辑 scaffold shapes、文本回填和组件元数据从主 rebuild 编排中移出；cover platform、skill-chain、prototype validation、asset landing、system vision 与 generic complex 继续共享同一子域 factory。
 - native rebuild two-panel + funnel hub diagrams：two-panel diagram 的文本/语义节点回填、skeleton overlay、文本擦除写回与 funnel hub 的 OCR 判定、几何推断、native funnel shapes 从主 rebuild 编排中移出；两者均落为小型 factory，保留主入口同名导出。
+- native rebuild top-complex + transition diagrams：top-complex PRD/debugger crop 的标签对象化、card/background 采样、文本擦除写回，以及 shift-left debugger / tool-island transition matrix 的 native objectification 从主 rebuild 编排中移出；同时把 dense scaffold 对入口私有 `rb` helper 的依赖收回模块内部，避免新模块继续依赖主入口私有几何函数。
 
 验证证据：
 
@@ -89,12 +90,13 @@
 - 后续增量 `native-rebuild-workflow-demand-understanding.js` 与 `native-rebuild-semantic-cycle-diagrams.js` 抽出后，`rebuild-real-pptx-native.js` 从 12,063 行降至 11,337 行；新增模块分别为 215/630 行，`native-rebuild.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
 - 后续增量 `native-rebuild-dense-complex-scaffold.js` 抽出后，`rebuild-real-pptx-native.js` 从 11,337 行降至 10,962 行；新增模块 426 行，`native-rebuild.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
 - 后续增量 `native-rebuild-two-panel-diagram-text.js` 与 `native-rebuild-funnel-hub-diagram.js` 抽出后，`rebuild-real-pptx-native.js` 从 10,962 行降至 10,483 行；新增模块分别为 345/249 行，`native-rebuild.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
+- 后续增量 `native-rebuild-top-complex-diagram.js` 与 `native-rebuild-complex-transition-diagrams.js` 抽出后，`rebuild-real-pptx-native.js` 从 10,483 行降至 9,465 行；新增模块分别为 906/1,097 行，`native-rebuild.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
 
 当前剩余架构事实：
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：10,483 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：9,465 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
