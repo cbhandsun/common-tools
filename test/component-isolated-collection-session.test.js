@@ -18,7 +18,7 @@ const {
   sessionPaths,
   verifyNativeComponent,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/component-isolated-collection-session");
+} = require("../packages/slideclone-native-engine/scripts/component-isolated-collection-session");
 
 test("isolated collection parses bounded init and ingest arguments", () => {
   const args = parseArgs([

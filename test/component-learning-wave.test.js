@@ -15,7 +15,7 @@ const {
   parseArgs,
   refreshLearningWave,
   renderLearningWaveGuide
-} = require("../skills/pd-hifi-slideclone/scripts/component-learning-wave");
+} = require("../packages/slideclone-native-engine/scripts/component-learning-wave");
 
 test("component learning wave contains a balanced high-frequency iSlide and OfficePLUS backlog", () => {
   const wave = buildLearningWave({ outDir: "runs/wave", provider: "all" });
