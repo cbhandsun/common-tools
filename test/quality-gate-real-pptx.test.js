@@ -213,7 +213,7 @@ test("alignRenderedPageIndexesToIr remaps ordinal render pages for sparse page-s
 });
 
 test("render cache reuse is enabled by default and can be disabled explicitly", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-native-engine/scripts/quality-gate-real-pptx.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-native-engine/scripts/lib/quality-gate-render-cache.js"), "utf8");
   assert.match(source, /args\["reuse-render"\] \|\| "true"/);
   assert.match(source, /=== "false"\) return null/);
 });
