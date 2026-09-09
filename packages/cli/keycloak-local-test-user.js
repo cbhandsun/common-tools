@@ -6,6 +6,15 @@ const USERNAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._@-]{2,127}$/;
 const PROJECT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const ROLE_PATTERN = /^(viewer|editor|admin)$/;
 
+function localOnlyKeycloakBaseUrl(value) {
+  const baseUrl = localKeycloakBaseUrl(value);
+  let parsed;
+  try { parsed = new URL(baseUrl); } catch { throw new Error("local Keycloak base URL is invalid"); }
+  const loopback = new Set(["127.0.0.1", "localhost", "[::1]"]);
+  if (parsed.protocol !== "http:" || !loopback.has(parsed.hostname)) throw new Error("local Keycloak test user helper requires loopback HTTP");
+  return baseUrl;
+}
+
 function assertSafeUsername(value) {
   if (typeof value !== "string" || !USERNAME_PATTERN.test(value)) throw new Error("local Keycloak test username is invalid");
   return value;
@@ -99,7 +108,7 @@ function localTestUserOptions(args = {}, environment = process.env) {
   const port = environment.COMMON_TOOLS_KEYCLOAK_PORT || "58080";
   if (!/^[1-9][0-9]{0,4}$/.test(port) || Number(port) > 65535) throw new Error("COMMON_TOOLS_KEYCLOAK_PORT is invalid");
   return Object.freeze({
-    baseUrl: localKeycloakBaseUrl(args["base-url"] || environment.COMMON_TOOLS_KEYCLOAK_BASE_URL || `http://127.0.0.1:${port}`),
+    baseUrl: localOnlyKeycloakBaseUrl(args["base-url"] || environment.COMMON_TOOLS_KEYCLOAK_BASE_URL || `http://127.0.0.1:${port}`),
     realm: realmName(args.realm || "common-tools"),
     adminUsername: assertEnvironmentUsername(environment.COMMON_TOOLS_KEYCLOAK_ADMIN || "", "COMMON_TOOLS_KEYCLOAK_ADMIN"),
     adminPassword: assertPassword(environment.COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD || "", "COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD"),
@@ -120,6 +129,7 @@ module.exports = {
   assertSafeProjectId,
   assertSafeRole,
   assertSafeUsername,
+  localOnlyKeycloakBaseUrl,
   localTestUserMatches,
   localTestUserOptions,
   localTestUserSnapshot,

@@ -41,6 +41,7 @@ test("local Keycloak test user options reject unsafe inputs and command-line sec
   assert.equal(localTestUserOptions({ apply: true }, optionsEnvironment).username, "local-tester");
   assert.equal(localTestUserOptions({ username: "demo.user", "project-id": "deploy", role: "viewer" }, optionsEnvironment).role, "viewer");
   assert.throws(() => localTestUserOptions({ apply: "true" }, optionsEnvironment), /--apply/);
+  assert.throws(() => localTestUserOptions({ "base-url": "https://idp.example.test" }, optionsEnvironment), /loopback HTTP/);
   assert.throws(() => localTestUserOptions({ username: "../bad" }, optionsEnvironment), /username/);
   assert.throws(() => localTestUserOptions({ "project-id": "bad/project" }, optionsEnvironment), /project id/);
   assert.throws(() => localTestUserOptions({ role: "owner" }, optionsEnvironment), /role/);

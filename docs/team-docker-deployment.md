@@ -475,7 +475,7 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 
 ## 本地远程 MCP API
 
-先启动基础设施和本地 IdP。Keycloak 的健康探针使用未映射到宿主机的管理端口 `9000`；它不是对外接口。导入的 realm 已包含 `common-tools-mcp` public client、S256 PKCE、subject/audience mapper、三个可部署能力 scope 和 `common_tools_projects` user-attribute mapper。不要在 realm JSON 中写入用户或密码；本机测试用户应通过 Keycloak 管理界面或团队的临时身份流程创建。为测试项目 RBAC，由管理员设置用户的单个 `common_tools_projects` 属性，例如 `[ { "id": "product-core", "role": "editor" } ]`；客户端不能通过 scope 或 MCP 参数自行为自己添加该 claim。
+先启动基础设施和本地 IdP。Keycloak 的健康探针使用未映射到宿主机的管理端口 `9000`；它不是对外接口。导入的 realm 已包含 `common-tools-mcp` public client、S256 PKCE、subject/audience mapper、已部署能力 scope 和 `common_tools_projects` user-attribute mapper。不要在 realm JSON 中写入用户或密码；本机测试用户可通过 `team-keycloak-local-test-user.ps1` 或 Keycloak 管理界面创建。为测试项目 RBAC，由管理员设置用户的单个 `common_tools_projects` 属性，例如 `[ { "id": "product-core", "role": "editor" } ]`；客户端不能通过 scope 或 MCP 参数自行为自己添加该 claim。
 
 日常本机验收优先使用一条入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
 
