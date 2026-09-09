@@ -152,6 +152,80 @@ test("architecture closeout checklist keeps local acceptance open when evidence 
   assert.match(result.items[0].evidenceCheck.failures.join("\n"), /identity provider|secret-shaped/u);
 });
 
+test("architecture closeout checklist promotes production evidence only to partial after read-only gates", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const evidenceDirectory = path.join(workspace, ".codex-tmp", "production-acceptance-evidence");
+  fs.mkdirSync(evidenceDirectory, { recursive: true });
+  writeJson(path.join(evidenceDirectory, "acceptance-summary.json"), {
+    status: "ready-for-controlled-apply",
+    credentialMode: "files",
+    files: {
+      plan: "acceptance-plan.json",
+      productionPreflight: "production-preflight.json",
+      migrationStatus: "migration-status.json"
+    },
+    checks: [
+      { name: "production-preflight", status: "passed" },
+      { name: "migration-status", status: "passed" }
+    ],
+    blockers: []
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "production-remote-acceptance",
+      area: "D",
+      status: "open",
+      summary: "This item is only partially satisfied by read-only production evidence.",
+      evidenceFiles: ["config/architecture-closeout-checklist.json"],
+      verificationCommands: ["npm run common-tools:production-acceptance-evidence"],
+      remaining: ["Run production preflight.", "Run remote jobs.", "Verify rollback."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.partial, 1);
+  assert.equal(result.counts.open, 0);
+  assert.equal(result.complete, false);
+  assert.equal(result.items[0].configuredStatus, "open");
+  assert.equal(result.items[0].status, "partial");
+  assert.equal(result.items[0].remainingCount, 2);
+  assert.equal(result.items[0].evidenceCheck.passed, true);
+});
+
+test("architecture closeout checklist keeps production evidence open when summary leaks secrets", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const evidenceDirectory = path.join(workspace, ".codex-tmp", "production-acceptance-evidence");
+  fs.mkdirSync(evidenceDirectory, { recursive: true });
+  writeJson(path.join(evidenceDirectory, "acceptance-summary.json"), {
+    status: "ready-for-controlled-apply",
+    checks: [
+      { name: "production-preflight", status: "passed" },
+      { name: "migration-status", status: "passed" }
+    ],
+    token: "Bearer abcdefghijklmnopqrstuvwxyz"
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "production-remote-acceptance",
+      area: "D",
+      status: "open",
+      summary: "This item stays open when production evidence is unsafe.",
+      evidenceFiles: ["config/architecture-closeout-checklist.json"],
+      verificationCommands: ["npm run common-tools:production-acceptance-evidence"],
+      remaining: ["Run safe production evidence."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.open, 1);
+  assert.equal(result.items[0].status, "open");
+  assert.match(result.items[0].evidenceCheck.failures.join("\n"), /secret-shaped/u);
+});
+
 test("architecture closeout checklist rejects absolute or parent-relative evidence paths", () => {
   assert.throws(() => validateChecklist({
     version: 1,

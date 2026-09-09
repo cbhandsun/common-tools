@@ -3,7 +3,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { verifyLocalAcceptanceEvidence } = require("./verify-local-acceptance-evidence");
+const { verifyLocalAcceptanceEvidence, walkForSecrets } = require("./verify-local-acceptance-evidence");
 
 const VALID_STATUS = new Set(["verified", "partial", "open"]);
 const VALID_AREAS = new Set(["A", "B", "C", "D", "E", "F"]);
@@ -101,10 +101,54 @@ function localAcceptanceEvidenceStatus(repositoryRoot) {
   }
 }
 
+function readJsonEvidence(repositoryRoot, relativeFile, label) {
+  const normalized = assertRelativePath(relativeFile, label);
+  const file = path.join(repositoryRoot, normalized);
+  try {
+    const stat = fs.lstatSync(file);
+    if (stat.isSymbolicLink() || !stat.isFile() || stat.size <= 0 || stat.size > 512 * 1024) throw new Error("invalid file");
+    return { file: normalized, value: JSON.parse(fs.readFileSync(file, "utf8")) };
+  } catch {
+    return null;
+  }
+}
+
+function productionAcceptanceEvidenceStatus(repositoryRoot) {
+  const candidates = [
+    ".codex-tmp/production-acceptance-evidence/acceptance-summary.json",
+    "artifacts/production-acceptance/acceptance-summary.json"
+  ];
+  for (const candidate of candidates) {
+    const read = readJsonEvidence(repositoryRoot, candidate, "production acceptance evidence file");
+    if (!read) continue;
+    const summary = read.value;
+    const checks = Array.isArray(summary?.checks) ? summary.checks : [];
+    const passedChecks = new Set(checks.filter((check) => check?.status === "passed").map((check) => check.name));
+    const failures = [];
+    if (summary?.status !== "ready-for-controlled-apply") failures.push("production acceptance summary is not ready for controlled apply");
+    if (!passedChecks.has("production-preflight")) failures.push("production preflight evidence did not pass");
+    if (!passedChecks.has("migration-status")) failures.push("migration status evidence did not pass");
+    const secretFindings = walkForSecrets(summary).filter((finding) => finding !== "credentialMode");
+    if (secretFindings.length > 0) failures.push(`production acceptance summary contains secret-shaped fields: ${secretFindings.slice(0, 8).join(", ")}`);
+    return Object.freeze({ available: true, passed: failures.length === 0, evidenceFile: read.file, failures });
+  }
+  return Object.freeze({
+    available: false,
+    passed: false,
+    evidenceFile: null,
+    failures: ["production acceptance evidence summary is unavailable"]
+  });
+}
+
 function currentItemState(item, repositoryRoot) {
   if (item.id === "local-authenticated-acceptance") {
     const evidenceCheck = localAcceptanceEvidenceStatus(repositoryRoot);
     if (evidenceCheck.passed) return Object.freeze({ status: "verified", remainingCount: 0, evidenceCheck });
+    return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
+  }
+  if (item.id === "production-remote-acceptance") {
+    const evidenceCheck = productionAcceptanceEvidenceStatus(repositoryRoot);
+    if (evidenceCheck.passed) return Object.freeze({ status: "partial", remainingCount: Math.max(1, Array.isArray(item.remaining) ? item.remaining.length - 1 : 1), evidenceCheck });
     return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
   }
   return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0 });
