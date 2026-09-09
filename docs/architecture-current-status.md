@@ -60,6 +60,25 @@
 
 结论：`relationship-native-layouts.js` 不再同时承担拓扑公共层和 branch-card shell 两类职责，core 内部正在从“一个巨型算法仓库”收敛为按关系图子域组织的可测模块。剩余优化重点仍是高聚合大模块分层与真实生产验收，而不是删除兼容 wrapper。
 
+## 2026-09-09 收口：Sankey 关系图 shell 独立成子域模块
+
+继续按“关系图子域 shell + 公共 topology/helper 层”的方向，把 `relationship-native-layouts.js` 中的 Sankey 流程图职责抽入 `relationship-sankey-shell.js`。新模块封装 Sankey 节点筛选、band 输入校验、band 与节点端点绑定、方向无环检查和 shape 输出；原布局模块只导入并继续再导出同一 API。
+
+本轮提交：`9302703 Extract relationship sankey shell`。
+
+验证证据：
+
+- `node --check` 覆盖受影响关系图模块。
+- 受影响 ESLint 通过。
+- `test/native-rebuild.test.js`：715/715 通过。
+- `test/engine-core-package.test.js`：6/6 通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,175 个文件、20 个 workspace package、6 项能力探针全通过。
+- `node scripts/verify-workspace-boundaries.js` 通过：630 个文件、20 个 workspace package、0 个外部 runtime package import。
+- `node scripts/verify-architecture-budgets.js` 通过：841 个文件、5 个 decreasing-only 例外。
+- skill migration 与 skill wrapper 门禁均通过。
+
+结论：Sankey 不再藏在关系图大布局文件里，后续继续拆 Venn、Timeline、Hub-Spoke、Funnel/Swimlane/Cycle 时可以沿用这个边界，不需要震荡 production worker 或 skill wrapper。
+
 ## 2026-09-09 收口：远程 Job 验收新增显式认证 smoke
 
 本轮新增 `common-tools:team-authenticated-job-smoke`，用于补齐“受保护远程 MCP 真实 Job 路径”的发布验收入口。它不会绕过 OAuth，也不会默认伪装成快 smoke：调用方必须提供 bearer token 和一个真实能力输入文件；脚本会连接 `/mcp`，执行 `initialize`、`tools/list`、`create_team_upload_target`，上传输入文件，再调用 `create_team_job`。传入 `--wait` 时会继续轮询 `get_team_job`，作业成功后可用 `--artifact-name` 验证 `get_team_artifact_target`。
