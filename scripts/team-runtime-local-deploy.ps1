@@ -151,6 +151,23 @@ function Remove-LocalStatelessComposeContainers([string[]]$Services) {
   }
 }
 
+function Resolve-LocalStatelessDeploymentServices($DeploymentPlan) {
+  if ($null -eq $DeploymentPlan -or $null -eq $DeploymentPlan.workerServices) {
+    throw 'Team deployment plan did not include worker services'
+  }
+  $services = @(
+    'remote-mcp',
+    'remote-mcp-gateway',
+    'team-migrate',
+    'team-retention'
+  )
+  foreach ($service in @($DeploymentPlan.workerServices)) {
+    if ([string]::IsNullOrWhiteSpace([string]$service)) { throw 'Team deployment plan included an invalid worker service' }
+    $services += ([string]$service).Trim()
+  }
+  return @($services | Select-Object -Unique)
+}
+
 function Invoke-RawImageOcrImageBuild {
   $dockerfileName = if ($RawImageOcrProvider -eq 'PaddleOCR') { 'Dockerfile.image-to-editable-paddleocr' } else { 'Dockerfile.image-to-editable-ocr' }
   $dockerfile = Join-Path $repositoryRoot "deploy/docker/$dockerfileName"
@@ -414,17 +431,7 @@ if ($Mode -eq 'Plan') {
 # Do not replace it with --no-deps: API and Workers must wait for team-migrate.
 # Validate the existing persistent object store before rebuilding the API and
 # Workers. A root-password mismatch must not trigger a costly partial rollout.
-Remove-LocalStatelessComposeContainers @(
-  'remote-mcp',
-  'remote-mcp-gateway',
-  'team-migrate',
-  'team-retention',
-  'image-to-editable-worker',
-  'ppt-create-worker',
-  'ppt-improve-worker',
-  'ppt-quality-worker',
-  'project-audit-worker'
-)
+Remove-LocalStatelessComposeContainers @(Resolve-LocalStatelessDeploymentServices $deploymentPlan)
 Invoke-Compose @('up', '--detach', '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, 'minio')
 Invoke-Compose @('up', '--detach', '--build', '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, '--scale', "remote-mcp=$ApiReplicas")
 Assert-LocalRuntime @($deploymentPlan.capabilities)

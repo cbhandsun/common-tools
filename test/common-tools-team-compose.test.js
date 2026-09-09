@@ -257,6 +257,8 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds/);
   assert.match(script, /Invoke-Compose @\('config', '--quiet'\)/);
   assert.match(script, /function Remove-LocalStatelessComposeContainers/);
+  assert.match(script, /function Resolve-LocalStatelessDeploymentServices/);
+  assert.match(script, /Team deployment plan did not include worker services/);
   assert.match(script, /'remote-mcp-gateway'/);
   assert.match(script, /'image-to-editable-worker'/);
   assert.match(script, /'ppt-create-worker'/);
@@ -264,7 +266,7 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /label=com\.docker\.compose\.service=\$service/);
   assert.match(script, /Refusing to clean a container with Docker volume mounts/);
   assert.match(script, /docker rm --force @safeIds/);
-  assert.match(script, /Remove-LocalStatelessComposeContainers @\(/);
+  assert.match(script, /Remove-LocalStatelessComposeContainers @\(Resolve-LocalStatelessDeploymentServices \$deploymentPlan\)/);
   assert.match(script, /Invoke-Compose @\('up', '--detach', '--build', '--remove-orphans', '--wait'/);
   assert.match(script, /Invoke-Compose @\('up', '--detach', '--remove-orphans', '--wait', '--wait-timeout', \$WaitTimeoutSeconds, 'minio'\)/);
   assert.match(script, /A root-password mismatch must not trigger a costly partial rollout/);
@@ -472,6 +474,8 @@ test("production env preparation script collects secrets safely outside the repo
   });
   assert.equal(help.status, 0);
   assert.match(help.stdout, /production env file/u);
+  assert.match(help.stdout, /Local Docker quick path/u);
+  assert.match(help.stdout, /prompts only for local deployment secrets/u);
   assert.match(help.stdout, /production-acceptance-plan/u);
 
   const unsafe = spawnSync("pwsh", ["-NoProfile", "-File", script, "-Out", path.join(root, "private-production.env")], {
@@ -495,6 +499,8 @@ test("production env preparation script collects secrets safely outside the repo
   const localHintOutput = `${localHint.stdout || ""}${localHint.stderr || ""}`;
   assert.equal(localHint.status, 2);
   assert.match(localHintOutput, /team-runtime-local-apply\.ps1/u);
+  assert.match(localHintOutput, /you do not need image digests or release evidence/u);
+  assert.match(localHintOutput, /prompt only for local deployment passwords/u);
   assert.doesNotMatch(localHintOutput, /Remote MCP runtime image/u);
 });
 

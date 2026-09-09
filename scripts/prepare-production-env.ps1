@@ -19,8 +19,11 @@ $defaultOut = Join-Path (Split-Path -Parent $repositoryRoot) 'common-tools.produ
 function Write-Usage {
   Write-Host 'Prepare a production env file for Common Tools without printing secret values.'
   Write-Host ''
+  Write-Host 'Local Docker quick path:'
+  Write-Host '  .\scripts\team-runtime-local-apply.ps1'
+  Write-Host '  This path uses local images/configuration and prompts only for local deployment secrets.'
+  Write-Host ''
   Write-Host 'Examples:'
-  Write-Host '  .\scripts\prepare-production-env.ps1'
   Write-Host '  .\scripts\team-runtime-local-apply.ps1'
   Write-Host '  .\scripts\prepare-production-env.ps1 -ProductionRelease -Out E:\DEV\WorkSpace\Efficiency\common-tools.production.env -Force'
   Write-Host '  .\scripts\prepare-production-env.ps1 -ProductionRelease -Project deploy'
@@ -192,8 +195,10 @@ if ($existingOutputItem -and $existingOutputItem.Length -gt 0 -and -not $Force) 
 
 if (-not $ProductionRelease) {
   Write-Host 'This helper prepares a strict production release env file and requires immutable image/release evidence inputs.'
+  Write-Host 'For the local Docker deployment we prepared on this machine, you do not need image digests or release evidence.'
   Write-Host 'For the local Docker deployment we prepared on this machine, use:'
   Write-Host '  .\scripts\team-runtime-local-apply.ps1'
+  Write-Host 'That local path will derive Docker URLs/ports and prompt only for local deployment passwords.'
   Write-Host ''
   Write-Host 'If you are intentionally preparing a production release, rerun with -ProductionRelease.'
   exit 2
