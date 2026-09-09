@@ -13,6 +13,10 @@ const CAPABILITY_ID_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
 
 /** @typedef {Record<string, unknown>} JsonObject */
 /** @typedef {Readonly<{lower: readonly number[], upper: readonly number[], value: string}>} RuntimeRange */
+/** @typedef {Readonly<{workerProfile: string, workerService: string, imageKind: string, workerCommand: string}>} CapabilityTeamDeployment */
+/** @typedef {Readonly<{mode: "direct", oauthScope: string, acceptedUploadMediaTypes: readonly string[]}>} DirectCapabilityTeamDefinition */
+/** @typedef {Readonly<{oauthScope: string, acceptedUploadMediaTypes: readonly string[], deployment?: CapabilityTeamDeployment}>} UploadCapabilityTeamDefinition */
+/** @typedef {DirectCapabilityTeamDefinition | UploadCapabilityTeamDefinition} CapabilityTeamDefinition */
 
 /** @param {unknown} value @param {string} label @returns {string} */
 function assertNonEmptyString(value, label) {
@@ -55,7 +59,7 @@ function manifestDigest(value) {
   return crypto.createHash("sha256").update(canonicalManifest(value)).digest("hex");
 }
 
-/** @param {unknown} value @param {string} capability */
+/** @param {unknown} value @param {string} capability @returns {CapabilityTeamDefinition} */
 function validateTeamDefinition(value, capability) {
   assertPlainObject(value, "capability team definition");
   const keys = Object.keys(value).sort();
@@ -78,6 +82,11 @@ function validateTeamDefinition(value, capability) {
     deployment = Object.freeze({ workerProfile, workerService, imageKind, workerCommand });
   }
   return Object.freeze({ oauthScope: value.oauthScope, acceptedUploadMediaTypes: Object.freeze([...acceptedUploadMediaTypes]), ...(deployment ? { deployment } : {}) });
+}
+
+/** @param {CapabilityTeamDefinition} team @returns {team is UploadCapabilityTeamDefinition & Readonly<{deployment: CapabilityTeamDeployment}>} */
+function hasTeamDeployment(team) {
+  return "deployment" in team && team.deployment !== undefined;
 }
 
 /** @param {unknown} value @returns {number[] | null} */
@@ -174,7 +183,7 @@ function validateCapabilityManifest(value, { runtimeVersion = RUNTIME_VERSION } 
   if (!runtimeSatisfiesRange(runtimeVersion, runtimeRange)) throw new Error(`capability manifest requires an incompatible Runtime version: ${capability}`);
   const team = validateTeamDefinition(value.team, capability);
   const execution = validateExecutionDefinition(value.execution);
-  if (team.deployment && team.deployment.workerService !== `${capability}-worker`) throw new Error(`capability team Worker service does not match capability: ${capability}`);
+  if (hasTeamDeployment(team) && team.deployment.workerService !== `${capability}-worker`) throw new Error(`capability team Worker service does not match capability: ${capability}`);
   const moduleSource = validateModuleSource(value.moduleSource);
   const deprecation = validateDeprecation(value.deprecation, capability);
   const dependencies = validateDependencies(value.dependencies, capability);

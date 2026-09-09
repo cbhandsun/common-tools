@@ -128,7 +128,7 @@ function resolvePython(explicit) {
 function isFlagDisabled(value) { return value === false || String(value ?? "").trim().toLowerCase() === "false" || String(value ?? "").trim() === "0"; }
 /** @param {unknown} value */
 function normalizedPath(value) { return typeof value === "string" && validPath(value) ? value.trim() : ""; }
-/** @param {unknown} value */
+/** @param {unknown} value @returns {value is string} */
 function validPath(value) { return typeof value === "string" && value.trim().length > 0 && value.length <= MAX_PATH_LENGTH && !value.includes("\0"); }
 /** @param {unknown} value */
 function safeOwnDataProperties(value) {
