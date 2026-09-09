@@ -107,6 +107,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-strategy-profile.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-system-map-diagram.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-system-map-primitives.js",
+  "packages/slideclone-native-engine/scripts/lib/native-rebuild-system-map-source-detection.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-value-banner.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-value-quadrant.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-visible-text.js",
