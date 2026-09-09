@@ -16,6 +16,7 @@ param(
   [switch]$EnableSingleIngress,
   [string]$SingleIngressPublicUrl,
   [switch]$PromptForSecrets,
+  [switch]$SeparatePasswords,
   [string]$Capabilities,
   [ValidateSet('PaddleOCR', 'Tesseract')]
   [string]$RawImageOcrProvider = 'PaddleOCR',
@@ -39,14 +40,20 @@ $resolvedRawImageOcrImage = if (-not [string]::IsNullOrWhiteSpace($RawImageOcrIm
   'common-tools-image-to-editable-ocr:local'
 }
 
+function Read-SecretValue([string]$Prompt) {
+  $secure = Read-Host -Prompt $Prompt -AsSecureString
+  $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+  try { $value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
+  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+  if ([string]::IsNullOrWhiteSpace($value)) { throw 'Secret value is required' }
+  return $value
+}
+
 function Set-MissingPromptedEnvironment([string]$Name, [string]$Prompt, [switch]$Secret) {
   $existing = [Environment]::GetEnvironmentVariable($Name, 'Process')
   if (-not [string]::IsNullOrWhiteSpace($existing)) { return }
   if ($Secret) {
-    $secure = Read-Host -Prompt $Prompt -AsSecureString
-    $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-    try { $value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
-    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+    $value = Read-SecretValue $Prompt
   } else {
     $value = Read-Host -Prompt $Prompt
   }
@@ -55,7 +62,31 @@ function Set-MissingPromptedEnvironment([string]$Name, [string]$Prompt, [switch]
   $script:promptedEnvironmentNames.Add($Name)
 }
 
+function Set-MissingSharedLocalPassword {
+  $secretNames = @(
+    'COMMON_TOOLS_POSTGRES_PASSWORD',
+    'COMMON_TOOLS_REDIS_PASSWORD',
+    'COMMON_TOOLS_MINIO_PASSWORD',
+    'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD'
+  )
+  $missing = @($secretNames | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process')) })
+  if ($missing.Count -ne $secretNames.Count) { return $false }
+  $password = Read-SecretValue 'Shared local deployment password'
+  if ($password.Length -lt 8) { throw 'Shared local deployment password must contain at least 8 characters' }
+  foreach ($name in $secretNames) {
+    [Environment]::SetEnvironmentVariable($name, $password, 'Process')
+    $script:promptedEnvironmentNames.Add($name)
+  }
+  return $true
+}
+
 function Set-MissingDeploymentSecretsFromPrompt {
+  if (-not $SeparatePasswords) {
+    if (Set-MissingSharedLocalPassword) {
+      Set-MissingPromptedEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' 'Keycloak admin username'
+      return
+    }
+  }
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_POSTGRES_PASSWORD' 'PostgreSQL password' -Secret
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_REDIS_PASSWORD' 'Redis password' -Secret
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_MINIO_PASSWORD' 'MinIO password' -Secret

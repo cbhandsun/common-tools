@@ -254,8 +254,14 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /DockerEngineTimeoutSeconds = 20/);
   assert.match(script, /\[switch\]\$DiscoverLocalConfiguration/);
   assert.match(script, /\[switch\]\$DiscoverLocalPorts/);
+  assert.match(script, /\[switch\]\$SeparatePasswords/);
   assert.match(script, /Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds/);
   assert.match(script, /Invoke-Compose @\('config', '--quiet'\)/);
+  assert.match(script, /function Read-SecretValue/);
+  assert.match(script, /function Set-MissingSharedLocalPassword/);
+  assert.match(script, /Shared local deployment password/);
+  assert.match(script, /Shared local deployment password must contain at least 8 characters/);
+  assert.match(script, /if \(-not \$SeparatePasswords\)/);
   assert.match(script, /function Remove-LocalStatelessComposeContainers/);
   assert.match(script, /function Resolve-LocalStatelessDeploymentServices/);
   assert.match(script, /Team deployment plan did not include worker services/);
@@ -311,6 +317,7 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /\[string\]\$Mode = 'Apply'/);
   assert.match(script, /\[string\]\$Project = 'deploy'/);
   assert.match(script, /\[string\]\$KeycloakAdmin = 'local-admin'/);
+  assert.match(script, /\[switch\]\$SeparatePasswords/);
   assert.match(script, /'COMMON_TOOLS_REMOTE_PORT'/);
   assert.match(script, /function Select-LocalRemotePort/);
   assert.match(script, /Test-LoopbackPortAvailable 54000/);
@@ -326,6 +333,7 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.doesNotMatch(script, /DiscoverLocalConfiguration = \$true/);
   assert.match(script, /DiscoverLocalPorts = \$true/);
   assert.match(script, /PromptForSecrets = \$true/);
+  assert.match(script, /if \(\$SeparatePasswords\) \{ \$parameters\.SeparatePasswords = \$true \}/);
   assert.match(script, /& \$localDeployScript @parameters/);
   assert.doesNotMatch(script, /\$arguments = @\(/);
   assert.match(script, /team-runtime-local-deploy\.ps1/);

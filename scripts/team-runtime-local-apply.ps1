@@ -13,6 +13,7 @@ param(
   [string]$Capabilities = 'image-to-editable,ppt-create,ppt-quality,ppt-improve,project-audit',
   [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._@-]{0,127}$')]
   [string]$KeycloakAdmin = 'local-admin',
+  [switch]$SeparatePasswords,
   [switch]$EnableRawImageOcr,
   [ValidateSet('PaddleOCR', 'Tesseract')]
   [string]$RawImageOcrProvider = 'PaddleOCR',
@@ -99,6 +100,7 @@ try {
     RawImageOcrProvider = $RawImageOcrProvider
   }
   if ($EnableRawImageOcr) { $parameters.EnableRawImageOcr = $true }
+  if ($SeparatePasswords) { $parameters.SeparatePasswords = $true }
   if (-not [string]::IsNullOrWhiteSpace($RawImageOcrImage)) { $parameters.RawImageOcrImage = $RawImageOcrImage }
   if ($SkipRawImageOcrBuild) { $parameters.SkipRawImageOcrBuild = $true }
 
