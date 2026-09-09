@@ -637,7 +637,7 @@ test("local runtime smoke script verifies gateway metadata without secrets or jo
   assert.match(packageVerifier, /scripts\/team-runtime-local-smoke\.ps1/);
 });
 
-test("local authenticated job smoke wrapper prepares input but keeps OAuth explicit", () => {
+test("local authenticated job smoke wrapper prepares input and can use browser PKCE login", () => {
   const root = path.resolve(__dirname, "..");
   const scriptPath = path.join(root, "scripts", "team-runtime-local-job-smoke.ps1");
   const script = fs.readFileSync(scriptPath, "utf8");
@@ -646,11 +646,22 @@ test("local authenticated job smoke wrapper prepares input but keeps OAuth expli
   assert.match(script, /\[string\]\$Project = 'deploy'/);
   assert.match(script, /\[string\]\$Capability = 'image-to-editable'/);
   assert.match(script, /\[string\]\$TokenEnv = 'COMMON_TOOLS_JOB_SMOKE_TOKEN'/);
+  assert.match(script, /\[switch\]\$Login/);
+  assert.match(script, /\[string\]\$OidcIssuer = ''/);
+  assert.match(script, /function New-PkceChallenge/);
+  assert.match(script, /code_challenge_method = 'S256'/);
+  assert.match(script, /client_id = 'common-tools-mcp'/);
+  assert.match(script, /redirect_uri = \$loopbackRedirectUri/);
+  assert.match(script, /common-tools:capability:\$CapabilityName/);
+  assert.match(script, /Start-Process "\$authorizationEndpoint`\?\$encoded"/);
+  assert.match(script, /SetEnvironmentVariable\(\$TokenEnv, \$token, 'Process'\)/);
+  assert.match(script, /SetEnvironmentVariable\(\$TokenEnv, \$null, 'Process'\)/);
   assert.match(script, /team-runtime-authenticated-job-smoke\.js/);
   assert.match(script, /team' 'raw-image-archive'/);
   assert.match(script, /iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB/);
   assert.match(script, /Set \$TokenEnv to a bearer token/u);
-  assert.match(script, /does not mint or print OAuth tokens/u);
+  assert.match(script, /rerun with -Login/u);
+  assert.match(script, /does not print OAuth tokens/u);
   assert.match(script, /--artifact-name', 'deck\.pptx'/);
   assert.match(script, /Remove-Item -LiteralPath \$temporaryRoot -Recurse -Force/);
   assert.match(packageJson, /scripts\/team-runtime-local-job-smoke\.ps1/);
@@ -666,6 +677,7 @@ test("local authenticated job smoke wrapper prepares input but keeps OAuth expli
   const output = `${result.stdout || ""}${result.stderr || ""}`;
   assert.equal(result.status, 2);
   assert.match(output, /COMMON_TOOLS_JOB_SMOKE_TOKEN/u);
+  assert.match(output, /-Login/u);
   assert.doesNotMatch(output, /create_team_job|uploadUrl|Authorization/u);
 });
 
