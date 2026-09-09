@@ -32,6 +32,7 @@ flowchart TD
 - `819cdc0 Move review UI entrypoints into native engine`
 - `e0cc86e Route slideclone profiles directly to native engine`
 - `c8e44e8 Move remaining profile scripts into native engine`
+- `6a40129 Gate skill root scripts as native wrappers`
 
 当前验证证据：
 

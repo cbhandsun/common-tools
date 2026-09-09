@@ -2,11 +2,23 @@
 
 本页调整执行方式，不替代《architecture-improvement-plan.md》的 A–F 验收范围。当前目标未完成。
 
+## 2026-09-08 当前基线更新
+
+以下早期范围核对记录保留为历史背景；其中“生产 Worker 仍加载历史实现”的结论已被后续小批次迁移替代。当前图片/PPT 生产链的根入口和 profile 路由已经收口到 `packages/slideclone-native-engine/scripts`：`skills/pd-hifi-slideclone/scripts/*.js` 只允许作为薄兼容 wrapper 存在，`slideclone:*` profiles 也已全部直达 native engine。
+
+当前守护证据：
+
+- `verify-skill-source-migration` 强制检查 skill 根脚本必须是 native-engine wrapper，不能重新塞入真实实现。
+- `verify-slideclone-profiles` 强制阻止 profile 在同名 native engine 脚本存在时继续指向 skill 根入口。
+- 最近验证结果为 150 个 `slideclone:*` profiles 全部直达 native engine，native runtime payload 包含 86 个根脚本、3 个脚本组和 4 个目录。
+
+这只关闭截图中的 P1 根入口/profile 风险，不代表 A–F 产品验收完成。远程上传/创建、独立 PDF、线上 OCR、实际 Office 质量闭环仍按本页后续阶段单独验收。
+
 ## 当前可交付基线
 
 最近完整 CI 为 `.codex-tmp/matrix-consolidated-ci-evidence.json`，12 项阶段通过，1,215 个工程输入前后指纹一致。最近实际本地 Worker 证据为 `.codex-tmp/relationship-worker-delivery-evidence.json`，17 项交付检查通过；该 Worker 运行先于后续卡片/矩阵拆分，不视为它们的实际 Worker 验收。用户 PDF 尚未转换。
 
-当前范围核对 `.codex-tmp/closeout-scope-audit.json` 显示：生产 Worker 仍加载历史实现；词法调用图涉及 817 个函数，不能把“剩一个适配入口”理解成只差一处 import。严格配置显式包含 50 个 JS 文件和 40 个类型夹具，数量不证明边界覆盖完整。系统关系图仅完成依赖盘点，尚未开始改动。
+历史范围核对 `.codex-tmp/closeout-scope-audit.json` 曾显示：生产 Worker 仍加载历史实现；词法调用图涉及 817 个函数，不能把“剩一个适配入口”理解成只差一处 import。该结论已被 2026-09-08 的根入口/profile 迁移更新；其余关于“数量不证明边界覆盖完整”的判断仍适用于 A–F 的剩余产品验收。
 
 ## 接下来按三个交付阶段推进
 
