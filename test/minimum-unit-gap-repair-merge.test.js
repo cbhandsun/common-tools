@@ -13,7 +13,7 @@ const {
   mergeDeck,
   pageIndexForRepairPage,
   parseArgs
-} = require("../skills/pd-hifi-slideclone/scripts/minimum-unit-gap-repair-merge");
+} = require("../packages/slideclone-native-engine/scripts/minimum-unit-gap-repair-merge");
 
 test("minimum unit gap repair merge parses CLI options", () => {
   const args = parseArgs([

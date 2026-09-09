@@ -337,7 +337,7 @@ test("package scripts expose a parallel OfficePLUS/iSlide component asset golden
 
   assert.equal(
     command,
-    "node skills/pd-hifi-slideclone/scripts/component-assets-golden-gate.js"
+    "node packages/slideclone-native-engine/scripts/component-assets-golden-gate.js"
   );
 });
 

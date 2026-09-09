@@ -9,7 +9,7 @@ const {
   prefixLines,
   resolveNpmCli,
   sanitizeMessage
-} = require("../skills/pd-hifi-slideclone/scripts/component-assets-golden-gate");
+} = require("../packages/slideclone-native-engine/scripts/component-assets-golden-gate");
 
 test("component assets golden gate chooses platform-safe npm command", () => {
   assert.equal(buildNpmRunCommand("demo", "win32").file, process.execPath);

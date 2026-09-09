@@ -46,7 +46,7 @@
     },
     "benchmark-pptx-build-engines": {
       "description": "Versioned command profile for slideclone:benchmark-pptx-build-engines.",
-      "script": "scripts/pptx-build-engine-benchmark.js",
+      "script": "packages/slideclone-native-engine/scripts/pptx-build-engine-benchmark.js",
       "args": []
     },
     "chart-native-render-golden": {
@@ -99,7 +99,7 @@
     },
     "component-assets-golden-gate-fast": {
       "description": "Versioned command profile for slideclone:component-assets-golden-gate-fast.",
-      "script": "scripts/component-assets-golden-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/component-assets-golden-gate.js",
       "args": []
     },
     "component-candidate-search": {
@@ -1271,7 +1271,7 @@
     },
     "minimum-unit-gap-repair-merge": {
       "description": "Versioned command profile for slideclone:minimum-unit-gap-repair-merge.",
-      "script": "scripts/minimum-unit-gap-repair-merge.js",
+      "script": "packages/slideclone-native-engine/scripts/minimum-unit-gap-repair-merge.js",
       "args": [
         "--base-ir-dir",
         "ppt文档/组件策略插件增强版本",
@@ -1285,7 +1285,7 @@
     },
     "minimum-unit-gap-repair-queue": {
       "description": "Versioned command profile for slideclone:minimum-unit-gap-repair-queue.",
-      "script": "scripts/minimum-unit-gap-repair-runner.js",
+      "script": "packages/slideclone-native-engine/scripts/minimum-unit-gap-repair-runner.js",
       "args": [
         "--repair-queue",
         "runs/minimum-unit-gap-repair-queue.json",
@@ -1561,7 +1561,7 @@
     },
     "real-blind-layer-audit-production": {
       "description": "Versioned command profile for slideclone:real-blind-layer-audit-production.",
-      "script": "scripts/real-blind-layer-audit-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/real-blind-layer-audit-parallel.js",
       "args": [
         "--ir-dir",
         "ppt文档/组件策略插件增强版本",
@@ -1636,7 +1636,7 @@
     },
     "render-engine-report": {
       "description": "Versioned command profile for slideclone:render-engine-report.",
-      "script": "scripts/render-engine-report.js",
+      "script": "packages/slideclone-native-engine/scripts/render-engine-report.js",
       "args": []
     },
     "rendered-preview-audit": {
