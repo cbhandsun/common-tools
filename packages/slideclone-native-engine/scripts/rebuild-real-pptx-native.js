@@ -150,6 +150,7 @@ const {
 const { createPageOutputFinalizer } = require("@common-tools/slideclone-core/page-output-finalizer");
 const { createPageShapeFinalizer } = require("@common-tools/slideclone-core/page-shape-finalizer");
 const { createPageTextFinalizer } = require("@common-tools/slideclone-core/page-text-finalizer");
+const { runNativeRebuildCli } = require("./lib/native-rebuild-cli-runner");
 
 
 
@@ -25941,203 +25942,14 @@ const { buildPptx, buildPptxBatch } = createPptxBuildExecutor({
 });
 
 async function main() {
-  const args = parseNativeRebuildArgs(process.argv.slice(2));
-  if (args.help === true || args.h === true) {
-    console.log(rebuildRealPptxNativeUsage());
-    return;
-  }
-  const workRoot = path.resolve(args["work-root"] || "ppt文档/可编辑版本");
-  const outRoot = path.resolve(args.out || "ppt文档/真可编辑版本");
-  const only = args.only || null;
-  ensureDir(outRoot);
-  const rebuildOptions = resolveSmartNativeRebuildOptions(args);
-  const finalPageCacheEnabled = !isFlagEnabled(args["no-final-page-cache"]);
-  const finalPageCacheStats = { hits: 0, misses: 0, writes: 0 };
-  if (finalPageCacheEnabled) {
-    rebuildOptions.finalPageCacheDir = path.resolve(args["final-page-cache-dir"] || resolveDefaultFinalPageCacheDir());
-    rebuildOptions.reuseFinalPageCache = String(args["reuse-final-page-cache"] ?? "true").toLowerCase() !== "false";
-    rebuildOptions.pageCacheSalt = typeof args["page-cache-salt"] === "string" ? args["page-cache-salt"] : "";
-    rebuildOptions.finalPageCacheStats = finalPageCacheStats;
-  }
-  const pptxBuildMode = resolvePptxBuildMode(args);
-  // Retain native slides through the source template; reconstruct raster pages.
-  rebuildOptions.preserveSourceNativeSlides = pptxBuildMode.engine === "openxml"
-    && String(args["preserve-source-native-slides"] ?? "true").toLowerCase() !== "false";
-  const powerPointOpenGate = shouldRunPowerPointOpenGate(args, pptxBuildMode);
-  const progressReporter = createProgressReporter({
-    enabled: String(args.progress ?? "true").toLowerCase() !== "false",
-    context: { scope: "native-rebuild" }
+  return runNativeRebuildCli(process.argv.slice(2), {
+    buildPptx,
+    buildPptxBatch,
+    ensureDir,
+    fs,
+    rebuildDeckFromWorkDir,
+    summarizeDeckComposition
   });
-  const workDirs = listWorkDirs(workRoot, only);
-  const deferredPptxJobs = [];
-  const report = {
-    provider: "rebuild-real-pptx-native",
-    workRoot,
-    outRoot,
-    generatedAt: new Date().toISOString(),
-    strategy: hybridRebuildStrategyProfile(rebuildOptions),
-    pptxBuild: {
-      engine: pptxBuildMode.engine,
-      batch: pptxBuildMode.engine === "openxml",
-      // This makes the delivery report auditable: every OpenXML batch deck is
-      // normalized before delivery unless an explicit diagnostic override opts out.
-      powerPointSafe: pptxBuildMode.engine === "openxml" ? pptxBuildMode.powerPointSafe : null
-    },
-    powerPointOpenGate: {
-      enabled: powerPointOpenGate,
-      status: powerPointOpenGate ? "pending" : "not-requested"
-    },
-    command: sanitizeCommandArgs(process.argv.slice(2)),
-    finalPageCache: {
-      enabled: finalPageCacheEnabled,
-      reuse: rebuildOptions.reuseFinalPageCache === true,
-      dir: rebuildOptions.finalPageCacheDir || null,
-      stats: finalPageCacheStats
-    },
-    totals: { files: 0, pages: 0, images: 0, shapes: 0, textBoxes: 0, failed: 0 },
-    results: []
-  };
-  progressReporter.emit({ phase: "run", status: "start", deckTotal: workDirs.length });
-  for (let workIndex = 0; workIndex < workDirs.length; workIndex += 1) {
-    const workDir = workDirs[workIndex];
-    const baseName = path.basename(workDir, ".work");
-    const deckProgress = progressReporter.child({
-      deck: baseName,
-      deckIndex: workIndex + 1,
-      deckTotal: workDirs.length
-    });
-    const irFile = path.join(outRoot, `${baseName}.native.ir.json`);
-    const outFile = path.join(outRoot, `${baseName}.native-editable.pptx`);
-    try {
-      const deckStartedAt = Date.now();
-      const pageTimings = [];
-      deckProgress.emit({ phase: "deck", status: "start" });
-      const assetDir = path.join(outRoot, `${baseName}.assets`);
-      const rebuiltDeck = rebuildDeckFromWorkDir(workDir, {
-        ...rebuildOptions,
-        assetDir,
-        irDir: outRoot,
-        deckName: baseName,
-        pages: args.pages || args.page || args["only-pages"] || "",
-        pageTimings,
-        progressReporter: deckProgress
-      });
-      const deck = enrichReconstructionContracts(rebuiltDeck, { baseDir: outRoot });
-      const irBuildMs = Date.now() - deckStartedAt;
-      fs.writeFileSync(irFile, `${JSON.stringify(deck, null, 2)}\n`, "utf8");
-      if (pptxBuildMode.engine === "openxml") {
-        const sourceTemplate = path.join(workDir, "input", `${baseName}.pptx`);
-        deferredPptxJobs.push({
-          irFile,
-          outFile,
-          baseName,
-          // Reuse the source deck's Office-authored package skeleton so the
-          // output keeps compatible masters, layouts, and presentation props.
-          templatePptx: fs.existsSync(sourceTemplate) ? sourceTemplate : ""
-        });
-      } else {
-        buildPptx(irFile, outFile, { python: args.python });
-      }
-      const result = {
-        inputWorkDir: workDir,
-        outputPptx: outFile,
-        outputIr: irFile,
-        pages: deck.pages.length,
-        images: deck.pages.reduce((sum, page) => sum + (page.images || []).length, 0),
-        shapes: deck.pages.reduce((sum, page) => sum + (page.shapes || []).length, 0),
-        textBoxes: deck.pages.reduce((sum, page) => sum + (page.textBoxes || []).length, 0),
-        composition: summarizeDeckComposition(deck),
-        timings: { irBuildMs, pageTimings },
-        status: pptxBuildMode.engine === "openxml" ? "ir-built" : "converted"
-      };
-      report.results.push(result);
-      report.totals.files += 1;
-      report.totals.pages += result.pages;
-      report.totals.images += result.images;
-      report.totals.shapes += result.shapes;
-      report.totals.textBoxes += result.textBoxes;
-      deckProgress.emit({
-        phase: "deck",
-        status: pptxBuildMode.engine === "openxml" ? "ir-done" : "done",
-        elapsedMs: Date.now() - deckStartedAt,
-        images: result.images,
-        shapes: result.shapes,
-        textBoxes: result.textBoxes
-      });
-    } catch (error) {
-      report.totals.failed += 1;
-      report.results.push({
-        inputWorkDir: workDir,
-        status: "failed",
-        error: error.message
-      });
-      deckProgress.emit({ phase: "deck", status: "failed" });
-    }
-  }
-  if (deferredPptxJobs.length > 0) {
-    try {
-      const pptxStartedAt = Date.now();
-      progressReporter.emit({ phase: "pptx-build", status: "start", jobs: deferredPptxJobs.length });
-      buildPptxBatch(deferredPptxJobs, args);
-      for (const result of report.results) {
-        if (result.status === "ir-built") result.status = "converted";
-      }
-      progressReporter.emit({
-        phase: "pptx-build",
-        status: "done",
-        jobs: deferredPptxJobs.length,
-        elapsedMs: Date.now() - pptxStartedAt
-      });
-      report.pptxBuild.elapsedMs = Date.now() - pptxStartedAt;
-    } catch (error) {
-      for (const job of deferredPptxJobs) {
-        const result = report.results.find((item) => item.outputIr === job.irFile);
-        if (result && result.status === "ir-built") {
-          result.status = "failed";
-          result.error = error.message;
-          report.totals.failed += 1;
-          report.totals.files = Math.max(0, report.totals.files - 1);
-          report.totals.pages = Math.max(0, report.totals.pages - Number(result.pages || 0));
-          report.totals.images = Math.max(0, report.totals.images - Number(result.images || 0));
-          report.totals.shapes = Math.max(0, report.totals.shapes - Number(result.shapes || 0));
-          report.totals.textBoxes = Math.max(0, report.totals.textBoxes - Number(result.textBoxes || 0));
-        }
-      }
-      progressReporter.emit({ phase: "pptx-build", status: "failed", jobs: deferredPptxJobs.length });
-    }
-  }
-  if (powerPointOpenGate && report.totals.failed === 0) {
-    try {
-      const { validatePowerPointOpen } = require("./adapters/validate-powerpoint-com");
-      const files = report.results.filter((result) => result.status === "converted").map((result) => result.outputPptx);
-      progressReporter.emit({ phase: "powerpoint-open-gate", status: "start", jobs: files.length });
-      const gateReport = await validatePowerPointOpen(files, {
-        outputDir: path.join(outRoot, "powerpoint-open-gate"),
-        timeoutMs: Number(args["powerpoint-open-timeout-ms"] || 170000),
-        // PowerPoint is the final compatibility authority. If it silently
-        // rewrites a generated package, finalize that generated copy once and
-        // require a second clean open before delivery.
-        repairInPlace: !isFlagDisabled(args["powerpoint-repair-in-place"] ?? args.powerPointRepairInPlace)
-      });
-      report.powerPointOpenGate = { enabled: true, status: "passed", ...gateReport };
-      progressReporter.emit({ phase: "powerpoint-open-gate", status: "done", jobs: files.length });
-    } catch (error) {
-      report.powerPointOpenGate = { enabled: true, status: "failed", error: error.message };
-      for (const result of report.results) {
-        if (result.status !== "converted") continue;
-        result.status = "failed";
-        result.error = `PowerPoint open gate failed: ${error.message}`;
-        report.totals.failed += 1;
-      }
-      progressReporter.emit({ phase: "powerpoint-open-gate", status: "failed" });
-    }
-  }
-  const reportFile = path.resolve(args["report-file"] || path.join(outRoot, "native-rebuild-report.json"));
-  ensureDir(path.dirname(reportFile));
-  fs.writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  progressReporter.emit({ phase: "run", status: report.totals.failed > 0 ? "failed" : "done", deckTotal: workDirs.length });
-  console.log(JSON.stringify(report, null, 2));
-  if (report.totals.failed > 0) process.exitCode = 1;
 }
 
 function summarizeDeckComposition(deck) {

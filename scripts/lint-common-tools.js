@@ -97,6 +97,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/adapters/render-libreoffice.js",
   "packages/slideclone-native-engine/scripts/lib/png.js",
   "packages/slideclone-native-engine/scripts/lib/config-validation.js",
+  "packages/slideclone-native-engine/scripts/lib/native-rebuild-cli-runner.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-options.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-strategy-profile.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-workdir.js",
