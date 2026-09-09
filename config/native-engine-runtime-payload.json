@@ -31,6 +31,7 @@
     "chart-native-render-golden-smoke.js",
     "component-adoption-ab-gate.js",
     "component-coverage-matrix.js",
+    "component-plugin-apply-session-gate.js",
     "component-plugin-action-queue.js",
     "component-replacement-apply-plan.js",
     "component-replacement-apply-quality-gate.js",
@@ -57,6 +58,7 @@
     "plugin-component-target-audit.js",
     "component-motif-recall-report.js",
     "component-replacement-harvest-queue.js",
+    "component-replacement-close-loop-gate.js",
     "component-replacement-plan-report.js",
     "minimum-unit-policy-gate.js",
     "quality-gate-ocr-batch.js",
@@ -69,6 +71,7 @@
     "rebuild-real-pptx-native-parallel.js",
     "rebuild-real-pptx-native.js",
     "rendered-similarity-audit.js",
+    "rendered-preview-audit.js",
     "slideclone.js",
     "structural-native-audit.js",
     "watch-plugin-component-downloads.js"
@@ -94,7 +97,9 @@
       "golden-set-runner.js",
       "component-harvest-shortlist.js",
       "component-harvest-candidate-rank.js",
+      "component-plugin-apply-session-gate.js",
       "component-replacement-apply-quality-gate.js",
+      "component-replacement-close-loop-gate.js",
       "graphic-reconstruction-decision-gate.js",
       "graphic-reconstruction-decision-audit.js",
       "ir-delivery-smoke.js",
@@ -113,6 +118,7 @@
       "real-pptx-normalize-smoke.js",
       "rebuild-real-pptx-native-parallel.js",
       "rendered-similarity-audit.js",
+      "rendered-preview-audit.js",
       "structural-native-audit.js"
     ],
     "componentAcquisitionTools": [

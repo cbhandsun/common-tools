@@ -11,7 +11,7 @@ const {
   buildPluginApplySessionGate,
   parseArgs,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/component-plugin-apply-session-gate");
+} = require("../packages/slideclone-native-engine/scripts/component-plugin-apply-session-gate");
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "component-plugin-apply-session-gate-"));
