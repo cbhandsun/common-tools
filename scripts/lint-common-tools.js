@@ -116,6 +116,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/component-asset-ooxml.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-family-evidence.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-geometry.js",
+  "packages/slideclone-native-engine/scripts/lib/component-template-motifs.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-palette.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-sanitizers.js",
   "packages/slideclone-native-engine/scripts/adapters/compare-placeholder.js",
