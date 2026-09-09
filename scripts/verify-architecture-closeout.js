@@ -8,6 +8,8 @@ const { verifyLocalAcceptanceEvidence, walkForSecrets } = require("./verify-loca
 const VALID_STATUS = new Set(["verified", "partial", "open"]);
 const VALID_AREAS = new Set(["A", "B", "C", "D", "E", "F"]);
 const DEFAULT_CONFIG = path.join("config", "architecture-closeout-checklist.json");
+const NATIVE_ENGINE_PAYLOAD_ROOT = path.join("packages", "slideclone-native-engine", "scripts");
+const NATIVE_ENGINE_TARGET_MAX_LINES = 1500;
 
 function parseArgs(argv) {
   const options = { config: DEFAULT_CONFIG, requireComplete: false };
@@ -113,6 +115,52 @@ function readJsonEvidence(repositoryRoot, relativeFile, label) {
   }
 }
 
+function listJavaScriptFiles(directory, base = directory) {
+  const files = [];
+  let entries;
+  try { entries = fs.readdirSync(directory, { withFileTypes: true }); }
+  catch { return files; }
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const file = path.join(directory, entry.name);
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory()) files.push(...listJavaScriptFiles(file, base));
+    else if (entry.isFile() && entry.name.endsWith(".js")) files.push(path.relative(base, file).replaceAll("\\", "/"));
+  }
+  return files;
+}
+
+function countLines(file) {
+  const source = fs.readFileSync(file, "utf8");
+  if (source.length === 0) return 0;
+  return source.split(/\r\n|\r|\n/u).length;
+}
+
+function nativeEngineModularizationStatus(repositoryRoot) {
+  const payloadRoot = path.join(repositoryRoot, NATIVE_ENGINE_PAYLOAD_ROOT);
+  const files = listJavaScriptFiles(payloadRoot);
+  if (files.length === 0) {
+    return Object.freeze({
+      available: false,
+      passed: false,
+      payloadRoot: NATIVE_ENGINE_PAYLOAD_ROOT.replaceAll("\\", "/"),
+      failures: ["native engine payload JavaScript files are unavailable"]
+    });
+  }
+  const measured = files.map((file) => Object.freeze({
+    file: path.join(NATIVE_ENGINE_PAYLOAD_ROOT, file).replaceAll("\\", "/"),
+    lines: countLines(path.join(payloadRoot, file))
+  })).sort((left, right) => right.lines - left.lines || left.file.localeCompare(right.file));
+  const oversized = measured.filter((item) => item.lines > NATIVE_ENGINE_TARGET_MAX_LINES);
+  return Object.freeze({
+    available: true,
+    passed: oversized.length === 0,
+    targetMaxLines: NATIVE_ENGINE_TARGET_MAX_LINES,
+    fileCount: measured.length,
+    oversizedCount: oversized.length,
+    largestFiles: Object.freeze(measured.slice(0, 10))
+  });
+}
+
 function productionAcceptanceEvidenceStatus(repositoryRoot) {
   const candidates = [
     ".codex-tmp/production-acceptance-evidence/acceptance-summary.json",
@@ -141,6 +189,11 @@ function productionAcceptanceEvidenceStatus(repositoryRoot) {
 }
 
 function currentItemState(item, repositoryRoot) {
+  if (item.id === "native-engine-core-modularization") {
+    const evidenceCheck = nativeEngineModularizationStatus(repositoryRoot);
+    if (evidenceCheck.passed) return Object.freeze({ status: "verified", remainingCount: 0, evidenceCheck });
+    return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
+  }
   if (item.id === "local-authenticated-acceptance") {
     const evidenceCheck = localAcceptanceEvidenceStatus(repositoryRoot);
     if (evidenceCheck.passed) return Object.freeze({ status: "verified", remainingCount: 0, evidenceCheck });

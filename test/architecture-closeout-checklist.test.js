@@ -24,6 +24,11 @@ test("architecture closeout checklist validates current open and verified eviden
   const localAcceptance = result.items.find((item) => item.id === "local-authenticated-acceptance");
   assert.equal(localAcceptance.configuredStatus, "open");
   assert.equal(localAcceptance.evidenceCheck.passed, false);
+  const nativeEngine = result.items.find((item) => item.id === "native-engine-core-modularization");
+  assert.equal(nativeEngine.configuredStatus, "open");
+  assert.equal(nativeEngine.evidenceCheck.available, true);
+  assert.ok(nativeEngine.evidenceCheck.oversizedCount >= 1);
+  assert.ok(nativeEngine.evidenceCheck.largestFiles[0].file.startsWith("packages/slideclone-native-engine/scripts/"));
 });
 
 test("architecture closeout checklist cannot mark missing evidence as verified", () => {
@@ -116,6 +121,32 @@ test("architecture closeout checklist verifies local acceptance dynamically when
   assert.equal(result.items[0].configuredStatus, "open");
   assert.equal(result.items[0].status, "verified");
   assert.equal(result.items[0].evidenceCheck.passed, true);
+});
+
+test("architecture closeout checklist verifies native engine modularization dynamically when files are below target", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const payloadRoot = path.join(workspace, "packages", "slideclone-native-engine", "scripts");
+  fs.mkdirSync(payloadRoot, { recursive: true });
+  fs.writeFileSync(path.join(payloadRoot, "rebuild-real-pptx-native.js"), "\"use strict\";\nmodule.exports = {};\n");
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "native-engine-core-modularization",
+      area: "B",
+      status: "open",
+      summary: "This item is dynamically verified when native engine modules are small.",
+      evidenceFiles: ["config/architecture-closeout-checklist.json"],
+      verificationCommands: ["node scripts/verify-architecture-budgets.js"],
+      remaining: ["Split oversized native engine files."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.verified, 1);
+  assert.equal(result.items[0].configuredStatus, "open");
+  assert.equal(result.items[0].status, "verified");
+  assert.equal(result.items[0].evidenceCheck.oversizedCount, 0);
 });
 
 test("architecture closeout checklist keeps local acceptance open when evidence is unsafe or incomplete", () => {
