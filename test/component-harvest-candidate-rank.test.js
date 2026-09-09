@@ -10,7 +10,7 @@ const {
   parseArgs,
   rankHarvestCandidates,
   scoreCandidateForTask
-} = require("../skills/pd-hifi-slideclone/scripts/component-harvest-candidate-rank");
+} = require("../packages/slideclone-native-engine/scripts/component-harvest-candidate-rank");
 
 test("component harvest candidate rank parses required inputs", () => {
   const args = parseArgs([

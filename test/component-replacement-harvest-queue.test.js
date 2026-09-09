@@ -12,7 +12,7 @@ const {
   normalizeGapTasks,
   parseArgs,
   renderHarvestQueueMarkdown
-} = require("../skills/pd-hifi-slideclone/scripts/component-replacement-harvest-queue");
+} = require("../packages/slideclone-native-engine/scripts/component-replacement-harvest-queue");
 
 test("harvest queue parses CLI options", () => {
   const args = parseArgs([

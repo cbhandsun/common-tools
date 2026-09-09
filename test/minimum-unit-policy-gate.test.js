@@ -13,7 +13,7 @@ const {
   hasSemanticStructureEvidence,
   parseArgs,
   PROTECTED_POLICY_KINDS
-} = require("../skills/pd-hifi-slideclone/scripts/minimum-unit-policy-gate");
+} = require("../packages/slideclone-native-engine/scripts/minimum-unit-policy-gate");
 
 function writeReport(tmp, report) {
   const file = path.join(tmp, "target-audit.json");
