@@ -313,6 +313,12 @@ test("production deployment script requires the read-only release preflight and 
   assert.match(script, /team deployment-plan/);
   assert.match(script, /Read-DeploymentPlan/);
   assert.match(script, /'team-maintenance'/);
+  assert.match(script, /function New-ProductionPreApplyChecklist/);
+  assert.match(script, /preApplyChecklist = @\(New-ProductionPreApplyChecklist\)/);
+  assert.match(script, /common-tools team migration-status/);
+  assert.match(script, /managed PostgreSQL backup, restore target, and rollback evidence/);
+  assert.match(script, /immutable release evidence revisions and image digests/);
+  assert.match(script, /Keep ingress from accepting new production jobs/);
   assert.match(script, /releaseSignatureRequired = \(\$preflight\.releaseSignature\.required -eq \$true\)/);
   assert.match(script, /releaseSignatureVerified = \(\$preflight\.releaseSignature\.verified -eq \$true\)/);
   assert.match(script, /oidcDiscoveryValidated = \$true/);

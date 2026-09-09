@@ -103,6 +103,15 @@ function Read-DeploymentPlan([string[]]$Capabilities) {
   return $plan
 }
 
+function New-ProductionPreApplyChecklist {
+  return @(
+    'Run common-tools team migration-status in the target production environment and archive the redacted JSON result.',
+    'Confirm the managed PostgreSQL backup, restore target, and rollback evidence before applying pending migrations.',
+    'Approve only immutable release evidence revisions and image digests; never roll forward or back to tags.',
+    'Keep ingress from accepting new production jobs until migration status, worker readiness, and release evidence are reviewed.'
+  )
+}
+
 Assert-DockerEngineAvailable -TimeoutSeconds $DockerEngineTimeoutSeconds
 $preflight = Invoke-ProductionPreflight
 $composeFiles = @(Resolve-PreflightComposeFiles -ReportedFiles @($preflight.composeFiles) -CredentialSource $preflight.credentialSource)
@@ -130,6 +139,7 @@ if ($Mode -eq 'Plan') {
     releaseSignatureVerified = ($preflight.releaseSignature.verified -eq $true)
     oidcDiscoveryValidated = $true
     composeConfigurationValidated = ($preflight.composeValidated -eq $true)
+    preApplyChecklist = @(New-ProductionPreApplyChecklist)
     deployment = 'No containers or images were changed.'
   } | ConvertTo-Json -Compress
   return

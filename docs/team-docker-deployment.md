@@ -193,6 +193,8 @@ common-tools team migration-status
 docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production.yaml --profile team-api run --rm --no-deps remote-mcp node packages/remote-mcp-server/bin/common-tools-team-migrate.js --status
 ```
 
+生产发布脚本的 `Plan` 输出也会包含 `preApplyChecklist`。该清单不是批准本身，而是上线前必须归档的操作核对项：同环境 `migration-status` 脱敏 JSON、受管 PostgreSQL 备份与恢复目标、只使用 immutable release evidence revision/image digest 的回滚材料，以及 ingress 暂停接收新任务后的 Worker readiness 复核。任一项无法确认时不要执行 `Apply`，也不要用手写 Compose 绕过。
+
 `002_project_rbac.sql` 为新 Job 增加可为空的 `project_id`；`003_project_idempotency.sql` 将活跃 idempotency key 分区到该 project。旧 Job 保持 `NULL`，只能由原 owner 走兼容接口读取；迁移不会猜测或回填项目归属，因此绝不会把历史 owner-only Job 暴露给项目成员。
 
 PostgreSQL 与 Redis 官方镜像在入口阶段必须从 root 切换到各自的非 root 服务用户，因此这两个有状态容器不设置 `no-new-privileges` 或 `cap_drop: ALL`；否则它们无法初始化数据卷。PostgreSQL、Redis、MinIO 和本机 Keycloak 都只监听内部 Docker 网络及 loopback 映射，并以 `restart: unless-stopped` 在 Docker Engine 重启后自动恢复；其中前三者分别使用 `common-tools-postgres`、`common-tools-redis`、`common-tools-minio` named volume，Keycloak 使用 `common-tools-keycloak` 挂载到 `/opt/keycloak/data`。后续 API/Worker/maintenance 容器仍必须以非 root、只读根文件系统、`no-new-privileges` 和 capability drop 启动。
