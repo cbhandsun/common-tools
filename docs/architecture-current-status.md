@@ -62,6 +62,7 @@
 - native rebuild asset hub super brain portal：企业级 Hub 门户 source-faithful illustration crop 保护、callout/quote overlay erase、search chrome、callout card/text 和 portal quote native overlay 从主 rebuild 编排中移出到 factory 模块；主入口只注入 PNG/IR/crop、文本规范化、component token 和通用 text box 边界。
 - native rebuild component template orchestration：组件模板输入过滤、图表文本去重、specialized/native layer 仲裁、crop replacement evidence、picture residual、hybrid residual 与 replacement safety decision 从主 rebuild 编排中移出；主入口只注入 crop/geometry/text/classification 依赖，继续保持同名导出合同。
 - native rebuild asset hub specialized pages：Asset Hub 的 super-brain portal、version timeline、source purification、WMS inbound review 专题页对象化、OCR chrome normalization 和 source-faithful crop 物化从主 rebuild 编排中移出；已有 portal overlay/protection factory 保持独立，避免把所有 Asset Hub 逻辑塞回单一模块。
+- native rebuild product brain specialized pages：Product Brain 的 asset-closure funnel、WMS quality gate、SmartReview risk gate、puzzle value loop、core value hybrid/split 等专题页对象化与最小单元 crop 物化从主 rebuild 编排中移出；product-brain vision factory 继续独立负责终局视野页，避免单个 Product Brain 模块重新膨胀。
 
 验证证据：
 
@@ -75,12 +76,13 @@
 - `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
 - 后续增量 `native-rebuild-component-template-orchestration.js` 抽出并继续收拢 residual/replacement decision 后，`rebuild-real-pptx-native.js` 从 17,593 行降至 16,507 行；`native-rebuild.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
 - 后续增量 `native-rebuild-asset-hub-specialized-pages.js` 抽出后，`rebuild-real-pptx-native.js` 从 16,507 行降至 15,707 行；`native-rebuild.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
+- 后续增量 `native-rebuild-product-brain-specialized-pages.js` 抽出后，`rebuild-real-pptx-native.js` 从 15,707 行降至 14,761 行；`native-rebuild.test.js`、`wms-quality-hybrid.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
 
 当前剩余架构事实：
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：15,707 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：14,761 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
