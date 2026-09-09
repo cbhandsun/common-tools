@@ -354,8 +354,8 @@ if ($Mode -eq 'Plan') {
 # Do not replace it with --no-deps: API and Workers must wait for team-migrate.
 # Validate the existing persistent object store before rebuilding the API and
 # Workers. A root-password mismatch must not trigger a costly partial rollout.
-Invoke-Compose @('up', '--detach', '--wait', '--wait-timeout', $WaitTimeoutSeconds, 'minio')
-Invoke-Compose @('up', '--detach', '--build', '--wait', '--wait-timeout', $WaitTimeoutSeconds, '--scale', "remote-mcp=$ApiReplicas")
+Invoke-Compose @('up', '--detach', '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, 'minio')
+Invoke-Compose @('up', '--detach', '--build', '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, '--scale', "remote-mcp=$ApiReplicas")
 Assert-LocalRuntime @($deploymentPlan.capabilities)
 Synchronize-SingleIngressMcpOAuthClient
 Assert-SingleIngressRuntime @($deploymentPlan.capabilities)

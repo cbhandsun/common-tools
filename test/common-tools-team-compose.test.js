@@ -256,8 +256,8 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /\[switch\]\$DiscoverLocalPorts/);
   assert.match(script, /Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds/);
   assert.match(script, /Invoke-Compose @\('config', '--quiet'\)/);
-  assert.match(script, /Invoke-Compose @\('up', '--detach', '--build', '--wait'/);
-  assert.match(script, /Invoke-Compose @\('up', '--detach', '--wait', '--wait-timeout', \$WaitTimeoutSeconds, 'minio'\)/);
+  assert.match(script, /Invoke-Compose @\('up', '--detach', '--build', '--remove-orphans', '--wait'/);
+  assert.match(script, /Invoke-Compose @\('up', '--detach', '--remove-orphans', '--wait', '--wait-timeout', \$WaitTimeoutSeconds, 'minio'\)/);
   assert.match(script, /A root-password mismatch must not trigger a costly partial rollout/);
   assert.match(script, /'deployment-plan'/);
   assert.match(script, /team local-config --project \$Project/);
