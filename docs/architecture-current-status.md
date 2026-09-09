@@ -136,6 +136,25 @@
 
 结论：Funnel Lens 不再滞留在大布局模块中，关系图 core 剩余主要集中到 Swimlane/Layered/Cycle、Fishbone/Flow/Tree，以及 measured generic/topology shell 的进一步拆分。
 
+## 2026-09-09 收口：Swimlane/Layered/Cycle 关系图 shell 独立成子域模块
+
+继续沿“关系图子域 shell + 公共 topology/helper 层”的共识，把 `relationship-native-layouts.js` 中的 Swimlane、Layered Stack 和 Cycle Loop 职责抽入 `relationship-layered-flow-shells.js`。新模块封装泳道行聚类、泳道内连接判定、分层堆栈节点筛选、环形段角度/覆盖率/同父环校验和对应 shape 输出；原布局模块保留公开导出，避免上游 worker 与 native shell 调用点震荡。
+
+本轮提交：`33b24ef Extract layered relationship shells`。
+
+验证证据：
+
+- `node --check` 覆盖受影响关系图模块。
+- 受影响 ESLint 通过。
+- `test/native-rebuild.test.js`：715/715 通过。
+- `test/engine-core-package.test.js`：6/6 通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,179 个文件、20 个 workspace package、6 项能力探针全通过。
+- `node scripts/verify-workspace-boundaries.js` 通过：634 个文件、20 个 workspace package、0 个外部 runtime package import。
+- `node scripts/verify-architecture-budgets.js` 通过：845 个文件、5 个 decreasing-only 例外。
+- skill migration 与 skill wrapper 门禁均通过。
+
+结论：`relationship-native-layouts.js` 已降到约 270 行，剩余 measured generic/topology、Fishbone、Flow/Tree 更像最后的轻量聚合层，而不是此前的历史大引擎本体。后续继续拆分应按收益排序，优先补生产验收证据和部署/运行易用性，再考虑把最后几类 shell 做归档式收口。
+
 ## 2026-09-09 收口：远程 Job 验收新增显式认证 smoke
 
 本轮新增 `common-tools:team-authenticated-job-smoke`，用于补齐“受保护远程 MCP 真实 Job 路径”的发布验收入口。它不会绕过 OAuth，也不会默认伪装成快 smoke：调用方必须提供 bearer token 和一个真实能力输入文件；脚本会连接 `/mcp`，执行 `initialize`、`tools/list`、`create_team_upload_target`，上传输入文件，再调用 `create_team_job`。传入 `--wait` 时会继续轮询 `get_team_job`，作业成功后可用 `--artifact-name` 验证 `get_team_artifact_target`。
