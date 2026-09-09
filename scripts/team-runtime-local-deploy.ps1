@@ -13,6 +13,7 @@ param(
   [switch]$DiscoverLocalConfiguration,
   [switch]$DiscoverLocalPorts,
   [switch]$EnableRawImageOcr,
+  [switch]$EnableIdentityProvider,
   [switch]$EnableSingleIngress,
   [string]$SingleIngressPublicUrl,
   [switch]$PromptForSecrets,
@@ -416,9 +417,14 @@ if ($DiscoverLocalPorts) {
 }
 if ($EnableSingleIngress) {
   Set-SingleIngressConfiguration $SingleIngressPublicUrl
+  $EnableIdentityProvider = $true
+}
+if ($EnableIdentityProvider) {
   $composeFiles += (Join-Path $repositoryRoot 'deploy/compose.team-idp.yaml')
-  $composeFiles += (Join-Path $repositoryRoot 'deploy/compose.team-single-ingress.yaml')
   $profiles += 'team-idp'
+}
+if ($EnableSingleIngress) {
+  $composeFiles += (Join-Path $repositoryRoot 'deploy/compose.team-single-ingress.yaml')
 }
 if (-not [string]::IsNullOrWhiteSpace($Capabilities)) {
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_TEAM_CAPABILITIES', $Capabilities.Trim(), 'Process')
@@ -466,6 +472,7 @@ if ($Mode -eq 'Plan') {
     enabledCapabilities = @($deploymentPlan.capabilities)
     workerProfiles = @($deploymentPlan.workerProfiles)
     rawImageOcrProfile = $rawImageOcrProfile
+    identityProviderEnabled = [bool]$EnableIdentityProvider
     localMinioPorts = @{
       api = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_PORT', 'Process')
       console = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_CONSOLE_PORT', 'Process')

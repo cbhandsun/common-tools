@@ -16,6 +16,7 @@ param(
   [switch]$SeparatePasswords,
   [switch]$SkipSmoke,
   [switch]$EnableRawImageOcr,
+  [switch]$EnableIdentityProvider,
   [ValidateSet('PaddleOCR', 'Tesseract')]
   [string]$RawImageOcrProvider = 'PaddleOCR',
   [ValidatePattern('^$|^[a-z0-9][a-z0-9._/-]{0,127}:[a-z0-9][a-z0-9._-]{0,63}$')]
@@ -100,6 +101,7 @@ try {
     RawImageOcrProvider = $RawImageOcrProvider
   }
   if ($Mode -eq 'Apply') { $parameters.PromptForSecrets = $true }
+  if ($EnableIdentityProvider) { $parameters.EnableIdentityProvider = $true }
   if ($EnableRawImageOcr) { $parameters.EnableRawImageOcr = $true }
   if ($SeparatePasswords) { $parameters.SeparatePasswords = $true }
   if (-not [string]::IsNullOrWhiteSpace($RawImageOcrImage)) { $parameters.RawImageOcrImage = $RawImageOcrImage }

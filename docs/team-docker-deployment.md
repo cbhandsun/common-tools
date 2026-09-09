@@ -477,6 +477,15 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 
 先启动基础设施和本地 IdP。Keycloak 的健康探针使用未映射到宿主机的管理端口 `9000`；它不是对外接口。导入的 realm 已包含 `common-tools-mcp` public client、S256 PKCE、subject/audience mapper、三个可部署能力 scope 和 `common_tools_projects` user-attribute mapper。不要在 realm JSON 中写入用户或密码；本机测试用户应通过 Keycloak 管理界面或团队的临时身份流程创建。为测试项目 RBAC，由管理员设置用户的单个 `common_tools_projects` 属性，例如 `[ { "id": "product-core", "role": "editor" } ]`；客户端不能通过 scope 或 MCP 参数自行为自己添加该 claim。
 
+日常本机验收优先使用一条入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
+
+```powershell
+.\scripts\team-runtime-local-apply.ps1 -EnableIdentityProvider
+.\scripts\team-runtime-local-job-smoke.ps1 -Login -Wait
+```
+
+`team-runtime-local-job-smoke.ps1 -Login` 使用 `common-tools-mcp` public client 的 Authorization Code + PKCE S256 流程，只在当前 PowerShell 进程中临时设置 access token，并在结束后清除；脚本不会读取、保存或打印密码/token。下面的显式 Compose 命令保留给排障和手动演练。
+
 ```powershell
 $env:COMMON_TOOLS_KEYCLOAK_ADMIN = '<local admin username>'
 $env:COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD = '<local admin password>'

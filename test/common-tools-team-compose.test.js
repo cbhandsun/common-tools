@@ -285,6 +285,7 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /if \(-not \$dockerEngineChecked\) \{ Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds \}/);
   assert.match(script, /function Set-MissingLocalMinioPorts/);
   assert.match(script, /function Set-MissingLocalRemotePort/);
+  assert.match(script, /\[switch\]\$EnableIdentityProvider/);
   assert.match(script, /Test-LoopbackPortAvailable 59000/);
   assert.match(script, /Test-LoopbackPortAvailable 54000/);
   assert.match(script, /Get-Random -Minimum 20000 -Maximum 65535/);
@@ -299,10 +300,13 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /team-runtime-doctor\.js/);
   assert.match(script, /--allow-remote/);
   assert.match(script, /--expected-capabilities/);
+  assert.match(script, /if \(\$EnableSingleIngress\) \{\s+Set-SingleIngressConfiguration \$SingleIngressPublicUrl\s+\$EnableIdentityProvider = \$true\s+\}/s);
+  assert.match(script, /if \(\$EnableIdentityProvider\) \{\s+\$composeFiles \+= \(Join-Path \$repositoryRoot 'deploy\/compose\.team-idp\.yaml'\)\s+\$profiles \+= 'team-idp'\s+\}/s);
   assert.match(script, /Synchronize-SingleIngressMcpOAuthClient\s+Assert-SingleIngressRuntime @\(\$deploymentPlan\.capabilities\)/s);
   assert.match(script, /'team-maintenance'/);
   assert.match(script, /enabledCapabilities = @\(\$deploymentPlan\.capabilities\)/);
   assert.match(script, /workerProfiles = @\(\$deploymentPlan\.workerProfiles\)/);
+  assert.match(script, /identityProviderEnabled = \[bool\]\$EnableIdentityProvider/);
   assert.doesNotMatch(script, /\$workerProfiles = @\{/);
   assert.match(script, /\$missingEnvironment = @\(\)/);
   assert.match(script, /\$missingEnvironment -join ', '/);
@@ -321,6 +325,7 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /\[string\]\$KeycloakAdmin = 'local-admin'/);
   assert.match(script, /\[switch\]\$SeparatePasswords/);
   assert.match(script, /\[switch\]\$SkipSmoke/);
+  assert.match(script, /\[switch\]\$EnableIdentityProvider/);
   assert.match(script, /'COMMON_TOOLS_REMOTE_PORT'/);
   assert.match(script, /function Select-LocalRemotePort/);
   assert.match(script, /Test-LoopbackPortAvailable 54000/);
@@ -333,6 +338,7 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_AUDIENCE' 'common-tools-mcp'/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' \$KeycloakAdmin/);
   assert.match(script, /if \(\$Mode -eq 'Apply'\) \{ \$parameters\.PromptForSecrets = \$true \}/);
+  assert.match(script, /if \(\$EnableIdentityProvider\) \{ \$parameters\.EnableIdentityProvider = \$true \}/);
   assert.match(script, /\$parameters = @\{/);
   assert.doesNotMatch(script, /DiscoverLocalConfiguration = \$true/);
   assert.match(script, /DiscoverLocalPorts = \$true/);
