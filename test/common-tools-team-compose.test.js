@@ -637,6 +637,38 @@ test("local runtime smoke script verifies gateway metadata without secrets or jo
   assert.match(packageVerifier, /scripts\/team-runtime-local-smoke\.ps1/);
 });
 
+test("local authenticated job smoke wrapper prepares input but keeps OAuth explicit", () => {
+  const root = path.resolve(__dirname, "..");
+  const scriptPath = path.join(root, "scripts", "team-runtime-local-job-smoke.ps1");
+  const script = fs.readFileSync(scriptPath, "utf8");
+  const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
+  const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
+  assert.match(script, /\[string\]\$Project = 'deploy'/);
+  assert.match(script, /\[string\]\$Capability = 'image-to-editable'/);
+  assert.match(script, /\[string\]\$TokenEnv = 'COMMON_TOOLS_JOB_SMOKE_TOKEN'/);
+  assert.match(script, /team-runtime-authenticated-job-smoke\.js/);
+  assert.match(script, /team' 'raw-image-archive'/);
+  assert.match(script, /iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB/);
+  assert.match(script, /Set \$TokenEnv to a bearer token/u);
+  assert.match(script, /does not mint or print OAuth tokens/u);
+  assert.match(script, /--artifact-name', 'deck\.pptx'/);
+  assert.match(script, /Remove-Item -LiteralPath \$temporaryRoot -Recurse -Force/);
+  assert.match(packageJson, /scripts\/team-runtime-local-job-smoke\.ps1/);
+  assert.match(packageJson, /common-tools:team-local-job-smoke/);
+  assert.match(packageVerifier, /scripts\/team-runtime-local-job-smoke\.ps1/);
+
+  const result = spawnSync("pwsh", ["-NoProfile", "-File", scriptPath], {
+    cwd: root,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH || "" },
+    windowsHide: true
+  });
+  const output = `${result.stdout || ""}${result.stderr || ""}`;
+  assert.equal(result.status, 2);
+  assert.match(output, /COMMON_TOOLS_JOB_SMOKE_TOKEN/u);
+  assert.doesNotMatch(output, /create_team_job|uploadUrl|Authorization/u);
+});
+
 test("image Worker Docker context excludes local .NET outputs while retaining builder sources", () => {
   const root = path.resolve(__dirname, "..");
   const ignore = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable.dockerignore"), "utf8");
