@@ -97,6 +97,18 @@ common-tools team doctor --runtime
 
 `scripts/team-runtime-local-deploy.ps1` 将日常更新固定为“Secret 已注入 → Compose 配置预检 → 构建 → migration gate → API/Worker/maintenance 就绪等待”。它只接受本机验证的三份 Compose 文件（infra、API、gateway），不会重导入或覆盖已有 Keycloak realm；凭据只读取当前进程环境变量，永不写入输出。先运行无副作用预检：
 
+日常本机 Docker 更新优先使用轻量封装脚本；它会自动填入本机 URL/OIDC/Keycloak 管理员用户名默认值，并复用部署脚本的隐藏输入，只要求输入 PostgreSQL、Redis、MinIO 和 Keycloak 管理员密码：
+
+```powershell
+.\scripts\team-runtime-local-apply.ps1
+```
+
+若只想查看将要启用的能力和 Compose 配置，不改容器：
+
+```powershell
+.\scripts\team-runtime-local-apply.ps1 -Mode Plan
+```
+
 ```powershell
 .\scripts\team-runtime-local-deploy.ps1 -Mode Plan
 ```

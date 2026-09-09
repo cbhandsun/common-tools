@@ -288,6 +288,30 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.doesNotMatch(script, /Get-ChildItem.*Env/);
 });
 
+test("local apply wrapper defaults non-secret Docker configuration and delegates secret prompts", () => {
+  const root = path.resolve(__dirname, "..");
+  const script = fs.readFileSync(path.join(root, "scripts", "team-runtime-local-apply.ps1"), "utf8");
+  const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
+  const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
+  assert.match(script, /\[string\]\$Mode = 'Apply'/);
+  assert.match(script, /\[string\]\$Project = 'deploy'/);
+  assert.match(script, /\[string\]\$KeycloakAdmin = 'local-admin'/);
+  assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_PUBLIC_URL' \$remoteOrigin/);
+  assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS' \$remoteOrigin/);
+  assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_ISSUER'/);
+  assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_JWKS_URL'/);
+  assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_AUDIENCE' 'common-tools-mcp'/);
+  assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' \$KeycloakAdmin/);
+  assert.match(script, /'-DiscoverLocalConfiguration'/);
+  assert.match(script, /'-DiscoverLocalPorts'/);
+  assert.match(script, /'-PromptForSecrets'/);
+  assert.match(script, /team-runtime-local-deploy\.ps1/);
+  assert.match(script, /SetEnvironmentVariable\(\$name, \$originalEnvironment\[\$name\], 'Process'\)/);
+  assert.doesNotMatch(script, /COMMON_TOOLS_(?:POSTGRES|REDIS|MINIO|KEYCLOAK_ADMIN)_PASSWORD\s*=/);
+  assert.match(packageJson, /scripts\/team-runtime-local-apply\.ps1/);
+  assert.match(packageVerifier, /scripts\/team-runtime-local-apply\.ps1/);
+});
+
 test("production deployment script requires the read-only release preflight and never builds locally", () => {
   const root = path.resolve(__dirname, "..");
   const script = fs.readFileSync(path.join(root, "scripts", "team-runtime-production-deploy.ps1"), "utf8");
