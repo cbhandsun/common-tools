@@ -181,6 +181,7 @@ const { createProductBrainSpecializedPagesFactory } = require("./lib/native-rebu
 const { createWorkflowSpecializedPagesFactory } = require("./lib/native-rebuild-workflow-specialized-pages");
 const { createAssetOsSpecializedPagesFactory } = require("./lib/native-rebuild-asset-os-specialized-pages");
 const { createCenterBadgeQuadrantCycleFactory } = require("./lib/native-rebuild-center-badge-quadrant-cycle");
+const { createSemanticCycleDiagramsFactory } = require("./lib/native-rebuild-semantic-cycle-diagrams");
 const { createPrototypeLoopAssetsFactory } = require("./lib/native-rebuild-prototype-loop-assets");
 const { createQuadrantDividerFactory } = require("./lib/native-rebuild-quadrant-dividers");
 const { createFunnelHubResidualFactory } = require("./lib/native-rebuild-funnel-hub-residual");
@@ -295,6 +296,46 @@ const { normalizePageImageMetadata } = createPageImageFinalizer({
   normalizeImageLayerMetadata,
   shouldPreserveTwoPanelChaosIllustrationCrop,
   markTwoPanelChaosIllustrationPreserved
+});
+const {
+  createSaturatedDiagramTextShapes,
+  saturatedDiagramNativeTextBoxes,
+  saturatedDiagramTextBox,
+  saturatedDiagramTextColor,
+  maybeEraseSaturatedDiagramText,
+  createSemanticCycleDiagramShapes,
+  createSemanticCycleMinimumUnitCrop,
+  createSemanticCycleIconMinimumUnitCrops,
+  isHighFidelityPrdCycle,
+  shouldObjectifySemanticCycleDiagram,
+  inferSemanticCycleDiagramShapes,
+  shouldDropSemanticCycleResidual,
+  semanticCycleShapeSource
+} = createSemanticCycleDiagramsFactory({
+  DEFAULT_SLIDE,
+  applyMinimumUnitCropRenderStrategy,
+  boxCenterInside,
+  clampPtBoxToSlide,
+  constrainPtBox,
+  cropPng,
+  eraseMasks,
+  ensureDir,
+  isSaturatedDiagramInternalLabel,
+  localResidualPxBox,
+  makeEdgeConnectedBackgroundTransparent,
+  normalizeCjkText,
+  normalizeHex,
+  normalizeMatrixLabel,
+  path,
+  ptToPxBox,
+  pxToPtBox,
+  resolveAssetPathForIr,
+  round,
+  roundedBox,
+  safeIdentifier,
+  splitResidualLayerSource,
+  temporaryAnswerWorkflowTextBox,
+  writePng
 });
 const { createComponentTemplateOrchestration } = require("./lib/native-rebuild-component-template-orchestration");
 const {
@@ -822,6 +863,11 @@ const {
   createWorkflowPrdAutoGenerationObjects,
   shouldObjectifyWorkflowPrdAutoGeneration,
   isWorkflowPrdAutoGenerationLeftIllustrationCrop,
+  createWorkflowDemandUnderstandingAssistantObjects,
+  shouldObjectifyWorkflowDemandUnderstandingAssistant,
+  isWorkflowDemandUnderstandingAssistantLeftIllustrationCrop,
+  workflowDemandUnderstandingLayout,
+  workflowDemandTextEvidence,
   createLeftIllustrationPanelSkeletonShapes,
   shouldObjectifyLeftIllustrationPanelSkeleton,
   inferLeftIllustrationPanelSkeletonShapes
@@ -863,6 +909,7 @@ const {
   shouldObjectifyProductCollaborationChallenge,
   splitResidualLayerSource,
   temporaryAnswerWorkflowTextBox,
+  unionPtBoxes,
   workflowCollaborationBranchGlowStyle,
   workflowCollaborationHubLayerStyle,
   workflowSupplyChainTwoPanelEvidenceText,
@@ -950,6 +997,7 @@ const {
   workflowComparisonMeasuredTextBox,
   writePng
 });
+
 
 const { claimPageSemanticImages } = createPageSemanticClaims({
   createSkillsCapabilityMatrixObjects, createDemandIntakeFunnelObjects,
@@ -4620,194 +4668,6 @@ function addSkillsEngineAiComparisonMatrixText(textBoxes, source, layout) {
   });
 }
 
-function createWorkflowDemandUnderstandingAssistantObjects(page = {}, rawTextBoxes = [], slideSize = DEFAULT_SLIDE, sourceImage = null) {
-  if (!shouldObjectifyWorkflowDemandUnderstandingAssistant(page, rawTextBoxes, slideSize)) return { shapes: [], textBoxes: [] };
-  const sourceImages = (page.images || []).filter((image) => /^(?:left-illustration-panel-crop|bottom-banner-crop)$/.test(image?.source?.detector || ""));
-  for (const image of sourceImages.filter((item) => item?.source?.detector === "left-illustration-panel-crop")) {
-    image.source = {
-      ...(image.source || {}),
-      editable: false,
-      nativeRebuild: true,
-      expressionForm: "icon-or-illustration",
-      expressionSubtype: "workflow-demand-funnel-illustration",
-      workflowDemandUnderstandingLeftIllustrationPreserved: true,
-      intentionalMinimumUnitCrop: true,
-      protectedMinimumUnit: true,
-      dropErasedResidualAfterNativeRebuild: false,
-      recommendedAction: "match-icon-library-or-keep-local-crop",
-      nonEditableReason: `${image.source?.nonEditableReason || image.source?.reason || "workflow demand understanding funnel illustration"}; preserved the dense left illustration as a movable fidelity crop while rebuilding surrounding cards and value banner natively`
-    };
-    applyMinimumUnitCropRenderStrategy(image.source);
-  }
-  for (const image of sourceImages.filter((item) => item?.source?.detector === "bottom-banner-crop")) {
-    image.source = {
-      ...(image.source || {}),
-      workflowDemandUnderstandingAssistantObjectified: true,
-      dropErasedResidualAfterNativeRebuild: true,
-      nonEditableReason: `${image.source?.nonEditableReason || image.source?.reason || "workflow demand understanding assistant banner"}; rebuilt value banner as native editable components`
-    };
-  }
-  const source = (detector, extra = {}) => ({
-    editable: true,
-    nativeRebuild: true,
-    detector,
-    confidence: 0.9,
-    ...extra
-  });
-  const shapes = [];
-  const textBoxes = [];
-  const add = (shape) => shapes.push(shape);
-  const layout = workflowDemandUnderstandingLayout(rawTextBoxes, slideSize);
-  addWorkflowDemandCardShells(add, source, layout, sourceImage);
-  addWorkflowDemandCleanContentText(textBoxes, source, rawTextBoxes, layout);
-  addWorkflowDemandShieldIcon(add, source, layout);
-  addWorkflowDemandValueBanner(add, textBoxes, source, slideSize, rawTextBoxes, layout, sourceImage);
-  return { shapes, textBoxes };
-}
-
-function shouldObjectifyWorkflowDemandUnderstandingAssistant(page = {}, rawTextBoxes = [], slideSize = DEFAULT_SLIDE) {
-  const labels = (rawTextBoxes || []).map((item) => normalizeCjkText(item.text)).join(" ");
-  if (!/需求理解助手/.test(labels) || !/核心痛点/.test(labels) || !/Skill解决方案/.test(labels)) return false;
-  const candidates = (page.images || []).filter((image) => /^(?:left-illustration-panel-crop|bottom-banner-crop)$/.test(image?.source?.detector || ""));
-  const hasLeft = candidates.some((image) => image?.source?.detector === "left-illustration-panel-crop");
-  const hasBanner = candidates.some((image) => image?.source?.detector === "bottom-banner-crop");
-  const areaRatio = candidates.reduce((sum, image) => sum + Number(image.box?.w || 0) * Number(image.box?.h || 0), 0)
-    / Math.max(1, Number(slideSize.widthPt || DEFAULT_SLIDE.widthPt) * Number(slideSize.heightPt || DEFAULT_SLIDE.heightPt));
-  return hasLeft && hasBanner && areaRatio > 0.25 && areaRatio < 0.6;
-}
-
-function isWorkflowDemandUnderstandingAssistantLeftIllustrationCrop(image = {}, rawTextBoxes = []) {
-  if (image?.source?.detector !== "left-illustration-panel-crop") return false;
-  const labels = (rawTextBoxes || []).map((item) => normalizeCjkText(item.text)).join(" ");
-  return /需求理解助手/.test(labels) && /核心痛点/.test(labels) && /Skill解决方案/.test(labels);
-}
-
-function addWorkflowDemandFunnelIllustration(add, textBoxes, source) {
-  add({ id: "workflow-demand-funnel-lip", type: "rect", box: { x: 90, y: 192, w: 260, h: 22 }, style: { fill: "#0768B5", stroke: "#0768B5", strokeWidthPt: 0, radiusPt: 9, shadow: { color: "#0768B5", alpha: 0.16, blurPt: 3, distancePt: 1, angle: 45 } }, source: source("workflow-demand-native-funnel", { part: "lip" }) });
-  add({ id: "workflow-demand-funnel-body", type: "freeform", box: { x: 116, y: 213, w: 208, h: 210 }, points: [{ x: 116, y: 213 }, { x: 324, y: 213 }, { x: 248, y: 355 }, { x: 244, y: 416 }, { x: 201, y: 423 }, { x: 197, y: 355 }], style: { fill: "#0870C3", stroke: "#075A9F", strokeWidthPt: 2, opacity: 0.98 }, source: source("workflow-demand-native-funnel", { part: "body" }) });
-  add({ id: "workflow-demand-funnel-inner-left", type: "freeform", box: { x: 124, y: 220, w: 76, h: 145 }, points: [{ x: 124, y: 220 }, { x: 171, y: 220 }, { x: 202, y: 349 }, { x: 191, y: 365 }], style: { fill: "#5AA4D3", stroke: "none", strokeWidthPt: 0, opacity: 0.45 }, source: source("workflow-demand-native-funnel", { part: "inner-left" }) });
-  add({ id: "workflow-demand-funnel-glow", type: "ellipse", box: { x: 158, y: 244, w: 118, h: 95 }, style: { fill: "#49D66E", stroke: "none", strokeWidthPt: 0, opacity: 0.28 }, source: source("workflow-demand-native-funnel-glow") });
-  [0, 1, 2].forEach((index) => {
-    add({ id: `workflow-demand-gear-${index}`, type: "ellipse", box: { x: 186 + index * 28, y: 268 + (index % 2) * 18, w: 34, h: 34 }, style: { fill: "#EAF8EF", stroke: "#BFE8C9", strokeWidthPt: 2 }, source: source("workflow-demand-native-gear", { index }) });
-    add({ id: `workflow-demand-gear-hole-${index}`, type: "ellipse", box: { x: 197 + index * 28, y: 279 + (index % 2) * 18, w: 12, h: 12 }, style: { fill: "#56C66E", stroke: "#56C66E", strokeWidthPt: 0 }, source: source("workflow-demand-native-gear", { index, part: "hole" }) });
-  });
-  const docs = [
-    { kind: "chat", x: 75, y: 95, color: "#D9EEF9", stroke: "#0E71A9" },
-    { kind: "doc", x: 215, y: 74, color: "#D9EEF9", stroke: "#0E71A9" },
-    { kind: "note", x: 289, y: 88, color: "#0D6FB8", stroke: "#075A9F" },
-    { kind: "doc", x: 164, y: 133, color: "#D9EEF9", stroke: "#0E71A9" },
-    { kind: "card", x: 276, y: 146, color: "#D9EEF9", stroke: "#0E71A9" }
-  ];
-  docs.forEach((doc, index) => {
-    add({ id: `workflow-demand-floating-${index}`, type: "rect", box: { x: doc.x, y: doc.y, w: index === 0 ? 54 : 44, h: index === 0 ? 42 : 54 }, style: { fill: doc.color, stroke: doc.stroke, strokeWidthPt: 1.3, radiusPt: 4, rotate: index === 2 ? 13 : index === 3 ? -12 : 0 }, source: source("workflow-demand-native-floating-doc", { index, kind: doc.kind }) });
-    [0, 1, 2].forEach((line) => add({ id: `workflow-demand-floating-line-${index}-${line}`, type: "line", box: { x: doc.x + 10, y: doc.y + 13 + line * 10, w: index === 0 ? 30 : 23, h: 0 }, style: { stroke: index === 2 ? "#E8F2FA" : "#6D94A9", strokeWidthPt: 1.4, connectorType: "straight" }, source: source("workflow-demand-native-floating-doc-line", { index, line }) }));
-  });
-  const pills = [
-    ["需求理解", 139, 398, "#10A34E"],
-    ["PRD生成", 224, 398, "#075FAB"],
-    ["精准提炼", 139, 428, "#075FAB"],
-    ["结构清单", 224, 428, "#10A34E"]
-  ];
-  pills.forEach(([label, x, y, fill], index) => {
-    add({ id: `workflow-demand-pill-${index}`, type: "rect", box: { x, y, w: 78, h: 24 }, style: { fill, stroke: fill, strokeWidthPt: 0, radiusPt: 5 }, source: source("workflow-demand-native-pill", { index }) });
-    textBoxes.push(temporaryAnswerWorkflowTextBox(`workflow-demand-pill-text-${index}`, label, { x: x + 8, y: y + 5, w: 62, h: 15 }, { sizePt: 11.5, color: "#FFFFFF", weight: "bold", align: "center" }, source("workflow-demand-native-text", { role: "pill", index })));
-  });
-}
-
-function addWorkflowDemandCardShells(add, source, layout, sourceImage = null) {
-  const painFill = sampleWorkflowMatrixCellFill(sourceImage, layout.painCard, layout.slideSize, "#FFFFFF");
-  const solutionFill = sampleWorkflowMatrixCellFill(sourceImage, layout.solutionCard, layout.slideSize, "#F7FFF9");
-  const solutionHeaderFill = sampleWorkflowMatrixCellFill(sourceImage, { x: layout.solutionCard.x, y: layout.solutionCard.y, w: layout.solutionCard.w, h: layout.headerH }, layout.slideSize, "#F1FCF3");
-  add({ id: "workflow-demand-pain-card", type: "rect", box: layout.painCard, style: { fill: painFill, stroke: "#B8B8B8", strokeWidthPt: 1.6, radiusPt: 5, shadow: { color: "#818181", alpha: 0.1, blurPt: 3, distancePt: 1, angle: 45 } }, source: source("workflow-demand-native-card", { role: "pain" }) });
-  add({ id: "workflow-demand-pain-accent", type: "rect", box: { x: layout.painCard.x + 22, y: layout.painCard.y - 4, w: layout.painCard.w - 42, h: 9 }, style: { fill: "#F17612", stroke: "#F17612", strokeWidthPt: 0, radiusPt: 2 }, source: source("workflow-demand-native-card-accent", { role: "pain" }) });
-  add({ id: "workflow-demand-pain-separator", type: "line", box: { x: layout.painCard.x + 2, y: layout.separatorY, w: layout.painCard.w - 4, h: 0 }, style: { stroke: "#DADADA", strokeWidthPt: 0.9, connectorType: "straight" }, source: source("workflow-demand-native-card-separator", { role: "pain" }) });
-  add({ id: "workflow-demand-solution-card", type: "rect", box: layout.solutionCard, style: { fill: solutionFill, stroke: "#0C6CA8", strokeWidthPt: 2.2, radiusPt: 5, shadow: { color: "#0C6CA8", alpha: 0.1, blurPt: 4, distancePt: 1, angle: 45 } }, source: source("workflow-demand-native-card", { role: "solution" }) });
-  add({ id: "workflow-demand-solution-accent", type: "rect", box: { x: layout.solutionCard.x + 23, y: layout.solutionCard.y - 4, w: layout.solutionCard.w - 46, h: 9 }, style: { fill: "#18A95B", stroke: "#18A95B", strokeWidthPt: 0, radiusPt: 2 }, source: source("workflow-demand-native-card-accent", { role: "solution" }) });
-  add({ id: "workflow-demand-solution-header-fill", type: "rect", box: { x: layout.solutionCard.x + 2, y: layout.solutionCard.y + 1, w: layout.solutionCard.w - 4, h: layout.headerH - 1 }, style: { fill: solutionHeaderFill, stroke: "none", strokeWidthPt: 0, radiusPt: 4 }, source: source("workflow-demand-native-card-header-fill", { role: "solution" }) });
-  add({ id: "workflow-demand-solution-separator", type: "line", box: { x: layout.solutionCard.x + 2, y: layout.separatorY, w: layout.solutionCard.w - 4, h: 0 }, style: { stroke: "#DADADA", strokeWidthPt: 0.9, connectorType: "straight" }, source: source("workflow-demand-native-card-separator", { role: "solution" }) });
-}
-
-function addWorkflowDemandCleanContentText(textBoxes, source, rawTextBoxes = [], layout) {
-  const evidence = workflowDemandTextEvidence(rawTextBoxes);
-  const painLines = evidence.painLines.length > 0 ? evidence.painLines : [
-    { text: "· 跨多源信息极难收敛", box: { x: 451, y: 204, w: 164, h: 21 }, font: { sizePt: 14.8 } },
-    { text: "· 极易带着隐藏“信息", box: { x: 448, y: 255, w: 161, h: 17 }, font: { sizePt: 12.2 } },
-    { text: "缺口” 开始写作", box: { x: 461, y: 281, w: 115, h: 20 }, font: { sizePt: 14.3 } }
-  ];
-  const solutionLines = evidence.solutionLines.length > 0 ? evidence.solutionLines : [
-    { text: "· 多源归集：会议纪要、竞品截图、旧版统一收口", box: { x: 680, y: 207, w: 200, h: 45 }, font: { sizePt: 12.2 } },
-    { text: "· 精准提炼：自动抽取业务目标、角色权限、核心流程", box: { x: 680, y: 282, w: 215, h: 46 }, font: { sizePt: 12.2 } },
-    { text: "暴露缺口：自动扫描并生成“异常场景边界”与“待确认问题清单”", box: { x: 695, y: 356, w: 188, h: 73 }, font: { sizePt: 12.2 } }
-  ];
-  const addMeasured = (id, value, item, fallbackBox, style, extra) => {
-    const { sizeScale = 1, ...fontStyle } = style;
-    textBoxes.push(temporaryAnswerWorkflowTextBox(id, value, workflowComparisonMeasuredTextBox(item, fallbackBox), {
-      ...fontStyle,
-      sizePt: round(workflowComparisonMeasuredFontSize(item, style.sizePt) * sizeScale)
-    }, source("workflow-demand-native-text", extra)));
-  };
-  const titleBox = unionPtBoxes(evidence.title.filter(Boolean).map((item) => item.box)) || { x: 430, y: 72, w: 450, h: 42 };
-  const expandedTitleBox = { x: titleBox.x - 2, y: titleBox.y - 4, w: titleBox.w + 4, h: titleBox.h + 8 };
-  addMeasured("workflow-demand-page-title", "能力深潜 01 — 需求理解助手", { box: expandedTitleBox, font: { sizePt: Math.max(...evidence.title.map((item) => Number(item?.font?.sizePt || 0)), 21.6) } }, expandedTitleBox, { sizePt: 21.6, sizeScale: 1.28, color: "#1F557B", weight: "bold", align: "left" }, { role: "title" });
-  addMeasured("workflow-demand-pain-title", "核心痛点", evidence.painTitle, { x: 484, y: 151, w: 94, h: 28 }, { sizePt: 17.8, sizeScale: 1.15, color: "#C1763A", weight: "bold", align: "center" }, { role: "pain-title" });
-  addMeasured("workflow-demand-solution-title", "Skill 解决方案", evidence.solutionTitle, { x: 703, y: 152, w: 145, h: 26 }, { sizePt: 14.9, sizeScale: 1.25, color: "#25833E", weight: "bold", align: "center" }, { role: "solution-title" });
-  painLines.forEach((item, index) => addMeasured(`workflow-demand-pain-line-${index}`, item.text, item, item.box, { sizePt: 13, color: "#111111", weight: "regular", align: "left" }, { role: "pain-body", line: index }));
-  solutionLines.forEach((item, index) => addMeasured(`workflow-demand-solution-line-${index}`, item.text, item, item.box, { sizePt: 13, color: "#111111", weight: "regular", align: "left" }, { role: "solution-body", line: index }));
-}
-
-function addWorkflowDemandValueBanner(add, textBoxes, source, slideSize = DEFAULT_SLIDE, rawTextBoxes = [], layout = null, sourceImage = null) {
-  const width = Number(slideSize.widthPt || DEFAULT_SLIDE.widthPt);
-  const banner = layout?.banner || { x: 0, y: 485, w: width, h: 55 };
-  const fill = sampleWorkflowMatrixCellFill(sourceImage, banner, slideSize, "#0C9F3F");
-  add({ id: "workflow-demand-value-banner-bg", type: "rect", box: banner, style: { fill, stroke: fill, strokeWidthPt: 0 }, source: source("workflow-demand-native-value-banner") });
-  const evidence = workflowDemandTextEvidence(rawTextBoxes);
-  const valueBox = unionPtBoxes(evidence.valueLines.map((item) => item.box)) || { x: 120, y: 501, w: 705, h: 24 };
-  textBoxes.push(temporaryAnswerWorkflowTextBox("workflow-demand-value-banner-copy", "产出价值：PM 告别资料搬运工，讨论直击结构化问题清单，起跑线锁定质量。", workflowComparisonMeasuredTextBox({ box: valueBox }, valueBox), { sizePt: 17.2, color: "#FFFFFF", weight: "bold", align: "left" }, source("workflow-demand-native-text", { role: "value-copy" })));
-}
-
-function workflowDemandUnderstandingLayout(rawTextBoxes = [], slideSize = DEFAULT_SLIDE) {
-  const evidence = workflowDemandTextEvidence(rawTextBoxes);
-  const width = Number(slideSize.widthPt || DEFAULT_SLIDE.widthPt);
-  const height = Number(slideSize.heightPt || DEFAULT_SLIDE.heightPt);
-  const painX = Number(evidence.painLines[0]?.box?.x || 451) - 21;
-  const solutionX = Number(evidence.solutionLines[0]?.box?.x || 680) - 27;
-  const cardY = Math.min(Number(evidence.painTitle?.box?.y || 152), Number(evidence.solutionTitle?.box?.y || 154)) - 15;
-  const bannerY = Math.min(...evidence.valueLines.map((item) => Number(item.box?.y || height)), height) - 18;
-  const cardBottom = bannerY - 30;
-  const separatorY = Math.min(Number(evidence.painLines[0]?.box?.y || 204), Number(evidence.solutionLines[0]?.box?.y || 207)) - 16;
-  return {
-    slideSize,
-    painCard: { x: round(painX), y: round(cardY), w: round(solutionX - painX - 22), h: round(cardBottom - cardY) },
-    solutionCard: { x: round(solutionX), y: round(cardY), w: round(width - solutionX - 56), h: round(cardBottom - cardY) },
-    headerH: round(separatorY - cardY),
-    separatorY: round(separatorY),
-    banner: { x: 0, y: round(bannerY), w: width, h: round(height - bannerY) }
-  };
-}
-
-function workflowDemandTextEvidence(rawTextBoxes = []) {
-  const find = (value) => rawTextBoxes.find((item) => normalizeCjkText(item.text) === normalizeCjkText(value)) || null;
-  const combinedTitle = rawTextBoxes.find((item) => /能力深潜.*需求理解助手/.test(normalizeCjkText(item.text))) || null;
-  const painLines = ["·跨多源信息极难收敛", "·极易带着隐藏“信息", "缺口”开始写作"].map(find).filter(Boolean);
-  const solutionLines = ["·多源归集：会议纪要、竞", "品截图、旧版统一收口", "·精准提炼：自动抽取业务目", "标、角色权限、核心流程", "暴露缺口：自动扫描并生", "成“异常场景边界”与“待", "确认问题清单”"].map(find).filter(Boolean);
-  return {
-    title: combinedTitle ? [combinedTitle] : [find("能力深潜01—"), find("需求理解助手")].filter(Boolean),
-    painTitle: find("核心痛点"),
-    solutionTitle: find("Skill解决方案"),
-    painLines,
-    solutionLines,
-    valueLines: [find("产出价值：PM告别资料搬运工，讨论直击结构化问题清单，"), find("起跑线锁定质量。")].filter(Boolean)
-  };
-}
-
-function addWorkflowDemandShieldIcon(add, source, layout) {
-  const x = layout.solutionCard.x + 12;
-  const y = layout.separatorY + (layout.solutionCard.h - layout.headerH) * 0.57;
-  add({ id: "workflow-demand-shield", type: "freeform", box: { x, y, w: 24, h: 30 }, points: [{ x: x + 12, y }, { x: x + 24, y: y + 5 }, { x: x + 21, y: y + 22 }, { x: x + 12, y: y + 30 }, { x: x + 3, y: y + 22 }, { x, y: y + 5 }], style: { fill: "#F47B20", stroke: "#E56A12", strokeWidthPt: 0.8 }, source: source("workflow-demand-native-shield-icon") });
-  add({ id: "workflow-demand-shield-check-a", type: "line", box: lineBox({ x: x + 6, y: y + 15 }, { x: x + 10, y: y + 20 }), style: { stroke: "#FFFFFF", strokeWidthPt: 2.2, connectorType: "straight", lineCap: "round" }, source: source("workflow-demand-native-shield-check") });
-  add({ id: "workflow-demand-shield-check-b", type: "line", box: lineBox({ x: x + 10, y: y + 20 }, { x: x + 18, y: y + 10 }), style: { stroke: "#FFFFFF", strokeWidthPt: 2.2, connectorType: "straight", lineCap: "round" }, source: source("workflow-demand-native-shield-check") });
-}
-
 function temporaryAnswerWorkflowTextBox(id, text, box, font = {}, source = {}) {
   return {
     id,
@@ -4828,592 +4688,6 @@ function temporaryAnswerWorkflowTextBox(id, text, box, font = {}, source = {}) {
 }
 
 
-
-function createSaturatedDiagramTextShapes(images = [], textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE, irDir = null) {
-  if (!sourceImage) return [];
-  for (const image of images || []) {
-    if (image?.source?.detector !== "saturated-diagram-graphic-underlay-crop") continue;
-    const nativeTextBoxes = maybeEraseSaturatedDiagramText({
-      image,
-      textBoxes: saturatedDiagramNativeTextBoxes(image, textBoxes),
-      sourceImage,
-      slideSize,
-      irDir
-    });
-    if (nativeTextBoxes.length === 0) continue;
-    image.source = {
-      ...(image.source || {}),
-      saturatedDiagramTextObjectified: true,
-      saturatedDiagramNativeTextBoxes: nativeTextBoxes,
-      objectifiedSaturatedDiagramTextBoxes: nativeTextBoxes.length,
-      nonEditableReason: `${image.source?.nonEditableReason || image.source?.reason || "local fidelity crop"}; saturated diagram OCR labels erased from crop and rebuilt as editable native text`
-    };
-  }
-  return [];
-}
-
-function saturatedDiagramNativeTextBoxes(image, textBoxes = []) {
-  const box = image?.box || {};
-  return (textBoxes || [])
-    .filter((textBox) => boxCenterInside(textBox.box, box))
-    .filter((textBox) => isSaturatedDiagramInternalLabel(textBox, box))
-    .filter((textBox) => normalizeMatrixLabel(textBox.text))
-    .map((textBox, index) => saturatedDiagramTextBox(image, textBox, index));
-}
-
-function saturatedDiagramTextBox(image, textBox, index) {
-  const next = JSON.parse(JSON.stringify(textBox));
-  const compact = String(next.text || "").replace(/\s+/g, "");
-  const role = /^(?:痛点|解决方案)$/.test(compact)
-    ? "side-heading"
-    : /结构化标准|DOM语义|文档|精准克隆|自动生成操作手册|所见即所得|证据回流|交互原型/.test(compact)
-      ? "loop-node-label"
-      : "side-body";
-  next.id = next.id || `${image.id || "saturated-diagram"}-native-text-${index}`;
-  next.font = {
-    ...(next.font || {}),
-    color: saturatedDiagramTextColor(role, next.font?.color),
-    opacity: 1,
-    weight: role === "side-heading" || role === "loop-node-label" ? "bold" : (next.font?.weight || "regular")
-  };
-  next.source = {
-    ...(next.source || {}),
-    editable: true,
-    nativeRebuild: true,
-    detector: "saturated-diagram-native-visible-label",
-    expressionForm: "complex-diagram",
-    expressionSubtype: "saturated-multi-flow-diagram",
-    layerSourceId: image.id || null,
-    overlayVisibility: "visible",
-    role,
-    textErasedFromCrop: true
-  };
-  return next;
-}
-
-function saturatedDiagramTextColor(role, fallback) {
-  const normalized = normalizeHex(fallback, "");
-  if (normalized) return normalized;
-  if (role === "loop-node-label") return "#111111";
-  return "#FFFFFF";
-}
-
-function maybeEraseSaturatedDiagramText({ image, textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE, irDir = null }) {
-  if (!sourceImage || textBoxes.length === 0) return [];
-  const assetFile = resolveAssetPathForIr(image.assetPath, irDir);
-  if (!assetFile) return [];
-  const masks = textBoxes.map((item) => ptToPxBox(item.box, sourceImage, slideSize, 4));
-  if (masks.length === 0) return [];
-  const erased = eraseMasks(sourceImage, masks);
-  const crop = cropPng(erased, ptToPxBox(image.box, sourceImage, slideSize, 0));
-  ensureDir(path.dirname(assetFile));
-  writePng(assetFile, crop);
-  return textBoxes;
-}
-
-function createSemanticCycleDiagramShapes(images = [], textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE, irDir = null, options = {}) {
-  if (!sourceImage) return [];
-  const shapes = [];
-  shapes.images = [];
-  for (const image of images || []) {
-    if (!shouldObjectifySemanticCycleDiagram(image, textBoxes)) continue;
-    // The loop geometry and labels are stable semantic structure. Preserve only
-    // the four pictorial node icons by default; the former full-cycle crop is
-    // available only as an explicit fidelity fallback.
-    const hybridCrop = options.preserveHighFidelitySemanticCycle === true
-      ? createSemanticCycleMinimumUnitCrop({
-      image,
-      textBoxes,
-      sourceImage,
-      slideSize,
-      irDir,
-      assetDir: options.assetDir,
-      deckName: options.deckName,
-      pageIndex: options.pageIndex
-      })
-      : null;
-    if (hybridCrop) {
-      const nativeTextBoxes = Array.isArray(image.source?.saturatedDiagramNativeTextBoxes)
-        ? image.source.saturatedDiagramNativeTextBoxes
-        : saturatedDiagramNativeTextBoxes(image, textBoxes);
-      for (const textBox of nativeTextBoxes) {
-        if (!boxCenterInside(textBox?.box, hybridCrop.box)) continue;
-        textBox.source = {
-          ...(textBox.source || {}),
-          layerSourceId: hybridCrop.id,
-          // These labels remain part of the protected artwork so the crop
-          // never receives flat erase-mask patches behind native text.
-          textEmbeddedInFidelityCrop: true
-        };
-      }
-      image.source = {
-        ...(image.source || {}),
-        semanticCycleDiagramObjectified: true,
-        semanticCycleHybridCropReplaced: true,
-        visualAtomOverlayOnly: true,
-        dropErasedResidualAfterNativeRebuild: true,
-        objectifiedSemanticCycleShapes: 0,
-        semanticCycleTextObjectified: false,
-        saturatedDiagramNativeTextBoxes: nativeTextBoxes,
-        objectifiedSaturatedDiagramTextBoxes: nativeTextBoxes.length,
-        nonEditableReason: `${image.source?.nonEditableReason || image.source?.reason || "local fidelity crop"}; interlocking cycle illustration preserved as one protected minimum unit because its embedded labels and artwork are visually inseparable`
-      };
-      shapes.images.push(hybridCrop);
-      continue;
-    }
-    let localShapes = inferSemanticCycleDiagramShapes(image);
-    if (localShapes.length === 0) continue;
-    const iconCrops = createSemanticCycleIconMinimumUnitCrops({
-      image,
-      sourceImage,
-      slideSize,
-      irDir,
-      assetDir: options.assetDir,
-      deckName: options.deckName,
-      pageIndex: options.pageIndex
-    });
-    if (iconCrops.length === 4) {
-      const pictorialDetectors = new Set([
-        "semantic-cycle-native-node",
-        "semantic-cycle-native-icon",
-        "semantic-cycle-native-icon-detail"
-      ]);
-      localShapes = localShapes.filter((shape) => !pictorialDetectors.has(shape?.source?.detector));
-      shapes.images.push(...iconCrops);
-    }
-    const nativeTextBoxes = Array.isArray(image.source?.saturatedDiagramNativeTextBoxes)
-      ? image.source.saturatedDiagramNativeTextBoxes
-      : maybeEraseSaturatedDiagramText({
-        image,
-        textBoxes: saturatedDiagramNativeTextBoxes(image, textBoxes),
-        sourceImage,
-        slideSize,
-        irDir
-      });
-    image.source = {
-      ...(image.source || {}),
-      semanticCycleDiagramObjectified: true,
-      visualAtomOverlayOnly: shouldDropSemanticCycleResidual(localShapes, nativeTextBoxes, iconCrops) ? false : true,
-      dropErasedResidualAfterNativeRebuild: shouldDropSemanticCycleResidual(localShapes, nativeTextBoxes, iconCrops)
-        ? true
-        : image.source?.dropErasedResidualAfterNativeRebuild,
-      objectifiedSemanticCycleShapes: localShapes.length,
-      semanticCycleMinimumUnitCrops: iconCrops,
-      semanticCycleTextObjectified: nativeTextBoxes.length > 0,
-      saturatedDiagramNativeTextBoxes: nativeTextBoxes,
-      objectifiedSaturatedDiagramTextBoxes: nativeTextBoxes.length,
-      nonEditableReason: `${image.source?.nonEditableReason || image.source?.reason || "local fidelity crop"}; semantic double-cycle diagram rebuilt as native rings, nodes, arrows, icons, and editable labels`
-    };
-    shapes.push(...localShapes);
-  }
-  return shapes;
-}
-
-function createSemanticCycleMinimumUnitCrop({ image = {}, textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE, irDir = null, assetDir = null, deckName = "deck", pageIndex = 0 } = {}) {
-  if (!sourceImage || !irDir || !assetDir || !isHighFidelityPrdCycle(image, textBoxes)) return null;
-  const box = image.box || {};
-  const cropBox = roundedBox({
-    x: Number(box.x || 0) + Number(box.w || 0) * 0.22,
-    y: Number(box.y || 0) + Number(box.h || 0) * 0.01,
-    w: Number(box.w || 0) * 0.56,
-    h: Number(box.h || 0) * 0.94
-  });
-  if (cropBox.w < 300 || cropBox.h < 180) return null;
-  const internalLabels = saturatedDiagramNativeTextBoxes(image, textBoxes)
-    .filter((textBox) => boxCenterInside(textBox?.box, cropBox))
-    .filter((textBox) => /结构化标准|文档|DOM\s*语义|精准克隆|自动生成操作手册|证据回流|所见即所得|交互原型/i.test(String(textBox?.text || "")));
-  if (internalLabels.length < 4) return null;
-  ensureDir(assetDir);
-  const file = path.join(assetDir, `${safeIdentifier(deckName, "deck")}-page-${String(Number(pageIndex || 0) + 1).padStart(3, "0")}-interlocking-cycle.png`);
-  writePng(file, cropPng(sourceImage, ptToPxBox(cropBox, sourceImage, slideSize, 0)));
-  return {
-    id: `${image.id || "semantic-cycle"}-interlocking-cycle-crop`,
-    type: "fidelity-crop",
-    assetPath: path.relative(irDir, file).replace(/\\/g, "/"),
-    box: cropBox,
-    source: {
-      ...(image.source || {}),
-      editable: false,
-      detector: "semantic-cycle-interlocking-minimum-unit-crop",
-      parentDetector: image.source?.detector || null,
-      parentImageId: image.id || null,
-      expressionForm: "complex-diagram",
-      expressionSubtype: "interlocking-cycle-illustration",
-      recommendedAction: "preserve-as-minimum-unit-crop",
-      protectedMinimumUnit: true,
-      intentionalMinimumUnitCrop: true,
-      skipVisualAtomRebuild: true,
-      semanticCycleTextErased: false,
-      textEmbeddedInFidelityCrop: true,
-      semanticCycleEmbeddedTextBoxes: internalLabels.length,
-      nonEditableReason: "smooth interlocking cycle artwork, embedded icon nodes, and embedded labels are not safely separable into faithful native primitives"
-    }
-  };
-}
-
-function createSemanticCycleIconMinimumUnitCrops({ image = {}, sourceImage = null, slideSize = DEFAULT_SLIDE, irDir = null, assetDir = null, deckName = "deck", pageIndex = 0 } = {}) {
-  if (!sourceImage || !irDir || !assetDir) return [];
-  const box = image.box || {};
-  if (Number(box.w || 0) < 760 || Number(box.h || 0) < 260) return [];
-  const left = semanticCycleRingBox(box, 0);
-  const right = semanticCycleRingBox(box, 1);
-  const nodeSize = Math.min(Number(box.h || 0) * 0.21, Number(box.w || 0) * 0.09);
-  const nodes = [
-    { key: "document", x: left.x + left.w * 0.15, y: left.y + left.h * 0.11 },
-    { key: "manual", x: left.x + left.w * 0.15, y: left.y + left.h * 0.89 },
-    { key: "dom", x: right.x + right.w * 0.78, y: right.y + right.h * 0.11 },
-    { key: "prototype", x: right.x + right.w * 0.78, y: right.y + right.h * 0.89 }
-  ];
-  ensureDir(assetDir);
-  return nodes.map((node, index) => {
-    const cropBox = roundedBox({
-      x: node.x - nodeSize * 0.74,
-      y: node.y - nodeSize * 0.74,
-      w: nodeSize * 1.48,
-      h: nodeSize * 1.48
-    });
-    const file = path.join(assetDir, `${safeIdentifier(deckName, "deck")}-page-${String(Number(pageIndex || 0) + 1).padStart(3, "0")}-cycle-icon-${String(index + 1).padStart(2, "0")}.png`);
-    const cropped = cropPng(sourceImage, ptToPxBox(cropBox, sourceImage, slideSize, 0));
-    writePng(file, makeEdgeConnectedBackgroundTransparent(cropped, {
-      transparentDistance: 22,
-      maximumDistance: 46
-    }));
-    return {
-      id: `${image.id || "semantic-cycle"}-icon-crop-${node.key}`,
-      type: "fidelity-crop",
-      assetPath: path.relative(irDir, file).replace(/\\/g, "/"),
-      box: cropBox,
-      source: {
-        ...(image.source || {}),
-        layer: splitResidualLayerSource(image.source?.layer, cropBox, "semantic-cycle-icon-minimum-unit-crop"),
-        editable: false,
-        detector: "semantic-cycle-icon-minimum-unit-crop",
-        parentDetector: image.source?.detector || null,
-        parentImageId: image.id || null,
-        expressionForm: "icon-or-illustration",
-        expressionSubtype: "cycle-node-icon",
-        recommendedAction: "keep-local-crop",
-        intentionalMinimumUnitCrop: true,
-        protectedMinimumUnit: true,
-        residualSplit: true,
-        residualSplitMode: "semantic-cycle-node-icon",
-        residualSplitIndex: index + 1,
-        residualSplitCount: nodes.length,
-        nonEditableReason: "pictorial cycle-node icon retained after native interlocking-loop reconstruction"
-      }
-    };
-  });
-}
-
-function isHighFidelityPrdCycle(image = {}, textBoxes = []) {
-  const source = image?.source || {};
-  const pageText = normalizeCjkText((textBoxes || []).map((item) => String(item?.text || "")).join("\n"));
-  return source.detector === "saturated-diagram-graphic-underlay-crop"
-    && source.expressionSubtype === "saturated-multi-flow-diagram"
-    && /PRD自动生成/.test(pageText)
-    && /结构化标准/.test(pageText)
-    && /DOM语义/.test(pageText)
-    && /交互原型/.test(pageText);
-}
-
-function shouldObjectifySemanticCycleDiagram(image, textBoxes = []) {
-  const source = image?.source || {};
-  const box = image?.box || {};
-  if (source.detector !== "saturated-diagram-graphic-underlay-crop") return false;
-  if (!box.w || !box.h || Number(box.w) < 760 || Number(box.h) < 260) return false;
-  const internal = (textBoxes || []).filter((textBox) => boxCenterInside(textBox.box, box));
-  const text = internal.map((item) => String(item.text || "")).join("\n");
-  const pageText = normalizeCjkText((textBoxes || []).map((item) => String(item?.text || "")).join("\n"));
-  const signals = [/结构化标准/, /DOM\s*语义/i, /自动生成操作手册/, /交互原型/, /痛点/, /解决方案/]
-    .filter((pattern) => pattern.test(text)).length;
-  const titleDrivenPrdCycle = source.expressionSubtype === "saturated-multi-flow-diagram"
-    && /PRD自动生成/.test(pageText)
-    && /preserve-fidelity-crop|native-rebuild|component/.test(String(source.recommendedAction || source.strategy || ""));
-  return signals >= 5 || titleDrivenPrdCycle;
-}
-
-function inferSemanticCycleDiagramShapes(image) {
-  const box = image.box || {};
-  const base = image.id || "semantic-cycle";
-  const left = semanticCycleRingBox(box, 0);
-  const right = semanticCycleRingBox(box, 1);
-  const nodeSize = Math.min(box.h * 0.21, box.w * 0.09);
-  const nodes = [
-    { key: "doc", color: "#0E6EAC", ring: "left", x: left.x + left.w * 0.15, y: left.y + left.h * 0.11, icon: "document" },
-    { key: "manual", color: "#0E6EAC", ring: "left", x: left.x + left.w * 0.15, y: left.y + left.h * 0.89, icon: "image" },
-    { key: "dom", color: "#1EAD4C", ring: "right", x: right.x + right.w * 0.78, y: right.y + right.h * 0.11, icon: "wand" },
-    { key: "prototype", color: "#1EAD4C", ring: "right", x: right.x + right.w * 0.78, y: right.y + right.h * 0.89, icon: "window" }
-  ].map((node) => ({
-    ...node,
-    box: { x: round(node.x - nodeSize / 2), y: round(node.y - nodeSize / 2), w: round(nodeSize), h: round(nodeSize) }
-  }));
-  const shapes = [
-    semanticCycleRingShape(base, image, "left", left, "#0D6DAA"),
-    semanticCycleRingShape(base, image, "right", right, "#21A84A"),
-    semanticCycleRingArcShape(base, image, "left-front-lower", left, "#0D6DAA", 20, 112)
-  ];
-  shapes.push(
-    semanticCycleArrowShape(base, image, "left-up", { x: left.x + left.w * 0.05, y: left.y + left.h * 0.55 }, "#0D6DAA", -90),
-    semanticCycleArrowShape(base, image, "left-down", { x: left.x + left.w * 0.86, y: left.y + left.h * 0.55 }, "#0D6DAA", 90),
-    semanticCycleArrowShape(base, image, "right-up", { x: right.x + right.w * 0.06, y: right.y + right.h * 0.55 }, "#21A84A", -90),
-    semanticCycleArrowShape(base, image, "right-down", { x: right.x + right.w * 0.86, y: right.y + right.h * 0.55 }, "#21A84A", 90)
-  );
-  for (const [index, node] of nodes.entries()) {
-    shapes.push(...semanticCycleNodeShapes(base, image, node, index));
-  }
-  return shapes;
-}
-
-function semanticCycleRingBox(box, index) {
-  const w = box.w * 0.31;
-  const h = box.h * 0.86;
-  const x = box.x + box.w * (index === 0 ? 0.26 : 0.47);
-  const y = box.y + box.h * 0.01;
-  return { x: round(x), y: round(y), w: round(w), h: round(h) };
-}
-
-function semanticCycleRingShape(base, image, key, box, color) {
-  return {
-    id: `${base}-semantic-cycle-ring-${key}`,
-    type: "ellipse",
-    box,
-    style: {
-      fill: "none",
-      stroke: color,
-      strokeWidthPt: 8,
-      opacity: 0.96,
-      shadow: { color, opacity: 0.16, blurPt: 7, distancePt: 0.8, angleDeg: 90 }
-    },
-    source: semanticCycleShapeSource(image, "semantic-cycle-native-ring", { ring: key })
-  };
-}
-
-function semanticCycleRingArcShape(base, image, key, box, color, startDeg, endDeg) {
-  return {
-    id: `${base}-semantic-cycle-ring-arc-${key}`,
-    type: "arc",
-    box,
-    style: {
-      fill: "none",
-      stroke: color,
-      strokeWidthPt: 8.4,
-      opacity: 0.98,
-      adjustments: [startDeg, endDeg],
-      shadow: { color, opacity: 0.12, blurPt: 6, distancePt: 0.6, angleDeg: 90 }
-    },
-    source: semanticCycleShapeSource(image, "semantic-cycle-native-ring-arc", { ringArc: key, startDeg, endDeg })
-  };
-}
-
-function semanticCycleArrowShape(base, image, key, center, color, rotationDeg) {
-  return {
-    id: `${base}-semantic-cycle-arrow-${key}`,
-    type: "triangle",
-    box: { x: round(center.x - 13), y: round(center.y - 13), w: 26, h: 26 },
-    style: { fill: color, stroke: color, strokeWidthPt: 0.4, opacity: 0.98, rotationDeg },
-    source: semanticCycleShapeSource(image, "semantic-cycle-native-arrow", { arrow: key })
-  };
-}
-
-function semanticCycleNodeShapes(base, image, node, index) {
-  const icon = {
-    x: round(node.box.x + node.box.w * 0.28),
-    y: round(node.box.y + node.box.h * 0.26),
-    w: round(node.box.w * 0.44),
-    h: round(node.box.h * 0.48)
-  };
-  const source = (detector, extra = {}) => semanticCycleShapeSource(image, detector, { node: node.key, nodeIndex: index, ...extra });
-  const shapes = [{
-    id: `${base}-semantic-cycle-node-${node.key}`,
-    type: "ellipse",
-    box: node.box,
-    style: {
-      fill: node.color,
-      stroke: node.color,
-      strokeWidthPt: 1,
-      opacity: 0.98,
-      shadow: { color: node.color, opacity: 0.24, blurPt: 7, distancePt: 1, angleDeg: 90 }
-    },
-    source: source("semantic-cycle-native-node")
-  }];
-  const detailSource = (part) => source("semantic-cycle-native-icon-detail", { iconPart: part });
-  if (node.icon === "document") {
-    shapes.push({
-      id: `${base}-semantic-cycle-icon-${node.key}`,
-      type: "freeform",
-      box: icon,
-      points: [{ x: 0, y: 0 }, { x: 0.7, y: 0 }, { x: 1, y: 0.28 }, { x: 1, y: 1 }, { x: 0, y: 1 }],
-      style: { fill: "#EAF6FF", stroke: "#D9EFFC", strokeWidthPt: 0.8 },
-      source: source("semantic-cycle-native-icon")
-    });
-    shapes.push(...semanticCycleDocumentIconDetails(base, node, icon, detailSource));
-  } else if (node.icon === "wand") {
-    shapes.push({
-      id: `${base}-semantic-cycle-icon-${node.key}`,
-      type: "line",
-      box: { x: icon.x, y: icon.y + icon.h, w: icon.w, h: -icon.h },
-      style: { stroke: "#F4FFF8", strokeWidthPt: 3, connectorType: "straight", lineCap: "round" },
-      source: source("semantic-cycle-native-icon")
-    });
-    shapes.push(...semanticCycleWandIconDetails(base, node, icon, detailSource));
-  } else {
-    shapes.push({
-      id: `${base}-semantic-cycle-icon-${node.key}`,
-      type: "roundRect",
-      box: icon,
-      style: { fill: "#EAF6FF", stroke: "#D9EFFC", strokeWidthPt: 0.8, radiusRatio: 0.08 },
-      source: source("semantic-cycle-native-icon")
-    });
-    shapes.push(...(node.icon === "image"
-      ? semanticCycleImageIconDetails(base, node, icon, detailSource)
-      : semanticCycleWindowIconDetails(base, node, icon, detailSource)));
-  }
-  return shapes;
-}
-
-function semanticCycleDocumentIconDetails(base, node, icon, source) {
-  return [0.38, 0.53, 0.68].map((yRatio, index) => ({
-    id: `${base}-semantic-cycle-icon-${node.key}-line-${index}`,
-    type: "line",
-    box: {
-      x: round(icon.x + icon.w * 0.20),
-      y: round(icon.y + icon.h * yRatio),
-      w: round(icon.w * 0.56),
-      h: 0
-    },
-    style: { stroke: "#2F6F95", strokeWidthPt: 1.7, connectorType: "straight", lineCap: "round" },
-    source: source(`document-line-${index}`)
-  }));
-}
-
-function semanticCycleImageIconDetails(base, node, icon, source) {
-  return [
-    {
-      id: `${base}-semantic-cycle-icon-${node.key}-mountain`,
-      type: "freeform",
-      box: {
-        x: round(icon.x + icon.w * 0.12),
-        y: round(icon.y + icon.h * 0.42),
-        w: round(icon.w * 0.66),
-        h: round(icon.h * 0.38)
-      },
-      points: [{ x: 0, y: 1 }, { x: 0.28, y: 0.46 }, { x: 0.48, y: 0.72 }, { x: 0.70, y: 0.22 }, { x: 1, y: 1 }],
-      style: { fill: "#7BB0D8", stroke: "#7BB0D8", strokeWidthPt: 0 },
-      source: source("image-mountain")
-    },
-    {
-      id: `${base}-semantic-cycle-icon-${node.key}-sun`,
-      type: "ellipse",
-      box: {
-        x: round(icon.x + icon.w * 0.70),
-        y: round(icon.y + icon.h * 0.18),
-        w: round(icon.w * 0.16),
-        h: round(icon.w * 0.16)
-      },
-      style: { fill: "#7BB0D8", stroke: "#7BB0D8", strokeWidthPt: 0 },
-      source: source("image-sun")
-    }
-  ];
-}
-
-function semanticCycleWandIconDetails(base, node, icon, source) {
-  const spark = (name, x, y, size) => ({
-    id: `${base}-semantic-cycle-icon-${node.key}-${name}`,
-    type: "freeform",
-    box: { x: round(x), y: round(y), w: round(size), h: round(size) },
-    points: [{ x: 0.5, y: 0 }, { x: 0.62, y: 0.38 }, { x: 1, y: 0.5 }, { x: 0.62, y: 0.62 }, { x: 0.5, y: 1 }, { x: 0.38, y: 0.62 }, { x: 0, y: 0.5 }, { x: 0.38, y: 0.38 }],
-    style: { fill: "#F4FFF8", stroke: "#F4FFF8", strokeWidthPt: 0 },
-    source: source(name)
-  });
-  return [
-    spark("wand-spark-large", icon.x + icon.w * 0.72, icon.y + icon.h * 0.10, icon.w * 0.18),
-    spark("wand-spark-small", icon.x + icon.w * 0.88, icon.y + icon.h * 0.28, icon.w * 0.12),
-    {
-      id: `${base}-semantic-cycle-icon-${node.key}-code-left`,
-      type: "freeform",
-      box: {
-        x: round(icon.x + icon.w * 0.44),
-        y: round(icon.y + icon.h * 0.62),
-        w: round(icon.w * 0.16),
-        h: round(icon.h * 0.22)
-      },
-      points: [{ x: 1, y: 0 }, { x: 0, y: 0.5 }, { x: 1, y: 1 }],
-      style: { fill: "none", stroke: "#F4FFF8", strokeWidthPt: 1.5, lineCap: "round" },
-      source: source("code-left")
-    },
-    {
-      id: `${base}-semantic-cycle-icon-${node.key}-code-right`,
-      type: "freeform",
-      box: {
-        x: round(icon.x + icon.w * 0.72),
-        y: round(icon.y + icon.h * 0.62),
-        w: round(icon.w * 0.16),
-        h: round(icon.h * 0.22)
-      },
-      points: [{ x: 0, y: 0 }, { x: 1, y: 0.5 }, { x: 0, y: 1 }],
-      style: { fill: "none", stroke: "#F4FFF8", strokeWidthPt: 1.5, lineCap: "round" },
-      source: source("code-right")
-    }
-  ];
-}
-
-function semanticCycleWindowIconDetails(base, node, icon, source) {
-  return [
-    {
-      id: `${base}-semantic-cycle-icon-${node.key}-browser-bar`,
-      type: "rect",
-      box: {
-        x: round(icon.x + icon.w * 0.10),
-        y: round(icon.y + icon.h * 0.18),
-        w: round(icon.w * 0.80),
-        h: round(icon.h * 0.18)
-      },
-      style: { fill: "#7BB0D8", stroke: "#7BB0D8", strokeWidthPt: 0 },
-      source: source("window-bar")
-    },
-    {
-      id: `${base}-semantic-cycle-icon-${node.key}-cursor`,
-      type: "freeform",
-      box: {
-        x: round(icon.x + icon.w * 0.54),
-        y: round(icon.y + icon.h * 0.52),
-        w: round(icon.w * 0.22),
-        h: round(icon.h * 0.30)
-      },
-      points: [{ x: 0, y: 0 }, { x: 1, y: 0.55 }, { x: 0.55, y: 0.65 }, { x: 0.78, y: 1 }, { x: 0.50, y: 1 }, { x: 0.30, y: 0.70 }],
-      style: { fill: "#1EAD4C", stroke: "#1EAD4C", strokeWidthPt: 0 },
-      source: source("window-cursor")
-    }
-  ];
-}
-
-function shouldDropSemanticCycleResidual(shapes = [], nativeTextBoxes = [], minimumUnitCrops = []) {
-  const count = (detector) => (shapes || []).filter((shape) =>
-    (shape?.source?.detector || shape?.detector) === detector
-  ).length;
-  const roles = new Set((nativeTextBoxes || []).map((textBox) => textBox?.source?.role || ""));
-  const hasNodeVisuals = count("semantic-cycle-native-node") >= 4
-    || (minimumUnitCrops || []).filter((crop) => crop?.source?.detector === "semantic-cycle-icon-minimum-unit-crop").length >= 4;
-  return count("semantic-cycle-native-ring") >= 2
-    && hasNodeVisuals
-    && count("semantic-cycle-native-arrow") >= 4
-    && roles.has("loop-node-label")
-    && roles.has("side-heading")
-    && nativeTextBoxes.length >= 8;
-}
-
-function semanticCycleShapeSource(image, detector, extra = {}) {
-  return {
-    editable: true,
-    nativeRebuild: true,
-    detector,
-    expressionForm: "complex-diagram",
-    expressionSubtype: "saturated-multi-flow-diagram",
-    layerSourceId: image.id || null,
-    layerType: image.source?.layer?.layerType || "diagram-zone",
-    ...extra
-  };
-}
 
 function createDenseComplexDiagramScaffoldShapes(images = [], textBoxes = [], slideSize = DEFAULT_SLIDE) {
   return createDenseComplexDiagramScaffoldObjects(images, textBoxes, slideSize).shapes;

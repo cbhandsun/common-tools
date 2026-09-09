@@ -5,6 +5,7 @@ const { createWorkflowCollaborationMultiplierFactory } = require("./native-rebui
 const { createWorkflowChallengeTriadFactory } = require("./native-rebuild-workflow-challenge-triad");
 const { createWorkflowSupplyChainFactory } = require("./native-rebuild-workflow-supply-chain");
 const { createWorkflowKpiPrdFactory } = require("./native-rebuild-workflow-kpi-prd");
+const { createWorkflowDemandUnderstandingFactory } = require("./native-rebuild-workflow-demand-understanding");
 
 function createWorkflowSpecializedPagesFactory(dependencies = {}) {
   const comparison = createWorkflowComparisonMatrixFactory(dependencies);
@@ -13,13 +14,15 @@ function createWorkflowSpecializedPagesFactory(dependencies = {}) {
   const challengeTriad = createWorkflowChallengeTriadFactory(sharedDependencies);
   const supplyChain = createWorkflowSupplyChainFactory(sharedDependencies);
   const kpiPrd = createWorkflowKpiPrdFactory(sharedDependencies);
+  const demandUnderstanding = createWorkflowDemandUnderstandingFactory(sharedDependencies);
 
   return {
     ...comparison,
     ...collaboration,
     ...challengeTriad,
     ...supplyChain,
-    ...kpiPrd
+    ...kpiPrd,
+    ...demandUnderstanding
   };
 }
 
