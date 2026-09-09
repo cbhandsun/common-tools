@@ -10,7 +10,7 @@ const {
   buildComponentReplacementSampleGapReport,
   collectSampleGaps,
   parseArgs
-} = require("../skills/pd-hifi-slideclone/scripts/component-replacement-sample-gap-report");
+} = require("../packages/slideclone-native-engine/scripts/component-replacement-sample-gap-report");
 
 test("sample gap report parses CLI options", () => {
   const args = parseArgs([

@@ -8,7 +8,7 @@ const {
   parseArgs,
   qualitySummary,
   readThresholds
-} = require("../skills/pd-hifi-slideclone/scripts/component-native-promotion-gate");
+} = require("../packages/slideclone-native-engine/scripts/component-native-promotion-gate");
 
 function report(overrides = {}) {
   return {
