@@ -104,6 +104,25 @@ test("production acceptance plan accepts one complete credential source without 
   assert.equal(serialized.includes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), false);
 });
 
+test("production acceptance plan command can archive redacted evidence inside the workspace", () => {
+  const cli = path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-acceptance-plan-"));
+  const result = spawnSync(process.execPath, [cli, "--workspace", workspace, "team", "production-acceptance-plan", "--out", "evidence/acceptance-plan.json"], {
+    encoding: "utf8",
+    env: { PATH: process.env.PATH || "" },
+    windowsHide: true
+  });
+  assert.equal(result.status, 0);
+  const summary = JSON.parse(result.stdout);
+  assert.equal(summary.status, "blocked-by-configuration");
+  assert.equal(summary.output, path.join(workspace, "evidence", "acceptance-plan.json"));
+  const archived = JSON.parse(fs.readFileSync(summary.output, "utf8"));
+  assert.equal(archived.status, "blocked-by-configuration");
+  assert.equal(archived.requiredConfiguration.COMMON_TOOLS_DATABASE_URL, "missing");
+  assert.equal(JSON.stringify(archived).includes("not-a-real-secret"), false);
+  assert.equal(JSON.stringify(archived).includes("database.internal"), false);
+});
+
 test("retention scheduler bounds its cadence, stops cleanly, and never overlaps runs", async () => {
   assert.deepEqual(retentionScheduleSettings({}), { intervalMs: 86400000, intervalSeconds: 86400 });
   assert.deepEqual(retentionScheduleSettings({ COMMON_TOOLS_RETENTION_INTERVAL_SECONDS: "300" }), { intervalMs: 300000, intervalSeconds: 300 });

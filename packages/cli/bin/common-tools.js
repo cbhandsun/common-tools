@@ -48,7 +48,7 @@ function bundledSlidecloneRunner() {
 const COMMAND_USAGE = [
   "usage: common-tools <command>",
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
-  "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team migration-status | team production-acceptance-plan | team editable-source-archive (--input <png|jpg|pdf|pptx|deck.json> | --inputs <ordered-images,csv>) --out <archive.tar.gz> | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) --out <archive.tar.gz> | team production-preflight | team keycloak-realm [--apply --backup-file <new.json> --evidence-file <new.json>] | team keycloak-mcp-client [--apply --backup-file <new.json>]",
+  "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team migration-status | team production-acceptance-plan [--out <json>] | team editable-source-archive (--input <png|jpg|pdf|pptx|deck.json> | --inputs <ordered-images,csv>) --out <archive.tar.gz> | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) --out <archive.tar.gz> | team production-preflight | team keycloak-realm [--apply --backup-file <new.json> --evidence-file <new.json>] | team keycloak-mcp-client [--apply --backup-file <new.json>]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
   "  editable init|create|run|batch|apply-edit | editable batch --inputs <ordered,csv> --out <directory> --config <json> | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose [--provider-config <json> --provider-id <id>]|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|edit-session|apply-edit|apply-ir-edit|finalize-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|layout-safe|typography-safe|editability-safe|audit-only] | job get|run|cancel"
 ].join("\n");
@@ -588,7 +588,15 @@ async function main() {
     return 0;
   }
   if (area === "team" && action === "production-acceptance-plan") {
-    process.stdout.write(`${JSON.stringify(productionAcceptancePlan(process.env), null, 2)}\n`);
+    const result = productionAcceptancePlan(process.env);
+    if (args.out) {
+      const outputFile = resolveWorkspaceChild(ctx.workspaceRoot, args.out, "production acceptance plan output");
+      fs.mkdirSync(path.dirname(outputFile), { recursive: true });
+      fs.writeFileSync(outputFile, `${JSON.stringify(result, null, 2)}\n`, "utf8");
+      process.stdout.write(`${JSON.stringify({ status: result.status, output: outputFile }, null, 2)}\n`);
+      return 0;
+    }
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return 0;
   }
   if (area === "team" && action === "keycloak-project-mapper") {
