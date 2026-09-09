@@ -24482,13 +24482,14 @@ function createEntropyChallengeFooterBulletShapes(textBoxes = [], slideSize = DE
 
 
 
-const { createPptxBuildExecutor, normalizePptxBuildJobs, shouldRunPowerPointOpenGate, resolvePython, isFlagDisabled } = require("@common-tools/slideclone-core/pptx-build-execution");
-const { buildPptx, buildPptxBatch } = createPptxBuildExecutor({
-  skillRoot: path.resolve(__dirname, ".."),
-  projectRoot: path.resolve(__dirname, "..", "..", ".."),
-  openXmlBuilderRoot: path.resolve(__dirname, "..", "dotnet", "OpenXmlDeckBuilder"),
-  buildOpenXmlDecksSync: (...args) => require("@common-tools/slideclone-core/pptx-openxml-dotnet").buildOpenXmlDecksSync(...args)
-});
+const {
+  createNativeRebuildPptxBuildExecutor,
+  normalizePptxBuildJobs,
+  shouldRunPowerPointOpenGate,
+  resolvePython,
+  isFlagDisabled
+} = require("./lib/native-rebuild-pptx-build-executor");
+const { buildPptx, buildPptxBatch } = createNativeRebuildPptxBuildExecutor({ scriptDir: __dirname });
 
 async function main() {
   return runNativeRebuildCli(process.argv.slice(2), {

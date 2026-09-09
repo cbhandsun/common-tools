@@ -30,13 +30,14 @@
 - native rebuild KPI evidence text：KPI evidence crop 内部文字识别、原图擦除和 editable native text 回填从主 rebuild 编排中移出。
 - native rebuild value quadrant：四象限价值图的 native divider、gem facet、semantic text 和 gem fidelity crop 处理从主 rebuild 编排中移出，asset OS flow 通过模块导出的 gem helper 复用同一实现。
 - native rebuild scale landing evidence：规模化落地证据页的 metric card、bottom strip、文本清洗/排版和最小图标 crop 编排从主 rebuild 编排中移出；共享 crop materializer 仍由主入口注入复用。
+- native rebuild PPTX build executor：OpenXML/PowerPoint 构建执行器的路径组合和 core executor 装配从主 rebuild 编排中移出，主入口只注入 `__dirname` 并继续导出相同 build gate。
 
 验证证据：
 
 - `node --check` 覆盖每个新增模块及受影响主文件。
 - `test/component-template-native-shapes.test.js` 通过。
 - `npm run lint` 通过，新增模块均进入统一 lint 入口。
-- `node scripts/verify-runtime-package.js` 通过：运行包 1,215 个文件、20 个 workspace package、6 项能力探针通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,223 个文件、20 个 workspace package、6 项能力探针通过。
 - `node scripts/verify-architecture-budgets.js` 通过。
 - `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
 
@@ -44,7 +45,7 @@
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：24,866 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：24,867 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
