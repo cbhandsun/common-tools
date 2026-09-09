@@ -10,9 +10,9 @@ const {
   listWorkDirs,
   rebuildDeckFromWorkDir,
   resolvePptxBuildMode,
-  resolvePython,
-  resolveSmartNativeRebuildOptions
+  resolvePython
 } = require("./rebuild-real-pptx-native");
+const { resolveSmartNativeRebuildOptions } = require("./lib/native-rebuild-options");
 const {
   buildComponentAssetIndex,
   buildComponentStrategyIndex
