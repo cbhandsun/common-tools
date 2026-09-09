@@ -5,7 +5,7 @@ const os = require("os");
 const path = require("path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { discoverIrFiles, parseArgs, runLimited, safeStem } = require("../skills/pd-hifi-slideclone/scripts/real-blind-layer-audit-parallel");
+const { discoverIrFiles, parseArgs, runLimited, safeStem } = require("../packages/slideclone-native-engine/scripts/real-blind-layer-audit-parallel");
 
 test("parallel blind audit parses bounded inputs", () => {
   const args = parseArgs(["--ir-dir", "ir", "--concurrency", "6", "--max-files", "80", "--canvas-scale", "auto"]);
