@@ -8,11 +8,17 @@ const PACKAGE_SCRIPT_DIR = __dirname;
 const REPOSITORY_ROOT = path.resolve(__dirname, "..", "..", "..");
 const SKILL_SCRIPT_DIR = path.join(REPOSITORY_ROOT, "skills", "pd-hifi-slideclone", "scripts");
 const PACKAGE_SCRIPT_FILES = new Set([
+  "component-asset-manifest.js",
   "component-candidate-search.js",
+  "component-library-materialize.js",
+  "component-library-storage-audit.js",
   "component-motif-recall-report.js",
   "component-plugin-action-queue.js",
   "harvest-active-powerpoint-component.js",
   "harvest-applied-ppt-components.js",
+  "islide-component-search.js",
+  "officeplus-component-search.js",
+  "plugin-component-inventory.js",
   "watch-plugin-component-downloads.js"
 ]);
 

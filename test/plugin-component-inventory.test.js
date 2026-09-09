@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 
 const {
   parseArgs
-} = require("../skills/pd-hifi-slideclone/scripts/plugin-component-inventory");
+} = require("../packages/slideclone-native-engine/scripts/plugin-component-inventory");
 
 test("plugin component inventory parses explicit roots and limits", () => {
   const args = parseArgs([

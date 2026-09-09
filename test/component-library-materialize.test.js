@@ -8,7 +8,7 @@ const test = require("node:test");
 const {
   parseArgs,
   readInventory
-} = require("../skills/pd-hifi-slideclone/scripts/component-library-materialize");
+} = require("../packages/slideclone-native-engine/scripts/component-library-materialize");
 
 test("component library materialize CLI parses bounded explicit options", () => {
   const args = parseArgs([

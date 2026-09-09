@@ -239,8 +239,8 @@ test("runRefreshPlan stops at the first failed step", () => {
 
 test("component library refresh resolves package scripts before legacy skill wrappers", () => {
   const packageScript = _private.scriptPath("component-motif-recall-report.js");
-  const legacySkillScript = _private.scriptPath("plugin-component-inventory.js");
+  const migratedInventoryScript = _private.scriptPath("plugin-component-inventory.js");
 
   assert.ok(packageScript.endsWith(path.join("packages", "slideclone-native-engine", "scripts", "component-motif-recall-report.js")));
-  assert.ok(legacySkillScript.endsWith(path.join("skills", "pd-hifi-slideclone", "scripts", "plugin-component-inventory.js")));
+  assert.ok(migratedInventoryScript.endsWith(path.join("packages", "slideclone-native-engine", "scripts", "plugin-component-inventory.js")));
 });
