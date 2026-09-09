@@ -99,6 +99,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/config-validation.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-cli-runner.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-asset-os-kpi-benefit.js",
+  "packages/slideclone-native-engine/scripts/lib/native-rebuild-entropy-challenge.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-kpi-evidence-text.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-options.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-pptx-build-executor.js",
