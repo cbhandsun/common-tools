@@ -53,13 +53,14 @@
 - native rebuild table-zone semantic text：table-zone 语义节点文本筛选、native text box 生成、host atom 对齐、对比色选择和残差文字擦除写回从主 rebuild 编排中移出到 factory 模块；主入口只注入矩阵文本规范化、语义宿主、安全 box、PNG 擦除/写回和 asset path 边界，并继续把同一语义节点判定注入 table-zone visual shell 复用。
 - native rebuild grid/color helpers：visual grid 可用性判定、visual atom grid 推断、grid stroke 归并、table/cell fill 判定、通用 color block extraction 和 inset pt box 从主 rebuild 编排中移出到共享 factory 模块；table-zone、matrix 和 layer color block 路径继续复用同一公共边界。
 - native rebuild quadrant dividers：table-zone 四象限 divider 的对象化判定、二乘二文本象限验证、水平/垂直 divider 像素扫描、stroke/厚度/置信度推断和 native line 输出从主 rebuild 编排中移出到 factory 模块；主入口只注入像素、颜色、坐标转换和 round 边界，并保留 `inferQuadrantDividers` 导出合同。
+- native rebuild skill-chain overview：AI Skills 工作流链路的全局/页面级候选识别、语义节点补证、stage card、rail、side route、material cloud/document preview、chrome 文案校正和 component metadata 从主 rebuild 编排中移出到 factory 模块；主入口只注入几何、component token、lineBox 和 union 边界，并保留 deferred rebuild 判定所需 helper 导出合同。
 
 验证证据：
 
 - `node --check` 覆盖每个新增模块及受影响主文件。
 - `test/component-template-native-shapes.test.js` 通过。
 - `npm run lint` 通过，新增模块均进入统一 lint 入口。
-- `node scripts/verify-runtime-package.js` 通过：运行包 1,240 个文件、20 个 workspace package、6 项能力探针通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,241 个文件、20 个 workspace package、6 项能力探针通过。
 - `node scripts/verify-architecture-budgets.js` 通过。
 - `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
 
@@ -67,7 +68,7 @@
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：20,227 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：19,601 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
