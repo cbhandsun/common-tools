@@ -70,23 +70,23 @@ try {
   Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_AUDIENCE' 'common-tools-mcp'
   Set-DefaultEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' $KeycloakAdmin
 
-  $arguments = @(
-    '-Mode', $Mode,
-    '-Project', $Project,
-    '-ApiReplicas', "$ApiReplicas",
-    '-WaitTimeoutSeconds', "$WaitTimeoutSeconds",
-    '-DockerEngineTimeoutSeconds', "$DockerEngineTimeoutSeconds",
-    '-DiscoverLocalConfiguration',
-    '-DiscoverLocalPorts',
-    '-PromptForSecrets',
-    '-Capabilities', $Capabilities
-  )
-  if ($EnableRawImageOcr) { $arguments += '-EnableRawImageOcr' }
-  $arguments += @('-RawImageOcrProvider', $RawImageOcrProvider)
-  if (-not [string]::IsNullOrWhiteSpace($RawImageOcrImage)) { $arguments += @('-RawImageOcrImage', $RawImageOcrImage) }
-  if ($SkipRawImageOcrBuild) { $arguments += '-SkipRawImageOcrBuild' }
+  $parameters = @{
+    Mode = $Mode
+    Project = $Project
+    ApiReplicas = $ApiReplicas
+    WaitTimeoutSeconds = $WaitTimeoutSeconds
+    DockerEngineTimeoutSeconds = $DockerEngineTimeoutSeconds
+    DiscoverLocalConfiguration = $true
+    DiscoverLocalPorts = $true
+    PromptForSecrets = $true
+    Capabilities = $Capabilities
+    RawImageOcrProvider = $RawImageOcrProvider
+  }
+  if ($EnableRawImageOcr) { $parameters.EnableRawImageOcr = $true }
+  if (-not [string]::IsNullOrWhiteSpace($RawImageOcrImage)) { $parameters.RawImageOcrImage = $RawImageOcrImage }
+  if ($SkipRawImageOcrBuild) { $parameters.SkipRawImageOcrBuild = $true }
 
-  & $localDeployScript @arguments
+  & $localDeployScript @parameters
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 } finally {
   foreach ($name in $managedEnvironment) {

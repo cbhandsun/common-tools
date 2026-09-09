@@ -8,6 +8,7 @@ param(
   [switch]$IncludeOptionalImages,
   [switch]$IncludeReleaseSignature,
   [switch]$IncludeSiyuan,
+  [switch]$ProductionRelease,
   [switch]$Help
 )
 
@@ -20,9 +21,10 @@ function Write-Usage {
   Write-Host ''
   Write-Host 'Examples:'
   Write-Host '  .\scripts\prepare-production-env.ps1'
-  Write-Host '  .\scripts\prepare-production-env.ps1 -Out E:\DEV\WorkSpace\Efficiency\common-tools.production.env -Force'
-  Write-Host '  .\scripts\prepare-production-env.ps1 -Project deploy'
-  Write-Host '  .\scripts\prepare-production-env.ps1 -UseCredentialFiles -IncludeReleaseSignature'
+  Write-Host '  .\scripts\team-runtime-local-apply.ps1'
+  Write-Host '  .\scripts\prepare-production-env.ps1 -ProductionRelease -Out E:\DEV\WorkSpace\Efficiency\common-tools.production.env -Force'
+  Write-Host '  .\scripts\prepare-production-env.ps1 -ProductionRelease -Project deploy'
+  Write-Host '  .\scripts\prepare-production-env.ps1 -ProductionRelease -UseCredentialFiles -IncludeReleaseSignature'
   Write-Host ''
   Write-Host 'Next validation command:'
   Write-Host '  npm run common-tools:production-acceptance-plan -- --production-env-file <absolute.env>'
@@ -186,6 +188,15 @@ if ($existingOutputItem -and $existingOutputItem.PSIsContainer) {
 }
 if ($existingOutputItem -and $existingOutputItem.Length -gt 0 -and -not $Force) {
   throw 'Output file already exists and is not empty; pass -Force to replace it'
+}
+
+if (-not $ProductionRelease) {
+  Write-Host 'This helper prepares a strict production release env file and requires immutable image/release evidence inputs.'
+  Write-Host 'For the local Docker deployment we prepared on this machine, use:'
+  Write-Host '  .\scripts\team-runtime-local-apply.ps1'
+  Write-Host ''
+  Write-Host 'If you are intentionally preparing a production release, rerun with -ProductionRelease.'
+  exit 2
 }
 
 $entries = [System.Collections.Generic.List[object]]::new()

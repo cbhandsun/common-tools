@@ -302,9 +302,12 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_JWKS_URL'/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_AUDIENCE' 'common-tools-mcp'/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' \$KeycloakAdmin/);
-  assert.match(script, /'-DiscoverLocalConfiguration'/);
-  assert.match(script, /'-DiscoverLocalPorts'/);
-  assert.match(script, /'-PromptForSecrets'/);
+  assert.match(script, /\$parameters = @\{/);
+  assert.match(script, /DiscoverLocalConfiguration = \$true/);
+  assert.match(script, /DiscoverLocalPorts = \$true/);
+  assert.match(script, /PromptForSecrets = \$true/);
+  assert.match(script, /& \$localDeployScript @parameters/);
+  assert.doesNotMatch(script, /\$arguments = @\(/);
   assert.match(script, /team-runtime-local-deploy\.ps1/);
   assert.match(script, /SetEnvironmentVariable\(\$name, \$originalEnvironment\[\$name\], 'Process'\)/);
   assert.doesNotMatch(script, /COMMON_TOOLS_(?:POSTGRES|REDIS|MINIO|KEYCLOAK_ADMIN)_PASSWORD\s*=/);
@@ -412,6 +415,8 @@ test("production env preparation script collects secrets safely outside the repo
   assert.match(source, /function Test-ImageWorkerCapabilityEnabled/);
   assert.match(source, /COMMON_TOOLS_IMAGE_WORKER_IMAGE/);
   assert.match(source, /COMMON_TOOLS_REQUIRE_RELEASE_SIGNATURE/);
+  assert.match(source, /\[switch\]\$ProductionRelease/);
+  assert.match(source, /team-runtime-local-apply\.ps1/);
   for (const outputLine of source.split(/\r?\n/u).filter((line) => line.includes("Write-Host"))) {
     assert.doesNotMatch(outputLine, /COMMON_TOOLS_(?:DATABASE|REDIS|OBJECT_STORE).*PASSWORD/u);
   }
@@ -436,6 +441,18 @@ test("production env preparation script collects secrets safely outside the repo
   assert.equal(unsafe.status, 1);
   assert.match(unsafeOutput, /outside the repository root/u);
   assert.doesNotMatch(unsafeOutput, /Database password/u);
+
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-production-env-helper-"));
+  const localHint = spawnSync("pwsh", ["-NoProfile", "-File", script, "-Out", path.join(directory, "production.env")], {
+    cwd: root,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH || "" },
+    windowsHide: true
+  });
+  const localHintOutput = `${localHint.stdout || ""}${localHint.stderr || ""}`;
+  assert.equal(localHint.status, 2);
+  assert.match(localHintOutput, /team-runtime-local-apply\.ps1/u);
+  assert.doesNotMatch(localHintOutput, /Remote MCP runtime image/u);
 });
 
 test("team runtime operation lock serializes deployment mutations and recovers abandoned operations", () => {
