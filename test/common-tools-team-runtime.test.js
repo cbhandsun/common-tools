@@ -14,6 +14,7 @@ const { assertQualityReport } = require("../packages/capability-contracts");
 const { retentionSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-retention");
 const { retentionScheduleSettings, runRetentionSchedule } = require("../packages/team-runtime/retention-scheduler");
 const { COMMAND_USAGE, composeProjectName, composeRuntimeSnapshot, gatewayReadiness, localTeamConfigReport, loopbackTcpPort, parse, probeReadyEndpoint, teamDoctorReport, teamRuntimeReport } = require("../packages/cli/bin/common-tools");
+const { productionAcceptancePlan } = require("../packages/cli/production-acceptance-plan");
 
 test("team configuration fails closed for insecure storage and embedded credentials", () => {
   const base = { COMMON_TOOLS_DATABASE_URL: "postgresql://database.internal/common_tools?sslmode=verify-full", COMMON_TOOLS_REDIS_URL: "rediss://redis.internal:6380", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "https://objects.internal", COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts" };
@@ -53,6 +54,54 @@ test("direct SiYuan capability is enabled without inventing a Worker service", (
 
 test("team CLI usage exposes migration status before production migration", () => {
   assert.match(COMMAND_USAGE, /team migration-status/u);
+  assert.match(COMMAND_USAGE, /team production-acceptance-plan/u);
+});
+
+test("production acceptance plan is redacted and reports missing production configuration", () => {
+  const plan = productionAcceptancePlan({});
+  assert.equal(plan.status, "blocked-by-configuration");
+  assert.equal(plan.credentialMode, "missing");
+  assert.equal(plan.requiredConfiguration.COMMON_TOOLS_DATABASE_URL, "missing");
+  assert.ok(plan.missingConfiguration.includes("COMMON_TOOLS_DATABASE_URL"));
+  assert.ok(plan.blockers.includes("missing production credential source set"));
+  assert.ok(plan.commands.includes("common-tools team migration-status"));
+  assert.ok(plan.evidence.some((item) => item.includes("independent PDF or image sample")));
+  assert.equal(JSON.stringify(plan).includes("secret-value"), false);
+});
+
+test("production acceptance plan accepts one complete credential source without echoing values", () => {
+  const environment = {
+    COMMON_TOOLS_DATABASE_URL: "postgresql://database.internal/common_tools?sslmode=verify-full",
+    COMMON_TOOLS_REDIS_URL: "rediss://redis.internal:6380",
+    COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "https://objects.internal",
+    COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts",
+    COMMON_TOOLS_REMOTE_PUBLIC_URL: "https://tools.example.test",
+    COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS: "https://codex.example.test",
+    COMMON_TOOLS_OIDC_ISSUER: "https://identity.example.test",
+    COMMON_TOOLS_OIDC_JWKS_URL: "https://identity.example.test/keys",
+    COMMON_TOOLS_OIDC_AUDIENCE: "common-tools-mcp",
+    COMMON_TOOLS_REMOTE_IMAGE: "registry.example.test/common-tools/remote@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    COMMON_TOOLS_RELEASE_EVIDENCE_FILE: "C:\\release\\common-tools.release.json",
+    COMMON_TOOLS_RELEASE_REVISION: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    COMMON_TOOLS_DATABASE_USER_FILE: "C:\\secrets\\database-user",
+    COMMON_TOOLS_DATABASE_PASSWORD_FILE: "C:\\secrets\\database-password",
+    COMMON_TOOLS_REDIS_USERNAME_FILE: "C:\\secrets\\redis-user",
+    COMMON_TOOLS_REDIS_PASSWORD_FILE: "C:\\secrets\\redis-password",
+    COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID_FILE: "C:\\secrets\\object-key",
+    COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY_FILE: "C:\\secrets\\object-secret",
+    COMMON_TOOLS_IMAGE_WORKER_IMAGE: "registry.example.test/common-tools/image-worker@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  };
+  const plan = productionAcceptancePlan(environment);
+  const serialized = JSON.stringify(plan);
+  assert.equal(plan.status, "ready-for-production-preflight");
+  assert.equal(plan.credentialMode, "files");
+  assert.deepEqual(plan.missingConfiguration, []);
+  assert.deepEqual(plan.missingCredentials, []);
+  assert.equal(plan.requiredConfiguration.COMMON_TOOLS_DATABASE_URL, "set");
+  assert.equal(plan.optionalConfiguration.COMMON_TOOLS_IMAGE_WORKER_IMAGE, "set");
+  assert.equal(serialized.includes("database.internal"), false);
+  assert.equal(serialized.includes("C:\\secrets"), false);
+  assert.equal(serialized.includes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), false);
 });
 
 test("retention scheduler bounds its cadence, stops cleanly, and never overlaps runs", async () => {
