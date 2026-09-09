@@ -58,7 +58,7 @@ test("dense radial shape plugin validates and propagates every injected service 
 
 test("native rebuild delegates dense network component rendering to the registry", () => {
   const source = fs.readFileSync(path.join(
-    __dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"
+    __dirname, "..", "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js"
   ), "utf8");
   assert.match(source, /createNativeRebuilder\("network-dense-component"/);
   assert.match(source, /createDetailedShapes: createDetailedDenseRadialNetworkComponentShapesFromRegistry/);

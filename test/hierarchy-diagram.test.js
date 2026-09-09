@@ -25,9 +25,9 @@ test("hierarchy diagram plugin validates every injected geometry operation", () 
   assert.throws(() => createHierarchyDiagramToolkit({ ...valid, defaultSlide: { widthPt: 0, heightPt: 540 } }), /defaultSlide/);
 });
 
-test("native rebuild compatibility entry delegates hierarchy behavior to the registry plugin", () => {
+test("native rebuild package delegates hierarchy behavior to the registry plugin", () => {
   const source = fs.readFileSync(path.join(
-    __dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"
+    __dirname, "..", "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js"
   ), "utf8");
   assert.match(source, /createNativeRebuilder\("hierarchy-diagram"/);
   assert.match(source, /return createHierarchyDiagramShapesFromRegistry\(images, textBoxes, sourceImage, slideSize\)/);

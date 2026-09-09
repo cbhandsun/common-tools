@@ -83,7 +83,7 @@ test("radial detector validates and propagates every injected operation", () => 
 
 test("native rebuild delegates network recognition to the detector module", () => {
   const source = fs.readFileSync(path.join(
-    __dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"
+    __dirname, "..", "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js"
   ), "utf8");
   assert.match(source, /createRadialNetworkDetector\(/);
   assert.match(source, /infer: inferRadialNetworkDiagram/);
