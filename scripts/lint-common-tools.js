@@ -112,6 +112,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/arc-line-end-ooxml.js",
   "packages/slideclone-native-engine/scripts/lib/ooxml-package-fingerprint.js",
   "packages/slideclone-native-engine/scripts/lib/component-asset-ooxml.js",
+  "packages/slideclone-native-engine/scripts/lib/component-template-palette.js",
   "packages/slideclone-native-engine/scripts/adapters/compare-placeholder.js",
   "packages/slideclone-native-engine/scripts/adapters/diff-pixel-png.js",
   "packages/slideclone-native-engine/scripts/adapters/vision-flow-diagram-rules.js",
