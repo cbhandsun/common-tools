@@ -124,6 +124,7 @@
     "./component-strategy-annotator": "./component-strategy-annotator.js",
     "./relationship-branch-card-shell": "./relationship-branch-card-shell.js",
     "./relationship-basic-shells": "./relationship-basic-shells.js",
+    "./relationship-hub-spoke-shell": "./relationship-hub-spoke-shell.js",
     "./relationship-sankey-shell": "./relationship-sankey-shell.js",
     "./relationship-native-shell": "./relationship-native-shell.js",
     "./relationship-native-layouts": "./relationship-native-layouts.js",
