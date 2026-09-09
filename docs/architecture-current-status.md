@@ -2,7 +2,7 @@
 
 ## 2026-09-09 收口：本地部署入口简化为一条命令、一次密码、自动 smoke
 
-本轮把本机 Docker 部署路径从“用户需要理解 production env、image digest、release evidence、多个服务密码和后续 smoke 命令”收敛为 `.\scripts\team-runtime-local-apply.ps1` 一条入口。默认行为会自动推导本地 Docker URL/端口，提示一次共享本地部署密码，并在 Apply 成功后运行 `team-runtime-local-smoke.ps1` 校验 gateway readiness、OAuth resource metadata、能力 scope 和未授权 MCP challenge。需要分开密码时可显式传 `-SeparatePasswords`；只想部署不 smoke 时可显式传 `-SkipSmoke`。
+本轮把本机 Docker 部署路径从“用户需要理解 production env、image digest、release evidence、多个服务密码和后续 smoke 命令”收敛为 `.\scripts\team-runtime-local-apply.ps1` 一条入口。默认行为会自动推导本地 Docker URL/端口，Apply 模式提示一次共享本地部署密码，并在 Apply 成功后运行 `team-runtime-local-smoke.ps1` 校验 gateway readiness、OAuth resource metadata、能力 scope 和未授权 MCP challenge。需要分开密码时可显式传 `-SeparatePasswords`；只想部署不 smoke 时可显式传 `-SkipSmoke`；Plan 模式使用临时占位 secret 通过 Compose 配置校验，不提示密码、不写入用户环境。
 
 同时，`prepare-production-env.ps1` 已明确提示本地部署不需要 image digest 或 release evidence，避免把严格生产发布文件误用于本地 Docker 验收。`team-runtime-local-deploy.ps1` 的 stateless 容器清理不再依赖固定 worker 列表，而是跟随 `deploymentPlan.workerServices`，继续保留 Compose project、service label 和 volume mount 安全校验，降低 scale 或能力组合变化后出现容器名冲突的概率。
 
@@ -11,6 +11,7 @@
 - `bf1cb67 Improve local deployment recovery guidance`
 - `25c4e80 Simplify local deployment secret prompts`
 - `a0560c8 Run local smoke after apply`
+- `34a1566 Make local apply plan noninteractive`
 
 验证证据：
 
