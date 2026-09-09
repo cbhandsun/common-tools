@@ -128,6 +128,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-system-map-source-detection.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-value-banner.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-value-quadrant.js",
+  "packages/slideclone-native-engine/scripts/lib/native-rebuild-temporary-answer-workflow-matrix.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-visible-text.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-workdir.js",
   "packages/slideclone-native-engine/scripts/lib/page-background-fill-sampler.js",
