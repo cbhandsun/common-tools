@@ -44,13 +44,14 @@
 - native rebuild asset OS flow：资产操作系统流转图的对象化判定、六类输入/输出语义组件、中心 shield、路线、icon fidelity crop 和 native component metadata 从主 rebuild 编排中移出到 factory 模块；主入口只注入几何、裁剪和写 PNG 边界。
 - native rebuild portal platform：统一门户平台图的对象化判定、三路输入、平台核心、统一门户、路由箭头、icon glyph 和 native text box 构造从主 rebuild 编排中移出到 factory 模块；主入口只注入文本 box 命中和 round 边界。
 - native rebuild input/output split：WMS 质量前置 input complexity / portal output 拆分图的对象化判定、native assistant 下整块 crop 保留策略、左侧复杂度网络、右侧输出卡片/渐变/文本、残差 region 声明从主 rebuild 编排中移出到 factory 模块；主入口只注入 round 边界。
+- native rebuild product brain vision：产品大脑终局视野页的 candidate 判定、启发式识别、马赛克 tile 背景、中心产品地图、lens/search chrome、tile 颜色采样和残差 region 声明从主 rebuild 编排中移出到 factory 模块；主入口只注入像素、颜色、几何和 round 边界。
 
 验证证据：
 
 - `node --check` 覆盖每个新增模块及受影响主文件。
 - `test/component-template-native-shapes.test.js` 通过。
 - `npm run lint` 通过，新增模块均进入统一 lint 入口。
-- `node scripts/verify-runtime-package.js` 通过：运行包 1,231 个文件、20 个 workspace package、6 项能力探针通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,232 个文件、20 个 workspace package、6 项能力探针通过。
 - `node scripts/verify-architecture-budgets.js` 通过。
 - `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
 
@@ -58,7 +59,7 @@
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：22,400 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：22,053 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
