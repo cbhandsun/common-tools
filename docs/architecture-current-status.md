@@ -1,5 +1,20 @@
 # 架构改进当前状态
 
+## 2026-09-09 收口：远程 Job 验收新增显式认证 smoke
+
+本轮新增 `common-tools:team-authenticated-job-smoke`，用于补齐“受保护远程 MCP 真实 Job 路径”的发布验收入口。它不会绕过 OAuth，也不会默认伪装成快 smoke：调用方必须提供 bearer token 和一个真实能力输入文件；脚本会连接 `/mcp`，执行 `initialize`、`tools/list`、`create_team_upload_target`，上传输入文件，再调用 `create_team_job`。传入 `--wait` 时会继续轮询 `get_team_job`，作业成功后可用 `--artifact-name` 验证 `get_team_artifact_target`。
+
+默认边界只允许本机 `http://127.0.0.1:<port>` gateway；远程环境必须显式传 `--allow-remote`，且 gateway/upload URL 必须为 HTTPS。token 只从环境变量读取，报告只输出能力、项目、输入大小、Job ID 和状态，不输出 token、signed URL 或上传内容。
+
+本地示例：
+
+```powershell
+$env:COMMON_TOOLS_JOB_SMOKE_TOKEN = '<bearer-token>'
+npm run common-tools:team-authenticated-job-smoke -- --input-file .\path\to\input.tar.gz --capability image-to-editable --wait --artifact-name deck.pptx
+```
+
+如果只想验证认证、上传和入队，不等待 Worker 终态，可去掉 `--wait`。该 smoke 证明的是“当前已认证 MCP + 对象存储上传 + Job admission/queue 路径”可用；它不替代能力自身的视觉质量验收、Office 编辑验收或生产迁移/回滚演练。
+
 ## 2026-09-08 收口：图片/PPT 生产链不再依赖历史 skill 根实现
 
 本轮已按小批次提交完成 `skills/pd-hifi-slideclone/scripts/*.js` 根入口的迁移：真实实现统一进入 `packages/slideclone-native-engine/scripts`，skill 根入口只保留兼容 wrapper。`review-studio` 的静态 UI 资源也一并迁入 native engine payload，避免出现“入口在包内、资源仍在 skill 内”的半迁移状态。
