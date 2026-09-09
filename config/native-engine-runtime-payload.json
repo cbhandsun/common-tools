@@ -17,6 +17,7 @@
     "python"
   ],
   "rootScripts": [
+    "batch-native-audit-summary.js",
     "component-acquisition-search.js",
     "component-asset-self-fidelity.js",
     "component-asset-self-fidelity-batch.js",
@@ -78,6 +79,7 @@
       "slideclone.js"
     ],
     "renderingAndQualityHarness": [
+      "batch-native-audit-summary.js",
       "complex-graphic-golden-smoke.js",
       "chart-native-render-golden-smoke.js",
       "component-adoption-ab-gate.js",
@@ -101,6 +103,7 @@
       "minimum-unit-policy-gate.js",
       "minimum-unit-gap-audit.js",
       "ocr-text-smoke.js",
+      "plugin-component-target-audit.js",
       "quality-gate-ocr-batch.js",
       "quality-gate-real-pptx.js",
       "quality-trend-gate.js",
@@ -125,7 +128,6 @@
       "component-replacement-harvest-queue.js",
       "component-replacement-plan-report.js",
       "officeplus-component-resolve.js",
-      "plugin-component-target-audit.js",
       "component-strategy-rebuild.js",
       "component-strategy-rebuild-page-shards.js",
       "component-strategy-rebuild-parallel.js",
