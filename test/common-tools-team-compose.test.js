@@ -303,7 +303,7 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_AUDIENCE' 'common-tools-mcp'/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' \$KeycloakAdmin/);
   assert.match(script, /\$parameters = @\{/);
-  assert.match(script, /DiscoverLocalConfiguration = \$true/);
+  assert.doesNotMatch(script, /DiscoverLocalConfiguration = \$true/);
   assert.match(script, /DiscoverLocalPorts = \$true/);
   assert.match(script, /PromptForSecrets = \$true/);
   assert.match(script, /& \$localDeployScript @parameters/);

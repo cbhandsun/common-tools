@@ -76,7 +76,6 @@ try {
     ApiReplicas = $ApiReplicas
     WaitTimeoutSeconds = $WaitTimeoutSeconds
     DockerEngineTimeoutSeconds = $DockerEngineTimeoutSeconds
-    DiscoverLocalConfiguration = $true
     DiscoverLocalPorts = $true
     PromptForSecrets = $true
     Capabilities = $Capabilities
