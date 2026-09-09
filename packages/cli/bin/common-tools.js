@@ -25,9 +25,10 @@ const { persistDocumentPlan } = require("../../ppt-create-core/document-ingest")
 const { extractPdfLayout, extractPdfText } = require("../../ppt-create-core/pdf-text");
 const { createPptCreateArchive } = require("../../ppt-create-core/team-archive");
 const { buildOpenXmlDecksSync } = require("../../slideclone-core/pptx-openxml-dotnet");
-const { CAPABILITY_MANIFESTS, effectivePluginConfig, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
+const { effectivePluginConfig, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
 const { teamDeploymentPlan } = require("../../team-runtime");
 const { doctorReport, editableProfileConfig, editableProfileProvider, initializeEditableProfile, optionalLicense, optionalPaddleOcr, optionalUmiOcr, resolveWorkspaceChild, runtimeStatus, workspaceAccess } = require("../local-doctor");
+const { pluginCatalog, validateScaffoldBundle } = require("../plugin-admin");
 const { teamDoctorReport } = require("../team-doctor");
 const { composeProjectName, composeRuntimeSnapshot, gatewayReadiness, localTeamConfigReport, loopbackTcpPort, probeReadyEndpoint, summarizeContainerStatus, teamRuntimeReport } = require("../team-runtime-local");
 const { runKeycloakMcpClientCommand, runKeycloakProjectMapperCommand } = require("../keycloak-project-mapper");
@@ -35,7 +36,7 @@ const { runKeycloakRealmCommand } = require("../keycloak-realm-hardening");
 const { environmentWithProductionEnvFile } = require("../production-env-file");
 const { collectProductionAcceptanceEvidence, productionAcceptancePlan } = require("../production-acceptance-plan");
 const { serveStdio } = require("../../mcp-server/core");
-const { assertMirroredPackage, assertPluginPackage, verifyPluginPackaging } = require("../verification/verify-plugins");
+const { verifyPluginPackaging } = require("../verification/verify-plugins");
 const { verifyCapabilityToolContracts } = require("../verification/verify-capability-contracts");
 const { scaffoldPlan, writeScaffold } = require("../capability-scaffold");
 const { createEditableSourceArchive, createRawImageArchive } = require("../../slideclone-worker-adapter/team-raw-image-archive");
@@ -107,41 +108,6 @@ function teamRuntime(args = {}) {
   const report = teamRuntimeReport(args);
   process.stdout.write(`${JSON.stringify(report.info, null, 2)}\n`);
   return report.exitCode;
-}
-function pluginCatalog(stateRoot, workspaceRoot = path.dirname(stateRoot)) {
-  verifyCapabilityToolContracts(REPOSITORY_ROOT);
-  const packaging = verifyPluginPackaging(REPOSITORY_ROOT);
-  const enabled = new Set(effectivePluginConfig(stateRoot, workspaceRoot).effectiveCapabilities);
-  return Object.freeze({
-    distributionVerified: true,
-    capabilities: Object.freeze(packaging.capabilities.map((capability) => {
-      const manifest = CAPABILITY_MANIFESTS.get(capability);
-      if (!manifest) throw new Error(`capability manifest is missing: ${capability}`);
-      return Object.freeze({
-        capability,
-        version: manifest.version,
-        toolNames: manifest.toolNames,
-        requiredWorkerProfile: manifest.requiredWorkerProfile,
-        dependencies: manifest.dependencies,
-        lifecycle: Object.freeze(manifest.deprecation ? Object.freeze({ status: "deprecated", ...manifest.deprecation }) : Object.freeze({ status: "active" })),
-        team: manifest.team,
-        runtimeEnabled: enabled.has(capability),
-        install: Object.freeze({
-          codex: Object.freeze({ marketplace: "common-tools-codex", plugin: `${capability}@common-tools-codex` }),
-          claude: Object.freeze({ marketplace: "common-tools", plugin: `${capability}@common-tools` })
-        })
-      });
-    }))
-  });
-}
-function validateScaffoldBundle(root, capability) {
-  for (const host of ["codex", "claude"]) {
-    const source = path.join(root, "plugins", host, capability);
-    const mirror = path.join(root, "marketplaces", host, "plugins", capability);
-    assertPluginPackage(source, capability, host);
-    assertPluginPackage(mirror, capability, host);
-    assertMirroredPackage(source, mirror);
-  }
 }
 function runCreatedLocalJob(ctx, job) {
   if (!job || typeof job !== "object" || typeof job.id !== "string" || typeof job.capability !== "string") throw new TypeError("created job is invalid");
