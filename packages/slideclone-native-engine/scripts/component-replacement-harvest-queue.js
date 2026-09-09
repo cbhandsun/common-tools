@@ -253,7 +253,7 @@ function sanitizeAffectedSlides(values = []) {
 }
 
 function defaultHarvestCommand(provider, componentId) {
-  return `node skills\\pd-hifi-slideclone\\scripts\\harvest-active-powerpoint-component.js --provider ${sanitizeCliToken(provider)} --label ${sanitizeCliToken(componentId)}`;
+  return `node packages\\slideclone-native-engine\\scripts\\harvest-active-powerpoint-component.js --provider ${sanitizeCliToken(provider)} --label ${sanitizeCliToken(componentId)}`;
 }
 
 function defaultWorkflow(provider) {

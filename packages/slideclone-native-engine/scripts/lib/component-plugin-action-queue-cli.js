@@ -109,7 +109,7 @@ function renderPluginActionQueueMarkdown(queue = {}) {
     lines.push("After applying this component, refresh the component inventory:");
     lines.push("");
     lines.push("```powershell");
-    lines.push("node skills\\pd-hifi-slideclone\\scripts\\component-library-refresh.js --learn-structure --watch-plugin-downloads --watch-provider all --watch-duration-ms 30000 --watch-poll-ms 500");
+    lines.push("node packages\\slideclone-native-engine\\scripts\\component-library-refresh.js --learn-structure --watch-plugin-downloads --watch-provider all --watch-duration-ms 30000 --watch-poll-ms 500");
     lines.push("```");
     lines.push("");
   }

@@ -283,7 +283,7 @@ function buildMissingSampleNextAction(group) {
       targetMotifs: group.targetMotifs || [],
       searchKeywords
     },
-    harvestCommand: `node skills\\pd-hifi-slideclone\\scripts\\harvest-active-powerpoint-component.js --provider ${provider} --label ${componentId}`,
+    harvestCommand: `node packages\\slideclone-native-engine\\scripts\\harvest-active-powerpoint-component.js --provider ${provider} --label ${componentId}`,
     workflow: [
       searchKeywords.length > 0
         ? `Search ${group.provider} for: ${searchKeywords.join(" / ")}.`

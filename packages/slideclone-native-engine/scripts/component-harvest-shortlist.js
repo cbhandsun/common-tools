@@ -356,7 +356,7 @@ function renderHarvestShortlistMarkdown(report = {}) {
     "Before applying a component, start the watcher:",
     "",
     "```powershell",
-    "node skills\\pd-hifi-slideclone\\scripts\\watch-plugin-component-downloads.js --provider all --active-powerpoint --duration-ms 30000 --poll-ms 500 --out runs\\plugin-component-inventory\\watched-plugin-components",
+    "node packages\\slideclone-native-engine\\scripts\\watch-plugin-component-downloads.js --provider all --active-powerpoint --duration-ms 30000 --poll-ms 500 --out runs\\plugin-component-inventory\\watched-plugin-components",
     "```",
     ""
   ];
