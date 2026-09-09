@@ -75,6 +75,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/slideclone-core/relationship-topology-helpers.js",
   "packages/slideclone-core/relationship-branch-card-shell.js",
   "packages/slideclone-core/relationship-basic-shells.js",
+  "packages/slideclone-core/relationship-funnel-lens-shell.js",
   "packages/slideclone-core/relationship-hub-spoke-shell.js",
   "packages/slideclone-core/relationship-sankey-shell.js",
   "packages/slideclone-core/visual-atom-native-reconstruction.js",
