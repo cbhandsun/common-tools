@@ -366,6 +366,45 @@ test("production deployment script rejects unsafe env files before Docker", () =
   assert.doesNotMatch(output, /Docker Compose production command failed/u);
 });
 
+test("production env preparation script collects secrets safely outside the repository", () => {
+  const root = path.resolve(__dirname, "..");
+  const script = path.join(root, "scripts", "prepare-production-env.ps1");
+  const source = fs.readFileSync(script, "utf8");
+  assert.match(source, /common-tools\.production\.env/);
+  assert.match(source, /Output path must be outside the repository root/);
+  assert.match(source, /Read-Host -Prompt \$Prompt -AsSecureString/);
+  assert.match(source, /ZeroFreeBSTR\(\$pointer\)/);
+  assert.match(source, /COMMON_TOOLS_DATABASE_PASSWORD_FILE/);
+  assert.match(source, /COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY_FILE/);
+  assert.match(source, /function Test-ImageWorkerCapabilityEnabled/);
+  assert.match(source, /COMMON_TOOLS_IMAGE_WORKER_IMAGE/);
+  assert.match(source, /COMMON_TOOLS_REQUIRE_RELEASE_SIGNATURE/);
+  for (const outputLine of source.split(/\r?\n/u).filter((line) => line.includes("Write-Host"))) {
+    assert.doesNotMatch(outputLine, /COMMON_TOOLS_(?:DATABASE|REDIS|OBJECT_STORE).*PASSWORD/u);
+  }
+
+  const help = spawnSync("pwsh", ["-NoProfile", "-File", script, "-Help"], {
+    cwd: root,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH || "" },
+    windowsHide: true
+  });
+  assert.equal(help.status, 0);
+  assert.match(help.stdout, /production env file/u);
+  assert.match(help.stdout, /production-acceptance-plan/u);
+
+  const unsafe = spawnSync("pwsh", ["-NoProfile", "-File", script, "-Out", path.join(root, "private-production.env")], {
+    cwd: root,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH || "" },
+    windowsHide: true
+  });
+  const unsafeOutput = `${unsafe.stdout || ""}${unsafe.stderr || ""}`;
+  assert.equal(unsafe.status, 1);
+  assert.match(unsafeOutput, /outside the repository root/u);
+  assert.doesNotMatch(unsafeOutput, /Database password/u);
+});
+
 test("team runtime operation lock serializes deployment mutations and recovers abandoned operations", () => {
   const root = path.resolve(__dirname, "..");
   const script = fs.readFileSync(path.join(root, "scripts", "team-runtime-operation-lock.ps1"), "utf8");

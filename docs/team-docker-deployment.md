@@ -206,11 +206,15 @@ common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team productio
 如果生产 Secret 不在当前 shell，可把 `COMMON_TOOLS_*` 配置放在仓库外的受保护本地 env 文件中，并用绝对路径显式加载。该文件只支持 `COMMON_TOOLS_` 开头的 `KEY=VALUE` 行、`export KEY=VALUE` 行、空行和 `#` 注释；命令不会做 shell 展开，也不会在输出中回显值。不要把该文件放进工作区或提交到 Git：
 
 ```powershell
+.\scripts\prepare-production-env.ps1
+.\scripts\prepare-production-env.ps1 -Out E:\DEV\WorkSpace\Efficiency\common-tools.production.env -Force
 common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-plan --production-env-file C:\secure\common-tools.production.env --out .codex-tmp/production-acceptance-plan.json
 common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-evidence --production-env-file C:\secure\common-tools.production.env --out .codex-tmp/production-acceptance-evidence
 common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team migration-status --production-env-file C:\secure\common-tools.production.env
 common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-preflight --production-env-file C:\secure\common-tools.production.env
 ```
+
+`prepare-production-env.ps1` 默认把文件写到仓库同级目录 `E:\DEV\WorkSpace\Efficiency\common-tools.production.env`，并在交互时用隐藏输入读取密码类值。若生产凭据已落在受管 secret 文件中，改用 `-UseCredentialFiles` 填写 `*_FILE` 路径；若发布链路要求 cosign 验签，追加 `-IncludeReleaseSignature`；启用 `siyuan-note` 时追加 `-IncludeSiyuan`。脚本不会打印 secret 值，也会拒绝把输出写进当前仓库目录。
 
 生产发布脚本的 `Plan` 输出也会包含 `preApplyChecklist`。该清单不是批准本身，而是上线前必须归档的操作核对项：同环境 `migration-status` 脱敏 JSON、受管 PostgreSQL 备份与恢复目标、只使用 immutable release evidence revision/image digest 的回滚材料，以及 ingress 暂停接收新任务后的 Worker readiness 复核。任一项无法确认时不要执行 `Apply`，也不要用手写 Compose 绕过。
 
