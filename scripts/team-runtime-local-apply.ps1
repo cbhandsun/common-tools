@@ -14,6 +14,7 @@ param(
   [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._@-]{0,127}$')]
   [string]$KeycloakAdmin = 'local-admin',
   [switch]$SeparatePasswords,
+  [switch]$SkipSmoke,
   [switch]$EnableRawImageOcr,
   [ValidateSet('PaddleOCR', 'Tesseract')]
   [string]$RawImageOcrProvider = 'PaddleOCR',
@@ -106,6 +107,12 @@ try {
 
   & $localDeployScript @parameters
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  if ($Mode -eq 'Apply' -and -not $SkipSmoke) {
+    $localSmokeScript = Join-Path $PSScriptRoot 'team-runtime-local-smoke.ps1'
+    if (-not (Test-Path -LiteralPath $localSmokeScript -PathType Leaf)) { throw 'Local runtime smoke script is unavailable' }
+    & $localSmokeScript -Project $Project -Capabilities $Capabilities
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  }
 } finally {
   foreach ($name in $managedEnvironment) {
     [Environment]::SetEnvironmentVariable($name, $originalEnvironment[$name], 'Process')

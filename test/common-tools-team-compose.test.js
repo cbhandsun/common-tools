@@ -318,6 +318,7 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /\[string\]\$Project = 'deploy'/);
   assert.match(script, /\[string\]\$KeycloakAdmin = 'local-admin'/);
   assert.match(script, /\[switch\]\$SeparatePasswords/);
+  assert.match(script, /\[switch\]\$SkipSmoke/);
   assert.match(script, /'COMMON_TOOLS_REMOTE_PORT'/);
   assert.match(script, /function Select-LocalRemotePort/);
   assert.match(script, /Test-LoopbackPortAvailable 54000/);
@@ -335,6 +336,9 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /PromptForSecrets = \$true/);
   assert.match(script, /if \(\$SeparatePasswords\) \{ \$parameters\.SeparatePasswords = \$true \}/);
   assert.match(script, /& \$localDeployScript @parameters/);
+  assert.match(script, /if \(\$Mode -eq 'Apply' -and -not \$SkipSmoke\)/);
+  assert.match(script, /team-runtime-local-smoke\.ps1/);
+  assert.match(script, /& \$localSmokeScript -Project \$Project -Capabilities \$Capabilities/);
   assert.doesNotMatch(script, /\$arguments = @\(/);
   assert.match(script, /team-runtime-local-deploy\.ps1/);
   assert.match(script, /SetEnvironmentVariable\(\$name, \$originalEnvironment\[\$name\], 'Process'\)/);
