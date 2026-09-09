@@ -96,10 +96,10 @@ try {
     WaitTimeoutSeconds = $WaitTimeoutSeconds
     DockerEngineTimeoutSeconds = $DockerEngineTimeoutSeconds
     DiscoverLocalPorts = $true
-    PromptForSecrets = $true
     Capabilities = $Capabilities
     RawImageOcrProvider = $RawImageOcrProvider
   }
+  if ($Mode -eq 'Apply') { $parameters.PromptForSecrets = $true }
   if ($EnableRawImageOcr) { $parameters.EnableRawImageOcr = $true }
   if ($SeparatePasswords) { $parameters.SeparatePasswords = $true }
   if (-not [string]::IsNullOrWhiteSpace($RawImageOcrImage)) { $parameters.RawImageOcrImage = $RawImageOcrImage }

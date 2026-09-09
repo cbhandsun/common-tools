@@ -94,6 +94,22 @@ function Set-MissingDeploymentSecretsFromPrompt {
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD' 'Keycloak admin password' -Secret
 }
 
+function Set-MissingPlanPlaceholderSecrets {
+  $placeholders = [ordered]@{
+    COMMON_TOOLS_POSTGRES_PASSWORD = 'local-plan-placeholder'
+    COMMON_TOOLS_REDIS_PASSWORD = 'local-plan-placeholder'
+    COMMON_TOOLS_MINIO_PASSWORD = 'local-plan-placeholder'
+    COMMON_TOOLS_KEYCLOAK_ADMIN = 'local-admin'
+    COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD = 'local-plan-placeholder'
+  }
+  foreach ($entry in $placeholders.GetEnumerator()) {
+    if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($entry.Key, 'Process'))) {
+      [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'Process')
+      $script:promptedEnvironmentNames.Add($entry.Key)
+    }
+  }
+}
+
 function Test-SiyuanCapabilityEnabled {
   $value = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_TEAM_CAPABILITIES', 'Process')
   if ([string]::IsNullOrWhiteSpace($value)) { return $false }
@@ -407,6 +423,9 @@ if ($EnableSingleIngress) {
 if (-not [string]::IsNullOrWhiteSpace($Capabilities)) {
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_TEAM_CAPABILITIES', $Capabilities.Trim(), 'Process')
   $restoreCapabilities = $true
+}
+if ($Mode -eq 'Plan' -and -not $PromptForSecrets) {
+  Set-MissingPlanPlaceholderSecrets
 }
 if ($PromptForSecrets) {
   Set-MissingDeploymentSecretsFromPrompt

@@ -259,6 +259,8 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /Invoke-Compose @\('config', '--quiet'\)/);
   assert.match(script, /function Read-SecretValue/);
   assert.match(script, /function Set-MissingSharedLocalPassword/);
+  assert.match(script, /function Set-MissingPlanPlaceholderSecrets/);
+  assert.match(script, /local-plan-placeholder/);
   assert.match(script, /Shared local deployment password/);
   assert.match(script, /Shared local deployment password must contain at least 8 characters/);
   assert.match(script, /if \(-not \$SeparatePasswords\)/);
@@ -330,10 +332,11 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_JWKS_URL'/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_AUDIENCE' 'common-tools-mcp'/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' \$KeycloakAdmin/);
+  assert.match(script, /if \(\$Mode -eq 'Apply'\) \{ \$parameters\.PromptForSecrets = \$true \}/);
   assert.match(script, /\$parameters = @\{/);
   assert.doesNotMatch(script, /DiscoverLocalConfiguration = \$true/);
   assert.match(script, /DiscoverLocalPorts = \$true/);
-  assert.match(script, /PromptForSecrets = \$true/);
+  assert.doesNotMatch(script, /PromptForSecrets = \$true\s*\r?\n\s*Capabilities = \$Capabilities/);
   assert.match(script, /if \(\$SeparatePasswords\) \{ \$parameters\.SeparatePasswords = \$true \}/);
   assert.match(script, /& \$localDeployScript @parameters/);
   assert.match(script, /if \(\$Mode -eq 'Apply' -and -not \$SkipSmoke\)/);
