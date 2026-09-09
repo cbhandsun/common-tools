@@ -318,6 +318,7 @@ const REQUIRED_FILES = Object.freeze([
   "scripts/team-runtime-compose-smoke.ps1",
   "scripts/team-runtime-local-apply.ps1",
   "scripts/team-runtime-local-deploy.ps1",
+  "scripts/team-runtime-local-acceptance.ps1",
   "scripts/team-runtime-local-job-smoke.ps1",
   "scripts/team-runtime-local-repair-migration-ledger.ps1",
   "scripts/team-runtime-local-smoke.ps1",

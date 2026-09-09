@@ -480,6 +480,12 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 日常本机验收优先使用一条入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
 
 ```powershell
+.\scripts\team-runtime-local-acceptance.ps1
+```
+
+该入口会依次部署本地 runtime、启用 Keycloak、准备测试用户，然后打开浏览器完成 PKCE 登录并提交 authenticated Job smoke。需要排障时也可以拆开执行：
+
+```powershell
 .\scripts\team-runtime-local-apply.ps1 -EnableIdentityProvider
 .\scripts\team-keycloak-local-test-user.ps1
 .\scripts\team-runtime-local-job-smoke.ps1 -Login -Wait

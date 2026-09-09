@@ -708,6 +708,25 @@ test("local Keycloak test user helper is packaged and keeps passwords interactiv
   assert.match(packageVerifier, /scripts\/team-keycloak-local-test-user\.ps1/);
 });
 
+test("local acceptance wrapper chains deployment, user setup and authenticated smoke", () => {
+  const root = path.resolve(__dirname, "..");
+  const script = fs.readFileSync(path.join(root, "scripts", "team-runtime-local-acceptance.ps1"), "utf8");
+  const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
+  const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
+  assert.match(script, /\[string\]\$Project = 'deploy'/);
+  assert.match(script, /\[string\]\$Username = 'local-tester'/);
+  assert.match(script, /team-runtime-local-apply\.ps1/);
+  assert.match(script, /team-keycloak-local-test-user\.ps1/);
+  assert.match(script, /team-runtime-local-job-smoke\.ps1/);
+  assert.match(script, /-EnableIdentityProvider/);
+  assert.match(script, /'-Login'/);
+  assert.match(script, /if \(-not \$SkipJobWait\) \{ \$jobArguments \+= '-Wait' \}/);
+  assert.doesNotMatch(script, /Read-Host|COMMON_TOOLS_.*PASSWORD|--password|--admin-password/);
+  assert.match(packageJson, /scripts\/team-runtime-local-acceptance\.ps1/);
+  assert.match(packageJson, /common-tools:team-local-acceptance/);
+  assert.match(packageVerifier, /scripts\/team-runtime-local-acceptance\.ps1/);
+});
+
 test("image Worker Docker context excludes local .NET outputs while retaining builder sources", () => {
   const root = path.resolve(__dirname, "..");
   const ignore = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable.dockerignore"), "utf8");
