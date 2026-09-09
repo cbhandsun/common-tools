@@ -59,13 +59,14 @@
 - native rebuild stacked architecture：平台总体架构与四层标准化架构的 layer/front/top/side、箭头、brace、OSS callout、search/wand icon 和 native text 回填从主 rebuild 编排中移出到 factory 模块；主入口只注入 foundation network 子边界、stacked layer 颜色采样、几何和 component token。
 - native rebuild document version：库存查询多增量版本治理与文档版本 folder flow 的主文档、版本卡、连接线、左侧手写 sketch fidelity crop、重复残差标记和 fallback 文本补证从主 rebuild 编排中移出到 factory 模块；主入口只注入 IR asset 解析、PNG crop、文本规范化、几何和 residual overlap 边界。
 - native rebuild temporary answer workflow matrix：临时问答到专业 AI 工作流对比矩阵的 source crop 标记、header icon fidelity crop、quote 和 native table 生成从主 rebuild 编排中移出到 factory 模块；模块内清理了未被生产路径调用的旧 text-box table fallback helper。
+- native rebuild asset hub super brain portal：企业级 Hub 门户 source-faithful illustration crop 保护、callout/quote overlay erase、search chrome、callout card/text 和 portal quote native overlay 从主 rebuild 编排中移出到 factory 模块；主入口只注入 PNG/IR/crop、文本规范化、component token 和通用 text box 边界。
 
 验证证据：
 
 - `node --check` 覆盖每个新增模块及受影响主文件。
 - `test/component-template-native-shapes.test.js` 通过。
 - `npm run lint` 通过，新增模块均进入统一 lint 入口。
-- `node scripts/verify-runtime-package.js` 通过：运行包 1,246 个文件、20 个 workspace package、6 项能力探针通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,247 个文件、20 个 workspace package、6 项能力探针通过。
 - `npm run common-tools:team-local-smoke` 通过：本地 Docker gateway ready、5 个能力 scope metadata 验证、未授权 MCP challenge 验证；当前未启用 IdP，因此还不是 authenticated acceptance evidence。
 - `node scripts/verify-architecture-budgets.js` 通过。
 - `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
@@ -74,7 +75,7 @@
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：17,827 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：17,593 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。

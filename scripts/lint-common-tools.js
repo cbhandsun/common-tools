@@ -100,6 +100,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-cli-runner.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-asset-os-flow.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-asset-os-kpi-benefit.js",
+  "packages/slideclone-native-engine/scripts/lib/native-rebuild-asset-hub-super-brain-portal.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-document-version.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-entropy-challenge.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-funnel-hub-residual.js",
