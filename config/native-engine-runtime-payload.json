@@ -42,6 +42,7 @@
     "flow-e2e-smoke.js",
     "golden-set-runner.js",
     "graphic-reconstruction-decision-gate.js",
+    "graphic-reconstruction-decision-audit.js",
     "component-harvest-shortlist.js",
     "component-harvest-candidate-rank.js",
     "harvest-active-powerpoint-component.js",
@@ -49,6 +50,7 @@
     "ir-delivery-smoke.js",
     "libreoffice-benchmark.js",
     "native-fragmentation-audit.js",
+    "minimum-unit-gap-audit.js",
     "ocr-text-smoke.js",
     "officeplus-component-resolve.js",
     "plugin-component-target-audit.js",
@@ -67,6 +69,7 @@
     "rebuild-real-pptx-native.js",
     "rendered-similarity-audit.js",
     "slideclone.js",
+    "structural-native-audit.js",
     "watch-plugin-component-downloads.js"
   ],
   "rootScriptGroups": {
@@ -91,10 +94,12 @@
       "component-harvest-candidate-rank.js",
       "component-replacement-apply-quality-gate.js",
       "graphic-reconstruction-decision-gate.js",
+      "graphic-reconstruction-decision-audit.js",
       "ir-delivery-smoke.js",
       "libreoffice-benchmark.js",
       "native-fragmentation-audit.js",
       "minimum-unit-policy-gate.js",
+      "minimum-unit-gap-audit.js",
       "ocr-text-smoke.js",
       "quality-gate-ocr-batch.js",
       "quality-gate-real-pptx.js",
@@ -104,7 +109,8 @@
       "real-pptx-editable-batch.js",
       "real-pptx-normalize-smoke.js",
       "rebuild-real-pptx-native-parallel.js",
-      "rendered-similarity-audit.js"
+      "rendered-similarity-audit.js",
+      "structural-native-audit.js"
     ],
     "componentAcquisitionTools": [
       "component-acquisition-search.js",

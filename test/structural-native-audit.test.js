@@ -8,7 +8,7 @@ const {
   isImageObjectified,
   isProtectedIntentionalCrop,
   scoreStructuralImageCandidate
-} = require("../skills/pd-hifi-slideclone/scripts/structural-native-audit");
+} = require("../packages/slideclone-native-engine/scripts/structural-native-audit");
 
 const slideSize = { widthPt: 960, heightPt: 540 };
 

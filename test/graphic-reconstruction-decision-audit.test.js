@@ -13,7 +13,7 @@ const {
   parseArgs,
   renderDecisionAuditMarkdown,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/graphic-reconstruction-decision-audit");
+} = require("../packages/slideclone-native-engine/scripts/graphic-reconstruction-decision-audit");
 
 const slideSize = { widthPt: 960, heightPt: 540 };
 
