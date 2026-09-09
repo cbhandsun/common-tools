@@ -2,8 +2,6 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { runMigrationCommand, migrationFailureCode } = require("../remote-mcp-server/bin/common-tools-team-migrate");
-const { runProductionPreflight } = require("./production-preflight");
 
 const REQUIRED_DIRECT_CREDENTIALS = Object.freeze([
   "COMMON_TOOLS_DATABASE_USER",
@@ -124,8 +122,9 @@ async function collectProductionAcceptanceEvidence(environment = process.env, op
     return Object.freeze({ status: plan.status, files: Object.freeze(files), checks: Object.freeze(checks), blockers: plan.blockers });
   }
 
-  const preflightRunner = options.runProductionPreflight || runProductionPreflight;
-  const migrationRunner = options.runMigrationCommand || runMigrationCommand;
+  const preflightRunner = options.runProductionPreflight || require("./production-preflight").runProductionPreflight;
+  const migrationTools = options.runMigrationCommand ? { runMigrationCommand: options.runMigrationCommand, migrationFailureCode: require("../remote-mcp-server/bin/common-tools-team-migrate").migrationFailureCode } : require("../remote-mcp-server/bin/common-tools-team-migrate");
+  const migrationRunner = migrationTools.runMigrationCommand;
   try {
     const preflight = preflightRunner(environment, { repositoryRoot });
     files.productionPreflight = writeEvidenceJson(outputDirectory, "production-preflight.json", preflight);
@@ -142,7 +141,7 @@ async function collectProductionAcceptanceEvidence(environment = process.env, op
     files.migrationStatus = writeEvidenceJson(outputDirectory, "migration-status.json", parsed);
     checks.push({ name: "migration-status", status: "passed" });
   } catch (error) {
-    const code = migrationFailureCode(error);
+    const code = migrationTools.migrationFailureCode(error);
     files.migrationStatus = writeEvidenceJson(outputDirectory, "migration-status-error.json", { status: "failed", code });
     checks.push({ name: "migration-status", status: "failed", code });
   }

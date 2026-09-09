@@ -576,6 +576,12 @@ function verifyInstalledCli({ installRoot, commandRunner, expectedPackageFolders
   let catalog;
   try { catalog = JSON.parse(listed); } catch { throw new Error("installed runtime plugin output is invalid"); }
   if (!plainObject(catalog) || catalog.distributionVerified !== true || !Array.isArray(catalog.capabilities) || catalog.capabilities.length === 0) throw new Error("installed runtime plugin output is invalid");
+  const acceptancePlan = run(commandRunner, process.execPath, [cli, "team", "production-acceptance-plan"], installRoot, "installed production acceptance plan check failed");
+  let parsedAcceptancePlan;
+  try { parsedAcceptancePlan = JSON.parse(acceptancePlan); } catch { throw new Error("installed production acceptance plan output is invalid"); }
+  if (!plainObject(parsedAcceptancePlan) || !["blocked-by-configuration", "ready-for-production-preflight"].includes(parsedAcceptancePlan.status) || !plainObject(parsedAcceptancePlan.requiredConfiguration)) {
+    throw new Error("installed production acceptance plan output is invalid");
+  }
   const probe = "const path=require('node:path');const root=path.resolve(process.argv[1]);const api=require(path.join(root,'packages','cli','slideclone-runner.js'));const result=api.inspectBundledSlideclone({repositoryRoot:root});if(!result.available)process.exit(2);process.stdout.write('ready');";
   const imageEngine = run(commandRunner, process.execPath, ["-e", probe, packageRoot], installRoot, "installed image-to-editable engine check failed");
   if (imageEngine !== "ready") throw new Error("installed image-to-editable engine check failed");
@@ -584,7 +590,7 @@ function verifyInstalledCli({ installRoot, commandRunner, expectedPackageFolders
   runClassifiedProbe(commandRunner, ["-e", imageEditableEnhancementProbe(), packageRoot], installRoot, "installed image-to-editable residual deduplication check failed");
   runClassifiedProbe(commandRunner, ["-e", pptCreateLayoutProbe(), packageRoot], installRoot, "installed ppt-create layout candidate check failed");
   runClassifiedProbe(commandRunner, ["-e", pptCreateEnhancementProbe(), packageRoot], installRoot, "installed ppt-create enhancement check failed");
-  return Object.freeze({ capabilityCount: catalog.capabilities.length, packageCount: packageNames.length, imageToEditableEngine: true, residualDeduplication: true, rawImageBatch: true, pptCreateLayoutCandidates: true, pptCreatePlanning: true, pptCreateEnhancements: true });
+  return Object.freeze({ capabilityCount: catalog.capabilities.length, packageCount: packageNames.length, imageToEditableEngine: true, productionAcceptancePlan: true, residualDeduplication: true, rawImageBatch: true, pptCreateLayoutCandidates: true, pptCreatePlanning: true, pptCreateEnhancements: true });
 }
 
 function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), commandRunner = childProcess.spawnSync, temporaryDirectory = fs.mkdtempSync } = {}) {
@@ -606,7 +612,7 @@ function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), 
     const installInvocation = npmInvocation(["install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", installRoot, tarball]);
     run(commandRunner, installInvocation.command, installInvocation.arguments, root, "runtime package installation failed");
     const installed = verifyInstalledCli({ installRoot, commandRunner, expectedPackageFolders: runtimePackageFolders(root) });
-    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, packageCount: installed.packageCount, imageToEditableEngine: installed.imageToEditableEngine, residualDeduplication: installed.residualDeduplication, rawImageBatch: installed.rawImageBatch, pptCreateLayoutCandidates: installed.pptCreateLayoutCandidates, pptCreatePlanning: installed.pptCreatePlanning, pptCreateEnhancements: installed.pptCreateEnhancements });
+    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, packageCount: installed.packageCount, imageToEditableEngine: installed.imageToEditableEngine, productionAcceptancePlan: installed.productionAcceptancePlan, residualDeduplication: installed.residualDeduplication, rawImageBatch: installed.rawImageBatch, pptCreateLayoutCandidates: installed.pptCreateLayoutCandidates, pptCreatePlanning: installed.pptCreatePlanning, pptCreateEnhancements: installed.pptCreateEnhancements });
   } finally {
     if (cleanable) fs.rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }

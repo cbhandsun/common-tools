@@ -133,10 +133,13 @@ test("runtime package retains the release OCR evidence, doctor, and Keycloak rem
 
 test("runtime package exposes production acceptance evidence entrypoints", () => {
   const repositoryRoot = path.resolve(__dirname, "..");
+  const verifierSource = fs.readFileSync(path.join(repositoryRoot, "scripts", "verify-runtime-package.js"), "utf8");
   assert.equal(packageManifest.scripts["common-tools:production-acceptance-plan"], "node packages/cli/bin/common-tools.js team production-acceptance-plan");
   assert.equal(packageManifest.scripts["common-tools:production-acceptance-evidence"], "node packages/cli/bin/common-tools.js team production-acceptance-evidence");
   assert.ok(packageManifest.files.includes("packages/"));
   assert.ok(fs.existsSync(path.join(repositoryRoot, "packages", "cli", "production-acceptance-plan.js")));
+  assert.match(verifierSource, /team", "production-acceptance-plan"/);
+  assert.match(verifierSource, /productionAcceptancePlan: true/);
 });
 
 test("runtime package verifier invokes npm through the current Node installation without a shell", () => {
