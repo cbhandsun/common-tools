@@ -120,6 +120,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/component-template-cycle-shapes.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-family-evidence.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-geometry.js",
+  "packages/slideclone-native-engine/scripts/lib/component-template-hub-tree-timeline-shapes.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-layered-stack-shapes.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-learned-replay-shapes.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-matrix-quadrant-shapes.js",
