@@ -123,6 +123,7 @@ if ($Mode -eq 'Plan') {
     credentialSource = $preflight.credentialSource
     enabledCapabilities = @($preflight.enabledCapabilities)
     composeFiles = @($preflight.composeFiles)
+    schemaMigrations = $preflight.schemaMigrations
     releaseEvidenceRevision = $preflight.releaseEvidence.revision
     releaseImages = @($preflight.releaseEvidence.images)
     releaseSignatureRequired = ($preflight.releaseSignature.required -eq $true)

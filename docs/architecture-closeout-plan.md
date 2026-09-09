@@ -12,7 +12,7 @@
 - `verify-slideclone-profiles` 强制阻止 profile 在同名 native engine 脚本存在时继续指向 skill 根入口。
 - 最近验证结果为 150 个 `slideclone:*` profiles 全部直达 native engine，native runtime payload 包含 86 个根脚本、3 个脚本组和 4 个目录。
 
-这只关闭截图中的 P1 根入口/profile 风险，不代表 A–F 产品验收完成。远程上传/创建、独立 PDF、线上 OCR、实际 Office 质量闭环仍按本页后续阶段单独验收。
+这只关闭截图中的 P1 根入口/profile 风险，不代表 A–F 产品验收完成。远程上传/创建、独立 PDF、线上 OCR、实际 Office 质量闭环仍按本页后续阶段单独验收。远程图片 Worker 的下一前置项已收敛为生产数据库 010/011 schema 迁移与候选 Worker 重切换；`team production-preflight` 会在 Compose 前检查本次发布包包含 delivery schema 迁移，并在 Plan 输出中暴露 `schemaMigrations`。
 
 ## 当前可交付基线
 
