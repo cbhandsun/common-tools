@@ -7,7 +7,8 @@ param(
   [ValidateRange(30, 900)]
   [int]$WaitTimeoutSeconds = 300,
   [ValidateRange(5, 60)]
-  [int]$DockerEngineTimeoutSeconds = 20
+  [int]$DockerEngineTimeoutSeconds = 20,
+  [string]$ProductionEnvFile
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,6 +19,47 @@ $operationLock = Enter-CommonToolsTeamRuntimeOperationLock -Project $Project
 try {
 $composeFiles = @()
 $profiles = @('team-api', 'team-maintenance')
+
+function Import-ProductionEnvironmentFile([string]$Path) {
+  if ([string]::IsNullOrWhiteSpace($Path)) { return }
+  if ($Path.IndexOf([char]0) -ge 0) { throw 'Production env file path is invalid' }
+  if (-not [System.IO.Path]::IsPathRooted($Path)) { throw 'Production env file path must be absolute' }
+  $resolvedPath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
+  if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) { throw 'Production env file must be a file' }
+  $item = Get-Item -LiteralPath $resolvedPath
+  if ($item.Length -gt 65536) { throw 'Production env file is too large' }
+  $seen = @{}
+  $lineNumber = 0
+  foreach ($line in Get-Content -LiteralPath $resolvedPath) {
+    $lineNumber += 1
+    $trimmed = $line.TrimStart()
+    if ($trimmed.Length -eq 0 -or $trimmed.StartsWith('#')) { continue }
+    $assignment = $trimmed
+    if ($assignment.StartsWith('export ')) { $assignment = $assignment.Substring(7).TrimStart() }
+    $separator = $assignment.IndexOf('=')
+    if ($separator -le 0) { throw "Production env file line $lineNumber must be KEY=VALUE" }
+    $name = $assignment.Substring(0, $separator).Trim()
+    if ($name -cnotmatch '^COMMON_TOOLS_[A-Z0-9_]{1,120}$') { throw "Production env file line $lineNumber has an unsupported variable name" }
+    if ($seen.ContainsKey($name)) { throw "Production env file line $lineNumber duplicates $name" }
+    if (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name, 'Process'))) { throw "Production env file duplicates existing $name" }
+    $value = $assignment.Substring($separator + 1).Trim()
+    if ($value.IndexOf([char]0) -ge 0) { throw "Production env file line $lineNumber contains an invalid value" }
+    if ($value.Length -ge 2) {
+      $first = $value[0]
+      $last = $value[$value.Length - 1]
+      if (($first -eq '"' -or $first -eq "'") -or ($last -eq '"' -or $last -eq "'")) {
+        if (-not (($first -eq '"' -and $last -eq '"') -or ($first -eq "'" -and $last -eq "'"))) {
+          throw "Production env file line $lineNumber has an unterminated quoted value"
+        }
+        $value = $value.Substring(1, $value.Length - 2)
+      }
+    } elseif ($value.StartsWith('"') -or $value.StartsWith("'") -or $value.EndsWith('"') -or $value.EndsWith("'")) {
+      throw "Production env file line $lineNumber has an unterminated quoted value"
+    }
+    $seen[$name] = $true
+    [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+  }
+}
 
 function Invoke-Compose([string[]]$Arguments) {
   $baseArguments = @('compose', '--project-name', $Project)
@@ -112,6 +154,7 @@ function New-ProductionPreApplyChecklist {
   )
 }
 
+Import-ProductionEnvironmentFile $ProductionEnvFile
 Assert-DockerEngineAvailable -TimeoutSeconds $DockerEngineTimeoutSeconds
 $preflight = Invoke-ProductionPreflight
 $composeFiles = @(Resolve-PreflightComposeFiles -ReportedFiles @($preflight.composeFiles) -CredentialSource $preflight.credentialSource)

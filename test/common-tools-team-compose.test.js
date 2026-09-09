@@ -292,11 +292,17 @@ test("production deployment script requires the read-only release preflight and 
   assert.match(script, /ValidateSet\('Plan', 'Apply'\)/);
   assert.match(script, /common-tools-docker-engine\.ps1/);
   assert.match(script, /team-runtime-operation-lock\.ps1/);
+  assert.match(script, /\[string\]\$ProductionEnvFile/);
+  assert.match(script, /function Import-ProductionEnvironmentFile/);
+  assert.match(script, /Production env file path must be absolute/);
+  assert.match(script, /\^COMMON_TOOLS_\[A-Z0-9_\]\{1,120\}\$/);
+  assert.match(script, /Production env file duplicates existing \$name/);
+  assert.match(script, /\[Environment\]::SetEnvironmentVariable\(\$name, \$value, 'Process'\)/);
   assert.match(script, /Enter-CommonToolsTeamRuntimeOperationLock -Project \$Project/);
   assert.match(script, /\$operationLock = Enter-CommonToolsTeamRuntimeOperationLock -Project \$Project\s+try \{/s);
   assert.match(script, /\} finally \{\s+Exit-CommonToolsTeamRuntimeOperationLock -Lock \$operationLock/s);
   assert.match(script, /Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds/);
-  assert.match(script, /Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds\s+\$preflight = Invoke-ProductionPreflight/s);
+  assert.match(script, /Import-ProductionEnvironmentFile \$ProductionEnvFile\s+Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds\s+\$preflight = Invoke-ProductionPreflight/s);
   assert.match(script, /team production-preflight/);
   assert.match(script, /function Resolve-PreflightComposeFiles/);
   assert.match(script, /\$composeFiles = @\(Resolve-PreflightComposeFiles -ReportedFiles @\(\$preflight\.composeFiles\) -CredentialSource \$preflight\.credentialSource\)/);

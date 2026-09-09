@@ -391,6 +391,13 @@ npm run common-tools -- team production-preflight
 .\scripts\team-runtime-production-deploy.ps1 -Mode Apply -Project common-tools -WaitTimeoutSeconds 300
 ```
 
+若当前 PowerShell 没有预先注入生产环境变量，可给脚本传入仓库外的受保护 env 文件。脚本会先验证该文件为绝对路径、普通文件、64 KiB 内，且只包含 `COMMON_TOOLS_*` 配置；随后仅导入到当前发布进程，供 release preflight、OIDC discovery preflight 和 Docker Compose 插值使用，不会把值写入仓库、命令输出或 evidence：
+
+```powershell
+.\scripts\team-runtime-production-deploy.ps1 -Mode Plan -ProductionEnvFile C:\secure\common-tools.production.env
+.\scripts\team-runtime-production-deploy.ps1 -Mode Apply -Project common-tools -ProductionEnvFile C:\secure\common-tools.production.env -WaitTimeoutSeconds 300
+```
+
 在 Secret Manager 注入所有变量后，以基础 API 定义和此覆盖层启动（不要合并本机 IdP 或 infra 文件）：
 
 ```powershell
