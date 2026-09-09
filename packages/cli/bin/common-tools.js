@@ -49,7 +49,7 @@ function bundledSlidecloneRunner() {
 const COMMAND_USAGE = [
   "usage: common-tools <command>",
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
-  "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team migration-status | team production-acceptance-plan [--env-file <absolute.env>] [--out <json>] | team production-acceptance-evidence [--env-file <absolute.env>] --out <directory> | team editable-source-archive (--input <png|jpg|pdf|pptx|deck.json> | --inputs <ordered-images,csv>) --out <archive.tar.gz> | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) --out <archive.tar.gz> | team production-preflight | team keycloak-realm [--apply --backup-file <new.json> --evidence-file <new.json>] | team keycloak-mcp-client [--apply --backup-file <new.json>]",
+  "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team migration-status [--production-env-file <absolute.env>] | team production-acceptance-plan [--production-env-file <absolute.env>] [--out <json>] | team production-acceptance-evidence [--production-env-file <absolute.env>] --out <directory> | team editable-source-archive (--input <png|jpg|pdf|pptx|deck.json> | --inputs <ordered-images,csv>) --out <archive.tar.gz> | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) --out <archive.tar.gz> | team production-preflight [--production-env-file <absolute.env>] | team keycloak-realm [--apply --backup-file <new.json> --evidence-file <new.json>] | team keycloak-mcp-client [--apply --backup-file <new.json>]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
   "  editable init|create|run|batch|apply-edit | editable batch --inputs <ordered,csv> --out <directory> --config <json> | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose [--provider-config <json> --provider-id <id>]|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|edit-session|apply-edit|apply-ir-edit|finalize-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|layout-safe|typography-safe|editability-safe|audit-only] | job get|run|cancel"
 ].join("\n");
@@ -60,6 +60,9 @@ function parseCapabilityList(value) {
   const capabilities = value.split(",").map((capability) => capability.trim());
   if (capabilities.some((capability) => !capability) || new Set(capabilities).size !== capabilities.length) throw new Error("--capabilities must not contain empty or duplicate capability IDs");
   return capabilities;
+}
+function productionEnvironmentFromArgs(args, environment = process.env) {
+  return args["production-env-file"] ? environmentWithProductionEnvFile(environment, args["production-env-file"]) : environment;
 }
 function context(args) { const workspaceRoot = path.resolve(args.workspace || process.cwd()); const stateRoot = path.resolve(args.state || path.join(workspaceRoot, ".common-tools")); return { workspaceRoot, stateRoot, ownerId: args.owner || "local-user" }; }
 function runtimeStatus(_args = {}, environment = process.env) {
@@ -579,17 +582,19 @@ async function main() {
   }
   if (area === "team" && action === "production-preflight") {
     const { runProductionPreflight } = require("../production-preflight");
-    const result = runProductionPreflight(process.env, { repositoryRoot: REPOSITORY_ROOT });
+    const productionEnvironment = productionEnvironmentFromArgs(args);
+    const result = runProductionPreflight(productionEnvironment, { repositoryRoot: REPOSITORY_ROOT });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return 0;
   }
   if (area === "team" && action === "migration-status") {
     const { runMigrationCommand } = require("../../remote-mcp-server/bin/common-tools-team-migrate");
-    await runMigrationCommand(process.env, ["--status"]);
+    const productionEnvironment = productionEnvironmentFromArgs(args);
+    await runMigrationCommand(productionEnvironment, ["--status"]);
     return 0;
   }
   if (area === "team" && action === "production-acceptance-plan") {
-    const productionEnvironment = args["env-file"] ? environmentWithProductionEnvFile(process.env, args["env-file"]) : process.env;
+    const productionEnvironment = productionEnvironmentFromArgs(args);
     const result = productionAcceptancePlan(productionEnvironment);
     if (args.out) {
       const outputFile = resolveWorkspaceChild(ctx.workspaceRoot, args.out, "production acceptance plan output");
@@ -603,7 +608,7 @@ async function main() {
   }
   if (area === "team" && action === "production-acceptance-evidence") {
     if (!args.out) throw new Error("team production-acceptance-evidence requires --out");
-    const productionEnvironment = args["env-file"] ? environmentWithProductionEnvFile(process.env, args["env-file"]) : process.env;
+    const productionEnvironment = productionEnvironmentFromArgs(args);
     const outputDirectory = resolveWorkspaceChild(ctx.workspaceRoot, args.out, "production acceptance evidence output");
     const result = await collectProductionAcceptanceEvidence(productionEnvironment, { repositoryRoot: REPOSITORY_ROOT, outputDirectory });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

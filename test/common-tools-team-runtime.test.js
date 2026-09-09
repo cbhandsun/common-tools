@@ -54,9 +54,10 @@ test("direct SiYuan capability is enabled without inventing a Worker service", (
 });
 
 test("team CLI usage exposes migration status before production migration", () => {
-  assert.match(COMMAND_USAGE, /team migration-status/u);
-  assert.match(COMMAND_USAGE, /team production-acceptance-plan \[--env-file <absolute\.env>\]/u);
-  assert.match(COMMAND_USAGE, /team production-acceptance-evidence \[--env-file <absolute\.env>\]/u);
+  assert.match(COMMAND_USAGE, /team migration-status \[--production-env-file <absolute\.env>\]/u);
+  assert.match(COMMAND_USAGE, /team production-preflight \[--production-env-file <absolute\.env>\]/u);
+  assert.match(COMMAND_USAGE, /team production-acceptance-plan \[--production-env-file <absolute\.env>\]/u);
+  assert.match(COMMAND_USAGE, /team production-acceptance-evidence \[--production-env-file <absolute\.env>\]/u);
 });
 
 test("production env file parser accepts only bounded COMMON_TOOLS assignments", () => {
@@ -84,6 +85,20 @@ test("production env file merge rejects relative files and existing production v
     () => environmentWithProductionEnvFile({ COMMON_TOOLS_DATABASE_URL: "already-set" }, envFile),
     /duplicates existing COMMON_TOOLS_DATABASE_URL/u
   );
+});
+
+test("production diagnostic commands fail before work when env file input is unsafe", () => {
+  const cli = path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
+  for (const action of ["migration-status", "production-preflight"]) {
+    const result = spawnSync(process.execPath, [cli, "team", action, "--production-env-file", "production.env"], {
+      encoding: "utf8",
+      env: { PATH: process.env.PATH || "" },
+      windowsHide: true
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout + result.stderr, /absolute path/u);
+    assert.equal((result.stdout + result.stderr).includes("not-a-real-secret"), false);
+  }
 });
 
 test("production acceptance plan is redacted and reports missing production configuration", () => {
@@ -177,7 +192,7 @@ test("production acceptance plan command loads a protected env file without echo
     "COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID=not-a-real-key",
     "COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY=not-a-real-object-secret"
   ].join("\n"), "utf8");
-  const result = spawnSync(process.execPath, [cli, "--workspace", workspace, "team", "production-acceptance-plan", "--env-file", envFile], {
+  const result = spawnSync(process.execPath, [cli, "--workspace", workspace, "team", "production-acceptance-plan", "--production-env-file", envFile], {
     encoding: "utf8",
     env: { PATH: process.env.PATH || "" },
     windowsHide: true

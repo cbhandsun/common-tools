@@ -11,9 +11,9 @@ function isSet(environment, name) {
 }
 
 function normalizeProductionEnvFilePath(filePath) {
-  if (typeof filePath !== "string" || !filePath.trim()) throw new TypeError("--env-file is required");
-  if (filePath.includes("\0")) throw new TypeError("--env-file contains an invalid path character");
-  if (!path.isAbsolute(filePath)) throw new TypeError("--env-file must be an absolute path");
+  if (typeof filePath !== "string" || !filePath.trim()) throw new TypeError("--production-env-file is required");
+  if (filePath.includes("\0")) throw new TypeError("--production-env-file contains an invalid path character");
+  if (!path.isAbsolute(filePath)) throw new TypeError("--production-env-file must be an absolute path");
   return path.resolve(filePath);
 }
 
@@ -59,8 +59,8 @@ function parseProductionEnvFileContent(content) {
 function readProductionEnvFile(filePath, fileSystem = fs) {
   const resolved = normalizeProductionEnvFilePath(filePath);
   const stat = fileSystem.statSync(resolved);
-  if (!stat.isFile()) throw new TypeError("--env-file must point to a file");
-  if (stat.size > MAX_PRODUCTION_ENV_FILE_BYTES) throw new TypeError("--env-file is too large");
+  if (!stat.isFile()) throw new TypeError("--production-env-file must point to a file");
+  if (stat.size > MAX_PRODUCTION_ENV_FILE_BYTES) throw new TypeError("--production-env-file is too large");
   return parseProductionEnvFileContent(fileSystem.readFileSync(resolved, "utf8"));
 }
 
@@ -69,7 +69,7 @@ function environmentWithProductionEnvFile(environment, filePath, fileSystem = fs
   const fileEnvironment = readProductionEnvFile(filePath, fileSystem);
   const merged = { ...environment };
   for (const [name, value] of Object.entries(fileEnvironment)) {
-    if (isSet(merged, name)) throw new TypeError(`--env-file duplicates existing ${name}`);
+    if (isSet(merged, name)) throw new TypeError(`--production-env-file duplicates existing ${name}`);
     merged[name] = value;
   }
   return Object.freeze(merged);
