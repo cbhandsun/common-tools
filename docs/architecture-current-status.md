@@ -23,6 +23,8 @@
 
 结论：本地验收链路已经从“工程师式多步排障”明显向“用户只输入密码”的方向收敛。它仍不等同于真正生产发布验收；生产发布仍需要 immutable image digest、release evidence、迁移/备份/回滚和远程认证 Job smoke 证据。
 
+后续增量 `514e86c Add local authenticated job smoke wrapper` 新增 `.\scripts\team-runtime-local-job-smoke.ps1` / `npm run common-tools:team-local-job-smoke`。该入口会自动生成最小 PNG 输入、打包为 team raw-image archive、发现本地 gateway 并调用受保护 MCP 的 authenticated Job smoke；OAuth bearer token 仍必须由用户通过 `COMMON_TOOLS_JOB_SMOKE_TOKEN` 显式提供，脚本不会 mint、读取或打印 token。默认不等待 Worker 终态；传 `-Wait` 时，`image-to-editable` 会同时验证 `deck.pptx` artifact target。运行包文件数随该脚本增加到 1,180。
+
 ## 2026-09-09 收口：历史 skill lib 引用进入尾部兼容治理
 
 本轮在“不再把生产实现放回 skill”的共识下，继续清理测试与小辅助模块对 `skills/pd-hifi-slideclone/scripts/lib` 的直接依赖。已经完成四批提交：
