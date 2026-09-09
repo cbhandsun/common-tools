@@ -31,7 +31,7 @@ modules.push("component-strategy-annotator");
 modules.push("structured-card-visual-reconstruction");
 modules.push("diagram-geometry", "diagram-constants", "comparison-matrix-evidence", "closed-loop-hybrid", "text-mask-cleanup", "asset-os-closed-loop-reconstruction", "asset-hub-cycle-reconstruction");
 modules.push("native-chart-shell-shapes", "visual-atom-native-metadata", "visual-atom-native-policy", "visual-atom-component-grouping", "visual-atom-fallback", "visual-atom-topology", "visual-atom-promotion", "gantt-native-shell", "visual-atom-native-shapes");
-modules.push("relationship-native-layouts", "relationship-native-shapes", "relationship-native-geometry", "relationship-topology-helpers", "pixel-branch-curve-detector", "relationship-native-shell", "visual-atom-native-reconstruction");
+modules.push("relationship-native-layouts", "relationship-native-shapes", "relationship-native-geometry", "relationship-topology-helpers", "relationship-branch-card-shell", "pixel-branch-curve-detector", "relationship-native-shell", "visual-atom-native-reconstruction");
 modules.push("comparison-matrix-text", "comparison-matrix-layout", "structured-case-matrix-reconstruction", "comparison-matrix-reconstruction");
 modules.push("page-text-rule-helpers", "page-text-rules", "font-evidence");
 modules.push("page-output-rules");

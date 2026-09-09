@@ -146,6 +146,13 @@ function isSafeTopologyLayout(nodes = [], connectors = [], adjacency = new Map()
   return area >= boxArea(layerBox) * 0.035;
 }
 
+function isIgnorableContainedFragment(atom = {}, nodes = [], layerBox = {}) {
+  if (!validBox(atom.box) || atom.residualCandidate === true) return false;
+  const layerArea = boxArea(layerBox);
+  return boxArea(atom.box) <= layerArea * 0.0015
+    && nodes.some((node) => containsBox(node.box, atom.box, 2) && boxArea(atom.box) <= boxArea(node.box) * 0.22);
+}
+
 module.exports = {
   topologyNodes,
   augmentTopologyAxisConnectors,
@@ -158,5 +165,6 @@ module.exports = {
   distancePointToSegment,
   pointInsideBox,
   isConnectedTopology,
-  isSafeTopologyLayout
+  isSafeTopologyLayout,
+  isIgnorableContainedFragment
 };

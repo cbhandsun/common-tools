@@ -122,6 +122,7 @@
     "./visual-atom-native-policy": "./visual-atom-native-policy.js",
     "./visual-atom-component-grouping": "./visual-atom-component-grouping.js",
     "./component-strategy-annotator": "./component-strategy-annotator.js",
+    "./relationship-branch-card-shell": "./relationship-branch-card-shell.js",
     "./relationship-native-shell": "./relationship-native-shell.js",
     "./relationship-native-layouts": "./relationship-native-layouts.js",
     "./relationship-native-shapes": "./relationship-native-shapes.js",
