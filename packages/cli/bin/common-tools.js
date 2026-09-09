@@ -524,8 +524,9 @@ function runCreatedLocalJob(ctx, job) {
   throw new Error("job capability cannot be run locally");
 }
 function buildCreatedPptx({ irFile, outFile, templatePptx }) {
-  const skillRoot = path.join(REPOSITORY_ROOT, "skills", "pd-hifi-slideclone");
-  buildOpenXmlDecksSync([{ irFile, outFile, templatePptx }], { skillRoot, config: { openXmlBuilder: { cache: false, configuration: "Release", targetFramework: "net8.0" } }, metrics: {} }, path.join(skillRoot, "dotnet", "OpenXmlDeckBuilder"), { powerPointSafe: true });
+  const nativeEngineRoot = path.join(REPOSITORY_ROOT, "packages", "slideclone-native-engine");
+  const openXmlBuilderRoot = path.join(nativeEngineRoot, "dotnet", "OpenXmlDeckBuilder");
+  buildOpenXmlDecksSync([{ irFile, outFile, templatePptx }], { skillRoot: nativeEngineRoot, openXmlBuilderRoot, config: { openXmlBuilder: { cache: false, configuration: "Release", targetFramework: "net8.0" } }, metrics: {} }, openXmlBuilderRoot, { powerPointSafe: true });
 }
 async function main() {
   const args = parse(process.argv.slice(2));
