@@ -6,7 +6,7 @@ const {
   parseArgs,
   buildMotifRecallReport,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/component-motif-recall-report");
+} = require("../packages/slideclone-native-engine/scripts/component-motif-recall-report");
 
 test("buildMotifRecallReport marks motif ready when search and applied local structure agree", () => {
   const report = buildMotifRecallReport({

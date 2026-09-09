@@ -12,7 +12,7 @@ const {
   parseArgs,
   renderHarvestShortlistMarkdown,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/component-harvest-shortlist");
+} = require("../packages/slideclone-native-engine/scripts/component-harvest-shortlist");
 
 function writeJson(dir, name, value) {
   const file = path.join(dir, name);
