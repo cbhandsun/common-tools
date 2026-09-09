@@ -38,13 +38,14 @@
 - component library refresh：组件库刷新计划只允许登记过的 native-engine package script，未知脚本不再 fallback 到 `skills/pd-hifi-slideclone/scripts`，并补回归测试证明 fail-closed。
 - native rebuild entropy challenge：entropy challenge 的 annotation backplate/text、fragment cloud、perspective island、auto island gate 与 footer bullet native shape 工厂从主 rebuild 编排中移出；像素微组件检测继续复用 core raster detector。
 - native rebuild system map diagram：system map 的对象化判定、dense network fidelity crop、line family compaction 和 composeSystemMapDiagram 接线从主 rebuild 编排中移出到 factory 模块；主入口只注入 IO/裁剪/layout 依赖，后续可继续迁出 layout helpers。
+- native rebuild system map primitives：system map 的 shape/line 构造、底部领域标签和 asset grid tile freeform segments 从主 rebuild 编排中移出，供 system-map layout helper 局部复用。
 
 验证证据：
 
 - `node --check` 覆盖每个新增模块及受影响主文件。
 - `test/component-template-native-shapes.test.js` 通过。
 - `npm run lint` 通过，新增模块均进入统一 lint 入口。
-- `node scripts/verify-runtime-package.js` 通过：运行包 1,225 个文件、20 个 workspace package、6 项能力探针通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,226 个文件、20 个 workspace package、6 项能力探针通过。
 - `node scripts/verify-architecture-budgets.js` 通过。
 - `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
 
@@ -52,7 +53,7 @@
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：24,385 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：24,322 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
