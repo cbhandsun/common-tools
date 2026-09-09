@@ -102,6 +102,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-asset-os-kpi-benefit.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-entropy-challenge.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-funnel-hub-residual.js",
+  "packages/slideclone-native-engine/scripts/lib/native-rebuild-grid-color-helpers.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-table-zone-grid-background.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-table-zone-semantic-text.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-table-zone-visual-shell.js",
