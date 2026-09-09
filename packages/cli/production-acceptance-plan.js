@@ -109,6 +109,19 @@ function writeEvidenceJson(outputDirectory, name, value) {
   return outputFile;
 }
 
+function evidenceSummary({ status, plan, files, checks, blockers }) {
+  if (!plan || typeof plan !== "object" || !files || typeof files !== "object" || !Array.isArray(checks) || !Array.isArray(blockers)) throw new TypeError("production acceptance evidence summary is invalid");
+  return Object.freeze({
+    status,
+    credentialMode: plan.credentialMode,
+    files: Object.freeze(Object.fromEntries(Object.entries(files).map(([key, file]) => [key, path.basename(file)]))),
+    checks: Object.freeze(checks.map((check) => Object.freeze({ name: check.name, status: check.status, ...(check.reason ? { reason: check.reason } : {}), ...(check.code ? { code: check.code } : {}) }))),
+    blockers: Object.freeze([...blockers]),
+    nextCommands: plan.commands,
+    requiredEvidence: plan.evidence
+  });
+}
+
 async function collectProductionAcceptanceEvidence(environment = process.env, options = {}) {
   if (!options || typeof options !== "object") throw new TypeError("production acceptance evidence options are invalid");
   const outputDirectory = options.outputDirectory;
@@ -120,7 +133,9 @@ async function collectProductionAcceptanceEvidence(environment = process.env, op
   if (plan.status !== "ready-for-production-preflight") {
     checks.push({ name: "production-preflight", status: "skipped", reason: "configuration is incomplete" });
     checks.push({ name: "migration-status", status: "skipped", reason: "configuration is incomplete" });
-    return Object.freeze({ status: plan.status, files: Object.freeze(files), checks: Object.freeze(checks), blockers: plan.blockers });
+    const blockers = plan.blockers;
+    files.summary = writeEvidenceJson(outputDirectory, "acceptance-summary.json", evidenceSummary({ status: plan.status, plan, files, checks, blockers }));
+    return Object.freeze({ status: plan.status, files: Object.freeze(files), checks: Object.freeze(checks), blockers });
   }
 
   const preflightRunner = options.runProductionPreflight || require("./production-preflight").runProductionPreflight;
@@ -148,11 +163,14 @@ async function collectProductionAcceptanceEvidence(environment = process.env, op
   }
 
   const failed = checks.filter((check) => check.status === "failed");
+  const status = failed.length ? "evidence-incomplete" : "ready-for-controlled-apply";
+  const blockers = Object.freeze(failed.map((check) => `${check.name} ${check.code}`));
+  files.summary = writeEvidenceJson(outputDirectory, "acceptance-summary.json", evidenceSummary({ status, plan, files, checks, blockers }));
   return Object.freeze({
-    status: failed.length ? "evidence-incomplete" : "ready-for-controlled-apply",
+    status,
     files: Object.freeze(files),
     checks: Object.freeze(checks),
-    blockers: Object.freeze(failed.map((check) => `${check.name} ${check.code}`))
+    blockers
   });
 }
 

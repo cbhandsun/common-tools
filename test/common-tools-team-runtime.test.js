@@ -255,7 +255,14 @@ test("production acceptance evidence collector skips read-only checks until conf
   assert.equal(summary.status, "blocked-by-configuration");
   assert.deepEqual(summary.checks.map((check) => check.status), ["skipped", "skipped"]);
   assert.equal(fs.existsSync(path.join(outputDirectory, "acceptance-plan.json")), true);
+  assert.equal(fs.existsSync(path.join(outputDirectory, "acceptance-summary.json")), true);
   assert.equal(fs.existsSync(path.join(outputDirectory, "production-preflight.json")), false);
+  const archivedSummary = JSON.parse(fs.readFileSync(path.join(outputDirectory, "acceptance-summary.json"), "utf8"));
+  assert.equal(archivedSummary.status, "blocked-by-configuration");
+  assert.equal(archivedSummary.files.plan, "acceptance-plan.json");
+  assert.equal(archivedSummary.checks[0].reason, "configuration is incomplete");
+  assert.ok(archivedSummary.nextCommands.includes("npm run common-tools:production-preflight -- --production-env-file <absolute.env>"));
+  assert.equal(JSON.stringify(archivedSummary).includes("not-a-real-secret"), false);
 });
 
 test("production acceptance evidence collector archives preflight and migration status when ready", async () => {
@@ -293,6 +300,11 @@ test("production acceptance evidence collector archives preflight and migration 
   assert.deepEqual(summary.checks.map((check) => check.status), ["passed", "passed"]);
   assert.equal(JSON.parse(fs.readFileSync(path.join(outputDirectory, "production-preflight.json"), "utf8")).production, true);
   assert.equal(JSON.parse(fs.readFileSync(path.join(outputDirectory, "migration-status.json"), "utf8")).current, true);
+  const archivedSummary = JSON.parse(fs.readFileSync(path.join(outputDirectory, "acceptance-summary.json"), "utf8"));
+  assert.equal(archivedSummary.status, "ready-for-controlled-apply");
+  assert.deepEqual(archivedSummary.files, { plan: "acceptance-plan.json", productionPreflight: "production-preflight.json", migrationStatus: "migration-status.json" });
+  assert.deepEqual(archivedSummary.checks.map((check) => check.status), ["passed", "passed"]);
+  assert.equal(JSON.stringify(archivedSummary).includes("not-a-real-secret"), false);
 });
 
 test("production acceptance evidence command writes a blocked bundle with a distinct exit code", () => {
@@ -307,6 +319,7 @@ test("production acceptance evidence command writes a blocked bundle with a dist
   const summary = JSON.parse(result.stdout);
   assert.equal(summary.status, "blocked-by-configuration");
   assert.equal(fs.existsSync(path.join(workspace, "evidence", "acceptance-plan.json")), true);
+  assert.equal(fs.existsSync(path.join(workspace, "evidence", "acceptance-summary.json")), true);
   assert.equal(JSON.stringify(summary).includes("not-a-real-secret"), false);
 });
 
