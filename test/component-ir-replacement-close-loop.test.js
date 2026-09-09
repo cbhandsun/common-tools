@@ -16,7 +16,7 @@ const {
   renderPendingHarvestGuide,
   resolveInventoryInput,
   runComponentIrReplacementCloseLoop
-} = require("../skills/pd-hifi-slideclone/scripts/component-ir-replacement-close-loop");
+} = require("../packages/slideclone-native-engine/scripts/component-ir-replacement-close-loop");
 
 test("component IR replacement close loop parses CLI flags", () => {
   const args = parseArgs([
