@@ -100,6 +100,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-cli-runner.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-options.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-strategy-profile.js",
+  "packages/slideclone-native-engine/scripts/lib/native-rebuild-value-banner.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-visible-text.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-workdir.js",
   "packages/slideclone-native-engine/scripts/lib/page-background-fill-sampler.js",
