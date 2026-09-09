@@ -111,6 +111,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-options.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-portal-platform.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-product-brain-vision.js",
+  "packages/slideclone-native-engine/scripts/lib/native-rebuild-product-collaboration-challenge.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-prototype-loop-assets.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-quadrant-dividers.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-pptx-build-executor.js",
