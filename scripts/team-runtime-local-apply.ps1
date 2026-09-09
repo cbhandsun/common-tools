@@ -112,7 +112,11 @@ try {
   if ($Mode -eq 'Apply' -and -not $SkipSmoke) {
     $localSmokeScript = Join-Path $PSScriptRoot 'team-runtime-local-smoke.ps1'
     if (-not (Test-Path -LiteralPath $localSmokeScript -PathType Leaf)) { throw 'Local runtime smoke script is unavailable' }
-    & $localSmokeScript -Project $Project -Capabilities $Capabilities
+    if ($EnableIdentityProvider) {
+      & $localSmokeScript -Project $Project -Capabilities $Capabilities -RequireIdentityProvider
+    } else {
+      & $localSmokeScript -Project $Project -Capabilities $Capabilities
+    }
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   }
 } finally {

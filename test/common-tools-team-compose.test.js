@@ -347,6 +347,7 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /& \$localDeployScript @parameters/);
   assert.match(script, /if \(\$Mode -eq 'Apply' -and -not \$SkipSmoke\)/);
   assert.match(script, /team-runtime-local-smoke\.ps1/);
+  assert.match(script, /if \(\$EnableIdentityProvider\) \{\s+& \$localSmokeScript -Project \$Project -Capabilities \$Capabilities -RequireIdentityProvider\s+\} else \{\s+& \$localSmokeScript -Project \$Project -Capabilities \$Capabilities\s+\}/s);
   assert.match(script, /& \$localSmokeScript -Project \$Project -Capabilities \$Capabilities/);
   assert.doesNotMatch(script, /\$arguments = @\(/);
   assert.match(script, /team-runtime-local-deploy\.ps1/);
