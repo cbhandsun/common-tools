@@ -183,6 +183,8 @@ const { createAssetOsSpecializedPagesFactory } = require("./lib/native-rebuild-a
 const { createCenterBadgeQuadrantCycleFactory } = require("./lib/native-rebuild-center-badge-quadrant-cycle");
 const { createSemanticCycleDiagramsFactory } = require("./lib/native-rebuild-semantic-cycle-diagrams");
 const { createDenseComplexScaffoldFactory } = require("./lib/native-rebuild-dense-complex-scaffold");
+const { createTwoPanelDiagramTextFactory } = require("./lib/native-rebuild-two-panel-diagram-text");
+const { createFunnelHubDiagramFactory } = require("./lib/native-rebuild-funnel-hub-diagram");
 const { createPrototypeLoopAssetsFactory } = require("./lib/native-rebuild-prototype-loop-assets");
 const { createQuadrantDividerFactory } = require("./lib/native-rebuild-quadrant-dividers");
 const { createFunnelHubResidualFactory } = require("./lib/native-rebuild-funnel-hub-residual");
@@ -358,6 +360,58 @@ const {
   safeComponentToken,
   temporaryAnswerWorkflowTextBox,
   unionPtBoxes
+});
+const {
+  createTwoPanelDiagramTextShapes,
+  inferTwoPanelDiagramSkeletonShapes,
+  twoPanelDiagramShapeSource,
+  twoPanelDiagramNativeTextBoxes,
+  twoPanelDiagramSemanticTextBoxes,
+  twoPanelDiagramTextBox,
+  twoPanelDiagramTextColor,
+  maybeEraseTwoPanelDiagramText
+} = createTwoPanelDiagramTextFactory({
+  DEFAULT_SLIDE,
+  boxCenterInside,
+  centerOfBox,
+  clampPtBoxToSlide,
+  constrainPtBox,
+  cropPng,
+  eraseMasks,
+  ensureDir,
+  expandBox,
+  keepsInternalLayerText,
+  localResidualPxBox,
+  markTwoPanelChaosIllustrationPreserved,
+  normalizeCjkText,
+  normalizeHex,
+  normalizeMatrixLabel,
+  path,
+  ptToPxBox,
+  resolveAssetPathForIr,
+  round,
+  roundedBox,
+  sameDiagramLabel,
+  shouldPreserveTwoPanelChaosIllustrationCrop,
+  shouldPreserveImageCropUnderNativeAssistants,
+  temporaryAnswerWorkflowTextBox,
+  writePng
+});
+const {
+  createFunnelHubDiagramShapes,
+  shouldObjectifyFunnelHubDiagram,
+  inferFunnelHubDiagram,
+  funnelHubDiagramShapes,
+  funnelHubShapeSource
+} = createFunnelHubDiagramFactory({
+  DEFAULT_SLIDE,
+  boxCenterInside,
+  constrainPtBox,
+  lineBox,
+  normalizeCjkText,
+  round,
+  shouldKeepFunnelHubDiagramText,
+  safeComponentToken
 });
 const { createComponentTemplateOrchestration } = require("./lib/native-rebuild-component-template-orchestration");
 const {
@@ -4711,313 +4765,6 @@ function temporaryAnswerWorkflowTextBox(id, text, box, font = {}, source = {}) {
 
 
 
-function createTwoPanelDiagramTextShapes(images = [], textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE, irDir = null) {
-  const shapes = [];
-  for (const image of images || []) {
-    if (image?.source?.detector !== "two-panel-diagram-crop") continue;
-    if (shouldPreserveTwoPanelChaosIllustrationCrop(image, images, textBoxes, slideSize)) {
-      markTwoPanelChaosIllustrationPreserved(image);
-      continue;
-    }
-    const candidates = twoPanelDiagramNativeTextBoxes(image, textBoxes);
-    const erasedTextBoxes = sourceImage ? maybeEraseTwoPanelDiagramText({
-      image,
-      textBoxes: candidates,
-      sourceImage,
-      slideSize,
-      irDir
-    }) : [];
-    const nativeTextBoxes = erasedTextBoxes.length > 0
-      ? erasedTextBoxes
-      : candidates.map((textBox) => ({
-        ...textBox,
-        source: {
-          ...(textBox.source || {}),
-          textErasedFromCrop: false,
-          overlayVisibility: "visible"
-        }
-      }));
-    if (nativeTextBoxes.length === 0) {
-      const skeletonShapes = inferTwoPanelDiagramSkeletonShapes(image);
-      if (skeletonShapes.length > 0) {
-        image.source = {
-          ...(image.source || {}),
-          twoPanelDiagramSkeletonObjectified: true,
-          visualAtomOverlayOnly: true,
-          objectifiedTwoPanelDiagramSkeletonShapes: skeletonShapes.length,
-          nonEditableReason: `${image.source?.nonEditableReason || image.source?.reason || "local fidelity crop"}; two-panel diagram structure rebuilt as native skeleton overlays while preserving the source crop`
-        };
-        shapes.push(...skeletonShapes);
-      }
-      continue;
-    }
-    const semanticDriven = nativeTextBoxes.some((textBox) =>
-      textBox?.source?.semanticTextSource === true
-    );
-    const semanticSkeletonShapes = semanticDriven ? inferTwoPanelDiagramSkeletonShapes(image) : [];
-    image.source = {
-      ...(image.source || {}),
-      twoPanelDiagramTextObjectified: true,
-      twoPanelDiagramNativeTextBoxes: nativeTextBoxes,
-      objectifiedTwoPanelDiagramTextBoxes: nativeTextBoxes.length,
-      twoPanelDiagramSemanticTextObjectified: semanticDriven || image.source?.twoPanelDiagramSemanticTextObjectified,
-      twoPanelDiagramSkeletonObjectified: semanticSkeletonShapes.length > 0 || image.source?.twoPanelDiagramSkeletonObjectified,
-      visualAtomOverlayOnly: semanticSkeletonShapes.length > 0 ? true : image.source?.visualAtomOverlayOnly,
-      objectifiedTwoPanelDiagramSkeletonShapes: semanticSkeletonShapes.length || image.source?.objectifiedTwoPanelDiagramSkeletonShapes,
-      nonEditableReason: sourceImage
-        ? `${image.source?.nonEditableReason || image.source?.reason || "local fidelity crop"}; two-panel diagram OCR/semantic labels erased from crop and rebuilt as editable native text`
-        : `${image.source?.nonEditableReason || image.source?.reason || "local fidelity crop"}; two-panel diagram semantic labels rebuilt as editable native text without mutating the source crop`
-    };
-    shapes.push(...semanticSkeletonShapes);
-  }
-  return shapes;
-}
-
-function inferTwoPanelDiagramSkeletonShapes(image = {}) {
-  const box = image?.box || {};
-  if (!box.w || !box.h) return [];
-  const base = image.id || "two-panel-diagram";
-  const isRightAssetPanel = Number(box.x || 0) > DEFAULT_SLIDE.widthPt * 0.45;
-  return isRightAssetPanel
-    ? inferTwoPanelAssetRepositorySkeletonShapes(base, image, box)
-    : inferTwoPanelChaosCloudSkeletonShapes(base, image, box);
-}
-
-function inferTwoPanelChaosCloudSkeletonShapes(base, image, box) {
-  const source = (detector, extra = {}) => twoPanelDiagramShapeSource(image, detector, extra);
-  const shapes = [{
-    id: `${base}-native-skeleton-cloud`,
-    type: "ellipse",
-    box: roundedBox({
-      x: Number(box.x || 0) + Number(box.w || 0) * 0.09,
-      y: Number(box.y || 0) + Number(box.h || 0) * 0.16,
-      w: Number(box.w || 0) * 0.72,
-      h: Number(box.h || 0) * 0.52
-    }),
-    style: {
-      fill: "#F2EDE3",
-      stroke: "#C8BFAF",
-      strokeWidthPt: 1.1,
-      opacity: 0.58,
-      shadow: { color: "#897C68", opacity: 0.12, blurPt: 3, distancePt: 1, angleDeg: 90 }
-    },
-    source: source("two-panel-diagram-native-skeleton-cloud", { skeletonOnly: true })
-  }];
-  const tokenSpecs = [
-    { x: 0.20, y: 0.22, w: 0.12, h: 0.07, fill: "#F8F2E8" },
-    { x: 0.47, y: 0.20, w: 0.11, h: 0.07, fill: "#FFF9EF" },
-    { x: 0.64, y: 0.35, w: 0.10, h: 0.07, fill: "#F8F2E8" },
-    { x: 0.28, y: 0.52, w: 0.13, h: 0.07, fill: "#FFF9EF" },
-    { x: 0.55, y: 0.62, w: 0.12, h: 0.07, fill: "#F8F2E8" }
-  ];
-  tokenSpecs.forEach((token, index) => {
-    shapes.push({
-      id: `${base}-native-skeleton-token-${index}`,
-      type: "roundRect",
-      box: roundedBox({
-        x: Number(box.x || 0) + Number(box.w || 0) * token.x,
-        y: Number(box.y || 0) + Number(box.h || 0) * token.y,
-        w: Number(box.w || 0) * token.w,
-        h: Number(box.h || 0) * token.h
-      }),
-      style: {
-        fill: token.fill,
-        stroke: "#B79D7F",
-        strokeWidthPt: 0.8,
-        radiusRatio: 0.12,
-        opacity: 0.82
-      },
-      source: source("two-panel-diagram-native-skeleton-token", { tokenIndex: index, skeletonOnly: true })
-    });
-  });
-  for (let index = 0; index < 6; index += 1) {
-    shapes.push({
-      id: `${base}-native-skeleton-link-${index}`,
-      type: "line",
-      box: {
-        x: round(Number(box.x || 0) + Number(box.w || 0) * (0.22 + index * 0.07)),
-        y: round(Number(box.y || 0) + Number(box.h || 0) * (0.34 + (index % 3) * 0.08)),
-        w: round(Number(box.w || 0) * 0.18),
-        h: round(Number(box.h || 0) * (index % 2 === 0 ? 0.05 : -0.06))
-      },
-      style: { stroke: "#B99E82", strokeWidthPt: 1.1, connectorType: "straight", opacity: 0.55 },
-      source: source("two-panel-diagram-native-skeleton-link", { linkIndex: index, skeletonOnly: true })
-    });
-  }
-  return shapes;
-}
-
-function inferTwoPanelAssetRepositorySkeletonShapes(base, image, box) {
-  const source = (detector, extra = {}) => twoPanelDiagramShapeSource(image, detector, extra);
-  const repo = roundedBox({
-    x: Number(box.x || 0) + Number(box.w || 0) * 0.18,
-    y: Number(box.y || 0) + Number(box.h || 0) * 0.13,
-    w: Number(box.w || 0) * 0.58,
-    h: Number(box.h || 0) * 0.76
-  });
-  const shapes = [{
-    id: `${base}-native-skeleton-repository`,
-    type: "roundRect",
-    box: repo,
-    style: {
-      fill: "#F8FBFF",
-      stroke: "#A6C4DF",
-      strokeWidthPt: 1.2,
-      radiusRatio: 0.04,
-      shadow: { color: "#86A8C8", opacity: 0.14, blurPt: 3.2, distancePt: 1.2, angleDeg: 90 }
-    },
-    source: source("two-panel-diagram-native-skeleton-repository", { skeletonOnly: true })
-  }];
-  const docRows = [0.26, 0.45, 0.64];
-  docRows.forEach((ratio, index) => {
-    shapes.push({
-      id: `${base}-native-skeleton-doc-${index}`,
-      type: "roundRect",
-      box: roundedBox({
-        x: repo.x + repo.w * 0.16,
-        y: repo.y + repo.h * ratio,
-        w: repo.w * 0.66,
-        h: repo.h * 0.12
-      }),
-      style: {
-        fill: "#FFFFFF",
-        stroke: "#6FA8DC",
-        strokeWidthPt: 1,
-        radiusRatio: 0.06,
-        opacity: 0.9
-      },
-      source: source("two-panel-diagram-native-skeleton-document", { documentIndex: index, skeletonOnly: true })
-    });
-  });
-  shapes.push({
-    id: `${base}-native-skeleton-check`,
-    type: "ellipse",
-    box: roundedBox({
-      x: repo.x + repo.w * 0.78,
-      y: repo.y + repo.h * 0.18,
-      w: repo.w * 0.13,
-      h: repo.w * 0.13
-    }),
-    style: { fill: "#3CC875", stroke: "#2CA55F", strokeWidthPt: 1 },
-    source: source("two-panel-diagram-native-skeleton-status", { skeletonOnly: true })
-  });
-  return shapes;
-}
-
-function twoPanelDiagramShapeSource(image, detector, extra = {}) {
-  return {
-    editable: true,
-    nativeRebuild: true,
-    detector,
-    expressionForm: "complex-diagram",
-    expressionSubtype: "two-panel-diagram",
-    layerSourceId: image.id || null,
-    layerType: image.source?.layer?.layerType || "diagram-zone",
-    ...extra
-  };
-}
-
-function twoPanelDiagramNativeTextBoxes(image, textBoxes = []) {
-  const box = image?.box || {};
-  const internalTextBoxes = (textBoxes || [])
-    .filter((textBox) => textBox?.box && boxCenterInside(textBox.box, box))
-    .filter((textBox) => isTwoPanelDiagramInternalLabel(textBox, box))
-    .filter((textBox) => normalizeMatrixLabel(textBox.text));
-  const semanticTextBoxes = twoPanelDiagramSemanticTextBoxes(image)
-    .filter((textBox) => textBox?.box && boxCenterInside(textBox.box, box))
-    .filter((textBox) => isTwoPanelDiagramInternalLabel(textBox, box))
-    .filter((textBox) => !internalTextBoxes.some((existing) => sameDiagramLabel(existing, textBox)));
-  return [
-    ...internalTextBoxes,
-    ...semanticTextBoxes
-  ].map((textBox, index) => twoPanelDiagramTextBox(image, textBox, index));
-}
-
-function twoPanelDiagramSemanticTextBoxes(image = {}) {
-  const nodes = Array.isArray(image?.source?.layer?.diagramUnderstanding?.nodes)
-    ? image.source.layer.diagramUnderstanding.nodes
-    : [];
-  return nodes
-    .filter((node) => node?.box && String(node.text || "").trim())
-    .map((node, index) => ({
-      id: node.sourceTextBoxId || `${image.id || "two-panel-diagram"}-semantic-node-${index}`,
-      text: String(node.text || ""),
-      box: node.box,
-      source: {
-        editable: true,
-        nativeRebuild: true,
-        detector: "two-panel-diagram-semantic-node",
-        semanticTextSource: true,
-        semanticNodeId: node.id || ""
-      }
-    }));
-}
-
-function isTwoPanelDiagramInternalLabel(textBox, panelBox = {}) {
-  const compact = normalizeMatrixLabel(textBox?.text);
-  if (!compact) return false;
-  const box = textBox?.box || {};
-  const center = centerOfBox(box);
-  const relY = (center.y - Number(panelBox.y || 0)) / Math.max(1, Number(panelBox.h || 1));
-  if (relY < 0.05 || relY > 0.92) return false;
-  if (compact.length === 1 && /[\u4e00-\u9fff]/.test(compact) && Number(box.w || 0) < 18 && Number(box.h || 0) < 14) {
-    return false;
-  }
-  return /^(?:V\d+(?:\.\d+)?(?:-[A-Z]+)?|v\d+(?:\.\d+)?|W|HTML?|HTM|<>|error|rfcor|已审)$/.test(compact)
-    || /DomainRepository|PMS配置|PRD\.md|APIEndpoints\.md|UI[_\s]?Wireframe\.fig|Ul[_\s]?Wireframe\.fig/.test(compact)
-    || /码表口径模糊|多版本混杂/.test(compact);
-}
-
-function twoPanelDiagramTextBox(image, textBox, index) {
-  const next = JSON.parse(JSON.stringify(textBox));
-  const compact = normalizeMatrixLabel(next.text);
-  const role = /DomainRepository|PMS配置|PRD\.md|APIEndpoints\.md|Wireframe/.test(compact)
-    ? "asset-label"
-    : /码表口径模糊|多版本混杂|error|rfcor/.test(compact)
-      ? "issue-label"
-      : "version-or-file-token";
-  next.id = next.id || `${image.id || "two-panel-diagram"}-native-text-${index}`;
-  next.font = {
-    ...(next.font || {}),
-    color: twoPanelDiagramTextColor(role, next.font?.color),
-    opacity: 1,
-    weight: role === "asset-label" || role === "issue-label" ? "bold" : (next.font?.weight || "regular")
-  };
-  next.source = {
-    ...(next.source || {}),
-    editable: true,
-    nativeRebuild: true,
-    detector: "two-panel-diagram-native-visible-label",
-    expressionForm: "complex-diagram",
-    expressionSubtype: "two-panel-diagram",
-    layerSourceId: image.id || null,
-    overlayVisibility: "visible",
-    role,
-    textErasedFromCrop: true
-  };
-  return next;
-}
-
-function twoPanelDiagramTextColor(role, fallback) {
-  const normalized = normalizeHex(fallback, "");
-  if (normalized) return normalized;
-  if (role === "issue-label") return "#5B3420";
-  return "#111111";
-}
-
-function maybeEraseTwoPanelDiagramText({ image, textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE, irDir = null }) {
-  if (!sourceImage || textBoxes.length === 0) return [];
-  const assetFile = resolveAssetPathForIr(image.assetPath, irDir);
-  if (!assetFile) return [];
-  const masks = textBoxes.map((item) => ptToPxBox(item.box, sourceImage, slideSize, 4));
-  if (masks.length === 0) return [];
-  const erased = eraseMasks(sourceImage, masks);
-  const crop = cropPng(erased, ptToPxBox(image.box, sourceImage, slideSize, 0));
-  ensureDir(path.dirname(assetFile));
-  writePng(assetFile, crop);
-  return textBoxes;
-}
-
 function createTopComplexDiagramTextShapes(images = [], textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE, irDir = null) {
   const shapes = [];
   for (const image of images || []) {
@@ -6428,232 +6175,6 @@ function createLayerConnectorShapes(images = [], containerShapes = [], sourceIma
     }
   }
   return shapes;
-}
-
-function createFunnelHubDiagramShapes(images = [], textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE) {
-  if (!sourceImage) return [];
-  const shapes = [];
-  for (const image of images || []) {
-    if (!shouldObjectifyFunnelHubDiagram(image, textBoxes)) continue;
-    const diagram = inferFunnelHubDiagram(image, slideSize);
-    const localShapes = funnelHubDiagramShapes(image, diagram);
-    if (localShapes.length === 0) continue;
-    image.source = {
-      ...(image.source || {}),
-      funnelHubObjectified: true,
-      objectifiedFunnelHubShapes: localShapes.length,
-      funnelHubResidualBoxes: diagram.residualCrops,
-      nonEditableReason: `${image.source?.nonEditableReason || image.source?.reason || "local fidelity crop"}; funnel hub diagram rebuilt as native shapes with local icon crops`
-    };
-    shapes.push(...localShapes);
-  }
-  return shapes;
-}
-
-function shouldObjectifyFunnelHubDiagram(image, textBoxes = []) {
-  if (!shouldKeepFunnelHubDiagramText(image)) return false;
-  const box = image?.box || {};
-  const source = image?.source || {};
-  const layer = source.layer || {};
-  const understanding = layer.diagramUnderstanding || source.diagramUnderstanding || {};
-  if (Number(box.w || 0) < 480 || Number(box.h || 0) < 280) return false;
-  const internalTextCount = (textBoxes || []).filter((textBox) => boxCenterInside(textBox.box, box)).length;
-  const understoodNodeCount = Number(understanding.nodeCount || 0);
-  return understoodNodeCount >= 10 && internalTextCount >= 6;
-}
-
-function inferFunnelHubDiagram(image, slideSize = DEFAULT_SLIDE) {
-  const box = image.box;
-  const cx = box.x + box.w * 0.5;
-  const bowl = {
-    x: box.x + box.w * 0.26,
-    y: box.y + box.h * 0.16,
-    w: box.w * 0.48,
-    h: box.h * 0.42
-  };
-  const body = {
-    x: box.x + box.w * 0.28,
-    y: box.y + box.h * 0.30,
-    w: box.w * 0.44,
-    h: box.h * 0.46
-  };
-  const lower = {
-    x: box.x + box.w * 0.42,
-    y: box.y + box.h * 0.61,
-    w: box.w * 0.16,
-    h: box.h * 0.21
-  };
-  const neck = {
-    x: box.x + box.w * 0.445,
-    y: box.y + box.h * 0.74,
-    w: box.w * 0.11,
-    h: box.h * 0.13
-  };
-  const bottomPanel = {
-    x: box.x + box.w * 0.0,
-    y: box.y + box.h * 0.84,
-    w: box.w,
-    h: box.h * 0.14
-  };
-  const pills = [
-    { name: "left", box: { x: box.x + box.w * 0.20, y: box.y + box.h * 0.43, w: box.w * 0.19, h: box.h * 0.08 }, fill: "#2E79B9" },
-    { name: "center", box: { x: box.x + box.w * 0.43, y: box.y + box.h * 0.48, w: box.w * 0.18, h: box.h * 0.08 }, fill: "#41B878" },
-    { name: "right", box: { x: box.x + box.w * 0.69, y: box.y + box.h * 0.43, w: box.w * 0.22, h: box.h * 0.08 }, fill: "#2E79B9" }
-  ];
-  const connectors = [
-    lineBox({ x: cx, y: body.y + body.h * 0.48 }, { x: cx, y: lower.y + lower.h * 0.90 }),
-    lineBox({ x: cx, y: lower.y + lower.h * 0.90 }, { x: box.x + box.w * 0.28, y: box.y + box.h * 0.76 }),
-    lineBox({ x: cx, y: lower.y + lower.h * 0.90 }, { x: box.x + box.w * 0.77, y: box.y + box.h * 0.76 }),
-    lineBox({ x: body.x + body.w * 0.18, y: body.y + body.h * 0.45 }, { x: pills[0].box.x + pills[0].box.w, y: pills[0].box.y + pills[0].box.h * 0.5 }),
-    lineBox({ x: body.x + body.w * 0.82, y: body.y + body.h * 0.45 }, { x: pills[2].box.x, y: pills[2].box.y + pills[2].box.h * 0.5 })
-  ];
-  return {
-    bowl: constrainPtBox(bowl, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }),
-    body: constrainPtBox(body, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }),
-    lower: constrainPtBox(lower, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }),
-    neck: constrainPtBox(neck, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }),
-    bottomPanel: constrainPtBox(bottomPanel, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }),
-    pills: pills.map((pill) => ({ ...pill, box: constrainPtBox(pill.box, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }) })),
-    connectors,
-    residualCrops: [
-      { name: "input-docs-html", box: constrainPtBox({ x: box.x + box.w * 0.11, y: box.y + box.h * 0.02, w: box.w * 0.32, h: box.h * 0.29 }, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }) },
-      { name: "input-screenshots", box: constrainPtBox({ x: box.x + box.w * 0.42, y: box.y + box.h * 0.01, w: box.w * 0.26, h: box.h * 0.30 }, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }) },
-      { name: "input-mock-data", box: constrainPtBox({ x: box.x + box.w * 0.63, y: box.y + box.h * 0.05, w: box.w * 0.31, h: box.h * 0.25 }, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }) },
-      { name: "left-output-icon", box: constrainPtBox({ x: box.x + box.w * 0.22, y: box.y + box.h * 0.61, w: box.w * 0.18, h: box.h * 0.23 }, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }) },
-      { name: "right-output-icon", box: constrainPtBox({ x: box.x + box.w * 0.68, y: box.y + box.h * 0.61, w: box.w * 0.20, h: box.h * 0.23 }, { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt }) }
-    ]
-  };
-}
-
-function funnelHubDiagramShapes(image, diagram) {
-  const base = image.id || "funnel-hub";
-  const shapes = [];
-  shapes.push({
-    id: `${base}-funnel-bowl`,
-    type: "freeform",
-    box: diagram.bowl,
-    points: [
-      { x: 0.02, y: 0.1 },
-      { x: 0.98, y: 0.1 },
-      { x: 0.78, y: 1 },
-      { x: 0.22, y: 1 }
-    ],
-    style: {
-      fill: "#2E7EC4",
-      stroke: "#1E5E96",
-      strokeWidthPt: 0.7,
-      shadow: { color: "#000000", alpha: 0.12, blurPt: 5, distancePt: 1.2, angleDeg: 90 }
-    },
-    source: funnelHubShapeSource(image, "funnel-hub-native-bowl")
-  });
-  shapes.push({
-    id: `${base}-funnel-body`,
-    type: "freeform",
-    box: diagram.body,
-    points: [
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
-      { x: 0.64, y: 1 },
-      { x: 0.36, y: 1 }
-    ],
-    style: {
-      fill: "#2370B8",
-      stroke: "#1C5D96",
-      strokeWidthPt: 0.5,
-      shadow: { color: "#000000", alpha: 0.08, blurPt: 4, distancePt: 1, angleDeg: 90 }
-    },
-    source: funnelHubShapeSource(image, "funnel-hub-native-body")
-  });
-  shapes.push({
-    id: `${base}-funnel-lower`,
-    type: "freeform",
-    box: diagram.lower,
-    points: [
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
-      { x: 0.66, y: 1 },
-      { x: 0.34, y: 1 }
-    ],
-    style: {
-      fill: "#33B873",
-      stroke: "#279A60",
-      strokeWidthPt: 0.5
-    },
-    source: funnelHubShapeSource(image, "funnel-hub-native-body")
-  });
-  shapes.push({
-    id: `${base}-funnel-neck`,
-    type: "roundRect",
-    box: diagram.neck,
-    style: {
-      fill: "#2FAC73",
-      stroke: "#238A5B",
-      strokeWidthPt: 0.5,
-      radiusRatio: 0.25
-    },
-    source: funnelHubShapeSource(image, "funnel-hub-native-neck")
-  });
-  for (let index = 0; index < diagram.pills.length; index += 1) {
-    const pill = diagram.pills[index];
-    shapes.push({
-      id: `${base}-pill-${pill.name}`,
-      type: "roundRect",
-      box: pill.box,
-      style: {
-        fill: pill.fill,
-        stroke: "#1F5F96",
-        strokeWidthPt: 0.8,
-        radiusRatio: 0.08,
-        shadow: { color: "#000000", alpha: 0.14, blurPt: 3, distancePt: 1, angleDeg: 90 }
-      },
-      source: {
-        ...funnelHubShapeSource(image, "funnel-hub-native-pill"),
-        pill: pill.name,
-        stepIndex: index
-      }
-    });
-  }
-  shapes.push({
-    id: `${base}-bottom-panel`,
-    type: "roundRect",
-    box: diagram.bottomPanel,
-    style: {
-      fill: "#E8F7F1",
-      stroke: "#35B777",
-      strokeWidthPt: 1.4,
-      radiusRatio: 0.12,
-      shadow: { color: "#2D8BC0", alpha: 0.14, blurPt: 7, distancePt: 1.5, angleDeg: 90 }
-    },
-    source: funnelHubShapeSource(image, "funnel-hub-native-bottom-panel")
-  });
-  for (let index = 0; index < diagram.connectors.length; index += 1) {
-    shapes.push({
-      id: `${base}-connector-${index}`,
-      type: "line",
-      box: diagram.connectors[index],
-      style: {
-        stroke: index < 3 ? "#FFFFFF" : "#D7F2FF",
-        strokeWidthPt: index < 3 ? 2 : 1.4,
-        connectorType: "straight",
-        endArrow: "triangle"
-      },
-      source: {
-        ...funnelHubShapeSource(image, "funnel-hub-native-connector"),
-        connectorIndex: index
-      }
-    });
-  }
-  return shapes;
-}
-
-function funnelHubShapeSource(image, detector) {
-  return {
-    editable: true,
-    nativeRebuild: true,
-    detector,
-    layerSourceId: image.id || null,
-    layerType: image.source?.layer?.layerType || "diagram-zone"
-  };
 }
 
 function createHorizontalStepChainShapes(images = [], textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE, options = {}) {
