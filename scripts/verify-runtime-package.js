@@ -297,6 +297,7 @@ const REQUIRED_FILES = Object.freeze([
   ".agents/plugins/marketplace.json",
   "package.json",
   "packages/cli/bin/common-tools.js",
+  "packages/cli/production-env-file.js",
   "packages/capability-registry/index.js",
   "packages/capability-registry/package.json",
   "packages/mcp-server/core.js",
@@ -581,6 +582,11 @@ function verifyInstalledCli({ installRoot, commandRunner, expectedPackageFolders
   try { parsedAcceptancePlan = JSON.parse(acceptancePlan); } catch { throw new Error("installed production acceptance plan output is invalid"); }
   if (!plainObject(parsedAcceptancePlan) || !["blocked-by-configuration", "ready-for-production-preflight"].includes(parsedAcceptancePlan.status) || !plainObject(parsedAcceptancePlan.requiredConfiguration)) {
     throw new Error("installed production acceptance plan output is invalid");
+  }
+  const envFileRejection = commandRunner(process.execPath, [cli, "team", "migration-status", "--production-env-file", "production.env"], { cwd: installRoot, encoding: "utf8", windowsHide: true, maxBuffer: MAX_COMMAND_OUTPUT_BYTES });
+  const envFileDiagnostic = `${envFileRejection.stdout || ""}${envFileRejection.stderr || ""}`;
+  if (envFileRejection.status !== 1 || !envFileDiagnostic.includes("--production-env-file must be an absolute path")) {
+    throw new Error("installed production env file argument check failed");
   }
   const probe = "const path=require('node:path');const root=path.resolve(process.argv[1]);const api=require(path.join(root,'packages','cli','slideclone-runner.js'));const result=api.inspectBundledSlideclone({repositoryRoot:root});if(!result.available)process.exit(2);process.stdout.write('ready');";
   const imageEngine = run(commandRunner, process.execPath, ["-e", probe, packageRoot], installRoot, "installed image-to-editable engine check failed");

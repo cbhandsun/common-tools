@@ -588,8 +588,8 @@ async function main() {
     return 0;
   }
   if (area === "team" && action === "migration-status") {
-    const { runMigrationCommand } = require("../../remote-mcp-server/bin/common-tools-team-migrate");
     const productionEnvironment = productionEnvironmentFromArgs(args);
+    const { runMigrationCommand } = require("../../remote-mcp-server/bin/common-tools-team-migrate");
     await runMigrationCommand(productionEnvironment, ["--status"]);
     return 0;
   }
