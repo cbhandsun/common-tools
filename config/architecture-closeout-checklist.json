@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "updatedAt": "2026-09-09",
+  "objective": "通用插件项目架构落地：MCP、skills、UI contribution、本地/远程 runtime、生产验收闭环都必须有匹配证据。",
+  "items": [
+    {
+      "id": "platform-capability-boundary",
+      "area": "A",
+      "status": "verified",
+      "summary": "能力目录、manifest、registry、local/direct catalog 和 workspace package 边界已作为平台事实源和门禁落地。",
+      "evidenceFiles": [
+        "config/workspace-package-policy.json",
+        "config/layer-policy.json",
+        "config/architecture-budgets.json",
+        ".codex-tmp/architecture-current-consolidated-ci-evidence.json"
+      ],
+      "verificationCommands": [
+        "npm run common-tools:verify-capabilities",
+        "node scripts/verify-workspace-boundaries.js",
+        "node scripts/verify-architecture-budgets.js"
+      ]
+    },
+    {
+      "id": "skill-production-decoupling",
+      "area": "B",
+      "status": "verified",
+      "summary": "图片/PPT 生产入口和 profile 已迁出历史 skill 根实现，skill 层只保留受预算约束的兼容 wrapper。",
+      "evidenceFiles": [
+        "config/skill-source-migration-budget.json",
+        ".codex-tmp/auxiliary-runtime-package-evidence.json",
+        ".codex-tmp/registry-callback-delivery-evidence.json"
+      ],
+      "verificationCommands": [
+        "node scripts/verify-slideclone-profiles.js",
+        "node scripts/verify-skill-source-migration.js",
+        "node scripts/verify-skill-lib-wrappers.js"
+      ]
+    },
+    {
+      "id": "native-engine-core-modularization",
+      "area": "B",
+      "status": "open",
+      "summary": "生产调用链已迁入 native-engine/core/worker-adapter，但 native engine 仍有 26k 行主脚本和若干 1k-5k 行 component acquisition/quality harness 模块。",
+      "evidenceFiles": [
+        "docs/architecture-current-status.md",
+        "docs/architecture-closeout-plan.md"
+      ],
+      "verificationCommands": [
+        "node scripts/verify-architecture-budgets.js"
+      ],
+      "remaining": [
+        "按能力面继续拆 component-template-native-shapes、component-asset-learning、component acquisition 和 quality harness，而不是把逻辑放回 skill。",
+        "把拆分收益绑定到包隔离测试、行为回归和 runtime package 探针，避免只追求行数。"
+      ]
+    },
+    {
+      "id": "strict-input-boundaries",
+      "area": "C",
+      "status": "partial",
+      "summary": "Job、OCR、Worker 配置、Deck IR 和归档准入已有严格边界；完整 Deck IR 与剩余核心边界仍需要逐项证明。",
+      "evidenceFiles": [
+        ".codex-tmp/deck-ir-admission-delivery-evidence.json",
+        ".codex-tmp/archive-admission-delivery-evidence.json",
+        ".codex-tmp/worker-context-delivery-evidence.json",
+        ".codex-tmp/job-row-reader-delivery-evidence.json"
+      ],
+      "verificationCommands": [
+        "npm run typecheck",
+        "npm run test:unit"
+      ],
+      "remaining": [
+        "补齐完整 Deck IR、队列编排和剩余核心模块的正常、空、非法、极端、安全、失败路径证据。",
+        "避免用全量测试通过替代边界覆盖证明。"
+      ]
+    },
+    {
+      "id": "local-authenticated-acceptance",
+      "area": "D",
+      "status": "open",
+      "summary": "本地一键验收、浏览器 PKCE 登录、测试用户准备、脱敏证据生成和机器复核器已实现；真实本机运行证据尚未生成。",
+      "evidenceFiles": [
+        "scripts/team-runtime-local-acceptance.ps1",
+        "scripts/verify-local-acceptance-evidence.js"
+      ],
+      "verificationCommands": [
+        ".\\scripts\\team-runtime-local-acceptance.ps1",
+        "npm run common-tools:verify-local-acceptance"
+      ],
+      "remaining": [
+        "用户在本机输入一次共享验收密码并完成浏览器登录。",
+        "生成 artifacts/local-acceptance/*.json 后运行 common-tools:verify-local-acceptance。"
+      ]
+    },
+    {
+      "id": "production-remote-acceptance",
+      "area": "D",
+      "status": "open",
+      "summary": "生产 preflight、migration status、production acceptance evidence 和受控部署脚本已具备；真实生产 Secret、迁移、远程 Job、授权负例和回滚证据仍未完成。",
+      "evidenceFiles": [
+        "scripts/prepare-production-env.ps1",
+        "scripts/team-runtime-production-deploy.ps1",
+        "packages/cli/production-acceptance-plan.js"
+      ],
+      "verificationCommands": [
+        "npm run common-tools:production-preflight",
+        "npm run common-tools:production-migration-status",
+        "npm run common-tools:production-acceptance-evidence"
+      ],
+      "remaining": [
+        "用仓库外生产 env 文件注入真实 Secret。",
+        "受控执行生产迁移并绑定不可变镜像 digest/release evidence。",
+        "完成远程 authenticated Job、授权负例、候选 Worker 切换和回滚/备份验证。"
+      ]
+    },
+    {
+      "id": "recovery-and-retention",
+      "area": "E",
+      "status": "partial",
+      "summary": "本地恢复、缓存、取消、租约、清理和存储恢复演练已有证据；线上 OCR 版本绑定与生产观测需并入远程验收。",
+      "evidenceFiles": [
+        "docs/stage-recovery-acceptance.md",
+        ".codex-tmp/architecture-recovery-consolidated-ci-evidence.json"
+      ],
+      "verificationCommands": [
+        "npm run test:postgres-recovery",
+        "npm run test:s3-retention"
+      ],
+      "remaining": [
+        "在最终候选环境验证 OCR 发布版本绑定、线上观测和恢复路径。"
+      ]
+    },
+    {
+      "id": "editable-output-quality",
+      "area": "F",
+      "status": "partial",
+      "summary": "开发图片样例、新建 PPT 和 Office 编辑已有证据；独立 PDF、相同环境质量/成本比较及远程两条流程仍未完成。",
+      "evidenceFiles": [
+        ".codex-tmp/relationship-worker-delivery-evidence.json",
+        ".codex-tmp/ppt-create-acceptance-LMJ7Mz/evidence.json",
+        ".codex-tmp/image-office-9161d475/independent-evidence.json"
+      ],
+      "verificationCommands": [
+        "npm run slideclone:quality-gate-real-pptx",
+        "npm run ppt-create:office-smoke"
+      ],
+      "remaining": [
+        "用独立 PDF 和最终候选 runtime 重新跑图片转可编辑 PPT。",
+        "对新建 PPT 与图片转 PPT 做相同环境质量/成本比较和实际 Office 编辑验收。"
+      ]
+    }
+  ]
+}

@@ -310,6 +310,7 @@ const REQUIRED_FILES = Object.freeze([
   "packages/mcp-server/core.js",
   "packages/team-runtime/schema/010_retention_recheck.sql",
   "packages/team-runtime/schema/011_delivery_outbox.sql",
+  "scripts/verify-architecture-closeout.js",
   "scripts/generate-sbom.js",
   "scripts/release-evidence.js",
   "scripts/generate-image-ocr-release-input.js",

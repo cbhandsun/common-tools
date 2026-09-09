@@ -2,6 +2,12 @@
 
 本页调整执行方式，不替代《architecture-improvement-plan.md》的 A–F 验收范围。当前目标未完成。
 
+当前收口清单已固化到 `config/architecture-closeout-checklist.json`，可通过以下只读命令查看 A–F 的 verified / partial / open 状态；默认不会因为开放项失败，最终发布前再加 `-- --require-complete`：
+
+```powershell
+npm run common-tools:architecture-closeout
+```
+
 ## 2026-09-08 当前基线更新
 
 以下早期范围核对记录保留为历史背景；其中“生产 Worker 仍加载历史实现”的结论已被后续小批次迁移替代。当前图片/PPT 生产链的根入口和 profile 路由已经收口到 `packages/slideclone-native-engine/scripts`：`skills/pd-hifi-slideclone/scripts/*.js` 只允许作为薄兼容 wrapper 存在，`slideclone:*` profiles 也已全部直达 native engine。
