@@ -1,5 +1,10 @@
 "use strict";
 
+const fs = require("node:fs");
+const path = require("node:path");
+const { runMigrationCommand, migrationFailureCode } = require("../remote-mcp-server/bin/common-tools-team-migrate");
+const { runProductionPreflight } = require("./production-preflight");
+
 const REQUIRED_DIRECT_CREDENTIALS = Object.freeze([
   "COMMON_TOOLS_DATABASE_USER",
   "COMMON_TOOLS_DATABASE_PASSWORD",
@@ -96,11 +101,67 @@ function productionAcceptancePlan(environment = process.env) {
   });
 }
 
+function writeEvidenceJson(outputDirectory, name, value) {
+  if (typeof outputDirectory !== "string" || !path.isAbsolute(outputDirectory)) throw new TypeError("production acceptance evidence output directory is invalid");
+  if (typeof name !== "string" || !/^[a-z0-9-]+\.json$/.test(name)) throw new TypeError("production acceptance evidence file name is invalid");
+  fs.mkdirSync(outputDirectory, { recursive: true });
+  const outputFile = path.join(outputDirectory, name);
+  fs.writeFileSync(outputFile, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  return outputFile;
+}
+
+async function collectProductionAcceptanceEvidence(environment = process.env, options = {}) {
+  if (!options || typeof options !== "object") throw new TypeError("production acceptance evidence options are invalid");
+  const outputDirectory = options.outputDirectory;
+  const repositoryRoot = options.repositoryRoot;
+  if (typeof repositoryRoot !== "string" || !path.isAbsolute(repositoryRoot)) throw new TypeError("production acceptance evidence repository root is invalid");
+  const plan = productionAcceptancePlan(environment);
+  const files = { plan: writeEvidenceJson(outputDirectory, "acceptance-plan.json", plan) };
+  const checks = [];
+  if (plan.status !== "ready-for-production-preflight") {
+    checks.push({ name: "production-preflight", status: "skipped", reason: "configuration is incomplete" });
+    checks.push({ name: "migration-status", status: "skipped", reason: "configuration is incomplete" });
+    return Object.freeze({ status: plan.status, files: Object.freeze(files), checks: Object.freeze(checks), blockers: plan.blockers });
+  }
+
+  const preflightRunner = options.runProductionPreflight || runProductionPreflight;
+  const migrationRunner = options.runMigrationCommand || runMigrationCommand;
+  try {
+    const preflight = preflightRunner(environment, { repositoryRoot });
+    files.productionPreflight = writeEvidenceJson(outputDirectory, "production-preflight.json", preflight);
+    checks.push({ name: "production-preflight", status: "passed" });
+  } catch {
+    files.productionPreflight = writeEvidenceJson(outputDirectory, "production-preflight-error.json", { status: "failed", code: "production_preflight_failed" });
+    checks.push({ name: "production-preflight", status: "failed", code: "production_preflight_failed" });
+  }
+
+  try {
+    let migrationStatus = "";
+    await migrationRunner(environment, ["--status"], { output: { write(chunk) { migrationStatus += String(chunk); } } });
+    const parsed = JSON.parse(migrationStatus);
+    files.migrationStatus = writeEvidenceJson(outputDirectory, "migration-status.json", parsed);
+    checks.push({ name: "migration-status", status: "passed" });
+  } catch (error) {
+    const code = migrationFailureCode(error);
+    files.migrationStatus = writeEvidenceJson(outputDirectory, "migration-status-error.json", { status: "failed", code });
+    checks.push({ name: "migration-status", status: "failed", code });
+  }
+
+  const failed = checks.filter((check) => check.status === "failed");
+  return Object.freeze({
+    status: failed.length ? "evidence-incomplete" : "ready-for-controlled-apply",
+    files: Object.freeze(files),
+    checks: Object.freeze(checks),
+    blockers: Object.freeze(failed.map((check) => `${check.name} ${check.code}`))
+  });
+}
+
 module.exports = {
   OPTIONAL_CONFIGURATION,
   REQUIRED_CONFIGURATION,
   REQUIRED_DIRECT_CREDENTIALS,
   REQUIRED_FILE_CREDENTIALS,
+  collectProductionAcceptanceEvidence,
   credentialMode,
   productionAcceptancePlan,
   redactStatus

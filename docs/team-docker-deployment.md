@@ -198,6 +198,7 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 ```powershell
 common-tools team production-acceptance-plan
 common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-plan --out .codex-tmp/production-acceptance-plan.json
+common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-evidence --out .codex-tmp/production-acceptance-evidence
 ```
 
 生产发布脚本的 `Plan` 输出也会包含 `preApplyChecklist`。该清单不是批准本身，而是上线前必须归档的操作核对项：同环境 `migration-status` 脱敏 JSON、受管 PostgreSQL 备份与恢复目标、只使用 immutable release evidence revision/image digest 的回滚材料，以及 ingress 暂停接收新任务后的 Worker readiness 复核。任一项无法确认时不要执行 `Apply`，也不要用手写 Compose 绕过。
