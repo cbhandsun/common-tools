@@ -30,17 +30,19 @@ flowchart TD
 - `b548b2d Move blind layer reporting into native engine`
 - `32196ba Move remaining repair gates into native engine`
 - `819cdc0 Move review UI entrypoints into native engine`
+- `e0cc86e Route slideclone profiles directly to native engine`
+- `c8e44e8 Move remaining profile scripts into native engine`
 
 当前验证证据：
 
-- `skills/pd-hifi-slideclone/scripts/*.js` 根入口扫描无剩余非 wrapper 实现。
-- `npm run lint` 通过：625 个 JS 文件，profile、architecture budget、runtime payload、workspace boundary、skill migration、skill lib wrapper 门禁均通过。
-- `node scripts/verify-runtime-package.js` 通过：运行包 1,157 个文件、6 项能力探针全通过。
-- `node scripts/native-engine-runtime-payload.js` 通过：84 个 root scripts，3 个脚本组，4 个 payload 目录。
-- `node scripts/verify-slideclone-profiles.js` 通过：150 个 profiles，其中 73 个 native-engine profiles。
-- `config/skill-source-migration-budget.json` 已降到 193 个引用 / 133 个文件，保持 decreasing-only。
+- `skills/pd-hifi-slideclone/scripts/*.js` 根入口已由 `verify-skill-source-migration` 强制保持为薄 native-engine wrapper。
+- `npm run lint` 通过：627 个 JS 文件，profile、architecture budget、runtime payload、workspace boundary、skill migration、skill lib wrapper 门禁均通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,159 个文件、6 项能力探针全通过。
+- `node scripts/native-engine-runtime-payload.js` 通过：86 个 root scripts，3 个脚本组，4 个 payload 目录。
+- `node scripts/verify-slideclone-profiles.js` 通过：150 个 profiles，150 个全部直达 native engine。
+- `config/skill-source-migration-budget.json` 已降到 191 个引用 / 131 个文件，保持 decreasing-only。
 
-结论：截图里提到的 P1 问题，即“图片转 PPT 的生产链仍依赖历史 skill 实现”，在根入口层面已经解决：生产/质量/修复/UI 入口均迁入 native engine package，skill 不再承载这些根脚本的生产实现。剩余 `skills/pd-hifi-slideclone/scripts/lib` 下的兼容引用和测试断言仍按预算治理；它们不等同于根生产入口继续住在 skill。更大的 A–F 产品验收仍包含远程上传/创建、独立 PDF、线上 OCR 和实际 Office 质量闭环，不能用本轮架构收口替代。
+结论：截图里提到的 P1 问题，即“图片转 PPT 的生产链仍依赖历史 skill 实现”，在根入口和 profile 路由层面已经解决：生产/质量/修复/UI 入口均迁入 native engine package，`slideclone:*` profile 也不再经 skill wrapper 执行。剩余 `skills/pd-hifi-slideclone/scripts/lib` 下的兼容引用和测试断言仍按预算治理；它们不等同于根生产入口继续住在 skill。更大的 A–F 产品验收仍包含远程上传/创建、独立 PDF、线上 OCR 和实际 Office 质量闭环，不能用本轮架构收口替代。
 
 ## 通用插件架构五项整改
 

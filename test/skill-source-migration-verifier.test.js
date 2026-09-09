@@ -7,6 +7,7 @@ const path = require("node:path");
 const test = require("node:test");
 const {
   countOccurrences,
+  measureSkillRootScriptWrappers,
   measureSkillSourceReferences,
   validateBudget,
   verifySkillSourceMigrationBudget
@@ -46,4 +47,33 @@ test("skill source migration budget rejects growth and requires ratcheting after
   fs.writeFileSync(path.join(root, "test", "one.test.js"), '"use strict";\n', "utf8");
   assert.throws(() => verifySkillSourceMigrationBudget({ workspaceRoot: root, budget }), /ratchet maxReferenceCount down/);
   assert.throws(() => validateBudget({ ...budget, scanRoots: ["test", "test"] }), /scan roots/);
+});
+
+test("skill source migration verifier requires root scripts to stay thin native wrappers", (t) => {
+  const root = workspace(t);
+  const scriptRoot = path.join(root, "skills", "pd-hifi-slideclone", "scripts");
+  fs.mkdirSync(scriptRoot, { recursive: true });
+  fs.writeFileSync(path.join(scriptRoot, "good.js"), [
+    '#!/usr/bin/env node',
+    '"use strict";',
+    'const mod = require("../../../packages/slideclone-native-engine/scripts/good");',
+    "module.exports = mod;",
+    ""
+  ].join("\n"), "utf8");
+  const budget = validateBudget({ version: 1, legacySkillScriptPrefix: LEGACY_PREFIX, scanRoots: ["packages", "scripts", "test"], maxReferenceCount: 0, maxFileCount: 0 });
+
+  assert.deepEqual(measureSkillRootScriptWrappers(root, budget), {
+    scriptCount: 1,
+    violations: []
+  });
+
+  fs.writeFileSync(path.join(scriptRoot, "bad.js"), [
+    '#!/usr/bin/env node',
+    '"use strict";',
+    "function realImplementation() { return 1; }",
+    "module.exports = { realImplementation };",
+    ""
+  ].join("\n"), "utf8");
+
+  assert.throws(() => verifySkillSourceMigrationBudget({ workspaceRoot: root, budget }), /not a thin native-engine wrapper/);
 });

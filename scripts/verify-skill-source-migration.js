@@ -75,17 +75,51 @@ function measureSkillSourceReferences(workspaceRoot = root, budget = validateBud
   });
 }
 
+function listSkillRootScripts(workspaceRoot = root, budget = validateBudget(readJson(defaultBudgetFile))) {
+  const scriptRoot = path.join(fs.realpathSync(workspaceRoot), budget.legacySkillScriptPrefix);
+  if (!fs.statSync(scriptRoot, { throwIfNoEntry: false })?.isDirectory()) return [];
+  return fs.readdirSync(scriptRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".js"))
+    .map((entry) => path.join(scriptRoot, entry.name))
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function measureSkillRootScriptWrappers(workspaceRoot = root, budget = validateBudget(readJson(defaultBudgetFile))) {
+  const scripts = listSkillRootScripts(workspaceRoot, budget);
+  const violations = [];
+  for (const file of scripts) {
+    const source = fs.readFileSync(file, "utf8");
+    const normalized = source.replaceAll("\\", "/");
+    const lineCount = source.split(/\r?\n/u).length;
+    const nativeRequireCount = countOccurrences(normalized, 'require("../../../packages/slideclone-native-engine/scripts/');
+    const functionDeclarationCount = [...source.matchAll(/\bfunction\s+[A-Za-z0-9_]+\s*\(/gu)].length;
+    if (nativeRequireCount !== 1 || lineCount > 24 || functionDeclarationCount > 0) {
+      violations.push(Object.freeze({
+        file: path.relative(fs.realpathSync(workspaceRoot), file).replaceAll("\\", "/"),
+        lineCount,
+        nativeRequireCount,
+        functionDeclarationCount
+      }));
+    }
+  }
+  return Object.freeze({ scriptCount: scripts.length, violations: Object.freeze(violations) });
+}
+
 function verifySkillSourceMigrationBudget(options = {}) {
   const workspaceRoot = options.workspaceRoot || root;
   const budget = validateBudget(options.budget || readJson(options.budgetFile || defaultBudgetFile));
   const measured = measureSkillSourceReferences(workspaceRoot, budget);
+  const wrappers = measureSkillRootScriptWrappers(workspaceRoot, budget);
   const failures = [];
   if (measured.referenceCount > budget.maxReferenceCount) failures.push(`legacy skill script references ${measured.referenceCount} exceed ${budget.maxReferenceCount}`);
   if (measured.fileCount > budget.maxFileCount) failures.push(`legacy skill script reference files ${measured.fileCount} exceed ${budget.maxFileCount}`);
   if (measured.referenceCount < budget.maxReferenceCount) failures.push(`legacy skill script references improved to ${measured.referenceCount}; ratchet maxReferenceCount down from ${budget.maxReferenceCount}`);
   if (measured.fileCount < budget.maxFileCount) failures.push(`legacy skill script reference files improved to ${measured.fileCount}; ratchet maxFileCount down from ${budget.maxFileCount}`);
+  for (const violation of wrappers.violations) {
+    failures.push(`skill root script is not a thin native-engine wrapper: ${violation.file}`);
+  }
   if (failures.length) throw new Error(`skill source migration budget verification failed:\n- ${failures.join("\n- ")}`);
-  return measured;
+  return Object.freeze({ ...measured, skillRootScriptCount: wrappers.scriptCount });
 }
 
 if (require.main === module) {
@@ -98,4 +132,10 @@ if (require.main === module) {
   }
 }
 
-module.exports = { countOccurrences, measureSkillSourceReferences, validateBudget, verifySkillSourceMigrationBudget };
+module.exports = {
+  countOccurrences,
+  measureSkillRootScriptWrappers,
+  measureSkillSourceReferences,
+  validateBudget,
+  verifySkillSourceMigrationBudget
+};
