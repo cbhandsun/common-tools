@@ -43,6 +43,23 @@
 
 结论：core 内部瘦身已从“迁出历史 skill”进入“按可复用子域拆公共层”。后续可沿着同一边界继续拆 branch-card、sankey、venn、timeline 等 relationship shell，优先拆测试覆盖强、输入输出稳定的子域。
 
+## 2026-09-09 收口：关系图 branch-card shell 从大布局模块拆出
+
+在拓扑公共层拆分后，继续沿同一边界把 `relationship-native-layouts.js` 中的 branch-card 流程 shell 抽入 `relationship-branch-card-shell.js`。该模块承接 branch-card 拓扑判定、单侧方向推断、目标排序、branch 曲线测量接入和 shell 对象创建；`relationship-native-layouts.js` 保持既有公开导出，避免上层调用点跟着震荡。
+
+本轮提交：`ef0ca00 Extract branch card relationship shell`。
+
+验证证据：
+
+- `test/native-rebuild.test.js`：715/715 通过，覆盖实际原生重建关系图调用链。
+- `test/engine-core-package.test.js`：6/6 通过，证明隔离安装后的 core 包包含新 shell。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,174 个文件、20 个 workspace package、6 项能力探针全通过。
+- `node scripts/verify-workspace-boundaries.js` 通过：629 个文件、20 个 workspace package、0 个外部 runtime package import。
+- `node scripts/verify-architecture-budgets.js` 通过：840 个文件、5 个 decreasing-only 例外。
+- 受影响 ESLint、skill migration 和 skill wrapper 门禁均通过。
+
+结论：`relationship-native-layouts.js` 不再同时承担拓扑公共层和 branch-card shell 两类职责，core 内部正在从“一个巨型算法仓库”收敛为按关系图子域组织的可测模块。剩余优化重点仍是高聚合大模块分层与真实生产验收，而不是删除兼容 wrapper。
+
 ## 2026-09-09 收口：远程 Job 验收新增显式认证 smoke
 
 本轮新增 `common-tools:team-authenticated-job-smoke`，用于补齐“受保护远程 MCP 真实 Job 路径”的发布验收入口。它不会绕过 OAuth，也不会默认伪装成快 smoke：调用方必须提供 bearer token 和一个真实能力输入文件；脚本会连接 `/mcp`，执行 `initialize`、`tools/list`、`create_team_upload_target`，上传输入文件，再调用 `create_team_job`。传入 `--wait` 时会继续轮询 `get_team_job`，作业成功后可用 `--artifact-name` 验证 `get_team_artifact_target`。
