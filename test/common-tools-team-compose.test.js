@@ -1,7 +1,9 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -333,6 +335,24 @@ test("production deployment script requires the read-only release preflight and 
   assert.doesNotMatch(script, /--build/);
   assert.doesNotMatch(script, /Invoke-Compose @\([^\r\n]*--no-deps/);
   assert.doesNotMatch(script, /Get-ChildItem.*Env/);
+});
+
+test("production deployment script rejects unsafe env files before Docker", () => {
+  const root = path.resolve(__dirname, "..");
+  const script = path.join(root, "scripts", "team-runtime-production-deploy.ps1");
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-production-deploy-env-"));
+  const envFile = path.join(directory, "production.env");
+  fs.writeFileSync(envFile, "PATH=C:\\Windows\n", "utf8");
+  const result = spawnSync("pwsh", ["-NoProfile", "-File", script, "-Mode", "Plan", "-ProductionEnvFile", envFile], {
+    cwd: root,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH || "" },
+    windowsHide: true
+  });
+  const output = `${result.stdout || ""}${result.stderr || ""}`;
+  assert.equal(result.status, 1);
+  assert.match(output, /unsupported variable name/u);
+  assert.doesNotMatch(output, /Docker Compose production command failed/u);
 });
 
 test("team runtime operation lock serializes deployment mutations and recovers abandoned operations", () => {
