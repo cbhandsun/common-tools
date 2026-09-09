@@ -13,7 +13,7 @@ const {
   readManifestPptxFiles,
   runComponentReplacementApplyBatch,
   summarizeBatchResults
-} = require("../skills/pd-hifi-slideclone/scripts/component-replacement-apply-batch");
+} = require("../packages/slideclone-native-engine/scripts/component-replacement-apply-batch");
 
 test("component replacement apply batch parses boundary options", () => {
   const args = parseArgs([
