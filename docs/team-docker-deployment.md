@@ -214,7 +214,7 @@ common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team migration
 common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-preflight --production-env-file C:\secure\common-tools.production.env
 ```
 
-`prepare-production-env.ps1` 默认把文件写到仓库同级目录 `E:\DEV\WorkSpace\Efficiency\common-tools.production.env`，并在交互时用隐藏输入读取密码类值。若生产凭据已落在受管 secret 文件中，改用 `-UseCredentialFiles` 填写 `*_FILE` 路径；若发布链路要求 cosign 验签，追加 `-IncludeReleaseSignature`；启用 `siyuan-note` 时追加 `-IncludeSiyuan`。脚本不会打印 secret 值，也会拒绝把输出写进当前仓库目录。
+`prepare-production-env.ps1` 默认把文件写到仓库同级目录 `E:\DEV\WorkSpace\Efficiency\common-tools.production.env`，并在交互时用隐藏输入读取密码类值。脚本会先读取当前本机 Docker 部署的 `team local-config`，缺失时回退到 Compose 默认端口，为数据库、Redis、MinIO、MCP public URL、OIDC issuer/JWKS/audience 和常见用户名提供默认值；默认值不合适时直接输入新值覆盖即可。若本机 Compose project 不是 `deploy`，传 `-Project <name>`。若生产凭据已落在受管 secret 文件中，改用 `-UseCredentialFiles` 填写 `*_FILE` 路径；若发布链路要求 cosign 验签，追加 `-IncludeReleaseSignature`；启用 `siyuan-note` 时追加 `-IncludeSiyuan`。脚本不会打印 secret 值，也会拒绝把输出写进当前仓库目录。
 
 生产发布脚本的 `Plan` 输出也会包含 `preApplyChecklist`。该清单不是批准本身，而是上线前必须归档的操作核对项：同环境 `migration-status` 脱敏 JSON、受管 PostgreSQL 备份与恢复目标、只使用 immutable release evidence revision/image digest 的回滚材料，以及 ingress 暂停接收新任务后的 Worker readiness 复核。任一项无法确认时不要执行 `Apply`，也不要用手写 Compose 绕过。
 

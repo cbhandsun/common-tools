@@ -371,11 +371,18 @@ test("production env preparation script collects secrets safely outside the repo
   const script = path.join(root, "scripts", "prepare-production-env.ps1");
   const source = fs.readFileSync(script, "utf8");
   assert.match(source, /common-tools\.production\.env/);
+  assert.match(source, /\[string\]\$Project = 'deploy'/);
   assert.match(source, /Output path must be outside the repository root/);
   assert.match(source, /Length -gt 0 -and -not \$Force/);
   assert.match(source, /already exists and is not empty/);
   assert.match(source, /Read-Host -Prompt \$Prompt -AsSecureString/);
   assert.match(source, /ZeroFreeBSTR\(\$pointer\)/);
+  assert.match(source, /function Get-LocalDockerDefaults/);
+  assert.match(source, /team local-config --project \$ComposeProject/);
+  assert.match(source, /postgresql:\/\/127\.0\.0\.1:\$postgresPort\/common_tools/);
+  assert.match(source, /redis:\/\/127\.0\.0\.1:\$redisPort/);
+  assert.match(source, /http:\/\/127\.0\.0\.1:\$minioPort/);
+  assert.match(source, /http:\/\/127\.0\.0\.1:\$remotePort/);
   assert.match(source, /COMMON_TOOLS_DATABASE_PASSWORD_FILE/);
   assert.match(source, /COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY_FILE/);
   assert.match(source, /function Test-ImageWorkerCapabilityEnabled/);

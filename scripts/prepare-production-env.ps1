@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
   [string]$Out = '',
+  [ValidatePattern('^[a-z0-9][a-z0-9_-]{0,63}$')]
+  [string]$Project = 'deploy',
   [switch]$Force,
   [switch]$UseCredentialFiles,
   [switch]$IncludeOptionalImages,
@@ -19,6 +21,7 @@ function Write-Usage {
   Write-Host 'Examples:'
   Write-Host '  .\scripts\prepare-production-env.ps1'
   Write-Host '  .\scripts\prepare-production-env.ps1 -Out E:\DEV\WorkSpace\Efficiency\common-tools.production.env -Force'
+  Write-Host '  .\scripts\prepare-production-env.ps1 -Project deploy'
   Write-Host '  .\scripts\prepare-production-env.ps1 -UseCredentialFiles -IncludeReleaseSignature'
   Write-Host ''
   Write-Host 'Next validation command:'
@@ -78,6 +81,11 @@ function Read-RequiredSecret([string]$Name, [string]$Prompt) {
   return @{ Name = $Name; Value = $value }
 }
 
+function Read-DefaultedValue([System.Collections.IDictionary]$Defaults, [string]$Name, [string]$Prompt, [string]$Fallback = '') {
+  $default = if ($Defaults.Contains($Name)) { [string]$Defaults[$Name] } else { $Fallback }
+  return Read-RequiredValue $Name $Prompt $default
+}
+
 function Add-Entry([System.Collections.Generic.List[object]]$Entries, [hashtable]$Entry) {
   Assert-EnvironmentName $Entry.Name
   Assert-EnvironmentValue $Entry.Name $Entry.Value
@@ -87,7 +95,61 @@ function Add-Entry([System.Collections.Generic.List[object]]$Entries, [hashtable
   $Entries.Add([pscustomobject]$Entry)
 }
 
-function Add-CredentialEntries([System.Collections.Generic.List[object]]$Entries) {
+function Get-EnvironmentDefault([string]$Name, [string]$Fallback) {
+  $value = [Environment]::GetEnvironmentVariable($Name, 'Process')
+  if ([string]::IsNullOrWhiteSpace($value)) { return $Fallback }
+  return $value.Trim()
+}
+
+function Get-LocalDockerDefaults([string]$ComposeProject) {
+  $postgresPort = Get-EnvironmentDefault 'COMMON_TOOLS_POSTGRES_PORT' '54329'
+  $redisPort = Get-EnvironmentDefault 'COMMON_TOOLS_REDIS_PORT' '16379'
+  $minioPort = Get-EnvironmentDefault 'COMMON_TOOLS_MINIO_PORT' '59000'
+  $remotePort = Get-EnvironmentDefault 'COMMON_TOOLS_REMOTE_PORT' '54000'
+  $keycloakPort = Get-EnvironmentDefault 'COMMON_TOOLS_KEYCLOAK_PORT' '58080'
+  $defaults = @{
+    COMMON_TOOLS_DATABASE_URL = "postgresql://127.0.0.1:$postgresPort/common_tools"
+    COMMON_TOOLS_REDIS_URL = "redis://127.0.0.1:$redisPort"
+    COMMON_TOOLS_OBJECT_STORE_ENDPOINT = "http://127.0.0.1:$minioPort"
+    COMMON_TOOLS_OBJECT_STORE_BUCKET = 'common-tools-artifacts'
+    COMMON_TOOLS_DATABASE_USER = 'common_tools'
+    COMMON_TOOLS_REDIS_USERNAME = 'default'
+    COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID = 'common-tools-admin'
+    COMMON_TOOLS_REMOTE_PUBLIC_URL = "http://127.0.0.1:$remotePort"
+    COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS = "http://127.0.0.1:$remotePort"
+    COMMON_TOOLS_OIDC_ISSUER = "http://127.0.0.1:$keycloakPort/realms/common-tools"
+    COMMON_TOOLS_OIDC_JWKS_URL = 'http://keycloak:8080/realms/common-tools/protocol/openid-connect/certs'
+    COMMON_TOOLS_OIDC_AUDIENCE = 'common-tools-mcp'
+    COMMON_TOOLS_TEAM_CAPABILITIES = 'image-to-editable,ppt-create,ppt-quality,ppt-improve,project-audit'
+    COMMON_TOOLS_SIYUAN_URL = 'http://host.docker.internal:6806'
+  }
+  $cli = Join-Path $repositoryRoot 'packages/cli/bin/common-tools.js'
+  if (Test-Path -LiteralPath $cli -PathType Leaf) {
+    $raw = & node $cli team local-config --project $ComposeProject 2>$null
+    if ($LASTEXITCODE -eq 0) {
+      try {
+        $report = ($raw | Out-String | ConvertFrom-Json -ErrorAction Stop)
+        foreach ($name in @(
+          'COMMON_TOOLS_REMOTE_PUBLIC_URL',
+          'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS',
+          'COMMON_TOOLS_OIDC_ISSUER',
+          'COMMON_TOOLS_OIDC_JWKS_URL',
+          'COMMON_TOOLS_OIDC_AUDIENCE'
+        )) {
+          $value = [string]$report.configuration.$name
+          if (-not [string]::IsNullOrWhiteSpace($value)) { $defaults[$name] = $value.Trim() }
+        }
+      } catch {
+        # Keep the helper usable before Docker is running or before local config
+        # discovery is available. The static Compose defaults above remain safe
+        # to show because they contain no secrets.
+      }
+    }
+  }
+  return $defaults
+}
+
+function Add-CredentialEntries([System.Collections.Generic.List[object]]$Entries, [System.Collections.IDictionary]$Defaults) {
   if ($UseCredentialFiles) {
     Add-Entry $Entries (Read-RequiredValue 'COMMON_TOOLS_DATABASE_USER_FILE' 'Database username file')
     Add-Entry $Entries (Read-RequiredValue 'COMMON_TOOLS_DATABASE_PASSWORD_FILE' 'Database password file')
@@ -97,11 +159,11 @@ function Add-CredentialEntries([System.Collections.Generic.List[object]]$Entries
     Add-Entry $Entries (Read-RequiredValue 'COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY_FILE' 'Object store secret access key file')
     return
   }
-  Add-Entry $Entries (Read-RequiredValue 'COMMON_TOOLS_DATABASE_USER' 'Database username')
+  Add-Entry $Entries (Read-DefaultedValue $Defaults 'COMMON_TOOLS_DATABASE_USER' 'Database username')
   Add-Entry $Entries (Read-RequiredSecret 'COMMON_TOOLS_DATABASE_PASSWORD' 'Database password')
-  Add-Entry $Entries (Read-RequiredValue 'COMMON_TOOLS_REDIS_USERNAME' 'Redis username')
+  Add-Entry $Entries (Read-DefaultedValue $Defaults 'COMMON_TOOLS_REDIS_USERNAME' 'Redis username')
   Add-Entry $Entries (Read-RequiredSecret 'COMMON_TOOLS_REDIS_PASSWORD' 'Redis password')
-  Add-Entry $Entries (Read-RequiredValue 'COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID' 'Object store access key id')
+  Add-Entry $Entries (Read-DefaultedValue $Defaults 'COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID' 'Object store access key id')
   Add-Entry $Entries (Read-RequiredSecret 'COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY' 'Object store secret access key')
 }
 
@@ -127,20 +189,21 @@ if ($existingOutputItem -and $existingOutputItem.Length -gt 0 -and -not $Force) 
 }
 
 $entries = [System.Collections.Generic.List[object]]::new()
-Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_DATABASE_URL' 'Database URL')
-Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_REDIS_URL' 'Redis URL')
-Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_OBJECT_STORE_ENDPOINT' 'Object store endpoint')
-Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_OBJECT_STORE_BUCKET' 'Object store bucket')
-Add-CredentialEntries $entries
-Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_REMOTE_PUBLIC_URL' 'Remote MCP public URL')
-Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS' 'Allowed browser origins')
-Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_OIDC_ISSUER' 'OIDC issuer')
-Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_OIDC_JWKS_URL' 'OIDC JWKS URL')
-Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_OIDC_AUDIENCE' 'OIDC audience')
+$defaults = Get-LocalDockerDefaults $Project
+Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_DATABASE_URL' 'Database URL')
+Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_REDIS_URL' 'Redis URL')
+Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_OBJECT_STORE_ENDPOINT' 'Object store endpoint')
+Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_OBJECT_STORE_BUCKET' 'Object store bucket')
+Add-CredentialEntries $entries $defaults
+Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_REMOTE_PUBLIC_URL' 'Remote MCP public URL')
+Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS' 'Allowed browser origins')
+Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_OIDC_ISSUER' 'OIDC issuer')
+Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_OIDC_JWKS_URL' 'OIDC JWKS URL')
+Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_OIDC_AUDIENCE' 'OIDC audience')
 Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_REMOTE_IMAGE' 'Remote MCP runtime image')
 Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_RELEASE_EVIDENCE_FILE' 'Release evidence file')
 Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_RELEASE_REVISION' 'Release revision')
-$capabilitiesEntry = Read-RequiredValue 'COMMON_TOOLS_TEAM_CAPABILITIES' 'Enabled capabilities' 'image-to-editable,ppt-create,ppt-quality,ppt-improve,project-audit'
+$capabilitiesEntry = Read-DefaultedValue $defaults 'COMMON_TOOLS_TEAM_CAPABILITIES' 'Enabled capabilities'
 Add-Entry $entries $capabilitiesEntry
 
 if ($IncludeOptionalImages -or (Test-ImageWorkerCapabilityEnabled $capabilitiesEntry.Value)) {
@@ -154,7 +217,7 @@ if ($IncludeReleaseSignature) {
 }
 
 if ($IncludeSiyuan) {
-  Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_SIYUAN_URL' 'SiYuan URL' 'http://host.docker.internal:6806')
+  Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_SIYUAN_URL' 'SiYuan URL')
   if ($UseCredentialFiles) {
     Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_SIYUAN_TOKEN_FILE' 'SiYuan token file')
   } else {
