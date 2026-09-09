@@ -26,6 +26,7 @@
 - native rebuild workdir：workdir 枚举、JSON 读取、source native slide metadata/index。
 - page background fill sampler：页面背景采样从主 rebuild 编排中移出。
 - native rebuild value banner：value banner 背景对象化、稳定填充采样和渐变 native shape 构造从主 rebuild 编排中移出。
+- native rebuild asset OS KPI benefit：资产规模/KPI 收益页的 residual 判定、卡片 native shapes、semantic/OCR 文本合并和标题清理从主 rebuild 编排中移出。
 
 验证证据：
 
@@ -40,7 +41,7 @@
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：25,889 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：25,527 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
