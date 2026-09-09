@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const {
   createAssetOsFlowObjects
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 test("Asset OS flow emits seven semantic components around protected icons", () => {
   const assetDir = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-asset-os-flow-"));

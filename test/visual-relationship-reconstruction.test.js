@@ -11,7 +11,7 @@ const {
   createRelationshipNativeShell,
   _private: { dominantFlowNodes, validBox }
 } = require("../packages/slideclone-core/relationship-native-shell");
-const { createVisualAtomNativeShapes } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+const { createVisualAtomNativeShapes } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 const SLIDE = { widthPt: 640, heightPt: 240 };
 

@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { eraseObjectMask } = require("../packages/slideclone-core/full-slide-native-residual");
-const { eraseMasks } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+const { eraseMasks } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 test("local fidelity replacement preserves adjacent source pixels outside its footprint", () => {
   const image = { width: 80, height: 80, rgba: Buffer.alloc(80 * 80 * 4, 255) };

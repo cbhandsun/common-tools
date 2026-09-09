@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   filterPrdAutoGenerationDuplicateTextBoxes,
   prdAutoGenerationComponentMetadata
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 test("PRD auto generation assigns stable semantic component owners", () => {
   assert.equal(prdAutoGenerationComponentMetadata("prd-generation-flow-native-input-card", { role: "fallback-input-card" }).nativeComponentGroupId, "prd-auto-generation-input");

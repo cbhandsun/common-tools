@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { classifyVisualLayer } = require("../packages/slideclone-core/layer-classifier");
-const { createVisualAtomNativeShapes } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+const { createVisualAtomNativeShapes } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 const SLIDE = { widthPt: 560, heightPt: 340 };
 

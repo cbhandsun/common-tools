@@ -31,6 +31,7 @@
 - native rebuild value quadrant：四象限价值图的 native divider、gem facet、semantic text 和 gem fidelity crop 处理从主 rebuild 编排中移出，asset OS flow 通过模块导出的 gem helper 复用同一实现。
 - native rebuild scale landing evidence：规模化落地证据页的 metric card、bottom strip、文本清洗/排版和最小图标 crop 编排从主 rebuild 编排中移出；共享 crop materializer 仍由主入口注入复用。
 - native rebuild PPTX build executor：OpenXML/PowerPoint 构建执行器的路径组合和 core executor 装配从主 rebuild 编排中移出，主入口只注入 `__dirname` 并继续导出相同 build gate。
+- native engine test entrypoint：25 个原先直接加载 `skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native` 的测试改为通过 `packages/slideclone-native-engine` 包入口加载，旧 skill script 引用预算从 63/45 降到 37/22。
 
 验证证据：
 

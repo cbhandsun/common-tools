@@ -323,7 +323,7 @@ const {
   visibleTextBoxes,
   visualClusterPxBounds,
   wmsChainBounds
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 test("component asset pseudo images use a stable layer key when a whole-layer match has no shape id", () => {
   const pseudoImages = componentAssetLayerPseudoImages(0, {
@@ -26229,7 +26229,7 @@ test("portal platform diagram crops rebuild into native platform, portal, routes
 });
 
 test("portal platform ownership drops false table fills, grids, and duplicate semantic labels", () => {
-  const { dropFalseTableLayersClaimedByPortalPlatform } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+  const { dropFalseTableLayersClaimedByPortalPlatform } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
   const items = [
     { id: "fill", source: { detector: "table-zone-native-cell-fill" } },
     { id: "grid", source: { detector: "table-zone-native-grid-line" } },

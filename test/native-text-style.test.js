@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const style = require("../packages/slideclone-core/native-text-style");
 test("visibleTextBoxes omits unset wrap while preserving explicit no-wrap output", () => {
-  const {visibleTextBoxes} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+  const {visibleTextBoxes} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
   const box = { id: "body", text: "First line\nSecond line", box: {x:10,y:120,w:220,h:70}, font:{sizePt:18}, style:{wrap:true} };
   const [multi] = visibleTextBoxes([box], null, {widthPt:960,heightPt:540});
   assert.equal(Object.hasOwn(multi.style,"wrap"),false);

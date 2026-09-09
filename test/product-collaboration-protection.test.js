@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { createProductCollaborationChallengeObjects } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+const { createProductCollaborationChallengeObjects } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 const { dropFalseTableOverlaysOnProtectedCollaborationDiagram, normalizeAssetOsFlowChromeTextBoxes, normalizeProtectedProductCollaborationChromeTextBoxes } = require("../packages/slideclone-core/product-collaboration-protection");
 
 test("protected collaboration chrome corrects OCR text and source-aligned typography only on protected pages", () => {

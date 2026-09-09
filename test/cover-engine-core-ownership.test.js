@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   detectCoverCardBox,
   filterTextBoxesClaimedByCoverEngineCore
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 const native = {
   id: "native-prototype",

@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   createWorkflowSupplyChainTwoPanelObjects
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 test("workflow supply-chain parts form three reusable semantic components", () => {
   const page = {

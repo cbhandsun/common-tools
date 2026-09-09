@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 const {
   createAssetHubWmsInboundReviewObjects,
   normalizeAssetHubWmsInboundReviewOcrTextBoxes
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 function sourceImage() {
   return { width: 960, height: 540, rgba: Buffer.alloc(960 * 540 * 4, 255) };
