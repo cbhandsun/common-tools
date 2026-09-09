@@ -5,7 +5,7 @@ const test = require("node:test");
 const {
   dominantBorderColor,
   makeEdgeConnectedBackgroundTransparent
-} = require("../skills/pd-hifi-slideclone/scripts/lib/edge-background-alpha");
+} = require("../packages/slideclone-core/edge-background-alpha");
 
 function image(width, height, color = [248, 251, 252, 255]) {
   const rgba = Buffer.alloc(width * height * 4);

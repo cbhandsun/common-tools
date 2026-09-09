@@ -7,7 +7,7 @@ const {
   filterAssetLandingTriadTextBoxes,
   isolateBlueAssetMark,
   shouldObjectifyAssetLandingTriad
-} = require("../skills/pd-hifi-slideclone/scripts/lib/asset-landing-triad");
+} = require("../packages/slideclone-core/asset-landing-triad");
 
 function fixture() {
   const labels = ["资产落盘：单点技能产出，化为组织级资产", "独立配置", "标准化目录", "版本化追踪", "供应链", "物流", "财务"].map((text) => ({ text }));

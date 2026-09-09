@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { createAssetClosureFunnelObjects, inferAssetClosureFunnel } = require("../skills/pd-hifi-slideclone/scripts/lib/asset-closure-funnel");
+const { createAssetClosureFunnelObjects, inferAssetClosureFunnel } = require("../packages/slideclone-core/asset-closure-funnel");
 
 function fixture(overrides = {}) {
   const textBoxes = [

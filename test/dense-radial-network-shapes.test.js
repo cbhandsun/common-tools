@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { createDenseRadialNetworkShapeToolkit } = require("../skills/pd-hifi-slideclone/scripts/lib/dense-radial-network-shapes");
+const { createDenseRadialNetworkShapeToolkit } = require("../packages/slideclone-core/dense-radial-network-shapes");
 
 test("dense radial detailed components place every connector behind every node", () => {
   const toolkit = createDenseRadialNetworkShapeToolkit(operations());

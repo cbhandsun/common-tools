@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { maintainHashedCache } = require("../skills/pd-hifi-slideclone/scripts/lib/cache-budget");
+const { maintainHashedCache } = require("../packages/slideclone-core/cache-budget");
 
 test("cache budget removes only oldest recognized hashed entries", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-cache-budget-"));

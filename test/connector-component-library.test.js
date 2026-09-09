@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { CONNECTOR_COMPONENT_ROLES, resolveConnectorComponent } = require("../skills/pd-hifi-slideclone/scripts/lib/connector-component-library");
+const { CONNECTOR_COMPONENT_ROLES, resolveConnectorComponent } = require("../packages/slideclone-core/connector-component-library");
 
 test("connector component library exposes distinct reusable semantic roles", () => {
   assert.deepEqual(CONNECTOR_COMPONENT_ROLES, ["flow", "feedback", "cycle-fixed", "bidirectional", "support", "memory", "hierarchy", "bus"]);

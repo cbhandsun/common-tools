@@ -6,7 +6,7 @@ const {
   createDetectionResult,
   unmatchedDetectionResult,
   validateDetectionResult
-} = require("../skills/pd-hifi-slideclone/scripts/lib/detection-result");
+} = require("../packages/slideclone-core/detection-result");
 
 test("detection results normalize evidence, claims, diagnostics, and confidence", () => {
   const result = createDetectionResult({

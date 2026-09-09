@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectColorComponents, detectHorizontalColorBands } = require("../skills/pd-hifi-slideclone/scripts/lib/color-component-bounds");
+const { detectColorComponents, detectHorizontalColorBands } = require("../packages/slideclone-core/color-component-bounds");
 
 function image(width, height) { return { width, height, rgba: Buffer.alloc(width * height * 4, 255) }; }
 function fill(target, box, color) {

@@ -8,7 +8,7 @@ const {
   recommendComponentGroupsForLayer,
   scoreComponentGroup,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-group-matcher");
+} = require("../packages/slideclone-core/component-template-group-matcher");
 
 test("component template group matcher preserves sanitized nested replay layout", () => {
   const replayChildren = Array.from({ length: 8 }, (_, index) => ({

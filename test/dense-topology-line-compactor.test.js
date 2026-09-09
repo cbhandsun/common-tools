@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { compactDenseTopologyLineFamilies } = require("../skills/pd-hifi-slideclone/scripts/lib/dense-topology-line-compactor");
+const { compactDenseTopologyLineFamilies } = require("../packages/slideclone-core/dense-topology-line-compactor");
 
 function line(id, box, source = {}, style = {}) {
   return {

@@ -11,7 +11,7 @@ const {
   componentAssetLayersForPage,
   componentAssetShapeLayersForPage,
   shouldDeferNativeRebuildForComponentStrategy
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-strategy-annotator");
+} = require("../packages/slideclone-core/component-strategy-annotator");
 const {
   collectComponentTemplateFallbackDiagramTextBoxes,
   componentAssetLayerPseudoImages,
