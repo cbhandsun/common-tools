@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   DETECTOR_PREFIX,
   createFragmentedAssetChainModel
-} = require("../skills/pd-hifi-slideclone/scripts/lib/fragmented-asset-chain");
+} = require("../packages/slideclone-core/fragmented-asset-chain");
 
 test("fragmented asset chain rebuilds semantic minimum units in ten component groups and preserves one icon", () => {
   const model = createFragmentedAssetChainModel([

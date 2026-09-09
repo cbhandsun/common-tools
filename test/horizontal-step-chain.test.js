@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createHorizontalStepChainToolkit } = require("../skills/pd-hifi-slideclone/scripts/lib/horizontal-step-chain");
+const { createHorizontalStepChainToolkit } = require("../packages/slideclone-core/horizontal-step-chain");
 
 function operations() {
   return {

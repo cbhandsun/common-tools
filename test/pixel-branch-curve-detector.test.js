@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   measureBranchCurves,
   measureBranchCurvesFromAnchors
-} = require("../skills/pd-hifi-slideclone/scripts/lib/pixel-branch-curve-detector");
+} = require("../packages/slideclone-core/pixel-branch-curve-detector");
 
 test("pixel branch detector measures three blue curved routes", () => {
   const image = blankImage(960, 540);

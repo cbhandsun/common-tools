@@ -18,7 +18,7 @@ const {
   createNativeRebuildPlan,
   createPageProgressLifecycle,
   rebuildStrategyOptions
-} = require("../skills/pd-hifi-slideclone/scripts/lib/native-rebuild-deck-pipeline");
+} = require("../packages/slideclone-core/native-rebuild-deck-pipeline");
 
 function planServices(overrides = {}) {
   return {

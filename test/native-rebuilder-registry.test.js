@@ -10,7 +10,7 @@ const {
   nativeOwnershipRules,
   normalizeNativeRebuildResult,
   validateNativeRebuilderRegistry
-} = require("../skills/pd-hifi-slideclone/scripts/lib/native-rebuilder-registry");
+} = require("../packages/slideclone-core/native-rebuilder-registry");
 
 test("native rebuilder registry is internally complete", () => {
   assert.deepEqual(validateNativeRebuilderRegistry(), []);

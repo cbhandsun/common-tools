@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { createNetworkRebuildOrchestrator } = require("../skills/pd-hifi-slideclone/scripts/lib/network-rebuild-orchestrator");
+const { createNetworkRebuildOrchestrator } = require("../packages/slideclone-core/network-rebuild-orchestrator");
 
 const MODES = Object.freeze({
   DETAILED: "detailed",

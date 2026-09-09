@@ -7,7 +7,7 @@ const {
   buildReconstructionPlan,
   classifyVisualLayer,
   summarizeLayerProfile
-} = require("../skills/pd-hifi-slideclone/scripts/lib/layer-classifier");
+} = require("../packages/slideclone-core/layer-classifier");
 
 test("classifyVisualLayer marks large diagram crops as split reconstruction candidates", () => {
   const layer = classifyVisualLayer({

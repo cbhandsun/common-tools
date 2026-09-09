@@ -9,7 +9,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const { promoteNativeChartPayload } = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-payload");
+const { promoteNativeChartPayload } = require("../packages/slideclone-core/chart-native-payload");
 const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const {
   readZipEntries,

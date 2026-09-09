@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createParadigmShiftMatrixModel } = require("../skills/pd-hifi-slideclone/scripts/lib/paradigm-shift-matrix");
+const { createParadigmShiftMatrixModel } = require("../packages/slideclone-core/paradigm-shift-matrix");
 
 test("paradigm shift matrix creates independent native cards and one gem minimum unit", () => {
   const page = { images: [{ id: "underlay" }], textBoxes: [
