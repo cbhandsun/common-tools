@@ -13,7 +13,7 @@ const {
   runPluginApplySession,
   selectActions,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/component-plugin-apply-session");
+} = require("../packages/slideclone-native-engine/scripts/component-plugin-apply-session");
 
 function makeQueue() {
   return {
