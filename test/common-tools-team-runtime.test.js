@@ -537,8 +537,17 @@ test("team local-config derives only fixed non-secret local endpoints from loopb
     COMMON_TOOLS_OIDC_JWKS_URL: "http://keycloak:8080/realms/common-tools/protocol/openid-connect/certs",
     COMMON_TOOLS_OIDC_AUDIENCE: "common-tools-mcp"
   });
+  assert.deepEqual(report.info.optionalMissing, []);
   assert.equal(loopbackTcpPort("0.0.0.0:54000->8080/tcp", 8080), undefined);
   assert.equal(loopbackTcpPort("127.0.0.1:80->8080/tcp", 8080), undefined);
+  const gatewayOnly = localTeamConfigReport({ project: "deploy" }, { inventory: { available: true, rows: rows.slice(0, 1) } });
+  assert.equal(gatewayOnly.exitCode, 0);
+  assert.deepEqual(gatewayOnly.info.configuration, {
+    COMMON_TOOLS_REMOTE_PUBLIC_URL: "http://127.0.0.1:54000",
+    COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS: "http://127.0.0.1:54000",
+    COMMON_TOOLS_OIDC_AUDIENCE: "common-tools-mcp"
+  });
+  assert.deepEqual(gatewayOnly.info.optionalMissing, ["keycloak loopback port 8080"]);
   assert.deepEqual(localTeamConfigReport({ project: "deploy" }, { inventory: { available: true, rows: rows.slice(1) } }).info.missing, ["remote-mcp-gateway loopback port 8080"]);
   assert.deepEqual(localTeamConfigReport({ project: "deploy" }, { inventory: { available: false, rows: [] } }).info.missing, ["Docker Compose runtime"]);
 });

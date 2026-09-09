@@ -75,7 +75,7 @@ common-tools team doctor --runtime
 
 若只是排查 Docker Desktop 重启后的“引擎是否可用/既有容器是否恢复”，使用不读取团队连接配置的 `common-tools team runtime --project deploy`；它只检查 Docker daemon、Compose label 与容器状态，并以 `runtime.ok` 和退出码表示部署运行态。报告中的 `requiredServices` 是当前 capability 集合所需的服务，`missingServices` 明确列出根本未创建的服务，`inactiveServices` 列出已创建但未运行、已 unhealthy 或迁移未成功完成的服务；这三个字段都不读取容器环境变量或日志。能力集合不是默认值时显式传入 `--capabilities <csv>`，以便将所需 Worker 纳入检查。本机网关部署或验收时追加 `--require-gateway`，它要求 `remote-mcp-gateway` 存在且通过 Docker healthcheck；本机部署脚本已自动执行该门禁。受管生产部署若不使用本项目网关，不应传入此开关。`common-tools team doctor --runtime` 仍会同时校验团队连接配置；当前 shell 没有该配置时，它会以退出码 `2` 和 `valid: false` 标记配置未通过，适合诊断而不是运行态成功门禁。
 
-若仅需恢复**本机 Docker 默认部署**的非敏感 URL/OIDC 值，可运行 `common-tools team local-config --project deploy`。它只读取 Compose 容器的公开 loopback 端口映射，输出 `REMOTE_PUBLIC_URL`、允许 Origin、Keycloak issuer/JWKS URL 和 audience；不会读取容器环境变量、日志、密码或 token。密码仍必须从 Secret Manager 或原部署记录恢复，且该命令不适用于受管 HTTPS 生产环境。
+若仅需恢复**本机 Docker 默认部署**的非敏感 URL/OIDC 值，可运行 `common-tools team local-config --project deploy`。它只读取 Compose 容器的公开 loopback 端口映射；网关端口存在时会输出 `REMOTE_PUBLIC_URL`、允许 Origin 和 audience。Keycloak 只在本机暴露 loopback 端口时输出 issuer/JWKS；没有本机 Keycloak 时会放入 `optionalMissing`，不代表 runtime 失败。该命令不会读取容器环境变量、日志、密码或 token。密码仍必须从 Secret Manager 或原部署记录恢复，且该命令不适用于受管 HTTPS 生产环境。
 
 ### 可选 MCP Apps 质量报告
 

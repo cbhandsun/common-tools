@@ -372,23 +372,28 @@ function localTeamConfigReport(args = {}, diagnostics = {}) {
   const gatewayPort = loopbackTcpPort(byService.get("remote-mcp-gateway")?.Ports, 8080);
   const keycloakPort = loopbackTcpPort(byService.get("keycloak")?.Ports, 8080);
   const missing = [
-    ...(gatewayPort === undefined ? ["remote-mcp-gateway loopback port 8080"] : []),
-    ...(keycloakPort === undefined ? ["keycloak loopback port 8080"] : [])
+    ...(gatewayPort === undefined ? ["remote-mcp-gateway loopback port 8080"] : [])
   ];
   if (missing.length) return Object.freeze({ exitCode: 2, info: Object.freeze({ project, available: true, missing: Object.freeze(missing) }) });
   const remotePublicUrl = `http://127.0.0.1:${gatewayPort}`;
+  const configuration = {
+    COMMON_TOOLS_REMOTE_PUBLIC_URL: remotePublicUrl,
+    COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS: remotePublicUrl,
+    COMMON_TOOLS_OIDC_AUDIENCE: "common-tools-mcp"
+  };
+  const optionalMissing = [];
+  if (keycloakPort === undefined) optionalMissing.push("keycloak loopback port 8080");
+  else {
+    configuration.COMMON_TOOLS_OIDC_ISSUER = `http://127.0.0.1:${keycloakPort}/realms/common-tools`;
+    configuration.COMMON_TOOLS_OIDC_JWKS_URL = "http://keycloak:8080/realms/common-tools/protocol/openid-connect/certs";
+  }
   return Object.freeze({
     exitCode: 0,
     info: Object.freeze({
       project,
       available: true,
-      configuration: Object.freeze({
-        COMMON_TOOLS_REMOTE_PUBLIC_URL: remotePublicUrl,
-        COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS: remotePublicUrl,
-        COMMON_TOOLS_OIDC_ISSUER: `http://127.0.0.1:${keycloakPort}/realms/common-tools`,
-        COMMON_TOOLS_OIDC_JWKS_URL: "http://keycloak:8080/realms/common-tools/protocol/openid-connect/certs",
-        COMMON_TOOLS_OIDC_AUDIENCE: "common-tools-mcp"
-      })
+      configuration: Object.freeze(configuration),
+      optionalMissing: Object.freeze(optionalMissing)
     })
   });
 }
