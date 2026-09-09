@@ -72,7 +72,7 @@ test("card-grid ring decoration does not select concentric replay", () => {
 });
 
 test("uncertain source geometry rejects trusted templates before they can consume original text", () => {
-  const { isProtectedFidelityFirstDiagram } = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-source-evidence");
+  const { isProtectedFidelityFirstDiagram } = require("../packages/slideclone-core/component-template-source-evidence");
   const { filterTextBoxesConsumedByComponentTemplateBackfill } = require("../packages/slideclone-core/page-text-rules");
   const sourceTextBoxes = [1, 2, 3, 4].map(index => ({ id: `original-${index}`, text: `Body ${index}`, box: { x: 100, y: 110 + index * 20, w: 80, h: 15 } }));
   const image = cardGridImage();
