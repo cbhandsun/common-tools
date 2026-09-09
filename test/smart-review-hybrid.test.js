@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   normalizeSmartReviewTextBoxes,
   smartReviewPictorialRegions
-} = require("../skills/pd-hifi-slideclone/scripts/lib/smart-review-hybrid");
+} = require("../packages/slideclone-core/smart-review-hybrid");
 
 test("smart review hybrid keeps pictorial crops small and isolated", () => {
   const regions = smartReviewPictorialRegions();

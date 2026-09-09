@@ -6,7 +6,7 @@ const {
   DETECTOR_PREFIX,
   createProductManagerFrictionNetworkObjects,
   normalizeProductManagerFrictionNarrativeTextBoxes
-} = require("../skills/pd-hifi-slideclone/scripts/lib/product-manager-friction-network");
+} = require("../packages/slideclone-core/product-manager-friction-network");
 
 const slideSize = { widthPt: 960, heightPt: 540 };
 

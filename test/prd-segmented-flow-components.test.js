@@ -5,10 +5,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { readPng, writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { readPng, writePng } = require("../packages/slideclone-core/png");
 const {
   finalizePrdSegmentedFlowComponents
-} = require("../skills/pd-hifi-slideclone/scripts/lib/prd-segmented-flow-components");
+} = require("../packages/slideclone-core/prd-segmented-flow-components");
 
 function fixture(root) {
   const sourceImage = { width: 960, height: 540, rgba: Buffer.alloc(960 * 540 * 4, 220) };

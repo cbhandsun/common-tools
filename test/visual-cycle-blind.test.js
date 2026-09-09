@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createChartFixtures, SLIDE_SIZE } = require("../packages/slideclone-native-engine/scripts/lib/chart-native-render-golden");
-const { classifyVisualLayer } = require("../skills/pd-hifi-slideclone/scripts/lib/layer-classifier");
+const { classifyVisualLayer } = require("../packages/slideclone-core/layer-classifier");
 const { createVisualAtomNativeShapes } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
 
 const FULL_BOX = Object.freeze({ x: 0, y: 0, w: SLIDE_SIZE.widthPt, h: SLIDE_SIZE.heightPt });

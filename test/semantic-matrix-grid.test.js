@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { inferSemanticMatrixGrid } = require("../skills/pd-hifi-slideclone/scripts/lib/semantic-matrix-grid");
+const { inferSemanticMatrixGrid } = require("../packages/slideclone-core/semantic-matrix-grid");
 
 test("recovers complete comparison matrix boundaries including the header row", () => {
   const image = blankImage(560, 320, "#ffffff");

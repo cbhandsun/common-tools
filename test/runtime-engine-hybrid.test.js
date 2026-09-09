@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { readPng, writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { readPng, writePng } = require("../packages/slideclone-core/png");
 const {
   DETECTOR_PREFIX,
   ICON_DETECTOR,
@@ -13,7 +13,7 @@ const {
   createRuntimeEngineHybridModel,
   materializeRuntimeEngineHybridImages,
   normalizeRuntimeEngineHybridTextBoxes
-} = require("../skills/pd-hifi-slideclone/scripts/lib/runtime-engine-hybrid");
+} = require("../packages/slideclone-core/runtime-engine-hybrid");
 
 function text(value, x, y, w, h) {
   return { text: value, box: { x, y, w, h }, font: {}, style: {}, source: {} };

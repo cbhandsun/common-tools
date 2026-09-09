@@ -7,7 +7,7 @@ const {
   connectedNodeGroups,
   isConnectorCandidate,
   isNodeCandidate
-} = require("../skills/pd-hifi-slideclone/scripts/lib/system-map-semantics");
+} = require("../packages/slideclone-core/system-map-semantics");
 
 function node(id, x, y, extra = {}) {
   return { id, type: "rect", box: { x, y, w: 12, h: 12 }, source: { detector: "system-map-native-network-node", ...extra } };

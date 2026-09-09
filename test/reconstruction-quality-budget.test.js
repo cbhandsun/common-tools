@@ -8,7 +8,7 @@ const {
   isProtectedResidualImage,
   measurePageReconstructionQuality,
   unionArea
-} = require("../skills/pd-hifi-slideclone/scripts/lib/reconstruction-quality-budget");
+} = require("../packages/slideclone-core/reconstruction-quality-budget");
 
 test("quality budget measures native objects and de-duplicates overlapping residual area", () => {
   const page = {

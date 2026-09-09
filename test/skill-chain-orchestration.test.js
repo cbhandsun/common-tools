@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { chainLayout, createSkillChainOrchestrationObjects, filterSkillChainOrchestrationTextBoxes, isolateOrangeShield, shouldObjectifySkillChainOrchestration } = require("../skills/pd-hifi-slideclone/scripts/lib/skill-chain-orchestration");
+const { chainLayout, createSkillChainOrchestrationObjects, filterSkillChainOrchestrationTextBoxes, isolateOrangeShield, shouldObjectifySkillChainOrchestration } = require("../packages/slideclone-core/skill-chain-orchestration");
 
 function fixture() {
   const labels = ["Skills协作模式：单点调用与链式编排", "产品经理工作台", "理解", "生成", "评审", "原型", "资产库", "PRD", "评审记录"].map((text) => ({ text }));

@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { expandRestrictedSvgGraphics } = require("../skills/pd-hifi-slideclone/scripts/lib/restricted-svg");
+const { expandRestrictedSvgGraphics } = require("../packages/slideclone-core/restricted-svg");
 const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 

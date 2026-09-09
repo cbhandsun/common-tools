@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   intersectionArea,
   isResidualCropCoveredByText
-} = require("../skills/pd-hifi-slideclone/scripts/lib/residual-overlap-policy");
+} = require("../packages/slideclone-core/residual-overlap-policy");
 
 test("residual overlap policy detects text-dominated image fragments", () => {
   const image = { x: 813.47, y: 242.49, w: 91.8, h: 64.81 };

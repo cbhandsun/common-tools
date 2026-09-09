@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { createVisualFeatureContext } = require("../skills/pd-hifi-slideclone/scripts/lib/visual-feature-context");
+const { createVisualFeatureContext } = require("../packages/slideclone-core/visual-feature-context");
 
 test("visual feature context caches identical page-region analysis", () => {
   let calls = 0;

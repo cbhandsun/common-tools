@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createVisualOperationSyncModel } = require("../skills/pd-hifi-slideclone/scripts/lib/visual-operation-sync");
+const { createVisualOperationSyncModel } = require("../packages/slideclone-core/visual-operation-sync");
 
 test("visual operation sync decomposes the flow and preserves only pictorial minimum units", () => {
   const page = {

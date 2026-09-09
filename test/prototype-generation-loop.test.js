@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { annotatePrototypeGenerationLoopTextBoxes, createPrototypeGenerationLoopModel } = require("../skills/pd-hifi-slideclone/scripts/lib/prototype-generation-loop");
+const { annotatePrototypeGenerationLoopTextBoxes, createPrototypeGenerationLoopModel } = require("../packages/slideclone-core/prototype-generation-loop");
 
 test("prototype generation loop rebuilds structure and preserves screenshot-like atoms", () => {
   const page = {

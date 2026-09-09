@@ -13,10 +13,10 @@ const { PROFILE_NAME, sha256File } = require("../packages/slideclone-core/team-o
 const { PROFILE_NAME: PADDLE_PROFILE_NAME } = require("../packages/slideclone-core/team-paddleocr-profile");
 const { createNativeRebuilder, startupFailureCode, workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-image-worker");
 const { eraseMasks, readPng, rebuildDeckFromWorkDir } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
-const { createFullSlideResidualBuilder } = require("../skills/pd-hifi-slideclone/scripts/lib/full-slide-native-residual");
+const { createFullSlideResidualBuilder } = require("../packages/slideclone-core/full-slide-native-residual");
 const { addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebuild, findKnowledgeGraphPanelModel } = require("../packages/slideclone-core/knowledge-graph-native");
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
-const { refineKnowledgeGraphIconCrops } = require("../skills/pd-hifi-slideclone/scripts/lib/knowledge-graph-icon-crops");
+const { writePng } = require("../packages/slideclone-core/png");
+const { refineKnowledgeGraphIconCrops } = require("../packages/slideclone-core/knowledge-graph-icon-crops");
 
 const createFullSlideResidual = createFullSlideResidualBuilder({ eraseMasks, readPng, writePng });
 

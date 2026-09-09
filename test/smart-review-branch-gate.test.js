@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { branchLayout, createSmartReviewBranchGateObjects, deriveSmartReviewBranchPalette, filterSmartReviewBranchGateTextBoxes, isolateLightReviewIcon, shouldObjectifySmartReviewBranchGate } = require("../skills/pd-hifi-slideclone/scripts/lib/smart-review-branch-gate");
+const { branchLayout, createSmartReviewBranchGateObjects, deriveSmartReviewBranchPalette, filterSmartReviewBranchGateTextBoxes, isolateLightReviewIcon, shouldObjectifySmartReviewBranchGate } = require("../packages/slideclone-core/smart-review-branch-gate");
 
 function fixture() {
   const labels = ["PRD智能评审：将交付风险拦截在研发之前", "待评审", "PRD", "PRD评审Skill", "风险归档", "逻辑矛盾", "边界缺失", "体验阻塞"].map((text) => ({ text }));

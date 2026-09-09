@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { measureSystemMapPictorialEnclosure } = require("../skills/pd-hifi-slideclone/scripts/lib/system-map-pixel-evidence");
+const { measureSystemMapPictorialEnclosure } = require("../packages/slideclone-core/system-map-pixel-evidence");
 
 function image(width = 400, height = 240) { return { width, height, rgba: Buffer.alloc(width * height * 4, 255) }; }
 function setPixel(input, x, y, color) { const offset = (y * input.width + x) * 4; input.rgba[offset] = color[0]; input.rgba[offset + 1] = color[1]; input.rgba[offset + 2] = color[2]; input.rgba[offset + 3] = 255; }

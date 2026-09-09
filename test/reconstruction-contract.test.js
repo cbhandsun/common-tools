@@ -5,12 +5,12 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { writePng } = require("../packages/slideclone-core/png");
 const {
   buildReconstructionInventory,
   enrichReconstructionContracts,
   validateReconstructionContracts
-} = require("../skills/pd-hifi-slideclone/scripts/lib/reconstruction-contract");
+} = require("../packages/slideclone-core/reconstruction-contract");
 
 function fixture(root) {
   const image = path.join(root, "page.png");

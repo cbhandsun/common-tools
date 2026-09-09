@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { inferVisualGridCells } = require("../skills/pd-hifi-slideclone/scripts/lib/visual-grid-cells");
+const { inferVisualGridCells } = require("../packages/slideclone-core/visual-grid-cells");
 
 test("visual grid cells sample bounded native cell colors", () => {
   const image = rgbaImage(100, 100, "#FFFFFF");

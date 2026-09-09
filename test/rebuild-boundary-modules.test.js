@@ -2,10 +2,10 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { materializeFidelityCrop } = require("../skills/pd-hifi-slideclone/scripts/lib/fidelity-crop-materializer");
-const { measuredFontSize, resolveRoleFontSize } = require("../skills/pd-hifi-slideclone/scripts/lib/font-evidence");
-const { parsePageSelection, planSelectedPages } = require("../skills/pd-hifi-slideclone/scripts/lib/page-selection");
-const { sanitizeNativeCharts, sanitizeNativeShapes } = require("../skills/pd-hifi-slideclone/scripts/lib/native-output-sanitizer");
+const { materializeFidelityCrop } = require("../packages/slideclone-core/fidelity-crop-materializer");
+const { measuredFontSize, resolveRoleFontSize } = require("../packages/slideclone-core/font-evidence");
+const { parsePageSelection, planSelectedPages } = require("../packages/slideclone-core/page-selection");
+const { sanitizeNativeCharts, sanitizeNativeShapes } = require("../packages/slideclone-core/native-output-sanitizer");
 
 test("page selection parses ranges strictly and plans stable source ordinals", () => {
   const selection = parsePageSelection("3,1-2");

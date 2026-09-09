@@ -11,7 +11,7 @@ const {
   shouldDropResidual,
   syncCandidateResidualOwnership,
   validateResidualOwnership
-} = require("../skills/pd-hifi-slideclone/scripts/lib/residual-ownership");
+} = require("../packages/slideclone-core/residual-ownership");
 
 test("residual ownership synchronizes candidate evidence without losing layer metadata", () => {
   const images = [{ id: "source-1", source: { layer: { role: "graphic" }, preserved: true } }];

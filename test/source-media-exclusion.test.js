@@ -5,9 +5,9 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { writePng } = require("../packages/slideclone-core/png");
 const { auditSourceMediaExclusion } = require("../packages/slideclone-native-engine/scripts/lib/source-media-exclusion");
-const { enrichReconstructionContracts } = require("../skills/pd-hifi-slideclone/scripts/lib/reconstruction-contract");
+const { enrichReconstructionContracts } = require("../packages/slideclone-core/reconstruction-contract");
 
 function setup() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-source-media-"));
@@ -50,7 +50,7 @@ test("source-media exclusion detects a perceptually identical re-encoded PNG", (
   const fixture = setup();
   try {
     const changed = Buffer.from(fs.readFileSync(fixture.source));
-    const decoded = require("../skills/pd-hifi-slideclone/scripts/lib/png").readPngBuffer(changed);
+    const decoded = require("../packages/slideclone-core/png").readPngBuffer(changed);
     decoded.rgba[0] = decoded.rgba[0] ^ 1;
     const variant = path.join(fixture.root, "variant.png");
     writePng(variant, decoded);

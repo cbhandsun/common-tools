@@ -8,7 +8,7 @@ const {
   MAX_NETWORK_NODES,
   MAX_RASTER_PIXELS,
   createRadialNetworkDetector
-} = require("../skills/pd-hifi-slideclone/scripts/lib/radial-network-detector");
+} = require("../packages/slideclone-core/radial-network-detector");
 
 test("radial detector selects only supported aggregate and terminal candidates", () => {
   const detector = createRadialNetworkDetector(operations());

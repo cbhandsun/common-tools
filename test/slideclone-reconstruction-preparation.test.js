@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { writePng } = require("../packages/slideclone-core/png");
 const { prepareReconstructionIrForBuild } = require("../packages/slideclone-native-engine/scripts/slideclone");
 
 test("every IR build preparation enriches and validates reconstruction evidence", () => {

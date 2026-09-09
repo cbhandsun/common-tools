@@ -6,14 +6,14 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { writePng } = require("../packages/slideclone-core/png");
 const {
   applyTextBoxSuggestionSet,
   applyTextBoxEvidenceFit,
   fitHighConfidenceSingleLineOcrToEvidence,
   suggestTextBoxMicroAdjustments,
   applyTextBoxMicroAdjustments
-} = require("../skills/pd-hifi-slideclone/scripts/lib/text-box-micro-adjust");
+} = require("../packages/slideclone-core/text-box-micro-adjust");
 
 test("suggestTextBoxMicroAdjustments nudges box position and font size from crop mismatch", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-text-adjust-"));

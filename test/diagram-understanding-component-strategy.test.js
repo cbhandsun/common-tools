@@ -6,10 +6,10 @@ const assert = require("node:assert/strict");
 const {
   understandDiagramLayer,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/lib/diagram-understanding");
+} = require("../packages/slideclone-core/diagram-understanding");
 const {
   summarizeLayerProfile
-} = require("../skills/pd-hifi-slideclone/scripts/lib/layer-classifier");
+} = require("../packages/slideclone-core/layer-classifier");
 
 test("diagram understanding protects screenshot texture clusters from stale cycle and timeline hints", () => {
   const box = { x: 40, y: 148, w: 277, h: 252 };

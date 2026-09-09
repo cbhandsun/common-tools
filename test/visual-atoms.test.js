@@ -6,8 +6,8 @@ const test = require("node:test");
 const {
   extractVisualAtoms,
   _private: { foregroundComponentsBySeedColor, inferDiagonalLineFit, looksLikeSearchIcon, searchIconEvidence }
-} = require("../skills/pd-hifi-slideclone/scripts/lib/visual-atoms");
-const { classifyVisualLayer } = require("../skills/pd-hifi-slideclone/scripts/lib/layer-classifier");
+} = require("../packages/slideclone-core/visual-atoms");
+const { classifyVisualLayer } = require("../packages/slideclone-core/layer-classifier");
 
 test("extractVisualAtoms separates node rectangles, connector lines, and icon crops", () => {
   const image = blankImage(400, 240, "#ffffff");
