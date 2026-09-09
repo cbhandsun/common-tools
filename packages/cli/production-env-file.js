@@ -67,11 +67,13 @@ function readProductionEnvFile(filePath, fileSystem = fs) {
   if (stat.isSymbolicLink()) throw new TypeError("--production-env-file must not be a symbolic link");
   if (!stat.isFile()) throw new TypeError("--production-env-file must point to a file");
   if (stat.size > MAX_PRODUCTION_ENV_FILE_BYTES) throw new TypeError("--production-env-file is too large");
+  let content;
   try {
-    return parseProductionEnvFileContent(fileSystem.readFileSync(resolved, "utf8"));
+    content = fileSystem.readFileSync(resolved, "utf8");
   } catch {
     throw new TypeError("--production-env-file could not be read");
   }
+  return parseProductionEnvFileContent(content);
 }
 
 function environmentWithProductionEnvFile(environment, filePath, fileSystem = fs) {

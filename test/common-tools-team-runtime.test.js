@@ -112,6 +112,9 @@ test("production env file reader redacts missing paths and rejects symbolic link
 
 test("production diagnostic commands fail before work when env file input is unsafe", () => {
   const cli = path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-production-env-diagnostic-"));
+  const invalidEnvFile = path.join(directory, "production.env");
+  fs.writeFileSync(invalidEnvFile, "PATH=C:\\Windows\n", "utf8");
   for (const action of ["migration-status", "production-preflight"]) {
     const result = spawnSync(process.execPath, [cli, "team", action, "--production-env-file", "production.env"], {
       encoding: "utf8",
@@ -121,6 +124,14 @@ test("production diagnostic commands fail before work when env file input is uns
     assert.equal(result.status, 1);
     assert.match(result.stdout + result.stderr, /absolute path/u);
     assert.equal((result.stdout + result.stderr).includes("not-a-real-secret"), false);
+    const invalid = spawnSync(process.execPath, [cli, "team", action, "--production-env-file", invalidEnvFile], {
+      encoding: "utf8",
+      env: { PATH: process.env.PATH || "" },
+      windowsHide: true
+    });
+    assert.equal(invalid.status, 1);
+    assert.match(invalid.stdout + invalid.stderr, /unsupported variable name/u);
+    assert.doesNotMatch(invalid.stdout + invalid.stderr, /could not be read/u);
   }
 });
 
