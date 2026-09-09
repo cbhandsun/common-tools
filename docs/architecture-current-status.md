@@ -31,20 +31,20 @@
 - `node --check` 覆盖每个新增模块及受影响主文件。
 - `test/component-template-native-shapes.test.js` 通过。
 - `npm run lint` 通过，新增模块均进入统一 lint 入口。
-- `node scripts/verify-runtime-package.js` 通过：运行包 1,203 个文件、20 个 workspace package、6 项能力探针通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,215 个文件、20 个 workspace package、6 项能力探针通过。
 - `node scripts/verify-architecture-budgets.js` 通过。
 - `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
 
 当前剩余架构事实：
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
-- `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 2 个超大文件：
+- `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
   - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：26,505 行。
-  - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js`：4,482 行。
+  - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
 
-结论：整体架构方向已经从“历史 skill 大实现”迁出到“插件平台 + native runtime + core/lib 边界”的轨道上。剩余不需要推倒重来，主线是继续拆 `rebuild-real-pptx-native.js` 与 `component-template-native-shapes.js`，并完成本地/生产 authenticated acceptance evidence。
+结论：整体架构方向已经从“历史 skill 大实现”迁出到“插件平台 + native runtime + core/lib 边界”的轨道上。剩余不需要推倒重来，主线是继续把 `rebuild-real-pptx-native.js` 从大入口拆成 composition root + 可测试职责模块，并完成本地/生产 authenticated acceptance evidence。
 
 ## 2026-09-09 收口：本地部署入口简化为一条命令、一次密码、自动 smoke
 
