@@ -485,6 +485,12 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 
 该入口会依次部署本地 runtime、启用 Keycloak、准备测试用户，然后打开浏览器完成 PKCE 登录并提交 authenticated Job smoke。默认只提示一次不少于 12 位的共享本地验收密码，并把它临时用于本机 Postgres、Redis、MinIO、Keycloak admin 和测试用户；脚本结束后恢复当前 PowerShell 进程里的原环境变量。成功后会在 `artifacts/local-acceptance/` 写入脱敏 JSON 证据，包含 local smoke、测试用户准备和 authenticated Job smoke 摘要，不包含密码、token 或 signed URL。若希望测试用户密码单独设置，可加 `-SeparateTestUserPassword`。需要排障时也可以拆开执行：
 
+验收完成后可用一条命令复核最新证据是否满足本地发布闭环：
+
+```powershell
+npm run common-tools:verify-local-acceptance
+```
+
 ```powershell
 .\scripts\team-runtime-local-apply.ps1 -EnableIdentityProvider
 .\scripts\team-keycloak-local-test-user.ps1

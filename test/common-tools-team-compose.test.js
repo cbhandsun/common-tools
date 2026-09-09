@@ -728,6 +728,9 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(script, /authenticatedJobSmoke = \$jobSmoke/);
   assert.match(script, /Set-Content -LiteralPath \$evidenceTarget -Encoding UTF8 -NoNewline/);
   assert.match(script, /Local acceptance evidence written to \$evidenceTarget/);
+  assert.match(packageJson, /scripts\/verify-local-acceptance-evidence\.js/);
+  assert.match(packageJson, /common-tools:verify-local-acceptance/);
+  assert.match(packageVerifier, /scripts\/verify-local-acceptance-evidence\.js/);
   assert.match(script, /Shared local acceptance password/);
   assert.match(script, /Shared local acceptance password must contain at least 12 characters/);
   assert.match(script, /\[switch\]\$SeparateTestUserPassword/);
