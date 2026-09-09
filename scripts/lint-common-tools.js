@@ -117,6 +117,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/component-asset-ooxml.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-applied-layout-replay.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-chart-shapes.js",
+  "packages/slideclone-native-engine/scripts/lib/component-template-cycle-shapes.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-family-evidence.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-geometry.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-layered-stack-shapes.js",
