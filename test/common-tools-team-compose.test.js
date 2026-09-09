@@ -274,9 +274,13 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /if \(\$DiscoverLocalConfiguration\) \{\s+Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds\s+\$dockerEngineChecked = \$true\s+Set-MissingLocalConfiguration/s);
   assert.match(script, /if \(-not \$dockerEngineChecked\) \{ Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds \}/);
   assert.match(script, /function Set-MissingLocalMinioPorts/);
+  assert.match(script, /function Set-MissingLocalRemotePort/);
   assert.match(script, /Test-LoopbackPortAvailable 59000/);
+  assert.match(script, /Test-LoopbackPortAvailable 54000/);
   assert.match(script, /Get-Random -Minimum 20000 -Maximum 65535/);
   assert.match(script, /COMMON_TOOLS_MINIO_CONSOLE_PORT/);
+  assert.match(script, /COMMON_TOOLS_REMOTE_PORT/);
+  assert.match(script, /localRemotePort = \[Environment\]::GetEnvironmentVariable\('COMMON_TOOLS_REMOTE_PORT', 'Process'\)/);
   assert.match(script, /Read-DeploymentPlan/);
   assert.match(script, /function Assert-LocalRuntime/);
   assert.match(script, /team runtime --project \$Project --capabilities \(\$Capabilities -join ','\) --require-gateway/);
@@ -305,6 +309,11 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /\[string\]\$Mode = 'Apply'/);
   assert.match(script, /\[string\]\$Project = 'deploy'/);
   assert.match(script, /\[string\]\$KeycloakAdmin = 'local-admin'/);
+  assert.match(script, /'COMMON_TOOLS_REMOTE_PORT'/);
+  assert.match(script, /function Select-LocalRemotePort/);
+  assert.match(script, /Test-LoopbackPortAvailable 54000/);
+  assert.match(script, /Could not find an available loopback port for the local remote MCP gateway/);
+  assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_PORT' \$remotePort/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_PUBLIC_URL' \$remoteOrigin/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS' \$remoteOrigin/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_ISSUER'/);

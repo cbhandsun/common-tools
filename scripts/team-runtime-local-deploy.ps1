@@ -326,13 +326,30 @@ function Set-MissingLocalMinioPorts {
   throw 'Could not find available loopback ports for local MinIO'
 }
 
+function Set-MissingLocalRemotePort {
+  $remotePort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
+  if (-not [string]::IsNullOrWhiteSpace($remotePort)) { return }
+  if (Test-LoopbackPortAvailable 54000) { return }
+  for ($attempt = 0; $attempt -lt 128; $attempt += 1) {
+    $candidate = Get-Random -Minimum 20000 -Maximum 65535
+    if (Test-LoopbackPortAvailable $candidate) {
+      [Environment]::SetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', "$candidate", 'Process')
+      return
+    }
+  }
+  throw 'Could not find an available loopback port for the local remote MCP gateway'
+}
+
 $dockerEngineChecked = $false
 if ($DiscoverLocalConfiguration) {
   Assert-DockerEngineAvailable -TimeoutSeconds $DockerEngineTimeoutSeconds
   $dockerEngineChecked = $true
   Set-MissingLocalConfiguration
 }
-if ($DiscoverLocalPorts) { Set-MissingLocalMinioPorts }
+if ($DiscoverLocalPorts) {
+  Set-MissingLocalRemotePort
+  Set-MissingLocalMinioPorts
+}
 if ($EnableSingleIngress) {
   Set-SingleIngressConfiguration $SingleIngressPublicUrl
   $composeFiles += (Join-Path $repositoryRoot 'deploy/compose.team-idp.yaml')
@@ -386,6 +403,7 @@ if ($Mode -eq 'Plan') {
       api = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_PORT', 'Process')
       console = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_CONSOLE_PORT', 'Process')
     }
+    localRemotePort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
     composeConfigurationValid = $true
     deployment = 'No containers or images were changed.'
   } | ConvertTo-Json -Compress

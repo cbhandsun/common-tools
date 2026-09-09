@@ -119,7 +119,7 @@ common-tools team doctor --runtime
 .\scripts\team-runtime-local-deploy.ps1 -Mode Plan -DiscoverLocalConfiguration
 ```
 
-某些 Windows / Docker Desktop 组合会保留默认 MinIO 的 `59000–59001` 端口。若当前会话没有显式设置 `COMMON_TOOLS_MINIO_PORT` 或 `COMMON_TOOLS_MINIO_CONSOLE_PORT`，可加 `-DiscoverLocalPorts`：默认端口无法监听时，它会仅在当前进程中选一对可用 loopback 端口，并在 Plan 输出的 `localMinioPorts` 中显示；已显式设置的端口绝不改写。端口选择是启动前检查，无法替代操作系统最终绑定时的竞争保护：
+某些 Windows / Docker Desktop 组合会保留默认 MCP 网关端口 `54000` 或 MinIO 的 `59000–59001` 端口。若当前会话没有显式设置 `COMMON_TOOLS_REMOTE_PORT`、`COMMON_TOOLS_MINIO_PORT` 或 `COMMON_TOOLS_MINIO_CONSOLE_PORT`，可加 `-DiscoverLocalPorts`：默认端口无法监听时，它会仅在当前进程中选择可用 loopback 端口，并在 Plan 输出的 `localRemotePort` / `localMinioPorts` 中显示；已显式设置的端口绝不改写。端口选择是启动前检查，无法替代操作系统最终绑定时的竞争保护：
 
 ```powershell
 .\scripts\team-runtime-local-deploy.ps1 -Mode Plan -DiscoverLocalConfiguration -DiscoverLocalPorts

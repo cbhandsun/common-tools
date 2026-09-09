@@ -29,6 +29,7 @@ if (-not (Test-Path -LiteralPath $localDeployScript -PathType Leaf)) {
 }
 
 $managedEnvironment = @(
+  'COMMON_TOOLS_REMOTE_PORT',
   'COMMON_TOOLS_REMOTE_PUBLIC_URL',
   'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS',
   'COMMON_TOOLS_OIDC_ISSUER',
@@ -54,9 +55,25 @@ function Set-DefaultEnvironment([string]$Name, [string]$Value) {
   }
 }
 
+function Test-LoopbackPortAvailable([int]$Port) {
+  $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
+  try { $listener.Start(); return $true } catch { return $false } finally { $listener.Stop() }
+}
+
+function Select-LocalRemotePort([string]$Current) {
+  if (-not [string]::IsNullOrWhiteSpace($Current)) { return $Current.Trim() }
+  if (Test-LoopbackPortAvailable 54000) { return '54000' }
+  for ($attempt = 0; $attempt -lt 128; $attempt += 1) {
+    $candidate = Get-Random -Minimum 20000 -Maximum 65535
+    if (Test-LoopbackPortAvailable $candidate) { return "$candidate" }
+  }
+  throw 'Could not find an available loopback port for the local remote MCP gateway'
+}
+
 try {
   $remotePort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
-  if ([string]::IsNullOrWhiteSpace($remotePort)) { $remotePort = '54000' }
+  $remotePort = Select-LocalRemotePort $remotePort
+  Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_PORT' $remotePort
   $keycloakPort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_KEYCLOAK_PORT', 'Process')
   if ([string]::IsNullOrWhiteSpace($keycloakPort)) { $keycloakPort = '58080' }
   if ($remotePort -notmatch '^[1-9][0-9]{0,4}$' -or [int]$remotePort -gt 65535) { throw 'COMMON_TOOLS_REMOTE_PORT is invalid' }
