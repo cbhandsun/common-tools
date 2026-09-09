@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path"), CTNS = "../packages/slideclone-native-engine/scripts/lib/component-template-native-shapes";
-const { cropPng, readPng, writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { cropPng, readPng, writePng } = require("../packages/slideclone-core/png");
 const { readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const {
   _private: mp
@@ -16,7 +16,7 @@ const {
 const {
   extractVisualAtoms,
   detectDenseLinkedNodeAtoms
-} = require("../skills/pd-hifi-slideclone/scripts/lib/visual-atoms");
+} = require("../packages/slideclone-core/visual-atoms");
 const {
   annotateNativeElementsWithPluginReplacementPlans,
   isReplacementPlanCompatibleWithNativeItem
