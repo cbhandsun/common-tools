@@ -1,5 +1,27 @@
 # 架构改进当前状态
 
+## 2026-09-09 收口：本地部署入口简化为一条命令、一次密码、自动 smoke
+
+本轮把本机 Docker 部署路径从“用户需要理解 production env、image digest、release evidence、多个服务密码和后续 smoke 命令”收敛为 `.\scripts\team-runtime-local-apply.ps1` 一条入口。默认行为会自动推导本地 Docker URL/端口，提示一次共享本地部署密码，并在 Apply 成功后运行 `team-runtime-local-smoke.ps1` 校验 gateway readiness、OAuth resource metadata、能力 scope 和未授权 MCP challenge。需要分开密码时可显式传 `-SeparatePasswords`；只想部署不 smoke 时可显式传 `-SkipSmoke`。
+
+同时，`prepare-production-env.ps1` 已明确提示本地部署不需要 image digest 或 release evidence，避免把严格生产发布文件误用于本地 Docker 验收。`team-runtime-local-deploy.ps1` 的 stateless 容器清理不再依赖固定 worker 列表，而是跟随 `deploymentPlan.workerServices`，继续保留 Compose project、service label 和 volume mount 安全校验，降低 scale 或能力组合变化后出现容器名冲突的概率。
+
+本轮提交：
+
+- `bf1cb67 Improve local deployment recovery guidance`
+- `25c4e80 Simplify local deployment secret prompts`
+- `a0560c8 Run local smoke after apply`
+
+验证证据：
+
+- PowerShell 脚本语法检查通过。
+- `test/common-tools-team-compose.test.js`：23/23 通过。
+- 受影响 ESLint 通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,179 个文件、20 个 workspace package、6 项能力探针全通过。
+- `node scripts/verify-architecture-budgets.js` 与 `node scripts/verify-workspace-boundaries.js` 通过。
+
+结论：本地验收链路已经从“工程师式多步排障”明显向“用户只输入密码”的方向收敛。它仍不等同于真正生产发布验收；生产发布仍需要 immutable image digest、release evidence、迁移/备份/回滚和远程认证 Job smoke 证据。
+
 ## 2026-09-09 收口：历史 skill lib 引用进入尾部兼容治理
 
 本轮在“不再把生产实现放回 skill”的共识下，继续清理测试与小辅助模块对 `skills/pd-hifi-slideclone/scripts/lib` 的直接依赖。已经完成四批提交：
