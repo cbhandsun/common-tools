@@ -98,6 +98,25 @@
 
 结论：关系图大布局模块已连续拆出 topology、branch-card、Sankey 和基础结构 shell，剩余更适合作为后续独立批次处理的是 Hub-Spoke、Funnel Lens、Swimlane/Layered/Cycle、Fishbone/Flow/Tree 等较高耦合组合。
 
+## 2026-09-09 收口：Hub-Spoke 关系图 shell 独立成子域模块
+
+继续把 `relationship-native-layouts.js` 中的 Hub-Spoke 职责抽入 `relationship-hub-spoke-shell.js`。新模块封装 hub/spoke 节点筛选、星型连接度数验证、中心节点识别、径向角度排序和 shape 输出；原布局模块继续再导出同一函数，保证 `relationship-native-shell.js` 等上游无需改动。
+
+本轮提交：`ea9f1dc Extract hub spoke relationship shell`。
+
+验证证据：
+
+- `node --check` 覆盖受影响关系图模块。
+- 受影响 ESLint 通过。
+- `test/native-rebuild.test.js`：715/715 通过。
+- `test/engine-core-package.test.js`：6/6 通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,177 个文件、20 个 workspace package、6 项能力探针全通过。
+- `node scripts/verify-workspace-boundaries.js` 通过：632 个文件、20 个 workspace package、0 个外部 runtime package import。
+- `node scripts/verify-architecture-budgets.js` 通过：843 个文件、5 个 decreasing-only 例外。
+- skill migration 与 skill wrapper 门禁均通过。
+
+结论：Hub-Spoke 也已从关系图大布局文件中分离，关系图 core 的剩余拆分重点进一步收窄到 Funnel Lens、Swimlane/Layered/Cycle、Fishbone/Flow/Tree，以及 measured generic/topology shell 的最终归档。
+
 ## 2026-09-09 收口：远程 Job 验收新增显式认证 smoke
 
 本轮新增 `common-tools:team-authenticated-job-smoke`，用于补齐“受保护远程 MCP 真实 Job 路径”的发布验收入口。它不会绕过 OAuth，也不会默认伪装成快 smoke：调用方必须提供 bearer token 和一个真实能力输入文件；脚本会连接 `/mcp`，执行 `initialize`、`tools/list`、`create_team_upload_target`，上传输入文件，再调用 `create_team_job`。传入 `--wait` 时会继续轮询 `get_team_job`，作业成功后可用 `--artifact-name` 验证 `get_team_artifact_target`。
