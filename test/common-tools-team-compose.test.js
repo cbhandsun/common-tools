@@ -591,6 +591,26 @@ test("isolated Compose smoke script uses a unique project, temporary credentials
   assert.doesNotMatch(script, /FLUSHDB|rm -rf|Remove-Item.*repositoryRoot/i);
 });
 
+test("local runtime smoke script verifies gateway metadata without secrets or jobs", () => {
+  const root = path.resolve(__dirname, "..");
+  const script = fs.readFileSync(path.join(root, "scripts", "team-runtime-local-smoke.ps1"), "utf8");
+  const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
+  const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
+  assert.match(script, /team', 'local-config', '--project', \$Project/);
+  assert.match(script, /team', 'runtime', '--project', \$Project/);
+  assert.match(script, /--require-gateway/);
+  assert.match(script, /\/readyz/);
+  assert.match(script, /\/.well-known\/oauth-protected-resource\/mcp/);
+  assert.match(script, /common-tools:capability:\$capability/);
+  assert.match(script, /unauthorizedChallengeVerified/);
+  assert.match(script, /Local team gateway URL must be a loopback HTTP origin/);
+  assert.match(script, /Remote response is too large/);
+  assert.doesNotMatch(script, /Read-Host|COMMON_TOOLS_.*PASSWORD|create_team_job|upload/i);
+  assert.match(packageJson, /common-tools:team-local-smoke/);
+  assert.match(packageJson, /scripts\/team-runtime-local-smoke\.ps1/);
+  assert.match(packageVerifier, /scripts\/team-runtime-local-smoke\.ps1/);
+});
+
 test("image Worker Docker context excludes local .NET outputs while retaining builder sources", () => {
   const root = path.resolve(__dirname, "..");
   const ignore = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable.dockerignore"), "utf8");

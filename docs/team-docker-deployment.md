@@ -93,6 +93,12 @@ common-tools team doctor --runtime
 
 如默认 `60100–60105` 端口范围已被占用，传入另一个连续的六端口范围，例如 `-BasePort 61100`。仅在排障时使用 `-KeepArtifacts`；输出会给出唯一 project 名，清理时只针对该名称执行 Compose down。
 
+已有本机 `deploy` 项目启动后，可用轻量 smoke 快速确认当前 loopback gateway、runtime、`/readyz`、OAuth protected-resource metadata 和未授权 MCP challenge 都可用；它不读取密码、不上传文件、不创建 Job：
+
+```powershell
+.\scripts\team-runtime-local-smoke.ps1
+```
+
 ### 本机团队版更新
 
 `scripts/team-runtime-local-deploy.ps1` 将日常更新固定为“Secret 已注入 → Compose 配置预检 → 构建 → migration gate → API/Worker/maintenance 就绪等待”。它只接受本机验证的三份 Compose 文件（infra、API、gateway），不会重导入或覆盖已有 Keycloak realm；凭据只读取当前进程环境变量，永不写入输出。先运行无副作用预检：
