@@ -129,6 +129,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/component-template-remote-candidate.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-sanitizers.js",
   "packages/slideclone-native-engine/scripts/lib/component-template-structure-fit.js",
+  "packages/slideclone-native-engine/scripts/lib/component-template-visual-graph.js",
   "packages/slideclone-native-engine/scripts/adapters/compare-placeholder.js",
   "packages/slideclone-native-engine/scripts/adapters/diff-pixel-png.js",
   "packages/slideclone-native-engine/scripts/adapters/vision-flow-diagram-rules.js",
