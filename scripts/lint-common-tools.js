@@ -99,6 +99,8 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/config-validation.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-options.js",
   "packages/slideclone-native-engine/scripts/lib/component-plugin-action-queue-cli.js",
+  "packages/slideclone-native-engine/scripts/lib/component-strategy-cli.js",
+  "packages/slideclone-native-engine/scripts/lib/component-strategy-replacement-plans.js",
   "packages/slideclone-native-engine/scripts/lib/slideclone-default-config.js",
   "packages/slideclone-native-engine/scripts/lib/slideclone-delivery-summary.js",
   "packages/slideclone-native-engine/scripts/lib/quality-gate-output.js",
