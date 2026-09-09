@@ -144,6 +144,14 @@ test("runtime package exposes production acceptance evidence entrypoints", () =>
   assert.match(verifierSource, /productionAcceptancePlan: true/);
 });
 
+test("runtime package exposes architecture closeout status with its default checklist", () => {
+  assert.ok(packageManifest.files.includes("config/architecture-closeout-checklist.json"));
+  assert.ok(packageManifest.files.includes("scripts/verify-architecture-closeout.js"));
+  assert.ok(REQUIRED_FILES.includes("config/architecture-closeout-checklist.json"));
+  assert.ok(REQUIRED_FILES.includes("scripts/verify-architecture-closeout.js"));
+  assert.equal(packageManifest.scripts["common-tools:architecture-closeout"], "node scripts/verify-architecture-closeout.js");
+});
+
 test("runtime package verifier invokes npm through the current Node installation without a shell", () => {
   const invocation = npmInvocation(["pack", "--json"]);
   assert.equal(invocation.command, process.execPath);

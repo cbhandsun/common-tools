@@ -303,6 +303,7 @@ const PPT_CREATE_RELEASE_FILES = Object.freeze([
 const REQUIRED_FILES = Object.freeze([
   ".agents/plugins/marketplace.json",
   "package.json",
+  "config/architecture-closeout-checklist.json",
   "packages/cli/bin/common-tools.js",
   "packages/cli/production-env-file.js",
   "packages/capability-registry/index.js",

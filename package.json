@@ -12,6 +12,7 @@
     "packages/",
     "plugins/",
     "marketplaces/",
+    "config/architecture-closeout-checklist.json",
     "skills/pd-hifi-slideclone/scripts/",
     "skills/pd-hifi-slideclone/schemas/",
     "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
