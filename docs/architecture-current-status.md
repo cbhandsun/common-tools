@@ -50,13 +50,14 @@
 - native rebuild table-zone grid/background：table-zone grid line 投影、dense/visual grid 解析结果消费、cell background 采样和颜色块 native shape 重建从主 rebuild 编排中移出到 factory 模块；主入口只注入 grid 推断、颜色采样和 table-zone visual shell 边界。
 - native rebuild prototype loop assets：prototype generation loop 的最小图标 fidelity crop 物化、asset path 生成、source reclassify，以及 AI skills 输入碎片/输出栈 native shape helper 从主 rebuild 编排中移出到 factory 模块；主入口只注入安全文件名、裁剪、写 PNG 和 source 分类边界。
 - native rebuild sticky sketch residual：sticky note sketch/process screenshot residual crop 的 banner、line、diagonal line、explanation frame、stroke component 分析和 linear ink stats 从主 rebuild 编排中移出到 factory 模块；主入口只注入 PNG 读取、像素/颜色和 asset path 边界，并保留原导出合同。
+- native rebuild table-zone semantic text：table-zone 语义节点文本筛选、native text box 生成、host atom 对齐、对比色选择和残差文字擦除写回从主 rebuild 编排中移出到 factory 模块；主入口只注入矩阵文本规范化、语义宿主、安全 box、PNG 擦除/写回和 asset path 边界，并继续把同一语义节点判定注入 table-zone visual shell 复用。
 
 验证证据：
 
 - `node --check` 覆盖每个新增模块及受影响主文件。
 - `test/component-template-native-shapes.test.js` 通过。
 - `npm run lint` 通过，新增模块均进入统一 lint 入口。
-- `node scripts/verify-runtime-package.js` 通过：运行包 1,237 个文件、20 个 workspace package、6 项能力探针通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,238 个文件、20 个 workspace package、6 项能力探针通过。
 - `node scripts/verify-architecture-budgets.js` 通过。
 - `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
 
@@ -64,7 +65,7 @@
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：20,682 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：20,510 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
