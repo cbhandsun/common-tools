@@ -6,6 +6,7 @@ const path = require("node:path");
 const { loadProfile, loadRegistry } = require("./slideclone-profile");
 
 const root = path.resolve(__dirname, "..");
+const nativeScriptRoot = path.join(root, "packages", "slideclone-native-engine", "scripts");
 
 function verifySlidecloneProfiles(packageFile = path.join(root, "package.json")) {
   const packageJson = JSON.parse(fs.readFileSync(packageFile, "utf8").replace(/^\uFEFF/u, ""));
@@ -14,6 +15,13 @@ function verifySlidecloneProfiles(packageFile = path.join(root, "package.json"))
   const registry = loadRegistry();
   const aliases = [];
   const errors = [];
+  for (const [profileName, profile] of Object.entries(registry)) {
+    if (!profile.script.startsWith("scripts/")) continue;
+    const nativeScript = path.join(nativeScriptRoot, path.basename(profile.script));
+    if (fs.statSync(nativeScript, { throwIfNoEntry: false })?.isFile()) {
+      errors.push(`${profileName} points at a skill wrapper even though a native-engine script exists: ${profile.script}`);
+    }
+  }
   for (const [name, command] of Object.entries(scripts)) {
     if (!name.startsWith("slideclone:")) continue;
     if (typeof command !== "string" || command.length > 32768 || command.includes("\0")) {

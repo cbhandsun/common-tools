@@ -34,7 +34,7 @@ test("slideclone registry centralizes package profiles and rejects direct skill-
   assert.match(loadProfile("rebuild-real-pptx-native-parallel").script.replace(/\\/gu, "/"), /packages\/slideclone-native-engine\/scripts\/rebuild-real-pptx-native-parallel\.js$/);
   const result = verifySlidecloneProfiles();
   assert.ok(result.profileCount >= 140);
-  assert.ok(result.nativeProfileCount >= 65);
+  assert.ok(result.nativeProfileCount >= 140);
   assert.ok(result.aliasCount >= 140);
 });
 
