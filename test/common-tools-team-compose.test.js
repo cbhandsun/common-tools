@@ -372,6 +372,8 @@ test("production env preparation script collects secrets safely outside the repo
   const source = fs.readFileSync(script, "utf8");
   assert.match(source, /common-tools\.production\.env/);
   assert.match(source, /Output path must be outside the repository root/);
+  assert.match(source, /Length -gt 0 -and -not \$Force/);
+  assert.match(source, /already exists and is not empty/);
   assert.match(source, /Read-Host -Prompt \$Prompt -AsSecureString/);
   assert.match(source, /ZeroFreeBSTR\(\$pointer\)/);
   assert.match(source, /COMMON_TOOLS_DATABASE_PASSWORD_FILE/);

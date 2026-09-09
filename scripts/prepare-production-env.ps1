@@ -115,11 +115,15 @@ $outputDirectory = Split-Path -Parent $outputPath
 if (-not [System.IO.Directory]::Exists($outputDirectory)) {
   [System.IO.Directory]::CreateDirectory($outputDirectory) | Out-Null
 }
-if ((Test-Path -LiteralPath $outputPath -PathType Leaf) -and -not $Force) {
-  throw 'Output file already exists; pass -Force to replace it'
-}
-if ((Test-Path -LiteralPath $outputPath) -and (((Get-Item -LiteralPath $outputPath -Force).Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+$existingOutputItem = if (Test-Path -LiteralPath $outputPath) { Get-Item -LiteralPath $outputPath -Force } else { $null }
+if ($existingOutputItem -and (($existingOutputItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
   throw 'Output file must not be a symbolic link'
+}
+if ($existingOutputItem -and $existingOutputItem.PSIsContainer) {
+  throw 'Output path must be a file'
+}
+if ($existingOutputItem -and $existingOutputItem.Length -gt 0 -and -not $Force) {
+  throw 'Output file already exists and is not empty; pass -Force to replace it'
 }
 
 $entries = [System.Collections.Generic.List[object]]::new()
