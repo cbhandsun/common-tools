@@ -13,7 +13,7 @@ const {
   evaluateHarvestRefreshGate,
   parseArgs,
   refreshInventoryRoots
-} = require("../skills/pd-hifi-slideclone/scripts/component-replacement-harvest-refresh");
+} = require("../packages/slideclone-native-engine/scripts/component-replacement-harvest-refresh");
 
 test("component replacement harvest refresh parses CLI options", () => {
   const args = parseArgs([

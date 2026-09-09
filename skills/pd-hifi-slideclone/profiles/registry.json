@@ -476,12 +476,12 @@
     },
     "component-replacement-harvest-refresh": {
       "description": "Versioned command profile for slideclone:component-replacement-harvest-refresh.",
-      "script": "scripts/component-replacement-harvest-refresh.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-harvest-refresh.js",
       "args": []
     },
     "component-replacement-harvest-refresh-v17": {
       "description": "Versioned command profile for slideclone:component-replacement-harvest-refresh-v17.",
-      "script": "scripts/component-replacement-harvest-refresh.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-harvest-refresh.js",
       "args": [
         "--queue",
         "runs/component-assets-ai-product-asset-os-owner-search-v17-close-loop-search-auto-decision-gated-icon-protect/component-replacement-harvest-queue.json",
@@ -1187,7 +1187,7 @@
     },
     "expression-policy-repair-queue-quality-coverage": {
       "description": "Versioned command profile for slideclone:expression-policy-repair-queue-quality-coverage.",
-      "script": "scripts/expression-policy-repair-queue-coverage.js",
+      "script": "packages/slideclone-native-engine/scripts/expression-policy-repair-queue-coverage.js",
       "args": [
         "--repair-queue",
         "runs/expression-policy-repair-queue-quality.json",

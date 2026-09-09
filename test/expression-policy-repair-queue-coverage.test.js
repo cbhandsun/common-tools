@@ -13,7 +13,7 @@ const {
   finalDeckLayerAsImage,
   finalDeckImageLayers,
   parseArgs
-} = require("../skills/pd-hifi-slideclone/scripts/expression-policy-repair-queue-coverage");
+} = require("../packages/slideclone-native-engine/scripts/expression-policy-repair-queue-coverage");
 
 test("repair queue coverage parses bounded CLI args", () => {
   const args = parseArgs([
