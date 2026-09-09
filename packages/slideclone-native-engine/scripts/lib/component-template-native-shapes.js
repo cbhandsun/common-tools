@@ -16,11 +16,9 @@ const {
   normalizeTextVertical,
   sanitizeTemplateFreeform,
   sanitizeTemplateGradient,
-  sanitizeTemplateShadow,
   sanitizeTemplateTextReflection
 } = require("./component-template-style");
 const {
-  mixColor,
   paletteFromMatch,
   paletteSummary
 } = require("./component-template-palette");
