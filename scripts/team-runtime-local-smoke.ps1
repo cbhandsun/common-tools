@@ -4,12 +4,14 @@ param(
   [string]$Project = 'deploy',
   [string]$Capabilities = 'image-to-editable,ppt-create,ppt-quality,ppt-improve,project-audit',
   [ValidatePattern('^$|^http://127\.0\.0\.1:[1-9][0-9]{3,4}$')]
-  [string]$GatewayUrl = ''
+  [string]$GatewayUrl = '',
+  [switch]$RequireIdentityProvider
 )
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $cli = Join-Path $repositoryRoot 'packages/cli/bin/common-tools.js'
+$localConfiguration = $null
 
 function Invoke-CommonTools([string[]]$Arguments, [string]$Failure) {
   $output = & node $cli @Arguments
@@ -24,13 +26,31 @@ function Read-JsonObject([string]$Json, [string]$Failure) {
   return $value
 }
 
-function Resolve-GatewayOrigin {
-  if (-not [string]::IsNullOrWhiteSpace($GatewayUrl)) { return $GatewayUrl.Trim() }
+function Read-LocalConfiguration {
+  if ($null -ne $script:localConfiguration) { return $script:localConfiguration }
   $raw = Invoke-CommonTools @('team', 'local-config', '--project', $Project) 'Local team gateway configuration is unavailable'
   $report = Read-JsonObject $raw 'Local team gateway configuration is invalid'
+  $script:localConfiguration = $report
+  return $report
+}
+
+function Resolve-GatewayOrigin {
+  if (-not [string]::IsNullOrWhiteSpace($GatewayUrl)) { return $GatewayUrl.Trim() }
+  $report = Read-LocalConfiguration
   $origin = [string]$report.configuration.COMMON_TOOLS_REMOTE_PUBLIC_URL
   if ([string]::IsNullOrWhiteSpace($origin)) { throw 'Local team gateway URL is unavailable' }
   return $origin.Trim()
+}
+
+function Resolve-LocalOidcIssuer {
+  $report = Read-LocalConfiguration
+  $issuer = [string]$report.configuration.COMMON_TOOLS_OIDC_ISSUER
+  if ([string]::IsNullOrWhiteSpace($issuer)) { throw 'Local team identity provider is unavailable' }
+  try { $uri = [Uri]$issuer } catch { throw 'Local team OIDC issuer is invalid' }
+  if (-not $uri.IsAbsoluteUri -or $uri.Scheme -ne 'http' -or $uri.Host -ne '127.0.0.1' -or $uri.AbsolutePath -ne '/realms/common-tools' -or -not [string]::IsNullOrWhiteSpace($uri.Query) -or -not [string]::IsNullOrWhiteSpace($uri.Fragment) -or $uri.Port -lt 1024 -or $uri.Port -gt 65535) {
+    throw 'Local team OIDC issuer must be a loopback realm URL'
+  }
+  return $issuer.TrimEnd('/')
 }
 
 function Assert-LoopbackOrigin([string]$Origin) {
@@ -101,6 +121,17 @@ foreach ($capability in $selectedCapabilities) {
   if ($scopes -notcontains "common-tools:capability:$capability") { throw "Local team OAuth resource metadata is missing capability scope: $capability" }
 }
 
+$identityProviderVerified = $false
+if ($RequireIdentityProvider) {
+  $issuer = Resolve-LocalOidcIssuer
+  if (@($metadataBody.authorization_servers) -notcontains $issuer) { throw 'Local team OAuth resource metadata is missing the local OIDC issuer' }
+  $openid = Invoke-BoundedHttp 'GET' "$issuer/.well-known/openid-configuration"
+  if ($openid.statusCode -ne 200) { throw 'Local team OIDC discovery is unavailable' }
+  $openidBody = Read-JsonObject $openid.body 'Local team OIDC discovery response is invalid'
+  if ($openidBody.issuer -ne $issuer) { throw 'Local team OIDC discovery issuer does not match metadata' }
+  $identityProviderVerified = $true
+}
+
 $unauthorized = Invoke-BoundedHttp 'POST' "$origin/mcp" '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
 if ($unauthorized.statusCode -ne 401 -or $unauthorized.wwwAuthenticate -notmatch '/\.well-known/oauth-protected-resource/mcp') {
   throw 'Local team MCP endpoint did not return the expected OAuth challenge'
@@ -113,5 +144,6 @@ if ($unauthorized.statusCode -ne 401 -or $unauthorized.wwwAuthenticate -notmatch
   runtimeOk = $true
   readyz = 'ok'
   metadataScopesVerified = $selectedCapabilities.Count
+  identityProviderVerified = $identityProviderVerified
   unauthorizedChallengeVerified = $true
 } | ConvertTo-Json -Compress

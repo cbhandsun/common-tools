@@ -601,6 +601,11 @@ test("local runtime smoke script verifies gateway metadata without secrets or jo
   assert.match(script, /--require-gateway/);
   assert.match(script, /\/readyz/);
   assert.match(script, /\/.well-known\/oauth-protected-resource\/mcp/);
+  assert.match(script, /\[switch\]\$RequireIdentityProvider/);
+  assert.match(script, /function Resolve-LocalOidcIssuer/);
+  assert.match(script, /Local team identity provider is unavailable/);
+  assert.match(script, /\/.well-known\/openid-configuration/);
+  assert.match(script, /identityProviderVerified/);
   assert.match(script, /common-tools:capability:\$capability/);
   assert.match(script, /unauthorizedChallengeVerified/);
   assert.match(script, /Local team gateway URL must be a loopback HTTP origin/);

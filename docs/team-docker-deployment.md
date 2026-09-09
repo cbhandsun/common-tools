@@ -99,6 +99,8 @@ common-tools team doctor --runtime
 .\scripts\team-runtime-local-smoke.ps1
 ```
 
+需要把本机 Keycloak/OIDC 也纳入验收时，显式追加 `-RequireIdentityProvider`。这个模式会要求 `local-config` 能发现 Keycloak loopback 端口，并校验 OAuth metadata 中的 authorization server 与 Keycloak OpenID discovery issuer 一致；默认 smoke 不强制它，以免日常本机 API/Worker 验收被 IdP 启动成本拖慢。
+
 ### 本机团队版更新
 
 `scripts/team-runtime-local-deploy.ps1` 将日常更新固定为“Secret 已注入 → Compose 配置预检 → 构建 → migration gate → API/Worker/maintenance 就绪等待”。它只接受本机验证的三份 Compose 文件（infra、API、gateway），不会重导入或覆盖已有 Keycloak realm；凭据只读取当前进程环境变量，永不写入输出。先运行无副作用预检：
