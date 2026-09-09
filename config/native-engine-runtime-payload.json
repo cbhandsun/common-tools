@@ -18,6 +18,8 @@
   ],
   "rootScripts": [
     "component-acquisition-search.js",
+    "component-asset-self-fidelity.js",
+    "component-asset-self-fidelity-batch.js",
     "component-candidate-search.js",
     "component-gap-learning-plan.js",
     "component-ir-replacement-apply-plan.js",
@@ -106,6 +108,8 @@
     ],
     "componentAcquisitionTools": [
       "component-acquisition-search.js",
+      "component-asset-self-fidelity.js",
+      "component-asset-self-fidelity-batch.js",
       "component-candidate-search.js",
       "component-gap-learning-plan.js",
       "component-library-refresh.js",

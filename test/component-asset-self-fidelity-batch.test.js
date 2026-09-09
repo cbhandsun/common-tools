@@ -12,7 +12,7 @@ const {
   mapConcurrent,
   parseArgs,
   summarizeRegions
-} = require("../skills/pd-hifi-slideclone/scripts/component-asset-self-fidelity-batch");
+} = require("../packages/slideclone-native-engine/scripts/component-asset-self-fidelity-batch");
 
 test("component self fidelity batch parses bounded concurrency and thresholds", () => {
   const args = parseArgs([
