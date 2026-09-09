@@ -14,7 +14,7 @@ const { assertQualityReport } = require("../packages/capability-contracts");
 const { retentionSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-retention");
 const { retentionScheduleSettings, runRetentionSchedule } = require("../packages/team-runtime/retention-scheduler");
 const { COMMAND_USAGE, composeProjectName, composeRuntimeSnapshot, gatewayReadiness, localTeamConfigReport, loopbackTcpPort, parse, probeReadyEndpoint, teamDoctorReport, teamRuntimeReport } = require("../packages/cli/bin/common-tools");
-const { environmentWithProductionEnvFile, parseProductionEnvFileContent } = require("../packages/cli/production-env-file");
+const { environmentWithProductionEnvFile, parseProductionEnvFileContent, readProductionEnvFile } = require("../packages/cli/production-env-file");
 const { collectProductionAcceptanceEvidence, productionAcceptancePlan } = require("../packages/cli/production-acceptance-plan");
 
 test("team configuration fails closed for insecure storage and embedded credentials", () => {
@@ -84,6 +84,29 @@ test("production env file merge rejects relative files and existing production v
   assert.throws(
     () => environmentWithProductionEnvFile({ COMMON_TOOLS_DATABASE_URL: "already-set" }, envFile),
     /duplicates existing COMMON_TOOLS_DATABASE_URL/u
+  );
+});
+
+test("production env file reader redacts missing paths and rejects symbolic links", () => {
+  const missing = path.join(os.tmpdir(), "common-tools-private-production-secret.env");
+  assert.throws(
+    () => readProductionEnvFile(missing, { lstatSync() { throw new Error(`ENOENT ${missing}`); } }),
+    (error) => error instanceof TypeError
+      && /existing file/u.test(error.message)
+      && !error.message.includes("common-tools-private-production-secret")
+  );
+  assert.throws(
+    () => readProductionEnvFile(path.join(os.tmpdir(), "common-tools-link.env"), {
+      lstatSync() {
+        return {
+          isSymbolicLink() { return true; },
+          isFile() { return true; },
+          size: 12
+        };
+      },
+      readFileSync() { return "COMMON_TOOLS_DATABASE_URL=secret"; }
+    }),
+    /must not be a symbolic link/u
   );
 });
 

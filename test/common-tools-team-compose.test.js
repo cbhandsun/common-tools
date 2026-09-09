@@ -342,6 +342,17 @@ test("production deployment script rejects unsafe env files before Docker", () =
   const script = path.join(root, "scripts", "team-runtime-production-deploy.ps1");
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-production-deploy-env-"));
   const envFile = path.join(directory, "production.env");
+  const missingEnvFile = path.join(directory, "private-production-secret.env");
+  const missing = spawnSync("pwsh", ["-NoProfile", "-File", script, "-Mode", "Plan", "-ProductionEnvFile", missingEnvFile], {
+    cwd: root,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH || "" },
+    windowsHide: true
+  });
+  const missingOutput = `${missing.stdout || ""}${missing.stderr || ""}`;
+  assert.equal(missing.status, 1);
+  assert.match(missingOutput, /must point to an existing file/u);
+  assert.doesNotMatch(missingOutput, /private-production-secret/u);
   fs.writeFileSync(envFile, "PATH=C:\\Windows\n", "utf8");
   const result = spawnSync("pwsh", ["-NoProfile", "-File", script, "-Mode", "Plan", "-ProductionEnvFile", envFile], {
     cwd: root,

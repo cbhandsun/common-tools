@@ -58,10 +58,20 @@ function parseProductionEnvFileContent(content) {
 
 function readProductionEnvFile(filePath, fileSystem = fs) {
   const resolved = normalizeProductionEnvFilePath(filePath);
-  const stat = fileSystem.statSync(resolved);
+  let stat;
+  try {
+    stat = fileSystem.lstatSync(resolved);
+  } catch {
+    throw new TypeError("--production-env-file must point to an existing file");
+  }
+  if (stat.isSymbolicLink()) throw new TypeError("--production-env-file must not be a symbolic link");
   if (!stat.isFile()) throw new TypeError("--production-env-file must point to a file");
   if (stat.size > MAX_PRODUCTION_ENV_FILE_BYTES) throw new TypeError("--production-env-file is too large");
-  return parseProductionEnvFileContent(fileSystem.readFileSync(resolved, "utf8"));
+  try {
+    return parseProductionEnvFileContent(fileSystem.readFileSync(resolved, "utf8"));
+  } catch {
+    throw new TypeError("--production-env-file could not be read");
+  }
 }
 
 function environmentWithProductionEnvFile(environment, filePath, fileSystem = fs) {

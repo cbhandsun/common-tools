@@ -24,13 +24,16 @@ function Import-ProductionEnvironmentFile([string]$Path) {
   if ([string]::IsNullOrWhiteSpace($Path)) { return }
   if ($Path.IndexOf([char]0) -ge 0) { throw 'Production env file path is invalid' }
   if (-not [System.IO.Path]::IsPathRooted($Path)) { throw 'Production env file path must be absolute' }
-  $resolvedPath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
-  if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) { throw 'Production env file must be a file' }
-  $item = Get-Item -LiteralPath $resolvedPath
+  try { $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop }
+  catch { throw 'Production env file must point to an existing file' }
+  if ($item.PSIsContainer) { throw 'Production env file must be a file' }
+  if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Production env file must not be a symbolic link' }
   if ($item.Length -gt 65536) { throw 'Production env file is too large' }
   $seen = @{}
   $lineNumber = 0
-  foreach ($line in Get-Content -LiteralPath $resolvedPath) {
+  try { $lines = @(Get-Content -LiteralPath $item.FullName -ErrorAction Stop) }
+  catch { throw 'Production env file could not be read' }
+  foreach ($line in $lines) {
     $lineNumber += 1
     $trimmed = $line.TrimStart()
     if ($trimmed.Length -eq 0 -or $trimmed.StartsWith('#')) { continue }
