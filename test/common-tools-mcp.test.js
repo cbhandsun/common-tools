@@ -14,6 +14,7 @@ const { callTool } = require("../packages/mcp-server/core");
 const { UI_CONTRIBUTIONS } = require("../packages/mcp-server/mcp-apps");
 const cli = path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
 const { doctorReport, optionalUmiOcr } = require("../packages/cli/bin/common-tools");
+const localDoctorDiagnostics = require("../packages/cli/local-doctor");
 
 test("worker doctor does not require access to the host Docker daemon", () => {
   // The worker doctor probes the locally installed .NET runtime. On a cold
@@ -118,6 +119,16 @@ test("doctor fails closed for malformed project runtime configuration without ex
   } finally {
     fs.rmSync(workspace, { recursive: true, force: true });
   }
+});
+
+test("local doctor diagnostics stay outside the CLI composition root", () => {
+  const source = fs.readFileSync(cli, "utf8");
+  assert.match(source, /require\("\.\.\/local-doctor"\)/);
+  assert.doesNotMatch(source, /function doctorReport/);
+  assert.doesNotMatch(source, /function optionalUmiOcr/);
+  assert.doesNotMatch(source, /function resolveWorkspaceChild/);
+  assert.equal(localDoctorDiagnostics.doctorReport, doctorReport);
+  assert.equal(localDoctorDiagnostics.optionalUmiOcr, optionalUmiOcr);
 });
 
 const server = path.join(__dirname, "..", "packages", "mcp-server", "bin", "common-tools-mcp.js");
