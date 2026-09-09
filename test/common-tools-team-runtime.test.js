@@ -13,7 +13,7 @@ const { PostgresJobRepository, TeamWorker, TeamWorkerRunner, assertTraceParent, 
 const { assertQualityReport } = require("../packages/capability-contracts");
 const { retentionSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-retention");
 const { retentionScheduleSettings, runRetentionSchedule } = require("../packages/team-runtime/retention-scheduler");
-const { composeProjectName, composeRuntimeSnapshot, gatewayReadiness, localTeamConfigReport, loopbackTcpPort, parse, probeReadyEndpoint, teamDoctorReport, teamRuntimeReport } = require("../packages/cli/bin/common-tools");
+const { COMMAND_USAGE, composeProjectName, composeRuntimeSnapshot, gatewayReadiness, localTeamConfigReport, loopbackTcpPort, parse, probeReadyEndpoint, teamDoctorReport, teamRuntimeReport } = require("../packages/cli/bin/common-tools");
 
 test("team configuration fails closed for insecure storage and embedded credentials", () => {
   const base = { COMMON_TOOLS_DATABASE_URL: "postgresql://database.internal/common_tools?sslmode=verify-full", COMMON_TOOLS_REDIS_URL: "rediss://redis.internal:6380", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "https://objects.internal", COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts" };
@@ -49,6 +49,10 @@ test("direct SiYuan capability is enabled without inventing a Worker service", (
   });
   assert.throws(() => teamDeploymentPlan("siyuan-note,siyuan-note"), /invalid/);
   assert.throws(() => teamDeploymentPlan("siyuan-note,unknown"), /invalid/);
+});
+
+test("team CLI usage exposes migration status before production migration", () => {
+  assert.match(COMMAND_USAGE, /team migration-status/u);
 });
 
 test("retention scheduler bounds its cadence, stops cleanly, and never overlaps runs", async () => {

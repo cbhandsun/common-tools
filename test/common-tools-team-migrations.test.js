@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { inspectMigrations, migrationDirectory, runMigrations } = require("../packages/team-runtime/migrations");
-const { migrationFailureCode } = require("../packages/remote-mcp-server/bin/common-tools-team-migrate");
+const { migrationFailureCode, runMigrationCommand } = require("../packages/remote-mcp-server/bin/common-tools-team-migrate");
 
 function fixtureDirectory() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-migrations-"));
@@ -106,4 +106,46 @@ test("team migration status flags checksum drift and absent migration table safe
     assert.deepEqual(drift.unknownApplied, ["999_future.sql"]);
     assert.equal(drift.current, false);
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("team migration status command is read-only and redacts connection details", async () => {
+  const migrations = migrationDirectory();
+    const calls = [];
+    const output = [];
+    const client = {
+      async query(sql) {
+        calls.push(sql);
+        if (sql.startsWith("SELECT to_regclass")) return { rows: [{ name: "common_tools_schema_migrations" }] };
+        if (sql.startsWith("SELECT filename")) return { rows: migrations.map((migration) => ({ filename: migration.name, sha256: migration.sha256 })) };
+        throw new Error("unexpected write");
+      },
+      release() { calls.push("release"); }
+    };
+    class FakePool {
+      constructor(options) {
+        assert.equal(options.host, "database.internal");
+        assert.equal(options.password, "super-secret-password");
+      }
+      async connect() { calls.push("connect"); return client; }
+      async end() { calls.push("end"); }
+    }
+    await runMigrationCommand({
+      COMMON_TOOLS_DATABASE_URL: "postgresql://database.internal/common_tools?sslmode=verify-full",
+      COMMON_TOOLS_DATABASE_USER: "common-tools",
+      COMMON_TOOLS_DATABASE_PASSWORD: "super-secret-password",
+      COMMON_TOOLS_REDIS_URL: "rediss://redis.internal:6380",
+      COMMON_TOOLS_REDIS_USERNAME: "common-tools",
+      COMMON_TOOLS_REDIS_PASSWORD: "redis-secret",
+      COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "https://objects.internal",
+      COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts",
+      COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID: "access-key",
+      COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY: "object-secret"
+    }, ["--status"], { PoolClass: FakePool, output: { write(value) { output.push(value); } } });
+    const report = JSON.parse(output.join(""));
+    assert.equal(report.current, true);
+    assert.equal(JSON.stringify(report).includes("super-secret-password"), false);
+    assert.equal(JSON.stringify(report).includes("database.internal"), false);
+    assert.equal(calls.some((sql) => sql === "BEGIN" || sql.startsWith("INSERT ") || sql.startsWith("CREATE ")), false);
+    assert.deepEqual(calls.filter((item) => item === "connect" || item === "release" || item === "end"), ["connect", "release", "end"]);
+    await assert.rejects(() => runMigrationCommand({}, ["--status", "--apply"], { PoolClass: FakePool, output: { write() {} } }), /accepts only --status/);
 });

@@ -16,27 +16,36 @@ function migrationFailureCode(error) {
   return "migration_failed";
 }
 
-async function main(environment = process.env, argv = process.argv.slice(2)) {
+function createMigrationPool(config, secrets, PoolClass = Pool) {
+  const url = new URL(config.databaseUrl);
+  return new PoolClass({ host: url.hostname, port: Number(url.port || 5432), database: url.pathname.slice(1), user: secrets.databaseUser, password: secrets.databasePassword, ssl: url.searchParams.get("sslmode") === "verify-full" ? { rejectUnauthorized: true } : undefined, max: 1 });
+}
+
+async function runMigrationCommand(environment = process.env, argv = process.argv.slice(2), { PoolClass = Pool, output = process.stdout } = {}) {
   if (!Array.isArray(argv) || argv.some((item) => item !== "--status")) throw new Error("team migration command accepts only --status");
+  if (!output || typeof output.write !== "function") throw new TypeError("migration command output is invalid");
   const statusOnly = argv.includes("--status");
   const config = loadTeamConfig(environment);
   const secrets = loadTeamSecrets(environment);
-  const url = new URL(config.databaseUrl);
-  const pool = new Pool({ host: url.hostname, port: Number(url.port || 5432), database: url.pathname.slice(1), user: secrets.databaseUser, password: secrets.databasePassword, ssl: url.searchParams.get("sslmode") === "verify-full" ? { rejectUnauthorized: true } : undefined, max: 1 });
+  const pool = createMigrationPool(config, secrets, PoolClass);
   try {
     const client = await pool.connect();
     try {
       if (statusOnly) {
         const status = await inspectMigrations({ client, required: REQUIRED_PRODUCTION_MIGRATIONS });
-        process.stdout.write(`${JSON.stringify(status)}\n`);
+        output.write(`${JSON.stringify(status)}\n`);
       } else {
         const applied = await runMigrations({ client });
-        process.stdout.write(applied.length ? `applied migrations: ${applied.join(", ")}\n` : "database schema is current\n");
+        output.write(applied.length ? `applied migrations: ${applied.join(", ")}\n` : "database schema is current\n");
       }
     } finally { client.release(); }
   } finally { await pool.end(); }
 }
 
+async function main(environment = process.env, argv = process.argv.slice(2)) {
+  return runMigrationCommand(environment, argv);
+}
+
 if (require.main === module) main().catch((error) => { process.stderr.write(`team database migration failed: ${migrationFailureCode(error)}\n`); process.exitCode = 1; });
 
-module.exports = { main, migrationFailureCode };
+module.exports = { createMigrationPool, main, migrationFailureCode, runMigrationCommand };

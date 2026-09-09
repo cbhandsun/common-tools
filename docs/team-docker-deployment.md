@@ -186,9 +186,10 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 
 如需只诊断或手工重跑迁移器，可仍使用 `docker compose run --rm --no-deps remote-mcp node packages/remote-mcp-server/bin/common-tools-team-migrate.js`；正常部署不应绕过 `team-migrate`，也不要以 `--no-deps` 重建 API/Worker。
 
-执行共享生产库迁移前，可先在同一环境只读查看 schema 状态。`--status` 只查询 `common_tools_schema_migrations`，不会创建表、取得 advisory lock、执行 SQL 或回显连接串/凭据；输出会列出已匹配、待应用、checksum 不一致、未知已应用 migration，以及 010/011 delivery schema 是否仍缺失：
+执行共享生产库迁移前，可先在同一环境只读查看 schema 状态。`team migration-status` 只查询 `common_tools_schema_migrations`，不会创建表、取得 advisory lock、执行 SQL 或回显连接串/凭据；输出会列出已匹配、待应用、checksum 不一致、未知已应用 migration，以及 010/011 delivery schema 是否仍缺失：
 
 ```powershell
+common-tools team migration-status
 docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production.yaml --profile team-api run --rm --no-deps remote-mcp node packages/remote-mcp-server/bin/common-tools-team-migrate.js --status
 ```
 
