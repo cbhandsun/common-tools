@@ -119,6 +119,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-scale-landing-evidence.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-skill-chain-overview.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-strategy-profile.js",
+  "packages/slideclone-native-engine/scripts/lib/native-rebuild-stacked-architecture.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-sticky-sketch-residual.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-system-map-diagram.js",
   "packages/slideclone-native-engine/scripts/lib/native-rebuild-system-map-layout.js",
