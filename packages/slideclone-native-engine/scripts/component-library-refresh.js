@@ -5,8 +5,6 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const PACKAGE_SCRIPT_DIR = __dirname;
-const REPOSITORY_ROOT = path.resolve(__dirname, "..", "..", "..");
-const SKILL_SCRIPT_DIR = path.join(REPOSITORY_ROOT, "skills", "pd-hifi-slideclone", "scripts");
 const PACKAGE_SCRIPT_FILES = new Set([
   "component-asset-manifest.js",
   "component-candidate-search.js",
@@ -451,8 +449,8 @@ function splitList(value) {
 }
 
 function scriptPath(file) {
-  if (PACKAGE_SCRIPT_FILES.has(file)) return path.join(PACKAGE_SCRIPT_DIR, file);
-  return path.join(SKILL_SCRIPT_DIR, file);
+  if (!PACKAGE_SCRIPT_FILES.has(file)) throw new Error(`unknown native engine component refresh script: ${file}`);
+  return path.join(PACKAGE_SCRIPT_DIR, file);
 }
 
 function main() {

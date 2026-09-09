@@ -243,4 +243,5 @@ test("component library refresh resolves package scripts before legacy skill wra
 
   assert.ok(packageScript.endsWith(path.join("packages", "slideclone-native-engine", "scripts", "component-motif-recall-report.js")));
   assert.ok(migratedInventoryScript.endsWith(path.join("packages", "slideclone-native-engine", "scripts", "plugin-component-inventory.js")));
+  assert.throws(() => _private.scriptPath("legacy-only-helper.js"), /unknown native engine component refresh script/);
 });

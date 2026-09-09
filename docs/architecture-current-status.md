@@ -35,6 +35,7 @@
 - native runtime script tests：剩余直接测试旧 rebuild/quality-gate 脚本路径的用例迁到 `packages/slideclone-native-engine/scripts`，旧 skill script 引用预算继续降到 35/20；保留项主要是 wrapper 等价性、资源 fixture 和兼容合同。
 - CLI slideclone runner：`packages/cli` 的固定执行入口从旧 skill `slideclone.js` 迁到 `packages/slideclone-native-engine/scripts/slideclone.js`，CLI 生产调用链不再把 skill 脚本当运行时事实源。
 - component acquisition guidance：component shortlist、motif recall、replacement plan、harvest queue 和 action queue 输出的人工执行命令改为 `packages/slideclone-native-engine/scripts/...`，避免采集/补样流程继续引导旧 skill 脚本路径。
+- component library refresh：组件库刷新计划只允许登记过的 native-engine package script，未知脚本不再 fallback 到 `skills/pd-hifi-slideclone/scripts`，并补回归测试证明 fail-closed。
 
 验证证据：
 
