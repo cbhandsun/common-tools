@@ -126,6 +126,7 @@
     "./relationship-native-layouts": "./relationship-native-layouts.js",
     "./relationship-native-shapes": "./relationship-native-shapes.js",
     "./relationship-native-geometry": "./relationship-native-geometry.js",
+    "./relationship-topology-helpers": "./relationship-topology-helpers.js",
     "./visual-atom-native-reconstruction": "./visual-atom-native-reconstruction.js",
     "./pixel-branch-curve-detector": "./pixel-branch-curve-detector.js",
     "./structured-card-visual-reconstruction": "./structured-card-visual-reconstruction.js",
