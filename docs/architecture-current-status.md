@@ -47,13 +47,14 @@
 - native rebuild product brain vision：产品大脑终局视野页的 candidate 判定、启发式识别、马赛克 tile 背景、中心产品地图、lens/search chrome、tile 颜色采样和残差 region 声明从主 rebuild 编排中移出到 factory 模块；主入口只注入像素、颜色、几何和 round 边界。
 - native rebuild funnel hub residual：funnel hub 残差 crop 的输出文档/设备 icon、输入 docs/html、screenshots、mock data native shape 重建从主 rebuild 编排中移出到 factory 模块；主入口只注入 round 边界并继续统一处理 page image drop 标记。
 - native rebuild table-zone visual shell：table-zone visual atom shell 的对象化判定、grid-line/native-rect atom 投影、命令 pill、语义 node card 和最近文本节点匹配从主 rebuild 编排中移出到 factory 模块；主入口只注入几何、文本 key 和语义节点边界。
+- native rebuild table-zone grid/background：table-zone grid line 投影、dense/visual grid 解析结果消费、cell background 采样和颜色块 native shape 重建从主 rebuild 编排中移出到 factory 模块；主入口只注入 grid 推断、颜色采样和 table-zone visual shell 边界。
 
 验证证据：
 
 - `node --check` 覆盖每个新增模块及受影响主文件。
 - `test/component-template-native-shapes.test.js` 通过。
 - `npm run lint` 通过，新增模块均进入统一 lint 入口。
-- `node scripts/verify-runtime-package.js` 通过：运行包 1,234 个文件、20 个 workspace package、6 项能力探针通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,235 个文件、20 个 workspace package、6 项能力探针通过。
 - `node scripts/verify-architecture-budgets.js` 通过。
 - `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
 
@@ -61,7 +62,7 @@
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：21,526 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：21,405 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
