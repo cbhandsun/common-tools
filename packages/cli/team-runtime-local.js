@@ -151,6 +151,7 @@ module.exports = {
   composeProjectName,
   composeRuntimeSnapshot,
   dockerComposeRuntime,
+  dockerVersion,
   gatewayReadiness,
   localTeamConfigReport,
   loopbackTcpPort,

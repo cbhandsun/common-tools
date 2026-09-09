@@ -27,8 +27,9 @@ const { extractPdfLayout, extractPdfText } = require("../../ppt-create-core/pdf-
 const { createPptCreateArchive } = require("../../ppt-create-core/team-archive");
 const { buildOpenXmlDecksSync } = require("../../slideclone-core/pptx-openxml-dotnet");
 const { CAPABILITY_MANIFESTS, effectivePluginConfig, insideRoot, readPluginConfig, readRuntimeConfig, resolveExecutionRoute, rollbackPluginConfig, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig } = require("../../capability-runtime");
-const { TEAM_DEFAULT_CAPABILITIES, loadTeamConfig, teamDeploymentPlan } = require("../../team-runtime");
-const { composeProjectName, composeRuntimeSnapshot, dockerComposeRuntime, gatewayReadiness, localTeamConfigReport, loopbackTcpPort, probeReadyEndpoint, summarizeContainerStatus, teamRuntimeReport } = require("../team-runtime-local");
+const { teamDeploymentPlan } = require("../../team-runtime");
+const { teamDoctorReport } = require("../team-doctor");
+const { composeProjectName, composeRuntimeSnapshot, gatewayReadiness, localTeamConfigReport, loopbackTcpPort, probeReadyEndpoint, summarizeContainerStatus, teamRuntimeReport } = require("../team-runtime-local");
 const { runKeycloakMcpClientCommand, runKeycloakProjectMapperCommand } = require("../keycloak-project-mapper");
 const { runKeycloakRealmCommand } = require("../keycloak-realm-hardening");
 const { environmentWithProductionEnvFile } = require("../production-env-file");
@@ -321,36 +322,6 @@ function doctorReport(args = {}, environment = process.env, diagnostics = {}) {
   return Object.freeze({ exitCode: info.executable ? 0 : 2, info });
 }
 function doctor(args = {}) { const report = doctorReport(args); process.stdout.write(`${JSON.stringify(report.info, null, 2)}\n`); return report.exitCode; }
-function metricsState(environment) { const token = typeof environment.COMMON_TOOLS_METRICS_TOKEN === "string" ? environment.COMMON_TOOLS_METRICS_TOKEN.trim() : ""; const file = environment.COMMON_TOOLS_METRICS_TOKEN_FILE; if (file !== undefined && token) throw new Error("COMMON_TOOLS_METRICS_TOKEN and COMMON_TOOLS_METRICS_TOKEN_FILE are mutually exclusive"); if (file !== undefined) { if (typeof file !== "string" || !file.trim()) throw new Error("COMMON_TOOLS_METRICS_TOKEN_FILE is invalid"); return Object.freeze({ enabled: true }); } if (!token) return Object.freeze({ enabled: false }); if (!/^[A-Za-z0-9._~-]{16,512}$/.test(token)) throw new Error("COMMON_TOOLS_METRICS_TOKEN must be a 16-512 character URL-safe secret"); return Object.freeze({ enabled: true }); }
-function teamDoctorReport(args = {}, environment = process.env, diagnostics = {}) {
-  const docker = diagnostics.docker || run("docker", ["version", "--format", "{{.Server.Version}}"]);
-  let config;
-  let configurationError;
-  try {
-    config = loadTeamConfig(environment);
-  } catch (error) {
-    configurationError = error instanceof Error ? error.message : "team configuration is invalid";
-  }
-  let metrics;
-  if (config) {
-    try {
-      metrics = metricsState(environment);
-    } catch (error) {
-      configurationError = error instanceof Error ? error.message : "team configuration is invalid";
-    }
-  }
-  const runtimeRequested = args.runtime === true || args.runtime === "true";
-  const runtime = runtimeRequested ? (diagnostics.runtime || dockerComposeRuntime)(composeProjectName(args.project), config?.enabledCapabilities || TEAM_DEFAULT_CAPABILITIES) : undefined;
-  if (!config || configurationError) {
-    // Runtime troubleshooting must remain useful after a Docker/Desktop restart,
-    // even when this shell has no team credentials or deployment configuration.
-    // The bounded configuration parser never includes supplied configuration values.
-    const info = Object.freeze({ valid: false, error: configurationError || "team configuration is invalid", docker: { available: docker.available, version: docker.version }, ...(runtime ? { runtime } : {}) });
-    return Object.freeze({ exitCode: 2, info });
-  }
-  const info = Object.freeze({ valid: true, docker: { available: docker.available, version: docker.version }, databaseHost: new URL(config.databaseUrl).host, redisHost: new URL(config.redisUrl).host, objectStoreHost: new URL(config.objectStoreEndpoint).host, objectStoreBucket: config.objectStoreBucket, enabledCapabilities: config.enabledCapabilities, workerLeaseSeconds: config.workerLeaseSeconds, artifactRetentionDays: config.artifactRetentionDays, projectActiveJobLimit: config.projectActiveJobLimit, metrics, ...(runtime ? { runtime } : {}) });
-  return Object.freeze({ exitCode: docker.available && (!runtime || runtime.ok) ? 0 : 2, info });
-}
 function teamDoctor(args = {}) {
   const report = teamDoctorReport(args);
   process.stdout.write(`${JSON.stringify(report.info, null, 2)}\n`);

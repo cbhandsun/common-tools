@@ -14,6 +14,7 @@ const { assertQualityReport } = require("../packages/capability-contracts");
 const { retentionSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-retention");
 const { retentionScheduleSettings, runRetentionSchedule } = require("../packages/team-runtime/retention-scheduler");
 const { COMMAND_USAGE, composeProjectName, composeRuntimeSnapshot, gatewayReadiness, localTeamConfigReport, loopbackTcpPort, parse, probeReadyEndpoint, teamDoctorReport, teamRuntimeReport } = require("../packages/cli/bin/common-tools");
+const teamDoctorDiagnostics = require("../packages/cli/team-doctor");
 const { environmentWithProductionEnvFile, parseProductionEnvFileContent, readProductionEnvFile } = require("../packages/cli/production-env-file");
 const { collectProductionAcceptanceEvidence, productionAcceptancePlan } = require("../packages/cli/production-acceptance-plan");
 
@@ -533,6 +534,16 @@ test("team runtime local diagnostics stay outside the CLI composition root", () 
   assert.equal(runtimeLocal.teamRuntimeReport, teamRuntimeReport);
   assert.equal(runtimeLocal.localTeamConfigReport, localTeamConfigReport);
   assert.equal(runtimeLocal.composeRuntimeSnapshot, composeRuntimeSnapshot);
+});
+
+test("team doctor diagnostics stay outside the CLI composition root", () => {
+  const root = path.resolve(__dirname, "..");
+  const cli = fs.readFileSync(path.join(root, "packages", "cli", "bin", "common-tools.js"), "utf8");
+  assert.match(cli, /require\("\.\.\/team-doctor"\)/);
+  assert.doesNotMatch(cli, /function metricsState/);
+  assert.doesNotMatch(cli, /function teamDoctorReport/);
+  assert.equal(teamDoctorDiagnostics.teamDoctorReport, teamDoctorReport);
+  assert.equal(typeof teamDoctorDiagnostics.metricsState, "function");
 });
 
 test("team local-config derives only fixed non-secret local endpoints from loopback mappings", () => {
