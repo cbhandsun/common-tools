@@ -14,7 +14,8 @@
   "directories": [
     "adapters",
     "lib",
-    "python"
+    "python",
+    "review-studio"
   ],
   "rootScripts": [
     "batch-native-audit-summary.js",
@@ -24,6 +25,7 @@
     "component-asset-self-fidelity.js",
     "component-asset-self-fidelity-batch.js",
     "component-candidate-search.js",
+    "detect-regions.js",
     "component-gap-learning-plan.js",
     "component-ir-replacement-apply-batch.js",
     "component-ir-replacement-apply-plan.js",
@@ -96,6 +98,7 @@
     "render-engine-report.js",
     "rendered-similarity-audit.js",
     "rendered-preview-audit.js",
+    "review-studio.js",
     "slideclone.js",
     "structural-native-audit.js",
     "watch-plugin-component-downloads.js"
@@ -112,6 +115,7 @@
       "component-assets-golden-gate.js",
       "component-adoption-ab-gate.js",
       "component-coverage-matrix.js",
+      "detect-regions.js",
       "component-ir-replacement-object-audit.js",
       "component-ir-visual-regression-audit.js",
       "component-ir-replacement-apply-plan.js",
@@ -156,6 +160,7 @@
       "render-engine-report.js",
       "rendered-similarity-audit.js",
       "rendered-preview-audit.js",
+      "review-studio.js",
       "structural-native-audit.js"
     ],
     "componentAcquisitionTools": [

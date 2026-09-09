@@ -1138,7 +1138,7 @@
     },
     "detect-regions": {
       "description": "Versioned command profile for slideclone:detect-regions.",
-      "script": "scripts/detect-regions.js",
+      "script": "packages/slideclone-native-engine/scripts/detect-regions.js",
       "args": []
     },
     "expression-policy-repair-queue": {
@@ -1651,7 +1651,7 @@
     },
     "review": {
       "description": "Versioned command profile for slideclone:review.",
-      "script": "scripts/review-studio.js",
+      "script": "packages/slideclone-native-engine/scripts/review-studio.js",
       "args": []
     },
     "run": {

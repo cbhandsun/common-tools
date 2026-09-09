@@ -54,6 +54,13 @@ test("package scripts expose active PowerPoint plugin component harvesting", () 
   assert.match(resolveV17, /MatlComponentContent-16000/);
 });
 
+test("package scripts expose region detection and review UI through native engine", () => {
+  const scripts = readPackageScripts();
+
+  assert.match(scripts["slideclone:detect-regions"], /packages\/slideclone-native-engine\/scripts\/detect-regions\.js/);
+  assert.match(scripts["slideclone:review"], /packages\/slideclone-native-engine\/scripts\/review-studio\.js/);
+});
+
 test("package scripts expose active PPTX component library refresh", () => {
   const scripts = readPackageScripts();
   const command = scripts["slideclone:component-library-refresh-watch-active"];
