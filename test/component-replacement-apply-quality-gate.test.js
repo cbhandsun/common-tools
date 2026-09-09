@@ -12,7 +12,7 @@ const {
   normalizeOperation,
   parseArgs,
   summarizeOperations
-} = require("../skills/pd-hifi-slideclone/scripts/component-replacement-apply-quality-gate");
+} = require("../packages/slideclone-native-engine/scripts/component-replacement-apply-quality-gate");
 
 test("component replacement apply quality gate parses CLI flags", () => {
   const args = parseArgs([

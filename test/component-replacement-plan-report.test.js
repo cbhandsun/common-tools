@@ -7,7 +7,7 @@ const {
   buildComponentReplacementPlanReport,
   parseArgs,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/component-replacement-plan-report");
+} = require("../packages/slideclone-native-engine/scripts/component-replacement-plan-report");
 
 function makeDeck() {
   const plan = {

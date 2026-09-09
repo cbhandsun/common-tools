@@ -10,7 +10,7 @@ const {
   resolveOfficePlusComponents,
   summarizeRows,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/officeplus-component-resolve");
+} = require("../packages/slideclone-native-engine/scripts/officeplus-component-resolve");
 
 test("officeplus component resolve parses targets and CLI flags", () => {
   assert.deepEqual(parseTarget("MatlComponentContent-1900=渐变风流程箭头元素_4项"), {

@@ -10,7 +10,7 @@ const {
   allowedDecisionKinds,
   evaluateDecisionGate,
   parseArgs
-} = require("../skills/pd-hifi-slideclone/scripts/graphic-reconstruction-decision-gate");
+} = require("../packages/slideclone-native-engine/scripts/graphic-reconstruction-decision-gate");
 
 function writeReport(tmp, payload) {
   const file = path.join(tmp, "decision-report.json");
