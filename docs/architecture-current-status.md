@@ -68,6 +68,7 @@
 - `npm run lint` 通过，新增模块均进入统一 lint 入口。
 - `node scripts/verify-runtime-package.js` 通过：运行包 1,247 个文件、20 个 workspace package、6 项能力探针通过。
 - `npm run common-tools:team-local-smoke` 通过：本地 Docker gateway ready、5 个能力 scope metadata 验证、未授权 MCP challenge 验证；当前未启用 IdP，因此还不是 authenticated acceptance evidence。
+- `team-runtime-local-acceptance.ps1` 新增 `-SkipDeploy` 复用模式：当本地 runtime 已经带 Keycloak 启动时，可跳过重新部署，只跑 IdP smoke、测试用户准备、浏览器 PKCE 登录和 authenticated Job smoke。
 - `node scripts/verify-architecture-budgets.js` 通过。
 - `npm run common-tools:architecture-closeout` 通过只读汇总，无配置失败。
 

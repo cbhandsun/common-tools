@@ -17,6 +17,7 @@ param(
   [string]$Capability = 'image-to-editable',
   [string]$EvidenceFile = '',
   [switch]$SeparateTestUserPassword,
+  [switch]$SkipDeploy,
   [switch]$SkipJobWait
 )
 
@@ -111,9 +112,13 @@ if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('COMMON_T
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD', $testUserPassword, 'Process')
 }
 
-Write-Host 'Step 1/3: deploying local Common Tools runtime with Keycloak enabled.'
-& $applyScript -Project $Project -ApiReplicas $ApiReplicas -WaitTimeoutSeconds $WaitTimeoutSeconds -Capabilities $Capabilities -EnableIdentityProvider
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($SkipDeploy) {
+  Write-Host 'Step 1/3: reusing existing local Common Tools runtime with Keycloak enabled.'
+} else {
+  Write-Host 'Step 1/3: deploying local Common Tools runtime with Keycloak enabled.'
+  & $applyScript -Project $Project -ApiReplicas $ApiReplicas -WaitTimeoutSeconds $WaitTimeoutSeconds -Capabilities $Capabilities -EnableIdentityProvider
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
 $localSmokeOutput = & $localSmokeScript -Project $Project -Capabilities $Capabilities -RequireIdentityProvider
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $localSmoke = Read-JsonOutput $localSmokeOutput 'Local acceptance smoke evidence is invalid'
