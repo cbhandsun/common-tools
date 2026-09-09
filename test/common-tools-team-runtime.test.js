@@ -108,7 +108,9 @@ test("production acceptance plan is redacted and reports missing production conf
   assert.equal(plan.requiredConfiguration.COMMON_TOOLS_DATABASE_URL, "missing");
   assert.ok(plan.missingConfiguration.includes("COMMON_TOOLS_DATABASE_URL"));
   assert.ok(plan.blockers.includes("missing production credential source set"));
-  assert.ok(plan.commands.includes("common-tools team migration-status"));
+  assert.ok(plan.commands.includes("npm run common-tools:production-migration-status -- --production-env-file <absolute.env>"));
+  assert.ok(plan.commands.includes("common-tools team production-acceptance-evidence --production-env-file <absolute.env> --out <directory>"));
+  assert.ok(plan.commands.includes(".\\scripts\\team-runtime-production-deploy.ps1 -Mode Plan -Project common-tools -ProductionEnvFile <absolute.env>"));
   assert.ok(plan.evidence.some((item) => item.includes("independent PDF or image sample")));
   assert.equal(JSON.stringify(plan).includes("secret-value"), false);
 });

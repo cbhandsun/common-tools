@@ -79,10 +79,11 @@ function productionAcceptancePlan(environment = process.env) {
     missingConfiguration: Object.freeze(missingConfiguration),
     missingCredentials,
     commands: Object.freeze([
-      "common-tools team production-preflight",
-      "common-tools team migration-status",
-      ".\\scripts\\team-runtime-production-deploy.ps1 -Mode Plan -Project common-tools",
-      ".\\scripts\\team-runtime-production-deploy.ps1 -Mode Apply -Project common-tools -WaitTimeoutSeconds 300"
+      "npm run common-tools:production-preflight -- --production-env-file <absolute.env>",
+      "npm run common-tools:production-migration-status -- --production-env-file <absolute.env>",
+      "common-tools team production-acceptance-evidence --production-env-file <absolute.env> --out <directory>",
+      ".\\scripts\\team-runtime-production-deploy.ps1 -Mode Plan -Project common-tools -ProductionEnvFile <absolute.env>",
+      ".\\scripts\\team-runtime-production-deploy.ps1 -Mode Apply -Project common-tools -ProductionEnvFile <absolute.env> -WaitTimeoutSeconds 300"
     ]),
     evidence: Object.freeze([
       "redacted production-preflight JSON bound to the approved release revision and image digests",
