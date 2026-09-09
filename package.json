@@ -231,6 +231,8 @@
     "common-tools:mcp": "node packages/mcp-server/bin/common-tools-mcp.js",
     "common-tools:remote-mcp": "node packages/remote-mcp-server/bin/common-tools-remote-mcp.js",
     "common-tools:oidc-preflight": "node packages/remote-mcp-server/bin/common-tools-oidc-preflight.js",
+    "common-tools:production-acceptance-plan": "node packages/cli/bin/common-tools.js team production-acceptance-plan",
+    "common-tools:production-acceptance-evidence": "node packages/cli/bin/common-tools.js team production-acceptance-evidence",
     "common-tools:keycloak-project-mapper": "node packages/cli/bin/common-tools.js team keycloak-project-mapper",
     "common-tools:team-worker": "node packages/remote-mcp-server/bin/common-tools-team-worker.js",
     "common-tools:team-image-worker": "node packages/remote-mcp-server/bin/common-tools-team-image-worker.js",
