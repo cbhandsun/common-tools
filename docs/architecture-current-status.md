@@ -1,5 +1,47 @@
 # 架构改进当前状态
 
+## 2026-09-08 收口：图片/PPT 生产链不再依赖历史 skill 根实现
+
+本轮已按小批次提交完成 `skills/pd-hifi-slideclone/scripts/*.js` 根入口的迁移：真实实现统一进入 `packages/slideclone-native-engine/scripts`，skill 根入口只保留兼容 wrapper。`review-studio` 的静态 UI 资源也一并迁入 native engine payload，避免出现“入口在包内、资源仍在 skill 内”的半迁移状态。
+
+当前架构图：
+
+```mermaid
+flowchart TD
+  User[Codex / ChatGPT 用户请求] --> MCP[Common Tools MCP / plugin entry]
+  MCP --> Registry[capability registry + signed manifests]
+  Registry --> Local[local job capabilities]
+  Registry --> Direct[direct remote capabilities]
+  Local --> Worker[slideclone-worker-adapter]
+  Worker --> Native[@common-tools/slideclone-native-engine]
+  Native --> Core[@common-tools/slideclone-core]
+  Native --> OOXML[@common-tools/ooxml-core]
+  Native --> Payload[native engine runtime payload]
+  Payload --> Production[production entrypoints]
+  Payload --> Quality[rendering / quality harness]
+  Payload --> Acquisition[component acquisition tools]
+  Native --> UI[review-studio UI contribution]
+  Skills[pd-hifi-slideclone skill] --> Wrappers[thin compatibility wrappers]
+  Wrappers --> Native
+```
+
+本轮新增提交：
+
+- `b548b2d Move blind layer reporting into native engine`
+- `32196ba Move remaining repair gates into native engine`
+- `819cdc0 Move review UI entrypoints into native engine`
+
+当前验证证据：
+
+- `skills/pd-hifi-slideclone/scripts/*.js` 根入口扫描无剩余非 wrapper 实现。
+- `npm run lint` 通过：625 个 JS 文件，profile、architecture budget、runtime payload、workspace boundary、skill migration、skill lib wrapper 门禁均通过。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,157 个文件、6 项能力探针全通过。
+- `node scripts/native-engine-runtime-payload.js` 通过：84 个 root scripts，3 个脚本组，4 个 payload 目录。
+- `node scripts/verify-slideclone-profiles.js` 通过：150 个 profiles，其中 73 个 native-engine profiles。
+- `config/skill-source-migration-budget.json` 已降到 193 个引用 / 133 个文件，保持 decreasing-only。
+
+结论：截图里提到的 P1 问题，即“图片转 PPT 的生产链仍依赖历史 skill 实现”，在根入口层面已经解决：生产/质量/修复/UI 入口均迁入 native engine package，skill 不再承载这些根脚本的生产实现。剩余 `skills/pd-hifi-slideclone/scripts/lib` 下的兼容引用和测试断言仍按预算治理；它们不等同于根生产入口继续住在 skill。更大的 A–F 产品验收仍包含远程上传/创建、独立 PDF、线上 OCR 和实际 Office 质量闭环，不能用本轮架构收口替代。
+
 ## 通用插件架构五项整改
 
 本轮面向“通用插件项目”的架构图与合理性评估见 [通用插件项目架构图与合理性评估](general-plugin-architecture.md)。五项整改已经按小批次提交：生产 SlideClone 依赖移出 skill 树、图片重建改走 `@common-tools/slideclone-native-engine` 包内 native engine payload 且不再保留顶层 `runtime/slideclone-native-engine` 或旧式兼容入口、能力注册表落地、local 执行支持由 capability manifest 派生、图片转 PPT 的 worker/归档/归一化/质量渲染/OCR checkpoint 编排移入 `@common-tools/slideclone-worker-adapter`、archive/OOXML/artifact 共享基础包抽出、质量报告 UI contribution 归属到 `ppt-quality-core`、分发和镜像策略收口。后续架构增强已继续落地：`capability-registry` 改为 capability module 聚合，local/direct catalog 由签名 capability manifest 的 `moduleSource` 通过 `scripts/generate-capability-catalogs.js` 生成，并在 `common-tools:verify-capabilities` 中检查；MCP Apps 从 registry 读取能力 UI contribution，且 registry 加载时会对齐签名 manifest 的 capability、toolNames、runtime range 和 worker profile，并要求每个非 direct manifest 都有本地 module；各本地 Job 能力包现在直接导出自己的 `CAPABILITY_MODULE`，registry 只负责聚合、冻结和校验，不再在中心文件里手写每个能力的创建/报告/UI 装配；`siyuan-note-core` 作为 direct remote 能力导出 `REMOTE_CAPABILITY_MODULE`，remote MCP 通过 direct capability catalog 读取 capability、toolNames、参数键、服务 owner、方法映射与 MCP tool contract，并校验合同齐全；`verify-capability-catalogs` 已接入 `common-tools:verify-capabilities`，统一校验 local/direct catalog 与签名 manifest、registry 直接依赖和 direct tool contract 的一致性；`capability-manifests` 成为签名能力目录的代码级事实源，直接导出 manifest 读取、版本范围、依赖图、弃用窗口和 hash 校验，`capability-runtime` 不再承载 manifest 解析规则；本地/团队 MCP tool contracts 共享 `capability-contracts` 中的 Job schema 与 annotations，并通过 `defineMcpToolContract`/`defineMcpObjectSchema` 统一合同创建与校验入口；workspace layer policy 抽为 `config/layer-policy.json`；精确 sibling package dependency policy 抽为 `config/workspace-package-policy.json`，边界 verifier 会阻止未登记包、未知包和多余 workspace 依赖；remote MCP 的环境配置解析已从 `index.js` 抽到 `remote-config.js`，入口继续向 composition root 收敛；`skills/pd-hifi-slideclone/scripts` 引用进入 decreasing-only 迁移预算；PPTX ZIP/Inventory 通用工具迁入 `ooxml-core`，遗留引用预算从 441/273 降到 418/266。旧 A–F 文档仍代表更大的产品验收范围，不能与本轮五项架构整改混为同一个完成口径。
