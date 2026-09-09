@@ -14,6 +14,7 @@ const { assertQualityReport } = require("../packages/capability-contracts");
 const { retentionSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-retention");
 const { retentionScheduleSettings, runRetentionSchedule } = require("../packages/team-runtime/retention-scheduler");
 const { COMMAND_USAGE, composeProjectName, composeRuntimeSnapshot, gatewayReadiness, localTeamConfigReport, loopbackTcpPort, parse, probeReadyEndpoint, teamDoctorReport, teamRuntimeReport } = require("../packages/cli/bin/common-tools");
+const { environmentWithProductionEnvFile, parseProductionEnvFileContent } = require("../packages/cli/production-env-file");
 const { collectProductionAcceptanceEvidence, productionAcceptancePlan } = require("../packages/cli/production-acceptance-plan");
 
 test("team configuration fails closed for insecure storage and embedded credentials", () => {
@@ -54,7 +55,35 @@ test("direct SiYuan capability is enabled without inventing a Worker service", (
 
 test("team CLI usage exposes migration status before production migration", () => {
   assert.match(COMMAND_USAGE, /team migration-status/u);
-  assert.match(COMMAND_USAGE, /team production-acceptance-plan/u);
+  assert.match(COMMAND_USAGE, /team production-acceptance-plan \[--env-file <absolute\.env>\]/u);
+  assert.match(COMMAND_USAGE, /team production-acceptance-evidence \[--env-file <absolute\.env>\]/u);
+});
+
+test("production env file parser accepts only bounded COMMON_TOOLS assignments", () => {
+  assert.deepEqual(parseProductionEnvFileContent([
+    "# local protected production env",
+    "export COMMON_TOOLS_DATABASE_URL='postgresql://database.internal/common_tools?sslmode=verify-full'",
+    "COMMON_TOOLS_REDIS_URL=\"rediss://redis.internal:6380\"",
+    "COMMON_TOOLS_OBJECT_STORE_BUCKET=common-tools-artifacts"
+  ].join("\n")), {
+    COMMON_TOOLS_DATABASE_URL: "postgresql://database.internal/common_tools?sslmode=verify-full",
+    COMMON_TOOLS_REDIS_URL: "rediss://redis.internal:6380",
+    COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts"
+  });
+  assert.throws(() => parseProductionEnvFileContent("PATH=C:\\Windows"), /unsupported variable name/u);
+  assert.throws(() => parseProductionEnvFileContent("COMMON_TOOLS_DATABASE_URL=one\nCOMMON_TOOLS_DATABASE_URL=two"), /duplicates/u);
+  assert.throws(() => parseProductionEnvFileContent("COMMON_TOOLS_DATABASE_URL='unterminated"), /unterminated/u);
+});
+
+test("production env file merge rejects relative files and existing production variables", () => {
+  assert.throws(() => environmentWithProductionEnvFile({}, "production.env"), /absolute path/u);
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-production-env-"));
+  const envFile = path.join(directory, "production.env");
+  fs.writeFileSync(envFile, "COMMON_TOOLS_DATABASE_URL=postgresql://database.internal/common_tools?sslmode=verify-full\n", "utf8");
+  assert.throws(
+    () => environmentWithProductionEnvFile({ COMMON_TOOLS_DATABASE_URL: "already-set" }, envFile),
+    /duplicates existing COMMON_TOOLS_DATABASE_URL/u
+  );
 });
 
 test("production acceptance plan is redacted and reports missing production configuration", () => {
@@ -121,6 +150,47 @@ test("production acceptance plan command can archive redacted evidence inside th
   assert.equal(archived.requiredConfiguration.COMMON_TOOLS_DATABASE_URL, "missing");
   assert.equal(JSON.stringify(archived).includes("not-a-real-secret"), false);
   assert.equal(JSON.stringify(archived).includes("database.internal"), false);
+});
+
+test("production acceptance plan command loads a protected env file without echoing secrets", () => {
+  const cli = path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-acceptance-plan-env-"));
+  const secretsDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-production-secrets-"));
+  const envFile = path.join(secretsDirectory, "production.env");
+  fs.writeFileSync(envFile, [
+    "COMMON_TOOLS_DATABASE_URL=postgresql://database.internal/common_tools?sslmode=verify-full",
+    "COMMON_TOOLS_REDIS_URL=rediss://redis.internal:6380",
+    "COMMON_TOOLS_OBJECT_STORE_ENDPOINT=https://objects.internal",
+    "COMMON_TOOLS_OBJECT_STORE_BUCKET=common-tools-artifacts",
+    "COMMON_TOOLS_REMOTE_PUBLIC_URL=https://tools.example.test",
+    "COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS=https://codex.example.test",
+    "COMMON_TOOLS_OIDC_ISSUER=https://identity.example.test",
+    "COMMON_TOOLS_OIDC_JWKS_URL=https://identity.example.test/keys",
+    "COMMON_TOOLS_OIDC_AUDIENCE=common-tools-mcp",
+    "COMMON_TOOLS_REMOTE_IMAGE=registry.example.test/common-tools/remote@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "COMMON_TOOLS_RELEASE_EVIDENCE_FILE=C:\\release\\common-tools.release.json",
+    "COMMON_TOOLS_RELEASE_REVISION=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "COMMON_TOOLS_DATABASE_USER=common-tools-api",
+    "COMMON_TOOLS_DATABASE_PASSWORD=not-a-real-secret",
+    "COMMON_TOOLS_REDIS_USERNAME=common-tools-api",
+    "COMMON_TOOLS_REDIS_PASSWORD=not-a-real-redis-secret",
+    "COMMON_TOOLS_OBJECT_STORE_ACCESS_KEY_ID=not-a-real-key",
+    "COMMON_TOOLS_OBJECT_STORE_SECRET_ACCESS_KEY=not-a-real-object-secret"
+  ].join("\n"), "utf8");
+  const result = spawnSync(process.execPath, [cli, "--workspace", workspace, "team", "production-acceptance-plan", "--env-file", envFile], {
+    encoding: "utf8",
+    env: { PATH: process.env.PATH || "" },
+    windowsHide: true
+  });
+  assert.equal(result.status, 0);
+  const plan = JSON.parse(result.stdout);
+  const serialized = JSON.stringify(plan);
+  assert.equal(plan.status, "ready-for-production-preflight");
+  assert.equal(plan.credentialMode, "direct");
+  assert.equal(plan.requiredConfiguration.COMMON_TOOLS_DATABASE_URL, "set");
+  assert.equal(serialized.includes("not-a-real-secret"), false);
+  assert.equal(serialized.includes("database.internal"), false);
+  assert.equal(serialized.includes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), false);
 });
 
 test("production acceptance evidence collector skips read-only checks until configuration is complete", async () => {

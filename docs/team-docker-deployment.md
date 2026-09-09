@@ -201,6 +201,13 @@ common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team productio
 common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-evidence --out .codex-tmp/production-acceptance-evidence
 ```
 
+如果生产 Secret 不在当前 shell，可把 `COMMON_TOOLS_*` 配置放在仓库外的受保护本地 env 文件中，并用绝对路径显式加载。该文件只支持 `COMMON_TOOLS_` 开头的 `KEY=VALUE` 行、`export KEY=VALUE` 行、空行和 `#` 注释；命令不会做 shell 展开，也不会在输出中回显值。不要把该文件放进工作区或提交到 Git：
+
+```powershell
+common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-plan --env-file C:\secure\common-tools.production.env --out .codex-tmp/production-acceptance-plan.json
+common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-evidence --env-file C:\secure\common-tools.production.env --out .codex-tmp/production-acceptance-evidence
+```
+
 生产发布脚本的 `Plan` 输出也会包含 `preApplyChecklist`。该清单不是批准本身，而是上线前必须归档的操作核对项：同环境 `migration-status` 脱敏 JSON、受管 PostgreSQL 备份与恢复目标、只使用 immutable release evidence revision/image digest 的回滚材料，以及 ingress 暂停接收新任务后的 Worker readiness 复核。任一项无法确认时不要执行 `Apply`，也不要用手写 Compose 绕过。
 
 `002_project_rbac.sql` 为新 Job 增加可为空的 `project_id`；`003_project_idempotency.sql` 将活跃 idempotency key 分区到该 project。旧 Job 保持 `NULL`，只能由原 owner 走兼容接口读取；迁移不会猜测或回填项目归属，因此绝不会把历史 owner-only Job 暴露给项目成员。
