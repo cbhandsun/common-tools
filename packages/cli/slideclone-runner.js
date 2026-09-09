@@ -14,7 +14,7 @@ function inspectBundledSlideclone({ repositoryRoot } = {}) {
   } catch {
     return Object.freeze({ available: false, reason: "entry-point-missing" });
   }
-  const script = path.join(root, "skills", "pd-hifi-slideclone", "scripts", "slideclone.js");
+  const script = path.join(root, "packages", "slideclone-native-engine", "scripts", "slideclone.js");
   let info;
   try {
     info = fs.lstatSync(script);

@@ -33,6 +33,7 @@
 - native rebuild PPTX build executor：OpenXML/PowerPoint 构建执行器的路径组合和 core executor 装配从主 rebuild 编排中移出，主入口只注入 `__dirname` 并继续导出相同 build gate。
 - native engine test entrypoint：25 个原先直接加载 `skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native` 的测试改为通过 `packages/slideclone-native-engine` 包入口加载，旧 skill script 引用预算从 63/45 降到 37/22。
 - native runtime script tests：剩余直接测试旧 rebuild/quality-gate 脚本路径的用例迁到 `packages/slideclone-native-engine/scripts`，旧 skill script 引用预算继续降到 35/20；保留项主要是 wrapper 等价性、资源 fixture 和兼容合同。
+- CLI slideclone runner：`packages/cli` 的固定执行入口从旧 skill `slideclone.js` 迁到 `packages/slideclone-native-engine/scripts/slideclone.js`，CLI 生产调用链不再把 skill 脚本当运行时事实源。
 
 验证证据：
 

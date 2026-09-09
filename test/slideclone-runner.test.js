@@ -13,7 +13,7 @@ test("slideclone core depends on an execution port instead of the skill or proce
   assert.match(core, /typeof executeSlideclone !== "function"/);
 });
 
-test("bundled slideclone runner executes a fixed entry point with bounded arguments", (t) => {
+test("bundled slideclone runner executes the native engine entry point with bounded arguments", (t) => {
   const fixture = makeFixture(t);
   const inspection = inspectBundledSlideclone({ repositoryRoot: path.join(fixture.root, ".") });
   assert.equal(inspection.root, fs.realpathSync.native(fixture.root));
@@ -53,7 +53,7 @@ test("bundled slideclone runner fails closed when its fixed entry point is absen
 function makeFixture(t) {
   const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-runner-test-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const script = path.join(root, "skills", "pd-hifi-slideclone", "scripts", "slideclone.js");
+  const script = path.join(root, "packages", "slideclone-native-engine", "scripts", "slideclone.js");
   const config = path.join(root, "slideclone.config.json");
   const input = path.join(root, "page.png");
   fs.mkdirSync(path.dirname(script), { recursive: true });
