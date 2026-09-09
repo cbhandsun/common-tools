@@ -1,5 +1,31 @@
 # 架构改进当前状态
 
+## 2026-09-09 收口：历史 skill lib 引用进入尾部兼容治理
+
+本轮在“不再把生产实现放回 skill”的共识下，继续清理测试与小辅助模块对 `skills/pd-hifi-slideclone/scripts/lib` 的直接依赖。已经完成四批提交：
+
+- `d4c7a1d Ratchet additional skill test imports`
+- `6dfcb7f Migrate remaining core-backed skill tests`
+- `af8b93e Move remaining small skill helpers to core`
+- `fe48312 Drop native rebuild test skill imports`
+
+`component-template-source-evidence` 与 `expression-family-normalizer` 已迁入 `packages/slideclone-core`，旧 skill 文件只保留 thin wrapper；`minimum-unit-crop-evidence` 测试改为直接验证 `graphic-crop-policy` 的核心导出。其余已存在 core 落点的测试 import 也已批量切换到 `packages/slideclone-core`。
+
+当前 `config/skill-source-migration-budget.json` 已从本轮前的 170 个引用 / 111 个文件继续降到 63 个引用 / 45 个文件，并保持 decreasing-only。剩余可见测试引用主要是 wrapper 等价性测试、工程门禁覆盖字符串，以及少数用于证明旧路径兼容转发的断言；这些不再表示生产链依赖历史 skill 实现。
+
+本轮验证证据：
+
+- 大批量受影响测试：397/397 通过。
+- `test/native-rebuild.test.js`：715/715 通过。
+- 小辅助模块回归：13/13 通过。
+- `node scripts/verify-skill-source-migration.js` 通过：63 个引用 / 45 个文件。
+- `node scripts/verify-skill-lib-wrappers.js` 通过：159 个 skill lib 文件，非 wrapper 实现继续受 50 行上限约束。
+- `node scripts/verify-workspace-boundaries.js` 通过：627 个文件、20 个 workspace packages、0 个外部 runtime package import。
+- `node scripts/verify-architecture-budgets.js` 通过：838 个文件、5 个 decreasing-only 例外。
+- `node scripts/verify-runtime-package.js` 通过：运行包 1,172 个文件、20 个 workspace package、6 项能力探针全通过。
+
+结论：架构主线已经从“迁出生产实现”推进到“尾部兼容治理”。下一步若继续优化，应优先处理真实生产验收证据与 core 内部大模块聚合度，而不是机械删除 wrapper 合同测试。
+
 ## 2026-09-09 收口：远程 Job 验收新增显式认证 smoke
 
 本轮新增 `common-tools:team-authenticated-job-smoke`，用于补齐“受保护远程 MCP 真实 Job 路径”的发布验收入口。它不会绕过 OAuth，也不会默认伪装成快 smoke：调用方必须提供 bearer token 和一个真实能力输入文件；脚本会连接 `/mcp`，执行 `initialize`、`tools/list`、`create_team_upload_target`，上传输入文件，再调用 `create_team_job`。传入 `--wait` 时会继续轮询 `get_team_job`，作业成功后可用 `--artifact-name` 验证 `get_team_artifact_target`。
