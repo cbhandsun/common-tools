@@ -24,6 +24,7 @@ const INTEGRATION_TESTS = new Set([
   "chart-native-render-golden.test.js",
   "complex-graphic-golden-smoke.test.js",
   "common-tools-project-audit.test.js",
+  "common-tools-authenticated-job-smoke.test.js",
   "common-tools-ppt-create-openxml-smoke.test.js",
   "common-tools-remote-plugin-bundles.test.js",
   "component-assets-golden-gate.test.js",
