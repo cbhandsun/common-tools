@@ -190,6 +190,7 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 
 ```powershell
 common-tools team migration-status
+npm run common-tools:production-migration-status
 docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production.yaml --profile team-api run --rm --no-deps remote-mcp node packages/remote-mcp-server/bin/common-tools-team-migrate.js --status
 ```
 
@@ -197,6 +198,7 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 
 ```powershell
 common-tools team production-acceptance-plan
+npm run common-tools:production-preflight
 common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-plan --out .codex-tmp/production-acceptance-plan.json
 common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-evidence --out .codex-tmp/production-acceptance-evidence
 ```

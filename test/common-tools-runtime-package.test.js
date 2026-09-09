@@ -136,6 +136,8 @@ test("runtime package exposes production acceptance evidence entrypoints", () =>
   const verifierSource = fs.readFileSync(path.join(repositoryRoot, "scripts", "verify-runtime-package.js"), "utf8");
   assert.equal(packageManifest.scripts["common-tools:production-acceptance-plan"], "node packages/cli/bin/common-tools.js team production-acceptance-plan");
   assert.equal(packageManifest.scripts["common-tools:production-acceptance-evidence"], "node packages/cli/bin/common-tools.js team production-acceptance-evidence");
+  assert.equal(packageManifest.scripts["common-tools:production-preflight"], "node packages/cli/bin/common-tools.js team production-preflight");
+  assert.equal(packageManifest.scripts["common-tools:production-migration-status"], "node packages/cli/bin/common-tools.js team migration-status");
   assert.ok(packageManifest.files.includes("packages/"));
   assert.ok(fs.existsSync(path.join(repositoryRoot, "packages", "cli", "production-acceptance-plan.js")));
   assert.match(verifierSource, /team", "production-acceptance-plan"/);
