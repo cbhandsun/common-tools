@@ -3,7 +3,7 @@
 
 const { Pool } = require("pg");
 const { loadTeamConfig } = require("../../team-runtime");
-const { runMigrations } = require("../../team-runtime/migrations");
+const { REQUIRED_PRODUCTION_MIGRATIONS, inspectMigrations, runMigrations } = require("../../team-runtime/migrations");
 const { loadTeamSecrets } = require("../team-providers");
 
 function migrationFailureCode(error) {
@@ -16,7 +16,9 @@ function migrationFailureCode(error) {
   return "migration_failed";
 }
 
-async function main(environment = process.env) {
+async function main(environment = process.env, argv = process.argv.slice(2)) {
+  if (!Array.isArray(argv) || argv.some((item) => item !== "--status")) throw new Error("team migration command accepts only --status");
+  const statusOnly = argv.includes("--status");
   const config = loadTeamConfig(environment);
   const secrets = loadTeamSecrets(environment);
   const url = new URL(config.databaseUrl);
@@ -24,8 +26,13 @@ async function main(environment = process.env) {
   try {
     const client = await pool.connect();
     try {
-      const applied = await runMigrations({ client });
-      process.stdout.write(applied.length ? `applied migrations: ${applied.join(", ")}\n` : "database schema is current\n");
+      if (statusOnly) {
+        const status = await inspectMigrations({ client, required: REQUIRED_PRODUCTION_MIGRATIONS });
+        process.stdout.write(`${JSON.stringify(status)}\n`);
+      } else {
+        const applied = await runMigrations({ client });
+        process.stdout.write(applied.length ? `applied migrations: ${applied.join(", ")}\n` : "database schema is current\n");
+      }
     } finally { client.release(); }
   } finally { await pool.end(); }
 }

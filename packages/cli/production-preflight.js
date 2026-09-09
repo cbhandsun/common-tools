@@ -4,7 +4,7 @@ const childProcess = require("node:child_process");
 const path = require("node:path");
 const { loadRemoteConfig } = require("../remote-mcp-server");
 const { TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig } = require("../team-runtime");
-const { migrationDirectory } = require("../team-runtime/migrations");
+const { REQUIRED_PRODUCTION_MIGRATIONS, migrationDirectory } = require("../team-runtime/migrations");
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 const { loadSiyuanConfig } = require("../siyuan-note-core");
 const { assertRevision, verifyReleaseEvidenceFile } = require("./verification/release-evidence");
@@ -28,7 +28,6 @@ const WORKER_PROFILES = Object.freeze(Object.fromEntries(Object.entries(TEAM_DEP
 const WORKER_SERVICES = Object.freeze(Object.fromEntries(Object.entries(TEAM_DEPLOYMENT_CAPABILITIES).map(([capability, definition]) => [capability, definition.workerService])));
 const REMOTE_CAPABILITIES = Object.freeze(Object.keys(TEAM_CAPABILITY_DEFINITIONS));
 const SIYUAN_SECRET_COMPOSE_FILE = "deploy/compose.team-siyuan-secret.yaml";
-const REQUIRED_PRODUCTION_MIGRATIONS = Object.freeze(["010_retention_recheck.sql", "011_delivery_outbox.sql"]);
 
 function deployedWorkerCapabilities(capabilities) {
   return capabilities.filter((capability) => Object.hasOwn(TEAM_DEPLOYMENT_CAPABILITIES, capability));

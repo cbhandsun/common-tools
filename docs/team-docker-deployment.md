@@ -186,6 +186,12 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 
 如需只诊断或手工重跑迁移器，可仍使用 `docker compose run --rm --no-deps remote-mcp node packages/remote-mcp-server/bin/common-tools-team-migrate.js`；正常部署不应绕过 `team-migrate`，也不要以 `--no-deps` 重建 API/Worker。
 
+执行共享生产库迁移前，可先在同一环境只读查看 schema 状态。`--status` 只查询 `common_tools_schema_migrations`，不会创建表、取得 advisory lock、执行 SQL 或回显连接串/凭据；输出会列出已匹配、待应用、checksum 不一致、未知已应用 migration，以及 010/011 delivery schema 是否仍缺失：
+
+```powershell
+docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production.yaml --profile team-api run --rm --no-deps remote-mcp node packages/remote-mcp-server/bin/common-tools-team-migrate.js --status
+```
+
 `002_project_rbac.sql` 为新 Job 增加可为空的 `project_id`；`003_project_idempotency.sql` 将活跃 idempotency key 分区到该 project。旧 Job 保持 `NULL`，只能由原 owner 走兼容接口读取；迁移不会猜测或回填项目归属，因此绝不会把历史 owner-only Job 暴露给项目成员。
 
 PostgreSQL 与 Redis 官方镜像在入口阶段必须从 root 切换到各自的非 root 服务用户，因此这两个有状态容器不设置 `no-new-privileges` 或 `cap_drop: ALL`；否则它们无法初始化数据卷。PostgreSQL、Redis、MinIO 和本机 Keycloak 都只监听内部 Docker 网络及 loopback 映射，并以 `restart: unless-stopped` 在 Docker Engine 重启后自动恢复；其中前三者分别使用 `common-tools-postgres`、`common-tools-redis`、`common-tools-minio` named volume，Keycloak 使用 `common-tools-keycloak` 挂载到 `/opt/keycloak/data`。后续 API/Worker/maintenance 容器仍必须以非 root、只读根文件系统、`no-new-privileges` 和 capability drop 启动。
@@ -356,7 +362,7 @@ $env:COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS = '2000'
 npm run common-tools -- team production-preflight
 ```
 
-预检不拉取镜像、不启动或停止容器、不读取或回显凭据内容。它验证所有实际启用镜像是否以 digest 固定、HTTPS/OIDC/受管数据库与缓存配置是否可被 Runtime 接受、能力集合是否有效、六项凭据是否完整且只采用一种来源（直接注入或 `*_FILE`），并解析最终 Compose JSON：API、迁移器、maintenance 和每个已启用 Worker 必须精确使用预先固定的镜像、不得保留 `build`、每个服务均为 production team mode、迁移器无本地依赖，API 必须使用团队后端与强制 RBAC、绑定受管网络接口且不得发布端口，API/Worker/maintenance 只能依赖一次性迁移门禁。通过后只输出来源类型、能力列表、已验证的 Compose 文件名以及不含路径/密钥的签名 required/verified 状态。
+预检不拉取镜像、不启动或停止容器、不读取或回显凭据内容。它验证所有实际启用镜像是否以 digest 固定、HTTPS/OIDC/受管数据库与缓存配置是否可被 Runtime 接受、能力集合是否有效、六项凭据是否完整且只采用一种来源（直接注入或 `*_FILE`），并确认发布包包含生产 delivery schema 所需的 010/011 migration，再解析最终 Compose JSON：API、迁移器、maintenance 和每个已启用 Worker 必须精确使用预先固定的镜像、不得保留 `build`、每个服务均为 production team mode、迁移器无本地依赖，API 必须使用团队后端与强制 RBAC、绑定受管网络接口且不得发布端口，API/Worker/maintenance 只能依赖一次性迁移门禁。通过后只输出来源类型、能力列表、已验证的 Compose 文件名、schema migration 摘要以及不含路径/密钥的签名 required/verified 状态。
 
 日常发布建议使用受控脚本。`Plan` 是默认值，只完成预检和计划输出；只有显式 `Apply` 才会启动 Compose。它会固定启用 API 与 `team-maintenance`，并根据 `COMMON_TOOLS_TEAM_CAPABILITIES` 启用匹配的 Worker profile、保留迁移门禁、强制 `--no-build --wait`，并在文件凭据模式下自动叠加 Secret overlay。生产 `Plan` 会安全返回解析后的 `enabledCapabilities`、`releaseSignatureRequired`、`releaseSignatureVerified` 与 Compose 校验结果；若要求签名但预检没有明确验证，脚本会在启动 Compose 前失败，便于在变更窗口前审阅实际启动集合：
 

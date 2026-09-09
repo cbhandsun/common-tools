@@ -66,7 +66,7 @@ flowchart TD
 | A 工程预算 | 预算及增量门禁持续通过；architecture budget 不再把 skill 分发镜像或 native engine payload 当作普通核心源码治理对象；native engine payload manifest 已接入 lint 链路，历史 Skill 脚本引用另有 decreasing-only 预算，防止迁移中反弹 | 后续每迁出一组历史引用即同步降低 `config/skill-source-migration-budget.json` |
 | B 核心引擎拆分 | 页面阶段、构建、文字策略及多组重建职责已进入核心包；生产 Worker 不再依赖 skill 脚本或旧式兼容入口，改经 `slideclone-native-engine` package 入口加载包内 native engine payload；payload 根脚本已分为 production entrypoints、rendering/quality harness 和 component acquisition tools 三组；图片 worker 编排已从 `slideclone-core` 移到 `slideclone-worker-adapter`，core 不再直接依赖 `team-runtime`；通用 PPTX ZIP/Inventory 已进入 `ooxml-core` | 若继续追求引擎内部瘦身，应优先从 component acquisition tools 入手，再按能力面迁移，而不是让历史大文件重新进入核心包或 production adapter |
 | C 类型和输入边界 | Job、OCR、Worker 配置及多项 Deck IR/模板/图表准入已纳入严格类型与回归；工具平台重建及 Deck IR 数据属性/头部边界已补齐 | 完整 Deck IR 和剩余核心边界尚未证明覆盖完整；逐项补足，不能用全量测试通过代替覆盖证明 |
-| D 远程交付 | 本地工具和发布/验收能力已有实现；后续实际核对显示候选图片 Worker 曾可创建远程 PDF 作业，但因生产数据库尚未应用 010/011 delivery schema 迁移而失败并回滚；production preflight 已新增必需迁移文件门禁，Plan 输出会显式列出 schemaMigrations；真实隔离 PostgreSQL 恢复测试已验证 001→011 migration、delivery intent 与 Redis 丢失后的恢复链路 | 受控执行生产迁移并重新切换候选 Worker 后，完成两条真实流程、版本绑定、授权负例和回滚验证 |
+| D 远程交付 | 本地工具和发布/验收能力已有实现；后续实际核对显示候选图片 Worker 曾可创建远程 PDF 作业，但因生产数据库尚未应用 010/011 delivery schema 迁移而失败并回滚；production preflight 已新增必需迁移文件门禁，Plan 输出会显式列出 schemaMigrations；`common-tools-team-migrate --status` 可在同一生产环境只读查看已应用/待应用/漂移/缺失的 migration；真实隔离 PostgreSQL 恢复测试已验证 001→011 migration、delivery intent 与 Redis 丢失后的恢复链路 | 受控执行生产迁移并重新切换候选 Worker 后，完成两条真实流程、版本绑定、授权负例和回滚验证 |
 | E 阶段恢复 | [本地恢复验收](stage-recovery-acceptance.md)覆盖故障、缓存、取消、租约和清理 | 实际 OCR 发布版本绑定、部署启用及线上观测验收，与 D 合并执行 |
 | F 实际编辑质量 | 开发图片样例通过实际 Worker 全部交付检查与 PowerPoint 选定对象编辑；新建 PPT 本地生成及 Office 表格、图表编辑通过 | 新 PDF、独立样本、相同环境的完整质量和成本比较；远程两条流程仍待验证 |
 
