@@ -242,6 +242,7 @@ test("fresh local reset requires one password and only removes declared project 
   assert.doesNotMatch(script, /Invoke-FreshCompose @\('down', '--volumes', '--remove-orphans'\)/);
   assert.match(script, /team-runtime-local-deploy\.ps1/);
   assert.match(script, /-DiscoverLocalPorts/);
+  assert.match(script, /-EnableIdentityProvider/);
   assert.match(script, /function Set-MissingLocalMinioPorts/);
   assert.match(script, /Test-LoopbackPortAvailable 59000/);
   assert.match(script, /team-runtime-operation-lock\.ps1/);

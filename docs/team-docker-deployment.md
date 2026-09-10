@@ -202,7 +202,7 @@ Keycloak 的持久化卷同样不是备份。需要在本机保存 IdP 恢复点
 
 演练只接受当前项目命名空间中的 `common-tools-keycloak-backup-*` 卷，拒绝 live volume 与覆盖目标；它同样使用项目级互斥锁。该验证证明备份可复制并可由当前 Keycloak 镜像启动，但不替代生产 IdP 的跨区域、不可变或灾备切换演练。
 
-若确认整个本机环境都没有需要保留的数据，可用 `scripts/team-runtime-local-fresh-reset.ps1` 重新初始化 PostgreSQL、Redis、MinIO 与 Keycloak。日常可直接运行 `npm run common-tools:team-local-fresh-reset`，它会用隐藏输入提示一次共享本地密码，并只在当前进程临时填充 PostgreSQL、Redis、MinIO 和 Keycloak admin 密码。底层 Apply 仍必须带 `-Confirm`，并且只执行此 Compose 项目的 `down --volumes`，不会使用 `--remove-orphans`。随后脚本启动 Keycloak/基础设施，再调用受控本机部署器创建四项能力。此流程会删除上述四个状态卷，绝不能用于有数据或生产环境。
+若确认整个本机环境都没有需要保留的数据，可用 `scripts/team-runtime-local-fresh-reset.ps1` 重新初始化 PostgreSQL、Redis、MinIO 与 Keycloak。日常可直接运行 `npm run common-tools:team-local-fresh-reset`，它会用隐藏输入提示一次共享本地密码，并只在当前进程临时填充 PostgreSQL、应用数据库连接、Redis、MinIO 和 Keycloak admin 密码。底层 Apply 仍必须带 `-Confirm`，并且只执行此 Compose 项目的 `down --volumes`，不会使用 `--remove-orphans`。随后脚本启动 Keycloak/基础设施，再调用受控本机部署器创建五项能力并显式保留本地 IdP，避免后续 `--remove-orphans` 清掉 Keycloak。此流程会删除上述四个状态卷，绝不能用于有数据或生产环境。
 
 初始化时 PostgreSQL 会执行 `packages/team-runtime/schema/001_jobs.sql`。该 schema 是任务、幂等键、lease 和审计事件的唯一事实来源；Redis 只用于可重复投递的队列通知，MinIO 只保存 owner 前缀下的输入和工件。
 

@@ -153,7 +153,7 @@ if (-not $Confirm) { throw 'Apply requires -Confirm' }
 Invoke-FreshCompose @('down', '--volumes')
 Invoke-InitialCompose @('up', '--detach', '--wait', '--wait-timeout', $WaitTimeoutSeconds)
 $localDeploy = Join-Path $PSScriptRoot 'team-runtime-local-deploy.ps1'
-& $localDeploy -Mode Apply -Project $Project -WaitTimeoutSeconds $WaitTimeoutSeconds -DockerEngineTimeoutSeconds $DockerEngineTimeoutSeconds -DiscoverLocalPorts
+& $localDeploy -Mode Apply -Project $Project -WaitTimeoutSeconds $WaitTimeoutSeconds -DockerEngineTimeoutSeconds $DockerEngineTimeoutSeconds -DiscoverLocalPorts -EnableIdentityProvider
 if ($LASTEXITCODE -ne 0) { throw 'Fresh local API and Worker deployment failed' }
 } finally {
   Exit-CommonToolsTeamRuntimeOperationLock -Lock $operationLock
