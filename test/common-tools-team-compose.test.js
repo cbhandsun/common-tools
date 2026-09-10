@@ -845,7 +845,10 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   assert.match(script, /if \(\$SkipFreshReset\)/);
   assert.match(script, /reusing existing local Common Tools runtime/);
   assert.match(script, /& \$freshResetScript -Mode Apply -Project \$Project -WaitTimeoutSeconds \$WaitTimeoutSeconds -Confirm/);
-  assert.match(script, /'-SkipDeploy'/);
+  assert.match(script, /\$acceptanceArguments = @\{/);
+  assert.match(script, /Project = \$Project/);
+  assert.match(script, /SkipDeploy = \$true/);
+  assert.match(script, /\$acceptanceArguments\.EvidenceFile = \$EvidenceFile/);
   assert.match(script, /& node \$closeoutScript '--require-complete'/);
   assert.match(script, /SetEnvironmentVariable\(\$name, \$originalEnvironment\[\$name\], 'Process'\)/);
   assert.doesNotMatch(script, /--password|--admin-password/);

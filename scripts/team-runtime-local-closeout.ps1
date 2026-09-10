@@ -147,19 +147,19 @@ try {
 
   if (-not $SkipFreshReset) { Set-MissingLocalGatewayPortFromCompose }
   Write-Host 'Step 2/3: running authenticated acceptance against the local runtime.'
-  $acceptanceArguments = @(
-    '-Project', $Project,
-    '-ApiReplicas', $ApiReplicas,
-    '-WaitTimeoutSeconds', $WaitTimeoutSeconds,
-    '-Capabilities', $Capabilities,
-    '-Username', $Username,
-    '-ProjectId', $ProjectId,
-    '-Role', $Role,
-    '-Capability', $Capability,
-    '-SkipDeploy'
-  )
+  $acceptanceArguments = @{
+    Project = $Project
+    ApiReplicas = $ApiReplicas
+    WaitTimeoutSeconds = $WaitTimeoutSeconds
+    Capabilities = $Capabilities
+    Username = $Username
+    ProjectId = $ProjectId
+    Role = $Role
+    Capability = $Capability
+    SkipDeploy = $true
+  }
   if (-not [string]::IsNullOrWhiteSpace($EvidenceFile)) {
-    $acceptanceArguments += @('-EvidenceFile', $EvidenceFile)
+    $acceptanceArguments.EvidenceFile = $EvidenceFile
   }
   & $acceptanceScript @acceptanceArguments
   if ($LASTEXITCODE -ne 0) {
