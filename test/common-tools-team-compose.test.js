@@ -227,8 +227,13 @@ test("PostgreSQL volume backup is explicit, isolated, and preserves the original
 test("fresh local reset requires one password and only removes declared project volumes", () => {
   const root = path.resolve(__dirname, "..");
   const script = fs.readFileSync(path.join(root, "scripts", "team-runtime-local-fresh-reset.ps1"), "utf8");
+  const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
   assert.match(script, /ValidateSet\('Plan', 'Apply'\)/);
   assert.match(script, /Fresh local reset requires one shared local password/);
+  assert.match(script, /\[switch\]\$PromptForSecrets/);
+  assert.match(script, /function Read-SecretValue/);
+  assert.match(script, /function Set-MissingFreshResetPassword/);
+  assert.match(script, /Shared fresh local reset password/);
   assert.match(script, /Fresh local reset password must contain at least 8 characters/);
   assert.match(script, /Invoke-FreshCompose @\('down', '--volumes'\)/);
   assert.doesNotMatch(script, /Invoke-FreshCompose @\('down', '--volumes', '--remove-orphans'\)/);
@@ -240,6 +245,8 @@ test("fresh local reset requires one password and only removes declared project 
   assert.match(script, /Enter-CommonToolsTeamRuntimeOperationLock -Project \$Project/);
   assert.match(script, /\$operationLock = Enter-CommonToolsTeamRuntimeOperationLock -Project \$Project\s+try \{/s);
   assert.match(script, /\} finally \{\s+Exit-CommonToolsTeamRuntimeOperationLock -Lock \$operationLock/s);
+  assert.match(packageJson, /common-tools:team-local-fresh-reset/);
+  assert.match(packageJson, /team-runtime-local-fresh-reset\.ps1 -Mode Apply -Confirm -PromptForSecrets/);
 });
 
 test("local team deployment script preflights configuration and keeps the migration gate intact", () => {

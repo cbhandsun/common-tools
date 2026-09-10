@@ -264,6 +264,7 @@
     "common-tools:team-local-acceptance-preflight": "pwsh -NoProfile -File scripts/team-runtime-local-acceptance.ps1 -PreflightOnly",
     "common-tools:team-local-acceptance": "pwsh -NoProfile -File scripts/team-runtime-local-acceptance.ps1",
     "common-tools:verify-local-acceptance": "node scripts/verify-local-acceptance-evidence.js",
+    "common-tools:team-local-fresh-reset": "pwsh -NoProfile -File scripts/team-runtime-local-fresh-reset.ps1 -Mode Apply -Confirm -PromptForSecrets",
     "common-tools:team-local-job-smoke": "pwsh -NoProfile -File scripts/team-runtime-local-job-smoke.ps1",
     "common-tools:keycloak-local-test-user": "pwsh -NoProfile -File scripts/team-keycloak-local-test-user.ps1",
     "common-tools:remote-plugin-bundles": "node scripts/generate-remote-plugin-bundles.js",

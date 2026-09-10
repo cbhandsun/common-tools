@@ -8,6 +8,7 @@ param(
   [int]$WaitTimeoutSeconds = 180,
   [ValidateRange(5, 60)]
   [int]$DockerEngineTimeoutSeconds = 20,
+  [switch]$PromptForSecrets,
   [switch]$Confirm
 )
 
@@ -59,6 +60,34 @@ function Set-MissingLocalDefaults {
   }
 }
 
+function Read-SecretValue([string]$Prompt) {
+  $secure = Read-Host -Prompt $Prompt -AsSecureString
+  $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+  try { $value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
+  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+  if ([string]::IsNullOrWhiteSpace($value)) { throw 'Secret value is required' }
+  return $value
+}
+
+function Set-MissingFreshResetPassword {
+  $passwordVariables = @(
+    'COMMON_TOOLS_POSTGRES_PASSWORD',
+    'COMMON_TOOLS_REDIS_PASSWORD',
+    'COMMON_TOOLS_MINIO_PASSWORD',
+    'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD'
+  )
+  $missingPasswords = @($passwordVariables | Where-Object {
+    [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process'))
+  })
+  if ($missingPasswords.Count -eq 0) { return }
+  if (-not $PromptForSecrets) { return }
+  $sharedPassword = Read-SecretValue 'Shared fresh local reset password'
+  if ($sharedPassword.Length -lt 8) { throw 'Fresh local reset password must contain at least 8 characters' }
+  foreach ($name in $missingPasswords) {
+    [Environment]::SetEnvironmentVariable($name, $sharedPassword, 'Process')
+  }
+}
+
 function Test-LoopbackPortAvailable([int]$Port) {
   $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
   try { $listener.Start(); return $true } catch { return $false } finally { $listener.Stop() }
@@ -82,6 +111,7 @@ function Set-MissingLocalMinioPorts {
 
 Set-MissingLocalDefaults
 Set-MissingLocalMinioPorts
+Set-MissingFreshResetPassword
 $missing = @($requiredEnvironment | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process')) })
 if ($missing.Count -gt 0) { throw "Required fresh-reset configuration is missing: $($missing -join ', ')" }
 $sharedPasswords = @('COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD', 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD') | ForEach-Object { [Environment]::GetEnvironmentVariable($_, 'Process') }
