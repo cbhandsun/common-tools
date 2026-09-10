@@ -812,6 +812,28 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(packageVerifier, /scripts\/team-runtime-local-acceptance\.ps1/);
 });
 
+test("local closeout wrapper runs reset, authenticated acceptance, and architecture closeout with one password", () => {
+  const root = path.resolve(__dirname, "..");
+  const script = fs.readFileSync(path.join(root, "scripts", "team-runtime-local-closeout.ps1"), "utf8");
+  const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
+  const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
+  assert.match(script, /Shared local closeout password/);
+  assert.match(script, /Shared local closeout password must contain at least 8 characters/);
+  assert.match(script, /COMMON_TOOLS_DATABASE_PASSWORD/);
+  assert.match(script, /COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD/);
+  assert.match(script, /team-runtime-local-fresh-reset\.ps1/);
+  assert.match(script, /team-runtime-local-acceptance\.ps1/);
+  assert.match(script, /verify-architecture-closeout\.js/);
+  assert.match(script, /& \$freshResetScript -Mode Apply -Project \$Project -WaitTimeoutSeconds \$WaitTimeoutSeconds -Confirm/);
+  assert.match(script, /'-SkipDeploy'/);
+  assert.match(script, /& node \$closeoutScript/);
+  assert.match(script, /SetEnvironmentVariable\(\$name, \$originalEnvironment\[\$name\], 'Process'\)/);
+  assert.doesNotMatch(script, /--password|--admin-password/);
+  assert.match(packageJson, /scripts\/team-runtime-local-closeout\.ps1/);
+  assert.match(packageJson, /common-tools:team-local-closeout/);
+  assert.match(packageVerifier, /scripts\/team-runtime-local-closeout\.ps1/);
+});
+
 test("image Worker Docker context excludes local .NET outputs while retaining builder sources", () => {
   const root = path.resolve(__dirname, "..");
   const ignore = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable.dockerignore"), "utf8");
