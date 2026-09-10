@@ -168,7 +168,7 @@ try {
   }
 
   Write-Host 'Step 3/3: verifying architecture closeout.'
-  & node $closeoutScript
+  & node $closeoutScript '--require-complete'
   if ($LASTEXITCODE -ne 0) {
     Invoke-LocalCloseoutDoctor 'architecture-closeout'
     exit $LASTEXITCODE
