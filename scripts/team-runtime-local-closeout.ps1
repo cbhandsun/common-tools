@@ -16,7 +16,8 @@ param(
   [ValidatePattern('^[a-z][a-z0-9-]{2,63}$')]
   [string]$Capability = 'image-to-editable',
   [string]$EvidenceFile = '',
-  [switch]$PreflightOnly
+  [switch]$PreflightOnly,
+  [switch]$SkipFreshReset
 )
 
 $ErrorActionPreference = 'Stop'
@@ -73,8 +74,8 @@ try {
       stateVolumes = @("$Project`_common-tools-postgres", "$Project`_common-tools-redis", "$Project`_common-tools-minio", "$Project`_common-tools-keycloak")
       willPromptForSharedPassword = $true
       minimumPasswordLength = 8
-      willFreshResetLocalState = $true
-      willDeploy = $true
+      willFreshResetLocalState = (-not $SkipFreshReset)
+      willDeploy = (-not $SkipFreshReset)
       willKeepIdentityProvider = $true
       willRunAuthenticatedAcceptance = $true
       willOpenBrowserLogin = $true
@@ -101,14 +102,18 @@ try {
   }
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_KEYCLOAK_ADMIN', 'local-admin', 'Process')
 
-  Write-Host 'Step 1/3: fresh resetting and deploying local Common Tools runtime.'
-  & $freshResetScript -Mode Apply -Project $Project -WaitTimeoutSeconds $WaitTimeoutSeconds -Confirm
-  if ($LASTEXITCODE -ne 0) {
-    Invoke-LocalCloseoutDoctor 'fresh-reset'
-    exit $LASTEXITCODE
+  if ($SkipFreshReset) {
+    Write-Host 'Step 1/3: reusing existing local Common Tools runtime.'
+  } else {
+    Write-Host 'Step 1/3: fresh resetting and deploying local Common Tools runtime.'
+    & $freshResetScript -Mode Apply -Project $Project -WaitTimeoutSeconds $WaitTimeoutSeconds -Confirm
+    if ($LASTEXITCODE -ne 0) {
+      Invoke-LocalCloseoutDoctor 'fresh-reset'
+      exit $LASTEXITCODE
+    }
   }
 
-  Write-Host 'Step 2/3: running authenticated acceptance against the fresh local runtime.'
+  Write-Host 'Step 2/3: running authenticated acceptance against the local runtime.'
   $acceptanceArguments = @(
     '-Project', $Project,
     '-ApiReplicas', $ApiReplicas,

@@ -83,7 +83,8 @@
         "scripts/verify-local-acceptance-evidence.js"
       ],
       "verificationCommands": [
-        "npm run common-tools:team-local-closeout"
+        "npm run common-tools:team-local-closeout",
+        "npm run common-tools:team-local-closeout-existing"
       ],
       "remaining": [
         "用户在本机输入一次共享验收密码并完成浏览器登录。",

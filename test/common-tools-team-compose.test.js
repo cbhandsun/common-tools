@@ -820,7 +820,9 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
   assert.match(script, /Shared local closeout password/);
   assert.match(script, /\[switch\]\$PreflightOnly/);
-  assert.match(script, /willFreshResetLocalState = \$true/);
+  assert.match(script, /\[switch\]\$SkipFreshReset/);
+  assert.match(script, /willFreshResetLocalState = \(-not \$SkipFreshReset\)/);
+  assert.match(script, /willDeploy = \(-not \$SkipFreshReset\)/);
   assert.match(script, /willOpenBrowserLogin = \$true/);
   assert.match(script, /writesEvidence = \$false/);
   assert.match(script, /Shared local closeout password must contain at least 8 characters/);
@@ -833,6 +835,8 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   assert.match(script, /function Invoke-LocalCloseoutDoctor/);
   assert.match(script, /Local closeout failed during \$Phase; collecting sanitized runtime diagnostics/);
   assert.match(script, /'--expected-capabilities' \$Capabilities/);
+  assert.match(script, /if \(\$SkipFreshReset\)/);
+  assert.match(script, /reusing existing local Common Tools runtime/);
   assert.match(script, /& \$freshResetScript -Mode Apply -Project \$Project -WaitTimeoutSeconds \$WaitTimeoutSeconds -Confirm/);
   assert.match(script, /'-SkipDeploy'/);
   assert.match(script, /& node \$closeoutScript/);
@@ -841,6 +845,7 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   assert.match(packageJson, /scripts\/team-runtime-local-closeout\.ps1/);
   assert.match(packageJson, /common-tools:team-local-closeout-preflight/);
   assert.match(packageJson, /common-tools:team-local-closeout/);
+  assert.match(packageJson, /common-tools:team-local-closeout-existing/);
   assert.match(packageVerifier, /scripts\/team-runtime-local-closeout\.ps1/);
 });
 
