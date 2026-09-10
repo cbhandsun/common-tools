@@ -108,6 +108,13 @@ test("local Keycloak test user apply repairs drift without duplicating users", a
 
 test("local Keycloak test user verification failure explains sanitized drift", async () => {
   assert.deepEqual(
+    localTestUserDriftReasons(
+      { username: "local-tester", enabled: true, attributes: { common_tools_projects: projectMembershipAttribute("deploy", "editor") } },
+      { username: "local-tester", projectId: "deploy", role: "editor" }
+    ),
+    []
+  );
+  assert.deepEqual(
     localTestUserDriftReasons({ username: "local-tester", enabled: true, attributes: {} }, { username: "local-tester", projectId: "deploy", role: "editor" }),
     ["project claim count mismatch"]
   );

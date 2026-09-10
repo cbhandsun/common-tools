@@ -47,7 +47,12 @@ function projectMembershipAttribute(projectId, role) {
 function localTestUserSnapshot(user) {
   if (!user || typeof user !== "object" || Array.isArray(user)) throw new Error("Keycloak user response is invalid");
   const attributes = user.attributes && typeof user.attributes === "object" && !Array.isArray(user.attributes) ? user.attributes : {};
-  const projects = Array.isArray(attributes.common_tools_projects) ? attributes.common_tools_projects.filter((entry) => typeof entry === "string" && entry.length <= 4096) : [];
+  const rawProjects = attributes.common_tools_projects;
+  const projects = Array.isArray(rawProjects)
+    ? rawProjects.filter((entry) => typeof entry === "string" && entry.length <= 4096)
+    : typeof rawProjects === "string" && rawProjects.length <= 4096
+      ? [rawProjects]
+      : [];
   return Object.freeze({
     id: typeof user.id === "string" && /^[A-Za-z0-9-]{1,128}$/.test(user.id) ? user.id : null,
     username: typeof user.username === "string" && user.username.length <= 128 ? user.username : null,
