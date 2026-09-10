@@ -53,12 +53,16 @@ function localTestUserSnapshot(user) {
     : typeof rawProjects === "string" && rawProjects.length <= 4096
       ? [rawProjects]
       : [];
+  const attributeKeys = Object.keys(attributes).filter((key) => /^[A-Za-z0-9_.-]{1,128}$/u.test(key)).sort();
+  const projectClaimRawType = Array.isArray(rawProjects) ? "array" : rawProjects === null ? "null" : typeof rawProjects;
   return Object.freeze({
     id: typeof user.id === "string" && /^[A-Za-z0-9-]{1,128}$/.test(user.id) ? user.id : null,
     username: typeof user.username === "string" && user.username.length <= 128 ? user.username : null,
     enabled: typeof user.enabled === "boolean" ? user.enabled : null,
     emailVerified: typeof user.emailVerified === "boolean" ? user.emailVerified : null,
-    commonToolsProjects: projects
+    commonToolsProjects: projects,
+    projectClaimRawType,
+    attributeKeys
   });
 }
 
@@ -72,7 +76,7 @@ function localTestUserDriftReasons(user, { username, projectId, role }) {
   const reasons = [];
   if (snapshot.username !== username) reasons.push("username mismatch");
   if (snapshot.enabled !== true) reasons.push("user is not enabled");
-  if (snapshot.commonToolsProjects.length !== 1) reasons.push("project claim count mismatch");
+  if (snapshot.commonToolsProjects.length !== 1) reasons.push(`project claim count mismatch: count=${snapshot.commonToolsProjects.length}, rawType=${snapshot.projectClaimRawType}, attributeKeys=[${snapshot.attributeKeys.join(",")}]`);
   if (snapshot.commonToolsProjects.length === 1 && snapshot.commonToolsProjects[0] !== expectedProject) reasons.push("project claim value mismatch");
   return reasons;
 }

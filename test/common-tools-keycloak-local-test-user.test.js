@@ -116,7 +116,7 @@ test("local Keycloak test user verification failure explains sanitized drift", a
   );
   assert.deepEqual(
     localTestUserDriftReasons({ username: "local-tester", enabled: true, attributes: {} }, { username: "local-tester", projectId: "deploy", role: "editor" }),
-    ["project claim count mismatch"]
+    ["project claim count mismatch: count=0, rawType=undefined, attributeKeys=[]"]
   );
   assert.deepEqual(
     localTestUserDriftReasons(
