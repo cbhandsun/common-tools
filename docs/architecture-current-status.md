@@ -118,7 +118,7 @@
 - `strict-input-boundaries` 已按当前代码 verified：Deck IR、归档准入、Worker 启动配置、OCR handoff、重建元数据、Job row/context、Worker failure 和队列 runner 都有当前文件哈希绑定的目标测试、类型、包边界和架构预算证据。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `recovery-and-retention` 仍 partial，但本地 PostgreSQL/Redis/MinIO 恢复与保留已用当前代码重新跑通并写入 `.codex-tmp/recovery-retention-current-evidence.json`；剩余是最终候选环境的 OCR 发布版本绑定、部署启用、线上观测、备份/回滚验证，需随生产 remote acceptance 一起收口。
-- `editable-output-quality` 仍 partial，下一步应继续围绕独立 PDF、相同环境质量/成本比较和实际 Office 编辑验收补证据，而不是把兼容 wrapper 或行数当作剩余主风险。
+- `editable-output-quality` 仍 partial，但本地 `ppt-create-office-smoke` 已在当前代码下重新跑通：新建 PPT、image batch PPTX、独立 Office corpus、LibreOffice 渲染和 PowerPoint 可编辑 round-trip 均通过，证据为 `.codex-tmp/editable-output-quality-current-evidence.json`；剩余是独立 PDF 输入、相同环境质量/成本比较和远程两条流程验收。
 
 结论：整体架构方向已经从“历史 skill 大实现”迁出到“插件平台 + native runtime + core/lib 边界”的轨道上。剩余不需要推倒重来，也不继续为行数洁癖追拆；主线转为完成本地/生产 authenticated acceptance evidence，以及围绕恢复留存、可编辑输出质量补齐必要证据。
 

@@ -319,6 +319,85 @@ test("architecture closeout checklist flags stale recovery and retention evidenc
   assert.match(result.items[0].evidenceCheck.failures.join("\n"), /stale/u);
 });
 
+test("architecture closeout checklist reports editable output quality evidence without closing remote scope", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const files = Array.from({ length: 8 }, (_, index) => `packages/editable-quality-${index}.js`);
+  const artifacts = Array.from({ length: 3 }, (_, index) => `.codex-tmp/editable-artifact-${index}.json`);
+  for (const [index, file] of [...files, ...artifacts].entries()) {
+    fs.mkdirSync(path.dirname(path.join(workspace, file)), { recursive: true });
+    fs.writeFileSync(path.join(workspace, file), `{"index":${index}}\n`);
+  }
+  writeJson(path.join(workspace, ".codex-tmp", "editable-output-quality-current-evidence.json"), {
+    schemaVersion: 1,
+    files: files.map((file, index) => ({ file, sha256: sha256(`{"index":${index}}\n`) })),
+    artifacts: artifacts.map((file, offset) => ({ file, sha256: sha256(`{"index":${files.length + offset}}\n`) })),
+    checks: {
+      pptCreateOfficeSmoke: { exitCode: 0, passed: true, mainRoundTripCases: 2, independentRoundTripCases: 5, independentDeckCount: 5, independentPageCount: 33 },
+      typecheck: { exitCode: 0 },
+      workspaceBoundaries: { exitCode: 0 },
+      architectureBudgets: { exitCode: 0 }
+    }
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "editable-output-quality",
+      area: "F",
+      status: "partial",
+      summary: "This item stays partial until independent PDF and remote output quality are verified.",
+      evidenceFiles: [".codex-tmp/editable-output-quality-current-evidence.json"],
+      verificationCommands: ["node scripts/ppt-create-office-smoke.js --out .codex-tmp/ppt-create-office-smoke-current"],
+      remaining: ["Verify independent PDF and remote output quality."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.partial, 1);
+  assert.equal(result.items[0].status, "partial");
+  assert.equal(result.items[0].remainingCount, 1);
+  assert.equal(result.items[0].evidenceCheck.passed, true);
+});
+
+test("architecture closeout checklist flags stale editable output quality evidence", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const files = Array.from({ length: 8 }, (_, index) => `packages/editable-quality-${index}.js`);
+  const artifacts = Array.from({ length: 3 }, (_, index) => `.codex-tmp/editable-artifact-${index}.json`);
+  for (const [index, file] of [...files, ...artifacts].entries()) {
+    fs.mkdirSync(path.dirname(path.join(workspace, file)), { recursive: true });
+    fs.writeFileSync(path.join(workspace, file), `{"index":${index}}\n`);
+  }
+  writeJson(path.join(workspace, ".codex-tmp", "editable-output-quality-current-evidence.json"), {
+    schemaVersion: 1,
+    files: files.map((file) => ({ file, sha256: sha256("old editable evidence\n") })),
+    artifacts: artifacts.map((file) => ({ file, sha256: sha256("old editable evidence\n") })),
+    checks: {
+      pptCreateOfficeSmoke: { exitCode: 0, passed: true, mainRoundTripCases: 2, independentRoundTripCases: 5, independentDeckCount: 5, independentPageCount: 33 },
+      typecheck: { exitCode: 0 },
+      workspaceBoundaries: { exitCode: 0 },
+      architectureBudgets: { exitCode: 0 }
+    }
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "editable-output-quality",
+      area: "F",
+      status: "partial",
+      summary: "This item reports stale editable output evidence.",
+      evidenceFiles: [".codex-tmp/editable-output-quality-current-evidence.json"],
+      verificationCommands: ["node scripts/ppt-create-office-smoke.js --out .codex-tmp/ppt-create-office-smoke-current"],
+      remaining: ["Refresh editable output evidence."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.partial, 1);
+  assert.equal(result.items[0].evidenceCheck.passed, false);
+  assert.match(result.items[0].evidenceCheck.failures.join("\n"), /stale/u);
+});
+
 test("architecture closeout checklist keeps native engine open when a domain module exceeds target", () => {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
   const payloadRoot = path.join(workspace, "packages", "slideclone-native-engine", "scripts");

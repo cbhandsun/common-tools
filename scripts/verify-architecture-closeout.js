@@ -15,6 +15,7 @@ const NATIVE_ENGINE_COMPOSITION_ROOT_MAX_LINES = 4100;
 const NATIVE_ENGINE_COMPOSITION_ROOTS = new Set(["rebuild-real-pptx-native.js"]);
 const STRICT_INPUT_BOUNDARY_EVIDENCE = ".codex-tmp/strict-input-boundaries-current-evidence.json";
 const RECOVERY_RETENTION_EVIDENCE = ".codex-tmp/recovery-retention-current-evidence.json";
+const EDITABLE_OUTPUT_QUALITY_EVIDENCE = ".codex-tmp/editable-output-quality-current-evidence.json";
 
 function parseArgs(argv) {
   const options = { config: DEFAULT_CONFIG, requireComplete: false };
@@ -201,6 +202,49 @@ function recoveryRetentionEvidenceStatus(repositoryRoot) {
   return Object.freeze({ available: true, passed: failures.length === 0, evidenceFile: read.file, failures });
 }
 
+function editableOutputQualityEvidenceStatus(repositoryRoot) {
+  const read = readJsonEvidence(repositoryRoot, EDITABLE_OUTPUT_QUALITY_EVIDENCE, "editable output quality evidence file");
+  if (!read) {
+    return Object.freeze({
+      available: false,
+      passed: false,
+      evidenceFile: null,
+      failures: ["editable output quality evidence is unavailable"]
+    });
+  }
+  const evidence = read.value;
+  const failures = [];
+  if (evidence?.schemaVersion !== 1) failures.push("editable output quality evidence schema is invalid");
+  const checks = evidence?.checks && typeof evidence.checks === "object" && !Array.isArray(evidence.checks) ? evidence.checks : {};
+  const office = checks.pptCreateOfficeSmoke;
+  if (office?.exitCode !== 0 || office?.passed !== true || office?.mainRoundTripCases !== 2 || office?.independentRoundTripCases !== 5 || office?.independentDeckCount !== 5 || office?.independentPageCount !== 33) {
+    failures.push("PPT creation Office smoke evidence did not pass");
+  }
+  if (checks.typecheck?.exitCode !== 0) failures.push("editable output quality typecheck did not pass");
+  if (checks.workspaceBoundaries?.exitCode !== 0) failures.push("editable output quality workspace check did not pass");
+  if (checks.architectureBudgets?.exitCode !== 0) failures.push("editable output quality architecture budget check did not pass");
+  const files = Array.isArray(evidence?.files) ? evidence.files : [];
+  const artifacts = Array.isArray(evidence?.artifacts) ? evidence.artifacts : [];
+  if (files.length < 8) failures.push("editable output quality evidence has insufficient source coverage");
+  if (artifacts.length < 3) failures.push("editable output quality evidence has insufficient artifact coverage");
+  for (const collection of [files, artifacts]) {
+    for (const entry of collection) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry) || typeof entry.file !== "string" || typeof entry.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(entry.sha256)) {
+        failures.push("editable output quality evidence file entry is invalid");
+        continue;
+      }
+      try {
+        if (sha256File(repositoryRoot, entry.file) !== entry.sha256) failures.push(`editable output quality evidence is stale for ${assertRelativePath(entry.file, "editable output quality evidence file entry")}`);
+      } catch {
+        failures.push(`editable output quality evidence file is unavailable: ${entry.file}`);
+      }
+    }
+  }
+  const secretFindings = walkForSecrets(evidence).filter((finding) => !finding.endsWith(".sha256"));
+  if (secretFindings.length > 0) failures.push(`editable output quality evidence contains secret-shaped fields: ${secretFindings.slice(0, 8).join(", ")}`);
+  return Object.freeze({ available: true, passed: failures.length === 0, evidenceFile: read.file, failures });
+}
+
 function listJavaScriptFiles(directory, base = directory) {
   const files = [];
   let entries;
@@ -309,6 +353,10 @@ function currentItemState(item, repositoryRoot) {
   }
   if (item.id === "recovery-and-retention") {
     const evidenceCheck = recoveryRetentionEvidenceStatus(repositoryRoot);
+    return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
+  }
+  if (item.id === "editable-output-quality") {
+    const evidenceCheck = editableOutputQualityEvidenceStatus(repositoryRoot);
     return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
   }
   return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0 });

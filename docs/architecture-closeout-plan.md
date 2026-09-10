@@ -128,6 +128,10 @@ Job/handler 交接增量：仓储返回值到尝试级 Job、不可变 handler c
 
 按“职责边界和验收证据优先，不以 1,500 行机械完成为唯一标准”的口径，C 项已从 partial 收口为 verified。当前证据 `.codex-tmp/strict-input-boundaries-current-evidence.json` 绑定现有代码哈希，覆盖 Deck IR、归档准入、Worker 启动配置、OCR handoff、重建元数据、Job row/context、Worker failure 和 queue runner；目标测试 46 项、`npm run typecheck`、workspace boundaries 和 architecture budgets 均通过。该项只证明工程输入边界，不替代本地 authenticated browser acceptance、生产远程验收、独立 PDF 或 Office 编辑质量验收。
 
+### Editable output quality 当前本地证据（2026-09-09）
+
+当前代码已重新跑通 `node scripts/ppt-create-office-smoke.js --out .codex-tmp/ppt-create-office-smoke-current`：本地新建 PPT 5 页、image batch PPTX 2 页、独立 Office corpus 5 份 deck/33 页，覆盖 4 套主题、3 种语言和 22 个 layout；LibreOffice 渲染和 PowerPoint 可编辑 round-trip 均通过，其中主 round-trip 2/2，独立 corpus 5/5。哈希绑定证据位于 `.codex-tmp/editable-output-quality-current-evidence.json`。该证据仍不替代独立 PDF 输入、远程 MCP 两条流程或生产成本比较。
+
 
 ### 原生注册器回调组（2026-09-06）
 
