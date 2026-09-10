@@ -102,6 +102,7 @@ test("local Keycloak test user apply repairs drift without duplicating users", a
   });
   assert.equal(result.status, "updated");
   assert.equal(keycloak.calls.filter((call) => call.method === "POST" && call.url.endsWith("/users")).length, 0);
+  assert.equal(keycloak.calls.every((call) => !String(call.url).includes("/users?username=") || String(call.url).includes("briefRepresentation=false")), true);
   assert.deepEqual(keycloak.user().attributes.other, ["kept"]);
   assert.equal(keycloak.user().attributes.common_tools_projects[0], projectMembershipAttribute("deploy", "admin"));
 });

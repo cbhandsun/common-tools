@@ -82,7 +82,7 @@ function localTestUserDriftReasons(user, { username, projectId, role }) {
 }
 
 async function readUserByUsername(fetchImpl, usersUrl, headers, username) {
-  const users = await requestJson(fetchImpl, `${usersUrl}?username=${encodeURIComponent(username)}&exact=true`, { headers });
+  const users = await requestJson(fetchImpl, `${usersUrl}?username=${encodeURIComponent(username)}&exact=true&briefRepresentation=false`, { headers });
   if (!Array.isArray(users)) throw new Error("Keycloak user search response is invalid");
   const matching = users.filter((entry) => entry && typeof entry === "object" && entry.username === username);
   if (matching.length > 1) throw new Error("Keycloak local test user is duplicated");
