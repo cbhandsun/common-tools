@@ -68,6 +68,7 @@ function Read-JsonOutput([object[]]$Output, [string]$Failure) {
 
 $managedNames = @(
   'COMMON_TOOLS_POSTGRES_PASSWORD',
+  'COMMON_TOOLS_DATABASE_PASSWORD',
   'COMMON_TOOLS_REDIS_PASSWORD',
   'COMMON_TOOLS_MINIO_PASSWORD',
   'COMMON_TOOLS_KEYCLOAK_ADMIN',
@@ -78,6 +79,7 @@ $managedNames = @(
 function Get-MissingManagedSecrets {
   $required = @(
     'COMMON_TOOLS_POSTGRES_PASSWORD',
+    'COMMON_TOOLS_DATABASE_PASSWORD',
     'COMMON_TOOLS_REDIS_PASSWORD',
     'COMMON_TOOLS_MINIO_PASSWORD',
     'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD'
@@ -129,11 +131,12 @@ if ($PreflightOnly) {
 $sharedPassword = $null
 if ($missingManagedSecrets.Count -gt 0) {
   $sharedPassword = Read-SecretValue 'Shared local acceptance password'
-  if ($sharedPassword.Length -lt 12) { throw 'Shared local acceptance password must contain at least 12 characters' }
+  if ($sharedPassword.Length -lt 8) { throw 'Shared local acceptance password must contain at least 8 characters' }
 }
 
 foreach ($name in @(
   'COMMON_TOOLS_POSTGRES_PASSWORD',
+  'COMMON_TOOLS_DATABASE_PASSWORD',
   'COMMON_TOOLS_REDIS_PASSWORD',
   'COMMON_TOOLS_MINIO_PASSWORD',
   'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD'
@@ -147,7 +150,7 @@ if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('COMMON_T
 }
 if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD', 'Process'))) {
   $testUserPassword = if ($SeparateTestUserPassword) { Read-SecretValue "Password for local Keycloak test user '$Username'" } else { $sharedPassword }
-  if ($testUserPassword.Length -lt 12) { throw 'Local Keycloak test user password must contain at least 12 characters' }
+  if ($testUserPassword.Length -lt 8) { throw 'Local Keycloak test user password must contain at least 8 characters' }
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD', $testUserPassword, 'Process')
 }
 

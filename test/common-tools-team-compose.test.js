@@ -781,8 +781,10 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(packageJson, /scripts\/verify-local-acceptance-evidence\.js/);
   assert.match(packageJson, /common-tools:verify-local-acceptance/);
   assert.match(packageVerifier, /scripts\/verify-local-acceptance-evidence\.js/);
+  assert.match(script, /COMMON_TOOLS_DATABASE_PASSWORD/);
   assert.match(script, /Shared local acceptance password/);
-  assert.match(script, /Shared local acceptance password must contain at least 12 characters/);
+  assert.match(script, /Shared local acceptance password must contain at least 8 characters/);
+  assert.match(script, /Local Keycloak test user password must contain at least 8 characters/);
   assert.match(script, /\[switch\]\$SeparateTestUserPassword/);
   assert.match(script, /\[switch\]\$PreflightOnly/);
   assert.match(script, /\[switch\]\$SkipDeploy/);
