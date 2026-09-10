@@ -477,14 +477,20 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 
 先启动基础设施和本地 IdP。Keycloak 的健康探针使用未映射到宿主机的管理端口 `9000`；它不是对外接口。导入的 realm 已包含 `common-tools-mcp` public client、S256 PKCE、subject/audience mapper、已部署能力 scope 和 `common_tools_projects` user-attribute mapper。不要在 realm JSON 中写入用户或密码；本机测试用户可通过 `team-keycloak-local-test-user.ps1` 或 Keycloak 管理界面创建。为测试项目 RBAC，由管理员设置用户的单个 `common_tools_projects` 属性，例如 `[ { "id": "product-core", "role": "editor" } ]`；客户端不能通过 scope 或 MCP 参数自行为自己添加该 claim。
 
-日常本机验收优先使用一条入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
+日常本机最终验收优先使用一条 closeout 入口；它会提示一次共享本地密码，fresh reset 并部署本地 runtime，然后复用该 runtime 完成浏览器 PKCE 登录、authenticated Job smoke、脱敏 evidence 自检和 architecture closeout：
+
+```powershell
+npm run common-tools:team-local-closeout
+```
+
+该入口只把密码放在当前 PowerShell 进程里，临时同步到 PostgreSQL、应用数据库连接、Redis、MinIO、Keycloak admin 和本机测试用户；脚本结束后恢复原环境变量。成功时会写入并自动复核 `artifacts/local-acceptance/*.json`，再运行 `npm run common-tools:architecture-closeout`。如果只想预检或排障，可使用下面的分步入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
 
 ```powershell
 npm run common-tools:team-local-acceptance-preflight
 .\scripts\team-runtime-local-acceptance.ps1
 ```
 
-`-PreflightOnly` 只检查参数、辅助脚本、证据输出路径，并以 JSON 告诉你当前会不会提示共享密码、是否会部署、是否会打开浏览器登录；它不会部署、不会写 evidence、不会要求输入密码。真实验收入口会依次部署本地 runtime、启用 Keycloak、准备测试用户，然后打开浏览器完成 PKCE 登录并提交 authenticated Job smoke。默认只提示一次不少于 12 位的共享本地验收密码，并把它临时用于本机 Postgres、Redis、MinIO、Keycloak admin 和测试用户；脚本结束后恢复当前 PowerShell 进程里的原环境变量。成功后会在 `artifacts/local-acceptance/` 写入脱敏 JSON 证据，包含 local smoke、测试用户准备和 authenticated Job smoke 摘要，不包含密码、token 或 signed URL。若希望测试用户密码单独设置，可加 `-SeparateTestUserPassword`。需要排障时仍可拆开执行：
+`-PreflightOnly` 只检查参数、辅助脚本、证据输出路径，并以 JSON 告诉你当前会不会提示共享密码、是否会部署、是否会打开浏览器登录；它不会部署、不会写 evidence、不会要求输入密码。真实验收入口会依次部署本地 runtime、启用 Keycloak、准备测试用户，然后打开浏览器完成 PKCE 登录并提交 authenticated Job smoke。默认只提示一次不少于 8 位的共享本地验收密码，并把它临时用于本机 Postgres、应用数据库连接、Redis、MinIO、Keycloak admin 和测试用户；脚本结束后恢复当前 PowerShell 进程里的原环境变量。成功后会在 `artifacts/local-acceptance/` 写入脱敏 JSON 证据并立即机器复核，包含 local smoke、测试用户准备和 authenticated Job smoke 摘要，不包含密码、token 或 signed URL。若希望测试用户密码单独设置，可加 `-SeparateTestUserPassword`。需要排障时仍可拆开执行：
 
 如果本地 runtime 已经用 Keycloak 启动并通过 smoke，可加 `-SkipDeploy` 复用现有容器，只执行 IdP smoke、测试用户准备和 authenticated Job smoke：
 

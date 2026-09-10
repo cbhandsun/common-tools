@@ -78,16 +78,16 @@
       "status": "open",
       "summary": "本地一键验收、浏览器 PKCE 登录、测试用户准备、脱敏证据生成和机器复核器已实现；真实本机运行证据尚未生成。",
       "evidenceFiles": [
+        "scripts/team-runtime-local-closeout.ps1",
         "scripts/team-runtime-local-acceptance.ps1",
         "scripts/verify-local-acceptance-evidence.js"
       ],
       "verificationCommands": [
-        ".\\scripts\\team-runtime-local-acceptance.ps1",
-        "npm run common-tools:verify-local-acceptance"
+        "npm run common-tools:team-local-closeout"
       ],
       "remaining": [
         "用户在本机输入一次共享验收密码并完成浏览器登录。",
-        "生成 artifacts/local-acceptance/*.json 后运行 common-tools:verify-local-acceptance。"
+        "生成并自动复核 artifacts/local-acceptance/*.json 后，architecture closeout 会动态验证该项。"
       ]
     },
     {
