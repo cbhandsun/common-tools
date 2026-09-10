@@ -52,21 +52,24 @@
     {
       "id": "strict-input-boundaries",
       "area": "C",
-      "status": "partial",
-      "summary": "Job、OCR、Worker 配置、Deck IR 和归档准入已有严格边界；完整 Deck IR 与剩余核心边界仍需要逐项证明。",
+      "status": "verified",
+      "summary": "Deck IR、归档准入、Worker 启动配置、OCR handoff、重建元数据、Job row/context、Worker failure 和队列 runner 已有当前代码哈希绑定的严格输入边界证据。",
       "evidenceFiles": [
         ".codex-tmp/deck-ir-admission-delivery-evidence.json",
         ".codex-tmp/archive-admission-delivery-evidence.json",
         ".codex-tmp/worker-context-delivery-evidence.json",
-        ".codex-tmp/job-row-reader-delivery-evidence.json"
+        ".codex-tmp/job-row-reader-delivery-evidence.json",
+        ".codex-tmp/image-startup-delivery-evidence.json",
+        ".codex-tmp/ocr-handoff-delivery-evidence.json",
+        ".codex-tmp/rebuilt-metadata-delivery-evidence.json",
+        ".codex-tmp/boundary-worker-delivery-evidence.json",
+        ".codex-tmp/strict-input-boundaries-current-evidence.json"
       ],
       "verificationCommands": [
+        "node --test test/deck-ir-admission.test.js test/archive-admission.test.js test/worker-context.test.js test/job-input-boundary.test.js test/common-tools-worker-settings.test.js test/common-tools-team-paddleocr-profile.test.js test/ocr-source-deck.test.js test/worker-runner.test.js test/worker-failure-boundary.test.js",
         "npm run typecheck",
-        "npm run test:unit"
-      ],
-      "remaining": [
-        "补齐完整 Deck IR、队列编排和剩余核心模块的正常、空、非法、极端、安全、失败路径证据。",
-        "避免用全量测试通过替代边界覆盖证明。"
+        "node scripts/verify-workspace-boundaries.js",
+        "node scripts/verify-architecture-budgets.js"
       ]
     },
     {

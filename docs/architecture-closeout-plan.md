@@ -124,6 +124,10 @@ Job/handler 交接增量：仓储返回值到尝试级 Job、不可变 handler c
 
 当前代码实际运行本地 Worker，17 项交付检查全部通过，生成 6 种交付文件。与 XWridH 同图基线相比，全部非耗时质量指标一致，源图未改变；19 个文本框微调被接受，PPTX 为 143,199 字节。本次耗时 40,452 ms，仅为单次观测。证据：`.codex-tmp/boundary-worker-delivery-evidence.json`，实际产物位于 `.codex-tmp/text-refinement-production-CIXd6U/artifacts`。使用保留的 OCR 数据及内存对象存储，不覆盖生产启动配置、实时 OCR、远程任务、独立 PDF 或新的 Office 编辑验收。
 
+### Strict input boundaries 当前收口（2026-09-09）
+
+按“职责边界和验收证据优先，不以 1,500 行机械完成为唯一标准”的口径，C 项已从 partial 收口为 verified。当前证据 `.codex-tmp/strict-input-boundaries-current-evidence.json` 绑定现有代码哈希，覆盖 Deck IR、归档准入、Worker 启动配置、OCR handoff、重建元数据、Job row/context、Worker failure 和 queue runner；目标测试 46 项、`npm run typecheck`、workspace boundaries 和 architecture budgets 均通过。该项只证明工程输入边界，不替代本地 authenticated browser acceptance、生产远程验收、独立 PDF 或 Office 编辑质量验收。
+
 
 ### 原生注册器回调组（2026-09-06）
 

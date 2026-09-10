@@ -3,6 +3,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { verifyLocalAcceptanceEvidence, walkForSecrets } = require("./verify-local-acceptance-evidence");
 
 const VALID_STATUS = new Set(["verified", "partial", "open"]);
@@ -12,6 +13,7 @@ const NATIVE_ENGINE_PAYLOAD_ROOT = path.join("packages", "slideclone-native-engi
 const NATIVE_ENGINE_TARGET_MAX_LINES = 1500;
 const NATIVE_ENGINE_COMPOSITION_ROOT_MAX_LINES = 4100;
 const NATIVE_ENGINE_COMPOSITION_ROOTS = new Set(["rebuild-real-pptx-native.js"]);
+const STRICT_INPUT_BOUNDARY_EVIDENCE = ".codex-tmp/strict-input-boundaries-current-evidence.json";
 
 function parseArgs(argv) {
   const options = { config: DEFAULT_CONFIG, requireComplete: false };
@@ -117,6 +119,50 @@ function readJsonEvidence(repositoryRoot, relativeFile, label) {
   }
 }
 
+function sha256File(repositoryRoot, relativeFile) {
+  const normalized = assertRelativePath(relativeFile, "strict input boundary evidence file entry");
+  const file = path.join(repositoryRoot, normalized);
+  const stat = fs.lstatSync(file);
+  if (stat.isSymbolicLink() || !stat.isFile()) throw new Error("strict input boundary file entry is unavailable");
+  return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+}
+
+function strictInputBoundaryEvidenceStatus(repositoryRoot) {
+  const read = readJsonEvidence(repositoryRoot, STRICT_INPUT_BOUNDARY_EVIDENCE, "strict input boundary evidence file");
+  if (!read) {
+    return Object.freeze({
+      available: false,
+      passed: false,
+      evidenceFile: null,
+      failures: ["strict input boundary evidence is unavailable"]
+    });
+  }
+  const evidence = read.value;
+  const failures = [];
+  if (evidence?.schemaVersion !== 1) failures.push("strict input boundary evidence schema is invalid");
+  const checks = evidence?.checks && typeof evidence.checks === "object" && !Array.isArray(evidence.checks) ? evidence.checks : {};
+  if (checks.targetedTests?.exitCode !== 0 || checks.targetedTests?.failed !== 0 || !Number.isSafeInteger(checks.targetedTests?.passed) || checks.targetedTests.passed < 40) failures.push("strict input boundary targeted tests did not pass");
+  if (checks.typecheck?.exitCode !== 0) failures.push("strict input boundary typecheck did not pass");
+  if (checks.workspaceBoundaries?.exitCode !== 0) failures.push("strict input boundary workspace check did not pass");
+  if (checks.architectureBudgets?.exitCode !== 0) failures.push("strict input boundary architecture budget check did not pass");
+  const files = Array.isArray(evidence?.files) ? evidence.files : [];
+  if (files.length < 8) failures.push("strict input boundary evidence has insufficient file coverage");
+  for (const entry of files) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry) || typeof entry.file !== "string" || typeof entry.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(entry.sha256)) {
+      failures.push("strict input boundary evidence file entry is invalid");
+      continue;
+    }
+    try {
+      if (sha256File(repositoryRoot, entry.file) !== entry.sha256) failures.push(`strict input boundary evidence is stale for ${assertRelativePath(entry.file, "strict input boundary evidence file entry")}`);
+    } catch {
+      failures.push(`strict input boundary evidence file is unavailable: ${entry.file}`);
+    }
+  }
+  const secretFindings = walkForSecrets(evidence).filter((finding) => !finding.endsWith(".sha256"));
+  if (secretFindings.length > 0) failures.push(`strict input boundary evidence contains secret-shaped fields: ${secretFindings.slice(0, 8).join(", ")}`);
+  return Object.freeze({ available: true, passed: failures.length === 0, evidenceFile: read.file, failures });
+}
+
 function listJavaScriptFiles(directory, base = directory) {
   const files = [];
   let entries;
@@ -210,6 +256,11 @@ function currentItemState(item, repositoryRoot) {
   }
   if (item.id === "local-authenticated-acceptance") {
     const evidenceCheck = localAcceptanceEvidenceStatus(repositoryRoot);
+    if (evidenceCheck.passed) return Object.freeze({ status: "verified", remainingCount: 0, evidenceCheck });
+    return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
+  }
+  if (item.id === "strict-input-boundaries") {
+    const evidenceCheck = strictInputBoundaryEvidenceStatus(repositoryRoot);
     if (evidenceCheck.passed) return Object.freeze({ status: "verified", remainingCount: 0, evidenceCheck });
     return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
   }

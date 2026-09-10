@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -15,6 +16,10 @@ function writeJson(file, value) {
 
 function repeatedLines(count) {
   return `${Array.from({ length: count }, (_, index) => `module.exports.value${index} = ${index};`).join("\n")}\n`;
+}
+
+function sha256(value) {
+  return crypto.createHash("sha256").update(value).digest("hex");
 }
 
 test("architecture closeout checklist validates current open and verified evidence boundaries", () => {
@@ -159,6 +164,82 @@ test("architecture closeout checklist verifies native engine modularization with
   assert.deepEqual(result.items[0].evidenceCheck.compositionRoots, [
     "packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js"
   ]);
+});
+
+test("architecture closeout checklist verifies strict input boundaries with current evidence", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const files = Array.from({ length: 8 }, (_, index) => `packages/strict-boundary-${index}.js`);
+  for (const [index, file] of files.entries()) {
+    fs.mkdirSync(path.dirname(path.join(workspace, file)), { recursive: true });
+    fs.writeFileSync(path.join(workspace, file), `module.exports = ${index};\n`);
+  }
+  writeJson(path.join(workspace, ".codex-tmp", "strict-input-boundaries-current-evidence.json"), {
+    schemaVersion: 1,
+    files: files.map((file, index) => ({ file, sha256: sha256(`module.exports = ${index};\n`) })),
+    checks: {
+      targetedTests: { exitCode: 0, passed: 46, failed: 0 },
+      typecheck: { exitCode: 0 },
+      workspaceBoundaries: { exitCode: 0 },
+      architectureBudgets: { exitCode: 0 }
+    }
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "strict-input-boundaries",
+      area: "C",
+      status: "partial",
+      summary: "This item is dynamically verified by current strict boundary evidence.",
+      evidenceFiles: [".codex-tmp/strict-input-boundaries-current-evidence.json"],
+      verificationCommands: ["node --test test/strict-boundaries.test.js"],
+      remaining: ["Refresh strict boundary evidence."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.verified, 1);
+  assert.equal(result.items[0].configuredStatus, "partial");
+  assert.equal(result.items[0].status, "verified");
+  assert.equal(result.items[0].evidenceCheck.passed, true);
+});
+
+test("architecture closeout checklist keeps strict input boundaries partial when evidence is stale", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const files = Array.from({ length: 8 }, (_, index) => `packages/strict-boundary-${index}.js`);
+  for (const [index, file] of files.entries()) {
+    fs.mkdirSync(path.dirname(path.join(workspace, file)), { recursive: true });
+    fs.writeFileSync(path.join(workspace, file), `module.exports = ${index};\n`);
+  }
+  writeJson(path.join(workspace, ".codex-tmp", "strict-input-boundaries-current-evidence.json"), {
+    schemaVersion: 1,
+    files: files.map((file) => ({ file, sha256: sha256("old evidence\n") })),
+    checks: {
+      targetedTests: { exitCode: 0, passed: 46, failed: 0 },
+      typecheck: { exitCode: 0 },
+      workspaceBoundaries: { exitCode: 0 },
+      architectureBudgets: { exitCode: 0 }
+    }
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "strict-input-boundaries",
+      area: "C",
+      status: "partial",
+      summary: "This item stays partial when strict boundary evidence is stale.",
+      evidenceFiles: [".codex-tmp/strict-input-boundaries-current-evidence.json"],
+      verificationCommands: ["node --test test/strict-boundaries.test.js"],
+      remaining: ["Refresh strict boundary evidence."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.partial, 1);
+  assert.equal(result.items[0].status, "partial");
+  assert.equal(result.items[0].evidenceCheck.passed, false);
+  assert.match(result.items[0].evidenceCheck.failures.join("\n"), /stale/u);
 });
 
 test("architecture closeout checklist keeps native engine open when a domain module exceeds target", () => {
