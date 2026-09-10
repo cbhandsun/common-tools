@@ -66,6 +66,7 @@ function Set-MissingPromptedEnvironment([string]$Name, [string]$Prompt, [switch]
 function Set-MissingSharedLocalPassword {
   $secretNames = @(
     'COMMON_TOOLS_POSTGRES_PASSWORD',
+    'COMMON_TOOLS_DATABASE_PASSWORD',
     'COMMON_TOOLS_REDIS_PASSWORD',
     'COMMON_TOOLS_MINIO_PASSWORD',
     'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD'
@@ -89,15 +90,26 @@ function Set-MissingDeploymentSecretsFromPrompt {
     }
   }
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_POSTGRES_PASSWORD' 'PostgreSQL password' -Secret
+  Set-MissingLocalDatabasePassword
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_REDIS_PASSWORD' 'Redis password' -Secret
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_MINIO_PASSWORD' 'MinIO password' -Secret
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' 'Keycloak admin username'
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD' 'Keycloak admin password' -Secret
 }
 
+function Set-MissingLocalDatabasePassword {
+  $existing = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_DATABASE_PASSWORD', 'Process')
+  if (-not [string]::IsNullOrWhiteSpace($existing)) { return }
+  $postgresPassword = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_POSTGRES_PASSWORD', 'Process')
+  if ([string]::IsNullOrWhiteSpace($postgresPassword)) { return }
+  [Environment]::SetEnvironmentVariable('COMMON_TOOLS_DATABASE_PASSWORD', $postgresPassword, 'Process')
+  $script:promptedEnvironmentNames.Add('COMMON_TOOLS_DATABASE_PASSWORD')
+}
+
 function Set-MissingPlanPlaceholderSecrets {
   $placeholders = [ordered]@{
     COMMON_TOOLS_POSTGRES_PASSWORD = 'local-plan-placeholder'
+    COMMON_TOOLS_DATABASE_PASSWORD = 'local-plan-placeholder'
     COMMON_TOOLS_REDIS_PASSWORD = 'local-plan-placeholder'
     COMMON_TOOLS_MINIO_PASSWORD = 'local-plan-placeholder'
     COMMON_TOOLS_KEYCLOAK_ADMIN = 'local-admin'
@@ -136,6 +148,7 @@ $composeFiles = @(
 $profiles = @('team-infra', 'team-api', 'team-gateway', 'team-maintenance')
 $requiredEnvironment = @(
   'COMMON_TOOLS_POSTGRES_PASSWORD',
+  'COMMON_TOOLS_DATABASE_PASSWORD',
   'COMMON_TOOLS_REDIS_PASSWORD',
   'COMMON_TOOLS_MINIO_PASSWORD',
   'COMMON_TOOLS_REMOTE_PUBLIC_URL',
@@ -437,6 +450,7 @@ if ($PromptForSecrets) {
   Set-MissingDeploymentSecretsFromPrompt
   if (Test-SiyuanCapabilityEnabled) { Set-MissingSiyuanConfigurationFromPrompt }
 }
+Set-MissingLocalDatabasePassword
 if (Test-SiyuanCapabilityEnabled) {
   $requiredEnvironment += @('COMMON_TOOLS_SIYUAN_URL', 'COMMON_TOOLS_SIYUAN_TOKEN')
 }

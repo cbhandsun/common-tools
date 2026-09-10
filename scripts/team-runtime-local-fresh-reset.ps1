@@ -24,7 +24,7 @@ $apiFile = Join-Path $repositoryRoot 'deploy/compose.team-api.yaml'
 $gatewayFile = Join-Path $repositoryRoot 'deploy/compose.team-gateway.yaml'
 $allProfiles = @('team-infra', 'team-idp', 'team-api', 'team-gateway', 'team-maintenance', 'team-worker-audit', 'team-worker-image', 'team-worker-ppt-create', 'team-worker-ppt-improve', 'team-worker-ppt-quality')
 $requiredEnvironment = @(
-  'COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD',
+  'COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_DATABASE_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD',
   'COMMON_TOOLS_KEYCLOAK_ADMIN', 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD',
   'COMMON_TOOLS_REMOTE_PUBLIC_URL', 'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS', 'COMMON_TOOLS_OIDC_ISSUER',
   'COMMON_TOOLS_OIDC_JWKS_URL', 'COMMON_TOOLS_OIDC_AUDIENCE'
@@ -73,6 +73,7 @@ function Read-SecretValue([string]$Prompt) {
 function Set-MissingFreshResetPassword {
   $passwordVariables = @(
     'COMMON_TOOLS_POSTGRES_PASSWORD',
+    'COMMON_TOOLS_DATABASE_PASSWORD',
     'COMMON_TOOLS_REDIS_PASSWORD',
     'COMMON_TOOLS_MINIO_PASSWORD',
     'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD'
@@ -87,6 +88,14 @@ function Set-MissingFreshResetPassword {
   foreach ($name in $missingPasswords) {
     [Environment]::SetEnvironmentVariable($name, $sharedPassword, 'Process')
   }
+}
+
+function Set-MissingLocalDatabasePassword {
+  $existing = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_DATABASE_PASSWORD', 'Process')
+  if (-not [string]::IsNullOrWhiteSpace($existing)) { return }
+  $postgresPassword = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_POSTGRES_PASSWORD', 'Process')
+  if ([string]::IsNullOrWhiteSpace($postgresPassword)) { return }
+  [Environment]::SetEnvironmentVariable('COMMON_TOOLS_DATABASE_PASSWORD', $postgresPassword, 'Process')
 }
 
 function Test-LoopbackPortAvailable([int]$Port) {
@@ -113,9 +122,10 @@ function Set-MissingLocalMinioPorts {
 Set-MissingLocalDefaults
 Set-MissingLocalMinioPorts
 Set-MissingFreshResetPassword
+Set-MissingLocalDatabasePassword
 $missing = @($requiredEnvironment | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process')) })
 if ($missing.Count -gt 0) { throw "Required fresh-reset configuration is missing: $($missing -join ', ')" }
-$sharedPasswords = @('COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD', 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD') | ForEach-Object { [Environment]::GetEnvironmentVariable($_, 'Process') }
+$sharedPasswords = @('COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_DATABASE_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD', 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD') | ForEach-Object { [Environment]::GetEnvironmentVariable($_, 'Process') }
 if (($sharedPasswords | Select-Object -Unique).Count -ne 1) { throw 'Fresh local reset requires one shared local password for PostgreSQL, Redis, MinIO, and Keycloak' }
 if ($sharedPasswords[0].Length -lt 8) { throw 'Fresh local reset password must contain at least 8 characters' }
 

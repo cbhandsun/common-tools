@@ -233,6 +233,8 @@ test("fresh local reset requires one password and only removes declared project 
   assert.match(script, /\[switch\]\$PromptForSecrets/);
   assert.match(script, /function Read-SecretValue/);
   assert.match(script, /function Set-MissingFreshResetPassword/);
+  assert.match(script, /function Set-MissingLocalDatabasePassword/);
+  assert.match(script, /COMMON_TOOLS_DATABASE_PASSWORD/);
   assert.match(script, /Shared fresh local reset password/);
   assert.match(script, /Fresh local reset password must contain at least 8 characters/);
   assert.match(script, /COMMON_TOOLS_KEYCLOAK_ADMIN = 'local-admin'/);
@@ -267,6 +269,8 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /Invoke-Compose @\('config', '--quiet'\)/);
   assert.match(script, /function Read-SecretValue/);
   assert.match(script, /function Set-MissingSharedLocalPassword/);
+  assert.match(script, /function Set-MissingLocalDatabasePassword/);
+  assert.match(script, /COMMON_TOOLS_DATABASE_PASSWORD = 'local-plan-placeholder'/);
   assert.match(script, /function Set-MissingPlanPlaceholderSecrets/);
   assert.match(script, /local-plan-placeholder/);
   assert.match(script, /Shared local deployment password/);
