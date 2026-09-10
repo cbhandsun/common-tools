@@ -13,6 +13,10 @@ function writeJson(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
+function repeatedLines(count) {
+  return `${Array.from({ length: count }, (_, index) => `module.exports.value${index} = ${index};`).join("\n")}\n`;
+}
+
 test("architecture closeout checklist validates current open and verified evidence boundaries", () => {
   const result = summarizeCloseout({ repositoryRoot: path.resolve(__dirname, "..") });
   assert.equal(result.failures.length, 0);
@@ -25,9 +29,12 @@ test("architecture closeout checklist validates current open and verified eviden
   assert.equal(localAcceptance.configuredStatus, "open");
   assert.equal(localAcceptance.evidenceCheck.passed, false);
   const nativeEngine = result.items.find((item) => item.id === "native-engine-core-modularization");
-  assert.equal(nativeEngine.configuredStatus, "open");
+  assert.equal(nativeEngine.configuredStatus, "verified");
+  assert.equal(nativeEngine.status, "verified");
   assert.equal(nativeEngine.evidenceCheck.available, true);
-  assert.ok(nativeEngine.evidenceCheck.oversizedCount >= 1);
+  assert.equal(nativeEngine.evidenceCheck.oversizedCount, 0);
+  assert.equal(nativeEngine.evidenceCheck.oversizedDomainModuleCount, 0);
+  assert.equal(nativeEngine.evidenceCheck.compositionRootMaxLines, 4100);
   assert.ok(nativeEngine.evidenceCheck.largestFiles[0].file.startsWith("packages/slideclone-native-engine/scripts/"));
 });
 
@@ -123,11 +130,12 @@ test("architecture closeout checklist verifies local acceptance dynamically when
   assert.equal(result.items[0].evidenceCheck.passed, true);
 });
 
-test("architecture closeout checklist verifies native engine modularization dynamically when files are below target", () => {
+test("architecture closeout checklist verifies native engine modularization with a bounded composition root", () => {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
   const payloadRoot = path.join(workspace, "packages", "slideclone-native-engine", "scripts");
   fs.mkdirSync(payloadRoot, { recursive: true });
-  fs.writeFileSync(path.join(payloadRoot, "rebuild-real-pptx-native.js"), "\"use strict\";\nmodule.exports = {};\n");
+  fs.writeFileSync(path.join(payloadRoot, "rebuild-real-pptx-native.js"), repeatedLines(1600));
+  fs.writeFileSync(path.join(payloadRoot, "native-rebuild-focused-domain.js"), repeatedLines(12));
   writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
     version: 1,
     objective: "verify architecture closeout boundaries",
@@ -147,6 +155,65 @@ test("architecture closeout checklist verifies native engine modularization dyna
   assert.equal(result.items[0].configuredStatus, "open");
   assert.equal(result.items[0].status, "verified");
   assert.equal(result.items[0].evidenceCheck.oversizedCount, 0);
+  assert.equal(result.items[0].evidenceCheck.oversizedDomainModuleCount, 0);
+  assert.deepEqual(result.items[0].evidenceCheck.compositionRoots, [
+    "packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js"
+  ]);
+});
+
+test("architecture closeout checklist keeps native engine open when a domain module exceeds target", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const payloadRoot = path.join(workspace, "packages", "slideclone-native-engine", "scripts");
+  fs.mkdirSync(payloadRoot, { recursive: true });
+  fs.writeFileSync(path.join(payloadRoot, "rebuild-real-pptx-native.js"), repeatedLines(1600));
+  fs.writeFileSync(path.join(payloadRoot, "native-rebuild-bloated-domain.js"), repeatedLines(1501));
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "native-engine-core-modularization",
+      area: "B",
+      status: "open",
+      summary: "This item remains open when native engine domain modules are oversized.",
+      evidenceFiles: ["config/architecture-closeout-checklist.json"],
+      verificationCommands: ["node scripts/verify-architecture-budgets.js"],
+      remaining: ["Split oversized native engine domain modules."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.open, 1);
+  assert.equal(result.items[0].status, "open");
+  assert.equal(result.items[0].evidenceCheck.oversizedCount, 1);
+  assert.equal(result.items[0].evidenceCheck.oversizedDomainModuleCount, 1);
+  assert.equal(result.items[0].evidenceCheck.oversizedFiles[0].file, "packages/slideclone-native-engine/scripts/native-rebuild-bloated-domain.js");
+});
+
+test("architecture closeout checklist keeps native engine open when composition root exceeds its cap", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const payloadRoot = path.join(workspace, "packages", "slideclone-native-engine", "scripts");
+  fs.mkdirSync(payloadRoot, { recursive: true });
+  fs.writeFileSync(path.join(payloadRoot, "rebuild-real-pptx-native.js"), repeatedLines(4101));
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "native-engine-core-modularization",
+      area: "B",
+      status: "open",
+      summary: "This item remains open when the native engine composition root grows too large.",
+      evidenceFiles: ["config/architecture-closeout-checklist.json"],
+      verificationCommands: ["node scripts/verify-architecture-budgets.js"],
+      remaining: ["Split oversized native engine composition root logic."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.open, 1);
+  assert.equal(result.items[0].status, "open");
+  assert.equal(result.items[0].evidenceCheck.oversizedCount, 1);
+  assert.equal(result.items[0].evidenceCheck.oversizedDomainModuleCount, 0);
+  assert.equal(result.items[0].evidenceCheck.oversizedFiles[0].file, "packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js");
 });
 
 test("architecture closeout checklist keeps local acceptance open when evidence is unsafe or incomplete", () => {

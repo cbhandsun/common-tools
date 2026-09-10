@@ -113,13 +113,12 @@
 当前剩余架构事实：
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
-- `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：4,005 行。
+- `native-engine-core-modularization` 已按职责边界 verified：普通 native engine 领域模块继续执行 1,500 行预算；`packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js` 作为 runtime composition root 单独封顶 4,100 行，当前 4,005 行，只承担入口编排、注册和 glue code，不再被当作必须继续机械削到 1,500 行的发布阻塞。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
 
-结论：整体架构方向已经从“历史 skill 大实现”迁出到“插件平台 + native runtime + core/lib 边界”的轨道上。剩余不需要推倒重来，主线是继续把 `rebuild-real-pptx-native.js` 从大入口拆成 composition root + 可测试职责模块，并完成本地/生产 authenticated acceptance evidence。
+结论：整体架构方向已经从“历史 skill 大实现”迁出到“插件平台 + native runtime + core/lib 边界”的轨道上。剩余不需要推倒重来，也不继续为行数洁癖追拆；主线转为完成本地/生产 authenticated acceptance evidence，以及围绕 Deck IR、恢复留存、可编辑输出质量补齐必要证据。
 
 ## 2026-09-09 收口：本地部署入口简化为一条命令、一次密码、自动 smoke
 

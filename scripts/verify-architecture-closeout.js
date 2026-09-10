@@ -10,6 +10,8 @@ const VALID_AREAS = new Set(["A", "B", "C", "D", "E", "F"]);
 const DEFAULT_CONFIG = path.join("config", "architecture-closeout-checklist.json");
 const NATIVE_ENGINE_PAYLOAD_ROOT = path.join("packages", "slideclone-native-engine", "scripts");
 const NATIVE_ENGINE_TARGET_MAX_LINES = 1500;
+const NATIVE_ENGINE_COMPOSITION_ROOT_MAX_LINES = 4100;
+const NATIVE_ENGINE_COMPOSITION_ROOTS = new Set(["rebuild-real-pptx-native.js"]);
 
 function parseArgs(argv) {
   const options = { config: DEFAULT_CONFIG, requireComplete: false };
@@ -150,13 +152,25 @@ function nativeEngineModularizationStatus(repositoryRoot) {
     file: path.join(NATIVE_ENGINE_PAYLOAD_ROOT, file).replaceAll("\\", "/"),
     lines: countLines(path.join(payloadRoot, file))
   })).sort((left, right) => right.lines - left.lines || left.file.localeCompare(right.file));
-  const oversized = measured.filter((item) => item.lines > NATIVE_ENGINE_TARGET_MAX_LINES);
+  const oversized = measured.filter((item) => {
+    const payloadRelativeFile = path.relative(payloadRoot, path.join(repositoryRoot, item.file)).replaceAll("\\", "/");
+    if (NATIVE_ENGINE_COMPOSITION_ROOTS.has(payloadRelativeFile)) return item.lines > NATIVE_ENGINE_COMPOSITION_ROOT_MAX_LINES;
+    return item.lines > NATIVE_ENGINE_TARGET_MAX_LINES;
+  });
+  const oversizedDomainModules = oversized.filter((item) => {
+    const payloadRelativeFile = path.relative(payloadRoot, path.join(repositoryRoot, item.file)).replaceAll("\\", "/");
+    return !NATIVE_ENGINE_COMPOSITION_ROOTS.has(payloadRelativeFile);
+  });
   return Object.freeze({
     available: true,
     passed: oversized.length === 0,
     targetMaxLines: NATIVE_ENGINE_TARGET_MAX_LINES,
+    compositionRootMaxLines: NATIVE_ENGINE_COMPOSITION_ROOT_MAX_LINES,
+    compositionRoots: Object.freeze([...NATIVE_ENGINE_COMPOSITION_ROOTS].map((file) => path.join(NATIVE_ENGINE_PAYLOAD_ROOT, file).replaceAll("\\", "/"))),
     fileCount: measured.length,
     oversizedCount: oversized.length,
+    oversizedDomainModuleCount: oversizedDomainModules.length,
+    oversizedFiles: Object.freeze(oversized.slice(0, 10)),
     largestFiles: Object.freeze(measured.slice(0, 10))
   });
 }

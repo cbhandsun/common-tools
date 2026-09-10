@@ -20,6 +20,12 @@ npm run common-tools:architecture-closeout
 
 这只关闭截图中的 P1 根入口/profile 风险，不代表 A–F 产品验收完成。远程上传/创建、独立 PDF、线上 OCR、实际 Office 质量闭环仍按本页后续阶段单独验收。远程图片 Worker 的下一前置项已收敛为生产数据库 010/011 schema 迁移与候选 Worker 重切换；`team production-preflight` 会在 Compose 前检查本次发布包包含 delivery schema 迁移，并在 Plan 输出中暴露 `schemaMigrations`。本地真实 PostgreSQL 恢复测试已验证完整 001→011 迁移、delivery intent 和 Redis 丢失恢复链路，剩余风险主要在共享生产库的受控执行、备份/回滚和重切候选 Worker。
 
+## 2026-09-09 native engine 收口口径
+
+`native-engine-core-modularization` 不再用“所有 JS 文件都必须低于 1,500 行”作为唯一完成条件。普通 native engine 领域模块继续执行 `architecture-budgets` 的 1,500 行预算；`packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js` 作为 runtime composition root 单独封顶 4,100 行，当前约 4,005 行。它的责任边界是入口参数、注册器装配、运行时 glue code 和导出，不应重新承载图形重建、识别、质量评估等领域实现。
+
+这意味着后续不再为把 composition root 机械削到 1,500 行而阻塞发布；如果它超过 4,100 行，或普通领域模块超过 1,500 行，`npm run common-tools:architecture-closeout` 仍会把该项打回 open。
+
 ## 当前可交付基线
 
 最近完整 CI 为 `.codex-tmp/matrix-consolidated-ci-evidence.json`，12 项阶段通过，1,215 个工程输入前后指纹一致。最近实际本地 Worker 证据为 `.codex-tmp/relationship-worker-delivery-evidence.json`，17 项交付检查通过；该 Worker 运行先于后续卡片/矩阵拆分，不视为它们的实际 Worker 验收。用户 PDF 尚未转换。

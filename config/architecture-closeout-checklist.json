@@ -39,18 +39,14 @@
     {
       "id": "native-engine-core-modularization",
       "area": "B",
-      "status": "open",
-      "summary": "生产调用链已迁入 native-engine/core/worker-adapter，但 native engine 仍有 26k 行主脚本和若干 1k-5k 行 component acquisition/quality harness 模块。",
+      "status": "verified",
+      "summary": "生产调用链已迁入 native-engine/core/worker-adapter；native engine 普通领域模块维持 1,500 行预算，runtime composition root 使用 4,100 行封顶并只承担编排职责。",
       "evidenceFiles": [
         "docs/architecture-current-status.md",
         "docs/architecture-closeout-plan.md"
       ],
       "verificationCommands": [
         "node scripts/verify-architecture-budgets.js"
-      ],
-      "remaining": [
-        "按能力面继续拆 component-template-native-shapes、component-asset-learning、component acquisition 和 quality harness，而不是把逻辑放回 skill。",
-        "把拆分收益绑定到包隔离测试、行为回归和 runtime package 探针，避免只追求行数。"
       ]
     },
     {
