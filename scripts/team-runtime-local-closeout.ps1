@@ -17,7 +17,8 @@ param(
   [string]$Capability = 'image-to-editable',
   [string]$EvidenceFile = '',
   [switch]$PreflightOnly,
-  [switch]$SkipFreshReset
+  [switch]$SkipFreshReset,
+  [switch]$BrowserLogin
 )
 
 $ErrorActionPreference = 'Stop'
@@ -105,7 +106,8 @@ try {
       willKeepIdentityProvider = $true
       willDiscoverGatewayPort = $true
       willRunAuthenticatedAcceptance = $true
-      willOpenBrowserLogin = $true
+      willUseDirectLocalLogin = (-not $BrowserLogin)
+      willOpenBrowserLogin = [bool]$BrowserLogin
       willVerifyLocalAcceptanceEvidence = $true
       willVerifyArchitectureCloseout = $true
       writesEvidence = $false
@@ -160,6 +162,9 @@ try {
   }
   if (-not [string]::IsNullOrWhiteSpace($EvidenceFile)) {
     $acceptanceArguments.EvidenceFile = $EvidenceFile
+  }
+  if ($BrowserLogin) {
+    $acceptanceArguments.BrowserLogin = $true
   }
   & $acceptanceScript @acceptanceArguments
   if ($LASTEXITCODE -ne 0) {

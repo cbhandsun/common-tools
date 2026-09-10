@@ -7,6 +7,7 @@ const { boundedJson } = require("./remote-access-canary");
 
 const MAX_INPUT_BYTES = 100 * 1024 * 1024;
 const TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled", "expired"]);
+const LOOPBACK_HTTP_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
 function assertPlainObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} is invalid`);
@@ -18,7 +19,7 @@ function gatewayOrigin(value, allowRemote = false) {
   let parsed;
   try { parsed = new URL(value); } catch { throw new Error("authenticated job smoke gateway URL is invalid"); }
   if (parsed.username || parsed.password || parsed.search || parsed.hash || (parsed.pathname !== "/" && parsed.pathname !== "")) throw new Error("authenticated job smoke gateway URL must be an origin");
-  if (parsed.protocol === "http:" && parsed.hostname === "127.0.0.1" && parsed.port && Number(parsed.port) >= 1024 && Number(parsed.port) <= 65535) return parsed.origin;
+  if (parsed.protocol === "http:" && LOOPBACK_HTTP_HOSTS.has(parsed.hostname) && parsed.port && Number(parsed.port) >= 1024 && Number(parsed.port) <= 65535) return parsed.origin;
   if (allowRemote === true && parsed.protocol === "https:") return parsed.origin;
   throw new Error("authenticated job smoke gateway URL must be a loopback HTTP origin unless --allow-remote is set for HTTPS");
 }
@@ -28,7 +29,7 @@ function uploadUrl(value, allowRemote = false) {
   let parsed;
   try { parsed = new URL(value); } catch { throw new Error("authenticated job smoke upload URL is invalid"); }
   if (parsed.username || parsed.password || !parsed.pathname || parsed.pathname === "/") throw new Error("authenticated job smoke upload URL is invalid");
-  if (parsed.protocol === "http:" && parsed.hostname === "127.0.0.1" && parsed.port && Number(parsed.port) >= 1024 && Number(parsed.port) <= 65535) return parsed.href;
+  if (parsed.protocol === "http:" && LOOPBACK_HTTP_HOSTS.has(parsed.hostname) && parsed.port && Number(parsed.port) >= 1024 && Number(parsed.port) <= 65535) return parsed.href;
   if (allowRemote === true && parsed.protocol === "https:") return parsed.href;
   throw new Error("authenticated job smoke upload URL must be loopback HTTP unless --allow-remote is set for HTTPS");
 }
@@ -121,9 +122,22 @@ async function uploadInput(fetchImpl, targetUrl, body, type, requestTimeoutMs, a
       headers: { "Content-Type": type, "Content-Length": String(body.length) },
       body
     });
-    if (response.status < 200 || response.status >= 300) throw new Error("authenticated job smoke upload failed");
-  } catch {
-    throw new Error("authenticated job smoke upload failed");
+    if (response.status < 200 || response.status >= 300) {
+      let detail = `status=${response.status}`;
+      if (typeof response.text === "function") {
+        try {
+          const text = (await response.text()).slice(0, 512);
+          const code = /<Code>([^<]{1,128})<\/Code>/u.exec(text)?.[1] || /"code"\s*:\s*"([^"]{1,128})"/u.exec(text)?.[1] || "";
+          if (/^[A-Za-z0-9._:-]{1,128}$/u.test(code)) detail = `${detail}, code=${code}`;
+        } catch (readError) {
+          void readError;
+        }
+      }
+      throw new Error(`authenticated job smoke upload failed (${detail})`);
+    }
+  } catch (error) {
+    if (error instanceof Error && /^authenticated job smoke upload failed/u.test(error.message)) throw error;
+    throw new Error("authenticated job smoke upload failed", { cause: error });
   } finally {
     clearTimeout(timer);
   }

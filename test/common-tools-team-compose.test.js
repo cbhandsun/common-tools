@@ -294,6 +294,10 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /'deployment-plan'/);
   assert.match(script, /team local-config --project \$Project/);
   assert.match(script, /\[Environment\]::SetEnvironmentVariable\(\$name, \$value\.Trim\(\), 'Process'\)/);
+  assert.match(script, /function Set-MissingLocalObjectStorePublicEndpoint/);
+  assert.match(script, /\$existingUri = \[Uri\]\$existing/);
+  assert.match(script, /\$existingUri\.Port -eq \[int\]\$apiPort/);
+  assert.match(script, /COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT', "http:\/\/127\.0\.0\.1:\$apiPort"/);
   assert.match(script, /if \(\$DiscoverLocalConfiguration\) \{\s+Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds\s+\$dockerEngineChecked = \$true\s+Set-MissingLocalConfiguration/s);
   assert.match(script, /if \(-not \$dockerEngineChecked\) \{ Assert-DockerEngineAvailable -TimeoutSeconds \$DockerEngineTimeoutSeconds \}/);
   assert.match(script, /function Set-MissingLocalMinioPorts/);
@@ -346,6 +350,8 @@ test("local apply wrapper defaults non-secret Docker configuration and delegates
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_PORT' \$remotePort/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_PUBLIC_URL' \$remoteOrigin/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS' \$remoteOrigin/);
+  assert.match(script, /function Set-DiscoveredLocalObjectStorePublicEndpoint/);
+  assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT' \$value/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_ISSUER'/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_JWKS_URL'/);
   assert.match(script, /Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_AUDIENCE' 'common-tools-mcp'/);
@@ -695,7 +701,7 @@ test("local runtime smoke script verifies gateway metadata without secrets or jo
   assert.match(packageVerifier, /scripts\/team-runtime-local-smoke\.ps1/);
 });
 
-test("local authenticated job smoke wrapper prepares input and can use browser PKCE login", () => {
+test("local authenticated job smoke wrapper prepares input and supports local direct login plus browser PKCE login", () => {
   const root = path.resolve(__dirname, "..");
   const scriptPath = path.join(root, "scripts", "team-runtime-local-job-smoke.ps1");
   const script = fs.readFileSync(scriptPath, "utf8");
@@ -705,7 +711,14 @@ test("local authenticated job smoke wrapper prepares input and can use browser P
   assert.match(script, /\[string\]\$Capability = 'image-to-editable'/);
   assert.match(script, /\[string\]\$TokenEnv = 'COMMON_TOOLS_JOB_SMOKE_TOKEN'/);
   assert.match(script, /\[switch\]\$Login/);
+  assert.match(script, /\[switch\]\$DirectLogin/);
+  assert.match(script, /\[string\]\$Username = 'local-tester'/);
   assert.match(script, /\[string\]\$OidcIssuer = ''/);
+  assert.match(script, /function Request-LocalDirectAccessToken/);
+  assert.match(script, /COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD/);
+  assert.match(script, /COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD/);
+  assert.match(script, /directAccessGrantsEnabled = \$Enabled/);
+  assert.match(script, /Local Keycloak MCP client direct grant restore failed/);
   assert.match(script, /function New-PkceChallenge/);
   assert.match(script, /code_challenge_method = 'S256'/);
   assert.match(script, /client_id = 'common-tools-mcp'/);
@@ -715,9 +728,13 @@ test("local authenticated job smoke wrapper prepares input and can use browser P
   assert.match(script, /SetEnvironmentVariable\(\$TokenEnv, \$token, 'Process'\)/);
   assert.match(script, /SetEnvironmentVariable\(\$TokenEnv, \$null, 'Process'\)/);
   assert.match(script, /team-runtime-authenticated-job-smoke\.js/);
-  assert.match(script, /team' 'raw-image-archive'/);
-  assert.match(script, /iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB/);
+  assert.match(script, /deck\.json/);
+  assert.match(script, /pack-smoke-input\.cjs/);
+  assert.match(script, /tarEntry\("deck\.json"/);
+  assert.doesNotMatch(script, /team' 'raw-image-archive'/);
+  assert.doesNotMatch(script, /iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB/);
   assert.match(script, /Set \$TokenEnv to a bearer token/u);
+  assert.match(script, /rerun with -DirectLogin/u);
   assert.match(script, /rerun with -Login/u);
   assert.match(script, /does not print OAuth tokens/u);
   assert.match(script, /--artifact-name', 'deck\.pptx'/);
@@ -735,6 +752,7 @@ test("local authenticated job smoke wrapper prepares input and can use browser P
   const output = `${result.stdout || ""}${result.stderr || ""}`;
   assert.equal(result.status, 2);
   assert.match(output, /COMMON_TOOLS_JOB_SMOKE_TOKEN/u);
+  assert.match(output, /-DirectLogin/u);
   assert.match(output, /-Login/u);
   assert.doesNotMatch(output, /create_team_job|uploadUrl|Authorization/u);
 });
@@ -777,7 +795,10 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(script, /Local acceptance evidence file must stay inside the repository/);
   assert.match(script, /function Read-JsonOutput/);
   assert.match(script, /-RequireIdentityProvider/);
-  assert.match(script, /authenticatedJobSmoke = \$jobSmoke/);
+  assert.match(script, /Local acceptance authenticated job smoke evidence is incomplete/);
+  assert.match(script, /jobId = \$jobId/);
+  assert.match(script, /status = \$jobStatus/);
+  assert.match(script, /authenticatedJobSmoke = \$jobSmokeEvidence/);
   assert.match(script, /Set-Content -LiteralPath \$evidenceTarget -Encoding UTF8 -NoNewline/);
   assert.match(script, /& node \$verifyEvidenceScript '--evidence-file' \$evidenceTarget '--capabilities' \$Capabilities/);
   assert.match(script, /Local acceptance evidence written to \$evidenceTarget/);
@@ -791,9 +812,11 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(script, /\[switch\]\$SeparateTestUserPassword/);
   assert.match(script, /\[switch\]\$PreflightOnly/);
   assert.match(script, /\[switch\]\$SkipDeploy/);
+  assert.match(script, /\[switch\]\$BrowserLogin/);
   assert.match(script, /function Get-MissingManagedSecrets/);
   assert.match(script, /missingSecretVariables = \$missingManagedSecrets/);
-  assert.match(script, /willOpenBrowserLogin = \$true/);
+  assert.match(script, /willUseDirectLocalLogin = \(-not \$BrowserLogin\)/);
+  assert.match(script, /willOpenBrowserLogin = \[bool\]\$BrowserLogin/);
   assert.match(script, /writesEvidence = \$false/);
   assert.match(script, /if \(\$PreflightOnly\)/);
   assert.match(script, /reusing existing local Common Tools runtime with Keycloak enabled/);
@@ -804,7 +827,8 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(script, /SetEnvironmentVariable\(\$name, \$originalEnvironment\[\$name\], 'Process'\)/);
   assert.match(script, /-EnableIdentityProvider/);
   assert.match(script, /\$jobArguments = @\{/);
-  assert.match(script, /Login = \$true/);
+  assert.match(script, /Username = \$Username/);
+  assert.match(script, /if \(\$BrowserLogin\) \{ \$jobArguments\.Login = \$true \} else \{ \$jobArguments\.DirectLogin = \$true \}/);
   assert.match(script, /if \(-not \$SkipJobWait\) \{ \$jobArguments\.Wait = \$true \}/);
   assert.doesNotMatch(script, /--password|--admin-password/);
   assert.match(packageJson, /scripts\/team-runtime-local-acceptance\.ps1/);
@@ -822,9 +846,11 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   assert.match(script, /Shared local closeout password/);
   assert.match(script, /\[switch\]\$PreflightOnly/);
   assert.match(script, /\[switch\]\$SkipFreshReset/);
+  assert.match(script, /\[switch\]\$BrowserLogin/);
   assert.match(script, /willFreshResetLocalState = \(-not \$SkipFreshReset\)/);
   assert.match(script, /willDeploy = \(-not \$SkipFreshReset\)/);
-  assert.match(script, /willOpenBrowserLogin = \$true/);
+  assert.match(script, /willUseDirectLocalLogin = \(-not \$BrowserLogin\)/);
+  assert.match(script, /willOpenBrowserLogin = \[bool\]\$BrowserLogin/);
   assert.match(script, /writesEvidence = \$false/);
   assert.match(script, /Shared local closeout password must contain at least 8 characters/);
   assert.match(script, /COMMON_TOOLS_DATABASE_PASSWORD/);
@@ -850,6 +876,7 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   assert.match(script, /Project = \$Project/);
   assert.match(script, /SkipDeploy = \$true/);
   assert.match(script, /\$acceptanceArguments\.EvidenceFile = \$EvidenceFile/);
+  assert.match(script, /\$acceptanceArguments\.BrowserLogin = \$true/);
   assert.match(script, /& node \$closeoutScript '--require-complete'/);
   assert.match(script, /SetEnvironmentVariable\(\$name, \$originalEnvironment\[\$name\], 'Process'\)/);
   assert.doesNotMatch(script, /--password|--admin-password/);

@@ -89,13 +89,17 @@ test("local Keycloak test user apply creates user, membership claim and password
   });
   assert.equal(result.status, "created");
   assert.equal(keycloak.profile().attributes.some((attribute) => attribute.name === "common_tools_projects"), true);
+  assert.equal(keycloak.user().email, "local-tester@example.invalid");
+  assert.equal(keycloak.user().firstName, "Common");
+  assert.equal(keycloak.user().lastName, "Tools");
+  assert.deepEqual(keycloak.user().requiredActions, []);
   assert.equal(keycloak.user().attributes.common_tools_projects[0], projectMembershipAttribute("deploy", "editor"));
   assert.equal(keycloak.calls.some((call) => call.url.endsWith("/reset-password") && call.body.includes("userpw88")), true);
   assert.doesNotMatch(JSON.stringify(result), /userpw88|adminpw8/i);
 });
 
 test("local Keycloak test user apply repairs drift without duplicating users", async () => {
-  const keycloak = userFetch({ id: "user-123", username: "local-tester", enabled: false, attributes: { other: ["kept"] } });
+  const keycloak = userFetch({ id: "user-123", username: "local-tester", enabled: false, emailVerified: false, requiredActions: ["UPDATE_PASSWORD"], attributes: { other: ["kept"] } });
   const result = await synchronizeLocalTestUser({
     baseUrl: "http://127.0.0.1:58080",
     realm: "common-tools",
@@ -113,24 +117,30 @@ test("local Keycloak test user apply repairs drift without duplicating users", a
   assert.equal(keycloak.calls.some((call) => call.method === "PUT" && call.url.endsWith("/users/profile")), true);
   assert.equal(keycloak.calls.every((call) => !String(call.url).includes("/users?username=") || String(call.url).includes("briefRepresentation=false")), true);
   assert.deepEqual(keycloak.user().attributes.other, ["kept"]);
+  assert.equal(keycloak.user().enabled, true);
+  assert.equal(keycloak.user().email, "local-tester@example.invalid");
+  assert.equal(keycloak.user().firstName, "Common");
+  assert.equal(keycloak.user().lastName, "Tools");
+  assert.equal(keycloak.user().emailVerified, true);
+  assert.deepEqual(keycloak.user().requiredActions, []);
   assert.equal(keycloak.user().attributes.common_tools_projects[0], projectMembershipAttribute("deploy", "admin"));
 });
 
 test("local Keycloak test user verification failure explains sanitized drift", async () => {
   assert.deepEqual(
     localTestUserDriftReasons(
-      { username: "local-tester", enabled: true, attributes: { common_tools_projects: projectMembershipAttribute("deploy", "editor") } },
+      { username: "local-tester", enabled: true, email: "local-tester@example.invalid", firstName: "Common", lastName: "Tools", emailVerified: true, requiredActions: [], attributes: { common_tools_projects: projectMembershipAttribute("deploy", "editor") } },
       { username: "local-tester", projectId: "deploy", role: "editor" }
     ),
     []
   );
   assert.deepEqual(
-    localTestUserDriftReasons({ username: "local-tester", enabled: true, attributes: {} }, { username: "local-tester", projectId: "deploy", role: "editor" }),
-    ["project claim count mismatch: count=0, rawType=undefined, attributeKeys=[]"]
+    localTestUserDriftReasons({ username: "local-tester", enabled: true, email: "local-tester@example.invalid", firstName: "Common", lastName: "Tools", emailVerified: true, requiredActions: ["UPDATE_PASSWORD"], attributes: {} }, { username: "local-tester", projectId: "deploy", role: "editor" }),
+    ["required actions are pending: count=1", "project claim count mismatch: count=0, rawType=undefined, attributeKeys=[]"]
   );
   assert.deepEqual(
     localTestUserDriftReasons(
-      { username: "local-tester", enabled: true, attributes: { common_tools_projects: [projectMembershipAttribute("other", "viewer")] } },
+      { username: "local-tester", enabled: true, email: "local-tester@example.invalid", firstName: "Common", lastName: "Tools", emailVerified: true, requiredActions: [], attributes: { common_tools_projects: [projectMembershipAttribute("other", "viewer")] } },
       { username: "local-tester", projectId: "deploy", role: "editor" }
     ),
     ["project claim value mismatch"]

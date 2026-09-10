@@ -349,6 +349,7 @@ function Set-MissingLocalConfiguration {
   foreach ($name in @(
     'COMMON_TOOLS_REMOTE_PUBLIC_URL',
     'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS',
+    'COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT',
     'COMMON_TOOLS_OIDC_ISSUER',
     'COMMON_TOOLS_OIDC_JWKS_URL',
     'COMMON_TOOLS_OIDC_AUDIENCE'
@@ -404,6 +405,23 @@ function Set-MissingLocalMinioPorts {
   throw 'Could not find available loopback ports for local MinIO'
 }
 
+function Set-MissingLocalObjectStorePublicEndpoint {
+  $existing = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT', 'Process')
+  $apiPort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_PORT', 'Process')
+  if ([string]::IsNullOrWhiteSpace($apiPort)) { $apiPort = '59000' }
+  if ($apiPort -notmatch '^[1-9][0-9]{0,4}$' -or [int]$apiPort -gt 65535) { throw 'COMMON_TOOLS_MINIO_PORT is invalid' }
+  if (-not [string]::IsNullOrWhiteSpace($existing)) {
+    try {
+      $existingUri = [Uri]$existing
+      if ($existingUri.Scheme -ne 'http' -or $existingUri.Host -notin @('127.0.0.1', 'localhost', '[::1]')) { return }
+      if ($existingUri.Port -eq [int]$apiPort) { return }
+    } catch {
+      return
+    }
+  }
+  [Environment]::SetEnvironmentVariable('COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT', "http://127.0.0.1:$apiPort", 'Process')
+}
+
 function Set-MissingLocalRemotePort {
   $remotePort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
   if (-not [string]::IsNullOrWhiteSpace($remotePort)) { return }
@@ -428,6 +446,7 @@ if ($DiscoverLocalPorts) {
   Set-MissingLocalRemotePort
   Set-MissingLocalMinioPorts
 }
+Set-MissingLocalObjectStorePublicEndpoint
 if ($EnableSingleIngress) {
   Set-SingleIngressConfiguration $SingleIngressPublicUrl
   $EnableIdentityProvider = $true

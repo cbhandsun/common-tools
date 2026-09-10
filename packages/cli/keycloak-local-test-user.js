@@ -6,6 +6,7 @@ const USERNAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._@-]{2,127}$/;
 const PROJECT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const ROLE_PATTERN = /^(viewer|editor|admin)$/;
 const PROJECT_ATTRIBUTE = "common_tools_projects";
+const LOCAL_TEST_USER_EMAIL_DOMAIN = "example.invalid";
 
 function localOnlyKeycloakBaseUrl(value) {
   const baseUrl = localKeycloakBaseUrl(value);
@@ -45,6 +46,10 @@ function projectMembershipAttribute(projectId, role) {
   return JSON.stringify([{ id: projectId, role }]);
 }
 
+function localTestUserEmail(username) {
+  return `${username.replace(/[^A-Za-z0-9._-]/g, "_")}@${LOCAL_TEST_USER_EMAIL_DOMAIN}`;
+}
+
 function projectAttributeDefinition() {
   return Object.freeze({
     name: PROJECT_ATTRIBUTE,
@@ -69,7 +74,11 @@ function localTestUserSnapshot(user) {
     id: typeof user.id === "string" && /^[A-Za-z0-9-]{1,128}$/.test(user.id) ? user.id : null,
     username: typeof user.username === "string" && user.username.length <= 128 ? user.username : null,
     enabled: typeof user.enabled === "boolean" ? user.enabled : null,
+    email: typeof user.email === "string" && user.email.length <= 320 ? user.email : null,
+    firstName: typeof user.firstName === "string" && user.firstName.length <= 128 ? user.firstName : null,
+    lastName: typeof user.lastName === "string" && user.lastName.length <= 128 ? user.lastName : null,
     emailVerified: typeof user.emailVerified === "boolean" ? user.emailVerified : null,
+    requiredActions: Array.isArray(user.requiredActions) ? user.requiredActions.filter((entry) => typeof entry === "string" && entry.length <= 128).sort() : [],
     commonToolsProjects: projects,
     projectClaimRawType,
     attributeKeys
@@ -83,9 +92,15 @@ function localTestUserMatches(user, { username, projectId, role }) {
 function localTestUserDriftReasons(user, { username, projectId, role }) {
   const snapshot = localTestUserSnapshot(user);
   const expectedProject = projectMembershipAttribute(projectId, role);
+  const expectedEmail = localTestUserEmail(username);
   const reasons = [];
   if (snapshot.username !== username) reasons.push("username mismatch");
   if (snapshot.enabled !== true) reasons.push("user is not enabled");
+  if (snapshot.email !== expectedEmail) reasons.push("email mismatch");
+  if (snapshot.firstName !== "Common") reasons.push("first name mismatch");
+  if (snapshot.lastName !== "Tools") reasons.push("last name mismatch");
+  if (snapshot.emailVerified !== true) reasons.push("email is not verified");
+  if (snapshot.requiredActions.length > 0) reasons.push(`required actions are pending: count=${snapshot.requiredActions.length}`);
   if (snapshot.commonToolsProjects.length !== 1) reasons.push(`project claim count mismatch: count=${snapshot.commonToolsProjects.length}, rawType=${snapshot.projectClaimRawType}, attributeKeys=[${snapshot.attributeKeys.join(",")}]`);
   if (snapshot.commonToolsProjects.length === 1 && snapshot.commonToolsProjects[0] !== expectedProject) reasons.push("project claim value mismatch");
   return reasons;
@@ -142,15 +157,16 @@ async function synchronizeLocalTestUser({ baseUrl, realm, adminUsername, adminPa
   if (!apply) return Object.freeze({ status: user ? "drift" : "missing", changed: false, username: safeUsername, projectId: safeProjectId, role: safeRole });
   const created = !user;
   const attributes = { [PROJECT_ATTRIBUTE]: [projectMembershipAttribute(safeProjectId, safeRole)] };
+  const desiredUser = { username: safeUsername, enabled: true, email: localTestUserEmail(safeUsername), firstName: "Common", lastName: "Tools", emailVerified: true, requiredActions: [] };
   if (!user) {
-    await requestOk(fetchImpl, usersUrl, { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ username: safeUsername, enabled: true, emailVerified: true, attributes }) });
+    await requestOk(fetchImpl, usersUrl, { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ ...desiredUser, attributes }) });
     user = await readUserByUsername(fetchImpl, usersUrl, headers, safeUsername);
     if (!user) throw new Error("Keycloak local test user creation verification failed");
   }
   const snapshot = localTestUserSnapshot(user);
   const userId = keycloakUserId(snapshot);
   if (!localTestUserMatches(user, { username: safeUsername, projectId: safeProjectId, role: safeRole })) {
-    await requestOk(fetchImpl, `${usersUrl}/${encodeURIComponent(userId)}`, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ ...user, username: safeUsername, enabled: true, emailVerified: true, attributes: { ...(user.attributes || {}), ...attributes } }) });
+    await requestOk(fetchImpl, `${usersUrl}/${encodeURIComponent(userId)}`, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ ...user, ...desiredUser, attributes: { ...(user.attributes || {}), ...attributes } }) });
   }
   await requestOk(fetchImpl, `${usersUrl}/${encodeURIComponent(userId)}/reset-password`, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ type: "password", value: safePassword, temporary: false }) });
   const verified = await readUserByUsername(fetchImpl, usersUrl, headers, safeUsername);

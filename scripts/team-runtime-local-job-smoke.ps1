@@ -12,6 +12,9 @@ param(
   [ValidatePattern('^$|^[A-Za-z0-9._-]{1,128}$')]
   [string]$ArtifactName = '',
   [switch]$Login,
+  [switch]$DirectLogin,
+  [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._@-]{2,127}$')]
+  [string]$Username = 'local-tester',
   [ValidatePattern('^$|^http://127\.0\.0\.1:[1-9][0-9]{3,4}/realms/[A-Za-z0-9._/-]{1,128}$')]
   [string]$OidcIssuer = '',
   [ValidateRange(15, 600)]
@@ -52,6 +55,160 @@ function Resolve-LocalOidcIssuer {
   $processIssuer = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_OIDC_ISSUER', 'Process')
   if (-not [string]::IsNullOrWhiteSpace($processIssuer)) { return $processIssuer.TrimEnd('/') }
   return 'http://127.0.0.1:58080/realms/common-tools'
+}
+
+function Resolve-LocalKeycloakRealmContext {
+  param([Parameter(Mandatory)][string]$Issuer)
+  $match = [regex]::Match($Issuer, '^(?<base>https?://[^/]+)/realms/(?<realm>[A-Za-z0-9._-]+)$')
+  if (-not $match.Success) { throw 'Local OIDC issuer is invalid' }
+  $baseUrl = $match.Groups['base'].Value
+  $realm = $match.Groups['realm'].Value
+  if ($baseUrl -notmatch '^http://(127\.0\.0\.1|localhost):[1-9][0-9]{3,4}$') { throw 'Local direct login only supports loopback Keycloak' }
+  return [pscustomobject]@{ BaseUrl = $baseUrl; Realm = $realm }
+}
+
+function Read-RequiredEnvironmentValue {
+  param([Parameter(Mandatory)][string]$Name)
+  $value = [Environment]::GetEnvironmentVariable($Name, 'Process')
+  if ([string]::IsNullOrWhiteSpace($value)) { throw "$Name is required for local direct login" }
+  return $value
+}
+
+function Request-LocalKeycloakAdminToken {
+  param(
+    [Parameter(Mandatory)][string]$BaseUrl,
+    [Parameter(Mandatory)][string]$AdminUsername,
+    [Parameter(Mandatory)][string]$AdminPassword
+  )
+  $body = @{
+    grant_type = 'password'
+    client_id = 'admin-cli'
+    username = $AdminUsername
+    password = $AdminPassword
+  }
+  try {
+    $response = Invoke-RestMethod -Method Post -Uri "$BaseUrl/realms/master/protocol/openid-connect/token" -ContentType 'application/x-www-form-urlencoded' -Body $body
+  } catch {
+    throw 'Local Keycloak admin authentication failed'
+  }
+  $accessToken = [string]$response.access_token
+  if ([string]::IsNullOrWhiteSpace($accessToken) -or $accessToken.Length -gt 20000) { throw 'Local Keycloak admin token response is invalid' }
+  return $accessToken
+}
+
+function Invoke-LocalKeycloakForm {
+  param(
+    [Parameter(Mandatory)][string]$Uri,
+    [Parameter(Mandatory)][hashtable]$Body,
+    [Parameter(Mandatory)][string]$Failure
+  )
+  try {
+    $response = Invoke-WebRequest -Method Post -Uri $Uri -ContentType 'application/x-www-form-urlencoded' -Body $Body -SkipHttpErrorCheck
+  } catch {
+    throw $Failure
+  }
+  if ($response.StatusCode -lt 200 -or $response.StatusCode -gt 299) {
+    $message = $Failure
+    try {
+      $payload = $response.Content | ConvertFrom-Json -ErrorAction Stop
+      $code = [string]$payload.error
+      $description = [string]$payload.error_description
+      if (-not [string]::IsNullOrWhiteSpace($code) -and $code -match '^[A-Za-z0-9._ -]{1,128}$') { $message = "$message ($code)" }
+      if (-not [string]::IsNullOrWhiteSpace($description) -and $description -match '^[A-Za-z0-9._ :,-]{1,256}$') { $message = "$message`: $description" }
+    } catch { }
+    throw $message
+  }
+  try {
+    return $response.Content | ConvertFrom-Json -ErrorAction Stop
+  } catch {
+    throw "$Failure response is invalid"
+  }
+}
+
+function Read-LocalMcpClient {
+  param(
+    [Parameter(Mandatory)][string]$BaseUrl,
+    [Parameter(Mandatory)][string]$Realm,
+    [Parameter(Mandatory)][hashtable]$Headers
+  )
+  $encodedRealm = [Uri]::EscapeDataString($Realm)
+  try {
+    $clients = Invoke-RestMethod -Method Get -Uri "$BaseUrl/admin/realms/$encodedRealm/clients?clientId=common-tools-mcp" -Headers $Headers
+  } catch {
+    throw 'Local Keycloak MCP client lookup failed'
+  }
+  $matching = @($clients | Where-Object { $_.clientId -eq 'common-tools-mcp' -and -not [string]::IsNullOrWhiteSpace([string]$_.id) })
+  if ($matching.Count -ne 1) { throw 'Local Keycloak MCP client is unavailable' }
+  $clientId = [Uri]::EscapeDataString([string]$matching[0].id)
+  $clientUrl = "$BaseUrl/admin/realms/$encodedRealm/clients/$clientId"
+  try {
+    $client = Invoke-RestMethod -Method Get -Uri $clientUrl -Headers $Headers
+  } catch {
+    throw 'Local Keycloak MCP client read failed'
+  }
+  return [pscustomobject]@{ Url = $clientUrl; Client = $client }
+}
+
+function Set-LocalMcpClientDirectGrant {
+  param(
+    [Parameter(Mandatory)][string]$ClientUrl,
+    [Parameter(Mandatory)][object]$Client,
+    [Parameter(Mandatory)][hashtable]$Headers,
+    [Parameter(Mandatory)][bool]$Enabled
+  )
+  $updated = $Client.PSObject.Copy()
+  $updated.directAccessGrantsEnabled = $Enabled
+  $json = $updated | ConvertTo-Json -Depth 16
+  try {
+    Invoke-RestMethod -Method Put -Uri $ClientUrl -Headers ($Headers + @{ 'content-type' = 'application/json' }) -Body $json | Out-Null
+  } catch {
+    throw 'Local Keycloak MCP client direct grant update failed'
+  }
+}
+
+function Request-LocalDirectAccessToken {
+  param(
+    [Parameter(Mandatory)][string]$Issuer,
+    [Parameter(Mandatory)][string]$CapabilityName,
+    [Parameter(Mandatory)][string]$Username
+  )
+  $context = Resolve-LocalKeycloakRealmContext $Issuer
+  $adminUsername = Read-RequiredEnvironmentValue 'COMMON_TOOLS_KEYCLOAK_ADMIN'
+  $adminPassword = Read-RequiredEnvironmentValue 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD'
+  $userPassword = Read-RequiredEnvironmentValue 'COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD'
+  $adminToken = Request-LocalKeycloakAdminToken -BaseUrl $context.BaseUrl -AdminUsername $adminUsername -AdminPassword $adminPassword
+  $headers = @{ Authorization = "Bearer $adminToken"; Accept = 'application/json' }
+  $clientState = Read-LocalMcpClient -BaseUrl $context.BaseUrl -Realm $context.Realm -Headers $headers
+  $originalDirectGrant = [bool]$clientState.Client.directAccessGrantsEnabled
+  $changedDirectGrant = $false
+  try {
+    if (-not $originalDirectGrant) {
+      Set-LocalMcpClientDirectGrant -ClientUrl $clientState.Url -Client $clientState.Client -Headers $headers -Enabled $true
+      $changedDirectGrant = $true
+    }
+    $body = @{
+      grant_type = 'password'
+      client_id = 'common-tools-mcp'
+      username = $Username
+      password = $userPassword
+      scope = "openid offline_access common-tools:capability:$CapabilityName"
+    }
+    $tokenResponse = Invoke-LocalKeycloakForm -Uri "$Issuer/protocol/openid-connect/token" -Body $body -Failure 'Local direct login token request failed'
+    $accessToken = [string]$tokenResponse.access_token
+    if ([string]::IsNullOrWhiteSpace($accessToken) -or $accessToken.Length -gt 20000) {
+      throw 'Local direct login token response did not include a valid access token'
+    }
+    return $accessToken
+  } finally {
+    if ($changedDirectGrant) {
+      try {
+        $latestState = Read-LocalMcpClient -BaseUrl $context.BaseUrl -Realm $context.Realm -Headers $headers
+        Set-LocalMcpClientDirectGrant -ClientUrl $latestState.Url -Client $latestState.Client -Headers $headers -Enabled $false
+      } catch {
+        Write-Warning 'Local Keycloak MCP client direct grant restore failed; rerun the Keycloak mapper repair helper.'
+      }
+    }
+  }
 }
 
 function Send-LoopbackOAuthResponse {
@@ -146,12 +303,16 @@ function Request-LocalOidcAccessToken {
 $token = [Environment]::GetEnvironmentVariable($TokenEnv, 'Process')
 $temporaryToken = $false
 if ([string]::IsNullOrWhiteSpace($token)) {
-  if (-not $Login) {
-    Write-Host "Set $TokenEnv to a bearer token with the required Common Tools capability scope, or rerun with -Login to authorize through the local browser."
+  if (-not $Login -and -not $DirectLogin) {
+    Write-Host "Set $TokenEnv to a bearer token with the required Common Tools capability scope, rerun with -DirectLogin for local Keycloak test credentials, or rerun with -Login to authorize through the local browser."
     Write-Host 'This helper prepares the local smoke input and gateway URL; it does not print OAuth tokens.'
     exit 2
   }
-  $token = Request-LocalOidcAccessToken -Issuer (Resolve-LocalOidcIssuer $OidcIssuer) -CapabilityName $Capability -TimeoutSeconds $LoginTimeoutSeconds
+  if ($DirectLogin) {
+    $token = Request-LocalDirectAccessToken -Issuer (Resolve-LocalOidcIssuer $OidcIssuer) -CapabilityName $Capability -Username $Username
+  } else {
+    $token = Request-LocalOidcAccessToken -Issuer (Resolve-LocalOidcIssuer $OidcIssuer) -CapabilityName $Capability -TimeoutSeconds $LoginTimeoutSeconds
+  }
   [Environment]::SetEnvironmentVariable($TokenEnv, $token, 'Process')
   $temporaryToken = $true
 }
@@ -159,12 +320,29 @@ if ([string]::IsNullOrWhiteSpace($token)) {
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("common-tools-local-job-smoke-" + [Guid]::NewGuid().ToString('N'))
 [System.IO.Directory]::CreateDirectory($temporaryRoot) | Out-Null
 try {
-  $sourceImage = Join-Path $temporaryRoot 'source.png'
+  $deckFile = Join-Path $temporaryRoot 'deck.json'
   $archive = Join-Path $temporaryRoot 'input.tar.gz'
-  $pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='
-  [System.IO.File]::WriteAllBytes($sourceImage, [Convert]::FromBase64String($pngBase64))
+  $archiveScript = Join-Path $temporaryRoot 'pack-smoke-input.cjs'
+  $deckJson = @'
+{"version":"1.0","slideSize":{"widthPt":960,"heightPt":540},"pages":[{"pageIndex":0,"background":{"fill":"#FFFFFF"},"textBoxes":[{"id":"title","text":"Common Tools local authenticated smoke","box":{"x":48,"y":48,"w":720,"h":56},"font":{"family":"Arial","sizePt":28}}],"shapes":[{"id":"accent","type":"rect","box":{"x":48,"y":128,"w":240,"h":24},"fill":"#4472C4"}],"images":[],"tables":[],"charts":[],"icons":[]}]}
+'@
+  [System.IO.File]::WriteAllText($deckFile, $deckJson, [System.Text.UTF8Encoding]::new($false))
+  $archiveScriptSource = @'
+const fs = require("node:fs");
+const path = require("node:path");
+const zlib = require("node:zlib");
+const repositoryRoot = process.argv[2];
+const deckFile = process.argv[3];
+const archiveFile = process.argv[4];
+if (!repositoryRoot || !deckFile || !archiveFile) throw new Error("smoke archive arguments are required");
+const { tarEntry } = require(path.join(repositoryRoot, "packages", "slideclone-worker-adapter", "team-raw-image-archive.js"));
+const body = fs.readFileSync(deckFile);
+const archive = zlib.gzipSync(Buffer.concat([tarEntry("deck.json", body), Buffer.alloc(1024)]), { level: 9 });
+fs.writeFileSync(archiveFile, archive, { mode: 0o600, flag: "wx" });
+'@
+  [System.IO.File]::WriteAllText($archiveScript, $archiveScriptSource, [System.Text.UTF8Encoding]::new($false))
 
-  & node $cli 'team' 'raw-image-archive' '--workspace' $temporaryRoot '--input' 'source.png' '--out' 'input.tar.gz' | Out-Null
+  & node $archiveScript $repositoryRoot $deckFile $archive
   if ($LASTEXITCODE -ne 0) { throw 'Local authenticated job smoke input archive could not be prepared' }
 
   $arguments = @('--project', $Project, '--capability', $Capability, '--input-file', $archive, '--token-env', $TokenEnv)

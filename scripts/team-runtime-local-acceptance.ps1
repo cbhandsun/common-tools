@@ -19,7 +19,8 @@ param(
   [switch]$SeparateTestUserPassword,
   [switch]$PreflightOnly,
   [switch]$SkipDeploy,
-  [switch]$SkipJobWait
+  [switch]$SkipJobWait,
+  [switch]$BrowserLogin
 )
 
 $ErrorActionPreference = 'Stop'
@@ -123,7 +124,8 @@ if ($PreflightOnly) {
       [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD', 'Process'))
     )
     willDeploy = (-not $SkipDeploy)
-    willOpenBrowserLogin = $true
+    willUseDirectLocalLogin = (-not $BrowserLogin)
+    willOpenBrowserLogin = [bool]$BrowserLogin
     writesEvidence = $false
     passed = $true
   } | ConvertTo-Json -Depth 8 -Compress
@@ -173,17 +175,35 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $userOutput | Write-Output
 $testUser = Read-JsonOutput $userOutput 'Local acceptance test user evidence is invalid'
 
-Write-Host 'Step 3/3: running authenticated local job smoke through browser PKCE login.'
+if ($BrowserLogin) {
+  Write-Host 'Step 3/3: running authenticated local job smoke through browser PKCE login.'
+} else {
+  Write-Host 'Step 3/3: running authenticated local job smoke with local direct login.'
+}
 $jobArguments = @{
   Project = $Project
   Capability = $Capability
-  Login = $true
+  Username = $Username
 }
+if ($BrowserLogin) { $jobArguments.Login = $true } else { $jobArguments.DirectLogin = $true }
 if (-not $SkipJobWait) { $jobArguments.Wait = $true }
 $jobOutput = & $jobSmokeScript @jobArguments
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $jobOutput | Write-Output
 $jobSmoke = Read-JsonOutput $jobOutput 'Local acceptance authenticated job smoke evidence is invalid'
+$jobId = [string]$jobSmoke.job.id
+$jobStatus = [string]$jobSmoke.job.finalStatus
+if ([string]::IsNullOrWhiteSpace($jobId) -or [string]::IsNullOrWhiteSpace($jobStatus)) { throw 'Local acceptance authenticated job smoke evidence is incomplete' }
+$jobSmokeEvidence = [ordered]@{
+  passed = [bool]$jobSmoke.passed
+  capability = [string]$jobSmoke.capability
+  jobId = $jobId
+  status = $jobStatus
+  uploadCreated = [bool]$jobSmoke.uploadCreated
+  uploaded = [bool]$jobSmoke.uploaded
+  artifactTargetCreated = [bool]$jobSmoke.artifactTargetCreated
+  polls = [int]$jobSmoke.job.polls
+}
 
 $evidence = [ordered]@{
   schemaVersion = 1
@@ -197,8 +217,8 @@ $evidence = [ordered]@{
   role = $Role
   localSmoke = $localSmoke
   testUser = $testUser
-  authenticatedJobSmoke = $jobSmoke
-  passed = (($localSmoke.runtimeOk -eq $true) -and ($localSmoke.identityProviderVerified -eq $true) -and ($testUser.changed -eq $true -or $testUser.status -eq 'current') -and ($jobSmoke.passed -eq $true))
+  authenticatedJobSmoke = $jobSmokeEvidence
+  passed = (($localSmoke.runtimeOk -eq $true) -and ($localSmoke.identityProviderVerified -eq $true) -and ($testUser.changed -eq $true -or $testUser.status -eq 'current') -and ($jobSmokeEvidence.passed -eq $true))
 }
 $evidence | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath $evidenceTarget -Encoding UTF8 -NoNewline
 & node $verifyEvidenceScript '--evidence-file' $evidenceTarget '--capabilities' $Capabilities

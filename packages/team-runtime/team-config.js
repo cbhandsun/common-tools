@@ -93,10 +93,11 @@ function createTeamConfiguration(dependencies) {
     const objectStoreEndpoint = parseServiceUrl(environment.COMMON_TOOLS_OBJECT_STORE_ENDPOINT, "COMMON_TOOLS_OBJECT_STORE_ENDPOINT", mode === "development" ? ["http:", "https:"] : ["https:"]);
     const publicObjectStoreEndpoint = environment.COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT === undefined || !environment.COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT.trim()
       ? undefined
-      : parseServiceUrl(environment.COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT, "COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT", ["https:"]);
+      : parseServiceUrl(environment.COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT, "COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT", mode === "development" ? ["http:", "https:"] : ["https:"]);
     if (mode === "production" && databaseUrl.searchParams.get("sslmode") !== "verify-full") throw new Error("production PostgreSQL must use sslmode=verify-full");
     if (mode === "production" && redisUrl.protocol !== "rediss:") throw new Error("production Redis must use rediss");
     if (objectStoreEndpoint.protocol === "http:" && !["127.0.0.1", "localhost", "minio"].includes(objectStoreEndpoint.hostname)) throw new Error("development object storage HTTP endpoint must be local");
+    if (publicObjectStoreEndpoint?.protocol === "http:" && !["127.0.0.1", "localhost"].includes(publicObjectStoreEndpoint.hostname)) throw new Error("development public object storage HTTP endpoint must be loopback");
     if (publicObjectStoreEndpoint && (publicObjectStoreEndpoint.pathname !== "/" || publicObjectStoreEndpoint.search || publicObjectStoreEndpoint.hash)) throw new Error("COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT must be an origin URL");
     const objectStoreBucket = assertNonEmptyString(environment.COMMON_TOOLS_OBJECT_STORE_BUCKET, "COMMON_TOOLS_OBJECT_STORE_BUCKET");
     if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(objectStoreBucket) || objectStoreBucket.includes("..")) throw new Error("COMMON_TOOLS_OBJECT_STORE_BUCKET is invalid");

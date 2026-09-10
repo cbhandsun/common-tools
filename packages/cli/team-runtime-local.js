@@ -70,6 +70,7 @@ function localTeamConfigReport(args = {}, diagnostics = {}) {
   }
   const gatewayPort = loopbackTcpPort(byService.get("remote-mcp-gateway")?.Ports, 8080);
   const keycloakPort = loopbackTcpPort(byService.get("keycloak")?.Ports, 8080);
+  const minioPort = loopbackTcpPort(byService.get("minio")?.Ports, 9000);
   const missing = [
     ...(gatewayPort === undefined ? ["remote-mcp-gateway loopback port 8080"] : [])
   ];
@@ -80,8 +81,10 @@ function localTeamConfigReport(args = {}, diagnostics = {}) {
     COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS: remotePublicUrl,
     COMMON_TOOLS_OIDC_AUDIENCE: "common-tools-mcp"
   };
+  if (minioPort !== undefined) configuration.COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT = `http://127.0.0.1:${minioPort}`;
   const optionalMissing = [];
   if (keycloakPort === undefined) optionalMissing.push("keycloak loopback port 8080");
+  if (minioPort === undefined) optionalMissing.push("minio loopback port 9000");
   else {
     configuration.COMMON_TOOLS_OIDC_ISSUER = `http://127.0.0.1:${keycloakPort}/realms/common-tools`;
     configuration.COMMON_TOOLS_OIDC_JWKS_URL = "http://keycloak:8080/realms/common-tools/protocol/openid-connect/certs";

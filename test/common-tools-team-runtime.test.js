@@ -549,13 +549,15 @@ test("team doctor diagnostics stay outside the CLI composition root", () => {
 test("team local-config derives only fixed non-secret local endpoints from loopback mappings", () => {
   const rows = [
     { Labels: "com.docker.compose.project=deploy,com.docker.compose.service=remote-mcp-gateway", Ports: "127.0.0.1:54000->8080/tcp" },
-    { Labels: "com.docker.compose.project=deploy,com.docker.compose.service=keycloak", Ports: "127.0.0.1:58080->8080/tcp" }
+    { Labels: "com.docker.compose.project=deploy,com.docker.compose.service=keycloak", Ports: "127.0.0.1:58080->8080/tcp" },
+    { Labels: "com.docker.compose.project=deploy,com.docker.compose.service=minio", Ports: "127.0.0.1:59000->9000/tcp" }
   ];
   const report = localTeamConfigReport({ project: "deploy" }, { inventory: { available: true, rows } });
   assert.equal(report.exitCode, 0);
   assert.deepEqual(report.info.configuration, {
     COMMON_TOOLS_REMOTE_PUBLIC_URL: "http://127.0.0.1:54000",
     COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS: "http://127.0.0.1:54000",
+    COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT: "http://127.0.0.1:59000",
     COMMON_TOOLS_OIDC_ISSUER: "http://127.0.0.1:58080/realms/common-tools",
     COMMON_TOOLS_OIDC_JWKS_URL: "http://keycloak:8080/realms/common-tools/protocol/openid-connect/certs",
     COMMON_TOOLS_OIDC_AUDIENCE: "common-tools-mcp"
@@ -570,7 +572,7 @@ test("team local-config derives only fixed non-secret local endpoints from loopb
     COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS: "http://127.0.0.1:54000",
     COMMON_TOOLS_OIDC_AUDIENCE: "common-tools-mcp"
   });
-  assert.deepEqual(gatewayOnly.info.optionalMissing, ["keycloak loopback port 8080"]);
+  assert.deepEqual(gatewayOnly.info.optionalMissing, ["keycloak loopback port 8080", "minio loopback port 9000"]);
   assert.deepEqual(localTeamConfigReport({ project: "deploy" }, { inventory: { available: true, rows: rows.slice(1) } }).info.missing, ["remote-mcp-gateway loopback port 8080"]);
   assert.deepEqual(localTeamConfigReport({ project: "deploy" }, { inventory: { available: false, rows: [] } }).info.missing, ["Docker Compose runtime"]);
 });

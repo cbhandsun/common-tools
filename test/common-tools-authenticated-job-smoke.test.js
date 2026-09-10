@@ -61,8 +61,10 @@ test("authenticated job smoke performs MCP upload, Job creation, polling, and ar
 test("authenticated job smoke fails closed for missing credentials and unsafe remote origins", async () => {
   assert.throws(() => bearerToken("short"), /bearer token/);
   assert.throws(() => gatewayOrigin("http://mcp.example.test"), /loopback/);
+  assert.equal(gatewayOrigin("http://localhost:37684"), "http://localhost:37684");
   assert.equal(gatewayOrigin("https://mcp.example.test", true), "https://mcp.example.test");
   assert.throws(() => uploadUrl("http://mcp.example.test/bucket/key"), /loopback/);
+  assert.equal(uploadUrl("http://localhost:59000/bucket/key?signature=value"), "http://localhost:59000/bucket/key?signature=value");
   assert.equal(uploadUrl("https://mcp.example.test/bucket/key?signature=value", true), "https://mcp.example.test/bucket/key?signature=value");
   await assert.rejects(() => main(["--gateway-url", "http://127.0.0.1:37684", "--input-file", __filename], {}), /COMMON_TOOLS_JOB_SMOKE_TOKEN/);
 });

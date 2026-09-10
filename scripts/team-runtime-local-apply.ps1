@@ -35,6 +35,7 @@ $managedEnvironment = @(
   'COMMON_TOOLS_REMOTE_PORT',
   'COMMON_TOOLS_REMOTE_PUBLIC_URL',
   'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS',
+  'COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT',
   'COMMON_TOOLS_OIDC_ISSUER',
   'COMMON_TOOLS_OIDC_JWKS_URL',
   'COMMON_TOOLS_OIDC_AUDIENCE',
@@ -73,6 +74,19 @@ function Select-LocalRemotePort([string]$Current) {
   throw 'Could not find an available loopback port for the local remote MCP gateway'
 }
 
+function Set-DiscoveredLocalObjectStorePublicEndpoint {
+  $existing = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT', 'Process')
+  if (-not [string]::IsNullOrWhiteSpace($existing)) { return }
+  $cli = Join-Path $repositoryRoot 'packages/cli/bin/common-tools.js'
+  $raw = & node $cli 'team' 'local-config' '--project' $Project
+  if ($LASTEXITCODE -ne 0) { return }
+  try { $report = ($raw | Out-String | ConvertFrom-Json -ErrorAction Stop) } catch { return }
+  $value = [string]$report.configuration.COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT
+  if (-not [string]::IsNullOrWhiteSpace($value)) {
+    Set-DefaultEnvironment 'COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT' $value
+  }
+}
+
 try {
   $remotePort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
   $remotePort = Select-LocalRemotePort $remotePort
@@ -85,6 +99,7 @@ try {
   $remoteOrigin = "http://127.0.0.1:$remotePort"
   Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_PUBLIC_URL' $remoteOrigin
   Set-DefaultEnvironment 'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS' $remoteOrigin
+  Set-DiscoveredLocalObjectStorePublicEndpoint
   Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_ISSUER' "http://127.0.0.1:$keycloakPort/realms/common-tools"
   Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_JWKS_URL' 'http://keycloak:8080/realms/common-tools/protocol/openid-connect/certs'
   Set-DefaultEnvironment 'COMMON_TOOLS_OIDC_AUDIENCE' 'common-tools-mcp'
