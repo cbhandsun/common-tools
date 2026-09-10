@@ -734,7 +734,13 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(script, /Shared local acceptance password/);
   assert.match(script, /Shared local acceptance password must contain at least 12 characters/);
   assert.match(script, /\[switch\]\$SeparateTestUserPassword/);
+  assert.match(script, /\[switch\]\$PreflightOnly/);
   assert.match(script, /\[switch\]\$SkipDeploy/);
+  assert.match(script, /function Get-MissingManagedSecrets/);
+  assert.match(script, /missingSecretVariables = \$missingManagedSecrets/);
+  assert.match(script, /willOpenBrowserLogin = \$true/);
+  assert.match(script, /writesEvidence = \$false/);
+  assert.match(script, /if \(\$PreflightOnly\)/);
   assert.match(script, /reusing existing local Common Tools runtime with Keycloak enabled/);
   assert.match(script, /COMMON_TOOLS_POSTGRES_PASSWORD/);
   assert.match(script, /COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD/);

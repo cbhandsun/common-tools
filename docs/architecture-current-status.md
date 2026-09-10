@@ -138,7 +138,7 @@
 - `df3f5fe Add optional local identity provider deployment`
 - `10cf679 Require IdP smoke when enabled locally`
 - 本批新增 `team-keycloak-local-test-user.ps1` 和 `team keycloak-local-test-user`，用于本机 Keycloak 准备可登录测试用户与 `common_tools_projects` claim；密码只走交互式安全输入或当前进程环境变量，不放命令行参数、不写仓库、不出现在结果 JSON。
-- 本批新增 `team-runtime-local-acceptance.ps1` / `npm run common-tools:team-local-acceptance`，把本地部署、Keycloak、测试用户和 authenticated Job smoke 串成单入口；默认只提示一次共享本地验收密码并在当前进程临时复用，脚本结束后恢复原环境变量。成功时写入 `artifacts/local-acceptance/` 脱敏 JSON 证据，并可用 `npm run common-tools:verify-local-acceptance` 机器复核通过条件和脱敏边界；需要排障时仍可拆成三条子命令。
+- 本批新增 `team-runtime-local-acceptance.ps1` / `npm run common-tools:team-local-acceptance`，把本地部署、Keycloak、测试用户和 authenticated Job smoke 串成单入口；默认只提示一次共享本地验收密码并在当前进程临时复用，脚本结束后恢复原环境变量。成功时写入 `artifacts/local-acceptance/` 脱敏 JSON 证据，并可用 `npm run common-tools:verify-local-acceptance` 机器复核通过条件和脱敏边界；后续又补了 `-PreflightOnly`，可在不部署、不打开浏览器、不输入密码的情况下先输出会使用的 evidence 路径、是否会部署/登录以及当前缺哪些本机 secret；需要排障时仍可拆成三条子命令。
 
 验证证据：
 

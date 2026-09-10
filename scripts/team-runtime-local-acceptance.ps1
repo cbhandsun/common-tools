@@ -17,6 +17,7 @@ param(
   [string]$Capability = 'image-to-editable',
   [string]$EvidenceFile = '',
   [switch]$SeparateTestUserPassword,
+  [switch]$PreflightOnly,
   [switch]$SkipDeploy,
   [switch]$SkipJobWait
 )
@@ -41,10 +42,10 @@ function Read-SecretValue([string]$Prompt) {
   return $value
 }
 
-function Resolve-EvidenceFile([string]$Value) {
+function Resolve-EvidenceFile([string]$Value, [bool]$CreateDirectory) {
   if ([string]::IsNullOrWhiteSpace($Value)) {
     $directory = Join-Path $repositoryRoot 'artifacts/local-acceptance'
-    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    if ($CreateDirectory) { New-Item -ItemType Directory -Path $directory -Force | Out-Null }
     return Join-Path $directory ("local-acceptance-{0}-{1}.json" -f (Get-Date -Format 'yyyyMMddTHHmmss'), [Guid]::NewGuid().ToString('N'))
   }
   if ($Value.Length -gt 4096 -or $Value.Contains("`r") -or $Value.Contains("`n") -or $Value.IndexOf([char]0) -ge 0) { throw 'Local acceptance evidence file is invalid' }
@@ -53,7 +54,7 @@ function Resolve-EvidenceFile([string]$Value) {
   $root = [System.IO.Path]::GetFullPath($repositoryRoot)
   $relative = [System.IO.Path]::GetRelativePath($root, $target)
   if ($relative -eq '..' -or $relative.StartsWith("..$([System.IO.Path]::DirectorySeparatorChar)") -or [System.IO.Path]::IsPathRooted($relative)) { throw 'Local acceptance evidence file must stay inside the repository' }
-  New-Item -ItemType Directory -Path ([System.IO.Path]::GetDirectoryName($target)) -Force | Out-Null
+  if ($CreateDirectory) { New-Item -ItemType Directory -Path ([System.IO.Path]::GetDirectoryName($target)) -Force | Out-Null }
   return $target
 }
 
@@ -73,22 +74,60 @@ $managedNames = @(
   'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD',
   'COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD'
 )
+
+function Get-MissingManagedSecrets {
+  $required = @(
+    'COMMON_TOOLS_POSTGRES_PASSWORD',
+    'COMMON_TOOLS_REDIS_PASSWORD',
+    'COMMON_TOOLS_MINIO_PASSWORD',
+    'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD'
+  )
+  if (-not $SeparateTestUserPassword) {
+    $required += 'COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD'
+  }
+  return @($required | Where-Object {
+    [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process'))
+  })
+}
+
 $originalEnvironment = @{}
 foreach ($name in $managedNames) {
   $originalEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 
 try {
-$evidenceTarget = Resolve-EvidenceFile $EvidenceFile
+$evidenceTarget = Resolve-EvidenceFile $EvidenceFile (-not $PreflightOnly)
 $startedAt = Get-Date
+$missingManagedSecrets = Get-MissingManagedSecrets
+if ($PreflightOnly) {
+  [pscustomobject]@{
+    schemaVersion = 1
+    project = $Project
+    capability = $Capability
+    capabilities = @($Capabilities.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    username = $Username
+    projectId = $ProjectId
+    role = $Role
+    evidenceFile = $evidenceTarget
+    skipDeploy = [bool]$SkipDeploy
+    skipJobWait = [bool]$SkipJobWait
+    helperScriptsAvailable = $true
+    missingSecretVariables = $missingManagedSecrets
+    willPromptForSharedPassword = ($missingManagedSecrets.Count -gt 0 -and -not $SeparateTestUserPassword)
+    willPromptForSeparateTestUserPassword = (
+      $SeparateTestUserPassword -and
+      [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD', 'Process'))
+    )
+    willDeploy = (-not $SkipDeploy)
+    willOpenBrowserLogin = $true
+    writesEvidence = $false
+    passed = $true
+  } | ConvertTo-Json -Depth 8 -Compress
+  return
+}
+
 $sharedPassword = $null
-if (
-  [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('COMMON_TOOLS_POSTGRES_PASSWORD', 'Process')) -or
-  [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('COMMON_TOOLS_REDIS_PASSWORD', 'Process')) -or
-  [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_PASSWORD', 'Process')) -or
-  [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD', 'Process')) -or
-  (-not $SeparateTestUserPassword -and [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD', 'Process')))
-) {
+if ($missingManagedSecrets.Count -gt 0) {
   $sharedPassword = Read-SecretValue 'Shared local acceptance password'
   if ($sharedPassword.Length -lt 12) { throw 'Shared local acceptance password must contain at least 12 characters' }
 }
