@@ -770,6 +770,7 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(script, /team-runtime-local-smoke\.ps1/);
   assert.match(script, /team-keycloak-local-test-user\.ps1/);
   assert.match(script, /team-runtime-local-job-smoke\.ps1/);
+  assert.match(script, /verify-local-acceptance-evidence\.js/);
   assert.match(script, /function Resolve-EvidenceFile/);
   assert.match(script, /artifacts\/local-acceptance/);
   assert.match(script, /Local acceptance evidence file must stay inside the repository/);
@@ -777,6 +778,7 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(script, /-RequireIdentityProvider/);
   assert.match(script, /authenticatedJobSmoke = \$jobSmoke/);
   assert.match(script, /Set-Content -LiteralPath \$evidenceTarget -Encoding UTF8 -NoNewline/);
+  assert.match(script, /& node \$verifyEvidenceScript '--evidence-file' \$evidenceTarget '--capabilities' \$Capabilities/);
   assert.match(script, /Local acceptance evidence written to \$evidenceTarget/);
   assert.match(packageJson, /scripts\/verify-local-acceptance-evidence\.js/);
   assert.match(packageJson, /common-tools:verify-local-acceptance/);

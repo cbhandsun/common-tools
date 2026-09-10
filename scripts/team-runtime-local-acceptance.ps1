@@ -28,10 +28,12 @@ $applyScript = Join-Path $PSScriptRoot 'team-runtime-local-apply.ps1'
 $localSmokeScript = Join-Path $PSScriptRoot 'team-runtime-local-smoke.ps1'
 $userScript = Join-Path $PSScriptRoot 'team-keycloak-local-test-user.ps1'
 $jobSmokeScript = Join-Path $PSScriptRoot 'team-runtime-local-job-smoke.ps1'
+$verifyEvidenceScript = Join-Path $PSScriptRoot 'verify-local-acceptance-evidence.js'
 
 foreach ($script in @($applyScript, $localSmokeScript, $userScript, $jobSmokeScript)) {
   if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw 'Local acceptance helper script is unavailable' }
 }
+if (-not (Test-Path -LiteralPath $verifyEvidenceScript -PathType Leaf)) { throw 'Local acceptance evidence verifier is unavailable' }
 
 function Read-SecretValue([string]$Prompt) {
   $secure = Read-Host -Prompt $Prompt -AsSecureString
@@ -195,6 +197,8 @@ $evidence = [ordered]@{
   passed = (($localSmoke.runtimeOk -eq $true) -and ($localSmoke.identityProviderVerified -eq $true) -and ($testUser.changed -eq $true -or $testUser.status -eq 'current') -and ($jobSmoke.passed -eq $true))
 }
 $evidence | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath $evidenceTarget -Encoding UTF8 -NoNewline
+& node $verifyEvidenceScript '--evidence-file' $evidenceTarget '--capabilities' $Capabilities
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host "Local acceptance evidence written to $evidenceTarget"
 } finally {
   foreach ($name in $managedNames) {
