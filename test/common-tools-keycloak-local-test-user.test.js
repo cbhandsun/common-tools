@@ -10,10 +10,16 @@ function response(body) { return { ok: true, async json() { return body; } }; }
 
 function userFetch(initialUser = null) {
   let user = initialUser ? structuredClone(initialUser) : null;
+  let profile = { attributes: [{ name: "username" }] };
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url: String(url), method: options.method || "GET", body: options.body });
     if (String(url).endsWith("/realms/master/protocol/openid-connect/token")) return response({ access_token: "temporary-admin-token" });
+    if (String(url).endsWith("/admin/realms/common-tools/users/profile") && !options.method) return response(profile);
+    if (String(url).endsWith("/admin/realms/common-tools/users/profile") && options.method === "PUT") {
+      profile = JSON.parse(options.body);
+      return { ok: true };
+    }
     if (String(url).includes("/users?username=")) return response(user ? [user] : []);
     if (String(url).endsWith("/admin/realms/common-tools/users/user-123") && !options.method) return response(user);
     if (String(url).endsWith("/admin/realms/common-tools/users") && options.method === "POST") {
@@ -28,7 +34,7 @@ function userFetch(initialUser = null) {
     if (String(url).endsWith("/admin/realms/common-tools/users/user-123/reset-password") && options.method === "PUT") return { ok: true };
     throw new Error(`unexpected Keycloak URL: ${url}`);
   };
-  return { calls, fetchImpl, user: () => user };
+  return { calls, fetchImpl, profile: () => profile, user: () => user };
 }
 
 const optionsEnvironment = Object.freeze({
@@ -82,6 +88,7 @@ test("local Keycloak test user apply creates user, membership claim and password
     fetchImpl: keycloak.fetchImpl
   });
   assert.equal(result.status, "created");
+  assert.equal(keycloak.profile().attributes.some((attribute) => attribute.name === "common_tools_projects"), true);
   assert.equal(keycloak.user().attributes.common_tools_projects[0], projectMembershipAttribute("deploy", "editor"));
   assert.equal(keycloak.calls.some((call) => call.url.endsWith("/reset-password") && call.body.includes("userpw88")), true);
   assert.doesNotMatch(JSON.stringify(result), /userpw88|adminpw8/i);
@@ -103,6 +110,7 @@ test("local Keycloak test user apply repairs drift without duplicating users", a
   });
   assert.equal(result.status, "updated");
   assert.equal(keycloak.calls.filter((call) => call.method === "POST" && call.url.endsWith("/users")).length, 0);
+  assert.equal(keycloak.calls.some((call) => call.method === "PUT" && call.url.endsWith("/users/profile")), true);
   assert.equal(keycloak.calls.every((call) => !String(call.url).includes("/users?username=") || String(call.url).includes("briefRepresentation=false")), true);
   assert.deepEqual(keycloak.user().attributes.other, ["kept"]);
   assert.equal(keycloak.user().attributes.common_tools_projects[0], projectMembershipAttribute("deploy", "admin"));

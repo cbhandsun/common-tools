@@ -5,6 +5,7 @@ const { adminAccessToken, localKeycloakBaseUrl, realmName, requestJson, requestO
 const USERNAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._@-]{2,127}$/;
 const PROJECT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const ROLE_PATTERN = /^(viewer|editor|admin)$/;
+const PROJECT_ATTRIBUTE = "common_tools_projects";
 
 function localOnlyKeycloakBaseUrl(value) {
   const baseUrl = localKeycloakBaseUrl(value);
@@ -44,10 +45,19 @@ function projectMembershipAttribute(projectId, role) {
   return JSON.stringify([{ id: projectId, role }]);
 }
 
+function projectAttributeDefinition() {
+  return Object.freeze({
+    name: PROJECT_ATTRIBUTE,
+    displayName: "Common Tools project memberships",
+    permissions: { view: ["admin"], edit: ["admin"] },
+    multivalued: false
+  });
+}
+
 function localTestUserSnapshot(user) {
   if (!user || typeof user !== "object" || Array.isArray(user)) throw new Error("Keycloak user response is invalid");
   const attributes = user.attributes && typeof user.attributes === "object" && !Array.isArray(user.attributes) ? user.attributes : {};
-  const rawProjects = attributes.common_tools_projects;
+  const rawProjects = attributes[PROJECT_ATTRIBUTE];
   const projects = Array.isArray(rawProjects)
     ? rawProjects.filter((entry) => typeof entry === "string" && entry.length <= 4096)
     : typeof rawProjects === "string" && rawProjects.length <= 4096
@@ -87,6 +97,25 @@ function keycloakUserId(user) {
   return id;
 }
 
+function userProfileHasProjectAttribute(profile) {
+  return Boolean(
+    profile
+    && typeof profile === "object"
+    && !Array.isArray(profile)
+    && Array.isArray(profile.attributes)
+    && profile.attributes.some((attribute) => attribute && typeof attribute === "object" && !Array.isArray(attribute) && attribute.name === PROJECT_ATTRIBUTE)
+  );
+}
+
+async function ensureProjectUserProfileAttribute(fetchImpl, baseUrl, realm, headers) {
+  const profileUrl = `${baseUrl}/admin/realms/${encodeURIComponent(realm)}/users/profile`;
+  const profile = await requestJson(fetchImpl, profileUrl, { headers });
+  if (!profile || typeof profile !== "object" || Array.isArray(profile) || !Array.isArray(profile.attributes)) throw new Error("Keycloak user profile response is invalid");
+  if (userProfileHasProjectAttribute(profile)) return Object.freeze({ changed: false });
+  await requestOk(fetchImpl, profileUrl, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ ...profile, attributes: [...profile.attributes, projectAttributeDefinition()] }) });
+  return Object.freeze({ changed: true });
+}
+
 async function readUserByUsername(fetchImpl, usersUrl, headers, username) {
   const users = await requestJson(fetchImpl, `${usersUrl}?username=${encodeURIComponent(username)}&exact=true&briefRepresentation=false`, { headers });
   if (!Array.isArray(users)) throw new Error("Keycloak user search response is invalid");
@@ -104,6 +133,7 @@ async function synchronizeLocalTestUser({ baseUrl, realm, adminUsername, adminPa
   const safeRole = assertSafeRole(role);
   const token = await adminAccessToken(fetchImpl, baseUrl, adminUsername, adminPassword);
   const headers = { authorization: `Bearer ${token}`, accept: "application/json" };
+  if (apply) await ensureProjectUserProfileAttribute(fetchImpl, baseUrl, realm, headers);
   const usersUrl = `${baseUrl}/admin/realms/${encodeURIComponent(realm)}/users`;
   let user = await readUserByUsername(fetchImpl, usersUrl, headers, safeUsername);
   if (user && localTestUserMatches(user, { username: safeUsername, projectId: safeProjectId, role: safeRole })) {
@@ -111,7 +141,7 @@ async function synchronizeLocalTestUser({ baseUrl, realm, adminUsername, adminPa
   }
   if (!apply) return Object.freeze({ status: user ? "drift" : "missing", changed: false, username: safeUsername, projectId: safeProjectId, role: safeRole });
   const created = !user;
-  const attributes = { common_tools_projects: [projectMembershipAttribute(safeProjectId, safeRole)] };
+  const attributes = { [PROJECT_ATTRIBUTE]: [projectMembershipAttribute(safeProjectId, safeRole)] };
   if (!user) {
     await requestOk(fetchImpl, usersUrl, { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ username: safeUsername, enabled: true, emailVerified: true, attributes }) });
     user = await readUserByUsername(fetchImpl, usersUrl, headers, safeUsername);
@@ -157,6 +187,7 @@ module.exports = {
   assertSafeProjectId,
   assertSafeRole,
   assertSafeUsername,
+  ensureProjectUserProfileAttribute,
   localOnlyKeycloakBaseUrl,
   localTestUserDriftReasons,
   localTestUserMatches,
