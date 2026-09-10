@@ -833,6 +833,10 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   assert.match(script, /verify-architecture-closeout\.js/);
   assert.match(script, /team-runtime-doctor\.js/);
   assert.match(script, /function Invoke-LocalCloseoutDoctor/);
+  assert.match(script, /function Set-MissingLocalGatewayPortFromCompose/);
+  assert.match(script, /remote-mcp-gateway/);
+  assert.match(script, /COMMON_TOOLS_REMOTE_PORT/);
+  assert.match(script, /willDiscoverGatewayPort = \$true/);
   assert.match(script, /Local closeout failed during \$Phase; collecting sanitized runtime diagnostics/);
   assert.match(script, /'--expected-capabilities' \$Capabilities/);
   assert.match(script, /if \(\$SkipFreshReset\)/);

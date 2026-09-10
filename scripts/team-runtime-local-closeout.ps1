@@ -47,6 +47,25 @@ function Invoke-LocalCloseoutDoctor([string]$Phase) {
   if ($LASTEXITCODE -ne 0) { Write-Warning 'Sanitized runtime diagnostics reported an unhealthy local runtime.' }
 }
 
+function Set-MissingLocalGatewayPortFromCompose {
+  $existing = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
+  if (-not [string]::IsNullOrWhiteSpace($existing)) { return }
+  $rows = @(& docker compose -p $Project ps --format json)
+  if ($LASTEXITCODE -ne 0) { throw 'Local gateway port discovery failed' }
+  foreach ($line in $rows) {
+    if ([string]::IsNullOrWhiteSpace($line)) { continue }
+    $record = $line | ConvertFrom-Json -ErrorAction Stop
+    if ($record.Service -ne 'remote-mcp-gateway') { continue }
+    foreach ($publisher in @($record.Publishers)) {
+      if ($publisher.TargetPort -eq 8080 -and $publisher.URL -eq '127.0.0.1' -and $publisher.PublishedPort -gt 0) {
+        [Environment]::SetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', "$($publisher.PublishedPort)", 'Process')
+        return
+      }
+    }
+  }
+  throw 'Local gateway port could not be discovered'
+}
+
 $managedNames = @(
   'COMMON_TOOLS_POSTGRES_PASSWORD',
   'COMMON_TOOLS_DATABASE_PASSWORD',
@@ -77,6 +96,7 @@ try {
       willFreshResetLocalState = (-not $SkipFreshReset)
       willDeploy = (-not $SkipFreshReset)
       willKeepIdentityProvider = $true
+      willDiscoverGatewayPort = $true
       willRunAuthenticatedAcceptance = $true
       willOpenBrowserLogin = $true
       willVerifyLocalAcceptanceEvidence = $true
@@ -113,6 +133,7 @@ try {
     }
   }
 
+  Set-MissingLocalGatewayPortFromCompose
   Write-Host 'Step 2/3: running authenticated acceptance against the local runtime.'
   $acceptanceArguments = @(
     '-Project', $Project,

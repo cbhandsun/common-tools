@@ -486,7 +486,7 @@ npm run common-tools:team-local-closeout
 npm run common-tools:team-local-closeout-existing
 ```
 
-两个 preflight 都只输出 JSON 计划，不删卷、不部署、不打开浏览器、不写 evidence；`team-local-closeout-existing-preflight` 会明确显示 `willFreshResetLocalState:false` 和 `willDeploy:false`。默认 `team-local-closeout` 会 fresh reset 并删除本地状态卷；如果你刚刚 reset/部署过，只想快速补 authenticated evidence，可用 `team-local-closeout-existing` 复用现有本地 runtime，不删卷、不重部署。真实 closeout 入口只把密码放在当前 PowerShell 进程里，临时同步到 PostgreSQL、应用数据库连接、Redis、MinIO、Keycloak admin 和本机测试用户；脚本结束后恢复原环境变量。成功时会写入并自动复核 `artifacts/local-acceptance/*.json`，再运行 `npm run common-tools:architecture-closeout`。如果只想预检或排障，可使用下面的分步入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
+两个 preflight 都只输出 JSON 计划，不删卷、不部署、不打开浏览器、不写 evidence；`team-local-closeout-existing-preflight` 会明确显示 `willFreshResetLocalState:false` 和 `willDeploy:false`。默认 `team-local-closeout` 会 fresh reset 并删除本地状态卷；如果你刚刚 reset/部署过，只想快速补 authenticated evidence，可用 `team-local-closeout-existing` 复用现有本地 runtime，不删卷、不重部署。真实 closeout 入口会自动从 Docker Compose 读取当前 `remote-mcp-gateway` 的 loopback 端口，因此本机 54000 被占用、脚本自动切到随机端口时也无需手填。它只把密码放在当前 PowerShell 进程里，临时同步到 PostgreSQL、应用数据库连接、Redis、MinIO、Keycloak admin 和本机测试用户；脚本结束后恢复原环境变量。成功时会写入并自动复核 `artifacts/local-acceptance/*.json`，再运行 `npm run common-tools:architecture-closeout`。如果只想预检或排障，可使用下面的分步入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
 
 ```powershell
 npm run common-tools:team-local-acceptance-preflight
