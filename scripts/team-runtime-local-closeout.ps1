@@ -23,8 +23,9 @@ $ErrorActionPreference = 'Stop'
 $freshResetScript = Join-Path $PSScriptRoot 'team-runtime-local-fresh-reset.ps1'
 $acceptanceScript = Join-Path $PSScriptRoot 'team-runtime-local-acceptance.ps1'
 $closeoutScript = Join-Path $PSScriptRoot 'verify-architecture-closeout.js'
+$doctorScript = Join-Path $PSScriptRoot 'team-runtime-doctor.js'
 
-foreach ($script in @($freshResetScript, $acceptanceScript, $closeoutScript)) {
+foreach ($script in @($freshResetScript, $acceptanceScript, $closeoutScript, $doctorScript)) {
   if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw 'Local closeout helper script is unavailable' }
 }
 
@@ -35,6 +36,14 @@ function Read-SecretValue([string]$Prompt) {
   finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
   if ([string]::IsNullOrWhiteSpace($value)) { throw 'Secret value is required' }
   return $value
+}
+
+function Invoke-LocalCloseoutDoctor([string]$Phase) {
+  Write-Warning "Local closeout failed during $Phase; collecting sanitized runtime diagnostics."
+  $remotePort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
+  if ([string]::IsNullOrWhiteSpace($remotePort)) { $remotePort = '54000' }
+  & node $doctorScript '--project' $Project '--scope' 'all' '--gateway-url' "http://127.0.0.1:$remotePort" '--expected-capabilities' $Capabilities
+  if ($LASTEXITCODE -ne 0) { Write-Warning 'Sanitized runtime diagnostics reported an unhealthy local runtime.' }
 }
 
 $managedNames = @(
@@ -94,7 +103,10 @@ try {
 
   Write-Host 'Step 1/3: fresh resetting and deploying local Common Tools runtime.'
   & $freshResetScript -Mode Apply -Project $Project -WaitTimeoutSeconds $WaitTimeoutSeconds -Confirm
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  if ($LASTEXITCODE -ne 0) {
+    Invoke-LocalCloseoutDoctor 'fresh-reset'
+    exit $LASTEXITCODE
+  }
 
   Write-Host 'Step 2/3: running authenticated acceptance against the fresh local runtime.'
   $acceptanceArguments = @(
@@ -112,11 +124,17 @@ try {
     $acceptanceArguments += @('-EvidenceFile', $EvidenceFile)
   }
   & $acceptanceScript @acceptanceArguments
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  if ($LASTEXITCODE -ne 0) {
+    Invoke-LocalCloseoutDoctor 'authenticated-acceptance'
+    exit $LASTEXITCODE
+  }
 
   Write-Host 'Step 3/3: verifying architecture closeout.'
   & node $closeoutScript
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  if ($LASTEXITCODE -ne 0) {
+    Invoke-LocalCloseoutDoctor 'architecture-closeout'
+    exit $LASTEXITCODE
+  }
 } finally {
   foreach ($name in $managedNames) {
     [Environment]::SetEnvironmentVariable($name, $originalEnvironment[$name], 'Process')

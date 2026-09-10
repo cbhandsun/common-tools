@@ -829,6 +829,10 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   assert.match(script, /team-runtime-local-fresh-reset\.ps1/);
   assert.match(script, /team-runtime-local-acceptance\.ps1/);
   assert.match(script, /verify-architecture-closeout\.js/);
+  assert.match(script, /team-runtime-doctor\.js/);
+  assert.match(script, /function Invoke-LocalCloseoutDoctor/);
+  assert.match(script, /Local closeout failed during \$Phase; collecting sanitized runtime diagnostics/);
+  assert.match(script, /'--expected-capabilities' \$Capabilities/);
   assert.match(script, /& \$freshResetScript -Mode Apply -Project \$Project -WaitTimeoutSeconds \$WaitTimeoutSeconds -Confirm/);
   assert.match(script, /'-SkipDeploy'/);
   assert.match(script, /& node \$closeoutScript/);
