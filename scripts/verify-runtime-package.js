@@ -326,6 +326,7 @@ const REQUIRED_FILES = Object.freeze([
   "scripts/team-runtime-local-repair-migration-ledger.ps1",
   "scripts/team-runtime-local-smoke.ps1",
   "scripts/team-runtime-authenticated-job-smoke.js",
+  "scripts/team-runtime-production-acceptance.ps1",
   "scripts/team-keycloak-local-test-user.ps1",
   "scripts/team-keycloak-mcp-client-sync.ps1",
   "scripts/team-keycloak-recovery-admin.ps1",

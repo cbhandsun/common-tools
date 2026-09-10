@@ -460,6 +460,44 @@ test("production deployment script rejects unsafe env files before Docker", () =
   assert.doesNotMatch(output, /Docker Compose production command failed/u);
 });
 
+test("production acceptance wrapper defaults to the protected env file and stays read-only for planning", () => {
+  const root = path.resolve(__dirname, "..");
+  const script = path.join(root, "scripts", "team-runtime-production-acceptance.ps1");
+  const source = fs.readFileSync(script, "utf8");
+  const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
+  const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
+  assert.match(source, /ValidateSet\('Plan', 'Evidence'\)/);
+  assert.match(source, /common-tools\.production\.env/);
+  assert.match(source, /production-acceptance-plan/);
+  assert.match(source, /production-acceptance-evidence/);
+  assert.match(source, /blocked-by-missing-production-env-file/);
+  assert.match(source, /mutatesProduction = \$false/);
+  assert.match(source, /writesEvidence = \$false/);
+  assert.doesNotMatch(source, /team-runtime-production-deploy\.ps1/);
+  assert.doesNotMatch(source, /-Mode Apply/);
+  assert.match(packageJson, /scripts\/team-runtime-production-acceptance\.ps1/);
+  assert.match(packageJson, /common-tools:production-acceptance-preflight/);
+  assert.match(packageJson, /common-tools:production-acceptance-collect/);
+  assert.match(packageVerifier, /scripts\/team-runtime-production-acceptance\.ps1/);
+
+  const missingDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-production-acceptance-wrapper-"));
+  const missingEnvFile = path.join(missingDirectory, "common-tools.production.env");
+  const result = spawnSync("pwsh", ["-NoProfile", "-File", script, "-Mode", "Plan", "-ProductionEnvFile", missingEnvFile], {
+    cwd: root,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH || "" },
+    windowsHide: true
+  });
+  assert.equal(result.status, 0);
+  const plan = JSON.parse(result.stdout);
+  assert.equal(plan.status, "blocked-by-missing-production-env-file");
+  assert.equal(plan.productionEnvFile, missingEnvFile);
+  assert.equal(plan.mutatesProduction, false);
+  assert.equal(plan.writesEvidence, false);
+  assert.ok(plan.nextCommands.some((command) => command.includes("prepare-production-env.ps1")));
+  assert.doesNotMatch(result.stdout + result.stderr, /password|token|secret-value|Docker Compose production command failed/iu);
+});
+
 test("production env preparation script collects secrets safely outside the repository", () => {
   const root = path.resolve(__dirname, "..");
   const script = path.join(root, "scripts", "prepare-production-env.ps1");
