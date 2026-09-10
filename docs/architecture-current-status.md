@@ -78,6 +78,7 @@
 - native rebuild skills engine pages：Skills Engine 封面三件套与 AI comparison matrix 的对象化、native table、状态 icon crop 和 cover card/shield 构造从主 rebuild 编排中移出；主入口只注入 comparison target/core 准入、PNG/几何和 text box 边界。
 - native rebuild linear process diagram：通用 horizontal stage process、product workflow stage backplate 与 chaos-input/standard-output endpoint pictorial shapes 从主 rebuild 编排中移出；主入口保留通用 freeform bounds helper 给既有 structured/stacked factory 注入，PRD segment restore 不混入本专题。
 - native rebuild dense text grid + layer visual primitives：dense text grid/table stroke 推断先抽为独立公共边界，供 grid/color factory 消费；layer/matrix color blocks、table-grid 准入、layer container/connector 像素采样与对象化迁入 layer visual primitives，主入口只保留工厂装配和同名导出合同。
+- native rebuild residual crop lifecycle：layer text crop 擦除、erased residual split/drop decision、table/matrix residual native replacement、tool-gap residual text erase 与 residual split 判定从主 rebuild 编排中移出；主入口只注入 drop policy、PNG/IR、像素擦除和保护规则。
 
 验证证据：
 
@@ -107,12 +108,13 @@
 - 后续增量 `native-rebuild-skills-engine-pages.js` 抽出后，`rebuild-real-pptx-native.js` 从 5,826 行降至 5,485 行；新增模块 309 行，`native-rebuild.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
 - 后续增量 `native-rebuild-linear-process-diagram.js` 抽出后，`rebuild-real-pptx-native.js` 从 5,485 行降至 5,084 行；新增模块 420 行，`native-rebuild.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
 - 后续增量 `native-rebuild-dense-text-grid.js` 与 `native-rebuild-layer-visual-primitives.js` 抽出后，`rebuild-real-pptx-native.js` 从 5,084 行降至 4,560 行；新增模块分别为 99/523 行，`native-rebuild.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
+- 后续增量 `native-rebuild-residual-crop-lifecycle.js` 抽出后，`rebuild-real-pptx-native.js` 从 4,560 行降至 4,005 行；新增模块 618 行，`native-rebuild.test.js`、lint、runtime package、workspace boundaries、architecture budgets 与 closeout 汇总均通过。
 
 当前剩余架构事实：
 
 - `platform-capability-boundary` 与 `skill-production-decoupling` 已 verified。
 - `native-engine-core-modularization` 仍 open，因为硬门禁要求 native engine 内所有 JS 文件不超过 1,500 行；当前仍有 1 个超大文件：
-  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：4,560 行。
+  - `packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js`：4,005 行。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
 - `strict-input-boundaries`、`recovery-and-retention`、`editable-output-quality` 仍 partial，下一步应继续围绕真实生产闭环补证据，而不是把兼容 wrapper 当作剩余主风险。
