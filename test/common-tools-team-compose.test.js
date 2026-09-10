@@ -803,8 +803,9 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(script, /\$testUserPassword = if \(\$SeparateTestUserPassword\)/);
   assert.match(script, /SetEnvironmentVariable\(\$name, \$originalEnvironment\[\$name\], 'Process'\)/);
   assert.match(script, /-EnableIdentityProvider/);
-  assert.match(script, /'-Login'/);
-  assert.match(script, /if \(-not \$SkipJobWait\) \{ \$jobArguments \+= '-Wait' \}/);
+  assert.match(script, /\$jobArguments = @\{/);
+  assert.match(script, /Login = \$true/);
+  assert.match(script, /if \(-not \$SkipJobWait\) \{ \$jobArguments\.Wait = \$true \}/);
   assert.doesNotMatch(script, /--password|--admin-password/);
   assert.match(packageJson, /scripts\/team-runtime-local-acceptance\.ps1/);
   assert.match(packageJson, /common-tools:team-local-acceptance-preflight/);

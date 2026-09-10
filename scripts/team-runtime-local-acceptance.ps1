@@ -174,8 +174,12 @@ $userOutput | Write-Output
 $testUser = Read-JsonOutput $userOutput 'Local acceptance test user evidence is invalid'
 
 Write-Host 'Step 3/3: running authenticated local job smoke through browser PKCE login.'
-$jobArguments = @('-Project', $Project, '-Capability', $Capability, '-Login')
-if (-not $SkipJobWait) { $jobArguments += '-Wait' }
+$jobArguments = @{
+  Project = $Project
+  Capability = $Capability
+  Login = $true
+}
+if (-not $SkipJobWait) { $jobArguments.Wait = $true }
 $jobOutput = & $jobSmokeScript @jobArguments
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $jobOutput | Write-Output
