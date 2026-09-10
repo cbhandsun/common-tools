@@ -58,8 +58,18 @@ function localTestUserSnapshot(user) {
 }
 
 function localTestUserMatches(user, { username, projectId, role }) {
+  return localTestUserDriftReasons(user, { username, projectId, role }).length === 0;
+}
+
+function localTestUserDriftReasons(user, { username, projectId, role }) {
   const snapshot = localTestUserSnapshot(user);
-  return snapshot.username === username && snapshot.enabled === true && snapshot.commonToolsProjects.length === 1 && snapshot.commonToolsProjects[0] === projectMembershipAttribute(projectId, role);
+  const expectedProject = projectMembershipAttribute(projectId, role);
+  const reasons = [];
+  if (snapshot.username !== username) reasons.push("username mismatch");
+  if (snapshot.enabled !== true) reasons.push("user is not enabled");
+  if (snapshot.commonToolsProjects.length !== 1) reasons.push("project claim count mismatch");
+  if (snapshot.commonToolsProjects.length === 1 && snapshot.commonToolsProjects[0] !== expectedProject) reasons.push("project claim value mismatch");
+  return reasons;
 }
 
 async function readUserByUsername(fetchImpl, usersUrl, headers, username) {
@@ -98,7 +108,9 @@ async function synchronizeLocalTestUser({ baseUrl, realm, adminUsername, adminPa
   }
   await requestOk(fetchImpl, `${usersUrl}/${encodeURIComponent(snapshot.id)}/reset-password`, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ type: "password", value: safePassword, temporary: false }) });
   const verified = await readUserByUsername(fetchImpl, usersUrl, headers, safeUsername);
-  if (!verified || !localTestUserMatches(verified, { username: safeUsername, projectId: safeProjectId, role: safeRole })) throw new Error("Keycloak local test user verification failed");
+  if (!verified) throw new Error("Keycloak local test user verification failed: user missing after update");
+  const verificationDrift = localTestUserDriftReasons(verified, { username: safeUsername, projectId: safeProjectId, role: safeRole });
+  if (verificationDrift.length > 0) throw new Error(`Keycloak local test user verification failed: ${verificationDrift.join(", ")}`);
   return Object.freeze({ status: created ? "created" : "updated", changed: true, username: safeUsername, projectId: safeProjectId, role: safeRole });
 }
 
@@ -130,6 +142,7 @@ module.exports = {
   assertSafeRole,
   assertSafeUsername,
   localOnlyKeycloakBaseUrl,
+  localTestUserDriftReasons,
   localTestUserMatches,
   localTestUserOptions,
   localTestUserSnapshot,

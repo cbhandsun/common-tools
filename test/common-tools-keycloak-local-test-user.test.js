@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 const test = require("node:test");
-const { localTestUserOptions, projectMembershipAttribute, synchronizeLocalTestUser } = require("../packages/cli/keycloak-local-test-user");
+const { localTestUserDriftReasons, localTestUserOptions, projectMembershipAttribute, synchronizeLocalTestUser } = require("../packages/cli/keycloak-local-test-user");
 
 function response(body) { return { ok: true, async json() { return body; } }; }
 
@@ -104,6 +104,20 @@ test("local Keycloak test user apply repairs drift without duplicating users", a
   assert.equal(keycloak.calls.filter((call) => call.method === "POST" && call.url.endsWith("/users")).length, 0);
   assert.deepEqual(keycloak.user().attributes.other, ["kept"]);
   assert.equal(keycloak.user().attributes.common_tools_projects[0], projectMembershipAttribute("deploy", "admin"));
+});
+
+test("local Keycloak test user verification failure explains sanitized drift", async () => {
+  assert.deepEqual(
+    localTestUserDriftReasons({ username: "local-tester", enabled: true, attributes: {} }, { username: "local-tester", projectId: "deploy", role: "editor" }),
+    ["project claim count mismatch"]
+  );
+  assert.deepEqual(
+    localTestUserDriftReasons(
+      { username: "local-tester", enabled: true, attributes: { common_tools_projects: [projectMembershipAttribute("other", "viewer")] } },
+      { username: "local-tester", projectId: "deploy", role: "editor" }
+    ),
+    ["project claim value mismatch"]
+  );
 });
 
 test("local Keycloak test user CLI and wrapper keep passwords out of command arguments", () => {
