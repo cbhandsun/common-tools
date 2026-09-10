@@ -15,7 +15,8 @@ param(
   [string]$Role = 'editor',
   [ValidatePattern('^[a-z][a-z0-9-]{2,63}$')]
   [string]$Capability = 'image-to-editable',
-  [string]$EvidenceFile = ''
+  [string]$EvidenceFile = '',
+  [switch]$PreflightOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -51,6 +52,32 @@ foreach ($name in $managedNames) {
 }
 
 try {
+  if ($PreflightOnly) {
+    [pscustomobject]@{
+      schemaVersion = 1
+      project = $Project
+      capability = $Capability
+      capabilities = @($Capabilities.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+      username = $Username
+      projectId = $ProjectId
+      role = $Role
+      stateVolumes = @("$Project`_common-tools-postgres", "$Project`_common-tools-redis", "$Project`_common-tools-minio", "$Project`_common-tools-keycloak")
+      willPromptForSharedPassword = $true
+      minimumPasswordLength = 8
+      willFreshResetLocalState = $true
+      willDeploy = $true
+      willKeepIdentityProvider = $true
+      willRunAuthenticatedAcceptance = $true
+      willOpenBrowserLogin = $true
+      willVerifyLocalAcceptanceEvidence = $true
+      willVerifyArchitectureCloseout = $true
+      writesEvidence = $false
+      changed = $false
+      passed = $true
+    } | ConvertTo-Json -Depth 8 -Compress
+    return
+  }
+
   $sharedPassword = Read-SecretValue 'Shared local closeout password'
   if ($sharedPassword.Length -lt 8) { throw 'Shared local closeout password must contain at least 8 characters' }
   foreach ($name in @(

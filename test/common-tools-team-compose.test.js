@@ -819,6 +819,10 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
   const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
   assert.match(script, /Shared local closeout password/);
+  assert.match(script, /\[switch\]\$PreflightOnly/);
+  assert.match(script, /willFreshResetLocalState = \$true/);
+  assert.match(script, /willOpenBrowserLogin = \$true/);
+  assert.match(script, /writesEvidence = \$false/);
   assert.match(script, /Shared local closeout password must contain at least 8 characters/);
   assert.match(script, /COMMON_TOOLS_DATABASE_PASSWORD/);
   assert.match(script, /COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD/);
@@ -831,6 +835,7 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   assert.match(script, /SetEnvironmentVariable\(\$name, \$originalEnvironment\[\$name\], 'Process'\)/);
   assert.doesNotMatch(script, /--password|--admin-password/);
   assert.match(packageJson, /scripts\/team-runtime-local-closeout\.ps1/);
+  assert.match(packageJson, /common-tools:team-local-closeout-preflight/);
   assert.match(packageJson, /common-tools:team-local-closeout/);
   assert.match(packageVerifier, /scripts\/team-runtime-local-closeout\.ps1/);
 });

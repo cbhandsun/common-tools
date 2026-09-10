@@ -480,10 +480,11 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 日常本机最终验收优先使用一条 closeout 入口；它会提示一次共享本地密码，fresh reset 并部署本地 runtime，然后复用该 runtime 完成浏览器 PKCE 登录、authenticated Job smoke、脱敏 evidence 自检和 architecture closeout：
 
 ```powershell
+npm run common-tools:team-local-closeout-preflight
 npm run common-tools:team-local-closeout
 ```
 
-该入口只把密码放在当前 PowerShell 进程里，临时同步到 PostgreSQL、应用数据库连接、Redis、MinIO、Keycloak admin 和本机测试用户；脚本结束后恢复原环境变量。成功时会写入并自动复核 `artifacts/local-acceptance/*.json`，再运行 `npm run common-tools:architecture-closeout`。如果只想预检或排障，可使用下面的分步入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
+`team-local-closeout-preflight` 只输出 JSON 计划，不删卷、不部署、不打开浏览器、不写 evidence。真实 closeout 入口只把密码放在当前 PowerShell 进程里，临时同步到 PostgreSQL、应用数据库连接、Redis、MinIO、Keycloak admin 和本机测试用户；脚本结束后恢复原环境变量。成功时会写入并自动复核 `artifacts/local-acceptance/*.json`，再运行 `npm run common-tools:architecture-closeout`。如果只想预检或排障，可使用下面的分步入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
 
 ```powershell
 npm run common-tools:team-local-acceptance-preflight
