@@ -267,6 +267,7 @@
     "common-tools:verify-local-acceptance": "node scripts/verify-local-acceptance-evidence.js",
     "common-tools:team-local-fresh-reset": "pwsh -NoProfile -File scripts/team-runtime-local-fresh-reset.ps1 -Mode Apply -Confirm -PromptForSecrets",
     "common-tools:team-local-closeout-preflight": "pwsh -NoProfile -File scripts/team-runtime-local-closeout.ps1 -PreflightOnly",
+    "common-tools:team-local-closeout-existing-preflight": "pwsh -NoProfile -File scripts/team-runtime-local-closeout.ps1 -PreflightOnly -SkipFreshReset",
     "common-tools:team-local-closeout": "pwsh -NoProfile -File scripts/team-runtime-local-closeout.ps1",
     "common-tools:team-local-closeout-existing": "pwsh -NoProfile -File scripts/team-runtime-local-closeout.ps1 -SkipFreshReset",
     "common-tools:team-local-job-smoke": "pwsh -NoProfile -File scripts/team-runtime-local-job-smoke.ps1",

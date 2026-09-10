@@ -844,6 +844,7 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   assert.doesNotMatch(script, /--password|--admin-password/);
   assert.match(packageJson, /scripts\/team-runtime-local-closeout\.ps1/);
   assert.match(packageJson, /common-tools:team-local-closeout-preflight/);
+  assert.match(packageJson, /common-tools:team-local-closeout-existing-preflight/);
   assert.match(packageJson, /common-tools:team-local-closeout/);
   assert.match(packageJson, /common-tools:team-local-closeout-existing/);
   assert.match(packageVerifier, /scripts\/team-runtime-local-closeout\.ps1/);
