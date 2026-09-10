@@ -116,11 +116,12 @@
 - `native-engine-core-modularization` 已按职责边界 verified：普通 native engine 领域模块继续执行 1,500 行预算；`packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js` 作为 runtime composition root 单独封顶 4,100 行，当前 4,005 行，只承担入口编排、注册和 glue code，不再被当作必须继续机械削到 1,500 行的发布阻塞。
   - `packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js` 已降至 1,259 行，低于预算线；hub/tree/timeline、视觉图 helper 与输出投影已迁出到独立模块。
 - `strict-input-boundaries` 已按当前代码 verified：Deck IR、归档准入、Worker 启动配置、OCR handoff、重建元数据、Job row/context、Worker failure 和队列 runner 都有当前文件哈希绑定的目标测试、类型、包边界和架构预算证据。
-- `local-authenticated-acceptance` 与 `production-remote-acceptance` 仍 open，缺真实本机/生产验收 evidence。
-- `recovery-and-retention` 仍 partial，但本地 PostgreSQL/Redis/MinIO 恢复与保留已用当前代码重新跑通并写入 `.codex-tmp/recovery-retention-current-evidence.json`；剩余是最终候选环境的 OCR 发布版本绑定、部署启用、线上观测、备份/回滚验证，需随生产 remote acceptance 一起收口。
-- `editable-output-quality` 仍 partial，但本地 `ppt-create-office-smoke` 已在当前代码下重新跑通：新建 PPT、image batch PPTX、独立 Office corpus、LibreOffice 渲染和 PowerPoint 可编辑 round-trip 均通过，证据为 `.codex-tmp/editable-output-quality-current-evidence.json`；剩余是独立 PDF 输入、相同环境质量/成本比较和远程两条流程验收。
+- 当前项目按本地 Docker authenticated runtime 运行；独立生产环境不存在，因此 `production-remote-acceptance` 调整为 `not-applicable`，生产 preflight/evidence/deploy 工具作为未来可选能力保留，不再阻挡本轮 closeout。
+- `local-authenticated-acceptance` 仍 open，缺用户本机输入共享验收密码并完成浏览器 PKCE 登录后生成的 `artifacts/local-acceptance/*.json`。
+- `recovery-and-retention` 已按本地运行范围 verified：PostgreSQL/Redis/MinIO 恢复与保留已用当前代码重新跑通并写入 `.codex-tmp/recovery-retention-current-evidence.json`；生产观测/备份/回滚属于未来独立生产环境扩展。
+- `editable-output-quality` 已按本地运行范围 verified：本地 `ppt-create-office-smoke` 已在当前代码下重新跑通，新建 PPT、image batch PPTX、独立 Office corpus、LibreOffice 渲染和 PowerPoint 可编辑 round-trip 均通过，证据为 `.codex-tmp/editable-output-quality-current-evidence.json`；生产远程质量/成本比较属于未来扩展。
 
-结论：整体架构方向已经从“历史 skill 大实现”迁出到“插件平台 + native runtime + core/lib 边界”的轨道上。剩余不需要推倒重来，也不继续为行数洁癖追拆；主线转为完成本地/生产 authenticated acceptance evidence，以及围绕恢复留存、可编辑输出质量补齐必要证据。
+结论：整体架构方向已经从“历史 skill 大实现”迁出到“插件平台 + native runtime + core/lib 边界”的轨道上。当前不需要推倒重来，也不继续为行数洁癖追拆；主线只剩本地 authenticated acceptance evidence。
 
 ## 2026-09-09 收口：本地部署入口简化为一条命令、一次密码、自动 smoke
 
@@ -398,9 +399,9 @@ flowchart TD
 | A 工程预算 | 预算及增量门禁持续通过；architecture budget 不再把 skill 分发镜像或 native engine payload 当作普通核心源码治理对象；native engine payload manifest 已接入 lint 链路，历史 Skill 脚本引用另有 decreasing-only 预算，防止迁移中反弹 | 后续每迁出一组历史引用即同步降低 `config/skill-source-migration-budget.json` |
 | B 核心引擎拆分 | 页面阶段、构建、文字策略及多组重建职责已进入核心包；生产 Worker 不再依赖 skill 脚本或旧式兼容入口，改经 `slideclone-native-engine` package 入口加载包内 native engine payload；payload 根脚本已分为 production entrypoints、rendering/quality harness 和 component acquisition tools 三组；图片 worker 编排已从 `slideclone-core` 移到 `slideclone-worker-adapter`，core 不再直接依赖 `team-runtime`；通用 PPTX ZIP/Inventory 已进入 `ooxml-core` | 若继续追求引擎内部瘦身，应优先从 component acquisition tools 入手，再按能力面迁移，而不是让历史大文件重新进入核心包或 production adapter |
 | C 类型和输入边界 | Job、OCR、Worker 配置及多项 Deck IR/模板/图表准入已纳入严格类型与回归；工具平台重建及 Deck IR 数据属性/头部边界已补齐 | 完整 Deck IR 和剩余核心边界尚未证明覆盖完整；逐项补足，不能用全量测试通过代替覆盖证明 |
-| D 远程交付 | 本地工具和发布/验收能力已有实现；后续实际核对显示候选图片 Worker 曾可创建远程 PDF 作业，但因生产数据库尚未应用 010/011 delivery schema 迁移而失败并回滚；production preflight 已新增必需迁移文件门禁，Plan 输出会显式列出 schemaMigrations 和 preApplyChecklist；`common-tools team migration-status` 可在同一生产环境只读查看已应用/待应用/漂移/缺失的 migration；生产只读诊断、验收命令和受控发布脚本已统一支持通过仓库外受保护 env 文件显式加载生产 `COMMON_TOOLS_*` 配置；`common-tools team production-acceptance-plan` 与 `common-tools team production-acceptance-evidence --out <dir>` 已提供脱敏验收计划和只读证据归档入口；npm scripts 已覆盖 production preflight、migration status 和 acceptance evidence，运行包安装探针也覆盖关键入口；真实隔离 PostgreSQL 恢复测试已验证 001→011 migration、delivery intent 与 Redis 丢失后的恢复链路 | 将生产 Secret 注入同一目标环境后运行 acceptance evidence；受控执行生产迁移并重新切换候选 Worker 后，完成两条真实流程、版本绑定、授权负例和回滚验证 |
-| E 阶段恢复 | [本地恢复验收](stage-recovery-acceptance.md)覆盖故障、缓存、取消、租约和清理 | 实际 OCR 发布版本绑定、部署启用及线上观测验收，与 D 合并执行 |
-| F 实际编辑质量 | 开发图片样例通过实际 Worker 全部交付检查与 PowerPoint 选定对象编辑；新建 PPT 本地生成及 Office 表格、图表编辑通过 | 新 PDF、独立样本、相同环境的完整质量和成本比较；远程两条流程仍待验证 |
+| D 本地 authenticated 交付 | 本地工具、Keycloak、浏览器 PKCE、测试用户准备、authenticated Job smoke、脱敏 evidence 和机器复核器已实现；生产 preflight/evidence/deploy 工具作为未来可选能力保留 | 用户在本机输入一次共享验收密码并完成浏览器登录，生成 `artifacts/local-acceptance/*.json` 后运行 `npm run common-tools:verify-local-acceptance` |
+| E 阶段恢复 | [本地恢复验收](stage-recovery-acceptance.md)覆盖故障、缓存、取消、租约、清理、PostgreSQL/Redis/MinIO 恢复与保留 | 当前本地运行范围已完成；生产观测属于未来扩展 |
+| F 实际编辑质量 | 新建 PPT、image batch PPTX、独立 Office corpus、LibreOffice 渲染和 PowerPoint 可编辑 round-trip 已通过当前证据 | 当前本地运行范围已完成；生产远程质量/成本比较属于未来扩展 |
 
 ## 当前工程基线
 

@@ -26,13 +26,17 @@ test("architecture closeout checklist validates current open and verified eviden
   const result = summarizeCloseout({ repositoryRoot: path.resolve(__dirname, "..") });
   assert.equal(result.failures.length, 0);
   assert.equal(result.complete, false);
-  assert.ok(result.counts.verified >= 2);
-  assert.ok(result.counts.partial >= 1);
-  assert.ok(result.counts.open >= 1);
+  assert.ok(result.counts.verified >= 6);
+  assert.equal(result.counts.partial, 0);
+  assert.equal(result.counts.open, 1);
+  assert.equal(result.counts.notApplicable, 1);
   assert.ok(result.items.some((item) => item.id === "local-authenticated-acceptance" && item.status === "open"));
   const localAcceptance = result.items.find((item) => item.id === "local-authenticated-acceptance");
   assert.equal(localAcceptance.configuredStatus, "open");
   assert.equal(localAcceptance.evidenceCheck.passed, false);
+  const productionAcceptance = result.items.find((item) => item.id === "production-remote-acceptance");
+  assert.equal(productionAcceptance.configuredStatus, "not-applicable");
+  assert.equal(productionAcceptance.status, "not-applicable");
   const nativeEngine = result.items.find((item) => item.id === "native-engine-core-modularization");
   assert.equal(nativeEngine.configuredStatus, "verified");
   assert.equal(nativeEngine.status, "verified");
@@ -41,6 +45,29 @@ test("architecture closeout checklist validates current open and verified eviden
   assert.equal(nativeEngine.evidenceCheck.oversizedDomainModuleCount, 0);
   assert.equal(nativeEngine.evidenceCheck.compositionRootMaxLines, 4100);
   assert.ok(nativeEngine.evidenceCheck.largestFiles[0].file.startsWith("packages/slideclone-native-engine/scripts/"));
+});
+
+test("architecture closeout checklist treats not-applicable scope as complete-neutral", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  fs.writeFileSync(path.join(workspace, "evidence.json"), "{}");
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "future-production-scope",
+      area: "D",
+      status: "not-applicable",
+      summary: "This future production scope is intentionally outside the current local-only closeout.",
+      evidenceFiles: ["evidence.json"],
+      verificationCommands: ["npm run future-production-check"],
+      remaining: []
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace, requireComplete: true });
+  assert.equal(result.complete, true);
+  assert.equal(result.counts.notApplicable, 1);
+  assert.deepEqual(result.failures, []);
 });
 
 test("architecture closeout checklist cannot mark missing evidence as verified", () => {

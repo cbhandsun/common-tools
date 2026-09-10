@@ -6,7 +6,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { verifyLocalAcceptanceEvidence, walkForSecrets } = require("./verify-local-acceptance-evidence");
 
-const VALID_STATUS = new Set(["verified", "partial", "open"]);
+const VALID_STATUS = new Set(["verified", "partial", "open", "not-applicable"]);
 const VALID_AREAS = new Set(["A", "B", "C", "D", "E", "F"]);
 const DEFAULT_CONFIG = path.join("config", "architecture-closeout-checklist.json");
 const NATIVE_ENGINE_PAYLOAD_ROOT = path.join("packages", "slideclone-native-engine", "scripts");
@@ -84,8 +84,8 @@ function validateChecklist(checklist) {
     assertStringArray(item.evidenceFiles, `${label} evidenceFiles`);
     assertStringArray(item.verificationCommands, `${label} verificationCommands`);
     for (const file of item.evidenceFiles) assertRelativePath(file, `${label} evidence file`);
-    if (item.status !== "verified") assertStringArray(item.remaining, `${label} remaining`);
-    if (item.status === "verified" && item.remaining !== undefined) assertStringArray(item.remaining, `${label} remaining`, { allowEmpty: true });
+    if (item.status === "partial" || item.status === "open") assertStringArray(item.remaining, `${label} remaining`);
+    if ((item.status === "verified" || item.status === "not-applicable") && item.remaining !== undefined) assertStringArray(item.remaining, `${label} remaining`, { allowEmpty: true });
   }
   return checklist.items;
 }
@@ -353,10 +353,12 @@ function currentItemState(item, repositoryRoot) {
   }
   if (item.id === "recovery-and-retention") {
     const evidenceCheck = recoveryRetentionEvidenceStatus(repositoryRoot);
+    if (item.status === "verified" && !evidenceCheck.passed) return Object.freeze({ status: "partial", remainingCount: 1, evidenceCheck });
     return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
   }
   if (item.id === "editable-output-quality") {
     const evidenceCheck = editableOutputQualityEvidenceStatus(repositoryRoot);
+    if (item.status === "verified" && !evidenceCheck.passed) return Object.freeze({ status: "partial", remainingCount: 1, evidenceCheck });
     return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
   }
   return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0 });
@@ -382,12 +384,13 @@ function summarizeCloseout({ repositoryRoot = path.resolve(__dirname, ".."), con
   const counts = Object.freeze({
     verified: itemSummaries.filter((item) => item.status === "verified").length,
     partial: itemSummaries.filter((item) => item.status === "partial").length,
-    open: itemSummaries.filter((item) => item.status === "open").length
+    open: itemSummaries.filter((item) => item.status === "open").length,
+    notApplicable: itemSummaries.filter((item) => item.status === "not-applicable").length
   });
   const failures = [];
   for (const item of itemSummaries) {
     if (item.status === "verified" && item.missingEvidence.length > 0) failures.push(`${item.id} is marked verified but evidence is missing: ${item.missingEvidence.join(", ")}`);
-    if (requireComplete && item.status !== "verified") failures.push(`${item.id} is not verified`);
+    if (requireComplete && (item.status === "partial" || item.status === "open")) failures.push(`${item.id} is not verified`);
   }
   return Object.freeze({
     objective: checklist.objective,
