@@ -51,6 +51,7 @@ function Set-MissingLocalDefaults {
     COMMON_TOOLS_OIDC_ISSUER = 'http://127.0.0.1:58080/realms/common-tools'
     COMMON_TOOLS_OIDC_JWKS_URL = 'http://keycloak:8080/realms/common-tools/protocol/openid-connect/certs'
     COMMON_TOOLS_OIDC_AUDIENCE = 'common-tools-mcp'
+    COMMON_TOOLS_KEYCLOAK_ADMIN = 'local-admin'
     COMMON_TOOLS_TEAM_CAPABILITIES = 'image-to-editable,project-audit,ppt-create,ppt-quality,ppt-improve'
   }
   foreach ($entry in $defaults.GetEnumerator()) {

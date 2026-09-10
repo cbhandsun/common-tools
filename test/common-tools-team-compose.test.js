@@ -235,6 +235,7 @@ test("fresh local reset requires one password and only removes declared project 
   assert.match(script, /function Set-MissingFreshResetPassword/);
   assert.match(script, /Shared fresh local reset password/);
   assert.match(script, /Fresh local reset password must contain at least 8 characters/);
+  assert.match(script, /COMMON_TOOLS_KEYCLOAK_ADMIN = 'local-admin'/);
   assert.match(script, /Invoke-FreshCompose @\('down', '--volumes'\)/);
   assert.doesNotMatch(script, /Invoke-FreshCompose @\('down', '--volumes', '--remove-orphans'\)/);
   assert.match(script, /team-runtime-local-deploy\.ps1/);
