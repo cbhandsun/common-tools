@@ -14,6 +14,7 @@ const NATIVE_ENGINE_TARGET_MAX_LINES = 1500;
 const NATIVE_ENGINE_COMPOSITION_ROOT_MAX_LINES = 4100;
 const NATIVE_ENGINE_COMPOSITION_ROOTS = new Set(["rebuild-real-pptx-native.js"]);
 const STRICT_INPUT_BOUNDARY_EVIDENCE = ".codex-tmp/strict-input-boundaries-current-evidence.json";
+const RECOVERY_RETENTION_EVIDENCE = ".codex-tmp/recovery-retention-current-evidence.json";
 
 function parseArgs(argv) {
   const options = { config: DEFAULT_CONFIG, requireComplete: false };
@@ -163,6 +164,43 @@ function strictInputBoundaryEvidenceStatus(repositoryRoot) {
   return Object.freeze({ available: true, passed: failures.length === 0, evidenceFile: read.file, failures });
 }
 
+function recoveryRetentionEvidenceStatus(repositoryRoot) {
+  const read = readJsonEvidence(repositoryRoot, RECOVERY_RETENTION_EVIDENCE, "recovery and retention evidence file");
+  if (!read) {
+    return Object.freeze({
+      available: false,
+      passed: false,
+      evidenceFile: null,
+      failures: ["recovery and retention evidence is unavailable"]
+    });
+  }
+  const evidence = read.value;
+  const failures = [];
+  if (evidence?.schemaVersion !== 1) failures.push("recovery and retention evidence schema is invalid");
+  const checks = evidence?.checks && typeof evidence.checks === "object" && !Array.isArray(evidence.checks) ? evidence.checks : {};
+  if (checks.postgresRecovery?.exitCode !== 0 || checks.postgresRecovery?.failed !== 0 || checks.postgresRecovery?.passed !== 1) failures.push("PostgreSQL recovery evidence did not pass");
+  if (checks.s3Retention?.exitCode !== 0 || checks.s3Retention?.failed !== 0 || checks.s3Retention?.passed !== 1) failures.push("S3 retention evidence did not pass");
+  if (checks.typecheck?.exitCode !== 0) failures.push("recovery and retention typecheck did not pass");
+  if (checks.workspaceBoundaries?.exitCode !== 0) failures.push("recovery and retention workspace check did not pass");
+  if (checks.architectureBudgets?.exitCode !== 0) failures.push("recovery and retention architecture budget check did not pass");
+  const files = Array.isArray(evidence?.files) ? evidence.files : [];
+  if (files.length < 6) failures.push("recovery and retention evidence has insufficient file coverage");
+  for (const entry of files) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry) || typeof entry.file !== "string" || typeof entry.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(entry.sha256)) {
+      failures.push("recovery and retention evidence file entry is invalid");
+      continue;
+    }
+    try {
+      if (sha256File(repositoryRoot, entry.file) !== entry.sha256) failures.push(`recovery and retention evidence is stale for ${assertRelativePath(entry.file, "recovery and retention evidence file entry")}`);
+    } catch {
+      failures.push(`recovery and retention evidence file is unavailable: ${entry.file}`);
+    }
+  }
+  const secretFindings = walkForSecrets(evidence).filter((finding) => !finding.endsWith(".sha256"));
+  if (secretFindings.length > 0) failures.push(`recovery and retention evidence contains secret-shaped fields: ${secretFindings.slice(0, 8).join(", ")}`);
+  return Object.freeze({ available: true, passed: failures.length === 0, evidenceFile: read.file, failures });
+}
+
 function listJavaScriptFiles(directory, base = directory) {
   const files = [];
   let entries;
@@ -267,6 +305,10 @@ function currentItemState(item, repositoryRoot) {
   if (item.id === "production-remote-acceptance") {
     const evidenceCheck = productionAcceptanceEvidenceStatus(repositoryRoot);
     if (evidenceCheck.passed) return Object.freeze({ status: "partial", remainingCount: Math.max(1, Array.isArray(item.remaining) ? item.remaining.length - 1 : 1), evidenceCheck });
+    return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
+  }
+  if (item.id === "recovery-and-retention") {
+    const evidenceCheck = recoveryRetentionEvidenceStatus(repositoryRoot);
     return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0, evidenceCheck });
   }
   return Object.freeze({ status: item.status, remainingCount: Array.isArray(item.remaining) ? item.remaining.length : 0 });

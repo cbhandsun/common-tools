@@ -118,11 +118,15 @@
       "summary": "本地恢复、缓存、取消、租约、清理和存储恢复演练已有证据；线上 OCR 版本绑定与生产观测需并入远程验收。",
       "evidenceFiles": [
         "docs/stage-recovery-acceptance.md",
-        ".codex-tmp/architecture-recovery-consolidated-ci-evidence.json"
+        ".codex-tmp/architecture-recovery-consolidated-ci-evidence.json",
+        ".codex-tmp/recovery-retention-current-evidence.json"
       ],
       "verificationCommands": [
         "npm run test:postgres-recovery",
-        "npm run test:s3-retention"
+        "npm run test:s3-retention",
+        "npm run typecheck",
+        "node scripts/verify-workspace-boundaries.js",
+        "node scripts/verify-architecture-budgets.js"
       ],
       "remaining": [
         "在最终候选环境验证 OCR 发布版本绑定、线上观测和恢复路径。"

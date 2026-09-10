@@ -242,6 +242,83 @@ test("architecture closeout checklist keeps strict input boundaries partial when
   assert.match(result.items[0].evidenceCheck.failures.join("\n"), /stale/u);
 });
 
+test("architecture closeout checklist reports current recovery and retention evidence without closing production scope", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const files = Array.from({ length: 6 }, (_, index) => `packages/recovery-${index}.js`);
+  for (const [index, file] of files.entries()) {
+    fs.mkdirSync(path.dirname(path.join(workspace, file)), { recursive: true });
+    fs.writeFileSync(path.join(workspace, file), `module.exports = ${index};\n`);
+  }
+  writeJson(path.join(workspace, ".codex-tmp", "recovery-retention-current-evidence.json"), {
+    schemaVersion: 1,
+    files: files.map((file, index) => ({ file, sha256: sha256(`module.exports = ${index};\n`) })),
+    checks: {
+      postgresRecovery: { exitCode: 0, passed: 1, failed: 0 },
+      s3Retention: { exitCode: 0, passed: 1, failed: 0 },
+      typecheck: { exitCode: 0 },
+      workspaceBoundaries: { exitCode: 0 },
+      architectureBudgets: { exitCode: 0 }
+    }
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "recovery-and-retention",
+      area: "E",
+      status: "partial",
+      summary: "This item stays partial until production recovery and observability are verified.",
+      evidenceFiles: [".codex-tmp/recovery-retention-current-evidence.json"],
+      verificationCommands: ["npm run test:postgres-recovery", "npm run test:s3-retention"],
+      remaining: ["Verify production OCR release binding and online observability."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.partial, 1);
+  assert.equal(result.items[0].status, "partial");
+  assert.equal(result.items[0].remainingCount, 1);
+  assert.equal(result.items[0].evidenceCheck.passed, true);
+});
+
+test("architecture closeout checklist flags stale recovery and retention evidence", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const files = Array.from({ length: 6 }, (_, index) => `packages/recovery-${index}.js`);
+  for (const [index, file] of files.entries()) {
+    fs.mkdirSync(path.dirname(path.join(workspace, file)), { recursive: true });
+    fs.writeFileSync(path.join(workspace, file), `module.exports = ${index};\n`);
+  }
+  writeJson(path.join(workspace, ".codex-tmp", "recovery-retention-current-evidence.json"), {
+    schemaVersion: 1,
+    files: files.map((file) => ({ file, sha256: sha256("old recovery evidence\n") })),
+    checks: {
+      postgresRecovery: { exitCode: 0, passed: 1, failed: 0 },
+      s3Retention: { exitCode: 0, passed: 1, failed: 0 },
+      typecheck: { exitCode: 0 },
+      workspaceBoundaries: { exitCode: 0 },
+      architectureBudgets: { exitCode: 0 }
+    }
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "recovery-and-retention",
+      area: "E",
+      status: "partial",
+      summary: "This item reports stale local recovery evidence.",
+      evidenceFiles: [".codex-tmp/recovery-retention-current-evidence.json"],
+      verificationCommands: ["npm run test:postgres-recovery", "npm run test:s3-retention"],
+      remaining: ["Refresh recovery evidence."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.partial, 1);
+  assert.equal(result.items[0].evidenceCheck.passed, false);
+  assert.match(result.items[0].evidenceCheck.failures.join("\n"), /stale/u);
+});
+
 test("architecture closeout checklist keeps native engine open when a domain module exceeds target", () => {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
   const payloadRoot = path.join(workspace, "packages", "slideclone-native-engine", "scripts");
