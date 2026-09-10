@@ -834,6 +834,9 @@ test("local closeout wrapper runs reset, authenticated acceptance, and architect
   assert.match(script, /team-runtime-doctor\.js/);
   assert.match(script, /function Invoke-LocalCloseoutDoctor/);
   assert.match(script, /function Set-MissingLocalGatewayPortFromCompose/);
+  assert.match(script, /function Assert-ExistingLocalRuntimeReady/);
+  assert.match(script, /checking existing local Common Tools runtime before prompting for secrets/);
+  assert.match(script, /Existing local Common Tools runtime is not ready for authenticated closeout/);
   assert.match(script, /remote-mcp-gateway/);
   assert.match(script, /COMMON_TOOLS_REMOTE_PORT/);
   assert.match(script, /willDiscoverGatewayPort = \$true/);

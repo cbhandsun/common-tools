@@ -47,6 +47,13 @@ function Invoke-LocalCloseoutDoctor([string]$Phase) {
   if ($LASTEXITCODE -ne 0) { Write-Warning 'Sanitized runtime diagnostics reported an unhealthy local runtime.' }
 }
 
+function Assert-ExistingLocalRuntimeReady {
+  Write-Host 'Preflight: checking existing local Common Tools runtime before prompting for secrets.'
+  $remotePort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
+  & node $doctorScript '--project' $Project '--scope' 'all' '--gateway-url' "http://127.0.0.1:$remotePort" '--expected-capabilities' $Capabilities
+  if ($LASTEXITCODE -ne 0) { throw 'Existing local Common Tools runtime is not ready for authenticated closeout' }
+}
+
 function Set-MissingLocalGatewayPortFromCompose {
   $existing = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
   if (-not [string]::IsNullOrWhiteSpace($existing)) { return }
@@ -108,6 +115,11 @@ try {
     return
   }
 
+  if ($SkipFreshReset) {
+    Set-MissingLocalGatewayPortFromCompose
+    Assert-ExistingLocalRuntimeReady
+  }
+
   $sharedPassword = Read-SecretValue 'Shared local closeout password'
   if ($sharedPassword.Length -lt 8) { throw 'Shared local closeout password must contain at least 8 characters' }
   foreach ($name in @(
@@ -133,7 +145,7 @@ try {
     }
   }
 
-  Set-MissingLocalGatewayPortFromCompose
+  if (-not $SkipFreshReset) { Set-MissingLocalGatewayPortFromCompose }
   Write-Host 'Step 2/3: running authenticated acceptance against the local runtime.'
   $acceptanceArguments = @(
     '-Project', $Project,
