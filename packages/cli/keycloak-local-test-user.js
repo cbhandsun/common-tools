@@ -31,7 +31,7 @@ function assertSafeRole(value) {
 }
 
 function assertPassword(value, name) {
-  if (typeof value !== "string" || value.length < 12 || value.length > 4096 || value.includes("\0")) throw new Error(`${name} is invalid`);
+  if (typeof value !== "string" || value.length < 8 || value.length > 4096 || value.includes("\0")) throw new Error(`${name} is invalid`);
   return value;
 }
 

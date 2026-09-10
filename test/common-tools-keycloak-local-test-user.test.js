@@ -32,8 +32,8 @@ function userFetch(initialUser = null) {
 
 const optionsEnvironment = Object.freeze({
   COMMON_TOOLS_KEYCLOAK_ADMIN: "local-admin",
-  COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD: "long-admin-password",
-  COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD: "long-user-password",
+  COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD: "adminpw8",
+  COMMON_TOOLS_KEYCLOAK_TEST_USER_PASSWORD: "userpw88",
   COMMON_TOOLS_KEYCLOAK_PORT: "58080"
 });
 
@@ -54,9 +54,9 @@ test("local Keycloak test user check is read-only and redacts passwords", async 
     baseUrl: "http://127.0.0.1:58080",
     realm: "common-tools",
     adminUsername: "local-admin",
-    adminPassword: "long-admin-password",
+    adminPassword: "adminpw8",
     username: "local-tester",
-    password: "long-user-password",
+    password: "userpw88",
     projectId: "deploy",
     role: "editor",
     fetchImpl: missing.fetchImpl
@@ -72,9 +72,9 @@ test("local Keycloak test user apply creates user, membership claim and password
     baseUrl: "http://127.0.0.1:58080",
     realm: "common-tools",
     adminUsername: "local-admin",
-    adminPassword: "long-admin-password",
+    adminPassword: "adminpw8",
     username: "local-tester",
-    password: "long-user-password",
+    password: "userpw88",
     projectId: "deploy",
     role: "editor",
     apply: true,
@@ -82,8 +82,8 @@ test("local Keycloak test user apply creates user, membership claim and password
   });
   assert.equal(result.status, "created");
   assert.equal(keycloak.user().attributes.common_tools_projects[0], projectMembershipAttribute("deploy", "editor"));
-  assert.equal(keycloak.calls.some((call) => call.url.endsWith("/reset-password") && call.body.includes("long-user-password")), true);
-  assert.doesNotMatch(JSON.stringify(result), /long-user-password|long-admin-password/i);
+  assert.equal(keycloak.calls.some((call) => call.url.endsWith("/reset-password") && call.body.includes("userpw88")), true);
+  assert.doesNotMatch(JSON.stringify(result), /userpw88|adminpw8/i);
 });
 
 test("local Keycloak test user apply repairs drift without duplicating users", async () => {
@@ -92,9 +92,9 @@ test("local Keycloak test user apply repairs drift without duplicating users", a
     baseUrl: "http://127.0.0.1:58080",
     realm: "common-tools",
     adminUsername: "local-admin",
-    adminPassword: "long-admin-password",
+    adminPassword: "adminpw8",
     username: "local-tester",
-    password: "long-user-password",
+    password: "userpw88",
     projectId: "deploy",
     role: "admin",
     apply: true,
