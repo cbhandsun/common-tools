@@ -752,6 +752,8 @@ test("local acceptance wrapper chains deployment, user setup and authenticated s
   assert.match(script, /if \(-not \$SkipJobWait\) \{ \$jobArguments \+= '-Wait' \}/);
   assert.doesNotMatch(script, /--password|--admin-password/);
   assert.match(packageJson, /scripts\/team-runtime-local-acceptance\.ps1/);
+  assert.match(packageJson, /common-tools:team-local-acceptance-preflight/);
+  assert.match(packageJson, /team-runtime-local-acceptance\.ps1 -PreflightOnly/);
   assert.match(packageJson, /common-tools:team-local-acceptance/);
   assert.match(packageVerifier, /scripts\/team-runtime-local-acceptance\.ps1/);
 });

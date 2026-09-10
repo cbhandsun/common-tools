@@ -258,6 +258,7 @@
     "common-tools:team-object-store-restore-drill": "node packages/remote-mcp-server/bin/common-tools-team-object-store-restore-drill.js",
     "common-tools:team-doctor": "node scripts/team-runtime-doctor.js",
     "common-tools:team-local-smoke": "pwsh -NoProfile -File scripts/team-runtime-local-smoke.ps1",
+    "common-tools:team-local-acceptance-preflight": "pwsh -NoProfile -File scripts/team-runtime-local-acceptance.ps1 -PreflightOnly",
     "common-tools:team-local-acceptance": "pwsh -NoProfile -File scripts/team-runtime-local-acceptance.ps1",
     "common-tools:verify-local-acceptance": "node scripts/verify-local-acceptance-evidence.js",
     "common-tools:team-local-job-smoke": "pwsh -NoProfile -File scripts/team-runtime-local-job-smoke.ps1",

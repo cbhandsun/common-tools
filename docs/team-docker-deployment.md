@@ -480,7 +480,7 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 日常本机验收优先使用一条入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
 
 ```powershell
-.\scripts\team-runtime-local-acceptance.ps1 -PreflightOnly
+npm run common-tools:team-local-acceptance-preflight
 .\scripts\team-runtime-local-acceptance.ps1
 ```
 
