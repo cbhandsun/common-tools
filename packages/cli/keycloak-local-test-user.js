@@ -81,12 +81,19 @@ function localTestUserDriftReasons(user, { username, projectId, role }) {
   return reasons;
 }
 
+function keycloakUserId(user) {
+  const id = user && typeof user === "object" && !Array.isArray(user) && typeof user.id === "string" && /^[A-Za-z0-9-]{1,128}$/.test(user.id) ? user.id : null;
+  if (!id) throw new Error("Keycloak local test user id is invalid");
+  return id;
+}
+
 async function readUserByUsername(fetchImpl, usersUrl, headers, username) {
   const users = await requestJson(fetchImpl, `${usersUrl}?username=${encodeURIComponent(username)}&exact=true&briefRepresentation=false`, { headers });
   if (!Array.isArray(users)) throw new Error("Keycloak user search response is invalid");
   const matching = users.filter((entry) => entry && typeof entry === "object" && entry.username === username);
   if (matching.length > 1) throw new Error("Keycloak local test user is duplicated");
-  return matching[0] || null;
+  if (!matching[0]) return null;
+  return requestJson(fetchImpl, `${usersUrl}/${encodeURIComponent(keycloakUserId(matching[0]))}`, { headers });
 }
 
 async function synchronizeLocalTestUser({ baseUrl, realm, adminUsername, adminPassword, username, password, projectId, role, apply = false, fetchImpl = globalThis.fetch }) {
@@ -111,11 +118,11 @@ async function synchronizeLocalTestUser({ baseUrl, realm, adminUsername, adminPa
     if (!user) throw new Error("Keycloak local test user creation verification failed");
   }
   const snapshot = localTestUserSnapshot(user);
-  if (!snapshot.id) throw new Error("Keycloak local test user id is invalid");
+  const userId = keycloakUserId(snapshot);
   if (!localTestUserMatches(user, { username: safeUsername, projectId: safeProjectId, role: safeRole })) {
-    await requestOk(fetchImpl, `${usersUrl}/${encodeURIComponent(snapshot.id)}`, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ ...user, username: safeUsername, enabled: true, emailVerified: true, attributes: { ...(user.attributes || {}), ...attributes } }) });
+    await requestOk(fetchImpl, `${usersUrl}/${encodeURIComponent(userId)}`, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ ...user, username: safeUsername, enabled: true, emailVerified: true, attributes: { ...(user.attributes || {}), ...attributes } }) });
   }
-  await requestOk(fetchImpl, `${usersUrl}/${encodeURIComponent(snapshot.id)}/reset-password`, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ type: "password", value: safePassword, temporary: false }) });
+  await requestOk(fetchImpl, `${usersUrl}/${encodeURIComponent(userId)}/reset-password`, { method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ type: "password", value: safePassword, temporary: false }) });
   const verified = await readUserByUsername(fetchImpl, usersUrl, headers, safeUsername);
   if (!verified) throw new Error("Keycloak local test user verification failed: user missing after update");
   const verificationDrift = localTestUserDriftReasons(verified, { username: safeUsername, projectId: safeProjectId, role: safeRole });

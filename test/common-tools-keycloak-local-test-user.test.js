@@ -15,6 +15,7 @@ function userFetch(initialUser = null) {
     calls.push({ url: String(url), method: options.method || "GET", body: options.body });
     if (String(url).endsWith("/realms/master/protocol/openid-connect/token")) return response({ access_token: "temporary-admin-token" });
     if (String(url).includes("/users?username=")) return response(user ? [user] : []);
+    if (String(url).endsWith("/admin/realms/common-tools/users/user-123") && !options.method) return response(user);
     if (String(url).endsWith("/admin/realms/common-tools/users") && options.method === "POST") {
       const body = JSON.parse(options.body);
       user = { id: "user-123", ...body };
