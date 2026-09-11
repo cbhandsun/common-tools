@@ -11,15 +11,27 @@ function outputPath(value) {
   return path.resolve(value);
 }
 
+/** Compare full 64-bit file identities without trusting truncated or unknown inode values.
+ * @param {{ dev?: bigint, ino?: bigint }} source @param {{ dev?: bigint, ino?: bigint }} target @returns {boolean} */
+function sameFileIdentity(source, target) {
+  if (typeof source?.dev !== "bigint" || typeof source?.ino !== "bigint" || typeof target?.dev !== "bigint" || typeof target?.ino !== "bigint") {
+    throw new TypeError("residual publication file identity is invalid");
+  }
+  // Windows file IDs and some filesystems can report a zero or truncated inode. A zero inode is never
+  // proof that two paths are the same file, and treating it as proof refuses legitimate distinct outputs.
+  if (source.ino === 0n || target.ino === 0n) return false;
+  return source.dev === target.dev && source.ino === target.ino;
+}
+
 /** @param {string} sourceFile @param {string} outputFile */
 function assertSeparateOutput(sourceFile, outputFile) {
-  const source = fs.statSync(sourceFile);
+  const source = fs.statSync(sourceFile, { bigint: true });
   if (!source.isFile()) throw new Error("residual source is invalid");
   if (sourceFile === outputFile) throw new Error("residual output would replace its source");
-  const existing = fs.lstatSync(outputFile, { throwIfNoEntry: false });
+  const existing = fs.lstatSync(outputFile, { throwIfNoEntry: false, bigint: true });
   if (!existing) return;
   if (existing.isSymbolicLink() || !existing.isFile()) throw new Error("residual output target is invalid");
-  if (fs.realpathSync(sourceFile) === fs.realpathSync(outputFile) || (existing.dev === source.dev && existing.ino === source.ino)) {
+  if (fs.realpathSync(sourceFile) === fs.realpathSync(outputFile) || sameFileIdentity(source, existing)) {
     throw new Error("residual output would replace its source");
   }
 }
@@ -49,4 +61,4 @@ async function publishResidual(input) {
   }
 }
 
-module.exports = { publishResidual };
+module.exports = { publishResidual, sameFileIdentity };

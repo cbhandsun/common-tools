@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { readPng, writePng } = require("../packages/slideclone-core/png");
 const { createFullSlideResidualBuilder } = require("../packages/slideclone-core/full-slide-native-residual");
+const { sameFileIdentity } = require("../packages/slideclone-core/residual-publication");
 
 function fixture(t, overrides = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "residual-publication-"));
@@ -48,6 +49,24 @@ test("successful publication replaces the output with a validated residual", asy
   assert.equal(result.widthPx, 4);
   assert.deepEqual(readPng(value.request.outputFile).rgba, readPng(value.request.sourceFile).rgba);
   assert.deepEqual(fs.readdirSync(value.root).sort(), ["output.png", "source.png"]);
+});
+
+test("distinct output files are never refused because their contents match the source", async (t) => {
+  const value = fixture(t);
+  fs.writeFileSync(value.request.outputFile, value.sourceBytes);
+  const result = await value.build(value.request);
+  assert.equal(result.widthPx, 4);
+  assert.deepEqual(readPng(value.request.outputFile).rgba, readPng(value.request.sourceFile).rgba);
+  assert.deepEqual(fs.readdirSync(value.root).sort(), ["output.png", "source.png"]);
+});
+
+test("residual publication treats zero and truncated file identities as distinct", () => {
+  assert.equal(sameFileIdentity({ dev: 0n, ino: 0n }, { dev: 0n, ino: 0n }), false);
+  assert.equal(sameFileIdentity({ dev: 5n, ino: 0n }, { dev: 5n, ino: 42n }), false);
+  assert.equal(sameFileIdentity({ dev: 5n, ino: 42n }, { dev: 5n, ino: 42n }), true);
+  assert.equal(sameFileIdentity({ dev: 5n, ino: 42n }, { dev: 5n, ino: 43n }), false);
+  assert.equal(sameFileIdentity({ dev: 5n, ino: 42n }, { dev: 6n, ino: 42n }), false);
+  assert.throws(() => sameFileIdentity({ dev: 5, ino: 42 }, { dev: 5n, ino: 42n }), /file identity is invalid/u);
 });
 
 test("one native arc reports one erased object while expanding to path masks", async (t) => {
