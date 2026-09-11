@@ -6,6 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 const { ESLint } = require("eslint");
 const { discoverTestFiles } = require("../scripts/test-sharded");
+const { eslintFixedArgs, eslintTargets, postNodeScripts } = require("../scripts/lint-common-tools");
 
 const root = path.resolve(__dirname, "..");
 
@@ -107,19 +108,23 @@ test("local CI entry includes static gates and the actual lint/type commands inc
   for (const command of ["lint", "typecheck", "common-tools:verify-plugins", "common-tools:verify-observability", "common-tools:verify-adrs", "test:unit", "test:contract", "test:integration"]) {
     assert.ok(scripts["verify:ci"].split(" && ").includes(`npm run ${command}`), command);
   }
-  assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/graphic-crop-materializer.js"));
-  assert.ok(scripts.lint.includes("packages/slideclone-native-engine/scripts/adapters/render-libreoffice.js"));
-  assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata.js"));
-  assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js"));
-  assert.ok(scripts.lint.includes("eslint --cache --cache-location .cache/eslint/"));
-  assert.ok(scripts.lint.includes("packages/*/*.js"));
-  assert.ok(scripts.lint.includes("packages/*/bin/**/*.js"));
-  assert.ok(scripts.lint.includes("packages/*/verification/**/*.js"));
-  assert.equal(/\beslint\b[^&]*\bpackages(?:\s|$)/u.test(scripts.lint), false);
-  assert.ok(scripts.lint.split(" && ").includes("node scripts/native-engine-runtime-payload.js"));
+  assert.equal(scripts.lint, "node scripts/lint-common-tools.js");
+  for (const target of [
+    "skills/pd-hifi-slideclone/scripts/lib/graphic-crop-materializer.js",
+    "packages/slideclone-native-engine/scripts/adapters/render-libreoffice.js",
+    "skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata.js",
+    "skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js",
+    "packages/*/*.js",
+    "packages/*/bin/**/*.js",
+    "packages/*/verification/**/*.js"
+  ]) assert.ok(eslintTargets.includes(target), target);
+  assert.deepEqual(eslintFixedArgs, ["--cache", "--cache-location", ".cache/eslint/"]);
+  assert.equal(eslintTargets.includes("packages"), false);
+  assert.equal(eslintTargets.includes("packages/**/*.js"), false);
+  assert.ok(postNodeScripts.includes("scripts/native-engine-runtime-payload.js"));
   assert.equal(scripts["verify:native-engine-payload"], "node scripts/native-engine-runtime-payload.js");
   assert.ok(scripts["common-tools:verify-capabilities"].split(" && ").includes("node scripts/generate-capability-catalogs.js --check"));
-  assert.ok(scripts.lint.split(" && ").includes("node scripts/verify-workspace-boundaries.js"));
+  assert.ok(postNodeScripts.includes("scripts/verify-workspace-boundaries.js"));
   assert.match(fs.readFileSync(path.join(root, ".gitignore"), "utf8"), /^\/\.cache\/$/m);
   assert.ok(scripts.typecheck.split(" && ").includes("tsc --project tsconfig.boundaries.json"));
   const boundaries = JSON.parse(fs.readFileSync(path.join(root, "tsconfig.boundaries.json"), "utf8"));

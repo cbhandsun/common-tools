@@ -25,10 +25,12 @@ test("open-gate evidence tests belong to the unified external-process wave", () 
   const entry = discoverTestFiles(path.resolve(__dirname, ".."), "integration").find(item => path.basename(item.file) === "powerpoint-com-open-evidence.test.js");
   assert.equal(entry?.resource, "external-process");
   const manifest = require("../package.json");
+  const { eslintTargets } = require("../scripts/lint-common-tools");
   const lintConfig = require("../eslint.config");
+  assert.equal(manifest.scripts.lint, "node scripts/lint-common-tools.js");
   for (const file of ["lib/powerpoint-open-evidence.js", "lib/powerpoint-session-client.js", "lib/powerpoint-session-broker.js", "lib/powerpoint-corpus-session.js", "lib/progress-reporter.js", "adapters/validate-powerpoint-com.js"]) {
     const source = `packages/slideclone-native-engine/scripts/${file}`;
-    assert.ok(manifest.scripts.lint.includes(source));
+    assert.ok(eslintTargets.includes(source), source);
     assert.ok(lintConfig.some(config => config.files?.includes(source) && config.rules?.["no-console"] === "error"));
   }
 });

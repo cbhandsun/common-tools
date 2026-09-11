@@ -96,8 +96,10 @@ test("read and publication I/O failures remain safe failures", (t) => {
 
 test("round-trip evidence helpers are included in the unified lint entry", () => {
   const manifest = require("../package.json");
-  assert.match(manifest.scripts.lint, /packages\/slideclone-native-engine\/scripts\/lib\/powerpoint-roundtrip-evidence[.]js/);
-  assert.match(manifest.scripts.lint, /packages\/slideclone-native-engine\/scripts\/adapters\/validate-powerpoint-editable-roundtrip[.]js/);
+  const { eslintTargets } = require("../scripts/lint-common-tools");
+  assert.equal(manifest.scripts.lint, "node scripts/lint-common-tools.js");
+  assert.ok(eslintTargets.includes("packages/slideclone-native-engine/scripts/lib/powerpoint-roundtrip-evidence.js"));
+  assert.ok(eslintTargets.includes("packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-editable-roundtrip.js"));
 });
 
 test("evidence is saved before returning failure and can safely replace its previous regular file", (t) => {
