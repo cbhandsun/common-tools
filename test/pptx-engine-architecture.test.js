@@ -85,11 +85,15 @@ test("quality budget policy stays outside the render and audit orchestrator", ()
 test("system map policy and composition stay outside the native rebuild entry point", () => {
   const main = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "rebuild-real-pptx-native.js"), "utf8");
   const moduleSource = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "system-map-reconstruction.js"), "utf8");
+  const factory = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "lib", "native-rebuild-system-map-diagram.js"), "utf8");
   assert.match(main, /require\("\.\/lib\/system-map-reconstruction"\)/);
-  const wrapper = /function createSystemMapDiagramObjects\([\s\S]*?\n}/.exec(main)?.[0] || "";
+  assert.match(main, /require\("\.\/lib\/native-rebuild-system-map-diagram"\)/);
+  assert.doesNotMatch(main, /^function createSystemMapDiagramObjects/m);
+  const wrapper = /function createSystemMapDiagramObjects\([\s\S]*?\n  }/.exec(factory)?.[0] || "";
   assert.match(wrapper, /composeSystemMapDiagram/);
   assert.doesNotMatch(wrapper, /systemMapDiagramObjectified:/);
   assert.doesNotMatch(moduleSource, /rebuild-real-pptx-native/);
+  assert.doesNotMatch(factory, /rebuild-real-pptx-native/);
 });
 
 test("quality gate stdout projection stays outside the quality orchestrator", () => {
@@ -103,6 +107,7 @@ test("quality gate stdout projection stays outside the quality orchestrator", ()
 
 test("page selection, font evidence, crop materialization, output sanitization, and system-map semantics stay outside the rebuild composition root", () => {
   const main = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "rebuild-real-pptx-native.js"), "utf8");
+  const systemMapDiagram = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "lib", "native-rebuild-system-map-diagram.js"), "utf8");
   for (const moduleName of ["font-evidence", "fidelity-crop-materializer", "native-output-sanitizer"]) {
     const moduleSource = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", `${moduleName}.js`), "utf8");
     assert.match(main, new RegExp(`require\\(\"\\.\\/lib\\/${moduleName}\\"\\)`));
@@ -117,7 +122,8 @@ test("page selection, font evidence, crop materialization, output sanitization, 
   assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/page-selection"), require("../packages/slideclone-core/page-selection"));
   assert.doesNotMatch(pageSelection, /rebuild-real-pptx-native/);
   assert.doesNotMatch(main, /^function parsePageSelection/m);
-  assert.match(main, /materializeFidelityCrop\(/);
+  assert.doesNotMatch(main, /materializeFidelityCrop\(/);
+  assert.match(systemMapDiagram, /materializeFidelityCrop\(/);
   assert.doesNotMatch(main, /^function sanitizeNative(?:Chart|Charts|Shape|Shapes)/m);
   const reconstruction = fs.readFileSync(path.join(ROOT, "packages", "slideclone-core", "system-map-reconstruction.js"), "utf8");
   const semantics = fs.readFileSync(path.join(ROOT, "packages", "slideclone-core", "system-map-semantics.js"), "utf8");

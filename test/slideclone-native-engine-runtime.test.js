@@ -27,8 +27,11 @@ test("production native engine package bundles reviewed SlideClone JavaScript su
   ].sort();
   assert.deepEqual(filesUnder(PACKAGE_SCRIPTS).sort(), expected);
   const entrypoint = fs.readFileSync(path.join(PACKAGE_SCRIPTS, "rebuild-real-pptx-native.js"), "utf8");
-  assert.match(entrypoint, /openXmlBuilderRoot: path\.resolve\(__dirname, "\.\.", "dotnet", "OpenXmlDeckBuilder"\)/);
-  assert.doesNotMatch(entrypoint, /openXmlBuilderRoot: path\.resolve\(__dirname, "\.\.", "\.\.", "\.\.", "skills"/);
+  const buildExecutor = fs.readFileSync(path.join(PACKAGE_SCRIPTS, "lib", "native-rebuild-pptx-build-executor.js"), "utf8");
+  assert.match(entrypoint, /require\("\.\/lib\/native-rebuild-pptx-build-executor"\)/);
+  assert.doesNotMatch(entrypoint, /openXmlBuilderRoot\s*:/);
+  assert.match(buildExecutor, /openXmlBuilderRoot: path\.resolve\(scriptDir, "\.\.", "dotnet", "OpenXmlDeckBuilder"\)/);
+  assert.doesNotMatch(buildExecutor, /skills[\\/]+pd-hifi-slideclone/);
 });
 
 test("production workers resolve SlideClone native roots through the native engine package", () => {
