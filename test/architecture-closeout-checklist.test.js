@@ -25,15 +25,14 @@ function sha256(value) {
 test("architecture closeout checklist validates current open and verified evidence boundaries", () => {
   const result = summarizeCloseout({ repositoryRoot: path.resolve(__dirname, "..") });
   assert.equal(result.failures.length, 0);
-  assert.equal(result.complete, false);
   assert.ok(result.counts.verified >= 6);
   assert.equal(result.counts.partial, 0);
-  assert.equal(result.counts.open, 1);
   assert.equal(result.counts.notApplicable, 1);
-  assert.ok(result.items.some((item) => item.id === "local-authenticated-acceptance" && item.status === "open"));
   const localAcceptance = result.items.find((item) => item.id === "local-authenticated-acceptance");
   assert.equal(localAcceptance.configuredStatus, "open");
-  assert.equal(localAcceptance.evidenceCheck.passed, false);
+  assert.equal(localAcceptance.status, localAcceptance.evidenceCheck.passed === true ? "verified" : "open");
+  assert.equal(result.counts.open, localAcceptance.status === "open" ? 1 : 0);
+  assert.equal(result.complete, localAcceptance.status === "verified");
   const productionAcceptance = result.items.find((item) => item.id === "production-remote-acceptance");
   assert.equal(productionAcceptance.configuredStatus, "not-applicable");
   assert.equal(productionAcceptance.status, "not-applicable");
@@ -45,6 +44,34 @@ test("architecture closeout checklist validates current open and verified eviden
   assert.equal(nativeEngine.evidenceCheck.oversizedDomainModuleCount, 0);
   assert.equal(nativeEngine.evidenceCheck.compositionRootMaxLines, 4100);
   assert.ok(nativeEngine.evidenceCheck.largestFiles[0].file.startsWith("packages/slideclone-native-engine/scripts/"));
+});
+
+test("architecture closeout checklist keeps local acceptance open until runtime evidence exists", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  fs.mkdirSync(path.join(workspace, "marker"), { recursive: true });
+  fs.writeFileSync(path.join(workspace, "marker", "local-script.txt"), "placeholder");
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [{
+      id: "local-authenticated-acceptance",
+      area: "D",
+      status: "open",
+      summary: "This item stays open until real local acceptance evidence exists.",
+      evidenceFiles: ["marker/local-script.txt"],
+      verificationCommands: ["npm run common-tools:verify-local-acceptance"],
+      remaining: ["Run real acceptance evidence."]
+    }]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
+  assert.equal(result.counts.open, 1);
+  assert.equal(result.counts.verified, 0);
+  assert.equal(result.complete, false);
+  assert.equal(result.items[0].configuredStatus, "open");
+  assert.equal(result.items[0].status, "open");
+  assert.equal(result.items[0].evidenceCheck.available, false);
+  assert.equal(result.items[0].evidenceCheck.passed, false);
 });
 
 test("architecture closeout checklist treats not-applicable scope as complete-neutral", () => {
