@@ -4,9 +4,10 @@
 
 ## 样例文件结构
 
-- `source.png`：标准 16:9 演示文稿源图片（960x540）。
-- `semantic-fallback.json`：单页语义 fallback sidecar 样例。
-- `batch-semantic-fallback.json`：多页批次语义 fallback sidecar 样例（使用 `sources[].pageIndex` 映射）。
+- `source.png`：标准 16:9 单页演示文稿源图片（960x540），包含��题与说明文案。
+- `source-001.png` / `source-002.png`：多页批次演示用源图片，保证多页 CLI 示例可直接在样例目录执行。
+- `semantic-fallback.json`：单页语义 fallback sidecar 样例，直接表征 `source.png` 的文本与结构层级。
+- `batch-semantic-fallback.json`：多页批次语义 fallback sidecar 样例（使用 `sources[].pageIndex` 显式映射）。
 
 ## 快速开始（CLI 打包）
 

@@ -16,12 +16,16 @@ const FIXTURE_DIR = path.resolve(__dirname, "..", "examples", "team-semantic-fal
 function createWorkspace() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "team-semantic-fallback-smoke-"));
   const sourcePng = path.join(root, "source.png");
+  const source001Png = path.join(root, "source-001.png");
+  const source002Png = path.join(root, "source-002.png");
   const fallbackJson = path.join(root, "semantic-fallback.json");
   const batchFallbackJson = path.join(root, "batch-semantic-fallback.json");
   fs.copyFileSync(path.join(FIXTURE_DIR, "source.png"), sourcePng);
+  fs.copyFileSync(path.join(FIXTURE_DIR, "source-001.png"), source001Png);
+  fs.copyFileSync(path.join(FIXTURE_DIR, "source-002.png"), source002Png);
   fs.copyFileSync(path.join(FIXTURE_DIR, "semantic-fallback.json"), fallbackJson);
   fs.copyFileSync(path.join(FIXTURE_DIR, "batch-semantic-fallback.json"), batchFallbackJson);
-  return { root, sourcePng, fallbackJson, batchFallbackJson };
+  return { root, sourcePng, source001Png, source002Png, fallbackJson, batchFallbackJson };
 }
 
 test("end-to-end smoke: packaging, archive admission, and native rebuild using sample fixture", async () => {
@@ -58,12 +62,10 @@ test("end-to-end smoke: packaging, archive admission, and native rebuild using s
     const admittedSource = packageInfo.sources[0];
     assert.ok(admittedSource.semanticFallback);
     assert.equal(admittedSource.semanticFallback.archetype, "process_flow");
-    assert.equal(admittedSource.semanticFallback.items.length, 4);
-    assert.equal(admittedSource.semanticFallback.items[0].title, "识别");
+    assert.equal(admittedSource.semanticFallback.items.length, 1);
+    assert.equal(admittedSource.semanticFallback.items[0].title, "OCR Smoke 123");
+    assert.equal(admittedSource.semanticFallback.items[0].body, "Caption line");
     assert.equal(admittedSource.semanticFallback.items[0].badge, "01");
-    assert.equal(admittedSource.semanticFallback.items[1].title, "归档");
-    assert.equal(admittedSource.semanticFallback.items[2].title, "准入");
-    assert.equal(admittedSource.semanticFallback.items[3].title, "重建");
 
     // 3. Native Rebuild Verification
     fs.mkdirSync(rebuildWorkDir);
@@ -88,11 +90,9 @@ test("end-to-end smoke: packaging, archive admission, and native rebuild using s
     assert.equal(page.source.declarativeRebuild.matchedPlugin, "builtin-step-chain");
     assert.equal(page.source.declarativeRebuild.qualityPassed, true);
     assert.ok(page.shapes.length > 0);
-    assert.ok(page.textBoxes.length >= 4);
-    assert.ok(page.textBoxes.some((item) => item.text === "识别" && item.source?.declarativeRebuilder === true));
-    assert.ok(page.textBoxes.some((item) => item.text === "归档" && item.source?.declarativeRebuilder === true));
-    assert.ok(page.textBoxes.some((item) => item.text === "准入" && item.source?.declarativeRebuilder === true));
-    assert.ok(page.textBoxes.some((item) => item.text === "重建" && item.source?.declarativeRebuilder === true));
+    assert.ok(page.textBoxes.length >= 2);
+    assert.ok(page.textBoxes.some((item) => item.text === "OCR Smoke 123" && item.source?.declarativeRebuilder === true));
+    assert.ok(page.textBoxes.some((item) => item.text === "Caption line" && item.source?.declarativeRebuilder === true));
     assert.ok(page.shapes.every((shape) => shape.source?.declarativeRebuilder === true));
   } finally {
     fs.rmSync(workspace.root, { recursive: true, force: true });
@@ -122,7 +122,8 @@ test("end-to-end smoke: legacy raw-image-archive CLI preserves semantic fallback
     const packageInfo = validatePackage(extractedDir);
     assert.equal(packageInfo.kind, "raw-image");
     assert.equal(packageInfo.sources[0].semanticFallback.archetype, "process_flow");
-    assert.equal(packageInfo.sources[0].semanticFallback.items.length, 4);
+    assert.equal(packageInfo.sources[0].semanticFallback.items.length, 1);
+    assert.equal(packageInfo.sources[0].semanticFallback.items[0].title, "OCR Smoke 123");
   } finally {
     fs.rmSync(workspace.root, { recursive: true, force: true });
   }
@@ -130,8 +131,6 @@ test("end-to-end smoke: legacy raw-image-archive CLI preserves semantic fallback
 
 test("end-to-end smoke: multi-page batch archive routes semantic fallback to declared page index", () => {
   const workspace = createWorkspace();
-  const secondPng = path.join(workspace.root, "source-002.png");
-  fs.copyFileSync(workspace.sourcePng, secondPng);
   const archiveFile = path.join(workspace.root, "upload-batch.tar.gz");
   const extractedDir = path.join(workspace.root, "extracted-batch");
 
@@ -139,7 +138,7 @@ test("end-to-end smoke: multi-page batch archive routes semantic fallback to dec
     const cliResult = childProcess.spawnSync(process.execPath, [
       CLI_PATH, "team", "editable-source-archive",
       "--workspace", workspace.root,
-      "--inputs", "source.png,source-002.png",
+      "--inputs", "source-001.png,source-002.png",
       "--semantic-fallback", "batch-semantic-fallback.json",
       "--out", "upload-batch.tar.gz"
     ], { encoding: "utf8", windowsHide: true });
@@ -154,7 +153,8 @@ test("end-to-end smoke: multi-page batch archive routes semantic fallback to dec
     const packageInfo = validatePackage(extractedDir);
     assert.equal(packageInfo.pages, 2);
     assert.equal(packageInfo.sources[0].semanticFallback.archetype, "process_flow");
-    assert.equal(packageInfo.sources[0].semanticFallback.items.length, 2);
+    assert.equal(packageInfo.sources[0].semanticFallback.items.length, 1);
+    assert.equal(packageInfo.sources[0].semanticFallback.items[0].title, "OCR Smoke 123");
     assert.equal(packageInfo.sources[1].semanticFallback, undefined);
   } finally {
     fs.rmSync(workspace.root, { recursive: true, force: true });
