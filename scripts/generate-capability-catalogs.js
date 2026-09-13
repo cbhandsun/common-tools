@@ -179,12 +179,18 @@ function summarizeDifference(actual, expected) {
   });
 }
 
+function normalizeNewlines(value) {
+  return value.replace(/\r\n?/gu, "\n");
+}
+
 function verifyGeneratedCatalogs() {
   const stale = generatedCatalogFiles().map((file) => {
     const actual = fs.readFileSync(file.path, "utf8");
-    return actual === file.content ? null : Object.freeze({
+    const normalizedActual = normalizeNewlines(actual);
+    const normalizedExpected = normalizeNewlines(file.content);
+    return normalizedActual === normalizedExpected ? null : Object.freeze({
       file: path.relative(root, file.path).replaceAll("\\", "/"),
-      difference: summarizeDifference(actual, file.content)
+      difference: summarizeDifference(normalizedActual, normalizedExpected)
     });
   }).filter(Boolean);
   if (stale.length > 0) throw new Error(`capability catalogs are stale; run node scripts/generate-capability-catalogs.js\n${JSON.stringify(stale, null, 2)}`);
