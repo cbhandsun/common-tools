@@ -332,7 +332,14 @@ function safeStrings(values) {
 
 function safeErrorMessage(error) {
   const message = safeText(error?.message || "component asset materialization failed", 240);
-  return message.replace(/[A-Za-z]:\\[^:]+/g, "[local-path]");
+  return redactLocalPathFragments(message);
+}
+
+function redactLocalPathFragments(value) {
+  return String(value || "")
+    .replace(/[A-Za-z]:[\\/][^\s"'<>)]*/gu, "[local-path]")
+    .replace(/\\\\[^\s"'<>)]*/gu, "[local-path]")
+    .replace(/(^|[\s(=:"'])\/(?:[^\s"'<>)]*\/)*[^\s"'<>)]*/gu, "$1[local-path]");
 }
 
 function safeLearningSummary(value) {
@@ -363,7 +370,7 @@ function sanitizeEmbeddedMetadata(value, depth = 0) {
 }
 
 function isAbsoluteLikePath(value) {
-  return path.isAbsolute(value) || /^[A-Za-z]:[\\/]/.test(value) || /^\\\\/.test(value);
+  return path.isAbsolute(value) || path.win32.isAbsolute(value) || path.posix.isAbsolute(value) || /^[A-Za-z]:[\\/]/u.test(value) || /^\\\\/u.test(value);
 }
 
 function sanitizeFidelity(value) {
@@ -392,7 +399,10 @@ module.exports = {
   shouldMaterializeCandidate,
   _private: {
     hashFile,
+    isAbsoluteLikePath,
+    redactLocalPathFragments,
     resolveStoreRelativePath,
+    safeErrorMessage,
     validateStoredAsset
   }
 };

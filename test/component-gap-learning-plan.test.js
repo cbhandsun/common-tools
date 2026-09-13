@@ -170,6 +170,25 @@ test("gap learning plan retains every attempted promotion report for the same pa
   assert.equal(adoption.status, "failed-no-adoption");
 });
 
+test("gap learning plan preserves cross-platform absolute promotion reports from adoption history", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-adoption-cross-platform-"));
+  const reportFile = path.join(root, "adoption.json");
+  fs.writeFileSync(reportFile, JSON.stringify({
+    status: "failed-no-adoption",
+    promotionReports: ["C:/reports/islide.json", "/var/reports/officeplus.json", "relative/report.json"],
+    deckPages: { Deck_Cross: "7" },
+    matrix: { totals: { componentLocalAssetMatches: 1, componentTemplateAppliedShapes: 0 } }
+  }), "utf8");
+
+  const adoption = _private.loadAdoptionByTarget([reportFile])["Deck_Cross#7"];
+
+  assert.deepEqual(adoption.promotionReports, [
+    path.win32.normalize("C:/reports/islide.json"),
+    path.posix.normalize("/var/reports/officeplus.json")
+  ]);
+  assert.equal(_private.normalizeAbsoluteReportPath("relative/report.json"), "");
+});
+
 test("gap learning plan retains intentional local visual assets after a no-adoption A/B", () => {
   const plan = buildGapLearningPlan({
     adoptionByTarget: {

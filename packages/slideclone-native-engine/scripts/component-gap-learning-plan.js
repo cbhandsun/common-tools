@@ -118,9 +118,9 @@ function selectNextAction(candidates = [], adoption = null) {
     && (candidate.selfFidelity?.passed === true || candidate.status === "promoted"));
   const primaryPromoted = directPromoted[0];
   const attemptedReports = new Set((Array.isArray(adoption?.promotionReports) ? adoption.promotionReports : [])
-    .map((file) => safeString(file))
+    .map((file) => normalizeAbsoluteReportPath(file))
     .filter(Boolean));
-  const untriedPromoted = directPromoted.find((candidate) => !attemptedReports.has(safeString(candidate.selfFidelity?.reportFile)));
+  const untriedPromoted = directPromoted.find((candidate) => !attemptedReports.has(normalizeAbsoluteReportPath(candidate.selfFidelity?.reportFile)));
   const collected = candidates.find((candidate) => candidate.status === "collected" && candidate.selfFidelity?.passed !== false);
   const rejectedCollected = candidates.find((candidate) => candidate.status === "collected" && candidate.selfFidelity?.passed === false);
   const pending = candidates.find((candidate) => candidate.status === "pending");
@@ -419,9 +419,8 @@ function loadAdoptionByTarget(reportFiles = []) {
           status: safeString(report.status),
           reportFile: path.resolve(reportFile),
           promotionReports: (Array.isArray(report.promotionReports) ? report.promotionReports : [])
-            .map((file) => safeString(file))
-            .filter((file) => file && path.isAbsolute(file))
-            .map((file) => path.resolve(file)),
+            .map((file) => normalizeAbsoluteReportPath(file))
+            .filter(Boolean),
           componentHighReusableGroupMatches: finiteNumber(totals.componentHighReusableGroupMatches),
           componentLocalAssetMatches: finiteNumber(totals.componentLocalAssetMatches),
           componentTemplateAppliedShapes: finiteNumber(totals.componentTemplateAppliedShapes),
@@ -433,6 +432,14 @@ function loadAdoptionByTarget(reportFiles = []) {
     }
   }
   return outcomes;
+}
+
+function normalizeAbsoluteReportPath(value) {
+  const file = safeString(value);
+  if (!file) return "";
+  if (/^[A-Za-z]:[\\/]/u.test(file) || /^\\\\/u.test(file)) return path.win32.normalize(file);
+  if (path.posix.isAbsolute(file)) return path.posix.normalize(file);
+  return "";
 }
 
 function mergeAdoptionEvidence(previous = null, current = {}) {
@@ -506,7 +513,7 @@ if (require.main === module) {
 }
 
 module.exports = {
-  _private: { buildAdoptionValidationCommand, findFidelityReports, isPluginEligibleGap, loadAdoptionByTarget, loadFidelityByTask, mergeAdoptionEvidence, motifOverlap, selectNextAction, targetKey, taskStatusRank, taskSuitabilityScore },
+  _private: { buildAdoptionValidationCommand, findFidelityReports, isPluginEligibleGap, loadAdoptionByTarget, loadFidelityByTask, mergeAdoptionEvidence, motifOverlap, normalizeAbsoluteReportPath, selectNextAction, targetKey, taskStatusRank, taskSuitabilityScore },
   buildGapLearningPlan,
   main,
   parseArgs,
