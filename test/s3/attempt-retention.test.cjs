@@ -10,7 +10,7 @@ const { runMigrations } = require("../../packages/team-runtime/migrations");
 const { createObjectStore } = require("../../packages/remote-mcp-server/team-providers");
 const { createTeamJob, PostgresJobRepository, TeamWorker, runTeamRetention } = require("../../packages/team-runtime");
 
-const IMAGE = "minio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e";
+const IMAGE = "quay.io/minio/minio@sha256:a1a8bd4ac40ad7881a245bab97323e18f971e4d4cba2c2007ec1bedd21cbaba2";
 const POSTGRES_IMAGE = "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297";
 function docker(args) {
   const result = spawnSync("docker", args, { encoding: "utf8", windowsHide: true, timeout: 60000, maxBuffer: 1024 * 1024 });

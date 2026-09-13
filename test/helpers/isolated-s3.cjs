@@ -7,6 +7,8 @@ const { setTimeout: delay } = require("node:timers/promises");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { createObjectStore } = require("../../packages/remote-mcp-server/team-providers");
 
+const IMAGE = "quay.io/minio/minio@sha256:a1a8bd4ac40ad7881a245bab97323e18f971e4d4cba2c2007ec1bedd21cbaba2";
+
 function docker(args) {
   const result = spawnSync("docker", args, { encoding: "utf8", windowsHide: true, timeout: 60000, maxBuffer: 1024 * 1024 });
   if (result.status !== 0) {
@@ -23,7 +25,7 @@ function docker(args) {
 
 async function startIsolatedS3() {
   const credentials = { accessKeyId: "image-recovery", secretAccessKey: crypto.randomBytes(24).toString("hex") };
-  const id = docker(["run", "--detach", "--rm", "--memory", "512m", "--cpus", "1", "--pids-limit", "128", "--tmpfs", "/data:rw,size=128m", "--publish", "127.0.0.1::9000", "--env", `MINIO_ROOT_USER=${credentials.accessKeyId}`, "--env", `MINIO_ROOT_PASSWORD=${credentials.secretAccessKey}`, "minio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e", "server", "/data", "--console-address", ":9001"]);
+  const id = docker(["run", "--detach", "--rm", "--memory", "512m", "--cpus", "1", "--pids-limit", "128", "--tmpfs", "/data:rw,size=128m", "--publish", "127.0.0.1::9000", "--env", `MINIO_ROOT_USER=${credentials.accessKeyId}`, "--env", `MINIO_ROOT_PASSWORD=${credentials.secretAccessKey}`, IMAGE, "server", "/data", "--console-address", ":9001"]);
   assert.match(id, /^[a-f0-9]{64}$/);
   let client;
   let closed = false;
