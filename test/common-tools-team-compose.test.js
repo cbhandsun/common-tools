@@ -27,6 +27,12 @@ function serviceBlock(source, name) {
   return output.join("\n");
 }
 
+function canonicalPathForComparison(filePath) {
+  const absolute = path.resolve(filePath);
+  if (fs.existsSync(absolute)) return fs.realpathSync.native(absolute);
+  return path.join(fs.realpathSync.native(path.dirname(absolute)), path.basename(absolute));
+}
+
 test("team Compose applies restart and resource limits to untrusted execution services", () => {
   const root = path.resolve(__dirname, "..");
   const api = fs.readFileSync(path.join(root, "deploy", "compose.team-api.yaml"), "utf8");
@@ -510,7 +516,7 @@ test("production acceptance wrapper defaults to the protected env file and stays
   assert.equal(result.status, 0);
   const plan = JSON.parse(result.stdout);
   assert.equal(plan.status, "blocked-by-missing-production-env-file");
-  assert.equal(plan.productionEnvFile, missingEnvFile);
+  assert.equal(canonicalPathForComparison(plan.productionEnvFile), canonicalPathForComparison(missingEnvFile));
   assert.equal(plan.mutatesProduction, false);
   assert.equal(plan.writesEvidence, false);
   assert.ok(plan.nextCommands.some((command) => command.includes("prepare-production-env.ps1")));

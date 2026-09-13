@@ -18,6 +18,12 @@ const teamDoctorDiagnostics = require("../packages/cli/team-doctor");
 const { environmentWithProductionEnvFile, parseProductionEnvFileContent, readProductionEnvFile } = require("../packages/cli/production-env-file");
 const { collectProductionAcceptanceEvidence, productionAcceptancePlan } = require("../packages/cli/production-acceptance-plan");
 
+function canonicalPathForComparison(filePath) {
+  const absolute = path.resolve(filePath);
+  if (fs.existsSync(absolute)) return fs.realpathSync.native(absolute);
+  return path.join(fs.realpathSync.native(path.dirname(absolute)), path.basename(absolute));
+}
+
 test("team configuration fails closed for insecure storage and embedded credentials", () => {
   const base = { COMMON_TOOLS_DATABASE_URL: "postgresql://database.internal/common_tools?sslmode=verify-full", COMMON_TOOLS_REDIS_URL: "rediss://redis.internal:6380", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "https://objects.internal", COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts" };
   assert.equal(loadTeamConfig(base).workerLeaseSeconds, 60);
@@ -196,7 +202,7 @@ test("production acceptance plan command can archive redacted evidence inside th
   assert.equal(result.status, 0);
   const summary = JSON.parse(result.stdout);
   assert.equal(summary.status, "blocked-by-configuration");
-  assert.equal(summary.output, path.join(workspace, "evidence", "acceptance-plan.json"));
+  assert.equal(canonicalPathForComparison(summary.output), canonicalPathForComparison(path.join(workspace, "evidence", "acceptance-plan.json")));
   const archived = JSON.parse(fs.readFileSync(summary.output, "utf8"));
   assert.equal(archived.status, "blocked-by-configuration");
   assert.equal(archived.requiredConfiguration.COMMON_TOOLS_DATABASE_URL, "missing");
