@@ -111,8 +111,9 @@ function readSemanticFallbackSidecar(file, sourceCount) {
   for (const value of /** @type {unknown[]} */ (/** @type {Record<string, unknown>} */ (payload).sources)) {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError("raw editable semantic fallback source is invalid");
     const source = /** @type {Record<string, unknown>} */ (value);
-    if (!Number.isSafeInteger(source.pageIndex) || source.pageIndex < 0 || source.pageIndex >= sourceCount || map.has(source.pageIndex)) throw new TypeError("raw editable semantic fallback page index is invalid");
-    map.set(/** @type {number} */ (source.pageIndex), validateSemanticFallback(source.semanticFallback));
+    const pageIndex = source.pageIndex;
+    if (typeof pageIndex !== "number" || !Number.isSafeInteger(pageIndex) || pageIndex < 0 || pageIndex >= sourceCount || map.has(pageIndex)) throw new TypeError("raw editable semantic fallback page index is invalid");
+    map.set(pageIndex, validateSemanticFallback(source.semanticFallback));
   }
   return map;
 }
