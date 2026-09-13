@@ -630,6 +630,8 @@ common-tools team raw-image-archive --workspace . --inputs .\page-01.png,.\page-
 }
 ```
 
+仓库根目录提供了最小可执行样例与端到端测试夹具：`examples/team-semantic-fallback/`，包含 `source.png`、单页 `semantic-fallback.json` 与多页批次 `batch-semantic-fallback.json`，可直接作为接入模板并附带完整 CLI 使用说明（详见 `examples/team-semantic-fallback/README.md`）。
+
 PDF 或图片版 PPTX 使用统一来源归档命令；服务端只接受一个受限文档，并以固定 LibreOffice/Poppler 参数规范化为最多 20 页后进入同一 OCR、native-hybrid 重建、残留去重和视觉门禁：
 
 ```powershell

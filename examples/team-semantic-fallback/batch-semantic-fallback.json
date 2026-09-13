@@ -1,0 +1,20 @@
+{
+  "sources": [
+    {
+      "pageIndex": 0,
+      "semanticFallback": {
+        "archetype": "process_flow",
+        "items": [
+          {
+            "title": "OCR Smoke 123",
+            "body": "Caption line",
+            "badge": "01"
+          }
+        ],
+        "slotValues": {
+          "theme": "clean-light"
+        }
+      }
+    }
+  ]
+}
