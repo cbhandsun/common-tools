@@ -3,8 +3,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const {validateDeckIr} = require("./deck-ir-admission");
+const {validateSemanticFallback} = require("./semantic-fallback-adapter");
 const MAX_DECK_BYTES = 1024 * 1024;
 const MAX_ASSET_BYTES = 20 * 1024 * 1024;
+const MAX_SEMANTIC_FALLBACK_BYTES = 64 * 1024;
 const IMAGE_EXTENSIONS = new Set([".bmp", ".gif", ".jpeg", ".jpg", ".png", ".tiff"]);
 const RAW_IMAGE_EXTENSIONS = new Set([".jpeg", ".jpg", ".png"]);
 const MAX_RAW_IMAGE_DIMENSION = 16384;
@@ -46,6 +48,7 @@ function validateRawImagePackage(root) {
   const documentFiles = ["source.pdf", "source.pptx"].map((name) => path.join(root, "assets", name)).filter((file) => fs.existsSync(file));
   if (documentFiles.length > 0) return validateDocumentPackage(root, documentFiles);
   const files = [];
+  let semanticFallbackFile = null;
   const queue = [root];
   while (queue.length) {
     const directory = queue.shift();
@@ -53,9 +56,16 @@ function validateRawImagePackage(root) {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const absolute = path.join(directory, entry.name);
       const relative = path.relative(root, absolute).split(path.sep).join("/");
-      if (relative !== "assets" && !/^assets\/source(?:-\d{3})?\.(?:png|jpe?g)$/u.test(relative)) throw new Error("raw editable archive contains an unsupported entry");
+      if (relative !== "assets" && relative !== "assets/semantic-fallback.json" && !/^assets\/source(?:-\d{3})?\.(?:png|jpe?g)$/u.test(relative)) throw new Error("raw editable archive contains an unsupported entry");
       if (entry.isDirectory()) { if (relative !== "assets") throw new Error("raw editable archive contains an unsupported directory"); queue.push(absolute); continue; }
       if (!entry.isFile()) throw new Error("raw editable archive contains an unsupported file");
+      if (relative === "assets/semantic-fallback.json") {
+        if (semanticFallbackFile !== null) throw new Error("raw editable archive contains duplicate semantic fallback metadata");
+        const info = fs.statSync(absolute);
+        if (info.size < 1 || info.size > MAX_SEMANTIC_FALLBACK_BYTES) throw new Error("raw editable semantic fallback metadata is invalid");
+        semanticFallbackFile = absolute;
+        continue;
+      }
       files.push({ file: absolute, relative, extension: path.extname(entry.name).toLowerCase(), bytes: fs.statSync(absolute).size });
     }
   }
@@ -67,12 +77,13 @@ function validateRawImagePackage(root) {
     throw new Error("raw editable archive requires one to twenty bounded, contiguously ordered PNG or JPEG source images");
   }
   let totalPixels = 0;
+  const semanticFallbacks = semanticFallbackFile ? readSemanticFallbackSidecar(semanticFallbackFile, files.length) : new Map();
   const sources = files.map((item, index) => {
     const dimensions = readRawImageDimensions(item.file, item.extension);
     const pixels = dimensions.widthPx * dimensions.heightPx;
     totalPixels += pixels;
     if (dimensions.widthPx > MAX_RAW_IMAGE_DIMENSION || dimensions.heightPx > MAX_RAW_IMAGE_DIMENSION || !Number.isSafeInteger(pixels) || pixels > MAX_RAW_IMAGE_PIXELS) throw new Error("raw editable image dimensions exceed worker limits");
-    return Object.freeze({ inputFile: item.file, assetPath: item.relative, dimensions, pageIndex: index });
+    return Object.freeze({ inputFile: item.file, assetPath: item.relative, dimensions, pageIndex: index, ...(semanticFallbacks.has(index) ? { semanticFallback: semanticFallbacks.get(index) } : {}) });
   });
   if (!Number.isSafeInteger(totalPixels) || totalPixels > MAX_RAW_IMAGE_TOTAL_PIXELS) {
     throw new Error("raw editable image pixels exceed the batch limit");
@@ -80,6 +91,30 @@ function validateRawImagePackage(root) {
   const first = sources[0];
   if (!first) throw new Error("raw editable archive requires a source image");
   return { kind: /** @type {const} */ ("raw-image"), sources, inputFile: first.inputFile, assetPath: first.assetPath, dimensions: first.dimensions, pages: sources.length, assets: sources.length };
+}
+
+/** @param {string} file @param {number} sourceCount @returns {Map<number, unknown>} */
+function readSemanticFallbackSidecar(file, sourceCount) {
+  /** @type {unknown} */
+  let payload;
+  try { payload = JSON.parse(fs.readFileSync(file, "utf8")); }
+  catch { throw new Error("raw editable semantic fallback metadata is invalid JSON"); }
+  const map = new Map();
+  if (sourceCount === 1 && payload && typeof payload === "object" && !Array.isArray(payload) && !Array.isArray(/** @type {Record<string, unknown>} */ (payload).sources)) {
+    const raw = /** @type {Record<string, unknown>} */ (payload);
+    map.set(0, validateSemanticFallback(raw.semanticFallback === undefined ? payload : raw.semanticFallback));
+    return map;
+  }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) || !Array.isArray(/** @type {Record<string, unknown>} */ (payload).sources)) {
+    throw new TypeError("raw editable semantic fallback metadata must describe sources");
+  }
+  for (const value of /** @type {unknown[]} */ (/** @type {Record<string, unknown>} */ (payload).sources)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError("raw editable semantic fallback source is invalid");
+    const source = /** @type {Record<string, unknown>} */ (value);
+    if (!Number.isSafeInteger(source.pageIndex) || source.pageIndex < 0 || source.pageIndex >= sourceCount || map.has(source.pageIndex)) throw new TypeError("raw editable semantic fallback page index is invalid");
+    map.set(/** @type {number} */ (source.pageIndex), validateSemanticFallback(source.semanticFallback));
+  }
+  return map;
 }
 /** @param {string} root @param {string[]} documentFiles */
 function validateDocumentPackage(root, documentFiles) {

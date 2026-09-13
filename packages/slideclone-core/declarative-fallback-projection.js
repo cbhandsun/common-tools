@@ -51,8 +51,10 @@ function projectDeclarativeShape(shape, index, matchedPlugin) {
     id,
     type: declarativeShapeType(shape.type),
     box,
-    ...(safeColor(shape.fill) ? { fill: safeColor(shape.fill) } : {}),
-    ...(safeColor(shape.stroke) ? { stroke: safeColor(shape.stroke) } : {}),
+    style: {
+      ...(safeColor(shape.fill) ? { fill: safeColor(shape.fill) } : {}),
+      ...(safeColor(shape.stroke) ? { stroke: safeColor(shape.stroke) } : {})
+    },
     source
   };
 }
@@ -60,7 +62,7 @@ function projectDeclarativeShape(shape, index, matchedPlugin) {
 function projectDeclarativeTextBoxes(textBoxes, matchedPlugin) {
   return (Array.isArray(textBoxes) ? textBoxes : []).map((textBox, index) => {
     if (!textBox || typeof textBox !== "object" || Array.isArray(textBox)) return null;
-    const box = boxFromDeclarative(textBox.box);
+    const box = boxFromDeclarative(textBox.box || textBox);
     const text = typeof textBox.text === "string" ? textBox.text : "";
     if (!box || !text) return null;
     return {

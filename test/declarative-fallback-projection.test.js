@@ -39,13 +39,20 @@ test("semantic fallback projection appends quality-gated declarative objects wit
     id: "card-1",
     type: "roundRect",
     box: { x: 10, y: 20, w: 30, h: 40 },
-    fill: "#AABBCC",
-    stroke: "#001122",
+    style: { fill: "#AABBCC", stroke: "#001122" },
     source: { declarativeRebuilder: true, matchedPlugin: "plugin-one" }
   });
   assert.equal(deckPage.shapes[2].type, "line");
   assert.deepEqual(deckPage.shapes[2].box, { x: 30, y: 40, w: 40, h: 0 });
   assert.deepEqual(deckPage.textBoxes[0].source, { declarativeRebuilder: true, matchedPlugin: "plugin-one", role: "title" });
+  assert.deepEqual(_private.projectDeclarativeTextBoxes([{ id: "template-title", text: "Template title", x: 1, y: 2, w: 3, h: 4 }], "template-plugin"), [{
+    id: "template-title",
+    text: "Template title",
+    box: { x: 1, y: 2, w: 3, h: 4 },
+    font: {},
+    style: { visibility: "visible", opacity: 1, wrap: true, fit: "shrink" },
+    source: { declarativeRebuilder: true, matchedPlugin: "template-plugin", role: undefined }
+  }]);
 });
 
 test("semantic fallback projection records unmatched evidence without mutating page objects", () => {
@@ -84,7 +91,7 @@ test("semantic fallback projection bounds unsafe identifiers colors geometry and
     id: "declarative-shape-1",
     type: "ellipse",
     box: { x: 1, y: 2, w: 3, h: 4 },
-    stroke: "#123456",
+    style: { stroke: "#123456" },
     source: { declarativeRebuilder: true, matchedPlugin: "plugin-two" }
   }]);
 });
