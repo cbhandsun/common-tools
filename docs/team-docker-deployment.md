@@ -584,10 +584,50 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 common-tools team raw-image-archive --workspace . --input .\source.png --out .\upload-source.tar.gz
 ```
 
+如果调用方已经有模型抽取出的语义层级，可同时提供一个 workspace 内的 JSON sidecar。归档器会把它规范化为 `assets/semantic-fallback.json`，Worker 在 OCR 原始图片路径上把它作为 native rebuild 的兜底页面上下文。sidecar 只能描述语义结构，例如 `archetype`、`items` 和 `slotValues`；任何绝对几何信息（如 `x/y/w/h`、`box`、`bounds`、`position`）都会在归档前失败，避免外部布局坐标绕过 Worker 的模板和质量门禁：
+
+```powershell
+common-tools team raw-image-archive --workspace . --input .\source.png --semantic-fallback .\semantic-fallback.json --out .\upload-source.tar.gz
+```
+
+新接入如果统一使用 `editable-source-archive`，PNG/JPEG 输入也可使用同一参数：
+
+```powershell
+common-tools team editable-source-archive --workspace . --input .\source.png --semantic-fallback .\semantic-fallback.json --out .\upload-source.tar.gz
+```
+
+单页 sidecar 可直接写语义对象，也可包在 `semanticFallback` 字段下：
+
+```json
+{
+  "semanticFallback": {
+    "archetype": "process_flow",
+    "items": [{ "title": "识别" }],
+    "slotValues": { "theme": "knowledge-graph" }
+  }
+}
+```
+
 For an explicitly ordered multi-page conversion, provide 2–20 workspace-contained PNG/JPEG paths as a comma-separated list. The archive writer assigns contiguous page names and enforces per-page and aggregate byte/pixel limits:
 
 ```powershell
 common-tools team raw-image-archive --workspace . --inputs .\page-01.png,.\page-02.png --out .\upload-pages.tar.gz
+```
+
+多页 sidecar 必须使用 `sources[]`，每个条目声明目标 `pageIndex` 与对应语义对象；页码必须唯一，并且落在本次图片批次范围内：
+
+```json
+{
+  "sources": [
+    {
+      "pageIndex": 0,
+      "semanticFallback": {
+        "archetype": "process_flow",
+        "items": [{ "title": "识别" }]
+      }
+    }
+  ]
+}
 ```
 
 PDF 或图片版 PPTX 使用统一来源归档命令；服务端只接受一个受限文档，并以固定 LibreOffice/Poppler 参数规范化为最多 20 页后进入同一 OCR、native-hybrid 重建、残留去重和视觉门禁：
@@ -597,7 +637,7 @@ common-tools team editable-source-archive --workspace . --input .\source.pdf --o
 common-tools team editable-source-archive --workspace . --input .\image-only.pptx --out .\upload-source.tar.gz
 ```
 
-`raw-image-archive` 保留为兼容命令且继续只接受 PNG/JPEG；新接入应使用 `editable-source-archive`。文档不得与图片批次混合，PDF/PPTX 不得超过 60 MiB，PPTX 在归档前执行受限 OOXML admission，Worker 会渲染第 21 页用于可靠拒绝超页输入。
+`raw-image-archive` 保留为兼容命令且继续只接受 PNG/JPEG；新接入应使用 `editable-source-archive`。文档不得与图片批次混合，PDF/PPTX 不得超过 60 MiB，PPTX 在归档前执行受限 OOXML admission，Worker 会渲染第 21 页用于可靠拒绝超页输入。`--semantic-fallback` 只适用于 PNG/JPEG 原始图片归档，PDF、PPTX 和 Deck IR 归档会拒绝该元数据。
 
 The Worker processes pages in that declared order, requires a native graphical reconstruction on every page, isolates generated assets per page, and compares every rendered page with its normalized source. `raw-image-batch-validated`, `quality-rendered`, and `visual-fidelity` must pass before describing a batch as visually verified; fidelity metrics are the worst values across the batch. Source images in one batch must resolve to a consistent slide aspect ratio.
 
