@@ -21,3 +21,4 @@ packages/remote-mcp-server/bin/*
 obj/
 __pycache__/
 *.py[cod]
+/output/
