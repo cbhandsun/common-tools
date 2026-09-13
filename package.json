@@ -296,13 +296,13 @@
     "test:ci": "node scripts/test-sharded.js --suite all --shards 4",
     "audit:dotnet": "dotnet restore packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj --locked-mode -p:NuGetAudit=true -p:NuGetAuditMode=all -warnaserror",
     "build:dotnet:locked": "dotnet build packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj -c Release --no-restore -warnaserror",
-    "verify:python-lock": "python -m pip install --disable-pip-version-check --dry-run --ignore-installed --require-hashes --no-deps --requirement scripts/python-requirements.lock.txt",
+    "verify:python-lock": "node scripts/verify-python-lock.js",
     "verify:slideclone-graphics": "node --test test/batch-native-audit-summary.test.js test/graphic-reconstruction-decision-audit.test.js test/graphic-reconstruction-decision-gate.test.js test/expression-policy-repair-queue.test.js test/expression-policy-repair-queue-coverage.test.js test/component-strategy-rebuild.test.js test/minimum-unit-policy-gate.test.js test/minimum-unit-gap-audit.test.js test/minimum-unit-gap-repair-runner.test.js test/minimum-unit-gap-repair-merge.test.js test/native-fragmentation-audit.test.js test/component-render-strategy.test.js test/visual-atoms.test.js test/quality-gate-ocr-batch.test.js test/quality-gate-real-pptx.test.js test/real-pptx-quality-matrix.test.js",
     "verify:slideclone-profiles": "node scripts/verify-slideclone-profiles.js",
     "verify:native-engine-payload": "node scripts/native-engine-runtime-payload.js",
     "verify:workspace-boundaries": "node scripts/verify-workspace-boundaries.js",
     "verify:architecture-budgets": "node scripts/verify-architecture-budgets.js",
-    "verify": "npm run test:ci",
+    "verify": "npm run verify:ci",
     "verify:ci": "npm run lint && npm run typecheck && npm run common-tools:verify-plugins && npm run common-tools:verify-observability && npm run common-tools:verify-adrs && npm run audit:dotnet && npm run build:dotnet:locked && npm run test:unit && npm run test:contract && npm run test:integration && npm run verify:python-lock && npm run common-tools:verify-runtime-package"
   },
   "engines": {

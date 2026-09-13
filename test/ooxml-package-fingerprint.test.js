@@ -43,6 +43,32 @@ test("OOXML fingerprint rejects oversized expanded entries", () => {
   }
 });
 
+test("OOXML fingerprint rejects invalid explicit limit options", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ooxml-fingerprint-options-"));
+  try {
+    const source = path.join(tmp, "source");
+    fs.mkdirSync(source);
+    fs.writeFileSync(path.join(source, "entry.txt"), "alpha");
+    const zip = path.join(tmp, "input.zip");
+    makeZip(source, zip);
+    for (const options of [
+      [],
+      { maxPackageBytes: 1023 },
+      { maxEntries: 0 },
+      { maxEntryBytes: "private-token-value" },
+      { maxTotalUncompressedBytes: Infinity }
+    ]) {
+      assert.throws(() => fingerprintOoxmlPackage(zip, options), (error) => {
+        assert.match(error.message, /OOXML package fingerprint/);
+        assert.doesNotMatch(error.message, /private-token-value/);
+        return true;
+      });
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 function makeZip(source, output) {
   if (fs.existsSync(output)) fs.rmSync(output);
   const entries = fs.readdirSync(source);

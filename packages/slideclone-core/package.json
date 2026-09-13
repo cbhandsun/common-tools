@@ -204,7 +204,21 @@
     "./value-transformation-table": "./value-transformation-table.js",
     "./visual-feature-context": "./visual-feature-context.js",
     "./visual-operation-sync": "./visual-operation-sync.js",
-    "./workflow-collaboration-multiplier-scope": "./workflow-collaboration-multiplier-scope.js"
+    "./workflow-collaboration-multiplier-scope": "./workflow-collaboration-multiplier-scope.js",
+    "./layout-constraint-solver": "./layout-constraint-solver.js",
+    "./auto-layout-tree": "./auto-layout-tree.js",
+    "./static-text-overflow-detector": "./static-text-overflow-detector.js",
+    "./component-template-harvester": "./component-template-harvester.js",
+    "./headless-quality-assessor": "./headless-quality-assessor.js",
+    "./perceptual-image-quality": "./perceptual-image-quality.js",
+    "./semantic-fallback-adapter": "./semantic-fallback-adapter.js",
+    "./component-template-catalog": "./component-template-catalog.js",
+    "./dla-layout-adapter": "./dla-layout-adapter.js",
+    "./two-stage-quality-gate": "./two-stage-quality-gate.js",
+    "./declarative-layout-rebuilder": "./declarative-layout-rebuilder.js",
+    "./brand-kit-styler": "./brand-kit-styler.js",
+    "./component-template-store": "./component-template-store.js",
+    "./declarative-rebuilder-pipeline": "./declarative-rebuilder-pipeline.js"
   },
   "dependencies": {
     "@common-tools/archive-core": "0.1.0",

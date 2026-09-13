@@ -45,13 +45,14 @@ function extractQualitySnapshot(report, metadata = {}) {
 }
 
 function evaluateQualityTrend(current, history = {}, options = {}) {
+  const rawOptions = optionalRecord(options, "quality trend options");
   const snapshot = validateSnapshot(current);
   const snapshots = validateHistory(history).snapshots;
   const compatibleSnapshots = snapshots.filter((item) => sameEnvironment(snapshot, item));
-  const windowSize = boundedInteger(options.windowSize ?? 5, "windowSize", 1, 100);
-  const minimumHistory = boundedInteger(options.minimumHistory ?? 1, "minimumHistory", 0, windowSize);
-  const requiredTargetRatio = boundedRatio(options.requiredTargetRatio ?? 1, "requiredTargetRatio");
-  const thresholds = normalizeThresholds(options.thresholds || {});
+  const windowSize = boundedInteger(rawOptions.windowSize === undefined ? 5 : rawOptions.windowSize, "windowSize", 1, 100);
+  const minimumHistory = boundedInteger(rawOptions.minimumHistory === undefined ? 1 : rawOptions.minimumHistory, "minimumHistory", 0, windowSize);
+  const requiredTargetRatio = boundedRatio(rawOptions.requiredTargetRatio === undefined ? 1 : rawOptions.requiredTargetRatio, "requiredTargetRatio");
+  const thresholds = normalizeThresholds(rawOptions.thresholds || {});
   const targetResults = [];
   let comparedTargets = 0;
   for (const [targetId, target] of Object.entries(snapshot.targets)) {
@@ -111,9 +112,10 @@ function evaluateQualityTrend(current, history = {}, options = {}) {
 }
 
 function appendQualitySnapshot(history = {}, snapshot, options = {}) {
+  const rawOptions = optionalRecord(options, "quality trend append options");
   const validatedHistory = validateHistory(history);
   const current = validateSnapshot(snapshot);
-  const maximumSnapshots = boundedInteger(options.maximumSnapshots ?? 50, "maximumSnapshots", 1, 1000);
+  const maximumSnapshots = boundedInteger(rawOptions.maximumSnapshots === undefined ? 50 : rawOptions.maximumSnapshots, "maximumSnapshots", 1, 1000);
   const existing = validatedHistory.snapshots.filter((item) => item.id !== current.id);
   return Object.freeze({ version: 1, snapshots: [...existing, current].slice(-maximumSnapshots) });
 }
@@ -222,7 +224,7 @@ function boundedMetricNumber(metric, ...values) {
 }
 
 function boundedMetricThreshold(metric, value) {
-  const number = Number(value);
+  const number = typeof value === "number" ? value : Number.NaN;
   const maximum = METRICS[metric]?.maximumValue;
   if (!Number.isFinite(number) || number < 0 || number > maximum) throw new TypeError(`${metric} threshold is outside the supported range`);
   return number;
@@ -254,15 +256,21 @@ function median(values) {
 }
 
 function boundedInteger(value, label, minimum, maximum) {
-  const number = Number(value);
+  const number = typeof value === "number" ? value : Number.NaN;
   if (!Number.isSafeInteger(number) || number < minimum || number > maximum) throw new TypeError(`${label} must be an integer between ${minimum} and ${maximum}`);
   return number;
 }
 
 function boundedRatio(value, label) {
-  const number = Number(value);
+  const number = typeof value === "number" ? value : Number.NaN;
   if (!Number.isFinite(number) || number < 0 || number > 1) throw new TypeError(`${label} must be a number between 0 and 1`);
   return number;
+}
+
+function optionalRecord(value, label) {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
+  return value;
 }
 
 function safeId(value, label, maximum) {

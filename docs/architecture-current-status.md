@@ -1,5 +1,73 @@
 # 架构改进当前状态
 
+## 2026-09-11 演进落地：统一仓储、弹性排版与组件模板化闭环
+
+基于《架构演进与行业增强方案（architecture-enhancement-roadmap.md）》，本轮完成了平台通用能力与版面排版核心基础设施的落地：
+
+后续边界加固：
+- 跨平台无头质量门禁现在对 `slideSize`、`minNativeRatio` 与 `maxOverflowRate` 执行核心层有界校验，拒绝 `null`/数组、无限值、负数、超大画布和越界阈值，避免调用方绕过 CLI 参数校验后生成无意义 QualityReport。
+- DLA 版面分析适配器新增列表级 `normalizeDlaRegions` 准入：缺省 region id 会生成稳定编号，重复 id 或不安全 id 会失败，防止模型输出缺失/重复 id 时把 OCR 文本分配到错误语义区块。
+- 声明式重建流水线现在会把 `dlaRegions + textBoxes` 自动合成为语义树，并将 `process_flow` 与多 `metric_card` 区域投影成内置重建器可消费的 `items/archetype`，让轻量 DLA 粗分割真正进入流程链和指标卡片的生成路径。
+- 声明式重建流水线入口现在会在布局前校验 `slideSize` 与 pipeline options，并把 `gridSnap` / `autoFitText` 真实传给内置布局器，避免无效配置生成 NaN 几何或声明了选项却未生效。
+- 组件模板合同现在强制 `palette`、`tags`、唯一 shape id、唯一 slot name 与 envelope 内 relative box，防止导入畸形模板后在匹配、实例化或 slot 注入阶段才崩溃。
+- 组件模板持久化仓储现在会校验 index 条目结构、去重、验证模板文件存在性/类型/大小/SHA256，并在 `list()` 时把 stale 或 checksum mismatch 记录原子写回清理；`save/delete` 也通过临时文件原子替换更新 index，`loadCatalog` 会跳过损坏模板，避免污染运行时模板目录。
+- BrandKit 换肤入口现在严格校验并正规化显式传入的品牌色、id/name 与字体字段：缺省字段仍使用兼容默认值，但非法十六进制色、换行/NUL 字符、超长文本和非法 typography 结构会在 core 层失败；CLI 回归覆盖失败消息不回显私密 JSON 内容。
+- 静态文本防溢出检测器现在严格校验 `fontSizePt`、`box`、`padding`、`lineHeight`、`allowWrap` 与 `maxLines`，缺省参数保持兼容默认值，但显式非法值会失败，避免 NaN/Infinity 或非布尔配置污染 headless quality report。
+- Auto Layout 树现在对显式 `type`、`id`、`children`、`direction`、`gap`、`padding`、`alignItems`、`justifyContent`、`flex` 与固定尺寸执行严格准入；缺省继续走兼容默认值，但非法枚举、负数和不安全 id 会失败，避免错误布局树静默降级成看似成功的页面。
+- 几何约束求解器现在会校验 options 结构、避免 alignment/axis 错误消息回显原输入，并要求显式 `rows/cols` 网格容量覆盖 count、gap 能放入容器，防止生成超出声明网格或 0 尺寸的布局单元。
+- 语义 fallback 入口现在会拒绝显式非法的 `items`、`children` 与 `baseContext` 结构，并对嵌套 item 执行全树总量上限，避免模型输出坏结构时静默变成空上下文或构造过大的声明式输入。
+- DLA region 归一化现在在重复 id 失败时不再把原始 id 拼进错误消息，避免模型输出或上游内容中的私密片段进入日志。
+- 组件模板采集器现在会在采集阶段正规化并校验 template id、archetype、category、shape id/type、slot role、tags、fill/stroke 与 preserveText 选项，并让产物立即通过 ComponentTemplate 合同；模板实例化也会校验 slotValues 对象、键和值，避免用户内容或非法结构直接进入可复用组件资产。
+- 感知图像质量模块现在会校验 compare options、采样尺寸与 hash bit 数组结构，导出的 pHash/SSIM helper 在非法输入下会失败而不是产生无意义采样或哈希距离，避免 headless quality 的感知指标被坏 helper 调用污染。
+- PNG 读取边界现在会校验 read/cache options 必须为对象，并对 `maxFileBytes`、`maxPixels`、`maxDimension` 与 `maxInflatedBytes` 的显式非法值直接失败；缺省值仍保持兼容默认，避免坏调用静默回退后绕过资源边界。
+- OOXML/PPTX zip 读取与重写边界现在会校验 options 必须为对象，并对 `maxArchiveBytes`、`maxEntries`、`maxEntryBytes`、`maxBytes` 与 `maxExpandedBytes` 的显式非法值直接失败；`maxBytes` 兼容别名仍保留，避免坏调用绕过压缩包大小与膨胀数据限制。
+- 重构质量预算和视觉特征缓存入口现在会校验 options 对象、质量阈值与 `maximumEntries`，显式非法阈值、字符串数字和越界缓存容量会失败，避免质量门禁或视觉分析缓存因坏配置静默回退默认值。
+- Source-media exclusion 质量门禁现在会先校验审计 options，对 `maxMatches`、`perceptualDistance`、`maxArchiveBytes`、`maxEntries` 与 `maxEntryBytes` 的显式非法值返回失败报告，避免 canonical source 泄漏检查因坏配置静默使用默认值。
+- OOXML package fingerprint 现在会校验 package identity 限制参数，对 `maxPackageBytes`、`maxEntries`、`maxEntryBytes` 与 `maxTotalUncompressedBytes` 的显式非法值直接失败，并在列举 ZIP 目录时同步使用 package/entry 上限，避免 render cache 身份计算绕过资源边界。
+- 声明式重建流水线现在会在插件/DLA 适配器读取前对 `pageContext` 执行安全快照，并在 `registerPlugin` 时冻结规范化插件合同：只接受自有 data property、有限数值、有界单行字符串、简单标识符、dense 有限数组、普通对象和显式函数；拒绝 getter、Proxy prototype/descriptor 异常、稀疏数组、超限 items/textBoxes/shapes/dlaRegions、非法 archetype 与非法插件 id，且错误消息不回显私密异常内容。
+- 声明式 CLI 的 JSON 输入和模板 bundle 导入现在统一走普通文件准入，拒绝目录、符号链接、空文件和超过 8MB 的文件，再解析 JSON；非法 JSON 报错继续不回显原始输入内容，避免本地命令被超大文件或链接文件拖入运行时。
+
+本轮交付的核心模块与边界：
+- JobRepository 标准契约：在 `packages/capability-contracts` 中定义统一的 `assertJobRepository` 与接口规范；`packages/capability-runtime` 中的 `JobStore` 扩展 `list(filter)` 查询并原生满足该契约。
+- 几何约束求解器（layout-constraint-solver）：在 `packages/slideclone-core` 中提供包围盒自动计算、多向对齐（左/中/右/顶/居中/底）、等间距分布、网格求解与坐标离散吸附。
+- 弹性约束盒排版引擎（auto-layout-tree）：实现第二代 Auto-Layout 容器树解析，支持 horizontal/vertical 布局、gap、padding、flex 权重自动分配与 space-between/space-around 排布，输出绝对坐标平铺树。
+- 跨平台无头文本防溢出检测器（static-text-overflow-detector）：无需依赖 Windows COM 接口，基于 CJK 与拉丁字符特征比在编译期静态预测折行、单行超长与溢出风险，并自动推荐最佳缩放字号。
+- 原生组件模板化入库与复用提取器（component-template-harvester）：将逆向重构的复杂形状与文本框自动归一化提取为脱敏的可复用模板，提取色盘与语义槽位（Slots），并支持在指定区域按比例缩放并注入新文本。
+- 全局架构流转图与演进路线图：系统梳理交付 `docs/native-engine-decision-graph.md` 与 `docs/architecture-enhancement-roadmap.md`。
+
+本轮新增模块：
+- 声明式与组件资产 CLI 扩展（declarative-cli）：在 packages/cli 中实现并导出 runTemplateCommand、runHeadlessQualityCommand 与 runRethemeCommand，并通过 common-tools template list|show|export|import|harvest、common-tools quality-headless 与 common-tools retheme 向终端和开发者暴露完整的声明式与资产能力。
+- 新增 test/declarative-cli.test.js（3 项）端到端 CLI 调用与文件 IO 验证全部通过。
+- 模板资产持久化仓储（component-template-store）：支持将组件模板原子写入磁盘（templates/components/*.json），自动维护全局 index.json 索引与 SHA256 指纹校验，具备越界路径拦截与一键加载完整 ComponentTemplateCatalog 能力。
+- 声明式可插拔重构流水线（declarative-rebuilder-pipeline）：采用责任链设计模式（Chain of Responsibility），支持按优先级插件化注册重构器；内置步骤链、指标卡片与组件模板匹配插件，并在输出端自动串联 BrandKit 智能换肤与两阶段无头质量门禁。
+- 新增 test/component-template-store.test.js（2 项）与 test/declarative-rebuilder-pipeline.test.js（4 项）回归测试全部通过。
+- 声明式版式重构器（declarative-layout-rebuilder）：基于 auto-layout-tree 与 layout-constraint-solver 实现了标准的水平流程卡片链（buildHorizontalStepsLayout，含自动生成连接线与徽标）和 KPI 指标卡片网格（buildMetricCardsLayout，含数值与字号智能计算）。
+- 品牌色盘与字体智能自适应换肤器（brand-kit-styler）：提供 parseHexColor、calculateLuminance、colorDistance 计算，支持输入企业 BrandKit 规范，自动对幻灯片内所有矢量 Shape 填充/边框及文字颜色和字体族进行对齐换肤，确保文本高对比度与视觉品牌一致性。
+- 新增 test/declarative-layout-rebuilder.test.js（3 项）与 test/brand-kit-styler.test.js（6 项）回归测试全部通过。
+- 跨平台感知图像质量评估（perceptual-image-quality）：新增纯 JS pHash 与 SSIM 实现，复用现有 PNG 读取边界，`quality-headless` 支持 `--reference-png` 与 `--rendered-png` 输入，在无 Office/COM 环境下对 LibreOffice 导出图执行结构相似度和感知哈希距离门禁。
+- VLM/长尾语义兜底准入（semantic-fallback-adapter）：新增严格的语义 fallback 输入合同，只允许模型输出 archetype、items、slotValues 等逻辑结构，拒绝 x/y/w/h/box/bounds 等绝对几何字段，再交由本地 declarative pipeline 与 layout solver 生成坐标。
+- 本地嵌入式 SQLite JobRepository：新增 `SqliteJobRepository` 与 `isSqliteJobRepositoryAvailable`，在支持 `node:sqlite` 的运行时提供同一 JobRepository 契约、owner 隔离、索引化幂等查询、状态过滤与持久化重开能力；默认 `JobStore` 保持兼容，旧 Node 仅在显式使用 SQLite 仓储时失败。
+
+验证证据：
+- `test/declarative-layout-rebuilder.test.js` 3 项测试通过。
+- `test/brand-kit-styler.test.js` 6 项测试通过。
+- `test/common-tools-job-repository.test.js` 3 项测试通过。
+- `test/layout-constraint-solver.test.js` 6 项测试通过。
+- `test/auto-layout-tree.test.js` 6 项测试通过。
+- `test/static-text-overflow-detector.test.js` 8 项测试通过。
+- `test/component-template-extract.test.js` 覆盖组件模板采集、脱敏默认文本、可选保留文本、合同校验、slotValues 准入和实例化缩放。
+- `test/perceptual-image-quality.test.js` 4 项测试通过。
+- `test/headless-quality-assessor.test.js` 与 `test/two-stage-quality.test.js` 已覆盖感知图像质量指标透传。
+- `test/semantic-fallback-adapter.test.js` 覆盖语义 fallback 解析、坐标字段拒绝、深度/文本/slot 边界、非法结构拒绝和全树总量上限；`test/declarative-rebuilder-pipeline.test.js` 覆盖语义 fallback 到声明式重建流水线的集成。
+- `test/sqlite-job-repository.test.js` 覆盖 SQLite 仓储契约、持久化重开、owner 隔离、filter/limit、路径边界和 owner mismatch。
+- `npm run typecheck`、`npm run lint`、`verify-workspace-boundaries` 与 `verify-architecture-budgets` 全部通过。
+- `npm run verify:ci` 完整通过，实际执行 lint、typecheck、capability/plugin/observability/ADR 门禁、.NET locked restore/build、unit、contract、integration、Python lock dry-run 和 runtime package verifier；运行包验证结果为 1,298 个文件、20 个 workspace package、6 项 capability 探针通过。
+- `verify-python-lock` 已覆盖 Windows Python alias 失败后继续发现 Codex bundled Python 与 PATH 后续真实运行时，避免本地 App Execution Alias 把 hash-enforced lock dry-run 阻断。
+- 后续增量 `declarative-rebuilder-pipeline` 入口与插件注册准入严格化后，`node --test test/declarative-rebuilder-pipeline.test.js test/semantic-fallback-adapter.test.js test/dla-layout-adapter.test.js` 23 项通过，`npm run typecheck`、`npm run lint` 与 `npm run common-tools:verify-runtime-package` 通过；运行包验证结果为 1,298 个文件、20 个 workspace package、6 项 capability 探针通过。本增量未重新执行完整 `verify:ci`。
+- 后续增量 `component-template-store` 索引完整性收口后，`node --test test/component-template-catalog.test.js test/component-template-extract.test.js test/component-template-store.test.js` 17 项通过，`npm run typecheck`、`npm run lint` 与 `npm run common-tools:verify-runtime-package` 通过；运行包验证结果为 1,298 个文件、20 个 workspace package、6 项 capability 探针通过。本增量未重新执行完整 `verify:ci`。
+- 后续增量 `declarative-cli` JSON 文件准入收口后，`node --test test/declarative-cli.test.js test/component-template-store.test.js test/headless-quality-assessor.test.js test/brand-kit-styler.test.js` 30 项通过，`npm run typecheck`、`npm run lint` 与 `npm run common-tools:verify-runtime-package` 通过；运行包验证结果为 1,298 个文件、20 个 workspace package、6 项 capability 探针通过。本增量未重新执行完整 `verify:ci`。
+- 累计增量最终收口：`npm run verify:ci` 完整通过，实际执行 lint、typecheck、capability/plugin/observability/ADR 门禁、.NET locked restore/build、unit、contract、integration、Python lock dry-run 和 runtime package verifier；最终运行包验证结果为 1,298 个文件、20 个 workspace package、6 项 capability 探针通过。随后 `npm run common-tools:architecture-closeout -- --require-complete` 通过，A–F 当前 closeout 范围为 7 verified、1 not-applicable、0 open/partial，`complete: true`。
+
 ## 2026-09-09 收口：native engine 继续按生产边界拆分
 
 基于“通用插件项目 = MCP 能力目录 + skill 薄壳 + UI contribution + 本地/远程 runtime + 可验收生产闭环”的共识，本轮没有继续按历史 `project-audit` 细项机械扩展，而是直接收敛生产图片/PPT 链路里仍然过大的 native engine。新增边界均落在 `packages/slideclone-native-engine/scripts/lib/`，skill 根目录不承载生产实现。

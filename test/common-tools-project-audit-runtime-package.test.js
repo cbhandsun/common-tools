@@ -10,6 +10,7 @@ const {
   FORBIDDEN_MARKERS,
   MAX_PACKAGE_BYTES,
   buildProjectAuditRuntimePackage,
+  copyArchive,
   packageManifest,
   parseArguments,
   parsePackResult
@@ -27,9 +28,9 @@ test("lightweight project audit runtime package excludes every heavy capability 
   const root = temporaryRoot();
   try {
     const output = path.join(root, "output");
-    fs.mkdirSync(output);
     const result = buildProjectAuditRuntimePackage({ repositoryRoot, outputDirectory: output });
     assert.equal(result.heavyComponentsExcluded, true);
+    assert.equal(fs.statSync(output).isDirectory(), true);
     assert.ok(result.packedBytes > 0 && result.packedBytes < MAX_PACKAGE_BYTES);
     assert.ok(fs.statSync(result.archive).isFile());
     const listed = childProcess.spawnSync("tar", ["-tf", result.archive], { encoding: "utf8", windowsHide: true });
@@ -51,6 +52,20 @@ test("project audit package boundary rejects malformed metadata and arguments", 
   assert.throws(() => parsePackResult("not-json"), /invalid/);
   assert.throws(() => parsePackResult(JSON.stringify([{ filename: "audit.tgz", size: MAX_PACKAGE_BYTES + 1, files: [] }])), /invalid/);
   assert.throws(() => parsePackResult(JSON.stringify([{ filename: "audit.tgz", size: 10, files: [{ path: "packages/slideclone-core/index.js" }] }])), /forbidden/);
+});
+
+test("project audit package output replaces only existing regular archives", (t) => {
+  const root = temporaryRoot();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const source = path.join(root, "source.tgz");
+  const destination = path.join(root, "destination.tgz");
+  fs.writeFileSync(source, "new");
+  fs.writeFileSync(destination, "old");
+  copyArchive(source, destination);
+  assert.equal(fs.readFileSync(destination, "utf8"), "new");
+  fs.rmSync(destination);
+  fs.mkdirSync(destination);
+  assert.throws(() => copyArchive(source, destination), /destination is invalid/);
 });
 
 test("standalone audit CLI validates input and runs locally without the unified Runtime", () => {
@@ -75,7 +90,7 @@ test("standalone audit CLI validates input and runs locally without the unified 
 });
 
 test("Git Marketplace embeds a byte-synchronized runnable audit Runtime", () => {
-  assert.deepEqual(verifyProjectAuditPluginRuntime({ repositoryRoot }), { fileCount: 26, synchronized: true });
+  assert.deepEqual(verifyProjectAuditPluginRuntime({ repositoryRoot }), { fileCount: 27, synchronized: true });
   const root = temporaryRoot();
   try {
     const result = childProcess.spawnSync(process.execPath, [embeddedCli, "doctor", "--workspace", root], { cwd: root, encoding: "utf8", windowsHide: true });

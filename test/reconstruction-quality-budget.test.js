@@ -136,10 +136,22 @@ test("deck quality budget applies strict overrides without trusting stored pass 
 
 test("deck quality budget rejects empty, malformed, and extreme external options", () => {
   assert.throws(() => evaluateDeckReconstructionBudget({ pages: [] }), /1 to 10000 pages/);
+  assert.throws(() => evaluateDeckReconstructionBudget({ pages: [{ pageIndex: 0 }] }, []), /options must be an object/);
   const ir = { slideSize: { widthPt: 100, heightPt: 100 }, pages: [{ pageIndex: 0, shapes: [{ id: "x" }] }] };
   for (const policy of ["", "unknown", null]) assert.throws(() => evaluateDeckReconstructionBudget(ir, { policy }), /policy/);
   for (const value of [-0.1, 1.1, Infinity, "bad"]) {
     assert.throws(() => evaluateDeckReconstructionBudget(ir, { maxResidualAreaRatio: value }), /maxResidualAreaRatio/);
   }
+  assert.throws(() => evaluateDeckReconstructionBudget(ir, { maxLargestResidualAreaRatio: "0.5" }), /maxLargestResidualAreaRatio/);
   assert.throws(() => evaluateDeckReconstructionBudget(ir, { minNativeObjectCount: 100001 }), /minNativeObjectCount/);
+});
+
+test("page quality budget rejects invalid explicit threshold options", () => {
+  const page = { images: [], shapes: [{ id: "native" }] };
+  const slide = { widthPt: 100, heightPt: 100 };
+  assert.throws(() => evaluatePageReconstructionBudget(page, slide, []), /options must be an object/);
+  assert.throws(() => evaluatePageReconstructionBudget(page, slide, { maxResidualAreaRatio: "bad" }), /ratio/);
+  assert.throws(() => evaluatePageReconstructionBudget(page, slide, { maxLargestResidualAreaRatio: Infinity }), /ratio/);
+  assert.throws(() => evaluatePageReconstructionBudget(page, slide, { minNativeObjectCount: "1" }), /count/);
+  assert.equal(evaluatePageReconstructionBudget(page, slide, { maxResidualAreaRatio: null }).thresholds.maxResidualAreaRatio, 0.65);
 });

@@ -38,9 +38,10 @@ function measurePageReconstructionQuality(page = {}, slideSize = {}) {
 }
 
 function evaluatePageReconstructionBudget(page = {}, slideSize = {}, options = {}) {
+  const rawOptions = optionalRecord(options, "reconstruction budget options");
   const metrics = measurePageReconstructionQuality(page, slideSize);
-  const policy = normalizePolicy(options.policy);
-  const thresholds = thresholdsFor(policy, options);
+  const policy = normalizePolicy(rawOptions.policy);
+  const thresholds = thresholdsFor(policy, rawOptions);
   const reasonCodes = [];
   if (metrics.actionableResidualAreaRatio > thresholds.maxResidualAreaRatio) reasonCodes.push("quality.residual-area-exceeded");
   if (metrics.largestActionableResidualAreaRatio > thresholds.maxLargestResidualAreaRatio) reasonCodes.push("quality.largest-residual-exceeded");
@@ -56,12 +57,13 @@ function evaluatePageReconstructionBudget(page = {}, slideSize = {}, options = {
 }
 
 function evaluateDeckReconstructionBudget(ir = {}, options = {}) {
+  const rawOptions = optionalRecord(options, "reconstruction budget options");
   const pages = Array.isArray(ir?.pages) ? ir.pages : [];
   if (pages.length === 0 || pages.length > 10000) {
     throw new TypeError("Deck IR must contain 1 to 10000 pages for reconstruction budget evaluation");
   }
-  const policyOverride = options.policy === undefined ? null : requirePolicy(options.policy);
-  const thresholdOverrides = normalizeThresholdOverrides(options);
+  const policyOverride = rawOptions.policy === undefined ? null : requirePolicy(rawOptions.policy);
+  const thresholdOverrides = normalizeThresholdOverrides(rawOptions);
   const pageResults = pages.map((page, pageOffset) => {
     const storedPolicy = page?.reconstruction?.qualityBudget?.policy
       || page?.reconstruction?.expressionPolicy;
@@ -193,13 +195,13 @@ function normalizeThresholdOverrides(options) {
 }
 
 function requireRatio(value, label) {
-  const number = Number(value);
+  const number = typeof value === "number" ? value : Number.NaN;
   if (!Number.isFinite(number) || number < 0 || number > 1) throw new TypeError(`${label} must be a finite number between 0 and 1`);
   return number;
 }
 
 function requireInteger(value, label, minimum, maximum) {
-  const number = Number(value);
+  const number = typeof value === "number" ? value : Number.NaN;
   if (!Number.isSafeInteger(number) || number < minimum || number > maximum) {
     throw new TypeError(`${label} must be an integer between ${minimum} and ${maximum}`);
   }
@@ -216,13 +218,23 @@ function positiveNumber(value) {
 }
 
 function finiteRatio(value, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) && number >= 0 && number <= 1 ? number : fallback;
+  if (value === undefined || value === null) return fallback;
+  const number = typeof value === "number" ? value : Number.NaN;
+  if (!Number.isFinite(number) || number < 0 || number > 1) throw new TypeError("reconstruction budget ratio is invalid");
+  return number;
 }
 
 function boundedInteger(value, fallback, minimum, maximum) {
-  const number = Number(value);
-  return Number.isInteger(number) && number >= minimum && number <= maximum ? number : fallback;
+  if (value === undefined || value === null) return fallback;
+  const number = typeof value === "number" ? value : Number.NaN;
+  if (!Number.isSafeInteger(number) || number < minimum || number > maximum) throw new TypeError("reconstruction budget count is invalid");
+  return number;
+}
+
+function optionalRecord(value, label) {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
+  return value;
 }
 
 function round(value, digits = 2) {

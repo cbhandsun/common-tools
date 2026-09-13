@@ -180,6 +180,57 @@ function assertQualityReport(value) {
   return Object.freeze({ passed: value.passed, checks: Object.freeze(checks), metrics: Object.freeze(metrics) });
 }
 
+/**
+ * @typedef {Object} JobRepository
+ * @property {(id: string) => unknown} get
+ * @property {(options: { id: string, capability: string, idempotencyKey: string, expiresAt?: string }) => unknown} create
+ * @property {(capability: string, idempotencyKey: string) => unknown} findByIdempotency
+ * @property {(id: string, status: JobStatus, extra?: Record<string, unknown>) => unknown} transition
+ * @property {(filter?: { capability?: string, status?: JobStatus, limit?: number }) => unknown} list
+ */
+
+/**
+ * @param {unknown} value
+ * @param {string} [label]
+ * @returns {asserts value is JobRepository}
+ */
+function assertJobRepository(value, label = "job repository") {
+  assertPlainObject(value, label);
+  const candidate = /** @type {Record<string, unknown>} */ (value);
+  const requiredMethods = ["get", "create", "findByIdempotency", "transition", "list"];
+  for (const method of requiredMethods) {
+    if (typeof candidate[method] !== "function") {
+      throw new TypeError(label + "." + method + " must be a function");
+    }
+  }
+}
+
+/**
+ * @param {unknown} filter
+ * @param {{defaultLimit?: number | null}} [options]
+ * @returns {Readonly<{capability: string | null, status: JobStatus | null, limit: number | null}>}
+ */
+function validateJobListFilter(filter = {}, options = {}) {
+  if (filter == null) filter = {};
+  assertPlainObject(filter, "filter");
+  assertPlainObject(options, "filter options");
+  const candidate = /** @type {Record<string, unknown>} */ (filter);
+  const optionRecord = /** @type {Record<string, unknown>} */ (options);
+  const rawDefaultLimit = optionRecord.defaultLimit === undefined ? null : optionRecord.defaultLimit;
+  if (rawDefaultLimit !== null && (typeof rawDefaultLimit !== "number" || !Number.isInteger(rawDefaultLimit) || rawDefaultLimit < 1 || rawDefaultLimit > 1000)) {
+    throw new TypeError("filter default limit must be an integer between 1 and 1000");
+  }
+  const defaultLimit = /** @type {number | null} */ (rawDefaultLimit);
+  const capability = candidate.capability === undefined ? null : assertNonEmptyString(candidate.capability, "filter.capability");
+  const status = candidate.status === undefined ? null : assertNonEmptyString(candidate.status, "filter.status");
+  if (status !== null && !JOB_STATUSES.has(/** @type {JobStatus} */ (status))) throw new TypeError("filter.status is invalid");
+  const rawLimitValue = candidate.limit === undefined || candidate.limit === null ? defaultLimit : candidate.limit;
+  if (rawLimitValue !== null && (typeof rawLimitValue !== "number" || !Number.isInteger(rawLimitValue) || rawLimitValue < 1 || rawLimitValue > 1000)) {
+    throw new TypeError("filter.limit must be an integer between 1 and 1000");
+  }
+  return Object.freeze({ capability, status: /** @type {JobStatus | null} */ (status), limit: /** @type {number | null} */ (rawLimitValue) });
+}
+
 module.exports = {
   JOB_STATUSES,
   MCP_JOB_ID_SCHEMA,
@@ -190,6 +241,7 @@ module.exports = {
   MCP_SIYUAN_ID_SCHEMA,
   TERMINAL_JOB_STATUSES,
   assertJob,
+  assertJobRepository,
   assertPlainObject,
   assertNonEmptyString,
   assertQualityReport,
@@ -199,5 +251,6 @@ module.exports = {
   createCapabilityRegistration,
   defineMcpObjectSchema,
   defineMcpToolContract,
-  mcpToolAnnotations
+  mcpToolAnnotations,
+  validateJobListFilter
 };

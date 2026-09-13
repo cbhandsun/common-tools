@@ -65,6 +65,46 @@ test("PPTX readers reject a central directory that points outside the archive", 
   }
 });
 
+test("PPTX readers reject invalid zip options instead of falling back", () => {
+  const fixture = createFixture({
+    name: "ppt/slides/slide1.xml",
+    data: Buffer.from("<p:sld/>")
+  });
+  try {
+    const payload = fs.readFileSync(fixture.file);
+    assert.throws(() => inventory.listZipEntries(fixture.file, []), /PPTX zip options must be an object/);
+    assert.throws(() => inventory.listZipEntries(fixture.file, { maxEntries: "bad" }), /maxEntries/);
+    assert.throws(() => inventory.listZipEntries(fixture.file, { maxEntryBytes: 1023 }), /maxEntryBytes/);
+    assert.throws(() => inventory.readZipEntry(fixture.file, "ppt/slides/slide1.xml", { maxBytes: "bad" }), /maxBytes/);
+    assert.throws(() => pptxZip.readZipEntries(payload, []), /ZIP read options must be an object/);
+    assert.throws(() => pptxZip.readZipEntryText(fixture.file, "ppt/slides/slide1.xml", { maxBytes: "bad" }), /maxBytes/);
+    assert.throws(() => pptxZip.readZipEntryText(fixture.file, "ppt/slides/slide1.xml", { maxEntryBytes: Infinity }), /maxEntryBytes/);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("PPTX rewrite rejects invalid zip rewrite options", () => {
+  const fixture = createFixture({
+    name: "ppt/slides/slide1.xml",
+    data: Buffer.from("<p:sld/>")
+  });
+  try {
+    const output = path.join(path.dirname(fixture.file), "out.pptx");
+    assert.throws(
+      () => pptxZip.rewriteZipEntries(fixture.file, output, {}, []),
+      /ZIP rewrite options must be an object/
+    );
+    assert.throws(
+      () => pptxZip.rewriteZipEntries(fixture.file, output, {}, { maxExpandedBytes: "bad" }),
+      /maxExpandedBytes/
+    );
+    assert.equal(fs.existsSync(output), false);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
 function createFixture({ name, data, declaredUncompressedSize = data.length }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-zip-boundary-"));
   const file = path.join(root, "fixture.pptx");

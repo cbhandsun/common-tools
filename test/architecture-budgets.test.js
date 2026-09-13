@@ -63,9 +63,9 @@ test("architecture measurement counts lines, bytes and unique relative imports",
   assert.deepEqual(crlfMetrics, lfMetrics);
 });
 
-test("architecture budgets keep native-engine entrypoints but leave runtime payload sizing to package gates", () => {
+test("architecture budgets include native-engine runtime payload production scripts", () => {
   const files = listCodeFiles(path.resolve(__dirname, "..", "packages"))
     .map((file) => path.relative(path.resolve(__dirname, ".."), file).replaceAll("\\", "/"));
   assert.ok(files.includes("packages/slideclone-native-engine/index.js"));
-  assert.equal(files.some((file) => file.startsWith("packages/slideclone-native-engine/scripts/")), false);
+  assert.ok(files.includes("packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js"));
 });

@@ -24,7 +24,8 @@ const pngReadCacheStorage = new AsyncLocalStorage();
 
 /** @param {string} file @param {PngReadOptions} [options] @returns {PngImage} */
 function readPng(file, options = {}) {
-  const limits = normalizeReadLimits(options);
+  const rawOptions = optionalRecord(options, "PNG read options");
+  const limits = normalizeReadLimits(rawOptions);
   const stats = fs.statSync(file);
   if (!stats.isFile() || stats.size < PNG_SIGNATURE.length || stats.size > limits.maxFileBytes) {
     throw new Error(`PNG file size exceeds the processing boundary: ${file}`);
@@ -39,7 +40,7 @@ function readPng(file, options = {}) {
     return clonePng(cached);
   }
   const buffer = fs.readFileSync(file);
-  const decoded = readPngBuffer(buffer, { ...options, label: file });
+  const decoded = readPngBuffer(buffer, { ...rawOptions, label: file });
   if (activeCache) {
     activeCache.misses += 1;
     const bytes = decoded.rgba.length;
@@ -55,7 +56,8 @@ function readPng(file, options = {}) {
 /** @param {(cache: PngReadCache) => unknown} callback @param {PngCacheOptions} [options] @returns {unknown} */
 function withPngReadCache(callback, options = {}) {
   if (typeof callback !== "function") throw new TypeError("PNG cache callback must be a function");
-  const maxBytes = boundedCacheBytes(options.maxBytes);
+  const rawOptions = optionalRecord(options, "PNG read cache options");
+  const maxBytes = boundedCacheBytes(rawOptions.maxBytes);
   const state = {
     entries: new Map(),
     bytes: 0,
@@ -99,8 +101,9 @@ function pathForCache(file) {
 
 /** @param {Buffer} buffer @param {PngReadOptions} [options] @returns {PngImage} */
 function readPngBuffer(buffer, options = {}) {
-  const limits = normalizeReadLimits(options);
-  const file = options.label || "<buffer>";
+  const rawOptions = optionalRecord(options, "PNG read options");
+  const limits = normalizeReadLimits(rawOptions);
+  const file = typeof rawOptions.label === "string" && rawOptions.label ? rawOptions.label : "<buffer>";
   if (!Buffer.isBuffer(buffer) || buffer.length < PNG_SIGNATURE.length || buffer.length > limits.maxFileBytes) {
     throw new Error(`PNG buffer size exceeds the processing boundary: ${file}`);
   }
@@ -340,25 +343,41 @@ function validateDimensions(width, height, limits, file) {
   }
 }
 
-/** @param {PngReadOptions} options @returns {PngReadLimits} */
+/** @param {Record<string, unknown>} options @returns {PngReadLimits} */
 function normalizeReadLimits(options) {
   return {
-    maxFileBytes: boundedInteger(options.maxFileBytes, 1024, 1024 * 1024 * 1024, DEFAULT_LIMITS.maxFileBytes),
-    maxPixels: boundedInteger(options.maxPixels, 1, 250_000_000, DEFAULT_LIMITS.maxPixels),
-    maxDimension: boundedInteger(options.maxDimension, 1, 100_000, DEFAULT_LIMITS.maxDimension),
+    maxFileBytes: boundedInteger(options.maxFileBytes, 1024, 1024 * 1024 * 1024, DEFAULT_LIMITS.maxFileBytes, "maxFileBytes"),
+    maxPixels: boundedInteger(options.maxPixels, 1, 250_000_000, DEFAULT_LIMITS.maxPixels, "maxPixels"),
+    maxDimension: boundedInteger(options.maxDimension, 1, 100_000, DEFAULT_LIMITS.maxDimension, "maxDimension"),
     maxInflatedBytes: boundedInteger(
       options.maxInflatedBytes,
       1024,
       1024 * 1024 * 1024,
-      DEFAULT_LIMITS.maxInflatedBytes
+      DEFAULT_LIMITS.maxInflatedBytes,
+      "maxInflatedBytes"
     )
   };
 }
 
-/** @param {unknown} value @param {number} min @param {number} max @param {number} fallback @returns {number} */
-function boundedInteger(value, min, max, fallback) {
-  const number = Math.trunc(Number(value));
-  return Number.isSafeInteger(number) && number >= min && number <= max ? number : fallback;
+/**
+ * @param {unknown} value
+ * @param {string} label
+ * @returns {Record<string, unknown>}
+ */
+function optionalRecord(value, label) {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
+  return /** @type {Record<string, unknown>} */ (value);
+}
+
+/** @param {unknown} value @param {number} min @param {number} max @param {number} fallback @param {string} label @returns {number} */
+function boundedInteger(value, min, max, fallback, label) {
+  if (value === undefined || value === null) return fallback;
+  const number = typeof value === "number" ? value : Number.NaN;
+  if (!Number.isSafeInteger(number) || number < min || number > max) {
+    throw new RangeError(`PNG read option ${label} must be an integer between ${min} and ${max}`);
+  }
+  return number;
 }
 
 module.exports = { readPng, readPngBuffer, writePng, cropPng, withPngReadCache };

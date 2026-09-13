@@ -18,7 +18,10 @@ function fingerprintOoxmlPackage(file, options = {}) {
   if (stat.size <= 0 || stat.size > limits.maxPackageBytes) throw new Error("OOXML package size is outside the allowed range");
 
   const buffer = fs.readFileSync(file);
-  const entries = listZipEntries(buffer);
+  const entries = listZipEntries(buffer, {
+    maxArchiveBytes: limits.maxPackageBytes,
+    maxEntries: limits.maxEntries
+  });
   if (entries.length === 0 || entries.length > limits.maxEntries) throw new Error("OOXML package entry count is outside the allowed range");
 
   const normalizedNames = new Set();
@@ -55,10 +58,34 @@ function normalizeEntryName(value) {
 }
 
 function readLimits(options) {
-  return Object.fromEntries(Object.entries(DEFAULT_LIMITS).map(([key, fallback]) => {
-    const value = Number(options[key]);
-    return [key, Number.isSafeInteger(value) && value > 0 ? value : fallback];
-  }));
+  const rawOptions = optionalRecord(options, "OOXML package fingerprint options");
+  return {
+    maxPackageBytes: boundedInteger(rawOptions.maxPackageBytes, 1024, 1024 * 1024 * 1024, DEFAULT_LIMITS.maxPackageBytes, "maxPackageBytes"),
+    maxEntries: boundedInteger(rawOptions.maxEntries, 1, 65_534, DEFAULT_LIMITS.maxEntries, "maxEntries"),
+    maxEntryBytes: boundedInteger(rawOptions.maxEntryBytes, 1, 512 * 1024 * 1024, DEFAULT_LIMITS.maxEntryBytes, "maxEntryBytes"),
+    maxTotalUncompressedBytes: boundedInteger(
+      rawOptions.maxTotalUncompressedBytes,
+      1,
+      2 * 1024 * 1024 * 1024,
+      DEFAULT_LIMITS.maxTotalUncompressedBytes,
+      "maxTotalUncompressedBytes"
+    )
+  };
+}
+
+function optionalRecord(value, label) {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
+  return value;
+}
+
+function boundedInteger(value, min, max, fallback, label) {
+  if (value === undefined || value === null) return fallback;
+  const number = typeof value === "number" ? value : Number.NaN;
+  if (!Number.isSafeInteger(number) || number < min || number > max) {
+    throw new RangeError(`OOXML package fingerprint option ${label} must be an integer between ${min} and ${max}`);
+  }
+  return number;
 }
 
 module.exports = { DEFAULT_LIMITS, fingerprintOoxmlPackage, normalizeEntryName };

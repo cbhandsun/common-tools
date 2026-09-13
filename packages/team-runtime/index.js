@@ -7,7 +7,7 @@ const { assertRetentionPrefix, collectRetentionOutputKeys } = require("./retenti
 const { assertLeaseAttempt, assertLeaseSeconds } = require("./worker-lease");
 
 const crypto = require("node:crypto");
-const { assertNonEmptyString, assertPlainObject, assertQualityReport, assertTransition } = require("../capability-contracts");
+const { assertJobRepository, assertNonEmptyString, assertPlainObject, assertQualityReport, assertTransition, validateJobListFilter } = require("../capability-contracts");
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 const { retentionScheduleSettings } = require("./retention-scheduler");
 
@@ -41,6 +41,32 @@ function requireQuery(query) { if (typeof query !== "function") throw new TypeEr
 
 class PostgresJobRepository {
   constructor({ query }) { this.query = requireQuery(query); }
+  async findByIdempotency(capability, idempotencyKey) {
+    const result = await this.query("SELECT * FROM capability_jobs WHERE capability = $1 AND idempotency_key = $2 AND status NOT IN ('succeeded','failed','cancelled','expired') ORDER BY created_at DESC LIMIT 1", [assertNonEmptyString(capability, "capability"), assertNonEmptyString(idempotencyKey, "idempotencyKey")]);
+    return result.rows.length ? fromRow(result.rows[0]) : null;
+  }
+  async list(filter = {}) {
+    const { capability, status, limit } = validateJobListFilter(filter, { defaultLimit: 100 });
+    const conditions = [];
+    const values = [];
+    if (capability !== null) {
+      values.push(capability);
+      conditions.push("capability = $" + values.length);
+    }
+    if (status !== null) {
+      values.push(status);
+      conditions.push("status = $" + values.length);
+    }
+    const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+    values.push(limit);
+    const query = "SELECT * FROM capability_jobs " + (where ? where + " " : "") + "ORDER BY created_at DESC LIMIT $" + values.length;
+    const result = await this.query(query, values);
+    return Object.freeze(result.rows.map(fromRow));
+  }
+  asJobRepository() {
+    assertJobRepository(this, "PostgresJobRepository");
+    return this;
+  }
   async findActiveByIdempotency(job) {
     const candidate = createTeamJob(job);
     const result = await this.query("SELECT * FROM capability_jobs WHERE owner_id = $1 AND project_id IS NOT DISTINCT FROM $2 AND capability = $3 AND idempotency_key = $4 AND status NOT IN ('succeeded','failed','cancelled','expired') ORDER BY created_at DESC LIMIT 1", [candidate.ownerId, candidate.projectId || null, candidate.capability, candidate.idempotencyKey]);
@@ -70,7 +96,11 @@ class PostgresJobRepository {
     return Object.freeze({ job: createdJob, created });
   }
   async get(id, ownerId) {
-    const result = await this.query("SELECT * FROM capability_jobs WHERE id = $1 AND owner_id = $2", [assertNonEmptyString(id, "job id"), assertNonEmptyString(ownerId, "ownerId")]);
+    const query = ownerId != null
+      ? "SELECT * FROM capability_jobs WHERE id = $1 AND owner_id = $2"
+      : "SELECT * FROM capability_jobs WHERE id = $1";
+    const params = ownerId != null ? [assertNonEmptyString(id, "job id"), assertNonEmptyString(ownerId, "ownerId")] : [assertNonEmptyString(id, "job id")];
+    const result = await this.query(query, params);
     return result.rows.length ? fromRow(result.rows[0]) : null;
   }
   async getInProject(id, projectId) {
@@ -332,4 +362,4 @@ function createTeamServices({ repository, queue, objectStore, projectActiveJobLi
   });
 }
 
-module.exports = { CAPABILITIES, PostgresJobRepository, TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYABLE_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, TeamWorker, TeamWorkerRunner, assertProjectId, assertTraceParent, createTeamJob, createTeamServices, fromRow, loadTeamConfig, normalizeTeamJobOptions, ownedInputKey, parseEnabledCapabilities, recoverWorkerLeases, retentionObjectKeys, runTeamRetention, storedQuality, teamDeploymentPlan, validUploadRequest };
+module.exports = { CAPABILITIES, assertJobRepository, PostgresJobRepository, TEAM_DEFAULT_CAPABILITIES, TEAM_DEPLOYABLE_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, TeamWorker, TeamWorkerRunner, assertProjectId, assertTraceParent, createTeamJob, createTeamServices, fromRow, loadTeamConfig, normalizeTeamJobOptions, ownedInputKey, parseEnabledCapabilities, recoverWorkerLeases, retentionObjectKeys, runTeamRetention, storedQuality, teamDeploymentPlan, validUploadRequest };

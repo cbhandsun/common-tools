@@ -97,6 +97,30 @@ test("source-media exclusion fails closed for stale source hashes and missing pa
   }
 });
 
+test("source-media exclusion rejects invalid explicit audit options", () => {
+  const fixture = setup();
+  try {
+    const pptx = path.join(fixture.root, "exact.pptx");
+    writeStoredZip(pptx, [{ name: "ppt/media/image1.png", data: fs.readFileSync(fixture.source) }]);
+    for (const options of [
+      [],
+      { maxMatches: "bad" },
+      { perceptualDistance: Infinity },
+      { maxArchiveBytes: 1023 },
+      { maxEntries: 0 },
+      { maxEntryBytes: "private-token-value" }
+    ]) {
+      const report = auditSourceMediaExclusion({ ir: fixture.ir, pptxFile: pptx, baseDir: fixture.root, options });
+      assert.equal(report.status, "error");
+      assert.equal(report.passed, false);
+      assert.equal(report.matches.length, 0);
+      assert.doesNotMatch(report.errors.join(" "), /private-token-value/);
+    }
+  } finally {
+    fixture.cleanup();
+  }
+});
+
 function writeStoredZip(file, entries) {
   const localParts = [];
   const centralParts = [];

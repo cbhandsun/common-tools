@@ -3,13 +3,12 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { isRuntimePayloadPath } = require("./native-engine-runtime-payload");
 
 const root = path.resolve(__dirname, "..");
 const budgetFile = path.join(root, "config", "architecture-budgets.json");
 const sourceRoots = [
-  // Skills are distribution mirrors. Production architecture budgets are kept
-  // on package/runtime entrypoints, repo scripts and managed native projects.
+  // Skills are distribution mirrors. Runtime payload files are included here
+  // because they are production code and should obey decreasing-only budgets.
   "skills/pd-hifi-slideclone/dotnet",
   "scripts",
   "packages"
@@ -99,7 +98,6 @@ function listCodeFiles(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     if (["bin", "node_modules", "obj"].includes(entry.name)) continue;
     const target = path.join(directory, entry.name);
-    if (entry.isDirectory() && isRuntimePayloadPath(target)) continue;
     if (entry.isDirectory()) files.push(...listCodeFiles(target));
     else if (entry.isFile() && /\.(?:cs|js)$/u.test(entry.name)) files.push(target);
   }

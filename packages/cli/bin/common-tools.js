@@ -42,6 +42,7 @@ const { verifyCapabilityToolContracts } = require("../verification/verify-capabi
 const { scaffoldPlan, writeScaffold } = require("../capability-scaffold");
 const { createEditableSourceArchive, createRawImageArchive } = require("../../slideclone-worker-adapter/team-raw-image-archive");
 const { createBundledSlidecloneRunner } = require("../slideclone-runner");
+const { runHeadlessQualityCommand, runRethemeCommand, runTemplateCommand } = require("../declarative-cli");
 
 const REPOSITORY_ROOT = path.resolve(__dirname, "../../..");
 let executeBundledSlideclone;
@@ -54,6 +55,7 @@ const COMMAND_USAGE = [
   "  doctor | runtime status | runtime resolve --capability <id> [--execution local|remote] | mcp serve",
   "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team migration-status [--production-env-file <absolute.env>] | team production-acceptance-plan [--production-env-file <absolute.env>] [--out <json>] | team production-acceptance-evidence [--production-env-file <absolute.env>] --out <directory> | team editable-source-archive (--input <png|jpg|pdf|pptx|deck.json> | --inputs <ordered-images,csv>) --out <archive.tar.gz> | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) --out <archive.tar.gz> | team production-preflight [--production-env-file <absolute.env>] | team keycloak-realm [--apply --backup-file <new.json> --evidence-file <new.json>] | team keycloak-mcp-client [--apply --backup-file <new.json>] | team keycloak-local-test-user --apply [--username <name>] [--project-id <id>] [--role viewer|editor|admin]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
+  "  template list|show|export|import|harvest | quality-headless --input <json> [--reference-png <png> --rendered-png <png>] [--min-ssim <0..1>] [--max-phash-distance <0..63>] [--out <json>] | retheme --input <json> --brand-kit <json> --out <json>",
   "  editable init|create|run|batch|apply-edit | editable batch --inputs <ordered,csv> --out <directory> --config <json> | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose [--provider-config <json> --provider-id <id>]|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|edit-session|apply-edit|apply-ir-edit|finalize-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|layout-safe|typography-safe|editability-safe|audit-only] | job get|run|cancel"
 ].join("\n");
 
@@ -384,6 +386,9 @@ async function mainWithPptQuality() {
     process.stdout.write(`${JSON.stringify(initializeEditableProfile(ctx, args), null, 2)}\n`);
     return 0;
   }
+  if (area === "template") return runTemplateCommand(ctx, action, args);
+  if (area === "quality-headless") return runHeadlessQualityCommand(ctx, args);
+  if (area === "retheme") return runRethemeCommand(ctx, args);
   if (area === "team" && action === "runtime") return teamRuntime(args);
   if (area === "ppt" && ["draft", "compose"].includes(action)) {
     if (!args.input || !args.out || !args.audience || !args.purpose) throw new Error(`ppt ${action} requires --input, --out, --audience and --purpose`);
@@ -555,4 +560,4 @@ async function mainWithPptQuality() {
 
 if (require.main === module) mainWithPptQuality().then((code) => { process.exitCode = code; }).catch((error) => { process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`); process.exitCode = 1; });
 
-module.exports = { COMMAND_USAGE, collectProductionAcceptanceEvidence, composeProjectName, composeRuntimeSnapshot, doctorReport, editableProfileConfig, editableProfileProvider, gatewayReadiness, initializeEditableProfile, localTeamConfigReport, loopbackTcpPort, main: mainWithPptQuality, newPipelineOutputRoot, optionalLicense, optionalPaddleOcr, optionalUmiOcr, parse, pluginCatalog, probeReadyEndpoint, productionAcceptancePlan, requireEnabledCapability, resolveWorkspaceChild, runPptImprovePipeline, runtimeStatus, summarizeContainerStatus, teamDoctor, teamDoctorReport, teamRuntime, teamRuntimeReport, validateScaffoldBundle, workspaceAccess };
+module.exports = { COMMAND_USAGE, collectProductionAcceptanceEvidence, composeProjectName, composeRuntimeSnapshot, doctorReport, editableProfileConfig, editableProfileProvider, gatewayReadiness, initializeEditableProfile, localTeamConfigReport, loopbackTcpPort, main: mainWithPptQuality, newPipelineOutputRoot, optionalLicense, optionalPaddleOcr, optionalUmiOcr, parse, pluginCatalog, probeReadyEndpoint, productionAcceptancePlan, requireEnabledCapability, resolveWorkspaceChild, runHeadlessQualityCommand, runPptImprovePipeline, runRethemeCommand, runTemplateCommand, runtimeStatus, summarizeContainerStatus, teamDoctor, teamDoctorReport, teamRuntime, teamRuntimeReport, validateScaffoldBundle, workspaceAccess };

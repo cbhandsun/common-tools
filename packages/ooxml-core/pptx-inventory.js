@@ -69,11 +69,12 @@ function listZipEntries(file, options = {}) {
 
 function readZipEntry(file, entryName, options = {}) {
   const buffer = Buffer.isBuffer(file) ? file : fs.readFileSync(file);
-  const limits = normalizeZipLimits(options);
+  const rawOptions = optionalRecord(options, "PPTX zip options");
+  const limits = normalizeZipLimits(rawOptions);
   const normalizedName = String(entryName || "").replace(/\\/g, "/").toLowerCase();
   const entry = listZipEntries(buffer, limits).find((item) => item.name.toLowerCase() === normalizedName);
   if (!entry) return null;
-  const maxEntryBytes = normalizeMaxBytes(options.maxBytes, limits.maxEntryBytes);
+  const maxEntryBytes = boundedInteger(rawOptions.maxBytes, 1, 512 * 1024 * 1024, limits.maxEntryBytes, "maxBytes");
   if (entry.uncompressedSize > maxEntryBytes || entry.compressedSize > limits.maxArchiveBytes) {
     throw new Error(`zip entry too large: ${entry.name}`);
   }
@@ -114,32 +115,40 @@ function findEndOfCentralDirectory(buffer) {
   return -1;
 }
 
-function normalizeMaxBytes(value, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : fallback;
-}
-
 function normalizeZipLimits(options = {}) {
+  const rawOptions = optionalRecord(options, "PPTX zip options");
   return {
     maxArchiveBytes: boundedInteger(
-      options.maxArchiveBytes,
+      rawOptions.maxArchiveBytes,
       1024,
       1024 * 1024 * 1024,
-      DEFAULT_ZIP_LIMITS.maxArchiveBytes
+      DEFAULT_ZIP_LIMITS.maxArchiveBytes,
+      "maxArchiveBytes"
     ),
-    maxEntries: boundedInteger(options.maxEntries, 1, 65_534, DEFAULT_ZIP_LIMITS.maxEntries),
+    maxEntries: boundedInteger(rawOptions.maxEntries, 1, 65_534, DEFAULT_ZIP_LIMITS.maxEntries, "maxEntries"),
     maxEntryBytes: boundedInteger(
-      options.maxEntryBytes,
+      rawOptions.maxEntryBytes,
       1024,
       512 * 1024 * 1024,
-      DEFAULT_ZIP_LIMITS.maxEntryBytes
+      DEFAULT_ZIP_LIMITS.maxEntryBytes,
+      "maxEntryBytes"
     )
   };
 }
 
-function boundedInteger(value, min, max, fallback) {
-  const number = Math.trunc(Number(value));
-  return Number.isSafeInteger(number) && number >= min && number <= max ? number : fallback;
+function boundedInteger(value, min, max, fallback, label) {
+  if (value === undefined || value === null) return fallback;
+  const number = typeof value === "number" ? value : Number.NaN;
+  if (!Number.isSafeInteger(number) || number < min || number > max) {
+    throw new RangeError(`PPTX zip option ${label} must be an integer between ${min} and ${max}`);
+  }
+  return number;
+}
+
+function optionalRecord(value, label) {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
+  return value;
 }
 
 module.exports = {

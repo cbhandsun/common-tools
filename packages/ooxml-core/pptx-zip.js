@@ -78,13 +78,10 @@ function readZipEntries(buffer, options = {}) {
 }
 
 function readZipEntryData(buffer, entry, options = {}) {
-  const limits = normalizeLimits(options);
-  const maxEntryBytes = boundedInteger(
-    options.maxEntryBytes ?? options.maxBytes,
-    1,
-    512 * 1024 * 1024,
-    limits.maxEntryBytes
-  );
+  const rawOptions = optionalRecord(options, "ZIP read options");
+  const limits = normalizeLimits(rawOptions);
+  const entryLimit = selectEntryByteLimit(rawOptions);
+  const maxEntryBytes = boundedInteger(entryLimit.value, 1, 512 * 1024 * 1024, limits.maxEntryBytes, entryLimit.label);
   if (entry.uncompressedSize > maxEntryBytes) {
     throw new Error(`ZIP entry ${entry.name} exceeds the processing boundary.`);
   }
@@ -121,8 +118,9 @@ function readZipEntryData(buffer, entry, options = {}) {
 }
 
 function rewriteZipEntries(sourcePath, outputPath, replacements = {}, options = {}) {
-  const maxArchiveBytes = boundedInteger(options.maxArchiveBytes, 1024, 256 * 1024 * 1024, 64 * 1024 * 1024);
-  const maxExpandedBytes = boundedInteger(options.maxExpandedBytes, 1024, 512 * 1024 * 1024, 128 * 1024 * 1024);
+  const rawOptions = optionalRecord(options, "ZIP rewrite options");
+  const maxArchiveBytes = boundedInteger(rawOptions.maxArchiveBytes, 1024, 256 * 1024 * 1024, 64 * 1024 * 1024, "maxArchiveBytes");
+  const maxExpandedBytes = boundedInteger(rawOptions.maxExpandedBytes, 1024, 512 * 1024 * 1024, 128 * 1024 * 1024, "maxExpandedBytes");
   const source = fs.statSync(sourcePath);
   if (!source.isFile() || source.size <= 0 || source.size > maxArchiveBytes) throw new Error("ZIP source exceeds the rewrite boundary");
   const buffer = fs.readFileSync(sourcePath);
@@ -225,25 +223,33 @@ function crc32(buffer) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function boundedInteger(value, min, max, fallback) {
-  const number = Math.trunc(Number(value));
-  return Number.isFinite(number) && number >= min && number <= max ? number : fallback;
+function boundedInteger(value, min, max, fallback, label) {
+  if (value === undefined || value === null) return fallback;
+  const number = typeof value === "number" ? value : Number.NaN;
+  if (!Number.isSafeInteger(number) || number < min || number > max) {
+    throw new RangeError(`ZIP option ${label} must be an integer between ${min} and ${max}`);
+  }
+  return number;
 }
 
 function normalizeLimits(options = {}) {
+  const rawOptions = optionalRecord(options, "ZIP read options");
+  const entryLimit = selectEntryByteLimit(rawOptions);
   return {
     maxArchiveBytes: boundedInteger(
-      options.maxArchiveBytes,
+      rawOptions.maxArchiveBytes,
       1024,
       1024 * 1024 * 1024,
-      DEFAULT_LIMITS.maxArchiveBytes
+      DEFAULT_LIMITS.maxArchiveBytes,
+      "maxArchiveBytes"
     ),
-    maxEntries: boundedInteger(options.maxEntries, 1, 65_534, DEFAULT_LIMITS.maxEntries),
+    maxEntries: boundedInteger(rawOptions.maxEntries, 1, 65_534, DEFAULT_LIMITS.maxEntries, "maxEntries"),
     maxEntryBytes: boundedInteger(
-      options.maxEntryBytes ?? options.maxBytes,
+      entryLimit.value,
       1,
       512 * 1024 * 1024,
-      DEFAULT_LIMITS.maxEntryBytes
+      DEFAULT_LIMITS.maxEntryBytes,
+      entryLimit.label
     )
   };
 }
@@ -254,6 +260,19 @@ function assertArchiveSize(file, options = {}) {
   if (!stats.isFile() || stats.size < 22 || stats.size > limits.maxArchiveBytes) {
     throw new Error("ZIP archive size exceeds the processing boundary.");
   }
+}
+
+function optionalRecord(value, label) {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
+  return value;
+}
+
+function selectEntryByteLimit(options) {
+  if (options.maxEntryBytes !== undefined && options.maxEntryBytes !== null) {
+    return { value: options.maxEntryBytes, label: "maxEntryBytes" };
+  }
+  return { value: options.maxBytes, label: "maxBytes" };
 }
 
 function findEndOfCentralDirectory(buffer) {

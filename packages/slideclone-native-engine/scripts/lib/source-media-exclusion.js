@@ -11,8 +11,6 @@ const MEDIA_PATTERN = /^ppt\/media\/(.+\.(?:png|jpe?g|gif|bmp|tiff?|webp))$/i;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 function auditSourceMediaExclusion({ ir, pptxFile, baseDir, options = {} }) {
-  const maxMatches = boundedInteger(options.maxMatches, 1, 500, 100);
-  const perceptualDistance = boundedInteger(options.perceptualDistance, 0, 20, 4);
   const report = {
     provider: "source-media-exclusion-v1",
     status: "passed",
@@ -26,6 +24,12 @@ function auditSourceMediaExclusion({ ir, pptxFile, baseDir, options = {} }) {
     perceptualMatches: 0,
     errors: []
   };
+  let limits;
+  try {
+    limits = normalizeAuditOptions(options);
+  } catch (error) {
+    return failReport(report, sanitizeError(error));
+  }
   let sources;
   try {
     sources = collectCanonicalSources(ir, baseDir);
@@ -42,17 +46,17 @@ function auditSourceMediaExclusion({ ir, pptxFile, baseDir, options = {} }) {
   try {
     const archive = fs.readFileSync(resolvedPptx);
     const entries = listZipEntries(archive, {
-      maxArchiveBytes: boundedInteger(options.maxArchiveBytes, 1024, 1024 * 1024 * 1024, 512 * 1024 * 1024),
-      maxEntries: boundedInteger(options.maxEntries, 1, 65_534, 20_000),
-      maxEntryBytes: boundedInteger(options.maxEntryBytes, 1024, 512 * 1024 * 1024, 128 * 1024 * 1024)
+      maxArchiveBytes: limits.maxArchiveBytes,
+      maxEntries: limits.maxEntries,
+      maxEntryBytes: limits.maxEntryBytes
     }).filter((entry) => MEDIA_PATTERN.test(entry.name));
     report.mediaCount = entries.length;
     for (const entry of entries) {
-      const data = readZipEntry(archive, entry.name, { maxBytes: options.maxEntryBytes || 128 * 1024 * 1024 });
+      const data = readZipEntry(archive, entry.name, { maxBytes: limits.maxEntryBytes });
       if (!data) continue;
       const media = mediaFingerprint(entry.name, data);
       for (const source of sources) {
-        const match = compareSourceAndMedia(source, media, perceptualDistance);
+        const match = compareSourceAndMedia(source, media, limits.perceptualDistance);
         if (!match) continue;
         const allowed = source.allowCanonicalMedia === true;
         const record = {
@@ -65,7 +69,7 @@ function auditSourceMediaExclusion({ ir, pptxFile, baseDir, options = {} }) {
           allowed,
           allowReasonRecorded: allowed && source.allowCanonicalMediaReason.length > 0
         };
-        if (report.matches.length < maxMatches) report.matches.push(record);
+        if (report.matches.length < limits.maxMatches) report.matches.push(record);
         if (match.type === "exact") report.exactMatches += 1;
         else report.perceptualMatches += 1;
         if (!allowed) report.disallowedMatches += 1;
@@ -225,9 +229,30 @@ function sanitizeError(error) {
   return value.replace(/[\r\n\t]+/g, " ").slice(0, 500);
 }
 
-function boundedInteger(value, min, max, fallback) {
-  const number = Math.trunc(Number(value));
-  return Number.isSafeInteger(number) && number >= min && number <= max ? number : fallback;
+function normalizeAuditOptions(options) {
+  const rawOptions = optionalRecord(options, "source media audit options");
+  return {
+    maxMatches: boundedInteger(rawOptions.maxMatches, 1, 500, 100, "maxMatches"),
+    perceptualDistance: boundedInteger(rawOptions.perceptualDistance, 0, 20, 4, "perceptualDistance"),
+    maxArchiveBytes: boundedInteger(rawOptions.maxArchiveBytes, 1024, 1024 * 1024 * 1024, 512 * 1024 * 1024, "maxArchiveBytes"),
+    maxEntries: boundedInteger(rawOptions.maxEntries, 1, 65_534, 20_000, "maxEntries"),
+    maxEntryBytes: boundedInteger(rawOptions.maxEntryBytes, 1024, 512 * 1024 * 1024, 128 * 1024 * 1024, "maxEntryBytes")
+  };
+}
+
+function optionalRecord(value, label) {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
+  return value;
+}
+
+function boundedInteger(value, min, max, fallback, label) {
+  if (value === undefined || value === null) return fallback;
+  const number = typeof value === "number" ? value : Number.NaN;
+  if (!Number.isSafeInteger(number) || number < min || number > max) {
+    throw new RangeError(`source media audit option ${label} must be an integer between ${min} and ${max}`);
+  }
+  return number;
 }
 
 module.exports = {

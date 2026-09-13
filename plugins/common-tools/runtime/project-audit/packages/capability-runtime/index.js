@@ -3,7 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
-const { assertJob, assertNonEmptyString, assertTransition, TERMINAL_JOB_STATUSES } = require("../capability-contracts");
+const { assertJob, assertJobRepository, assertNonEmptyString, assertTransition, TERMINAL_JOB_STATUSES, validateJobListFilter } = require("../capability-contracts");
 const {
   CAPABILITY_MANIFESTS,
   RUNTIME_VERSION,
@@ -21,6 +21,7 @@ const {
   validateModuleSource
 } = require("../capability-manifests");
 const executionMode = require("./execution-mode");
+const { SqliteJobRepository, isSqliteJobRepositoryAvailable } = require("./sqlite-job-repository");
 
 function insideRoot(root, candidate) {
   const resolvedRoot = fs.realpathSync.native(root);
@@ -82,6 +83,10 @@ class JobStore {
     fs.mkdirSync(this.jobsDir, { recursive: true });
   }
   jobPath(id) { return insideRoot(this.jobsDir, path.join(this.jobsDir, `${assertNonEmptyString(id, "job id")}.json`)); }
+  readOwnedJob(file) {
+    const job = assertJob(JSON.parse(fs.readFileSync(file, "utf8")));
+    return job.ownerId === this.ownerId ? job : null;
+  }
   create({ id, capability, idempotencyKey, expiresAt }) {
     const existing = this.findByIdempotency(capability, idempotencyKey);
     if (existing) return existing;
@@ -90,11 +95,12 @@ class JobStore {
     this.write(job);
     return job;
   }
-  get(id) { const file = this.jobPath(id); if (!fs.existsSync(file)) return null; return JSON.parse(fs.readFileSync(file, "utf8")); }
+  get(id) { const file = this.jobPath(id); if (!fs.existsSync(file)) return null; return this.readOwnedJob(file); }
   findByIdempotency(capability, idempotencyKey) {
     for (const entry of fs.readdirSync(this.jobsDir)) {
       if (!entry.endsWith(".json")) continue;
-      const job = JSON.parse(fs.readFileSync(path.join(this.jobsDir, entry), "utf8"));
+      const job = this.readOwnedJob(path.join(this.jobsDir, entry));
+      if (!job) continue;
       if (job.capability === capability && job.idempotencyKey === idempotencyKey && !TERMINAL_JOB_STATUSES.has(job.status)) return job;
     }
     return null;
@@ -107,11 +113,40 @@ class JobStore {
     this.write(next);
     return next;
   }
+  list(filter = {}) {
+    const { capability, status, limit } = validateJobListFilter(filter);
+    const results = [];
+    const entries = fs.readdirSync(this.jobsDir).sort();
+    for (const entry of entries) {
+      if (!entry.endsWith(".json")) continue;
+      try {
+        const file = path.join(this.jobsDir, entry);
+        const job = this.readOwnedJob(file);
+        if (!job) continue;
+        if (capability && job.capability !== capability) continue;
+        if (status && job.status !== status) continue;
+        results.push(Object.freeze(job));
+        if (limit != null && results.length >= limit) break;
+      } catch {
+        // Skip unparseable files
+      }
+    }
+    return Object.freeze(results);
+  }
+  asJobRepository() {
+    assertJobRepository(this, "JobStore");
+    return this;
+  }
   write(job) {
-    assertJob(job);
-    const target = this.jobPath(job.id);
+    const validated = assertJob(job);
+    if (validated.ownerId !== this.ownerId) throw new Error("job owner does not match repository owner");
+    const target = this.jobPath(validated.id);
+    if (fs.existsSync(target)) {
+      const existing = assertJob(JSON.parse(fs.readFileSync(target, "utf8")));
+      if (existing.ownerId !== this.ownerId) throw new Error("job owner does not match repository owner");
+    }
     const temporary = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
-    fs.writeFileSync(temporary, JSON.stringify(job, null, 2), { encoding: "utf8", mode: 0o600 });
+    fs.writeFileSync(temporary, JSON.stringify(validated, null, 2), { encoding: "utf8", mode: 0o600 });
     replaceAtomically(temporary, target);
   }
 }
@@ -255,4 +290,4 @@ function rollbackPluginConfig(root) {
   return writePluginConfig(requestedRoot, normalizePluginConfig({ ...previous, generation: config.generation + 1 }));
 }
 
-module.exports = { ...executionMode, CAPABILITY_MANIFESTS, DEFAULT_CAPABILITIES, LOCAL_CAPABILITIES, RUNTIME_VERSION, SUPPORTED_CAPABILITIES, TEAM_CAPABILITY_DEFINITIONS, JobStore, assertManifestDependencyGraph, canonicalManifest, compareManifestVersions, compareVersions, effectivePluginConfig, insideRoot, loadCapabilityManifests, loadPluginConfig, manifestIdentityMatches, parseManifestVersion, parseRuntimeRange, readPluginConfig, readProjectCapabilityScope, resolvedCapabilityDependencies, resolveExecutionRoute, rollbackPluginConfig, runtimeSatisfiesRange, setCapabilityEnabled, setEnabledCapabilities, sha256File, upgradePluginConfig, validateCapabilityManifest, validateDependencies, validateDeprecation, validateModuleSource };
+module.exports = { ...executionMode, CAPABILITY_MANIFESTS, DEFAULT_CAPABILITIES, LOCAL_CAPABILITIES, RUNTIME_VERSION, SUPPORTED_CAPABILITIES, TEAM_CAPABILITY_DEFINITIONS, JobStore, SqliteJobRepository, assertJobRepository, assertManifestDependencyGraph, canonicalManifest, compareManifestVersions, compareVersions, effectivePluginConfig, insideRoot, isSqliteJobRepositoryAvailable, loadCapabilityManifests, loadPluginConfig, manifestIdentityMatches, parseManifestVersion, parseRuntimeRange, readPluginConfig, readProjectCapabilityScope, resolvedCapabilityDependencies, resolveExecutionRoute, rollbackPluginConfig, runtimeSatisfiesRange, setCapabilityEnabled, setEnabledCapabilities, sha256File, upgradePluginConfig, validateCapabilityManifest, validateDependencies, validateDeprecation, validateModuleSource };

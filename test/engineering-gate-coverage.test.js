@@ -103,6 +103,8 @@ test("new crop and gate regressions are discovered by the unified CI suite", () 
 test("local CI entry includes static gates and the actual lint/type commands include new boundaries", () => {
   const { scripts } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   assert.equal(scripts.test, "node scripts/test-sharded.js --shards 4");
+  assert.equal(scripts.verify, "npm run verify:ci");
+  assert.equal(scripts["verify:python-lock"], "node scripts/verify-python-lock.js");
   assert.equal(scripts["test:container-recovery"], "node --test test/container/worker-scratch-recovery.test.cjs");
   assert.ok(fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8").includes("run: npm run test:container-recovery"));
   for (const command of ["lint", "typecheck", "common-tools:verify-plugins", "common-tools:verify-observability", "common-tools:verify-adrs", "test:unit", "test:contract", "test:integration"]) {
@@ -181,5 +183,6 @@ test("local CI entry includes static gates and the actual lint/type commands inc
   assert.ok(workflow.includes("run: npm run test:postgres-recovery"));
   assert.equal(scripts["test:s3-retention"], "node --test test/s3/attempt-retention.test.cjs");
   assert.ok(workflow.includes("run: npm run test:s3-retention"));
+  assert.ok(workflow.includes("/work/ppt-office-regression.yml"));
   assert.ok(workflow.includes('common-tools:verify-release-evidence -- --sbom artifacts/common-tools.spdx.json --manifest artifacts/common-tools.release.json --revision "$env:GITHUB_SHA"'));
 });
