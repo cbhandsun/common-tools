@@ -4,23 +4,23 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
-const path = require("node:path");
-const { cropPng, readPng, writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
-const { readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const path = require("node:path"), CTNS = "../packages/slideclone-native-engine/scripts/lib/component-template-native-shapes";
+const { cropPng, readPng, writePng } = require("../packages/slideclone-core/png");
+const { readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const {
-  _private: componentAssetMatcherPrivate
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-matcher");
+  _private: mp
+} = require("../packages/slideclone-native-engine/scripts/lib/component-asset-matcher");
 const {
-  _private: componentTemplateNativePrivate
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-native-shapes");
+  _private: tp
+} = require(CTNS);
 const {
   extractVisualAtoms,
   detectDenseLinkedNodeAtoms
-} = require("../skills/pd-hifi-slideclone/scripts/lib/visual-atoms");
+} = require("../packages/slideclone-core/visual-atoms");
 const {
   annotateNativeElementsWithPluginReplacementPlans,
   isReplacementPlanCompatibleWithNativeItem
-} = require("../skills/pd-hifi-slideclone/scripts/component-strategy-rebuild");
+} = require("../packages/slideclone-native-engine/scripts/component-strategy-rebuild");
 
 const {
   aggregateForegroundComponent,
@@ -323,7 +323,7 @@ const {
   visibleTextBoxes,
   visualClusterPxBounds,
   wmsChainBounds
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 test("component asset pseudo images use a stable layer key when a whole-layer match has no shape id", () => {
   const pseudoImages = componentAssetLayerPseudoImages(0, {
@@ -348,16 +348,12 @@ const {
   _private: {
     timelineShapes
   }
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-native-shapes");
+} = require(CTNS);
+const {summarizeComponentTemplateCropStatus,summarizeEditabilityProfile,summarizeQualityGateStatus} = require("../packages/slideclone-native-engine/scripts/quality-gate-real-pptx");
 const {
-  summarizeComponentTemplateCropStatus,
-  summarizeEditabilityProfile,
-  summarizeQualityGateStatus
-} = require("../skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx");
-const {
-  aggregateMatrix: aggregateRealPptxQualityMatrix,
-  summarizeReport: summarizeRealPptxQualityReport
-} = require("../skills/pd-hifi-slideclone/scripts/real-pptx-quality-matrix");
+  aggregateMatrix: qmAggregate,
+  summarizeReport: qmReport
+} = require("../packages/slideclone-native-engine/scripts/real-pptx-quality-matrix");
 
 test("native rebuild selects only source-native rich slides for direct preservation", () => {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "native-slide-preservation-"));
@@ -852,8 +848,8 @@ test("real pptx quality matrix carries component template crop status", () => {
     }
   }, null, 2)}\n`, "utf8");
 
-  const row = summarizeRealPptxQualityReport(reportFile);
-  const matrix = aggregateRealPptxQualityMatrix([row]);
+  const row = qmReport(reportFile);
+  const matrix = qmAggregate([row]);
 
   assert.equal(row.componentTemplateCropStatusImages, 5);
   assert.equal(row.componentTemplateCropStatusReplacedImages, 3);
@@ -8770,8 +8766,8 @@ test("component asset matcher relearns stale applied plugin summaries without re
     roleTags: ["applied-component", "openxml-inspectable"]
   };
 
-  assert.equal(componentAssetMatcherPrivate.isReusableLearningSummaryFresh(staleSummary, asset), false);
-  assert.equal(componentAssetMatcherPrivate.isReusableLearningSummaryFresh(freshSummary, asset), true);
+  assert.equal(mp.isReusableLearningSummaryFresh(staleSummary, asset), false);
+  assert.equal(mp.isReusableLearningSummaryFresh(freshSummary, asset), true);
 });
 
 test("component template generation treats bbox-only cached plugin groups as stale", () => {
@@ -8808,8 +8804,8 @@ test("component template generation treats bbox-only cached plugin groups as sta
     }]
   };
 
-  assert.equal(componentTemplateNativePrivate.isGenerationComponentAssetStale(staleAsset), true);
-  assert.equal(componentTemplateNativePrivate.isGenerationComponentAssetStale(freshAsset), false);
+  assert.equal(tp.isGenerationComponentAssetStale(staleAsset), true);
+  assert.equal(tp.isGenerationComponentAssetStale(freshAsset), false);
 });
 
 test("component template cycle-loop shells reuse plugin arc-arrow child shapes", () => {
@@ -26229,7 +26225,7 @@ test("portal platform diagram crops rebuild into native platform, portal, routes
 });
 
 test("portal platform ownership drops false table fills, grids, and duplicate semantic labels", () => {
-  const { dropFalseTableLayersClaimedByPortalPlatform } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+  const { dropFalseTableLayersClaimedByPortalPlatform } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
   const items = [
     { id: "fill", source: { detector: "table-zone-native-cell-fill" } },
     { id: "grid", source: { detector: "table-zone-native-grid-line" } },

@@ -5,7 +5,7 @@ const test = require("node:test");
 const {
   classifyStorageRole,
   buildComponentLibraryStoragePlan
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-library-storage");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-library-storage");
 
 function record(relativePath, bytes, sha256, role = classifyStorageRole(relativePath)) {
   return { relativePath, bytes, sha256, role, extension: relativePath.slice(relativePath.lastIndexOf(".")) };

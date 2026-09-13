@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { expandRestrictedSvgGraphics, parseRestrictedSvg, RestrictedSvgError } = require("../skills/pd-hifi-slideclone/scripts/lib/restricted-svg");
+const { expandRestrictedSvgGraphics, parseRestrictedSvg, RestrictedSvgError } = require("../packages/slideclone-core/restricted-svg");
 
 test("restricted SVG parses a closed geometry subset into normalized DrawingML-ready shapes", () => {
   const result = parseRestrictedSvg(`

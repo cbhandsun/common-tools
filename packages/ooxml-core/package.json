@@ -1,0 +1,12 @@
+{
+  "name": "@common-tools/ooxml-core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./pptx-inventory": "./pptx-inventory.js",
+    "./pptx-zip": "./pptx-zip.js"
+  },
+  "type": "commonjs"
+}

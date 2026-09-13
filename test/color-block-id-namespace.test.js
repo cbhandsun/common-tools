@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   createLayerColorBlockShapes,
   createTableZoneBackgroundShapes
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 function image() {
   const width = 960, height = 540, rgba = Buffer.alloc(width * height * 4, 255);

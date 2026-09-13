@@ -5,14 +5,14 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { readPng, writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { readPng, writePng } = require("../packages/slideclone-core/png");
 const {
   ICON_DETECTOR,
   TABLE_DETECTOR,
   createValueTransformationTableModel,
   materializeValueTransformationIcon,
   normalizeValueTransformationTextBoxes
-} = require("../skills/pd-hifi-slideclone/scripts/lib/value-transformation-table");
+} = require("../packages/slideclone-core/value-transformation-table");
 
 const values = [
   "核心价值转化：从旧模式到智能化基座",

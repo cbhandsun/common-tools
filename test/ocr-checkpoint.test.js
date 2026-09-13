@@ -7,7 +7,7 @@ const path = require("node:path");
 const test = require("node:test");
 const { ownerPrefix } = require("../packages/team-runtime/job-input");
 const { attemptOutputPrefix } = require("../packages/team-runtime/worker-lease");
-const modulePath = require.resolve("../packages/slideclone-core/ocr-checkpoint");
+const modulePath = require.resolve("../packages/slideclone-worker-adapter/ocr-checkpoint");
 const { createOcrCheckpoint } = require(modulePath);
 
 test("OCR checkpoint handles short filesystem reads within its fixed allocation", async (t) => {

@@ -4,8 +4,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 
-const source = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "Program.cs"), "utf8");
+const source = fs.readFileSync(path.join(resolveOpenXmlBuilderRoot(path.join(__dirname, "..")), "Program.cs"), "utf8");
 
 test("OpenXmlDeckBuilder keeps absolute OCR text independent from semantic placeholders", () => {
   assert.match(source, /allowRolePlaceholder = !usesTemplateBindings && !IsAbsoluteOcrTextBox\(textBox\)/);

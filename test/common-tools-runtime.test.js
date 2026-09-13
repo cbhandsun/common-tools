@@ -6,7 +6,7 @@ const crypto = require("node:crypto");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { CAPABILITY_MANIFESTS, JobStore, assertManifestDependencyGraph, canonicalManifest, compareManifestVersions, effectivePluginConfig, insideRoot, loadPluginConfig, parseRuntimeRange, readPluginConfig, readProjectCapabilityScope, resolvedCapabilityDependencies, rollbackPluginConfig, runtimeSatisfiesRange, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig, validateCapabilityManifest } = require("../packages/capability-runtime");
+const { CAPABILITY_MANIFESTS, JobStore, LOCAL_CAPABILITIES, assertManifestDependencyGraph, canonicalManifest, compareManifestVersions, effectivePluginConfig, insideRoot, loadPluginConfig, parseRuntimeRange, readPluginConfig, readProjectCapabilityScope, resolvedCapabilityDependencies, rollbackPluginConfig, runtimeSatisfiesRange, setCapabilityEnabled, setEnabledCapabilities, upgradePluginConfig, validateCapabilityManifest, validateModuleSource } = require("../packages/capability-runtime");
 const { VISUAL_REPORT_NAME, collectArtifacts, createEditableJob, editableQuality, editableVisualSummary, getJob, runEditableJob } = require("../packages/slideclone-core");
 const { createBundledSlidecloneRunner } = require("../packages/cli/slideclone-runner");
 
@@ -85,6 +85,12 @@ test("capability manifests are hash-verified and plugin revisions can roll back"
   }
 });
 
+test("capability runtime re-exports module source validation", () => {
+  assert.deepEqual(validateModuleSource({ packageName: "@common-tools/example-core", requirePath: "../example-core", exportName: "CAPABILITY_MODULE" }), { packageName: "@common-tools/example-core", requirePath: "../example-core", exportName: "CAPABILITY_MODULE" });
+  assert.throws(() => validateModuleSource({ packageName: "@common-tools/example-core", requirePath: "../../escape", exportName: "CAPABILITY_MODULE" }), /module source/);
+  assert.throws(() => validateModuleSource({ packageName: "@common-tools/example-core", requirePath: "../other-core", exportName: "CAPABILITY_MODULE" }), /package and require path/);
+});
+
 test("capability manifests declare a bounded Runtime compatibility range and fail closed outside it", () => {
   const current = CAPABILITY_MANIFESTS.get("image-to-editable");
   const compatible = { ...current, minimumRuntimeVersion: ">=0.1.0 <0.2.0" };
@@ -99,6 +105,14 @@ test("capability manifests declare a bounded Runtime compatibility range and fai
   malformed.contentSha256 = crypto.createHash("sha256").update(canonicalManifest(malformed)).digest("hex");
   assert.equal(parseRuntimeRange(malformed.minimumRuntimeVersion), null);
   assert.throws(() => validateCapabilityManifest(malformed), /capability manifest is invalid/);
+});
+
+test("capability manifests are the source of local execution support", () => {
+  assert.deepEqual(LOCAL_CAPABILITIES, [...CAPABILITY_MANIFESTS.values()].filter((manifest) => manifest.execution.localSupported).map((manifest) => manifest.capability).sort());
+  const current = CAPABILITY_MANIFESTS.get("ppt-create");
+  const malformed = { ...current, execution: { localSupported: "yes" } };
+  malformed.contentSha256 = crypto.createHash("sha256").update(canonicalManifest(malformed)).digest("hex");
+  assert.throws(() => validateCapabilityManifest(malformed), /execution definition/);
 });
 
 test("capability dependencies are explicit, transitive, and cannot be disabled while required", () => {

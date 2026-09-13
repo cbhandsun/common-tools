@@ -9,7 +9,7 @@ const path = require("node:path");
 const {
   createProductBrainWmsQualityGateObjects,
   filterTextBoxesClaimedByProductBrainWmsQualityGate
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 function blankImage(width, height) {
   const rgba = Buffer.alloc(width * height * 4, 255);

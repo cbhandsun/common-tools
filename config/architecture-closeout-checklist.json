@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "updatedAt": "2026-09-09",
+  "objective": "通用插件项目架构落地：MCP、skills、UI contribution、本地 Docker authenticated runtime 和证据闭环必须有匹配证据；独立生产环境当前不在运行范围内。",
+  "items": [
+    {
+      "id": "platform-capability-boundary",
+      "area": "A",
+      "status": "verified",
+      "summary": "能力目录、manifest、registry、local/direct catalog 和 workspace package 边界已作为平台事实源和门禁落地。",
+      "evidenceFiles": [
+        "config/workspace-package-policy.json",
+        "config/layer-policy.json",
+        "config/architecture-budgets.json",
+        ".codex-tmp/architecture-current-consolidated-ci-evidence.json"
+      ],
+      "verificationCommands": [
+        "npm run common-tools:verify-capabilities",
+        "node scripts/verify-workspace-boundaries.js",
+        "node scripts/verify-architecture-budgets.js"
+      ]
+    },
+    {
+      "id": "skill-production-decoupling",
+      "area": "B",
+      "status": "verified",
+      "summary": "图片/PPT 生产入口和 profile 已迁出历史 skill 根实现，skill 层只保留受预算约束的兼容 wrapper。",
+      "evidenceFiles": [
+        "config/skill-source-migration-budget.json",
+        ".codex-tmp/auxiliary-runtime-package-evidence.json",
+        ".codex-tmp/registry-callback-delivery-evidence.json"
+      ],
+      "verificationCommands": [
+        "node scripts/verify-slideclone-profiles.js",
+        "node scripts/verify-skill-source-migration.js",
+        "node scripts/verify-skill-lib-wrappers.js"
+      ]
+    },
+    {
+      "id": "native-engine-core-modularization",
+      "area": "B",
+      "status": "verified",
+      "summary": "生产调用链已迁入 native-engine/core/worker-adapter；native engine 普通领域模块维持 1,500 行预算，runtime composition root 使用 4,100 行封顶并只承担编排职责。",
+      "evidenceFiles": [
+        "docs/architecture-current-status.md",
+        "docs/architecture-closeout-plan.md"
+      ],
+      "verificationCommands": [
+        "node scripts/verify-architecture-budgets.js"
+      ]
+    },
+    {
+      "id": "strict-input-boundaries",
+      "area": "C",
+      "status": "verified",
+      "summary": "Deck IR、归档准入、Worker 启动配置、OCR handoff、重建元数据、Job row/context、Worker failure 和队列 runner 已有当前代码哈希绑定的严格输入边界证据。",
+      "evidenceFiles": [
+        ".codex-tmp/deck-ir-admission-delivery-evidence.json",
+        ".codex-tmp/archive-admission-delivery-evidence.json",
+        ".codex-tmp/worker-context-delivery-evidence.json",
+        ".codex-tmp/job-row-reader-delivery-evidence.json",
+        ".codex-tmp/image-startup-delivery-evidence.json",
+        ".codex-tmp/ocr-handoff-delivery-evidence.json",
+        ".codex-tmp/rebuilt-metadata-delivery-evidence.json",
+        ".codex-tmp/boundary-worker-delivery-evidence.json",
+        ".codex-tmp/strict-input-boundaries-current-evidence.json"
+      ],
+      "verificationCommands": [
+        "node --test test/deck-ir-admission.test.js test/archive-admission.test.js test/worker-context.test.js test/job-input-boundary.test.js test/common-tools-worker-settings.test.js test/common-tools-team-paddleocr-profile.test.js test/ocr-source-deck.test.js test/worker-runner.test.js test/worker-failure-boundary.test.js",
+        "npm run typecheck",
+        "node scripts/verify-workspace-boundaries.js",
+        "node scripts/verify-architecture-budgets.js"
+      ]
+    },
+    {
+      "id": "local-authenticated-acceptance",
+      "area": "D",
+      "status": "open",
+      "summary": "本地一键验收、浏览器 PKCE 登录、测试用户准备、脱敏证据生成和机器复核器已实现；真实本机运行证据尚未生成。",
+      "evidenceFiles": [
+        "scripts/team-runtime-local-closeout.ps1",
+        "scripts/team-runtime-local-acceptance.ps1",
+        "scripts/verify-local-acceptance-evidence.js"
+      ],
+      "verificationCommands": [
+        "npm run common-tools:team-local-closeout",
+        "npm run common-tools:team-local-closeout-existing"
+      ],
+      "remaining": [
+        "用户在本机输入一次共享验收密码并完成浏览器登录。",
+        "生成并自动复核 artifacts/local-acceptance/*.json 后，architecture closeout 会动态验证该项。"
+      ]
+    },
+    {
+      "id": "production-remote-acceptance",
+      "area": "D",
+      "status": "not-applicable",
+      "summary": "生产 preflight、migration status、production acceptance evidence 和受控部署脚本作为未来可选能力保留；当前项目没有独立生产环境，不作为本轮 closeout 阻断项。",
+      "evidenceFiles": [
+        "scripts/prepare-production-env.ps1",
+        "scripts/team-runtime-production-deploy.ps1",
+        "packages/cli/production-acceptance-plan.js"
+      ],
+      "verificationCommands": [
+        "npm run common-tools:production-preflight",
+        "npm run common-tools:production-migration-status",
+        "npm run common-tools:production-acceptance-evidence"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "recovery-and-retention",
+      "area": "E",
+      "status": "verified",
+      "summary": "本地 Docker 运行范围内的恢复、缓存、取消、租约、清理和存储恢复演练已有当前代码哈希绑定证据；生产观测属于未来独立生产环境扩展。",
+      "evidenceFiles": [
+        "docs/stage-recovery-acceptance.md",
+        ".codex-tmp/architecture-recovery-consolidated-ci-evidence.json",
+        ".codex-tmp/recovery-retention-current-evidence.json"
+      ],
+      "verificationCommands": [
+        "npm run test:postgres-recovery",
+        "npm run test:s3-retention",
+        "npm run typecheck",
+        "node scripts/verify-workspace-boundaries.js",
+        "node scripts/verify-architecture-budgets.js"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "editable-output-quality",
+      "area": "F",
+      "status": "verified",
+      "summary": "本地新建 PPT、image batch PPTX、独立 Office corpus、LibreOffice 渲染和 PowerPoint 可编辑 round-trip 已有当前证据；生产远程质量对比属于未来独立生产环境扩展。",
+      "evidenceFiles": [
+        ".codex-tmp/relationship-worker-delivery-evidence.json",
+        ".codex-tmp/ppt-create-acceptance-LMJ7Mz/evidence.json",
+        ".codex-tmp/image-office-9161d475/independent-evidence.json",
+        ".codex-tmp/editable-output-quality-current-evidence.json"
+      ],
+      "verificationCommands": [
+        "npm run slideclone:quality-gate-real-pptx",
+        "node scripts/ppt-create-office-smoke.js --out .codex-tmp/ppt-create-office-smoke-current",
+        "npm run typecheck",
+        "node scripts/verify-workspace-boundaries.js",
+        "node scripts/verify-architecture-budgets.js"
+      ],
+      "remaining": []
+    }
+  ]
+}

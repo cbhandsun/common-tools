@@ -9,7 +9,7 @@ const test = require("node:test");
 
 const cli = path.resolve(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
 const { editableProfileConfig, initializeEditableProfile } = require("../packages/cli/bin/common-tools");
-const { renderedDeliveryVerification, verifyDelivery } = require("../skills/pd-hifi-slideclone/scripts/slideclone");
+const { renderedDeliveryVerification, verifyDelivery } = require("../packages/slideclone-native-engine/scripts/slideclone");
 
 test("editable init writes a non-overwriting PaddleOCR text-overlay profile without embedding runtime paths", () => {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-editable-init-"));

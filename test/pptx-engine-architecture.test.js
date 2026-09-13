@@ -4,8 +4,11 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 
 const ROOT = path.resolve(__dirname, "..");
+const OPENXML_BUILDER_ROOT = resolveOpenXmlBuilderRoot(ROOT);
+const NATIVE_ENGINE_SCRIPTS = path.join(ROOT, "packages", "slideclone-native-engine", "scripts");
 
 test("production packages keep one Deck IR to OpenXML writer boundary", () => {
   const rootPackage = readJson("package.json");
@@ -27,7 +30,7 @@ test("PPTX engine ADR requires IR conformance and quality gates before a second 
 });
 
 test("native rebuild keeps detection, residual ownership, and visual caching behind module boundaries", () => {
-  const main = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"), "utf8");
+  const main = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "rebuild-real-pptx-native.js"), "utf8");
   assert.match(main, /require\("\.\/lib\/residual-ownership"\)/);
   assert.match(main, /require\("\.\/lib\/visual-feature-context"\)/);
   assert.match(main, /syncCandidateResidualOwnership\(images, candidates/);
@@ -40,11 +43,11 @@ test("native rebuild keeps detection, residual ownership, and visual caching beh
 });
 
 test("component template styling and package services cannot flow back into composition roots", () => {
-  const component = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "component-template-native-shapes.js"), "utf8");
+  const component = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "lib", "component-template-native-shapes.js"), "utf8");
   const style = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "component-template-style.js"), "utf8");
-  const program = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "Program.cs"), "utf8");
-  const writer = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "DeckPackageWriter.cs"), "utf8");
-  const scaffold = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "PresentationScaffoldFactory.cs"), "utf8");
+  const program = fs.readFileSync(path.join(OPENXML_BUILDER_ROOT, "Program.cs"), "utf8");
+  const writer = fs.readFileSync(path.join(OPENXML_BUILDER_ROOT, "DeckPackageWriter.cs"), "utf8");
+  const scaffold = fs.readFileSync(path.join(OPENXML_BUILDER_ROOT, "PresentationScaffoldFactory.cs"), "utf8");
   assert.match(component, /require\("\.\/component-template-style"\)/);
   assert.doesNotMatch(component, /^function mergeTemplateStyle/m);
   assert.doesNotMatch(component, /^function sanitizeTemplateFreeform/m);
@@ -60,7 +63,7 @@ test("component template styling and package services cannot flow back into comp
 });
 
 test("deck composition reporting stays outside the native rebuild entry point", () => {
-  const main = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"), "utf8");
+  const main = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "rebuild-real-pptx-native.js"), "utf8");
   const summary = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "deck-composition-summary.js"), "utf8");
   assert.match(main, /require\("\.\/lib\/deck-composition-summary"\)/);
   const wrapper = /function summarizeDeckComposition\(deck\)[\s\S]*?\n}/.exec(main)?.[0] || "";
@@ -70,7 +73,7 @@ test("deck composition reporting stays outside the native rebuild entry point", 
 });
 
 test("quality budget policy stays outside the render and audit orchestrator", () => {
-  const gate = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "quality-gate-real-pptx.js"), "utf8");
+  const gate = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "quality-gate-real-pptx.js"), "utf8");
   const policy = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "quality-gate-policy.js"), "utf8");
   assert.match(gate, /require\("\.\/lib\/quality-gate-policy"\)/);
   const wrapper = /function summarizeQualityGateStatus\(input = \{}\)[\s\S]*?\n}/.exec(gate)?.[0] || "";
@@ -80,17 +83,21 @@ test("quality budget policy stays outside the render and audit orchestrator", ()
 });
 
 test("system map policy and composition stay outside the native rebuild entry point", () => {
-  const main = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"), "utf8");
+  const main = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "rebuild-real-pptx-native.js"), "utf8");
   const moduleSource = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "system-map-reconstruction.js"), "utf8");
+  const factory = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "lib", "native-rebuild-system-map-diagram.js"), "utf8");
   assert.match(main, /require\("\.\/lib\/system-map-reconstruction"\)/);
-  const wrapper = /function createSystemMapDiagramObjects\([\s\S]*?\n}/.exec(main)?.[0] || "";
+  assert.match(main, /require\("\.\/lib\/native-rebuild-system-map-diagram"\)/);
+  assert.doesNotMatch(main, /^function createSystemMapDiagramObjects/m);
+  const wrapper = /function createSystemMapDiagramObjects\([\s\S]*?\n  }/.exec(factory)?.[0] || "";
   assert.match(wrapper, /composeSystemMapDiagram/);
   assert.doesNotMatch(wrapper, /systemMapDiagramObjectified:/);
   assert.doesNotMatch(moduleSource, /rebuild-real-pptx-native/);
+  assert.doesNotMatch(factory, /rebuild-real-pptx-native/);
 });
 
 test("quality gate stdout projection stays outside the quality orchestrator", () => {
-  const gate = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "quality-gate-real-pptx.js"), "utf8");
+  const gate = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "quality-gate-real-pptx.js"), "utf8");
   const output = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", "quality-gate-output.js"), "utf8");
   assert.match(gate, /require\("\.\/lib\/quality-gate-output"\)/);
   assert.match(gate, /buildQualityGateOutput/);
@@ -99,7 +106,8 @@ test("quality gate stdout projection stays outside the quality orchestrator", ()
 });
 
 test("page selection, font evidence, crop materialization, output sanitization, and system-map semantics stay outside the rebuild composition root", () => {
-  const main = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"), "utf8");
+  const main = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "rebuild-real-pptx-native.js"), "utf8");
+  const systemMapDiagram = fs.readFileSync(path.join(NATIVE_ENGINE_SCRIPTS, "lib", "native-rebuild-system-map-diagram.js"), "utf8");
   for (const moduleName of ["font-evidence", "fidelity-crop-materializer", "native-output-sanitizer"]) {
     const moduleSource = fs.readFileSync(path.join(ROOT, "skills", "pd-hifi-slideclone", "scripts", "lib", `${moduleName}.js`), "utf8");
     assert.match(main, new RegExp(`require\\(\"\\.\\/lib\\/${moduleName}\\"\\)`));
@@ -114,7 +122,8 @@ test("page selection, font evidence, crop materialization, output sanitization, 
   assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/page-selection"), require("../packages/slideclone-core/page-selection"));
   assert.doesNotMatch(pageSelection, /rebuild-real-pptx-native/);
   assert.doesNotMatch(main, /^function parsePageSelection/m);
-  assert.match(main, /materializeFidelityCrop\(/);
+  assert.doesNotMatch(main, /materializeFidelityCrop\(/);
+  assert.match(systemMapDiagram, /materializeFidelityCrop\(/);
   assert.doesNotMatch(main, /^function sanitizeNative(?:Chart|Charts|Shape|Shapes)/m);
   const reconstruction = fs.readFileSync(path.join(ROOT, "packages", "slideclone-core", "system-map-reconstruction.js"), "utf8");
   const semantics = fs.readFileSync(path.join(ROOT, "packages", "slideclone-core", "system-map-semantics.js"), "utf8");

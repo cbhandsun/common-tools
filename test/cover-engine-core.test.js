@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { createCoverEngineCoreToolkit } = require("../skills/pd-hifi-slideclone/scripts/lib/cover-engine-core");
+const { createCoverEngineCoreToolkit } = require("../packages/slideclone-core/cover-engine-core");
 
 test("cover engine core plugin creates editable semantic components and avatar chrome", () => {
   let normalized = 0;
@@ -60,9 +60,9 @@ test("cover engine core plugin validates injected services and propagates failur
   assert.throws(() => toolkit.createShapes([candidate()], labels(), {}), (error) => error === failure);
 });
 
-test("native rebuild compatibility entry delegates cover engine behavior to the registry plugin", () => {
+test("native rebuild package delegates cover engine behavior to the registry plugin", () => {
   const source = fs.readFileSync(path.join(
-    __dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"
+    __dirname, "..", "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js"
   ), "utf8");
   assert.match(source, /createNativeRebuilder\("cover-engine-core"/);
   assert.match(source, /return createCoverEngineCoreShapesFromRegistry\(images, textBoxes, sourceImage, slideSize\)/);

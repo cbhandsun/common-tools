@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { loadTeamComponentCatalog } = require("../packages/slideclone-core/team-component-catalog");
-const { buildComponentAssetManifest } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-matcher");
+const { buildComponentAssetManifest } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-matcher");
 
 function fixture(overrides = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "team-component-catalog-"));

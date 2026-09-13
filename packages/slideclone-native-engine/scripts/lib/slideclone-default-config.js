@@ -1,0 +1,123 @@
+"use strict";
+
+const { DEFAULT_OCR_ADAPTER, defaultOcrProviderConfigs } = require("./ocr-provider-config");
+
+const defaultAdapters = Object.freeze({
+  normalize: "scripts/adapters/normalize-placeholder.js",
+  ocr: "scripts/adapters/ocr-placeholder.js",
+  vision: "scripts/adapters/vision-placeholder.js",
+  pptx: "scripts/adapters/pptx-openxml-placeholder.js",
+  render: "scripts/adapters/render-placeholder.js",
+  diff: "scripts/adapters/diff-placeholder.js",
+  compare: "scripts/adapters/compare-placeholder.js",
+  polish: "scripts/adapters/polish-placeholder.js",
+  compress: "scripts/adapters/compress-placeholder.js"
+});
+
+function createConfig(inputDir, outputDir) {
+  return {
+    inputDir,
+    outputDir,
+    pagePattern: "*.{png,jpg,jpeg,webp,pdf,pptx}",
+    slide: {
+      widthPt: 960,
+      heightPt: 540
+    },
+    pageConcurrency: 2,
+    adapters: defaultAdapters,
+    thresholds: {
+      pixelDiffRatio: 0.08,
+      foregroundMissingRatio: 0.12,
+      layoutMeanIoU: 0.86,
+      textCoverage: 0.95,
+      maxCriticalOffsetPt: 8,
+      maxOutOfBoundsPt: 1,
+      maxImageAspectRatioDelta: 0.03,
+      maxRasterImageAreaRatio: 0.25
+    },
+    fontFit: {
+      enabled: false,
+      mode: "role-greedy",
+      candidates: ["Microsoft YaHei", "SimHei", "DengXian", "Arial"],
+      roleOrder: ["title", "banner", "card-title", "button", "caption", "body"],
+      roleCandidates: {
+        title: { sizeAdjustPt: [-1, 0, 1], weights: ["bold"] },
+        banner: { sizeAdjustPt: [-1, 0, 1], weights: ["bold"] },
+        "card-title": { sizeAdjustPt: [-0.5, 0, 0.5], weights: ["bold"] },
+        button: { sizeAdjustPt: [-0.5, 0, 0.5], weights: ["regular", "bold"] },
+        caption: { sizeAdjustPt: [-0.5, 0, 0.5], weights: ["regular", "bold"] },
+        body: { sizeAdjustPt: [0], weights: ["regular", "bold"] }
+      }
+    },
+    containerStyleFit: {
+      enabled: false,
+      mode: "container-greedy",
+      kindCandidates: {
+        banner: {
+          radiusRatio: [0.03, 0.035, 0.04],
+          shadowAlpha: [0.11, 0.13, 0.15],
+          shadowBlurPt: [3.2, 3.8, 4.4],
+          shadowDistancePt: [0.8, 1.0, 1.2],
+          shadowAngleDeg: [45]
+        },
+        card: {
+          radiusRatio: [0.05, 0.06, 0.07],
+          shadowAlpha: [0.14, 0.16, 0.18],
+          shadowBlurPt: [3.8, 4.2, 4.8],
+          shadowDistancePt: [1.0, 1.3, 1.6],
+          shadowAngleDeg: [45]
+        },
+        "strong-card": {
+          radiusRatio: [0.05, 0.055, 0.06],
+          shadowAlpha: [0.18, 0.2, 0.22],
+          shadowBlurPt: [4.2, 4.6, 5.0],
+          shadowDistancePt: [1.2, 1.6, 2.0],
+          shadowAngleDeg: [45]
+        },
+        container: {
+          radiusRatio: [0.045, 0.05],
+          shadowAlpha: [0.16, 0.18],
+          shadowBlurPt: [4.0, 4.4],
+          shadowDistancePt: [1.2, 1.5],
+          shadowAngleDeg: [45]
+        }
+      }
+    },
+    textOcr: {
+      enabled: true,
+      adapter: DEFAULT_OCR_ADAPTER,
+      mode: "anchored",
+      paddingPt: 16,
+      upscale: 1,
+      psm: 6,
+      preprocess: false
+    },
+    ...defaultOcrProviderConfigs(),
+    textMicroAdjust: {
+      enabled: true,
+      minCoverage: 0.995,
+      paddingPt: 16,
+      maxMovePt: 3,
+      maxHeightAdjustPt: 2.5,
+      minDeltaPt: 0.15,
+      inspectAligned: true,
+      maxLayoutRegression: 0.08,
+      maxCriticalOffsetIncreasePt: 6,
+      layoutPenaltyWeight: 0.35,
+      criticalPenaltyWeight: 0.002
+    },
+    maxIterations: 2,
+    postprocess: {
+      compare: true,
+      polish: true,
+      compress: true,
+      verifyCompressed: true,
+      stopWhenThresholdPassed: true
+    }
+  };
+}
+
+module.exports = {
+  createConfig,
+  defaultAdapters
+};

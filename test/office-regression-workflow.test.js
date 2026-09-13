@@ -19,7 +19,7 @@ const {
   verifyPowerPointInstallation
 } = require("../scripts/run-office-ppt-regression");
 const { collectOfficeRegressionEvidence, probeCommandVersion, probePowerPointVersion } = require("../scripts/lib/office-regression-evidence");
-const { resolveWorkRoot } = require("../skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke");
+const { resolveWorkRoot } = require("../packages/slideclone-native-engine/scripts/complex-graphic-golden-smoke");
 
 const root = path.resolve(__dirname, "..");
 

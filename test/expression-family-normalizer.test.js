@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { resolveImageExpressionFamily } = require("../skills/pd-hifi-slideclone/scripts/lib/expression-family-normalizer");
+const { resolveImageExpressionFamily } = require("../packages/slideclone-core/expression-family-normalizer");
 
 test("preserves explicit expression families", () => {
   assert.equal(resolveImageExpressionFamily({ source: { expressionFamily: "relationship-diagram", expressionForm: "icon-or-illustration" } }), "relationship-diagram");

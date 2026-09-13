@@ -10,7 +10,7 @@ const {
   evaluateCloseLoopGate,
   normalizeEmbeddedDecisionGate,
   parseArgs
-} = require("../skills/pd-hifi-slideclone/scripts/component-replacement-close-loop-gate");
+} = require("../packages/slideclone-native-engine/scripts/component-replacement-close-loop-gate");
 
 test("close loop gate parses CLI options", () => {
   const args = parseArgs([

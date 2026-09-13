@@ -10,7 +10,7 @@ const {
   parseArgs,
   renderMarkdown,
   summarizeBatchNativeAudit
-} = require("../skills/pd-hifi-slideclone/scripts/batch-native-audit-summary");
+} = require("../packages/slideclone-native-engine/scripts/batch-native-audit-summary");
 
 test("batch native audit summary parses repair-prep no-fail mode", () => {
   const args = parseArgs([

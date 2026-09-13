@@ -6,8 +6,9 @@ const test = require("node:test");
 const {
   parseArgs,
   buildRefreshPlan,
-  runRefreshPlan
-} = require("../skills/pd-hifi-slideclone/scripts/component-library-refresh");
+  runRefreshPlan,
+  _private
+} = require("../packages/slideclone-native-engine/scripts/component-library-refresh");
 
 test("buildRefreshPlan wires safe dry-run component library pipeline by default", () => {
   const plan = buildRefreshPlan({
@@ -234,4 +235,13 @@ test("runRefreshPlan stops at the first failed step", () => {
     })),
     /component library refresh failed at second/
   );
+});
+
+test("component library refresh resolves package scripts before legacy skill wrappers", () => {
+  const packageScript = _private.scriptPath("component-motif-recall-report.js");
+  const migratedInventoryScript = _private.scriptPath("plugin-component-inventory.js");
+
+  assert.ok(packageScript.endsWith(path.join("packages", "slideclone-native-engine", "scripts", "component-motif-recall-report.js")));
+  assert.ok(migratedInventoryScript.endsWith(path.join("packages", "slideclone-native-engine", "scripts", "plugin-component-inventory.js")));
+  assert.throws(() => _private.scriptPath("legacy-only-helper.js"), /unknown native engine component refresh script/);
 });

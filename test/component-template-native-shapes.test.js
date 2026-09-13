@@ -11,10 +11,10 @@ const {
   createComponentTemplateNativeShapes,
   selectComponentGroupMatch,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-native-shapes");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-template-native-shapes");
 const {
   evaluateComponentGroupsForLayer
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-group-matcher");
+} = require("../packages/slideclone-core/component-template-group-matcher");
 
 function templateImage(overrides = {}) {
   const sourceOverrides = overrides.source || {};

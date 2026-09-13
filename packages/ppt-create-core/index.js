@@ -201,4 +201,15 @@ function pptCreateSummary(job, workspaceRoot) {
   } catch { return null; }
 }
 
-module.exports = { ARTIFACT_NAMES, CAPABILITY, PDF_MEDIA_TYPE, PPTX_MEDIA_TYPE, REGISTRATION, createPptCreateJob, creationReport, pptCreateSummary, qualityFor, renderMarkdown, runPptCreateJob };
+const CAPABILITY_MODULE = Object.freeze({
+  registration: REGISTRATION,
+  createHandlers: Object.freeze({
+    create_ppt_create_job: (args, context) => createPptCreateJob({ ...context, input: args.input, output: args.output, idempotencyKey: args.idempotencyKey })
+  }),
+  reportHandlers: Object.freeze({
+    get_ppt_create_report: Object.freeze({ label: "PPT creation", key: "creation", summary: pptCreateSummary })
+  }),
+  uiContributions: Object.freeze([])
+});
+
+module.exports = { ARTIFACT_NAMES, CAPABILITY, CAPABILITY_MODULE, PDF_MEDIA_TYPE, PPTX_MEDIA_TYPE, REGISTRATION, createPptCreateJob, creationReport, pptCreateSummary, qualityFor, renderMarkdown, runPptCreateJob };

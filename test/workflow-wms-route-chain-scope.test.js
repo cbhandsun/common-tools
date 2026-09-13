@@ -5,10 +5,10 @@ const test = require("node:test");
 
 const {
   workflowWmsRouteOutputBannerBox
-} = require("../skills/pd-hifi-slideclone/scripts/lib/workflow-wms-route-chain-scope");
+} = require("../packages/slideclone-core/workflow-wms-route-chain-scope");
 const {
   workflowCollaborationHubLayerStyle
-} = require("../skills/pd-hifi-slideclone/scripts/lib/workflow-collaboration-multiplier-scope");
+} = require("../packages/slideclone-core/workflow-collaboration-multiplier-scope");
 
 test("WMS output banner spans the measured value panel rather than the OCR text width", () => {
   assert.deepEqual(

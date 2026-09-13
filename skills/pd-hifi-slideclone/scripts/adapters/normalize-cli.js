@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const { run } = require("../lib/exec");
 const { readImageSize } = require("../lib/image-size");
-const { resolveLibreOffice, resolvePdfToPpm, fileUrl } = require("../libreoffice-benchmark");
+const { resolveLibreOffice, resolvePdfToPpm, fileUrl } = require("../../../../packages/slideclone-native-engine/scripts/libreoffice-benchmark");
 
 module.exports = async function normalizeCli(input, context = {}) {
   const normalizedDir = path.join(input.outputDir, "normalized");

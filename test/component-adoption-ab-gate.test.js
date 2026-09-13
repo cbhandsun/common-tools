@@ -13,7 +13,7 @@ const {
   runComponentAdoptionAbGate,
   splitDeckPages,
   summarizeCandidateAdoption
-} = require("../skills/pd-hifi-slideclone/scripts/component-adoption-ab-gate");
+} = require("../packages/slideclone-native-engine/scripts/component-adoption-ab-gate");
 
 test("component adoption A/B gate keeps the baseline component-free and limits the candidate to promoted assets", () => {
   const baseline = buildRebuildArgs({

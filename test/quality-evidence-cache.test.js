@@ -9,7 +9,7 @@ const {
   createQualityEvidenceIdentity,
   readQualityEvidenceCache,
   writeQualityEvidenceCache
-} = require("../skills/pd-hifi-slideclone/scripts/lib/quality-evidence-cache");
+} = require("../packages/slideclone-native-engine/scripts/lib/quality-evidence-cache");
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-quality-evidence-"));

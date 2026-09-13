@@ -9,16 +9,18 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const { promoteNativeChartPayload } = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-payload");
-const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { promoteNativeChartPayload } = require("../packages/slideclone-core/chart-native-payload");
+const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const {
   readZipEntries,
   readZipEntry: readZipBufferEntry,
   rewriteZipEntries,
   writeStoredZipAtomic
-} = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
+} = require("../packages/ooxml-core/pptx-zip");
+const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 
-const programFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "Program.cs");
+const openXmlBuilderRoot = resolveOpenXmlBuilderRoot(path.join(__dirname, ".."));
+const programFile = path.join(openXmlBuilderRoot, "Program.cs");
 const modelsFile = path.join(path.dirname(programFile), "Models.cs");
 const commandLineFile = path.join(path.dirname(programFile), "CommandLineOptions.cs");
 const batchBuilderFile = path.join(path.dirname(programFile), "DeckBatchBuilder.cs");
@@ -34,7 +36,7 @@ const nativeTableWriterFile = path.join(path.dirname(programFile), "NativeTableW
 const editableChartFallbackWriterFile = path.join(path.dirname(programFile), "EditableChartFallbackWriter.cs");
 const nativeChartWriterFile = path.join(path.dirname(programFile), "NativeChartWriter.cs");
 const templatePlaceholderWriterFile = path.join(path.dirname(programFile), "TemplatePlaceholderWriter.cs");
-const projectFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
+const projectFile = path.join(openXmlBuilderRoot, "OpenXmlDeckBuilder.csproj");
 const pythonBuilderFile = path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "python", "build_pptx.py");
 
 test("OpenXmlDeckBuilder keeps transport models outside the composition entry point", () => {
@@ -123,12 +125,13 @@ test("Docker and host modes execute the same OpenXmlDeckBuilder implementation",
   const adapter = fs.readFileSync(path.join(root, "packages", "slideclone-core", "pptx-openxml-dotnet.js"), "utf8");
   assert.equal(require("../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet"), require("../packages/slideclone-core/pptx-openxml-dotnet"));
   const dockerfile = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable"), "utf8");
-  assert.match(adapter, /path\.join\(context\.skillRoot, "dotnet", "OpenXmlDeckBuilder"\)/);
+  assert.doesNotMatch(adapter, /path\.join\(context\.skillRoot, "dotnet", "OpenXmlDeckBuilder"\)/);
+  assert.match(adapter, /resolveDefaultOpenXmlBuilderRoot/);
   assert.match(adapter, /process\.env\.OPENXML_BUILDER_EXE/);
-  assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
+  assert.match(dockerfile, /COPY packages\/slideclone-native-engine\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
   assert.match(dockerfile, /ENV OPENXML_BUILDER_EXE=\/opt\/openxml\/OpenXmlDeckBuilder/);
   assert.ok(dockerfile.indexOf("OpenXmlDeckBuilder.csproj") < dockerfile.indexOf("dotnet restore"));
-  assert.ok(dockerfile.indexOf("dotnet restore") < dockerfile.lastIndexOf("COPY skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder ./OpenXmlDeckBuilder"));
+  assert.ok(dockerfile.indexOf("dotnet restore") < dockerfile.lastIndexOf("COPY packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder ./OpenXmlDeckBuilder"));
   assert.doesNotMatch(dockerfile, /PowerPoint|Aspose|OfficePLUS|iSlide/i);
 });
 
@@ -488,7 +491,7 @@ test("OpenXmlDeckBuilder preserves equivalent rotations without integer overflow
     page.shapes.push({id:`freeform-${index}`,type:"freeform",box:{x:10,y:10,w:20,h:20},style:{...style,points:[{x:0,y:0},{x:1,y:0},{x:1,y:1}]}});
     page.images.push({id:`image-${index}`,type:"image",assetPath:"assets/pixel.png",box:{x:10,y:10,w:20,h:20},style});
   });
-  assert.equal(require("../packages/slideclone-core/team-worker").validateDeckIr(deck, root).pages, 1);
+  assert.equal(require("../packages/slideclone-worker-adapter/team-worker").validateDeckIr(deck, root).pages, 1);
   const ir = path.join(root,"deck.json"), output = path.join(root,"deck.pptx");
   fs.writeFileSync(ir, JSON.stringify(deck));
   const before = fs.readFileSync(ir);

@@ -18,18 +18,21 @@ const PYTHON_MAX_BUFFER_BYTES = 1024 * 1024;
 
 /**
  * Creates the delivery-stage PPTX executor.  The entry point supplies the
- * Skill-local Python and OpenXML adapters, keeping this package free of an
- * upward dependency on the Skill directory.
- * @param {{skillRoot: string, projectRoot: string, buildOpenXmlDecksSync: OpenXmlBuilder, spawnSync?: SpawnSync}} input
+ * Skill-local Python adapter and runtime-owned OpenXML adapter, keeping this
+ * package free of an upward dependency on the Skill or native-engine packages.
+ * @param {{skillRoot: string, projectRoot: string, buildOpenXmlDecksSync: OpenXmlBuilder, openXmlBuilderRoot?: string, spawnSync?: SpawnSync}} input
  */
 function createPptxBuildExecutor(input) {
   if (!input || typeof input !== "object") throw new TypeError("PPTX build executor configuration is invalid");
-  const { skillRoot, projectRoot, buildOpenXmlDecksSync, spawnSync = defaultSpawnSync } = input;
+  const { skillRoot, projectRoot, buildOpenXmlDecksSync, openXmlBuilderRoot, spawnSync = defaultSpawnSync } = input;
   if (!validPath(skillRoot) || !validPath(projectRoot) || typeof buildOpenXmlDecksSync !== "function" || typeof spawnSync !== "function") {
     throw new TypeError("PPTX build executor configuration is invalid");
   }
   const resolvedSkillRoot = path.resolve(skillRoot);
   const resolvedProjectRoot = path.resolve(projectRoot);
+  const resolvedOpenXmlBuilderRoot = validPath(openXmlBuilderRoot)
+    ? path.resolve(openXmlBuilderRoot)
+    : path.join(resolvedProjectRoot, "packages", "slideclone-native-engine", "dotnet", "OpenXmlDeckBuilder");
 
   /** @param {string} irFile @param {string} outFile @param {Record<string, unknown>} [options] */
   function buildPptx(irFile, outFile, options = {}) {
@@ -78,7 +81,7 @@ function createPptxBuildExecutor(input) {
         },
         configFile: path.join(process.cwd(), "slideclone.config.json")
       };
-      return buildOpenXmlDecksSync(normalizedJobs, context, path.join(resolvedSkillRoot, "dotnet", "OpenXmlDeckBuilder"), mode);
+      return buildOpenXmlDecksSync(normalizedJobs, context, resolvedOpenXmlBuilderRoot, mode);
     }
     for (const job of normalizedJobs) buildPptx(job.irFile, job.outFile, { ...options, "pptx-engine": "python" });
     return normalizedJobs.map((job) => job.outFile);
@@ -125,7 +128,7 @@ function resolvePython(explicit) {
 function isFlagDisabled(value) { return value === false || String(value ?? "").trim().toLowerCase() === "false" || String(value ?? "").trim() === "0"; }
 /** @param {unknown} value */
 function normalizedPath(value) { return typeof value === "string" && validPath(value) ? value.trim() : ""; }
-/** @param {unknown} value */
+/** @param {unknown} value @returns {value is string} */
 function validPath(value) { return typeof value === "string" && value.trim().length > 0 && value.length <= MAX_PATH_LENGTH && !value.includes("\0"); }
 /** @param {unknown} value */
 function safeOwnDataProperties(value) {

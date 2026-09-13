@@ -12,14 +12,14 @@ const {
   authorizePowerPointSession,
   cleanPowerPointSessionEnvironment,
   takePowerPointSessionEnvironment
-} = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client");
-const { keeperCleanupError, keeperScript, startPowerPointSessionBroker } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker");
+} = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-session-client");
+const { keeperCleanupError, keeperScript, startPowerPointSessionBroker } = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-session-broker");
 const {
   eligibleForPowerPointSession,
   powerPointSessionEnabled,
   runPowerPointCorpusSession,
   safeCleanupDiagnostic
-} = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session");
+} = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-corpus-session");
 
 const root = path.resolve(__dirname, "..");
 const token = "z".repeat(43);
@@ -27,7 +27,7 @@ const sessionEnvironment = { [URL_KEY]: "http://127.0.0.1:12345/", [TOKEN_KEY]: 
 const keeperMetrics = { createMs: 10, quitMs: 11, collectMs: 1, waitMs: 2, exitMs: 3, releaseRemaining: 0, stderrBytes: 0 };
 const entry = (id = "case") => ({
   id,
-  command: [process.execPath, path.join(root, "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js"), "--deck", id]
+  command: [process.execPath, path.join(root, "packages/slideclone-native-engine/scripts/complex-graphic-golden-smoke.js"), "--deck", id]
 });
 
 test("PowerPoint session selection and credentials fail closed", async () => {

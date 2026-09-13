@@ -8,7 +8,7 @@ const {
   funnelLayout,
   isolateLightBlueIcon,
   shouldObjectifyDemandIntakeFunnel
-} = require("../skills/pd-hifi-slideclone/scripts/lib/demand-intake-funnel");
+} = require("../packages/slideclone-core/demand-intake-funnel");
 
 function fixture() {
   const labels = ["需求理解：从杂乱信息到结构化输入", "会议纪要", "业务描述", "竞品截图", "旧系统", "说明", "需求理解", "Skill", "业务流程", "角色边界", "待确认问题"]

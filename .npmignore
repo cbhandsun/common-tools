@@ -1,0 +1,4 @@
+**/__pycache__/
+**/*.pyc
+packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/bin/
+packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/obj/

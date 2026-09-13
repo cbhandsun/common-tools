@@ -5,7 +5,7 @@ const test = require("node:test");
 const {
   summarizeDeckComposition,
   summarizeReconstructionQuality
-} = require("../skills/pd-hifi-slideclone/scripts/lib/deck-composition-summary");
+} = require("../packages/slideclone-native-engine/scripts/lib/deck-composition-summary");
 
 const classifiers = Object.freeze({
   classifyEditableExpressionForm: (_item, collection) => `editable-${collection}`,

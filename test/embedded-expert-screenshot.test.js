@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createEmbeddedExpertScreenshotModel } = require("../skills/pd-hifi-slideclone/scripts/lib/embedded-expert-screenshot");
+const { createEmbeddedExpertScreenshotModel } = require("../packages/slideclone-core/embedded-expert-screenshot");
 
 test("embedded expert keeps the complete UI screenshot and rebuilds the three captions", () => {
   const page = { images: [{ id: "underlay" }], textBoxes: [

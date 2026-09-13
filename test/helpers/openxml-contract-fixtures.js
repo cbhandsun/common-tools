@@ -5,8 +5,10 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const { readZipEntries, readZipEntry: readZipBufferEntry, rewriteZipEntries } = require("../../skills/pd-hifi-slideclone/scripts/lib/pptx-zip");
-const projectFile = path.join(__dirname, "..", "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder", "OpenXmlDeckBuilder.csproj");
+const { readZipEntries, readZipEntry: readZipBufferEntry, rewriteZipEntries } = require("../../packages/ooxml-core/pptx-zip");
+const { resolveOpenXmlBuilderRoot } = require("../../packages/slideclone-native-engine");
+const projectRoot = path.join(__dirname, "..", "..");
+const projectFile = path.join(resolveOpenXmlBuilderRoot(projectRoot), "OpenXmlDeckBuilder.csproj");
 const builderDll = path.join(path.dirname(projectFile), "bin", "Debug", "net8.0", "OpenXmlDeckBuilder.dll");
 
 function resolveDotnet() {

@@ -18,7 +18,7 @@ const {
   resolveDefaultFinalPageCacheDir,
   stableJson,
   writeFinalPageCache
-} = require("../skills/pd-hifi-slideclone/scripts/lib/final-page-cache");
+} = require("../packages/slideclone-native-engine/scripts/lib/final-page-cache");
 
 test("final page cache implementation fingerprints use file content, not a coarse timestamp", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-cache-fingerprint-"));
@@ -40,7 +40,7 @@ test("core implementation changes invalidate shared and scoped page caches acros
   const core = path.join(root, "packages", "slideclone-core");
   fs.mkdirSync(lib, { recursive: true });
   fs.mkdirSync(core, { recursive: true });
-  fs.copyFileSync(require.resolve("../skills/pd-hifi-slideclone/scripts/lib/final-page-cache"), path.join(lib, "final-page-cache.js"));
+  fs.copyFileSync(require.resolve("../packages/slideclone-native-engine/scripts/lib/final-page-cache"), path.join(lib, "final-page-cache.js"));
   fs.writeFileSync(path.join(lib, "..", "rebuild-real-pptx-native.js"), "function createWorkflowKpiEvidenceObjects() { return []; }\n");
   const source = path.join(core, "graphic-crop-policy.js");
   fs.writeFileSync(source, "module.exports = 'before';\n");
@@ -373,7 +373,7 @@ test("final page cache rejects relative asset traversal", () => {
 });
 
 test("direct native rebuild CLI exposes safe page cache controls", () => {
-  const script = path.join(__dirname, "../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js");
+  const script = path.join(__dirname, "../packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js");
   const result = spawnSync(process.execPath, [script, "--help"], { encoding: "utf8" });
 
   assert.equal(result.status, 0, result.stderr);

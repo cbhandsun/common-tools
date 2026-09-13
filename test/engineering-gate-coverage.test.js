@@ -6,6 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 const { ESLint } = require("eslint");
 const { discoverTestFiles } = require("../scripts/test-sharded");
+const { eslintFixedArgs, eslintTargets, postNodeScripts } = require("../scripts/lint-common-tools");
 
 const root = path.resolve(__dirname, "..");
 
@@ -17,7 +18,7 @@ test("production entries and the extracted crop stage receive executable lint ru
     "packages/mcp-server/bin/common-tools-mcp.js",
     "skills/pd-hifi-slideclone/scripts/lib/graphic-crop-materializer.js",
     "skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js",
-    "skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice.js",
+    "packages/slideclone-native-engine/scripts/adapters/render-libreoffice.js",
     "packages/slideclone-core/render-libreoffice.js",
     "packages/slideclone-core/pptx-openxml-dotnet.js",
     "packages/slideclone-core/openxml-build-jobs.js",
@@ -56,22 +57,23 @@ test("MCP and Worker production entries reject console logging while build outpu
 
 test("new crop and gate regressions are discovered by the unified CI suite", () => {
   const names = discoverTestFiles(root, "unit").map(({ file }) => file.replaceAll("\\", "/"));
+  const contracts = discoverTestFiles(root, "contract").map(({ file }) => file.replaceAll("\\", "/"));
   assert.ok(names.includes("test/graphic-crop-materializer.test.js"));
   assert.ok(names.includes("test/final-page-cache.test.js"));
   assert.ok(names.includes("test/slideclone-config-security.test.js"));
-  assert.ok(names.includes("test/common-tools-team-ocr-profile.test.js"));
   assert.ok(names.includes("test/common-tools-worker-settings.test.js"));
   assert.ok(names.includes("test/common-tools-release-evidence.test.js"));
   const integration = discoverTestFiles(root, "integration").map(({ file }) => file.replaceAll("\\", "/"));
+  assert.ok(integration.includes("test/common-tools-team-ocr-profile.test.js"));
   assert.ok(integration.includes("test/render-libreoffice.test.js"));
   assert.ok(names.includes("test/page-image-finalizer.test.js"));
   assert.ok(names.includes("test/page-graphics-stage.test.js"));
   assert.ok(names.includes("test/slide-size.test.js"));
   assert.ok(names.includes("test/page-reuse.test.js"));
-  assert.ok(names.includes("test/openxml-core-package.test.js"));
+  assert.ok(contracts.includes("test/openxml-core-package.test.js"));
   assert.ok(names.includes("test/openxml-build-jobs.test.js"));
   assert.ok(names.includes("test/page-semantic-claims.test.js"));
-  assert.ok(names.includes("test/native-ownership-core-package.test.js"));
+  assert.ok(contracts.includes("test/native-ownership-core-package.test.js"));
   assert.ok(names.includes("test/full-slide-residual-publication.test.js"));
   assert.ok(names.includes("test/full-slide-residual-crop.test.js"));
   assert.ok(names.includes("test/full-slide-residual-arc.test.js"));
@@ -79,11 +81,11 @@ test("new crop and gate regressions are discovered by the unified CI suite", () 
   assert.ok(names.includes("test/pixel-diff-package.test.js"));
   assert.ok(integration.includes("test/libreoffice-core-package.test.js"));
   assert.ok(names.includes("test/diagram-text-candidates.test.js"));
-  assert.ok(names.includes("test/common-tools-production-preflight.test.js"));
+  assert.ok(integration.includes("test/common-tools-production-preflight.test.js"));
   assert.ok(names.includes("test/common-tools-team-runtime.test.js"));
   assert.ok(names.includes("test/team-config-boundary.test.js"));
   assert.ok(names.includes("test/job-input-boundary.test.js"));
-  assert.ok(names.includes("test/cli-verification-package.test.js"));
+  assert.ok(contracts.includes("test/cli-verification-package.test.js"));
   assert.ok(names.includes("test/redis-connection.test.js"));
   assert.ok(names.includes("test/page-text-finalizer.test.js"));
   assert.ok(names.includes("test/page-shape-finalizer.test.js"));
@@ -93,21 +95,39 @@ test("new crop and gate regressions are discovered by the unified CI suite", () 
   assert.ok(names.includes("test/engineering-gate-coverage.test.js"));
   assert.ok(names.includes("test/worker-failure-boundary.test.js"));
   assert.ok(names.includes("test/workspace-boundary-verifier.test.js"));
-  for (const name of ["page-selection-boundary", "ocr-source-deck", "graphic-crop-policy", "engine-core-package"]) assert.ok(names.includes(`test/${name}.test.js`));
+  assert.ok(integration.includes("test/ocr-source-deck.test.js"));
+  assert.ok(contracts.includes("test/engine-core-package.test.js"));
+  for (const name of ["page-selection-boundary", "graphic-crop-policy"]) assert.ok(names.includes(`test/${name}.test.js`));
 });
 
 test("local CI entry includes static gates and the actual lint/type commands include new boundaries", () => {
   const { scripts } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  assert.equal(scripts.test, "node scripts/test-sharded.js --shards 4");
+  assert.equal(scripts.verify, "npm run verify:ci");
+  assert.equal(scripts["verify:python-lock"], "node scripts/verify-python-lock.js");
   assert.equal(scripts["test:container-recovery"], "node --test test/container/worker-scratch-recovery.test.cjs");
   assert.ok(fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8").includes("run: npm run test:container-recovery"));
   for (const command of ["lint", "typecheck", "common-tools:verify-plugins", "common-tools:verify-observability", "common-tools:verify-adrs", "test:unit", "test:contract", "test:integration"]) {
     assert.ok(scripts["verify:ci"].split(" && ").includes(`npm run ${command}`), command);
   }
-  assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/graphic-crop-materializer.js"));
-  assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice.js"));
-  assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata.js"));
-  assert.ok(scripts.lint.includes("skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js"));
-  assert.ok(scripts.lint.split(" && ").includes("node scripts/verify-workspace-boundaries.js"));
+  assert.equal(scripts.lint, "node scripts/lint-common-tools.js");
+  for (const target of [
+    "skills/pd-hifi-slideclone/scripts/lib/graphic-crop-materializer.js",
+    "packages/slideclone-native-engine/scripts/adapters/render-libreoffice.js",
+    "skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata.js",
+    "skills/pd-hifi-slideclone/scripts/lib/final-page-cache.js",
+    "packages/*/*.js",
+    "packages/*/bin/**/*.js",
+    "packages/*/verification/**/*.js"
+  ]) assert.ok(eslintTargets.includes(target), target);
+  assert.deepEqual(eslintFixedArgs, ["--cache", "--cache-location", ".cache/eslint/"]);
+  assert.equal(eslintTargets.includes("packages"), false);
+  assert.equal(eslintTargets.includes("packages/**/*.js"), false);
+  assert.ok(postNodeScripts.includes("scripts/native-engine-runtime-payload.js"));
+  assert.equal(scripts["verify:native-engine-payload"], "node scripts/native-engine-runtime-payload.js");
+  assert.ok(scripts["common-tools:verify-capabilities"].split(" && ").includes("node scripts/generate-capability-catalogs.js --check"));
+  assert.ok(postNodeScripts.includes("scripts/verify-workspace-boundaries.js"));
+  assert.match(fs.readFileSync(path.join(root, ".gitignore"), "utf8"), /^\/\.cache\/$/m);
   assert.ok(scripts.typecheck.split(" && ").includes("tsc --project tsconfig.boundaries.json"));
   const boundaries = JSON.parse(fs.readFileSync(path.join(root, "tsconfig.boundaries.json"), "utf8"));
   assert.equal(boundaries.compilerOptions.strict, true);
@@ -163,5 +183,6 @@ test("local CI entry includes static gates and the actual lint/type commands inc
   assert.ok(workflow.includes("run: npm run test:postgres-recovery"));
   assert.equal(scripts["test:s3-retention"], "node --test test/s3/attempt-retention.test.cjs");
   assert.ok(workflow.includes("run: npm run test:s3-retention"));
+  assert.ok(workflow.includes("/work/ppt-office-regression.yml"));
   assert.ok(workflow.includes('common-tools:verify-release-evidence -- --sbom artifacts/common-tools.spdx.json --manifest artifacts/common-tools.release.json --revision "$env:GITHUB_SHA"'));
 });

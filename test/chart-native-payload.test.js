@@ -6,7 +6,7 @@ const {
   chartFallbackSignature,
   promoteNativeChartPayload,
   validateNativeChartPayload
-} = require("../skills/pd-hifi-slideclone/scripts/lib/chart-native-payload");
+} = require("../packages/slideclone-core/chart-native-payload");
 
 function chart() {
   return {

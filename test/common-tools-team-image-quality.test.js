@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { createRawImageRenderQualityVerifier } = require("../packages/slideclone-core/team-render-quality");
+const { createRawImageRenderQualityVerifier } = require("../packages/slideclone-worker-adapter/team-render-quality");
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-image-quality-"));

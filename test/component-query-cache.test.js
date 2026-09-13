@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { _private } = require("../skills/pd-hifi-slideclone/scripts/lib/component-candidate-planner");
+const { _private } = require("../packages/slideclone-native-engine/scripts/lib/component-candidate-planner");
 
 test("component query cache is content addressed by query and provider endpoint", () => {
   const left = _private.componentQueryIdentity({ provider: "islide", kind: "diagram", keywords: "流程", size: 3 }, { islideBaseUrl: "https://one.invalid" });

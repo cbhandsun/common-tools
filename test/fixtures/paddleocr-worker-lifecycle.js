@@ -10,7 +10,7 @@ childProcess.spawn = (...args) => {
   children.push(child);
   return child;
 };
-const adapter = require("../../skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local");
+const adapter = require("../../packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local");
 childProcess.spawn = originalSpawn;
 const skillRoot = path.resolve(__dirname, "../../skills/pd-hifi-slideclone");
 const input = { sourceImage: path.join(skillRoot, "examples/ocr-text-smoke.source.png"), pageIndex: 0 };

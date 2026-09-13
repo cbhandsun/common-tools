@@ -10,6 +10,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",
     "@aws-sdk/s3-request-presigner": "^3.1101.0",
+    "@common-tools/capability-contracts": "0.1.0",
     "@common-tools/capability-runtime": "0.1.0",
     "@common-tools/mcp-server": "0.1.0",
     "@common-tools/ppt-improve-core": "0.1.0",
@@ -17,6 +18,8 @@
     "@common-tools/ppt-quality-core": "0.1.0",
     "@common-tools/project-audit-core": "0.1.0",
     "@common-tools/slideclone-core": "0.1.0",
+    "@common-tools/slideclone-native-engine": "0.1.0",
+    "@common-tools/slideclone-worker-adapter": "0.1.0",
     "@common-tools/siyuan-note-core": "0.1.0",
     "@common-tools/team-runtime": "0.1.0",
     "pg": "^8.22.0",

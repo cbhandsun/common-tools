@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { createTriangleTopologyToolkit } = require("../skills/pd-hifi-slideclone/scripts/lib/triangle-topology");
+const { createTriangleTopologyToolkit } = require("../packages/slideclone-core/triangle-topology");
 
 test("triangle topology plugin creates editable geometry and records residual ownership", () => {
   const toolkit = createTriangleTopologyToolkit(operations());
@@ -71,9 +71,9 @@ test("triangle topology plugin validates injected boundaries and propagates serv
   assert.throws(() => toolkit.createShapes([candidate({ pageText: "铁三角 原型 PRD 评审 基线 可视化" })], [], {}), (error) => error === failure);
 });
 
-test("native rebuild compatibility entry delegates triangle topology behavior to the registry plugin", () => {
+test("native rebuild package delegates triangle topology behavior to the registry plugin", () => {
   const source = fs.readFileSync(path.join(
-    __dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"
+    __dirname, "..", "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js"
   ), "utf8");
   assert.match(source, /createNativeRebuilder\("triangle-topology"/);
   assert.match(source, /return createTriangleTopologyDiagramShapesFromRegistry\(images, textBoxes, sourceImage, slideSize\)/);

@@ -15,3 +15,5 @@
 本轮新增运行 25 项测试，全部通过、无跳过：诊断/告警/OpenXML 10 项、Linux 进程 7 项、容器 2 项、trace 6 项。上一轮真实 PostgreSQL 恢复测试及 84 项相关测试的源码哈希另行复核。日志与哈希记录位于 `.codex-tmp/stage-recovery-acceptance-evidence.json`。
 
 E 的本地恢复与诊断场景已有直接证据。剩余是按实际发布的 OCR 代码和模型确定检查点 revision，核对部署中的启用状态，并与 D 一起验收线上恢复及观测配置。OCR 演练使用受控识别和重建结果，不能替代 F 的真实图片视觉质量；新 PDF 尚未转换。后续一次连续全量 CI 已覆盖 OCR 检查点改动，退出码 0，1,131 个捕获输入文件哈希未变，保留 1 项既有 Windows 符号链接测试跳过；证据 `.codex-tmp/checkpoint-consolidated-ci-evidence.json`。
+
+2026-09-09 复核：当前代码再次跑通 `npm run test:postgres-recovery` 与 `npm run test:s3-retention`，分别覆盖真实 PostgreSQL/Redis 租约恢复、Redis 丢失交付修复，以及真实 PostgreSQL/MinIO attempt 保留、失败清理重试和赢家产物保护；同时复用本轮已通过的 typecheck、workspace boundaries 与 architecture budgets。当前哈希绑定证据位于 `.codex-tmp/recovery-retention-current-evidence.json`。该证据仍只关闭本地恢复/保留行为，不替代生产 OCR 发布版本绑定、部署启用、线上观测、备份或回滚验收。

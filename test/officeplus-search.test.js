@@ -8,7 +8,7 @@ const {
   normalizeOfficePlusKind,
   searchOfficePlusComponents,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/lib/officeplus-search");
+} = require("../packages/slideclone-native-engine/scripts/lib/officeplus-search");
 
 test("OfficePLUS search normalizes plugin component results", async () => {
   const calls = [];

@@ -7,7 +7,7 @@ const {
   mapLimited,
   processPages,
   resolvePageConcurrency
-} = require("../skills/pd-hifi-slideclone/scripts/lib/page-pipeline");
+} = require("../packages/slideclone-native-engine/scripts/lib/page-pipeline");
 
 test("page pipeline preserves source order while processing concurrently", async () => {
   let active = 0;

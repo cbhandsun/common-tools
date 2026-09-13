@@ -58,7 +58,7 @@ $env:COMMON_TOOLS_RELEASE_REVISION = '<approved-full-git-revision>'
 .\scripts\team-runtime-production-deploy.ps1 -Mode Plan -Project common-tools
 ```
 
-Plan 会检查 Docker、release evidence、生产 Compose、OIDC discovery 和能力部署计划，不拉取镜像、不修改容器；它仍需要正确的受管配置和网络可达性。核对输出的 revision、镜像、能力与签名状态。预检失败就停止，不改用手写 Compose 绕过。
+Plan 会检查 Docker、release evidence、生产 Compose、OIDC discovery 和能力部署计划，不拉取镜像、不修改容器；它仍需要正确的受管配置和网络可达性。核对输出的 revision、镜像、能力、签名状态、`schemaMigrations` 和 `preApplyChecklist`。清单中的同环境 `migration-status`、受管 PostgreSQL 备份/恢复目标、immutable evidence/digest 回滚材料与暂停新任务接入必须先归档；预检失败或清单缺证就停止，不改用手写 Compose 绕过。
 
 5. 经所有者批准后，在受管 ingress 停止新任务流入，按平台流程等待或受控取消在途任务并确认 Worker 收敛。不可清空队列或把仍有活跃 Job 的能力直接移出 allowlist。记录切换前任务数量，不记录 Job 内容或对象 key。
 6. 仅在批准的变更窗口执行 Apply；本脚本的 Apply 不额外弹出授权确认，不能把命令可执行误当作获得批准：

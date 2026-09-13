@@ -84,7 +84,7 @@ test("Deck IR rejects proxies before reflection can run traps", () => {
 });
 
 test("Worker validates header descriptors before reading version, dimensions or pages", () => {
-  const {validateDeckIr} = require("../packages/slideclone-core/team-worker");
+  const {validateDeckIr} = require("../packages/slideclone-worker-adapter/team-worker");
   const os = require("node:os");
   let calls = 0;
   const make = () => ({version:"1.0",slideSize:{widthPt:960,heightPt:540},pages:[{}]});
@@ -134,7 +134,7 @@ test("Deck IR page-area exception is limited to the exact numeric-index path", (
 });
 
 test("Worker rejects unsafe XML strings in consumed fields before building", () => {
-  const {validateDeckIr} = require("../packages/slideclone-core/team-worker");
+  const {validateDeckIr} = require("../packages/slideclone-worker-adapter/team-worker");
   const os = require("node:os");
   const input = () => ({version:"1.0", slideSize:{widthPt:960,heightPt:540},pages:[{pageIndex:0,textBoxes:[{id:"text",text:"中文 😀",box:{x:10,y:10,w:200,h:30}}]}]});
   assert.equal(validateDeckIr(input(), os.tmpdir()).pages, 1);

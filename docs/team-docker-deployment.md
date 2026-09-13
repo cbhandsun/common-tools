@@ -75,7 +75,7 @@ common-tools team doctor --runtime
 
 若只是排查 Docker Desktop 重启后的“引擎是否可用/既有容器是否恢复”，使用不读取团队连接配置的 `common-tools team runtime --project deploy`；它只检查 Docker daemon、Compose label 与容器状态，并以 `runtime.ok` 和退出码表示部署运行态。报告中的 `requiredServices` 是当前 capability 集合所需的服务，`missingServices` 明确列出根本未创建的服务，`inactiveServices` 列出已创建但未运行、已 unhealthy 或迁移未成功完成的服务；这三个字段都不读取容器环境变量或日志。能力集合不是默认值时显式传入 `--capabilities <csv>`，以便将所需 Worker 纳入检查。本机网关部署或验收时追加 `--require-gateway`，它要求 `remote-mcp-gateway` 存在且通过 Docker healthcheck；本机部署脚本已自动执行该门禁。受管生产部署若不使用本项目网关，不应传入此开关。`common-tools team doctor --runtime` 仍会同时校验团队连接配置；当前 shell 没有该配置时，它会以退出码 `2` 和 `valid: false` 标记配置未通过，适合诊断而不是运行态成功门禁。
 
-若仅需恢复**本机 Docker 默认部署**的非敏感 URL/OIDC 值，可运行 `common-tools team local-config --project deploy`。它只读取 Compose 容器的公开 loopback 端口映射，输出 `REMOTE_PUBLIC_URL`、允许 Origin、Keycloak issuer/JWKS URL 和 audience；不会读取容器环境变量、日志、密码或 token。密码仍必须从 Secret Manager 或原部署记录恢复，且该命令不适用于受管 HTTPS 生产环境。
+若仅需恢复**本机 Docker 默认部署**的非敏感 URL/OIDC 值，可运行 `common-tools team local-config --project deploy`。它只读取 Compose 容器的公开 loopback 端口映射；网关端口存在时会输出 `REMOTE_PUBLIC_URL`、允许 Origin 和 audience。Keycloak 只在本机暴露 loopback 端口时输出 issuer/JWKS；没有本机 Keycloak 时会放入 `optionalMissing`，不代表 runtime 失败。该命令不会读取容器环境变量、日志、密码或 token。密码仍必须从 Secret Manager 或原部署记录恢复，且该命令不适用于受管 HTTPS 生产环境。
 
 ### 可选 MCP Apps 质量报告
 
@@ -93,9 +93,29 @@ common-tools team doctor --runtime
 
 如默认 `60100–60105` 端口范围已被占用，传入另一个连续的六端口范围，例如 `-BasePort 61100`。仅在排障时使用 `-KeepArtifacts`；输出会给出唯一 project 名，清理时只针对该名称执行 Compose down。
 
+已有本机 `deploy` 项目启动后，可用轻量 smoke 快速确认当前 loopback gateway、runtime、`/readyz`、OAuth protected-resource metadata 和未授权 MCP challenge 都可用；它不读取密码、不上传文件、不创建 Job：
+
+```powershell
+.\scripts\team-runtime-local-smoke.ps1
+```
+
+需要把本机 Keycloak/OIDC 也纳入验收时，显式追加 `-RequireIdentityProvider`。这个模式会要求 `local-config` 能发现 Keycloak loopback 端口，并校验 OAuth metadata 中的 authorization server 与 Keycloak OpenID discovery issuer 一致；默认 smoke 不强制它，以免日常本机 API/Worker 验收被 IdP 启动成本拖慢。
+
 ### 本机团队版更新
 
 `scripts/team-runtime-local-deploy.ps1` 将日常更新固定为“Secret 已注入 → Compose 配置预检 → 构建 → migration gate → API/Worker/maintenance 就绪等待”。它只接受本机验证的三份 Compose 文件（infra、API、gateway），不会重导入或覆盖已有 Keycloak realm；凭据只读取当前进程环境变量，永不写入输出。先运行无副作用预检：
+
+日常本机 Docker 更新优先使用轻量封装脚本；它会自动填入本机 URL/OIDC/Keycloak 管理员用户名默认值，并复用部署脚本的隐藏输入，只要求输入 PostgreSQL、Redis、MinIO 和 Keycloak 管理员密码：
+
+```powershell
+.\scripts\team-runtime-local-apply.ps1
+```
+
+若只想查看将要启用的能力和 Compose 配置，不改容器：
+
+```powershell
+.\scripts\team-runtime-local-apply.ps1 -Mode Plan
+```
 
 ```powershell
 .\scripts\team-runtime-local-deploy.ps1 -Mode Plan
@@ -107,7 +127,7 @@ common-tools team doctor --runtime
 .\scripts\team-runtime-local-deploy.ps1 -Mode Plan -DiscoverLocalConfiguration
 ```
 
-某些 Windows / Docker Desktop 组合会保留默认 MinIO 的 `59000–59001` 端口。若当前会话没有显式设置 `COMMON_TOOLS_MINIO_PORT` 或 `COMMON_TOOLS_MINIO_CONSOLE_PORT`，可加 `-DiscoverLocalPorts`：默认端口无法监听时，它会仅在当前进程中选一对可用 loopback 端口，并在 Plan 输出的 `localMinioPorts` 中显示；已显式设置的端口绝不改写。端口选择是启动前检查，无法替代操作系统最终绑定时的竞争保护：
+某些 Windows / Docker Desktop 组合会保留默认 MCP 网关端口 `54000` 或 MinIO 的 `59000–59001` 端口。若当前会话没有显式设置 `COMMON_TOOLS_REMOTE_PORT`、`COMMON_TOOLS_MINIO_PORT` 或 `COMMON_TOOLS_MINIO_CONSOLE_PORT`，可加 `-DiscoverLocalPorts`：默认端口无法监听时，它会仅在当前进程中选择可用 loopback 端口，并在 Plan 输出的 `localRemotePort` / `localMinioPorts` 中显示；已显式设置的端口绝不改写。端口选择是启动前检查，无法替代操作系统最终绑定时的竞争保护：
 
 ```powershell
 .\scripts\team-runtime-local-deploy.ps1 -Mode Plan -DiscoverLocalConfiguration -DiscoverLocalPorts
@@ -126,6 +146,20 @@ Invoke-WebRequest http://127.0.0.1:54000/readyz | Select-Object -Expand Content
 `COMMON_TOOLS_MINIO_PASSWORD` 至少须有 8 个字符；更重要的是，对已初始化的 `common-tools-minio` volume，必须继续使用初始化它时的同一个 MinIO root password。部署脚本不会从容器或卷读取或恢复这个密码，也不会把新值写入持久数据；若它与既有对象存储身份状态不一致，MinIO 会失败关闭。需要轮换时，应先按受控 MinIO 管理流程完成备份和轮换，不能把密码改动混入普通 API/Worker 升级。
 
 Apply 现在会先只启动并等待 `minio`；只有对象存储健康后才构建或重建 API、迁移器和 Worker。因此密码不匹配会在第一阶段失败，不再留下整套服务的半重建状态。
+
+若本机长期迭代后 `team-migrate` 报 `migration_checksum_mismatch`，先确认这是本机开发库而不是生产库，再运行只读计划：
+
+```powershell
+.\scripts\team-runtime-local-repair-migration-ledger.ps1 -Mode Plan
+```
+
+只有计划显示漂移的是 `010_retention_recheck.sql` / `011_delivery_outbox.sql`，且当前 schema 对象已存在时，才可应用本机 ledger 修复：
+
+```powershell
+.\scripts\team-runtime-local-repair-migration-ledger.ps1 -Mode Apply
+```
+
+该脚本只接受本机 Compose 的 `deploy-postgres-1` PostgreSQL 服务，只更新 `common_tools_schema_migrations` 中这两个文件的 SHA256；不删除卷、不改业务表、不用于生产环境。生产环境出现 migration checksum drift 时，应通过不可变迁移和前向修复流程处理。
 
 如果 MinIO root password 已遗失，先创建一个不覆盖源卷的备份计划：
 
@@ -168,7 +202,7 @@ Keycloak 的持久化卷同样不是备份。需要在本机保存 IdP 恢复点
 
 演练只接受当前项目命名空间中的 `common-tools-keycloak-backup-*` 卷，拒绝 live volume 与覆盖目标；它同样使用项目级互斥锁。该验证证明备份可复制并可由当前 Keycloak 镜像启动，但不替代生产 IdP 的跨区域、不可变或灾备切换演练。
 
-若确认整个本机环境都没有需要保留的数据，可用 `scripts/team-runtime-local-fresh-reset.ps1` 重新初始化 PostgreSQL、Redis、MinIO 与 Keycloak。它要求四项密码变量使用同一个至少 8 位的本机密码（MinIO 的最低约束），Plan 只验证配置；Apply 必须带 `-Confirm`，并且只执行此 Compose 项目的 `down --volumes`，不会使用 `--remove-orphans`。随后脚本启动 Keycloak/基础设施，再调用受控本机部署器创建四项能力。此流程会删除上述四个状态卷，绝不能用于有数据或生产环境。
+若确认整个本机环境都没有需要保留的数据，可用 `scripts/team-runtime-local-fresh-reset.ps1` 重新初始化 PostgreSQL、Redis、MinIO 与 Keycloak。日常可直接运行 `npm run common-tools:team-local-fresh-reset`，它会用隐藏输入提示一次共享本地密码，并只在当前进程临时填充 PostgreSQL、应用数据库连接、Redis、MinIO 和 Keycloak admin 密码。底层 Apply 仍必须带 `-Confirm`，并且只执行此 Compose 项目的 `down --volumes`，不会使用 `--remove-orphans`。随后脚本启动 Keycloak/基础设施，再调用受控本机部署器创建五项能力并显式保留本地 IdP，避免后续 `--remove-orphans` 清掉 Keycloak。此流程会删除上述四个状态卷，绝不能用于有数据或生产环境。
 
 初始化时 PostgreSQL 会执行 `packages/team-runtime/schema/001_jobs.sql`。该 schema 是任务、幂等键、lease 和审计事件的唯一事实来源；Redis 只用于可重复投递的队列通知，MinIO 只保存 owner 前缀下的输入和工件。
 
@@ -185,6 +219,39 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 ```
 
 如需只诊断或手工重跑迁移器，可仍使用 `docker compose run --rm --no-deps remote-mcp node packages/remote-mcp-server/bin/common-tools-team-migrate.js`；正常部署不应绕过 `team-migrate`，也不要以 `--no-deps` 重建 API/Worker。
+
+执行共享生产库迁移前，可先在同一环境只读查看 schema 状态。`team migration-status` 只查询 `common_tools_schema_migrations`，不会创建表、取得 advisory lock、执行 SQL 或回显连接串/凭据；输出会列出已匹配、待应用、checksum 不一致、未知已应用 migration，以及 010/011 delivery schema 是否仍缺失：
+
+```powershell
+common-tools team migration-status
+npm run common-tools:production-migration-status
+docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production.yaml --profile team-api run --rm --no-deps remote-mcp node packages/remote-mcp-server/bin/common-tools-team-migrate.js --status
+```
+
+当前 shell 未注入生产 Secret 时，先运行只读验收规划命令，确认缺哪些配置和后续需要归档哪些证据。该命令只输出 `set`/`missing` 与固定验收清单，不打印 URL、凭据、镜像 digest 或文件路径：
+
+```powershell
+common-tools team production-acceptance-plan
+npm run common-tools:production-preflight
+common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-plan --out .codex-tmp/production-acceptance-plan.json
+common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-evidence --out .codex-tmp/production-acceptance-evidence
+```
+
+如果生产 Secret 不在当前 shell，可把 `COMMON_TOOLS_*` 配置放在仓库外的受保护本地 env 文件中，并用绝对路径显式加载。该文件只支持 `COMMON_TOOLS_` 开头的 `KEY=VALUE` 行、`export KEY=VALUE` 行、空行和 `#` 注释；命令不会做 shell 展开，也不会在输出中回显值。不要把该文件放进工作区或提交到 Git：
+
+```powershell
+.\scripts\prepare-production-env.ps1
+.\scripts\prepare-production-env.ps1 -ProductionRelease
+.\scripts\prepare-production-env.ps1 -ProductionRelease -Out E:\DEV\WorkSpace\Efficiency\common-tools.production.env -Force
+common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-plan --production-env-file C:\secure\common-tools.production.env --out .codex-tmp/production-acceptance-plan.json
+common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-acceptance-evidence --production-env-file C:\secure\common-tools.production.env --out .codex-tmp/production-acceptance-evidence
+common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team migration-status --production-env-file C:\secure\common-tools.production.env
+common-tools --workspace E:\DEV\WorkSpace\Efficiency\common-tools team production-preflight --production-env-file C:\secure\common-tools.production.env
+```
+
+`prepare-production-env.ps1` 默认先提示本机 Docker 用户改用 `team-runtime-local-apply.ps1`，避免误进入生产发布门禁；只有显式传 `-ProductionRelease` 才会准备严格生产 env。生产模式默认把文件写到仓库同级目录 `E:\DEV\WorkSpace\Efficiency\common-tools.production.env`，并在交互时用隐藏输入读取密码类值。脚本会先读取当前本机 Docker 部署的 `team local-config`，缺失时回退到 Compose 默认端口，为数据库、Redis、MinIO、MCP public URL、OIDC issuer/JWKS/audience 和常见用户名提供默认值；默认值不合适时直接输入新值覆盖即可。若本机 Compose project 不是 `deploy`，传 `-Project <name>`。若生产凭据已落在受管 secret 文件中，改用 `-UseCredentialFiles` 填写 `*_FILE` 路径；若发布链路要求 cosign 验签，追加 `-IncludeReleaseSignature`；启用 `siyuan-note` 时追加 `-IncludeSiyuan`。脚本不会打印 secret 值，也会拒绝把输出写进当前仓库目录。
+
+生产发布脚本的 `Plan` 输出也会包含 `preApplyChecklist`。该清单不是批准本身，而是上线前必须归档的操作核对项：同环境 `migration-status` 脱敏 JSON、受管 PostgreSQL 备份与恢复目标、只使用 immutable release evidence revision/image digest 的回滚材料，以及 ingress 暂停接收新任务后的 Worker readiness 复核。任一项无法确认时不要执行 `Apply`，也不要用手写 Compose 绕过。
 
 `002_project_rbac.sql` 为新 Job 增加可为空的 `project_id`；`003_project_idempotency.sql` 将活跃 idempotency key 分区到该 project。旧 Job 保持 `NULL`，只能由原 owner 走兼容接口读取；迁移不会猜测或回填项目归属，因此绝不会把历史 owner-only Job 暴露给项目成员。
 
@@ -356,13 +423,20 @@ $env:COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS = '2000'
 npm run common-tools -- team production-preflight
 ```
 
-预检不拉取镜像、不启动或停止容器、不读取或回显凭据内容。它验证所有实际启用镜像是否以 digest 固定、HTTPS/OIDC/受管数据库与缓存配置是否可被 Runtime 接受、能力集合是否有效、六项凭据是否完整且只采用一种来源（直接注入或 `*_FILE`），并解析最终 Compose JSON：API、迁移器、maintenance 和每个已启用 Worker 必须精确使用预先固定的镜像、不得保留 `build`、每个服务均为 production team mode、迁移器无本地依赖，API 必须使用团队后端与强制 RBAC、绑定受管网络接口且不得发布端口，API/Worker/maintenance 只能依赖一次性迁移门禁。通过后只输出来源类型、能力列表、已验证的 Compose 文件名以及不含路径/密钥的签名 required/verified 状态。
+预检不拉取镜像、不启动或停止容器、不读取或回显凭据内容。它验证所有实际启用镜像是否以 digest 固定、HTTPS/OIDC/受管数据库与缓存配置是否可被 Runtime 接受、能力集合是否有效、六项凭据是否完整且只采用一种来源（直接注入或 `*_FILE`），并确认发布包包含生产 delivery schema 所需的 010/011 migration，再解析最终 Compose JSON：API、迁移器、maintenance 和每个已启用 Worker 必须精确使用预先固定的镜像、不得保留 `build`、每个服务均为 production team mode、迁移器无本地依赖，API 必须使用团队后端与强制 RBAC、绑定受管网络接口且不得发布端口，API/Worker/maintenance 只能依赖一次性迁移门禁。通过后只输出来源类型、能力列表、已验证的 Compose 文件名、schema migration 摘要以及不含路径/密钥的签名 required/verified 状态。
 
 日常发布建议使用受控脚本。`Plan` 是默认值，只完成预检和计划输出；只有显式 `Apply` 才会启动 Compose。它会固定启用 API 与 `team-maintenance`，并根据 `COMMON_TOOLS_TEAM_CAPABILITIES` 启用匹配的 Worker profile、保留迁移门禁、强制 `--no-build --wait`，并在文件凭据模式下自动叠加 Secret overlay。生产 `Plan` 会安全返回解析后的 `enabledCapabilities`、`releaseSignatureRequired`、`releaseSignatureVerified` 与 Compose 校验结果；若要求签名但预检没有明确验证，脚本会在启动 Compose 前失败，便于在变更窗口前审阅实际启动集合：
 
 ```powershell
 .\scripts\team-runtime-production-deploy.ps1 -Mode Plan
 .\scripts\team-runtime-production-deploy.ps1 -Mode Apply -Project common-tools -WaitTimeoutSeconds 300
+```
+
+若当前 PowerShell 没有预先注入生产环境变量，可给脚本传入仓库外的受保护 env 文件。脚本会先验证该文件为绝对路径、普通文件、64 KiB 内，且只包含 `COMMON_TOOLS_*` 配置；随后仅导入到当前发布进程，供 release preflight、OIDC discovery preflight 和 Docker Compose 插值使用，不会把值写入仓库、命令输出或 evidence：
+
+```powershell
+.\scripts\team-runtime-production-deploy.ps1 -Mode Plan -ProductionEnvFile C:\secure\common-tools.production.env
+.\scripts\team-runtime-production-deploy.ps1 -Mode Apply -Project common-tools -ProductionEnvFile C:\secure\common-tools.production.env -WaitTimeoutSeconds 300
 ```
 
 在 Secret Manager 注入所有变量后，以基础 API 定义和此覆盖层启动（不要合并本机 IdP 或 infra 文件）：
@@ -401,7 +475,45 @@ docker compose -f deploy/compose.team-api.yaml -f deploy/compose.team-production
 
 ## 本地远程 MCP API
 
-先启动基础设施和本地 IdP。Keycloak 的健康探针使用未映射到宿主机的管理端口 `9000`；它不是对外接口。导入的 realm 已包含 `common-tools-mcp` public client、S256 PKCE、subject/audience mapper、三个可部署能力 scope 和 `common_tools_projects` user-attribute mapper。不要在 realm JSON 中写入用户或密码；本机测试用户应通过 Keycloak 管理界面或团队的临时身份流程创建。为测试项目 RBAC，由管理员设置用户的单个 `common_tools_projects` 属性，例如 `[ { "id": "product-core", "role": "editor" } ]`；客户端不能通过 scope 或 MCP 参数自行为自己添加该 claim。
+先启动基础设施和本地 IdP。Keycloak 的健康探针使用未映射到宿主机的管理端口 `9000`；它不是对外接口。导入的 realm 已包含 `common-tools-mcp` public client、S256 PKCE、subject/audience mapper、已部署能力 scope 和 `common_tools_projects` user-attribute mapper。不要在 realm JSON 中写入用户或密码；本机测试用户可通过 `team-keycloak-local-test-user.ps1` 或 Keycloak 管理界面创建。为测试项目 RBAC，由管理员设置用户的单个 `common_tools_projects` 属性，例如 `[ { "id": "product-core", "role": "editor" } ]`；客户端不能通过 scope 或 MCP 参数自行为自己添加该 claim。
+
+日常本机最终验收优先使用一条 closeout 入口；它会提示一次共享本地密码，fresh reset 并部署本地 runtime，然后复用该 runtime 完成浏览器 PKCE 登录、authenticated Job smoke、脱敏 evidence 自检和 architecture closeout：
+
+```powershell
+npm run common-tools:team-local-closeout-preflight
+npm run common-tools:team-local-closeout-existing-preflight
+npm run common-tools:team-local-closeout
+npm run common-tools:team-local-closeout-existing
+```
+
+两个 preflight 都只输出 JSON 计划，不删卷、不部署、不打开浏览器、不写 evidence；`team-local-closeout-existing-preflight` 会明确显示 `willFreshResetLocalState:false` 和 `willDeploy:false`。默认 `team-local-closeout` 会 fresh reset 并删除本地状态卷；如果你刚刚 reset/部署过，只想快速补 authenticated evidence，可用 `team-local-closeout-existing` 复用现有本地 runtime，不删卷、不重部署。existing 路径会先做无密钥 runtime 体检，通过后才提示密码和打开浏览器。真实 closeout 入口会自动从 Docker Compose 读取当前 `remote-mcp-gateway` 的 loopback 端口，因此本机 54000 被占用、脚本自动切到随机端口时也无需手填。它只把密码放在当前 PowerShell 进程里，临时同步到 PostgreSQL、应用数据库连接、Redis、MinIO、Keycloak admin 和本机测试用户；脚本结束后恢复原环境变量。成功时会写入并自动复核 `artifacts/local-acceptance/*.json`，再运行 `npm run common-tools:architecture-closeout`。如果只想预检或排障，可使用下面的分步入口。只做 gateway/metadata/未认证 challenge smoke 时可省略 IdP；需要浏览器登录和 authenticated Job smoke 时加 `-EnableIdentityProvider`：
+
+```powershell
+npm run common-tools:team-local-acceptance-preflight
+.\scripts\team-runtime-local-acceptance.ps1
+```
+
+`-PreflightOnly` 只检查参数、辅助脚本、证据输出路径，并以 JSON 告诉你当前会不会提示共享密码、是否会部署、是否会打开浏览器登录；它不会部署、不会写 evidence、不会要求输入密码。真实验收入口会依次部署本地 runtime、启用 Keycloak、准备测试用户，然后打开浏览器完成 PKCE 登录并提交 authenticated Job smoke。默认只提示一次不少于 8 位的共享本地验收密码，并把它临时用于本机 Postgres、应用数据库连接、Redis、MinIO、Keycloak admin 和测试用户；脚本结束后恢复当前 PowerShell 进程里的原环境变量。成功后会在 `artifacts/local-acceptance/` 写入脱敏 JSON 证据并立即机器复核，包含 local smoke、测试用户准备和 authenticated Job smoke 摘要，不包含密码、token 或 signed URL。若希望测试用户密码单独设置，可加 `-SeparateTestUserPassword`。需要排障时仍可拆开执行：
+
+如果本地 runtime 已经用 Keycloak 启动并通过 smoke，可加 `-SkipDeploy` 复用现有容器，只执行 IdP smoke、测试用户准备和 authenticated Job smoke：
+
+```powershell
+.\scripts\team-runtime-local-acceptance.ps1 -SkipDeploy
+```
+
+验收完成后可用一条命令复核最新证据是否满足本地发布闭环：
+
+```powershell
+npm run common-tools:verify-local-acceptance
+```
+
+```powershell
+.\scripts\team-runtime-local-apply.ps1 -EnableIdentityProvider
+.\scripts\team-keycloak-local-test-user.ps1
+.\scripts\team-runtime-local-job-smoke.ps1 -Login -Wait
+```
+
+`team-keycloak-local-test-user.ps1` 只面向本机 loopback Keycloak，默认创建/修复 `local-tester` 用户并写入 `deploy/editor` 项目 claim；管理员密码和测试用户密码都通过安全提示输入，不进入命令行参数。`team-runtime-local-job-smoke.ps1 -Login` 使用 `common-tools-mcp` public client 的 Authorization Code + PKCE S256 流程，只在当前 PowerShell 进程中临时设置 access token，并在结束后清除；脚本不会读取、保存或打印密码/token。下面的显式 Compose 命令保留给排障和手动演练。
 
 ```powershell
 $env:COMMON_TOOLS_KEYCLOAK_ADMIN = '<local admin username>'

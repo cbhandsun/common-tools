@@ -7,7 +7,7 @@ const {
   auditNativeFragmentation,
   detectorFamily,
   nativeBuilderRoot
-} = require("../skills/pd-hifi-slideclone/scripts/native-fragmentation-audit");
+} = require("../packages/slideclone-native-engine/scripts/native-fragmentation-audit");
 
 test("native fragmentation audit treats product brain core value as one component family", () => {
   const detectors = [

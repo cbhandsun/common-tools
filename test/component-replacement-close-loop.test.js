@@ -13,7 +13,7 @@ const {
   ensureDecisionShortlist,
   parseArgs,
   runComponentReplacementCloseLoop
-} = require("../skills/pd-hifi-slideclone/scripts/component-replacement-close-loop");
+} = require("../packages/slideclone-native-engine/scripts/component-replacement-close-loop");
 
 test("component replacement close loop parses CLI options", () => {
   const args = parseArgs([

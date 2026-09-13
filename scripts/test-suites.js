@@ -5,17 +5,28 @@ const path = require("path");
 const SUITES = Object.freeze(["all", "unit", "contract", "integration", "common-tools"]);
 const CONTRACT_TESTS = new Set([
   "cli-scaffold-generator.test.js",
+  "cli-verification-package.test.js",
+  "common-tools-project-audit-runtime-package.test.js",
+  "engine-core-package.test.js",
+  "native-ownership-core-package.test.js",
+  "openxml-core-package.test.js",
   "openxml-dotnet-contract.test.js",
   "openxml-native-arc-contract.test.js",
   "package-scripts.test.js",
-  "test-sharded.test.js"
+  "pptx-engine-architecture.test.js",
+  "skill-lib-wrapper-boundary.test.js",
+  "test-sharded.test.js",
+  "workspace-package-boundaries.test.js"
 ]);
 const INTEGRATION_TESTS = new Set([
   "deck-template-openxml-admission.test.js",
   "deck-ir-openxml-admission.test.js",
   "chart-native-render-golden.test.js",
   "complex-graphic-golden-smoke.test.js",
+  "common-tools-project-audit.test.js",
+  "common-tools-authenticated-job-smoke.test.js",
   "common-tools-ppt-create-openxml-smoke.test.js",
+  "common-tools-remote-plugin-bundles.test.js",
   "component-assets-golden-gate.test.js",
   "component-harvest-candidate-rank.test.js",
   "component-harvest-shortlist.test.js",
@@ -32,6 +43,7 @@ const INTEGRATION_TESTS = new Set([
   "native-page-lifecycle.test.js",
   "openxml-cache-recovery-smoke.test.js",
   "openxml-native-chart-smoke.test.js",
+  "ocr-text-smoke.test.js",
   "openxml-reconstruction-e2e-smoke.test.js",
   "openxml-restricted-svg-smoke.test.js",
   "pptx-build-engine-benchmark.test.js",
@@ -54,7 +66,7 @@ const MEMORY_HEAVY_HINT = /^(?:real-pptx-native|component-template-native-shapes
 const MEMORY_HEAVY_TESTS = new Set(["common-tools-ppt-ir-editor-browser.test.js"]);
 
 function parseSuite(argv = process.argv.slice(2), env = process.env) {
-  const index = argv.indexOf("--suite");
+  const index = argv.lastIndexOf("--suite");
   const raw = index >= 0 ? argv[index + 1] : env.TEST_SUITE || "all";
   if (!SUITES.includes(raw)) {
     throw new Error(`--suite must be one of ${SUITES.join(", ")}; received ${JSON.stringify(raw)}`);
@@ -64,8 +76,8 @@ function parseSuite(argv = process.argv.slice(2), env = process.env) {
 
 function classifyTestFile(file) {
   const name = path.basename(file);
-  if (INTEGRATION_TESTS.has(name)) return "integration";
   if (CONTRACT_TESTS.has(name)) return "contract";
+  if (INTEGRATION_TESTS.has(name) || classifyTestResource(file) === "external-process") return "integration";
   return "unit";
 }
 

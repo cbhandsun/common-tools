@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { loadTeamConfig, parseEnabledCapabilities, teamDeploymentPlan } = require("../packages/team-runtime");
+const { createTeamConfiguration } = require("../packages/team-runtime/team-config");
 
 const base = {
   COMMON_TOOLS_DATABASE_URL: "postgresql://database.internal/common_tools?sslmode=verify-full",
@@ -11,6 +12,25 @@ const base = {
   COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts"
 };
 const fields = ["TEAM_MODE", "DATABASE_URL", "REDIS_URL", "OBJECT_STORE_ENDPOINT", "OBJECT_STORE_PUBLIC_ENDPOINT", "OBJECT_STORE_BUCKET", "WORKER_LEASE_SECONDS", "ARTIFACT_RETENTION_DAYS", "RETENTION_INTERVAL_SECONDS", "PROJECT_ACTIVE_JOB_LIMIT", "TEAM_CAPABILITIES"].map((name) => `COMMON_TOOLS_${name}`);
+const dependencies = Object.freeze({
+  capabilities: new Set(["project-audit", "siyuan-note"]),
+  defaultCapabilities: Object.freeze(["project-audit"]),
+  deployments: Object.freeze({ "project-audit": Object.freeze({ workerProfile: "team-worker-audit", workerService: "project-audit-worker" }) }),
+  retentionScheduleSettings: () => ({ intervalSeconds: 86400 })
+});
+
+test("team configuration composition rejects stale capability dependencies", () => {
+  assert.deepEqual(createTeamConfiguration(dependencies).teamDeploymentPlan(undefined), {
+    capabilities: ["project-audit"],
+    workerProfiles: ["team-worker-audit"],
+    workerServices: ["project-audit-worker"]
+  });
+  assert.throws(() => createTeamConfiguration({ ...dependencies, capabilities: ["project-audit"] }), /team capabilities/);
+  assert.throws(() => createTeamConfiguration({ ...dependencies, defaultCapabilities: ["project-audit", "project-audit"] }), /default capabilities/);
+  assert.throws(() => createTeamConfiguration({ ...dependencies, defaultCapabilities: ["missing"] }), /default capabilities/);
+  assert.throws(() => createTeamConfiguration({ ...dependencies, deployments: { missing: { workerProfile: "team-worker-missing", workerService: "missing-worker" } } }), /not declared/);
+  assert.throws(() => createTeamConfiguration({ ...dependencies, retentionScheduleSettings: undefined }), /retention schedule/);
+});
 
 test("team config rejects non-string fields without invoking coercion or leaking errors", () => {
   let calls = 0;

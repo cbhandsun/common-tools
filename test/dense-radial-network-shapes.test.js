@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { createDenseRadialNetworkShapeToolkit } = require("../skills/pd-hifi-slideclone/scripts/lib/dense-radial-network-shapes");
+const { createDenseRadialNetworkShapeToolkit } = require("../packages/slideclone-core/dense-radial-network-shapes");
 
 test("dense radial detailed components place every connector behind every node", () => {
   const toolkit = createDenseRadialNetworkShapeToolkit(operations());
@@ -58,7 +58,7 @@ test("dense radial shape plugin validates and propagates every injected service 
 
 test("native rebuild delegates dense network component rendering to the registry", () => {
   const source = fs.readFileSync(path.join(
-    __dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"
+    __dirname, "..", "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js"
   ), "utf8");
   assert.match(source, /createNativeRebuilder\("network-dense-component"/);
   assert.match(source, /createDetailedShapes: createDetailedDenseRadialNetworkComponentShapesFromRegistry/);

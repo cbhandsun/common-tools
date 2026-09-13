@@ -6,6 +6,8 @@ const path = require("node:path");
 
 const MIGRATION_FILE = /^\d{3}_[a-z0-9_]+\.sql$/;
 const ADVISORY_LOCK_ID = 64021101;
+const MIGRATION_CHECKSUM = /^[a-f0-9]{64}$/;
+const REQUIRED_PRODUCTION_MIGRATIONS = Object.freeze(["010_retention_recheck.sql", "011_delivery_outbox.sql"]);
 
 function migrationDirectory(directory = path.join(__dirname, "schema")) {
   if (typeof directory !== "string" || !path.isAbsolute(directory)) throw new TypeError("migration directory must be absolute");
@@ -54,4 +56,38 @@ async function runMigrations({ client, directory } = {}) {
   }
 }
 
-module.exports = { migrationDirectory, runMigrations };
+async function inspectMigrations({ client, directory, required = [] } = {}) {
+  const database = assertClient(client);
+  if (!Array.isArray(required) || required.some((name) => typeof name !== "string" || !MIGRATION_FILE.test(name))) throw new TypeError("required migrations are invalid");
+  const migrations = migrationDirectory(directory);
+  const expected = new Map(migrations.map((migration) => [migration.name, migration.sha256]));
+  const table = await database.query("SELECT to_regclass('public.common_tools_schema_migrations') AS name");
+  const schemaTableExists = table.rows?.[0]?.name === "common_tools_schema_migrations";
+  const known = schemaTableExists ? await database.query("SELECT filename, sha256 FROM common_tools_schema_migrations ORDER BY filename") : { rows: [] };
+  if (!Array.isArray(known.rows)) throw new Error("migration status rows are invalid");
+  const applied = [];
+  const checksumMismatches = [];
+  const unknownApplied = [];
+  for (const row of known.rows) {
+    if (!row || typeof row.filename !== "string" || typeof row.sha256 !== "string" || !MIGRATION_FILE.test(row.filename) || !MIGRATION_CHECKSUM.test(row.sha256)) throw new Error("migration status rows are invalid");
+    const checksum = expected.get(row.filename);
+    if (checksum === undefined) unknownApplied.push(row.filename);
+    else if (checksum !== row.sha256) checksumMismatches.push(row.filename);
+    else applied.push(row.filename);
+  }
+  const appliedSet = new Set(applied);
+  const pending = migrations.map((migration) => migration.name).filter((name) => !appliedSet.has(name));
+  const missingRequired = required.filter((name) => !appliedSet.has(name));
+  return Object.freeze({
+    schemaTableExists,
+    current: pending.length === 0 && checksumMismatches.length === 0 && unknownApplied.length === 0,
+    applied: Object.freeze(applied),
+    pending: Object.freeze(pending),
+    checksumMismatches: Object.freeze(checksumMismatches),
+    unknownApplied: Object.freeze(unknownApplied),
+    required: Object.freeze([...required]),
+    missingRequired: Object.freeze(missingRequired)
+  });
+}
+
+module.exports = { REQUIRED_PRODUCTION_MIGRATIONS, inspectMigrations, migrationDirectory, runMigrations };

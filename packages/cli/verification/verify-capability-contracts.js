@@ -1,5 +1,6 @@
 "use strict";
 
+const fs = require("node:fs");
 const path = require("node:path");
 
 const REPOSITORY_ROOT = path.resolve(__dirname, "../../..");
@@ -80,10 +81,29 @@ function assertTeamDeploymentComposeContracts({ deploymentCapabilities, composeS
     const expectedDockerfile = definition.imageKind === "image-worker" ? "deploy/docker/Dockerfile.image-to-editable" : "deploy/docker/Dockerfile.remote-mcp";
     if (!service.includes(`dockerfile: ${expectedDockerfile}`)) throw new Error(`team Worker image does not match deployment plan: ${capability}`);
   }
+  const expectedCapabilities = Object.keys(deploymentCapabilities).sort();
+  const actualCapabilities = [...composeSource.matchAll(/COMMON_TOOLS_WORKER_CAPABILITIES:\s*"?([a-z][a-z0-9-]*)"?/g)].map((match) => match[1]).sort();
+  if (JSON.stringify(actualCapabilities) !== JSON.stringify(expectedCapabilities)) throw new Error("team Compose Worker capabilities do not match deployment plan");
   const actualProfiles = new Set([...composeSource.matchAll(/profiles: \["(team-worker-[a-z0-9-]+)"\]/g)].map((match) => match[1]));
   if (JSON.stringify([...actualProfiles].sort()) !== JSON.stringify([...expectedProfiles].sort())) throw new Error("team Compose Worker profiles do not match deployment plan");
   const migration = composeServiceBlock(composeSource, "team-migrate");
   for (const profile of expectedProfiles) if (!migration.includes(`"${profile}"`)) throw new Error(`team migration gate is missing Worker profile: ${profile}`);
+  return true;
+}
+
+function assertTeamDeploymentCommandFiles({ deploymentCapabilities, repositoryRoot = REPOSITORY_ROOT }) {
+  if (!deploymentCapabilities || typeof deploymentCapabilities !== "object" || Array.isArray(deploymentCapabilities)) throw new TypeError("team deployment capabilities are invalid");
+  const root = fs.realpathSync(repositoryRoot);
+  for (const [capability, definition] of Object.entries(deploymentCapabilities)) {
+    if (!definition || typeof definition !== "object" || typeof definition.workerCommand !== "string" || path.isAbsolute(definition.workerCommand) || definition.workerCommand.includes("\0") || definition.workerCommand.includes("..")) throw new Error(`team deployment Worker command is invalid: ${capability}`);
+    const command = path.resolve(root, definition.workerCommand);
+    const relative = path.relative(root, command);
+    if (relative === "" || path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) throw new Error(`team deployment Worker command escapes repository: ${capability}`);
+    let details;
+    try { details = fs.statSync(fs.realpathSync(command)); }
+    catch { throw new Error(`team deployment Worker command is missing: ${capability}`); }
+    if (!details.isFile()) throw new Error(`team deployment Worker command is missing: ${capability}`);
+  }
   return true;
 }
 
@@ -96,6 +116,7 @@ function verifyCapabilityToolContracts(root = REPOSITORY_ROOT) {
   const manifests = loadCapabilityManifests(path.join(root, "packages", "capability-manifests"));
   const composeSource = require("node:fs").readFileSync(path.join(root, "deploy", "compose.team-api.yaml"), "utf8");
   assertTeamDeploymentManifestContracts({ manifests, deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES });
+  assertTeamDeploymentCommandFiles({ deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES, repositoryRoot: root });
   assertTeamDeploymentComposeContracts({ deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES, composeSource });
   const teamTools = TEAM_TOOLS.filter((tool) => tool.capability !== null).map((tool) => ({
     ...tool,
@@ -104,4 +125,4 @@ function verifyCapabilityToolContracts(root = REPOSITORY_ROOT) {
   return assertCapabilityToolContracts({ manifests, tools: [...TOOLS, ...teamTools] });
 }
 
-module.exports = { assertCapabilityToolContracts, assertTeamDeploymentComposeContracts, assertTeamDeploymentManifestContracts, composeServiceBlock, verifyCapabilityToolContracts };
+module.exports = { assertCapabilityToolContracts, assertTeamDeploymentCommandFiles, assertTeamDeploymentComposeContracts, assertTeamDeploymentManifestContracts, composeServiceBlock, verifyCapabilityToolContracts };

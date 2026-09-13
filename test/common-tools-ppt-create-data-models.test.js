@@ -9,7 +9,7 @@ const { createDeckIr, createLayoutPlan } = require("../packages/ppt-create-core/
 const { qualityFor } = require("../packages/ppt-create-core");
 const { validatePresentationSpec } = require("../packages/ppt-create-core/spec");
 const { buildPptx } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker");
-const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 
 function richSpec() {
   return { version: "1.0", title: "经营复盘", theme: "technical-blue-v1", seed: "data-models", variantCount: 3, slides: [

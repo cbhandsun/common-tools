@@ -7,7 +7,7 @@ const {
   evaluateQualityTrend,
   extractQualitySnapshot,
   validateHistory
-} = require("../skills/pd-hifi-slideclone/scripts/lib/quality-trend");
+} = require("../packages/slideclone-native-engine/scripts/lib/quality-trend");
 
 function snapshot(id, values) {
   return {
@@ -94,10 +94,16 @@ test("trend validation covers empty, invalid, extreme and missing evidence paths
   assert.throws(() => validateHistory({ version: 1, snapshots: Array.from({ length: 1001 }, () => ({})) }), /bounded/);
   assert.equal(evaluateQualityTrend(snapshot("v2", healthy), { version: 1, snapshots: [] }, { minimumHistory: 2 }).passed, false);
   assert.throws(() => evaluateQualityTrend(snapshot("v2", healthy), { version: 1, snapshots: [] }, { minimumHistory: 6 }), /minimumHistory/);
+  assert.throws(() => evaluateQualityTrend(snapshot("v2", healthy), { version: 1, snapshots: [] }, []), /quality trend options/);
+  assert.throws(() => evaluateQualityTrend(snapshot("v2", healthy), { version: 1, snapshots: [] }, { windowSize: "2" }), /windowSize/);
+  assert.throws(() => evaluateQualityTrend(snapshot("v2", healthy), { version: 1, snapshots: [] }, { requiredTargetRatio: "1" }), /requiredTargetRatio/);
   const missing = snapshot("v2", { pixelDiffRatio: 0.1 });
   const result = evaluateQualityTrend(missing, { version: 1, snapshots: [snapshot("v1", healthy)] });
   assert.equal(result.passed, false);
   assert.ok(result.targets[0].checks.some((check) => check.reason === "missing-evidence"));
   assert.throws(() => evaluateQualityTrend(snapshot("v2", healthy), { version: 1, snapshots: [snapshot("v1", healthy)] }, { thresholds: { unknown: 0.1 } }), /Unknown trend threshold/);
+  assert.throws(() => evaluateQualityTrend(snapshot("v2", healthy), { version: 1, snapshots: [snapshot("v1", healthy)] }, { thresholds: { pixelDiffRatio: "0.1" } }), /pixelDiffRatio/);
+  assert.throws(() => appendQualitySnapshot({}, snapshot("v2", healthy), []), /quality trend append options/);
+  assert.throws(() => appendQualitySnapshot({}, snapshot("v2", healthy), { maximumSnapshots: "2" }), /maximumSnapshots/);
   assert.throws(() => validateHistory({ version: 1, snapshots: [{ ...snapshot("v1", healthy), environmentFingerprint: "unsafe" }] }), /SHA-256/);
 });

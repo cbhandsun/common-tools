@@ -6,9 +6,9 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
-const { readOpenGateEvidence, emitOpenGateEvidence, STAGES } = require("../skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence");
-const { powerPointOpenValidationScript, validatePowerPointOpen } = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com");
-const { createProgressLineForwarder, sanitizeEvent } = require("../skills/pd-hifi-slideclone/scripts/lib/progress-reporter");
+const { readOpenGateEvidence, emitOpenGateEvidence, STAGES } = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-open-evidence");
+const { powerPointOpenValidationScript, validatePowerPointOpen } = require("../packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-com");
+const { createProgressLineForwarder, sanitizeEvent } = require("../packages/slideclone-native-engine/scripts/lib/progress-reporter");
 const { discoverTestFiles } = require("../scripts/test-sharded");
 
 const invocationId = "11111111-1111-4111-8111-111111111111";
@@ -22,13 +22,15 @@ function evidence() {
 }
 
 test("open-gate evidence tests belong to the unified external-process wave", () => {
-  const entry = discoverTestFiles(path.resolve(__dirname, ".."), "unit").find(item => path.basename(item.file) === "powerpoint-com-open-evidence.test.js");
+  const entry = discoverTestFiles(path.resolve(__dirname, ".."), "integration").find(item => path.basename(item.file) === "powerpoint-com-open-evidence.test.js");
   assert.equal(entry?.resource, "external-process");
   const manifest = require("../package.json");
+  const { eslintTargets } = require("../scripts/lint-common-tools");
   const lintConfig = require("../eslint.config");
+  assert.equal(manifest.scripts.lint, "node scripts/lint-common-tools.js");
   for (const file of ["lib/powerpoint-open-evidence.js", "lib/powerpoint-session-client.js", "lib/powerpoint-session-broker.js", "lib/powerpoint-corpus-session.js", "lib/progress-reporter.js", "adapters/validate-powerpoint-com.js"]) {
-    const source = `skills/pd-hifi-slideclone/scripts/${file}`;
-    assert.ok(manifest.scripts.lint.includes(source));
+    const source = `packages/slideclone-native-engine/scripts/${file}`;
+    assert.ok(eslintTargets.includes(source), source);
     assert.ok(lintConfig.some(config => config.files?.includes(source) && config.rules?.["no-console"] === "error"));
   }
 });
@@ -48,7 +50,7 @@ test("open-gate evidence admits only bounded numeric stages for this invocation"
 test("runtime package validation requires the complete open-gate evidence dependency chain", () => {
   const { REQUIRED_FILES, parsePackMetadata } = require("../scripts/verify-runtime-package");
   for (const source of ["adapters/validate-powerpoint-com.js", "lib/powerpoint-open-evidence.js", "lib/powerpoint-session-client.js", "lib/powerpoint-session-broker.js", "lib/powerpoint-corpus-session.js", "lib/progress-reporter.js"]) {
-    const file = `skills/pd-hifi-slideclone/scripts/${source}`;
+    const file = `packages/slideclone-native-engine/scripts/${source}`;
     assert.ok(REQUIRED_FILES.includes(file));
     const metadata = [{ filename: "runtime.tgz", size: 100, files: REQUIRED_FILES.filter(item => item !== file).map(item => ({ path: item, size: 1 })) }];
     assert.throws(() => parsePackMetadata(JSON.stringify(metadata)), /missing a required file/);

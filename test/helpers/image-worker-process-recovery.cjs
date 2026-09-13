@@ -9,6 +9,7 @@ const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 const { createTeamJob, runTeamRetention } = require("../../packages/team-runtime");
 const { readZipEntries, readZipEntry } = require("../../packages/slideclone-core/pptx-zip");
+const { resolveOpenXmlBuilderRoot } = require("../../packages/slideclone-native-engine");
 const { startWorker, phase } = require("./worker-process-recovery.cjs");
 const { startIsolatedS3 } = require("./isolated-s3.cjs");
 
@@ -29,7 +30,7 @@ async function verifyImageWorkerProcessRecovery({ primary, repository, fixture, 
   const local = path.join(root, ".tools/dotnet", dotnetName);
   const dotnet = fs.existsSync(local) ? local : path.join(process.env.DOTNET_ROOT || "", dotnetName);
   assert.ok(path.isAbsolute(dotnet) && fs.existsSync(dotnet), "recovery test requires an installed .NET SDK");
-  const project = path.join(root, "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder");
+  const project = resolveOpenXmlBuilderRoot(root);
   const build = spawnSync(dotnet, ["build", path.join(project, "OpenXmlDeckBuilder.csproj"), "--configuration", "Release", "-p:RestoreLockedMode=true"], { windowsHide: true, encoding: "utf8", timeout: 60000, maxBuffer: 1024 * 1024 });
   assert.equal(build.status, 0, "locked OpenXML fixture build failed");
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "image-worker-recovery-"));

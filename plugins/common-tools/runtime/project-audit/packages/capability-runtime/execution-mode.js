@@ -4,7 +4,6 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const EXECUTION_MODES = Object.freeze(["local-preferred", "remote-only", "local-only"]);
-const LOCAL_CAPABILITIES = Object.freeze(["project-audit", "ppt-create"]);
 const RUNTIME_CONFIG_FILE = "runtime.json";
 
 function normalizeExecutionMode(value) {
@@ -40,11 +39,16 @@ function readRuntimeConfig(environment = process.env, platform = process.platfor
   return Object.freeze({ source: "user", ...normalizeRuntimeConfig(value), file });
 }
 
-function resolveExecutionRoute({ capability, executionMode, requestedExecution } = {}) {
+function normalizeLocalCapabilities(value) {
+  if (!Array.isArray(value) || value.some((capability) => typeof capability !== "string" || !capability.trim()) || new Set(value).size !== value.length) throw new TypeError("local capabilities must be a unique string array");
+  return Object.freeze([...value]);
+}
+
+function resolveExecutionRoute({ capability, executionMode, requestedExecution, localCapabilities = [] } = {}) {
   if (typeof capability !== "string" || !capability.trim()) throw new TypeError("capability is required");
   const configured = normalizeExecutionMode(executionMode);
   if (requestedExecution !== undefined && requestedExecution !== "local" && requestedExecution !== "remote") throw new TypeError("requested execution must be local or remote");
-  const locallySupported = LOCAL_CAPABILITIES.includes(capability);
+  const locallySupported = normalizeLocalCapabilities(localCapabilities).includes(capability);
   if (requestedExecution === "remote") return Object.freeze({ execution: "remote", reason: "explicit-remote-request", locallySupported });
   if (requestedExecution === "local") {
     if (!locallySupported) throw new Error(`capability requires remote execution: ${capability}`);
@@ -56,4 +60,4 @@ function resolveExecutionRoute({ capability, executionMode, requestedExecution }
   return Object.freeze({ execution: "remote", reason: "capability-requires-remote-runtime", locallySupported });
 }
 
-module.exports = { EXECUTION_MODES, LOCAL_CAPABILITIES, normalizeExecutionMode, normalizeRuntimeConfig, readRuntimeConfig, resolveExecutionRoute, runtimeConfigDirectory, runtimeConfigPath };
+module.exports = { EXECUTION_MODES, normalizeExecutionMode, normalizeLocalCapabilities, normalizeRuntimeConfig, readRuntimeConfig, resolveExecutionRoute, runtimeConfigDirectory, runtimeConfigPath };

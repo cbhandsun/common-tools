@@ -4,12 +4,13 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { TeamWorker, TeamWorkerRunner, loadTeamConfig, recoverWorkerLeases } = require("../../team-runtime");
-const { createImageToEditableArchiveHandler } = require("../../slideclone-core/team-worker");
-const { createTeamDocumentNormalizer } = require("../../slideclone-core/team-document-normalizer");
+const { createImageToEditableArchiveHandler } = require("../../slideclone-worker-adapter/team-worker");
+const { createTeamDocumentNormalizer } = require("../../slideclone-worker-adapter/team-document-normalizer");
 const { createImageDeliveryArtifacts } = require("../../ppt-create-core/image-delivery");
 const { buildPdfWithLibreOffice } = require("../../ppt-create-core/libreoffice-pdf");
 const { createPinnedRawImageOcr, readPinnedRawImageOcrProfile, verifyPinnedRawImageOcrProfile } = require("../../slideclone-core/team-ocr-profile");
 const { createRawImageNativeRebuilder } = require("../../slideclone-core/team-native-rebuild");
+const { loadNativeImageRebuilder } = require("../../slideclone-native-engine");
 const { refineRenderedTextOnce } = require("../../slideclone-core/text-refinement-coordinator");
 const { PRODUCTION_PROFILE_NAME } = require("../../slideclone-core/native-rebuild-profile");
 const { PROFILE_NAME: PADDLE_PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, readPinnedPaddleOcrProfile, verifyPinnedPaddleOcrProfile } = require("../../slideclone-core/team-paddleocr-profile");
@@ -26,7 +27,7 @@ function startupFailureCode(error) {
   return "provider-initialization";
 }
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
-function createNativeRebuilder(settings, { loadImplementation = () => require("../../../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native"), componentCatalogRoot } = {}) {
+function createNativeRebuilder(settings, { loadImplementation = loadNativeImageRebuilder, componentCatalogRoot } = {}) {
   const implementation = loadImplementation();
   if (typeof implementation?.rebuildDeckFromWorkDir !== "function") throw new Error("native image rebuild implementation is unavailable");
   const { createImageComponentResolver } = require("../image-component-analysis");
@@ -57,7 +58,7 @@ function createNativeRebuilder(settings, { loadImplementation = () => require(".
 function createRenderQualityVerifier() {
   const renderPresentation = require("../../slideclone-core/render-libreoffice");
   const { comparePageFiles } = require("../../slideclone-core/diff-pixel-png");
-  const { createRawImageRenderQualityVerifier } = require("../../slideclone-core/team-render-quality");
+  const { createRawImageRenderQualityVerifier } = require("../../slideclone-worker-adapter/team-render-quality");
   return createRawImageRenderQualityVerifier({ renderPresentation, comparePageFiles });
 }
 function createTeamImageDelivery({ root, irFile, pptxFile }) {

@@ -6,6 +6,9 @@
   "dependencies": ["ppt-quality"],
   "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
   "requiredWorkerProfile": "base",
+  "execution": {
+    "localSupported": false
+  },
   "team": {
     "oauthScope": "common-tools:capability:ppt-improve",
     "acceptedUploadMediaTypes": ["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
@@ -16,5 +19,10 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-ppt-improve-worker.js"
     }
   },
-  "contentSha256": "84c6bd651517452d608139771973154dd949f7d110b6d9e57180d081fb3e3635"
+  "moduleSource": {
+    "packageName": "@common-tools/ppt-improve-core",
+    "requirePath": "../ppt-improve-core",
+    "exportName": "CAPABILITY_MODULE"
+  },
+  "contentSha256": "24ba3b1729af8644e74e70c984a8eaf6efb5fc494d80fdace64a68a4f82aa615"
 }

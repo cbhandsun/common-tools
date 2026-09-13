@@ -8,6 +8,27 @@ function assertNonEmptyString(value, label) {
 
 const ENVIRONMENT_FIELDS = Object.freeze(["COMMON_TOOLS_TEAM_MODE","COMMON_TOOLS_DATABASE_URL","COMMON_TOOLS_REDIS_URL","COMMON_TOOLS_OBJECT_STORE_ENDPOINT","COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT","COMMON_TOOLS_OBJECT_STORE_BUCKET","COMMON_TOOLS_WORKER_LEASE_SECONDS","COMMON_TOOLS_ARTIFACT_RETENTION_DAYS","COMMON_TOOLS_RETENTION_INTERVAL_SECONDS","COMMON_TOOLS_PROJECT_ACTIVE_JOB_LIMIT","COMMON_TOOLS_TEAM_CAPABILITIES"]);
 
+/** @param {unknown} value */
+function assertCapabilitySet(value) {
+  if (!(value instanceof Set) || [...value].some((capability) => typeof capability !== "string" || !capability)) throw new TypeError("team capabilities are invalid");
+}
+
+/** @param {ReadonlySet<string>} capabilities @param {unknown} value */
+function assertDefaultCapabilities(capabilities, value) {
+  if (!Array.isArray(value) || !value.length || value.some((capability) => typeof capability !== "string" || !capabilities.has(capability)) || new Set(value).size !== value.length) throw new Error("team default capabilities are invalid");
+}
+
+/** @param {ReadonlySet<string>} capabilities @param {unknown} value */
+function assertDeploymentCapabilities(capabilities, value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError("team deployment capabilities are invalid");
+  for (const [capability, definition] of Object.entries(value)) {
+    if (!capabilities.has(capability)) throw new Error(`team deployment capability is not declared: ${capability}`);
+    if (!definition || typeof definition !== "object" || Array.isArray(definition)) throw new Error(`team deployment definition is invalid: ${capability}`);
+    const deployment = /** @type {Record<string, unknown>} */ (definition);
+    if (typeof deployment.workerProfile !== "string" || !deployment.workerProfile || typeof deployment.workerService !== "string" || !deployment.workerService) throw new Error(`team deployment definition is invalid: ${capability}`);
+  }
+}
+
 /** @param {unknown} input @returns {Record<string, string | undefined>} */
 function readEnvironment(input) {
   if (typeof input !== "object" || input === null || Array.isArray(input)) throw new Error("team environment is invalid");
@@ -31,6 +52,10 @@ function readEnvironment(input) {
 function createTeamConfiguration(dependencies) {
   const { capabilities: CAPABILITIES, defaultCapabilities: TEAM_DEFAULT_CAPABILITIES,
     deployments: TEAM_DEPLOYMENT_CAPABILITIES, retentionScheduleSettings } = dependencies;
+  assertCapabilitySet(CAPABILITIES);
+  assertDefaultCapabilities(CAPABILITIES, TEAM_DEFAULT_CAPABILITIES);
+  assertDeploymentCapabilities(CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES);
+  if (typeof retentionScheduleSettings !== "function") throw new TypeError("retention schedule settings must be a function");
   /** @param {string | undefined} value @param {string} label @param {readonly string[]} protocols */
   function parseServiceUrl(value, label, protocols) {
     let url;
@@ -68,10 +93,11 @@ function createTeamConfiguration(dependencies) {
     const objectStoreEndpoint = parseServiceUrl(environment.COMMON_TOOLS_OBJECT_STORE_ENDPOINT, "COMMON_TOOLS_OBJECT_STORE_ENDPOINT", mode === "development" ? ["http:", "https:"] : ["https:"]);
     const publicObjectStoreEndpoint = environment.COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT === undefined || !environment.COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT.trim()
       ? undefined
-      : parseServiceUrl(environment.COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT, "COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT", ["https:"]);
+      : parseServiceUrl(environment.COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT, "COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT", mode === "development" ? ["http:", "https:"] : ["https:"]);
     if (mode === "production" && databaseUrl.searchParams.get("sslmode") !== "verify-full") throw new Error("production PostgreSQL must use sslmode=verify-full");
     if (mode === "production" && redisUrl.protocol !== "rediss:") throw new Error("production Redis must use rediss");
     if (objectStoreEndpoint.protocol === "http:" && !["127.0.0.1", "localhost", "minio"].includes(objectStoreEndpoint.hostname)) throw new Error("development object storage HTTP endpoint must be local");
+    if (publicObjectStoreEndpoint?.protocol === "http:" && !["127.0.0.1", "localhost"].includes(publicObjectStoreEndpoint.hostname)) throw new Error("development public object storage HTTP endpoint must be loopback");
     if (publicObjectStoreEndpoint && (publicObjectStoreEndpoint.pathname !== "/" || publicObjectStoreEndpoint.search || publicObjectStoreEndpoint.hash)) throw new Error("COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT must be an origin URL");
     const objectStoreBucket = assertNonEmptyString(environment.COMMON_TOOLS_OBJECT_STORE_BUCKET, "COMMON_TOOLS_OBJECT_STORE_BUCKET");
     if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(objectStoreBucket) || objectStoreBucket.includes("..")) throw new Error("COMMON_TOOLS_OBJECT_STORE_BUCKET is invalid");

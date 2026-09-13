@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   NARRATIVE_PREFIXES,
   createPrdAutoGenerationNarrativeTextBoxes
-} = require("../skills/pd-hifi-slideclone/scripts/lib/prd-auto-generation-narrative");
+} = require("../packages/slideclone-core/prd-auto-generation-narrative");
 
 test("PRD auto-generation narrative preserves OCR evidence and rich text semantics", () => {
   const raw = NARRATIVE_PREFIXES.map((prefix, index) => ({

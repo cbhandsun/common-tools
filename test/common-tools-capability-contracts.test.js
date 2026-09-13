@@ -4,13 +4,18 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { CAPABILITY_MANIFESTS } = require("../packages/capability-runtime");
+const { CAPABILITY_MANIFESTS, TEAM_CAPABILITY_DEFINITIONS } = require("../packages/capability-runtime");
+const { MCP_JOB_SCHEMA, defineMcpObjectSchema, defineMcpToolContract, mcpToolAnnotations } = require("../packages/capability-contracts");
 const { CAPABILITIES, TEAM_DEPLOYABLE_CAPABILITIES, TEAM_DEPLOYMENT_CAPABILITIES, teamDeploymentPlan, validUploadRequest } = require("../packages/team-runtime");
 const { TOOLS } = require("../packages/mcp-server/core");
-const { validateToolOutput } = require("../packages/mcp-server/tool-contracts");
+const { JOB_SCHEMA: LOCAL_JOB_SCHEMA, annotations: localAnnotations, validateToolOutput } = require("../packages/mcp-server/tool-contracts");
 const { compileSchema } = require("../packages/mcp-server/schema-validator");
 const { CAPABILITY_SCOPES } = require("../packages/remote-mcp-server/team-mcp");
-const { assertCapabilityToolContracts, assertTeamDeploymentComposeContracts, assertTeamDeploymentManifestContracts, verifyCapabilityToolContracts } = require("../scripts/verify-capability-contracts");
+const { DIRECT_CAPABILITY_CATALOG, DIRECT_CAPABILITY_SOURCE_CATALOG } = require("../packages/remote-mcp-server/direct-capability-catalog");
+const remotePackage = require("../packages/remote-mcp-server/package.json");
+const { JOB_SCHEMA: TEAM_JOB_SCHEMA, annotations: teamAnnotations } = require("../packages/remote-mcp-server/team-tool-contracts");
+const { assertDirectCapabilityCatalog } = require("../packages/cli/verification/verify-capability-catalogs");
+const { assertCapabilityToolContracts, assertTeamDeploymentCommandFiles, assertTeamDeploymentComposeContracts, assertTeamDeploymentManifestContracts, verifyCapabilityToolContracts } = require("../scripts/verify-capability-contracts");
 
 function contractTool(name, capability) {
   return { name, capability, inputSchema: { type: "object" }, outputSchema: { type: "object" }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } };
@@ -49,6 +54,29 @@ test("every local MCP tool publishes a closed input contract, output contract, a
     assert.deepEqual(Object.keys(tool.annotations).sort(), ["destructiveHint", "idempotentHint", "openWorldHint", "readOnlyHint"]);
   }
   assert.throws(() => validateToolOutput("get_job", { id: "job-1" }), /output does not match/);
+});
+
+test("local and team MCP contracts share the common job and annotation primitives", () => {
+  assert.equal(LOCAL_JOB_SCHEMA, MCP_JOB_SCHEMA);
+  assert.equal(TEAM_JOB_SCHEMA, MCP_JOB_SCHEMA);
+  assert.deepEqual(localAnnotations(true, false, true), mcpToolAnnotations(true, false, true));
+  assert.deepEqual(teamAnnotations(false, true, true), mcpToolAnnotations(false, true, true));
+});
+
+test("MCP tool contracts use one validated shared shape", () => {
+  const contract = defineMcpToolContract({
+    capability: "example-capability",
+    name: "example_tool",
+    description: "Example tool.",
+    inputSchema: defineMcpObjectSchema({ id: { type: "string", minLength: 1 } }, ["id"]),
+    outputSchema: defineMcpObjectSchema({ ok: { type: "boolean" } }, ["ok"]),
+    annotations: mcpToolAnnotations(true, false, true)
+  });
+  assert.deepEqual(Object.keys(contract).sort(), ["annotations", "capability", "description", "inputSchema", "name", "outputSchema"]);
+  assert.equal(contract.inputSchema.additionalProperties, false);
+  assert.throws(() => defineMcpToolContract({ ...contract, name: "Invalid-Name" }), /name is invalid/);
+  assert.throws(() => defineMcpToolContract({ ...contract, inputSchema: { type: "string" } }), /object schema/);
+  assert.throws(() => defineMcpToolContract({ ...contract, annotations: { readOnlyHint: true } }), /annotations/);
 });
 
 test("portable schema validation covers empty, invalid, extreme, and undeclared values", () => {
@@ -90,12 +118,31 @@ test("team deployment mapping is derived exactly from capability manifests", () 
   assert.throws(() => assertTeamDeploymentManifestContracts({ manifests: CAPABILITY_MANIFESTS, deploymentCapabilities: { ...TEAM_DEPLOYMENT_CAPABILITIES, "unexpected-worker": TEAM_DEPLOYMENT_CAPABILITIES["project-audit"] } }), /do not match/);
 });
 
+test("direct capability catalog is fail-closed against manifests and team definitions", () => {
+  assert.equal(assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage, sourceCatalog: DIRECT_CAPABILITY_SOURCE_CATALOG }), true);
+  assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: [...DIRECT_CAPABILITY_CATALOG, DIRECT_CAPABILITY_CATALOG[0]], teamDefinitions: TEAM_CAPABILITY_DEFINITIONS }), /duplicate direct capability/);
+  assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: { ...TEAM_CAPABILITY_DEFINITIONS, "siyuan-note": { ...TEAM_CAPABILITY_DEFINITIONS["siyuan-note"], mode: "worker" } } }), /team definition is not direct/);
+  assert.throws(() => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: [{ ...DIRECT_CAPABILITY_CATALOG[0], registration: { ...DIRECT_CAPABILITY_CATALOG[0].registration, toolNames: ["siyuan_save_note", "siyuan_save_note"] } }], teamDefinitions: TEAM_CAPABILITY_DEFINITIONS }), /duplicate tools/);
+  assert.throws(
+    () => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage: { dependencies: {} }, sourceCatalog: DIRECT_CAPABILITY_SOURCE_CATALOG }),
+    /direct capability package is not a direct dependency/
+  );
+  assert.throws(
+    () => assertDirectCapabilityCatalog({ manifests: CAPABILITY_MANIFESTS, catalog: DIRECT_CAPABILITY_CATALOG, teamDefinitions: TEAM_CAPABILITY_DEFINITIONS, remotePackage, sourceCatalog: [{ ...DIRECT_CAPABILITY_SOURCE_CATALOG[0], packageName: "@common-tools/other-core" }] }),
+    /module source does not match manifest/
+  );
+});
+
 test("team deployment plan is verified against the actual Compose Worker services", () => {
   const root = path.resolve(__dirname, "..");
   const composeSource = fs.readFileSync(path.join(root, "deploy", "compose.team-api.yaml"), "utf8");
+  assert.equal(assertTeamDeploymentCommandFiles({ deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES, repositoryRoot: root }), true);
   assert.equal(assertTeamDeploymentComposeContracts({ deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES, composeSource }), true);
+  assert.throws(() => assertTeamDeploymentCommandFiles({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerCommand: "packages/remote-mcp-server/bin/common-tools-team-missing-worker.js" } }, repositoryRoot: root }), /Worker command is missing/);
+  assert.throws(() => assertTeamDeploymentCommandFiles({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerCommand: "../outside.js" } }, repositoryRoot: root }), /Worker command is invalid/);
   assert.throws(() => assertTeamDeploymentComposeContracts({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerProfile: "missing-profile" } }, composeSource }), /profile does not match/);
   assert.throws(() => assertTeamDeploymentComposeContracts({ deploymentCapabilities: { "ppt-quality": { ...TEAM_DEPLOYMENT_CAPABILITIES["ppt-quality"], workerCommand: "packages/remote-mcp-server/bin/common-tools-team-missing-worker.js" } }, composeSource }), /command does not match/);
+  assert.throws(() => assertTeamDeploymentComposeContracts({ deploymentCapabilities: TEAM_DEPLOYMENT_CAPABILITIES, composeSource: `${composeSource}\nCOMMON_TOOLS_WORKER_CAPABILITIES: rogue-worker` }), /Worker capabilities do not match/);
 });
 
 test("local Keycloak realm exposes every remote capability as an optional scope", () => {

@@ -9,7 +9,7 @@ const {
   fileUrl,
   resolveLibreOffice,
   resolvePdfToPpm
-} = require("../skills/pd-hifi-slideclone/scripts/libreoffice-benchmark");
+} = require("../packages/slideclone-native-engine/scripts/libreoffice-benchmark");
 
 test("fileUrl returns a LibreOffice-compatible file URL", () => {
   for (const name of ["lo profile", "profile#1", "profile%20", "配置文件", "profile?x=1", "profile\nnext"]) {

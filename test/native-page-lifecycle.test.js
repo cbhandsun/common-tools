@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { rebuildDeckFromWorkDir } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+const { rebuildDeckFromWorkDir } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 const { writePng } = require("../packages/slideclone-core/png");
 
 function fixture(t) {

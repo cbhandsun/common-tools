@@ -8,12 +8,14 @@ const path = require("node:path");
 const { buildOpenXmlDecks } = require("../packages/slideclone-core/pptx-openxml-dotnet");
 const { writePng } = require("../packages/slideclone-core/png");
 const { readZipEntries, readZipEntry } = require("../packages/slideclone-core/pptx-zip");
+const { resolveOpenXmlBuilderRoot, resolveSlidecloneRuntimeRoot } = require("../packages/slideclone-native-engine");
 
 test("real OpenXML build reuses its stage and recovers from asset changes and corrupt cache", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-cache-recovery-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const skillRoot = path.resolve(__dirname, "../skills/pd-hifi-slideclone");
-  const project = path.join(skillRoot, "dotnet/OpenXmlDeckBuilder");
+  const repositoryRoot = path.resolve(__dirname, "..");
+  const skillRoot = resolveSlidecloneRuntimeRoot(repositoryRoot);
+  const project = resolveOpenXmlBuilderRoot(repositoryRoot);
   const exePath = path.join(project, "bin/Release/net8.0", process.platform === "win32" ? "OpenXmlDeckBuilder.exe" : "OpenXmlDeckBuilder");
   assert.ok(fs.existsSync(exePath), "run build:dotnet:locked before this integration test");
   const cacheDir = path.join(root, "cache");

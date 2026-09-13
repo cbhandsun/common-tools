@@ -42,7 +42,7 @@ const {
   normalizeComponentAssetRoots,
   summarizePipelineTotals,
   withAppliedComponentHarvestDefaults
-} = require("../skills/pd-hifi-slideclone/scripts/component-strategy-rebuild");
+} = require("../packages/slideclone-native-engine/scripts/component-strategy-rebuild");
 
 test("component strategy rebuild promoted-only inventory filters explicit assets using self-fidelity reports", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-promoted-inventory-"));
@@ -110,14 +110,14 @@ const {
   shouldBatchPptxAfterWorkers,
   toComponentStrategyArgs,
   writeHeartbeat
-} = require("../skills/pd-hifi-slideclone/scripts/component-strategy-rebuild-parallel");
+} = require("../packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel");
 const {
   chunk: chunkPageShards,
   mergeShardDecks,
   pageRangeName,
   selectedPageNumbers,
   workerArgv: pageShardWorkerArgv
-} = require("../skills/pd-hifi-slideclone/scripts/component-strategy-rebuild-page-shards");
+} = require("../packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards");
 
 test("component strategy rebuild injects gated plugin action candidates back into report layers", () => {
   const report = {

@@ -8,7 +8,7 @@ const {
   isStructuralRebuildAction,
   parseArgs,
   parsePageSet
-} = require("../skills/pd-hifi-slideclone/scripts/minimum-unit-gap-repair-runner");
+} = require("../packages/slideclone-native-engine/scripts/minimum-unit-gap-repair-runner");
 
 test("minimum unit gap repair runner parses bounded CLI options", () => {
   const args = parseArgs([

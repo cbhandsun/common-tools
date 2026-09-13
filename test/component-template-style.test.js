@@ -7,7 +7,7 @@ const {
   nativeTypeForTemplateStyle,
   sanitizeTemplateFreeform,
   sanitizeTemplatePicture
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-template-style");
+} = require("../packages/slideclone-core/component-template-style");
 
 test("component template style preserves bounded editable effects", () => {
   const style = mergeTemplateStyle({

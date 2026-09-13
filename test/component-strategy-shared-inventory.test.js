@@ -8,7 +8,7 @@ const path = require("node:path");
 const {
   injectSharedComponentInventoryArgs,
   prepareSharedComponentInventory
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-strategy-shared-inventory");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-strategy-shared-inventory");
 
 test("shared component inventory strips every worker-local discovery boundary", () => {
   const snapshot = path.resolve("snapshot.json");

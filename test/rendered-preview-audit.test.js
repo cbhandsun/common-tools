@@ -5,13 +5,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { writePng } = require("../packages/slideclone-core/png");
 
 const {
   auditRenderedPreviews,
   collectPreviewPages,
   mostCommonDimensions
-} = require("../skills/pd-hifi-slideclone/scripts/rendered-preview-audit");
+} = require("../packages/slideclone-native-engine/scripts/rendered-preview-audit");
 
 test("rendered preview audit passes non-blank consistent pages", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rendered-preview-pass-"));

@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const admission = require("../packages/slideclone-core/deck-ir-admission");
-const worker = require("../packages/slideclone-core/team-worker");
+const worker = require("../packages/slideclone-worker-adapter/team-worker");
 const deck = () => ({version:"1.0", slideSize:{widthPt:960,heightPt:540}, pages:[{}]});
 
 test("production admission composes tree, object, metadata and asset checks without mutation", t => {

@@ -8,7 +8,7 @@ const test = require("node:test");
 const { createDeckIr } = require("../packages/ppt-create-core/layout");
 const { parsePresentationSpec } = require("../packages/ppt-create-core/spec");
 const { buildPptx } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker");
-const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const { inspectPptx } = require("../packages/ppt-quality-core");
 const { buildUserTemplateArchiveCase, writeCorpusTemplate } = require("../scripts/lib/ppt-create-template-archive-corpus");
 

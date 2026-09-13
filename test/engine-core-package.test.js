@@ -10,6 +10,7 @@ const { IMAGE_EDITABLE_RELEASE_FILES } = require("../scripts/verify-runtime-pack
 
 const root = path.resolve(__dirname, "..");
 const modules = ["page-hybrid-graphics-stage", "page-native-graphics-stage", "demand-understanding-shapes", "workflow-shape-primitives", "prd-generation-shapes", "prototype-validation-shapes", "prd-auto-generation-narrative", "color-component-bounds", "diagram-residual-crops", "residual-splitting", "structured-residual-splitting", "residual-component-analysis", "residual-primitive-erasure", "image-layer-metadata", "graphic-expression-policy", "raster-native-detection", "page-semantic-claims", "skills-capability-matrix", "demand-intake-funnel", "smart-review-branch-gate", "skill-chain-orchestration", "asset-landing-triad", "edge-background-alpha", "icon-crop-refiner", "knowledge-graph-icon-crops", "residual-publication", "png", "arc-residual-masks", "full-slide-native-residual", "diagram-text-candidates", "page-reuse", "page-selection", "progress-reporter", "native-rebuild-deck-pipeline", "ocr-source-deck", "graphic-crop-policy", "page-image-finalizer", "page-progress-lifecycle", "page-graphics-stage", "slide-size"];
+const ooxmlModules = ["pptx-inventory", "pptx-zip"];
 
 modules.push("native-output-sanitizer");
 modules.push("source-horizontal-connector-fit");
@@ -30,7 +31,7 @@ modules.push("component-strategy-annotator");
 modules.push("structured-card-visual-reconstruction");
 modules.push("diagram-geometry", "diagram-constants", "comparison-matrix-evidence", "closed-loop-hybrid", "text-mask-cleanup", "asset-os-closed-loop-reconstruction", "asset-hub-cycle-reconstruction");
 modules.push("native-chart-shell-shapes", "visual-atom-native-metadata", "visual-atom-native-policy", "visual-atom-component-grouping", "visual-atom-fallback", "visual-atom-topology", "visual-atom-promotion", "gantt-native-shell", "visual-atom-native-shapes");
-modules.push("relationship-native-layouts", "relationship-native-shapes", "relationship-native-geometry", "pixel-branch-curve-detector", "relationship-native-shell", "visual-atom-native-reconstruction");
+modules.push("relationship-native-layouts", "relationship-native-shapes", "relationship-native-geometry", "relationship-topology-helpers", "relationship-branch-card-shell", "relationship-basic-shells", "relationship-funnel-lens-shell", "relationship-hub-spoke-shell", "relationship-layered-flow-shells", "relationship-sankey-shell", "pixel-branch-curve-detector", "relationship-native-shell", "visual-atom-native-reconstruction");
 modules.push("comparison-matrix-text", "comparison-matrix-layout", "structured-case-matrix-reconstruction", "comparison-matrix-reconstruction");
 modules.push("page-text-rule-helpers", "page-text-rules", "font-evidence");
 modules.push("page-output-rules");
@@ -45,6 +46,9 @@ test("rebuild planning, pixel IO and residual generation run from package export
   const installed = path.join(directory, "node_modules", "@common-tools", "slideclone-core");
   fs.mkdirSync(installed, { recursive: true });
   for (const name of ["package.json", "screenshot-texture-evidence.js", ...modules.map((module) => `${module}.js`)]) fs.copyFileSync(path.join(root, "packages", "slideclone-core", name), path.join(installed, name));
+  const installedOoxml = path.join(directory, "node_modules", "@common-tools", "ooxml-core");
+  fs.mkdirSync(installedOoxml, { recursive: true });
+  for (const name of ["package.json", ...ooxmlModules.map((module) => `${module}.js`)]) fs.copyFileSync(path.join(root, "packages", "ooxml-core", name), path.join(installedOoxml, name));
   const load = createRequire(path.join(directory, "consumer.cjs"));
   const api = Object.fromEntries(modules.map((name) => [name, load(`@common-tools/slideclone-core/${name}`)]));
   const textRules = api["page-text-rules"];
@@ -121,9 +125,11 @@ test("rebuild planning, pixel IO and residual generation run from package export
   let isolatedBuildCalls = 0;
   const isolatedBuilder = api["pptx-build-execution"].createPptxBuildExecutor({
     skillRoot: directory, projectRoot: directory,
-    buildOpenXmlDecksSync(jobs, context) {
+    openXmlBuilderRoot: path.join(directory, "runtime", "OpenXmlDeckBuilder"),
+    buildOpenXmlDecksSync(jobs, context, builderDirectory) {
       isolatedBuildCalls++;
       assert.equal(context.skillRoot, directory);
+      assert.equal(builderDirectory, path.join(directory, "runtime", "OpenXmlDeckBuilder"));
       return jobs.map(job => job.outFile);
     }
   });

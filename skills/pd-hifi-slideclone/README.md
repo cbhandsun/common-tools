@@ -429,7 +429,7 @@ tesseract --version
 先安装 .NET SDK，然后执行：
 
 ```bash
-dotnet restore skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj
+dotnet restore packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj
 ```
 
 把配置中的 `pptx` adapter 改成：

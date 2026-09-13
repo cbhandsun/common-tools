@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const compareThresholds = require("../skills/pd-hifi-slideclone/scripts/adapters/compare-placeholder");
+const compareThresholds = require("../packages/slideclone-native-engine/scripts/adapters/compare-placeholder");
 
 test("anchored OCR batches a page in bounded chunks and preserves request ownership", async () => {
   const calls = [];

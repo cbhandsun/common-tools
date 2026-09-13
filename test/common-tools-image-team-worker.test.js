@@ -6,17 +6,17 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const zlib = require("node:zlib");
-const { createImageToEditableArchiveHandler, residualDeduplicationStatus } = require("../packages/slideclone-core/team-worker");
+const { createImageToEditableArchiveHandler, residualDeduplicationStatus } = require("../packages/slideclone-worker-adapter/team-worker");
 const { boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, nativeObjectMetrics, residualEraseObjects, shouldOmitFullSlideResidual } = require("../packages/slideclone-core/team-native-rebuild");
 const { PRODUCTION_PROFILE_NAME } = require("../packages/slideclone-core/native-rebuild-profile");
 const { PROFILE_NAME, sha256File } = require("../packages/slideclone-core/team-ocr-profile");
 const { PROFILE_NAME: PADDLE_PROFILE_NAME } = require("../packages/slideclone-core/team-paddleocr-profile");
 const { createNativeRebuilder, startupFailureCode, workerSettings } = require("../packages/remote-mcp-server/bin/common-tools-team-image-worker");
-const { eraseMasks, readPng, rebuildDeckFromWorkDir } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
-const { createFullSlideResidualBuilder } = require("../skills/pd-hifi-slideclone/scripts/lib/full-slide-native-residual");
+const { eraseMasks, readPng, rebuildDeckFromWorkDir } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
+const { createFullSlideResidualBuilder } = require("../packages/slideclone-core/full-slide-native-residual");
 const { addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebuild, findKnowledgeGraphPanelModel } = require("../packages/slideclone-core/knowledge-graph-native");
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
-const { refineKnowledgeGraphIconCrops } = require("../skills/pd-hifi-slideclone/scripts/lib/knowledge-graph-icon-crops");
+const { writePng } = require("../packages/slideclone-core/png");
+const { refineKnowledgeGraphIconCrops } = require("../packages/slideclone-core/knowledge-graph-icon-crops");
 
 const createFullSlideResidual = createFullSlideResidualBuilder({ eraseMasks, readPng, writePng });
 
@@ -48,7 +48,7 @@ test("rebuilt metadata admits local sources and bounded counters without evaluat
   assert.throws(() => admitRebuiltPageMetadata({ nativeComponentQuality: { passed: "true" } }, context), /status/);
 });
 
-test("Worker residual composition needs only the historical deck rebuilder and preserves pixels", async (t) => {
+test("Worker residual composition needs only the runtime deck rebuilder and preserves pixels", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "worker-core-residual-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const png = require("../packages/slideclone-core/png");
@@ -1116,18 +1116,18 @@ test("image Worker Docker context contains only runtime sources and OpenXML buil
   const root = path.resolve(__dirname, "..");
   const dockerfile = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable"), "utf8");
   const ignore = fs.readFileSync(path.join(root, "deploy", "docker", "Dockerfile.image-to-editable.dockerignore"), "utf8");
-  assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
-  assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
-  assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/lib/);
+  assert.match(dockerfile, /COPY packages\/slideclone-native-engine\/dotnet\/OpenXmlDeckBuilder \.\/OpenXmlDeckBuilder/);
+  assert.match(dockerfile, /COPY packages \.\/packages/);
+  assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
+  assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/lib\b/);
   assert.match(dockerfile, /apt-get install --yes --no-install-recommends libicu72 libssl3 libreoffice-impress poppler-utils fonts-noto-cjk fonts-liberation/);
-  assert.match(dockerfile, /scripts\/adapters\/render-libreoffice\.js/);
-  assert.match(dockerfile, /scripts\/adapters\/diff-pixel-png\.js/);
+  assert.doesNotMatch(ignore, /^!runtime\/slideclone-native-engine\/\*\*$/m);
   assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone \.\/skills\/pd-hifi-slideclone/);
   assert.match(ignore, /^\*\*$/m);
   assert.match(ignore, /^!packages\/\*\*$/m);
-  assert.match(ignore, /^!skills\/pd-hifi-slideclone\/dotnet\/OpenXmlDeckBuilder\/\*\*$/m);
-  assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/lib\/\*\*$/m);
-  assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/adapters\/render-libreoffice\.js$/m);
+  assert.match(ignore, /^!packages\/slideclone-native-engine\/\*\*$/m);
+  assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js$/m);
+  assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/lib\/\*\*$/m);
 });
 
 test("optional team OCR Docker profile is separate, version-bounded, and never part of the default Compose file", () => {
@@ -1153,11 +1153,18 @@ test("PaddleOCR team image pins the runtime and remains an explicit deployment o
   assert.match(requirements, /^paddleocr==3\.7\.0$/m);
   assert.match(requirements, /^paddlepaddle==3\.3\.1$/m);
   assert.match(dockerfile, /paddleocr-requirements\.lock\.txt/);
+  assert.match(dockerfile, /COPY packages\/slideclone-native-engine\/scripts\/python\/paddleocr_worker\.py \/opt\/paddleocr\/paddleocr_worker\.py/);
+  assert.match(dockerfile, /COPY packages\/slideclone-native-engine\/scripts\/adapters\/ocr-paddleocr-local\.js \/opt\/paddleocr\/skill\/scripts\/adapters\/ocr-paddleocr-local\.js/);
   assert.match(dockerfile, /PP-OCRv6_small_det/);
   assert.match(dockerfile, /PP-OCRv6_small_rec/);
   assert.match(dockerfile, /image_to_png\.py/);
-  assert.match(dockerfile, /rebuild-real-pptx-native\.js/);
-  assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/python\/image_to_png\.py$/m);
+  assert.match(dockerfile, /COPY --chown=worker:worker packages \.\/packages/);
+  assert.doesNotMatch(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\//);
+  assert.doesNotMatch(dockerfile, /skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js/);
+  assert.match(ignore, /^!packages\/slideclone-native-engine\/scripts\/python\/image_to_png\.py$/m);
+  assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\//m);
+  assert.doesNotMatch(ignore, /^!runtime\/slideclone-native-engine\/\*\*$/m);
+  assert.doesNotMatch(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/rebuild-real-pptx-native\.js$/m);
   assert.match(dockerfile, /--engine paddle_dynamic/);
   assert.match(compose, /paddleocr-ppocrv6-v1/);
   assert.match(compose, /COMMON_TOOLS_IMAGE_PADDLEOCR_WORKER_SHA256/);
@@ -1201,7 +1208,7 @@ test("local deployment script keeps raw OCR opt-in and Plan mode non-mutating", 
 
 
 test("Deck IR admission rejects malformed page collections and boxes before building", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   assert.deepEqual(validateDeckIr(deck(), os.tmpdir()), { pages: 1, assets: 0 });
   assert.deepEqual(validateDeckIr(deck({ pages: [{}] }), os.tmpdir()), { pages: 1, assets: 0 });
   for (const page of [null, 1, [], { pageIndex: -1 }, { pageIndex: 0.5 }, { shapes: {} }, { images: [null] }, { textBoxes: [{ text: 4 }] }, { shapes: [{ box: { x: 0, y: 0, w: -1, h: 10 } }] }, { shapes: [{ box: { x: 0, y: 0, w: "1", h: 10 } }] }, { shapes: [{ box: { x: 0 } }] }]) {
@@ -1222,7 +1229,7 @@ test("Deck IR admission rejects malformed page collections and boxes before buil
 
 
 test("Deck IR checks table and chart data before OpenXML deserialization", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const admit = (page) => validateDeckIr(deck({ pages: [Object.fromEntries(Object.entries(page).map(([key, items]) => [key, items.map(item => ({ box: { x: 0, y: 0, w: 100, h: 50 }, ...item }))]))] }), os.tmpdir());
   assert.equal(admit({ tables: [{ rows: [["A", "42"], ["B"]] }], charts: [{ categories: ["A"], series: [{ name: "Value", values: [1, -2] }] }] }).pages, 1);
   assert.equal(admit({ tables: [{ rows: null }], charts: [{ categories: null, values: [], series: null }] }).pages, 1);
@@ -1239,7 +1246,7 @@ test("Deck IR checks table and chart data before OpenXML deserialization", () =>
 
 
 test("Deck IR validates declared reconstruction contracts using the shared policy", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const { enrichReconstructionContracts } = require("../packages/slideclone-core/reconstruction-contract");
   const enriched = JSON.parse(JSON.stringify(enrichReconstructionContracts(deck(), { baseDir: os.tmpdir() })));
   assert.equal(validateDeckIr(enriched, os.tmpdir()).pages, 1);
@@ -1261,7 +1268,7 @@ test("Deck IR validates declared reconstruction contracts using the shared polic
 
 
 test("Deck IR rejects rendered objects without boxes instead of crashing the builder", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   for (const collection of ["textBoxes", "shapes", "images", "tables", "charts"]) {
     assert.throws(() => validateDeckIr(deck({ pages: [{ [collection]: [{ id: "missing-box", rows: [["A", "B"]] }] }] }), os.tmpdir()), (error) => error.message === "editable deck object box is required");
     assert.throws(() => validateDeckIr(deck({ pages: [{ [collection]: [{ box: null }] }] }), os.tmpdir()), /editable deck/);
@@ -1270,7 +1277,7 @@ test("Deck IR rejects rendered objects without boxes instead of crashing the bui
 
 
 test("Deck IR rejects case-insensitive model aliases and ambiguous fields", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const box = { x: 0, y: 0, w: 10, h: 10 };
   for (const page of [{ Shapes: [{ box }] }, { images: [{ box, AssetPath: "../private.png" }] }, { images: [{ box, Source: { pageImage: "../private.png" } }] }, { textBoxes: [{ box, Text: "unvalidated" }] }]) {
     assert.throws(() => validateDeckIr(deck({ pages: [page] }), os.tmpdir()), /field casing/);
@@ -1282,7 +1289,7 @@ test("Deck IR rejects case-insensitive model aliases and ambiguous fields", () =
 
 
 test("Deck IR validates font and text run types while preserving nullable style defaults", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const admit = (patch) => validateDeckIr(deck({ pages: [{ textBoxes: [{ text: "Text", box: { x: 0, y: 0, w: 100, h: 30 }, ...patch }] }] }), os.tmpdir());
   assert.equal(admit({ font: { family: "Arial", sizePt: 20, opacity: 0.5, weight: "bold" }, wrap: false, rotation: 15, runs: [{ text: "", font: null }, { text: "你好", font: { sizePt: null } }] }).pages, 1);
   assert.equal(admit({ font: null, runs: null, rotation: null, wrap: null }).pages, 1);
@@ -1291,7 +1298,7 @@ test("Deck IR validates font and text run types while preserving nullable style 
 
 
 test("Deck IR page model admission matches builder indices and optional dimensions", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const admit = (pages) => validateDeckIr(deck({ pages }), os.tmpdir());
   assert.equal(admit([{}]).pages, 1);
   assert.equal(admit([{}, { pageIndex: 9999, slideSize: { widthPt: 960, heightPt: 540 } }]).pages, 2);
@@ -1306,7 +1313,7 @@ test("Deck IR page model admission matches builder indices and optional dimensio
 });
 
 test("Deck IR validates page metadata, placeholder bindings and model point lists", () => {
-  const { validateDeckIr } = require("../packages/slideclone-core/team-worker");
+  const { validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
   const admit = (page) => validateDeckIr(deck({ pages: [page] }), os.tmpdir());
   const box = { x: 0, y: 0, w: 100, h: 100 };
   assert.equal(admit({ speakerNotes: "Note", preserveTemplateSlide: false, citations: [{ id: "ref", title: "Source", locator: "local reference" }], intent: { templatePlaceholderCapacity: 1, templatePlaceholderBindings: [{ objectId: "shape", collection: "charts", placeholderType: "chart", placeholderIndex: 0 }] }, shapes: [{ id: "shape", box, points: [{ x: -1, y: 2 }, { x: 3, y: 4 }] }] }).pages, 1);

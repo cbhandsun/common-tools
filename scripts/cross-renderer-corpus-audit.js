@@ -133,7 +133,7 @@ function buildCrossRendererPlans(corpus, options = {}) {
 
 function buildQualityArgs({ irFile, pptxFile, outputDir, renderer }) {
   return [
-    "skills/pd-hifi-slideclone/scripts/quality-gate-real-pptx.js",
+    "packages/slideclone-native-engine/scripts/quality-gate-real-pptx.js",
     "--ir", irFile,
     "--pptx", pptxFile,
     "--out", outputDir,

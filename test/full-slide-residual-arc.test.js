@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { MAX_ARC_SEGMENTS, createArcResidualMasks } = require("../packages/slideclone-core/arc-residual-masks");
 const { eraseObjectMask } = require("../packages/slideclone-core/full-slide-native-residual");
-const { eraseMasks } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+const { eraseMasks } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 function blackPixel(image, x, y) {
   const offset = (y * image.width + x) * 4;

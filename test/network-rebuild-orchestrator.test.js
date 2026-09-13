@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { createNetworkRebuildOrchestrator } = require("../skills/pd-hifi-slideclone/scripts/lib/network-rebuild-orchestrator");
+const { createNetworkRebuildOrchestrator } = require("../packages/slideclone-core/network-rebuild-orchestrator");
 
 const MODES = Object.freeze({
   DETAILED: "detailed",
@@ -116,9 +116,9 @@ test("network orchestrator validates and propagates its service boundaries", () 
   assert.throws(() => orchestrator.createShapes([candidate()], {}), (error) => error === failure);
 });
 
-test("main network entry is now a thin compatibility wrapper", () => {
+test("native rebuild package delegates network behavior to the orchestrator", () => {
   const source = fs.readFileSync(path.join(
-    __dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"
+    __dirname, "..", "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js"
   ), "utf8");
   assert.match(source, /createNetworkRebuildOrchestrator\(\{/);
   assert.match(source, /function createNetworkDiagramShapes[\s\S]*?return networkRebuildOrchestrator\.createShapes\(images, sourceImage, slideSize, options\);\s*}/);

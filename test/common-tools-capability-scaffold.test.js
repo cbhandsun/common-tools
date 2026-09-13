@@ -8,6 +8,7 @@ const path = require("node:path");
 const test = require("node:test");
 const { renameDirectoryAtomically, scaffoldPlan, writeScaffold } = require("../packages/cli/capability-scaffold");
 const { validateScaffoldBundle } = require("../packages/cli/bin/common-tools");
+const pluginAdmin = require("../packages/cli/plugin-admin");
 
 test("capability scaffold plans without writing and produces self-contained host packages on explicit write", () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-scaffold-"));
@@ -20,8 +21,12 @@ test("capability scaffold plans without writing and produces self-contained host
     assert.equal(written.written, true);
     validateScaffoldBundle(output, "design-review");
     assert.equal(fs.existsSync(path.join(output, "capability.manifest.draft.json")), true);
+    const draft = JSON.parse(fs.readFileSync(path.join(output, "capability.manifest.draft.json"), "utf8"));
+    assert.deepEqual(draft.moduleSource, { packageName: "@common-tools/design-review-core", requirePath: "../design-review-core", exportName: "CAPABILITY_MODULE" });
     const readme = fs.readFileSync(path.join(output, "README.md"), "utf8");
     assert.match(readme, /intentionally not registered/);
+    assert.match(readme, /moduleSource/);
+    assert.match(readme, /generate-capability-catalogs\.js/);
     assert.match(readme, /team\.deployment/);
     assert.match(readme, /common-tools:verify-capabilities/);
     assert.match(readme, /prerequisite capabilities/);
@@ -64,4 +69,12 @@ test("scaffold directory promotion retries transient Windows rename contention",
   } finally {
     fsModule.renameSync = original;
   }
+});
+
+test("plugin scaffold validation stays outside the CLI composition root", () => {
+  const cli = fs.readFileSync(path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js"), "utf8");
+  assert.match(cli, /require\("\.\.\/plugin-admin"\)/);
+  assert.doesNotMatch(cli, /function validateScaffoldBundle/);
+  assert.doesNotMatch(cli, /function pluginCatalog/);
+  assert.equal(pluginAdmin.validateScaffoldBundle, validateScaffoldBundle);
 });

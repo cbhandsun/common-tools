@@ -7,7 +7,7 @@ const { createRequire } = require("node:module");
 const test = require("node:test");
 const { IMAGE_EDITABLE_RELEASE_FILES } = require("../scripts/verify-runtime-package");
 const root = path.resolve(__dirname, "..");
-const modules = ["verify-plugins", "verify-capability-contracts", "release-evidence", "verify-release-signature", "generate-sbom", "project-audit-runtime"];
+const modules = ["verify-plugins", "verify-capability-contracts", "verify-capability-catalogs", "release-evidence", "verify-release-signature", "generate-sbom", "project-audit-runtime"];
 
 test("CLI verification modules run without repository scripts and preserve compatibility exports", (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "cli-verification-"));
@@ -23,6 +23,7 @@ test("CLI verification modules run without repository scripts and preserve compa
   const api = Object.fromEntries(modules.map((name) => [name, load(`@common-tools/cli/verification/${name}`)]));
   assert.equal(api["verify-plugins"].versionAtLeast("1.2.3", "1.2.0"), true);
   assert.deepEqual(api["verify-capability-contracts"].assertCapabilityToolContracts({ manifests: new Map(), tools: [] }), { capabilities: [], toolCount: 0 });
+  assert.equal(api["verify-capability-catalogs"].assertLocalCapabilityCatalog({ manifests: new Map(), catalog: [], registryPackage: { dependencies: {} } }), true);
   assert.equal(api["release-evidence"].assertRevision("a".repeat(40)), "a".repeat(40));
   assert.throws(() => api["verify-release-signature"].safeFile(null, "fixture"));
   assert.equal(api["generate-sbom"].createSbom({ lockfileVersion: 3, packages: { "": { name: "fixture", version: "1.0.0" } } }).spdxVersion, "SPDX-2.3");
@@ -39,7 +40,7 @@ test("CLI verification modules run without repository scripts and preserve compa
   fs.appendFileSync(path.join(target, mirror.INCLUDED_DIRECTORIES[0], "fixture.js"), "// mismatch\n");
   assert.throws(() => mirror.verifyProjectAuditPluginRuntime({ repositoryRoot: source, targetRoot: target }));
   assert.equal(fs.existsSync(path.join(directory, "scripts")), false);
-  for (const name of modules.slice(0, 5)) assert.equal(require(`../scripts/${name}`), require(`../packages/cli/verification/${name}`));
+  for (const name of modules.slice(0, 6)) assert.equal(require(`../scripts/${name}`), require(`../packages/cli/verification/${name}`));
 });
 
 test("contract verification does not execute code from the inspected directory", (t) => {

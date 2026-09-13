@@ -7,7 +7,7 @@ const {
   filterSkillsCapabilityMatrixTextBoxes,
   isolateLightNeutralIcon,
   shouldObjectifySkillsCapabilityMatrix
-} = require("../skills/pd-hifi-slideclone/scripts/lib/skills-capability-matrix");
+} = require("../packages/slideclone-core/skills-capability-matrix");
 
 function fixture() {
   const labels = [

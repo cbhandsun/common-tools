@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { resolveAssetOsClosedLoopLayout } = require("../skills/pd-hifi-slideclone/scripts/lib/closed-loop-hybrid");
+const { resolveAssetOsClosedLoopLayout } = require("../packages/slideclone-core/closed-loop-hybrid");
 
 test("closed-loop hybrid layout calibrates nodes and minimum pictorial regions", () => {
   const layout = resolveAssetOsClosedLoopLayout({ x: 105, y: 120, w: 569, h: 383 });

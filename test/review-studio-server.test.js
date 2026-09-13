@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { createReviewStudioServer } = require("../skills/pd-hifi-slideclone/scripts/lib/review-studio-server");
+const { createReviewStudioServer } = require("../packages/slideclone-native-engine/scripts/lib/review-studio-server");
 
 function createFixture() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "review-studio-"));

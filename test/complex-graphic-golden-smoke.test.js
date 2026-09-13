@@ -19,7 +19,7 @@ const {
   qualityReportPassed,
   ratioArg,
   stageReuseEnabled
-} = require("../skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke");
+} = require("../packages/slideclone-native-engine/scripts/complex-graphic-golden-smoke");
 
 test("stage reuse requires complete outputs and a report newer than every input", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "complex-golden-cache-"));
@@ -146,7 +146,7 @@ test("strict quality rejects low layout IoU when structural evidence exists", ()
 
 test("rebuild args enable smart layers, OpenXML, and progress", () => {
   const args = buildRebuildArgs({ workRoot: "work", deck: "deck", pages: "2,5", out: "out" });
-  assert.deepEqual(args.slice(0, 1), ["skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native.js"]);
+  assert.deepEqual(args.slice(0, 1), ["packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js"]);
   assert.equal(args[args.indexOf("--smart-native-layers") + 1], "true");
   assert.equal(args[args.indexOf("--pptx-engine") + 1], "openxml");
   assert.equal(args[args.indexOf("--progress") + 1], "true");
@@ -179,7 +179,7 @@ test("quality args enable real local OCR only when a coverage threshold is reque
   });
   assert.equal(visualArgs.includes("--text-ocr"), false);
   assert.equal(ocrArgs[ocrArgs.indexOf("--text-ocr") + 1], "true");
-  assert.equal(ocrArgs[ocrArgs.indexOf("--text-ocr-adapter") + 1], "scripts/adapters/ocr-paddleocr-local.js");
+  assert.equal(ocrArgs[ocrArgs.indexOf("--text-ocr-adapter") + 1], "packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local.js");
   assert.equal(ocrArgs[ocrArgs.indexOf("--min-text-coverage") + 1], "0.8");
 });
 

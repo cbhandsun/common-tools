@@ -34,12 +34,14 @@ test("checkpoint reads preserve missing and failure identities without upload re
 test("team provider configuration permits loopback HTTP only in development", () => {
   const base = { COMMON_TOOLS_DATABASE_URL: "postgresql://db.internal/common_tools", COMMON_TOOLS_REDIS_URL: "rediss://redis.internal", COMMON_TOOLS_OBJECT_STORE_BUCKET: "common-tools-artifacts" };
   assert.equal(loadTeamConfig({ ...base, COMMON_TOOLS_TEAM_MODE: "development", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "http://127.0.0.1:9000" }).mode, "development");
+  assert.equal(loadTeamConfig({ ...base, COMMON_TOOLS_TEAM_MODE: "development", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "http://minio:9000", COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT: "http://127.0.0.1:59000" }).objectStorePublicEndpoint, "http://127.0.0.1:59000/");
   assert.deepEqual(loadTeamConfig({ ...base, COMMON_TOOLS_TEAM_MODE: "development", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "http://127.0.0.1:9000", COMMON_TOOLS_TEAM_CAPABILITIES: "project-audit" }).enabledCapabilities, ["project-audit"]);
   assert.throws(() => loadTeamConfig({ ...base, COMMON_TOOLS_TEAM_MODE: "development", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "http://127.0.0.1:9000", COMMON_TOOLS_TEAM_CAPABILITIES: "project-audit,project-audit" }), /TEAM_CAPABILITIES/);
   assert.throws(() => loadTeamConfig({ ...base, COMMON_TOOLS_TEAM_MODE: "development", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "http://127.0.0.1:9000", COMMON_TOOLS_TEAM_CAPABILITIES: "unknown" }), /TEAM_CAPABILITIES/);
   assert.deepEqual(loadTeamConfig({ ...base, COMMON_TOOLS_TEAM_MODE: "development", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "http://127.0.0.1:9000", COMMON_TOOLS_TEAM_CAPABILITIES: "ppt-improve" }).enabledCapabilities, ["ppt-improve"]);
   assert.throws(() => loadTeamConfig({ ...base, COMMON_TOOLS_TEAM_MODE: "production", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "http://127.0.0.1:9000" }), /https/);
   assert.throws(() => loadTeamConfig({ ...base, COMMON_TOOLS_TEAM_MODE: "development", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "http://objects.internal" }), /must be local/);
+  assert.throws(() => loadTeamConfig({ ...base, COMMON_TOOLS_TEAM_MODE: "development", COMMON_TOOLS_OBJECT_STORE_ENDPOINT: "http://minio:9000", COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT: "http://minio:9000" }), /must be loopback/);
 });
 
 test("dedicated Workers fail closed when their capability is disabled", async () => {

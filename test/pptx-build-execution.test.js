@@ -20,6 +20,7 @@ function fixture(t, overrides = {}) {
     root, calls,
     executor: createPptxBuildExecutor({
       skillRoot: path.join(root, "skill"), projectRoot: root,
+      openXmlBuilderRoot: path.join(root, "runtime", "OpenXmlDeckBuilder"),
       spawnSync(command, args, options) { calls.push({ command, args, options }); return { status: 0 }; },
       buildOpenXmlDecksSync(jobs, context, builderDirectory, mode) { calls.push({ jobs, context, builderDirectory, mode }); return jobs.map((job) => job.outFile); },
       ...overrides
@@ -89,5 +90,5 @@ test("dispatches OpenXML jobs with composition context and does not mutate templ
   assert.equal(calls[0].context.config.openXmlBuilder.cacheMaxBytes, 42);
   assert.equal(calls[0].context.configFile, path.join(process.cwd(), "slideclone.config.json"));
   assert.equal(fs.readFileSync(template, "utf8"), "template");
-  assert.equal(calls[0].builderDirectory, path.join(root, "skill", "dotnet", "OpenXmlDeckBuilder"));
+  assert.equal(calls[0].builderDirectory, path.join(root, "runtime", "OpenXmlDeckBuilder"));
 });

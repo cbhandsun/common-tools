@@ -14,7 +14,7 @@ const {
   isCandidateStructureCompatible,
   parseArgs,
   renderMarkdown
-} = require("../skills/pd-hifi-slideclone/scripts/component-ir-replacement-plan");
+} = require("../packages/slideclone-native-engine/scripts/component-ir-replacement-plan");
 
 test("component IR replacement plan parses CLI options", () => {
   const args = parseArgs([

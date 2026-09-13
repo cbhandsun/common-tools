@@ -6,7 +6,7 @@ const {
   arbitrateNativeObjectOwnership,
   nativeRebuildFamily,
   normalizeBox
-} = require("../skills/pd-hifi-slideclone/scripts/lib/native-object-conflict-arbitrator");
+} = require("../packages/slideclone-core/native-object-conflict-arbitrator");
 
 function item(id, detector, box, layerSourceId = "") {
   return { id, box, source: { detector, layerSourceId } };

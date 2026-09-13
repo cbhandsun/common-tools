@@ -10,7 +10,7 @@ const {
   buildComponentReplacementApplyPlan,
   extractReplacementAnchorsFromSlideXml,
   parseReplacementDescription
-} = require("../skills/pd-hifi-slideclone/scripts/component-replacement-apply-plan");
+} = require("../packages/slideclone-native-engine/scripts/component-replacement-apply-plan");
 
 test("component replacement apply plan parses OpenXML drawing descriptions", () => {
   const description = "slideclone:componentReplacementPlan provider=officeplus kind=component id=MatlComponentContent-11189 layer=0:0 tier=strong score=96";

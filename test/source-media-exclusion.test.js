@@ -5,9 +5,9 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
-const { auditSourceMediaExclusion } = require("../skills/pd-hifi-slideclone/scripts/lib/source-media-exclusion");
-const { enrichReconstructionContracts } = require("../skills/pd-hifi-slideclone/scripts/lib/reconstruction-contract");
+const { writePng } = require("../packages/slideclone-core/png");
+const { auditSourceMediaExclusion } = require("../packages/slideclone-native-engine/scripts/lib/source-media-exclusion");
+const { enrichReconstructionContracts } = require("../packages/slideclone-core/reconstruction-contract");
 
 function setup() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-source-media-"));
@@ -50,7 +50,7 @@ test("source-media exclusion detects a perceptually identical re-encoded PNG", (
   const fixture = setup();
   try {
     const changed = Buffer.from(fs.readFileSync(fixture.source));
-    const decoded = require("../skills/pd-hifi-slideclone/scripts/lib/png").readPngBuffer(changed);
+    const decoded = require("../packages/slideclone-core/png").readPngBuffer(changed);
     decoded.rgba[0] = decoded.rgba[0] ^ 1;
     const variant = path.join(fixture.root, "variant.png");
     writePng(variant, decoded);
@@ -92,6 +92,30 @@ test("source-media exclusion fails closed for stale source hashes and missing pa
     const stale = auditSourceMediaExclusion({ ir: fixture.ir, pptxFile: pptx, baseDir: fixture.root });
     assert.equal(stale.status, "error");
     assert.match(stale.errors[0], /hash mismatch/i);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("source-media exclusion rejects invalid explicit audit options", () => {
+  const fixture = setup();
+  try {
+    const pptx = path.join(fixture.root, "exact.pptx");
+    writeStoredZip(pptx, [{ name: "ppt/media/image1.png", data: fs.readFileSync(fixture.source) }]);
+    for (const options of [
+      [],
+      { maxMatches: "bad" },
+      { perceptualDistance: Infinity },
+      { maxArchiveBytes: 1023 },
+      { maxEntries: 0 },
+      { maxEntryBytes: "private-token-value" }
+    ]) {
+      const report = auditSourceMediaExclusion({ ir: fixture.ir, pptxFile: pptx, baseDir: fixture.root, options });
+      assert.equal(report.status, "error");
+      assert.equal(report.passed, false);
+      assert.equal(report.matches.length, 0);
+      assert.doesNotMatch(report.errors.join(" "), /private-token-value/);
+    }
   } finally {
     fixture.cleanup();
   }

@@ -6,12 +6,13 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const {
+  _private,
   assetRegistryPath,
   materializeComponentInventory,
   readComponentAssetRegistry,
   registryCandidates,
   shouldMaterializeCandidate
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-store");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-asset-store");
 
 function inventory(candidates) {
   return { provider: "plugin-component-registry-v1", candidates };
@@ -137,4 +138,18 @@ test("component asset store rejects malformed inventory contracts and can report
   });
   assert.equal(result.registry.summary.failed, 1);
   assert.equal(result.results[0].error.includes(tmp), false);
+});
+
+test("component asset store redacts Windows UNC and POSIX paths from materialization errors", () => {
+  for (const message of [
+    "ENOENT: no such file or directory, open 'C:/Users/private/missing.pptx'",
+    "ENOENT: no such file or directory, open '\\\\server\\share\\missing.pptx'",
+    "ENOENT: no such file or directory, open '/tmp/private/missing.pptx'"
+  ]) {
+    const redacted = _private.safeErrorMessage({ message });
+    assert.equal(redacted.includes("Users/private"), false);
+    assert.equal(redacted.includes("server\\share"), false);
+    assert.equal(redacted.includes("/tmp/private"), false);
+    assert.match(redacted, /\[local-path\]/);
+  }
 });

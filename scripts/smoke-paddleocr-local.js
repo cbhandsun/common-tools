@@ -3,12 +3,14 @@
 
 const fs = require("fs");
 const path = require("path");
-const paddleOcr = require("../skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local");
+const { resolveNativeEngineRuntimeRoot, resolveSlidecloneResourceRoot } = require("../packages/slideclone-native-engine");
+const paddleOcr = require("../packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local");
 
 async function main() {
   const workspaceRoot = path.resolve(__dirname, "..");
-  const skillRoot = path.join(workspaceRoot, "skills", "pd-hifi-slideclone");
-  const sourceImage = path.resolve(process.argv[2] || path.join(skillRoot, "examples", "ocr-text-smoke.source.png"));
+  const resourceRoot = resolveSlidecloneResourceRoot(workspaceRoot);
+  const nativeEngineRoot = resolveNativeEngineRuntimeRoot(workspaceRoot);
+  const sourceImage = path.resolve(process.argv[2] || path.join(resourceRoot, "examples", "ocr-text-smoke.source.png"));
   if (!fs.existsSync(sourceImage) || !fs.statSync(sourceImage).isFile()) throw new Error("PaddleOCR smoke input is unavailable");
   const result = await paddleOcr({
     sourceImage,
@@ -16,7 +18,7 @@ async function main() {
     page: {},
     slideSize: {}
   }, {
-    skillRoot,
+    skillRoot: nativeEngineRoot,
     config: { paddleOcr: { cache: false, initTimeoutMs: 600000, timeoutMs: 300000 } }
   });
   const confidences = result.data.lines.map((line) => line.confidence).filter(Number.isFinite);

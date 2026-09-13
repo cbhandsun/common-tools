@@ -44,7 +44,7 @@ test("isolated core runs real parallel pixel workers with serial-equivalent resu
 });
 
 test("legacy comparator shares core code and Worker no longer imports the Skill comparator", () => {
-  assert.equal(require("../skills/pd-hifi-slideclone/scripts/adapters/diff-pixel-png"), require("../packages/slideclone-core/diff-pixel-png"));
+  assert.equal(require("../packages/slideclone-native-engine/scripts/adapters/diff-pixel-png"), require("../packages/slideclone-core/diff-pixel-png"));
   const { verifyWorkspaceBoundaries } = require("../scripts/verify-workspace-boundaries");
   assert.equal(verifyWorkspaceBoundaries().legacyEdges.some((edge) => edge.target.endsWith("/diff-pixel-png.js")), false);
 });

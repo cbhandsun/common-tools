@@ -7,7 +7,7 @@ const test = require("node:test");
 const {
   DENSE_RADIAL_NETWORK_MODES,
   createDenseRadialNetworkPolicy
-} = require("../skills/pd-hifi-slideclone/scripts/lib/dense-radial-network-policy");
+} = require("../packages/slideclone-core/dense-radial-network-policy");
 
 test("dense radial policy preserves a semantic hero before detailed or summary rebuild", () => {
   const policy = createDenseRadialNetworkPolicy(operations());
@@ -69,7 +69,7 @@ test("dense radial policy validates and propagates its text normalization bounda
 
 test("native rebuild consumes one dense radial classification instead of duplicating policy", () => {
   const source = fs.readFileSync(path.join(
-    __dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"
+    __dirname, "..", "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js"
   ), "utf8");
   assert.match(source, /classify: denseRadialNetworkPolicy\.classify/);
   assert.doesNotMatch(source, /function shouldPreserveDenseRadialNetworkAsCrop|function shouldUseDetailedDenseRadialNetworkComponent|function shouldSummarizeDenseRadialNetwork/);

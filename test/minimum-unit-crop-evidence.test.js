@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { buildMinimumUnitCropEvidence } = require("../skills/pd-hifi-slideclone/scripts/lib/minimum-unit-crop-evidence");
+const { buildMinimumUnitCropEvidence } = require("../packages/slideclone-core/graphic-crop-policy");
 
 test("minimum-unit crop evidence maps a local refinement back to source pixels", () => {
   const result = buildMinimumUnitCropEvidence({

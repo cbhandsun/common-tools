@@ -5,11 +5,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
-const { resolvePythonExecutable } = require("../skills/pd-hifi-slideclone/scripts/lib/python-env");
+const { resolvePythonExecutable } = require("../packages/slideclone-native-engine/scripts/lib/python-env");
+const { resolveNativeEngineRuntimeRoot } = require("../packages/slideclone-native-engine");
 const { discoverTestFiles } = require("../scripts/test-sharded");
 
 const root = path.resolve(__dirname, "..");
-const worker = path.join(root, "skills/pd-hifi-slideclone/scripts/python/paddleocr_worker.py");
+const worker = path.join(resolveNativeEngineRuntimeRoot(root), "scripts", "python", "paddleocr_worker.py");
 const fixture = path.join(__dirname, "fixtures/paddleocr-noisy-pipeline.py");
 const request = (count = 1) => JSON.stringify({ id: "request-1", imagePaths: Array(count).fill(fixture) }) + "\n";
 
@@ -70,12 +71,12 @@ test("PaddleOCR private stream is non-inheritable and stays isolated after closi
   assert.deepEqual(run("lifecycle"), { status: 0, messages: [{ type: "lifecycle" }] });
 });
 
-test("PaddleOCR protocol regression is included in unified CI with external-process isolation", () => {
-  const discovered = discoverTestFiles(root, "unit").find(({ file }) => path.basename(file) === path.basename(__filename));
+test("PaddleOCR protocol regression is included in integration CI with external-process isolation", () => {
+  const discovered = discoverTestFiles(root, "integration").find(({ file }) => path.basename(file) === path.basename(__filename));
   assert.equal(discovered.resource, "external-process");
   assert.match(require("../package.json").scripts["test:portable"], /&& node --test test\/paddleocr-worker-protocol\.test\.js$/);
   const dockerfile = fs.readFileSync(path.join(root, "deploy/docker/Dockerfile.image-to-editable-paddleocr"), "utf8");
   const ignore = fs.readFileSync(path.join(root, "deploy/docker/Dockerfile.image-to-editable-paddleocr.dockerignore"), "utf8");
-  assert.match(dockerfile, /COPY skills\/pd-hifi-slideclone\/scripts\/python\/paddleocr_protocol\.py \/opt\/paddleocr\/paddleocr_protocol\.py/);
-  assert.match(ignore, /^!skills\/pd-hifi-slideclone\/scripts\/python\/paddleocr_protocol\.py$/m);
+  assert.match(dockerfile, /COPY packages\/slideclone-native-engine\/scripts\/python\/paddleocr_protocol\.py \/opt\/paddleocr\/paddleocr_protocol\.py/);
+  assert.match(ignore, /^!packages\/slideclone-native-engine\/scripts\/python\/paddleocr_protocol\.py$/m);
 });

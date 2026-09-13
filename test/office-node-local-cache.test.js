@@ -253,7 +253,8 @@ test("local cache stops scheduling after copy failure and drains in-flight write
 
 test("Office workflow tries local cache first and never omits post-restore validation", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
-  assert.match(manifest.scripts.lint, /scripts\/lib\/office-node\*\.js/u);
+  assert.equal(manifest.scripts.lint, "node scripts/lint-common-tools.js");
+  assert.ok(require("../scripts/lint-common-tools").eslintTargets.includes("scripts/lib/office-node*.js"));
   const workflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "ppt-office-regression.yml"), "utf8");
   assert.match(workflow, /id: node-dependencies\r?\n        if: steps.node-dependency-key.outputs.local_hit != 'true'/u);
   assert.match(workflow, /OFFICE_NODE_CACHE_KEY: \$\{\{ steps.node-dependency-key.outputs.key \}\}/u);

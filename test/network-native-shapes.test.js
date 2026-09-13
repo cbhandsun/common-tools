@@ -7,7 +7,7 @@ const test = require("node:test");
 const {
   MAX_STANDARD_NETWORK_NODES,
   createNetworkNativeShapeToolkit
-} = require("../skills/pd-hifi-slideclone/scripts/lib/network-native-shapes");
+} = require("../packages/slideclone-core/network-native-shapes");
 
 test("standard native networks place all ray connectors behind all nodes", () => {
   const toolkit = createNetworkNativeShapeToolkit(operations());
@@ -75,7 +75,7 @@ test("network native plugin validates each injected service boundary", () => {
 
 test("native rebuild delegates standard network and shared controls to the registry", () => {
   const source = fs.readFileSync(path.join(
-    __dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "rebuild-real-pptx-native.js"
+    __dirname, "..", "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js"
   ), "utf8");
   assert.match(source, /createNativeRebuilder\("network-native"/);
   assert.match(source, /createStandardShapes: createStandardNetworkDiagramShapesFromRegistry/);

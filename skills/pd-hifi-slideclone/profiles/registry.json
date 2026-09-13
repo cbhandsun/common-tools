@@ -3,7 +3,7 @@
   "profiles": {
     "batch-native-audit-for-repair": {
       "description": "Versioned command profile for slideclone:batch-native-audit-for-repair.",
-      "script": "scripts/batch-native-audit-summary.js",
+      "script": "packages/slideclone-native-engine/scripts/batch-native-audit-summary.js",
       "args": [
         "--ir-dir",
         "ppt文档/组件策略插件增强版本",
@@ -18,7 +18,7 @@
     },
     "batch-native-audit-golden-gate": {
       "description": "Versioned command profile for slideclone:batch-native-audit-golden-gate.",
-      "script": "scripts/batch-native-audit-summary.js",
+      "script": "packages/slideclone-native-engine/scripts/batch-native-audit-summary.js",
       "args": [
         "--ir-dir",
         "ppt文档/组件策略插件增强版本",
@@ -36,22 +36,22 @@
     },
     "batch-native-audit-summary": {
       "description": "Versioned command profile for slideclone:batch-native-audit-summary.",
-      "script": "scripts/batch-native-audit-summary.js",
+      "script": "packages/slideclone-native-engine/scripts/batch-native-audit-summary.js",
       "args": []
     },
     "benchmark-libreoffice": {
       "description": "Versioned command profile for slideclone:benchmark-libreoffice.",
-      "script": "scripts/libreoffice-benchmark.js",
+      "script": "packages/slideclone-native-engine/scripts/libreoffice-benchmark.js",
       "args": []
     },
     "benchmark-pptx-build-engines": {
       "description": "Versioned command profile for slideclone:benchmark-pptx-build-engines.",
-      "script": "scripts/pptx-build-engine-benchmark.js",
+      "script": "packages/slideclone-native-engine/scripts/pptx-build-engine-benchmark.js",
       "args": []
     },
     "chart-native-render-golden": {
       "description": "Versioned command profile for slideclone:chart-native-render-golden.",
-      "script": "scripts/chart-native-render-golden-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/chart-native-render-golden-smoke.js",
       "args": [
         "--out",
         "runs/chart-native-render-golden"
@@ -59,12 +59,12 @@
     },
     "component-acquisition-search": {
       "description": "Versioned command profile for slideclone:component-acquisition-search.",
-      "script": "scripts/component-acquisition-search.js",
+      "script": "packages/slideclone-native-engine/scripts/component-acquisition-search.js",
       "args": []
     },
     "component-acquisition-search-repair-coverage": {
       "description": "Versioned command profile for slideclone:component-acquisition-search-repair-coverage.",
-      "script": "scripts/component-acquisition-search.js",
+      "script": "packages/slideclone-native-engine/scripts/component-acquisition-search.js",
       "args": [
         "--repair-coverage",
         "runs/expression-policy-repair-queue-quality-coverage.json",
@@ -78,17 +78,17 @@
     },
     "component-adoption-ab-gate": {
       "description": "Versioned command profile for slideclone:component-adoption-ab-gate.",
-      "script": "scripts/component-adoption-ab-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/component-adoption-ab-gate.js",
       "args": []
     },
     "component-asset-manifest": {
       "description": "Versioned command profile for slideclone:component-asset-manifest.",
-      "script": "scripts/component-asset-manifest.js",
+      "script": "packages/slideclone-native-engine/scripts/component-asset-manifest.js",
       "args": []
     },
     "component-assets-coverage-gate": {
       "description": "Versioned command profile for slideclone:component-assets-coverage-gate.",
-      "script": "scripts/component-coverage-matrix.js",
+      "script": "packages/slideclone-native-engine/scripts/component-coverage-matrix.js",
       "args": [
         "--coverage-manifest",
         "skills/pd-hifi-slideclone/examples/component-assets-coverage.manifest.json",
@@ -99,37 +99,37 @@
     },
     "component-assets-golden-gate-fast": {
       "description": "Versioned command profile for slideclone:component-assets-golden-gate-fast.",
-      "script": "scripts/component-assets-golden-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/component-assets-golden-gate.js",
       "args": []
     },
     "component-candidate-search": {
       "description": "Versioned command profile for slideclone:component-candidate-search.",
-      "script": "scripts/component-candidate-search.js",
+      "script": "packages/slideclone-native-engine/scripts/component-candidate-search.js",
       "args": []
     },
     "component-coverage-matrix": {
       "description": "Versioned command profile for slideclone:component-coverage-matrix.",
-      "script": "scripts/component-coverage-matrix.js",
+      "script": "packages/slideclone-native-engine/scripts/component-coverage-matrix.js",
       "args": []
     },
     "component-gap-learning-plan": {
       "description": "Versioned command profile for slideclone:component-gap-learning-plan.",
-      "script": "scripts/component-gap-learning-plan.js",
+      "script": "packages/slideclone-native-engine/scripts/component-gap-learning-plan.js",
       "args": []
     },
     "component-harvest-candidate-rank": {
       "description": "Versioned command profile for slideclone:component-harvest-candidate-rank.",
-      "script": "scripts/component-harvest-candidate-rank.js",
+      "script": "packages/slideclone-native-engine/scripts/component-harvest-candidate-rank.js",
       "args": []
     },
     "component-harvest-shortlist": {
       "description": "Versioned command profile for slideclone:component-harvest-shortlist.",
-      "script": "scripts/component-harvest-shortlist.js",
+      "script": "packages/slideclone-native-engine/scripts/component-harvest-shortlist.js",
       "args": []
     },
     "component-ir-replacement-close-loop-repair-coverage-ready": {
       "description": "Versioned command profile for slideclone:component-ir-replacement-close-loop-repair-coverage-ready.",
-      "script": "scripts/component-ir-replacement-close-loop.js",
+      "script": "packages/slideclone-native-engine/scripts/component-ir-replacement-close-loop.js",
       "args": [
         "--harvest-queue",
         "runs/plugin-component-inventory/component-replacement-harvest-queue-repair-coverage.json",
@@ -171,12 +171,12 @@
     },
     "component-ir-replacement-object-audit": {
       "description": "Versioned command profile for slideclone:component-ir-replacement-object-audit.",
-      "script": "scripts/component-ir-replacement-object-audit.js",
+      "script": "packages/slideclone-native-engine/scripts/component-ir-replacement-object-audit.js",
       "args": []
     },
     "component-ir-replacement-plan-repair-coverage": {
       "description": "Versioned command profile for slideclone:component-ir-replacement-plan-repair-coverage.",
-      "script": "scripts/component-ir-replacement-plan.js",
+      "script": "packages/slideclone-native-engine/scripts/component-ir-replacement-plan.js",
       "args": [
         "--harvest-queue",
         "runs/plugin-component-inventory/component-replacement-harvest-queue-repair-coverage.json",
@@ -193,66 +193,66 @@
     },
     "component-ir-visual-regression-audit": {
       "description": "Versioned command profile for slideclone:component-ir-visual-regression-audit.",
-      "script": "scripts/component-ir-visual-regression-audit.js",
+      "script": "packages/slideclone-native-engine/scripts/component-ir-visual-regression-audit.js",
       "args": []
     },
     "component-isolated-collection": {
       "description": "Versioned command profile for slideclone:component-isolated-collection.",
-      "script": "scripts/component-isolated-collection-session.js",
+      "script": "packages/slideclone-native-engine/scripts/component-isolated-collection-session.js",
       "args": []
     },
     "component-learning-wave": {
       "description": "Versioned command profile for slideclone:component-learning-wave.",
-      "script": "scripts/component-learning-wave.js",
+      "script": "packages/slideclone-native-engine/scripts/component-learning-wave.js",
       "args": []
     },
     "component-library-refresh": {
       "description": "Versioned command profile for slideclone:component-library-refresh.",
-      "script": "scripts/component-library-refresh.js",
+      "script": "packages/slideclone-native-engine/scripts/component-library-refresh.js",
       "args": []
     },
     "component-library-refresh-harvest": {
       "description": "Versioned command profile for slideclone:component-library-refresh-harvest.",
-      "script": "scripts/component-library-refresh.js",
+      "script": "packages/slideclone-native-engine/scripts/component-library-refresh.js",
       "args": [
         "--harvest-active"
       ]
     },
     "component-library-refresh-watch-active": {
       "description": "Versioned command profile for slideclone:component-library-refresh-watch-active.",
-      "script": "scripts/component-library-refresh.js",
+      "script": "packages/slideclone-native-engine/scripts/component-library-refresh.js",
       "args": [
         "--watch-plugin-downloads"
       ]
     },
     "component-library-storage-audit": {
       "description": "Versioned command profile for slideclone:component-library-storage-audit.",
-      "script": "scripts/component-library-storage-audit.js",
+      "script": "packages/slideclone-native-engine/scripts/component-library-storage-audit.js",
       "args": []
     },
     "component-library-materialize": {
       "description": "Materialize adopted plugin components into the offline content-addressed asset store.",
-      "script": "scripts/component-library-materialize.js",
+      "script": "packages/slideclone-native-engine/scripts/component-library-materialize.js",
       "args": []
     },
     "component-motif-recall-report": {
       "description": "Versioned command profile for slideclone:component-motif-recall-report.",
-      "script": "scripts/component-motif-recall-report.js",
+      "script": "packages/slideclone-native-engine/scripts/component-motif-recall-report.js",
       "args": []
     },
     "component-native-promotion-batch": {
       "description": "Versioned command profile for slideclone:component-native-promotion-batch.",
-      "script": "scripts/component-native-promotion-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/component-native-promotion-batch.js",
       "args": []
     },
     "component-native-promotion-gate": {
       "description": "Versioned command profile for slideclone:component-native-promotion-gate.",
-      "script": "scripts/component-native-promotion-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/component-native-promotion-gate.js",
       "args": []
     },
     "component-native-promotion-gate-strict": {
       "description": "Versioned command profile for slideclone:component-native-promotion-gate-strict.",
-      "script": "scripts/component-native-promotion-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/component-native-promotion-gate.js",
       "args": [
         "--require-actionable-retained-reduction",
         "--min-actionable-retained-reduction",
@@ -261,7 +261,7 @@
     },
     "component-native-promotion-materialize": {
       "description": "Versioned command profile for slideclone:component-native-promotion-materialize.",
-      "script": "scripts/component-native-promotion-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/component-native-promotion-batch.js",
       "args": [
         "--require-actionable-retained-reduction",
         "--min-actionable-retained-reduction",
@@ -270,12 +270,12 @@
     },
     "component-plugin-action-queue": {
       "description": "Versioned command profile for slideclone:component-plugin-action-queue.",
-      "script": "scripts/component-plugin-action-queue.js",
+      "script": "packages/slideclone-native-engine/scripts/component-plugin-action-queue.js",
       "args": []
     },
     "component-plugin-action-queue-repair-coverage": {
       "description": "Versioned command profile for slideclone:component-plugin-action-queue-repair-coverage.",
-      "script": "scripts/component-plugin-action-queue.js",
+      "script": "packages/slideclone-native-engine/scripts/component-plugin-action-queue.js",
       "args": [
         "--repair-coverage",
         "runs/expression-policy-repair-queue-quality-coverage.json",
@@ -293,7 +293,7 @@
     },
     "component-plugin-action-queue-v17": {
       "description": "Versioned command profile for slideclone:component-plugin-action-queue-v17.",
-      "script": "scripts/component-plugin-action-queue.js",
+      "script": "packages/slideclone-native-engine/scripts/component-plugin-action-queue.js",
       "args": [
         "--harvest-shortlist",
         "runs/component-assets-ai-product-asset-os-owner-search-v17-harvest-refresh-decision-gated/close-loop/component-harvest-shortlist.json",
@@ -313,17 +313,17 @@
     },
     "component-plugin-apply-session": {
       "description": "Versioned command profile for slideclone:component-plugin-apply-session.",
-      "script": "scripts/component-plugin-apply-session.js",
+      "script": "packages/slideclone-native-engine/scripts/component-plugin-apply-session.js",
       "args": []
     },
     "component-plugin-apply-session-gate": {
       "description": "Versioned command profile for slideclone:component-plugin-apply-session-gate.",
-      "script": "scripts/component-plugin-apply-session-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/component-plugin-apply-session-gate.js",
       "args": []
     },
     "component-plugin-apply-session-repair-coverage-guide": {
       "description": "Versioned command profile for slideclone:component-plugin-apply-session-repair-coverage-guide.",
-      "script": "scripts/component-plugin-apply-session.js",
+      "script": "packages/slideclone-native-engine/scripts/component-plugin-apply-session.js",
       "args": [
         "--queue",
         "runs/plugin-component-inventory/component-plugin-action-queue-repair-coverage.json",
@@ -340,7 +340,7 @@
     },
     "component-plugin-apply-session-v17-guide": {
       "description": "Versioned command profile for slideclone:component-plugin-apply-session-v17-guide.",
-      "script": "scripts/component-plugin-apply-session.js",
+      "script": "packages/slideclone-native-engine/scripts/component-plugin-apply-session.js",
       "args": [
         "--queue",
         "runs/component-assets-ai-product-asset-os-owner-search-v17-plugin-apply-session/component-plugin-action-queue.json",
@@ -359,7 +359,7 @@
     },
     "component-plugin-apply-session-v17-watch": {
       "description": "Versioned command profile for slideclone:component-plugin-apply-session-v17-watch.",
-      "script": "scripts/component-plugin-apply-session.js",
+      "script": "packages/slideclone-native-engine/scripts/component-plugin-apply-session.js",
       "args": [
         "--queue",
         "runs/component-assets-ai-product-asset-os-owner-search-v17-plugin-apply-session/component-plugin-action-queue.json",
@@ -379,37 +379,40 @@
     },
     "component-replacement-apply": {
       "description": "Versioned command profile for slideclone:component-replacement-apply.",
-      "script": "scripts/component-replacement-apply.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-apply.js",
       "args": []
     },
     "component-replacement-apply-powerpoint": {
       "description": "Offline Windows fallback for native PowerPoint component replacement.",
-      "script": "scripts/component-replacement-apply.js",
-      "args": ["--engine", "powerpoint"]
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-apply.js",
+      "args": [
+        "--engine",
+        "powerpoint"
+      ]
     },
     "component-replacement-apply-batch": {
       "description": "Versioned command profile for slideclone:component-replacement-apply-batch.",
-      "script": "scripts/component-replacement-apply-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-apply-batch.js",
       "args": []
     },
     "component-replacement-apply-plan": {
       "description": "Versioned command profile for slideclone:component-replacement-apply-plan.",
-      "script": "scripts/component-replacement-apply-plan.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-apply-plan.js",
       "args": []
     },
     "component-replacement-close-loop": {
       "description": "Versioned command profile for slideclone:component-replacement-close-loop.",
-      "script": "scripts/component-replacement-close-loop.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-close-loop.js",
       "args": []
     },
     "component-replacement-close-loop-gate": {
       "description": "Versioned command profile for slideclone:component-replacement-close-loop-gate.",
-      "script": "scripts/component-replacement-close-loop-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-close-loop-gate.js",
       "args": []
     },
     "component-replacement-close-loop-gate-quality": {
       "description": "Versioned command profile for slideclone:component-replacement-close-loop-gate-quality.",
-      "script": "scripts/component-replacement-close-loop-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-close-loop-gate.js",
       "args": [
         "--report",
         "runs/component-replacement-close-loop/component-replacement-close-loop-report.json",
@@ -421,7 +424,7 @@
     },
     "component-replacement-close-loop-gate-smoke": {
       "description": "Versioned command profile for slideclone:component-replacement-close-loop-gate-smoke.",
-      "script": "scripts/component-replacement-close-loop-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-close-loop-gate.js",
       "args": [
         "--report",
         "runs/component-replacement-close-loop-smoke/component-replacement-close-loop-report.json",
@@ -431,7 +434,7 @@
     },
     "component-replacement-close-loop-gate-smoke-allow": {
       "description": "Versioned command profile for slideclone:component-replacement-close-loop-gate-smoke-allow.",
-      "script": "scripts/component-replacement-close-loop-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-close-loop-gate.js",
       "args": [
         "--report",
         "runs/component-replacement-close-loop-smoke/component-replacement-close-loop-report.json",
@@ -442,7 +445,7 @@
     },
     "component-replacement-close-loop-smoke": {
       "description": "Versioned command profile for slideclone:component-replacement-close-loop-smoke.",
-      "script": "scripts/component-replacement-close-loop.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-close-loop.js",
       "args": [
         "--input",
         "runs/component-replacement-batch-smoke-input",
@@ -456,12 +459,12 @@
     },
     "component-replacement-harvest-queue": {
       "description": "Versioned command profile for slideclone:component-replacement-harvest-queue.",
-      "script": "scripts/component-replacement-harvest-queue.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-harvest-queue.js",
       "args": []
     },
     "component-replacement-harvest-queue-repair-coverage": {
       "description": "Versioned command profile for slideclone:component-replacement-harvest-queue-repair-coverage.",
-      "script": "scripts/component-replacement-harvest-queue.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-harvest-queue.js",
       "args": [
         "--apply-session",
         "runs/plugin-component-inventory/plugin-apply-session-repair-coverage-guide/plugin-apply-session.json",
@@ -473,12 +476,12 @@
     },
     "component-replacement-harvest-refresh": {
       "description": "Versioned command profile for slideclone:component-replacement-harvest-refresh.",
-      "script": "scripts/component-replacement-harvest-refresh.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-harvest-refresh.js",
       "args": []
     },
     "component-replacement-harvest-refresh-v17": {
       "description": "Versioned command profile for slideclone:component-replacement-harvest-refresh-v17.",
-      "script": "scripts/component-replacement-harvest-refresh.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-harvest-refresh.js",
       "args": [
         "--queue",
         "runs/component-assets-ai-product-asset-os-owner-search-v17-close-loop-search-auto-decision-gated-icon-protect/component-replacement-harvest-queue.json",
@@ -503,27 +506,27 @@
     },
     "component-replacement-plan-report": {
       "description": "Versioned command profile for slideclone:component-replacement-plan-report.",
-      "script": "scripts/component-replacement-plan-report.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-plan-report.js",
       "args": []
     },
     "component-replacement-sample-gap-report": {
       "description": "Versioned command profile for slideclone:component-replacement-sample-gap-report.",
-      "script": "scripts/component-replacement-sample-gap-report.js",
+      "script": "packages/slideclone-native-engine/scripts/component-replacement-sample-gap-report.js",
       "args": []
     },
     "component-self-fidelity-batch": {
       "description": "Versioned command profile for slideclone:component-self-fidelity-batch.",
-      "script": "scripts/component-asset-self-fidelity-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/component-asset-self-fidelity-batch.js",
       "args": []
     },
     "component-strategy-rebuild": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild.",
-      "script": "scripts/component-strategy-rebuild.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild.js",
       "args": []
     },
     "component-strategy-rebuild-assets": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets.",
-      "script": "scripts/component-strategy-rebuild.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild.js",
       "args": [
         "--component-assets",
         "true",
@@ -540,7 +543,7 @@
     },
     "component-strategy-rebuild-assets-cached": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-cached.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -568,7 +571,7 @@
     },
     "component-strategy-rebuild-assets-fast": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-fast.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -595,7 +598,7 @@
     },
     "component-strategy-rebuild-assets-ir-fast": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-fast.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -621,7 +624,7 @@
     },
     "component-strategy-rebuild-assets-ir-one-deck-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-one-deck-turbo.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -651,7 +654,7 @@
     },
     "component-strategy-rebuild-assets-ir-page": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-page.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -679,7 +682,7 @@
     },
     "component-strategy-rebuild-assets-ir-page-shards": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-page-shards.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -709,7 +712,7 @@
     },
     "component-strategy-rebuild-assets-ir-page-shards-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-page-shards-turbo.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -739,7 +742,7 @@
     },
     "component-strategy-rebuild-assets-ir-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-ir-turbo.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -767,7 +770,7 @@
     },
     "component-strategy-rebuild-assets-native-one-deck-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-one-deck-turbo.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -798,7 +801,7 @@
     },
     "component-strategy-rebuild-assets-native-page": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-page.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -827,7 +830,7 @@
     },
     "component-strategy-rebuild-assets-native-page-shards": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-page-shards.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -858,7 +861,7 @@
     },
     "component-strategy-rebuild-assets-native-page-shards-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-page-shards-turbo.",
-      "script": "scripts/component-strategy-rebuild-page-shards.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-page-shards.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -889,7 +892,7 @@
     },
     "component-strategy-rebuild-assets-native-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-turbo.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -920,7 +923,7 @@
     },
     "component-strategy-rebuild-assets-native-turbo-repaired": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-native-turbo-repaired.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -953,7 +956,7 @@
     },
     "component-strategy-rebuild-assets-quality": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-quality.",
-      "script": "scripts/component-strategy-rebuild.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild.js",
       "args": [
         "--quality",
         "true",
@@ -972,7 +975,7 @@
     },
     "component-strategy-rebuild-assets-turbo": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-assets-turbo.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1001,7 +1004,7 @@
     },
     "component-strategy-rebuild-cached": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-cached.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1018,7 +1021,7 @@
     },
     "component-strategy-rebuild-fast": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-fast.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1034,7 +1037,7 @@
     },
     "component-strategy-rebuild-ir-cached": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-ir-cached.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1050,7 +1053,7 @@
     },
     "component-strategy-rebuild-ir-fast": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-ir-fast.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1065,7 +1068,7 @@
     },
     "component-strategy-rebuild-parallel": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-parallel.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1077,7 +1080,7 @@
     },
     "component-strategy-rebuild-quality": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-quality.",
-      "script": "scripts/component-strategy-rebuild.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild.js",
       "args": [
         "--quality",
         "true"
@@ -1085,7 +1088,7 @@
     },
     "component-strategy-rebuild-quality-smoke": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild-quality-smoke.",
-      "script": "scripts/component-strategy-rebuild-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1103,7 +1106,7 @@
     },
     "convert-real-pptx": {
       "description": "Convert the standard PPTX input directory into editable analysis workspaces.",
-      "script": "scripts/real-pptx-editable-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-editable-batch.js",
       "args": [
         "--input",
         "ppt文档",
@@ -1113,7 +1116,7 @@
     },
     "convert-real-pptx-turbo": {
       "description": "Convert the standard PPTX input directory with bounded parallelism.",
-      "script": "scripts/real-pptx-editable-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-editable-batch.js",
       "args": [
         "--input",
         "ppt文档",
@@ -1129,7 +1132,7 @@
     },
     "demo": {
       "description": "Versioned command profile for slideclone:demo.",
-      "script": "scripts/slideclone.js",
+      "script": "packages/slideclone-native-engine/scripts/slideclone.js",
       "args": [
         "validate",
         "--ir",
@@ -1138,17 +1141,17 @@
     },
     "detect-regions": {
       "description": "Versioned command profile for slideclone:detect-regions.",
-      "script": "scripts/detect-regions.js",
+      "script": "packages/slideclone-native-engine/scripts/detect-regions.js",
       "args": []
     },
     "expression-policy-repair-queue": {
       "description": "Versioned command profile for slideclone:expression-policy-repair-queue.",
-      "script": "scripts/expression-policy-repair-queue.js",
+      "script": "packages/slideclone-native-engine/scripts/expression-policy-repair-queue.js",
       "args": []
     },
     "expression-policy-repair-queue-assets": {
       "description": "Versioned command profile for slideclone:expression-policy-repair-queue-assets.",
-      "script": "scripts/expression-policy-repair-queue.js",
+      "script": "packages/slideclone-native-engine/scripts/expression-policy-repair-queue.js",
       "args": [
         "--coverage-matrix",
         "runs/component-assets-coverage-matrix.json",
@@ -1160,7 +1163,7 @@
     },
     "expression-policy-repair-queue-batch": {
       "description": "Versioned command profile for slideclone:expression-policy-repair-queue-batch.",
-      "script": "scripts/expression-policy-repair-queue.js",
+      "script": "packages/slideclone-native-engine/scripts/expression-policy-repair-queue.js",
       "args": [
         "--batch-native-audit",
         "runs/batch-native-audit-for-repair.json",
@@ -1172,7 +1175,7 @@
     },
     "expression-policy-repair-queue-quality": {
       "description": "Versioned command profile for slideclone:expression-policy-repair-queue-quality.",
-      "script": "scripts/expression-policy-repair-queue.js",
+      "script": "packages/slideclone-native-engine/scripts/expression-policy-repair-queue.js",
       "args": [
         "--quality-matrix",
         "runs/quality-matrix-enhanced-visual.json",
@@ -1184,7 +1187,7 @@
     },
     "expression-policy-repair-queue-quality-coverage": {
       "description": "Versioned command profile for slideclone:expression-policy-repair-queue-quality-coverage.",
-      "script": "scripts/expression-policy-repair-queue-coverage.js",
+      "script": "packages/slideclone-native-engine/scripts/expression-policy-repair-queue-coverage.js",
       "args": [
         "--repair-queue",
         "runs/expression-policy-repair-queue-quality.json",
@@ -1196,12 +1199,12 @@
     },
     "golden-set": {
       "description": "Versioned command profile for slideclone:golden-set.",
-      "script": "scripts/golden-set-runner.js",
+      "script": "packages/slideclone-native-engine/scripts/golden-set-runner.js",
       "args": []
     },
     "golden-set-complex-strict": {
       "description": "Versioned command profile for slideclone:golden-set-complex-strict.",
-      "script": "scripts/golden-set-runner.js",
+      "script": "packages/slideclone-native-engine/scripts/golden-set-runner.js",
       "args": [
         "--suite",
         "complex-strict",
@@ -1215,7 +1218,7 @@
     },
     "golden-set-focused": {
       "description": "Versioned command profile for slideclone:golden-set-focused.",
-      "script": "scripts/golden-set-runner.js",
+      "script": "packages/slideclone-native-engine/scripts/golden-set-runner.js",
       "args": [
         "--concurrency",
         "8",
@@ -1227,34 +1230,34 @@
     },
     "graphic-reconstruction-decision-audit": {
       "description": "Versioned command profile for slideclone:graphic-reconstruction-decision-audit.",
-      "script": "scripts/graphic-reconstruction-decision-audit.js",
+      "script": "packages/slideclone-native-engine/scripts/graphic-reconstruction-decision-audit.js",
       "args": []
     },
     "graphic-reconstruction-decision-gate": {
       "description": "Versioned command profile for slideclone:graphic-reconstruction-decision-gate.",
-      "script": "scripts/graphic-reconstruction-decision-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/graphic-reconstruction-decision-gate.js",
       "args": []
     },
     "harvest-active-ppt-component": {
       "description": "Versioned command profile for slideclone:harvest-active-ppt-component.",
-      "script": "scripts/harvest-active-powerpoint-component.js",
+      "script": "packages/slideclone-native-engine/scripts/harvest-active-powerpoint-component.js",
       "args": []
     },
     "init": {
       "description": "Versioned command profile for slideclone:init.",
-      "script": "scripts/slideclone.js",
+      "script": "packages/slideclone-native-engine/scripts/slideclone.js",
       "args": [
         "init"
       ]
     },
     "islide-search": {
       "description": "Versioned command profile for slideclone:islide-search.",
-      "script": "scripts/islide-component-search.js",
+      "script": "packages/slideclone-native-engine/scripts/islide-component-search.js",
       "args": []
     },
     "minimum-unit-gap-audit": {
       "description": "Versioned command profile for slideclone:minimum-unit-gap-audit.",
-      "script": "scripts/minimum-unit-gap-audit.js",
+      "script": "packages/slideclone-native-engine/scripts/minimum-unit-gap-audit.js",
       "args": [
         "--ir-dir",
         "ppt文档/组件策略插件增强版本",
@@ -1271,7 +1274,7 @@
     },
     "minimum-unit-gap-repair-merge": {
       "description": "Versioned command profile for slideclone:minimum-unit-gap-repair-merge.",
-      "script": "scripts/minimum-unit-gap-repair-merge.js",
+      "script": "packages/slideclone-native-engine/scripts/minimum-unit-gap-repair-merge.js",
       "args": [
         "--base-ir-dir",
         "ppt文档/组件策略插件增强版本",
@@ -1285,7 +1288,7 @@
     },
     "minimum-unit-gap-repair-queue": {
       "description": "Versioned command profile for slideclone:minimum-unit-gap-repair-queue.",
-      "script": "scripts/minimum-unit-gap-repair-runner.js",
+      "script": "packages/slideclone-native-engine/scripts/minimum-unit-gap-repair-runner.js",
       "args": [
         "--repair-queue",
         "runs/minimum-unit-gap-repair-queue.json",
@@ -1323,7 +1326,7 @@
     },
     "minimum-unit-gap-repair-smoke": {
       "description": "Versioned command profile for slideclone:minimum-unit-gap-repair-smoke.",
-      "script": "scripts/component-strategy-rebuild.js",
+      "script": "packages/slideclone-native-engine/scripts/component-strategy-rebuild.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1356,7 +1359,7 @@
     },
     "minimum-unit-gap-visual-matrix": {
       "description": "Versioned command profile for slideclone:minimum-unit-gap-visual-matrix.",
-      "script": "scripts/real-pptx-quality-matrix.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-quality-matrix.js",
       "args": [
         "--root",
         "runs/quality-gate-visual-minimum-unit-merged-all",
@@ -1379,17 +1382,17 @@
     },
     "native-fragmentation-audit": {
       "description": "Versioned command profile for slideclone:native-fragmentation-audit.",
-      "script": "scripts/native-fragmentation-audit.js",
+      "script": "packages/slideclone-native-engine/scripts/native-fragmentation-audit.js",
       "args": []
     },
     "officeplus-resolve": {
       "description": "Versioned command profile for slideclone:officeplus-resolve.",
-      "script": "scripts/officeplus-component-resolve.js",
+      "script": "packages/slideclone-native-engine/scripts/officeplus-component-resolve.js",
       "args": []
     },
     "officeplus-resolve-v17": {
       "description": "Versioned command profile for slideclone:officeplus-resolve-v17.",
-      "script": "scripts/officeplus-component-resolve.js",
+      "script": "packages/slideclone-native-engine/scripts/officeplus-component-resolve.js",
       "args": [
         "--target",
         "MatlComponentContent-1900=渐变风流程箭头元素_4项",
@@ -1403,29 +1406,29 @@
     },
     "officeplus-search": {
       "description": "Versioned command profile for slideclone:officeplus-search.",
-      "script": "scripts/officeplus-component-search.js",
+      "script": "packages/slideclone-native-engine/scripts/officeplus-component-search.js",
       "args": []
     },
     "plugin-component-inventory": {
       "description": "Versioned command profile for slideclone:plugin-component-inventory.",
-      "script": "scripts/plugin-component-inventory.js",
+      "script": "packages/slideclone-native-engine/scripts/plugin-component-inventory.js",
       "args": []
     },
     "plugin-component-inventory-acquire": {
       "description": "Explicitly scan installed plugin provider roots for component acquisition.",
-      "script": "scripts/plugin-component-inventory.js",
+      "script": "packages/slideclone-native-engine/scripts/plugin-component-inventory.js",
       "args": [
         "--include-provider-roots"
       ]
     },
     "quality-gate-ocr-batch": {
       "description": "Versioned command profile for slideclone:quality-gate-ocr-batch.",
-      "script": "scripts/quality-gate-ocr-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/quality-gate-ocr-batch.js",
       "args": []
     },
     "quality-gate-ocr-batch-enhanced-turbo": {
       "description": "Versioned command profile for slideclone:quality-gate-ocr-batch-enhanced-turbo.",
-      "script": "scripts/quality-gate-ocr-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/quality-gate-ocr-batch.js",
       "args": [
         "--input",
         "ppt文档/组件策略插件增强版本",
@@ -1451,7 +1454,7 @@
     },
     "quality-gate-ocr-batch-umi-representative": {
       "description": "Versioned command profile for slideclone:quality-gate-ocr-batch-umi-representative.",
-      "script": "scripts/quality-gate-ocr-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/quality-gate-ocr-batch.js",
       "args": [
         "--concurrency",
         "2",
@@ -1475,12 +1478,12 @@
     },
     "quality-gate-real-pptx": {
       "description": "Versioned command profile for slideclone:quality-gate-real-pptx.",
-      "script": "scripts/quality-gate-real-pptx.js",
+      "script": "packages/slideclone-native-engine/scripts/quality-gate-real-pptx.js",
       "args": []
     },
     "quality-gate-visual-batch-enhanced-turbo": {
       "description": "Versioned command profile for slideclone:quality-gate-visual-batch-enhanced-turbo.",
-      "script": "scripts/quality-gate-ocr-batch.js",
+      "script": "packages/slideclone-native-engine/scripts/quality-gate-ocr-batch.js",
       "args": [
         "--input",
         "ppt文档/组件策略插件增强版本",
@@ -1498,7 +1501,7 @@
     },
     "quality-matrix-component-assets-regression": {
       "description": "Versioned command profile for slideclone:quality-matrix-component-assets-regression.",
-      "script": "scripts/real-pptx-quality-matrix.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-quality-matrix.js",
       "args": [
         "--comparison-manifest",
         "skills/pd-hifi-slideclone/examples/component-assets-regression.manifest.json",
@@ -1509,7 +1512,7 @@
     },
     "quality-matrix-enhanced-visual": {
       "description": "Versioned command profile for slideclone:quality-matrix-enhanced-visual.",
-      "script": "scripts/real-pptx-quality-matrix.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-quality-matrix.js",
       "args": [
         "--root",
         "runs/quality-gate-visual-batch-enhanced-turbo",
@@ -1523,7 +1526,7 @@
     },
     "quality-matrix-enhanced-visual-gate": {
       "description": "Versioned command profile for slideclone:quality-matrix-enhanced-visual-gate.",
-      "script": "scripts/real-pptx-quality-matrix.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-quality-matrix.js",
       "args": [
         "--root",
         "runs/quality-gate-visual-batch-enhanced-turbo",
@@ -1538,12 +1541,12 @@
     },
     "quality-matrix-real-pptx": {
       "description": "Versioned command profile for slideclone:quality-matrix-real-pptx.",
-      "script": "scripts/real-pptx-quality-matrix.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-quality-matrix.js",
       "args": []
     },
     "quality-matrix-real-pptx-strict": {
       "description": "Versioned command profile for slideclone:quality-matrix-real-pptx-strict.",
-      "script": "scripts/real-pptx-quality-matrix.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-quality-matrix.js",
       "args": [
         "--require-no-text-overlay-risk",
         "true",
@@ -1556,12 +1559,12 @@
     },
     "quality-trend-gate": {
       "description": "Versioned command profile for slideclone:quality-trend-gate.",
-      "script": "scripts/quality-trend-gate.js",
+      "script": "packages/slideclone-native-engine/scripts/quality-trend-gate.js",
       "args": []
     },
     "real-blind-layer-audit-production": {
       "description": "Versioned command profile for slideclone:real-blind-layer-audit-production.",
-      "script": "scripts/real-blind-layer-audit-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/real-blind-layer-audit-parallel.js",
       "args": [
         "--ir-dir",
         "ppt文档/组件策略插件增强版本",
@@ -1573,12 +1576,12 @@
     },
     "real-pptx-corpus": {
       "description": "Versioned command profile for slideclone:real-pptx-corpus.",
-      "script": "scripts/real-pptx-corpus-runner.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-corpus-runner.js",
       "args": []
     },
     "real-pptx-corpus-smoke": {
       "description": "Versioned command profile for slideclone:real-pptx-corpus-smoke.",
-      "script": "scripts/real-pptx-corpus-runner.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-corpus-runner.js",
       "args": [
         "--suite",
         "smoke",
@@ -1590,7 +1593,7 @@
     },
     "rebuild-real-pptx-layered": {
       "description": "Versioned command profile for slideclone:rebuild-real-pptx-layered.",
-      "script": "scripts/rebuild-real-pptx-native.js",
+      "script": "packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1602,7 +1605,7 @@
     },
     "rebuild-real-pptx-layered-text": {
       "description": "Versioned command profile for slideclone:rebuild-real-pptx-layered-text.",
-      "script": "scripts/rebuild-real-pptx-native.js",
+      "script": "packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1616,7 +1619,7 @@
     },
     "rebuild-real-pptx-native": {
       "description": "Rebuild analyzed PPTX workspaces with the native editable pipeline.",
-      "script": "scripts/rebuild-real-pptx-native.js",
+      "script": "packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1626,7 +1629,7 @@
     },
     "rebuild-real-pptx-native-parallel": {
       "description": "Versioned command profile for slideclone:rebuild-real-pptx-native-parallel.",
-      "script": "scripts/rebuild-real-pptx-native-parallel.js",
+      "script": "packages/slideclone-native-engine/scripts/rebuild-real-pptx-native-parallel.js",
       "args": [
         "--work-root",
         "ppt文档/可编辑版本",
@@ -1636,39 +1639,39 @@
     },
     "render-engine-report": {
       "description": "Versioned command profile for slideclone:render-engine-report.",
-      "script": "scripts/render-engine-report.js",
+      "script": "packages/slideclone-native-engine/scripts/render-engine-report.js",
       "args": []
     },
     "rendered-preview-audit": {
       "description": "Versioned command profile for slideclone:rendered-preview-audit.",
-      "script": "scripts/rendered-preview-audit.js",
+      "script": "packages/slideclone-native-engine/scripts/rendered-preview-audit.js",
       "args": []
     },
     "rendered-similarity-audit": {
       "description": "Versioned command profile for slideclone:rendered-similarity-audit.",
-      "script": "scripts/rendered-similarity-audit.js",
+      "script": "packages/slideclone-native-engine/scripts/rendered-similarity-audit.js",
       "args": []
     },
     "review": {
       "description": "Versioned command profile for slideclone:review.",
-      "script": "scripts/review-studio.js",
+      "script": "packages/slideclone-native-engine/scripts/review-studio.js",
       "args": []
     },
     "run": {
       "description": "Versioned command profile for slideclone:run.",
-      "script": "scripts/slideclone.js",
+      "script": "packages/slideclone-native-engine/scripts/slideclone.js",
       "args": [
         "run"
       ]
     },
     "smoke-flow-e2e": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": []
     },
     "smoke-flow-e2e-deep": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-deep.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--profile",
         "deep-polish",
@@ -1678,7 +1681,7 @@
     },
     "smoke-flow-e2e-fast": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-fast.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--profile",
         "fast-batch",
@@ -1687,7 +1690,7 @@
     },
     "smoke-flow-e2e-fast-3page": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-fast-3page.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--profile",
         "fast-batch",
@@ -1700,14 +1703,14 @@
     },
     "smoke-flow-e2e-fontfit": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-fontfit.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--font-fit"
       ]
     },
     "smoke-flow-e2e-hifi": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-hifi.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--profile",
         "balanced",
@@ -1719,24 +1722,24 @@
     },
     "smoke-flow-e2e-matrix": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-matrix.",
-      "script": "scripts/flow-e2e-matrix.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-matrix.js",
       "args": []
     },
     "smoke-flow-e2e-stylefit": {
       "description": "Versioned command profile for slideclone:smoke-flow-e2e-stylefit.",
-      "script": "scripts/flow-e2e-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/flow-e2e-smoke.js",
       "args": [
         "--container-style-fit"
       ]
     },
     "smoke-ocr-text": {
       "description": "Versioned command profile for slideclone:smoke-ocr-text.",
-      "script": "scripts/ocr-text-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/ocr-text-smoke.js",
       "args": []
     },
     "smoke-real-pptx": {
       "description": "Normalize the first two pages of the standard real-PPTX smoke fixture.",
-      "script": "scripts/real-pptx-normalize-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/real-pptx-normalize-smoke.js",
       "args": [
         "--pptx",
         "ppt文档/PM_Portal_AI_Skills_Engine.pptx",
@@ -1748,7 +1751,7 @@
     },
     "smoke-sample-deck-hifi": {
       "description": "Versioned command profile for slideclone:smoke-sample-deck-hifi.",
-      "script": "scripts/ir-delivery-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/ir-delivery-smoke.js",
       "args": [
         "--ir",
         "skills/pd-hifi-slideclone/examples/sample-deck.json",
@@ -1770,7 +1773,7 @@
     },
     "smoke-text-micro-adjust": {
       "description": "Versioned command profile for slideclone:smoke-text-micro-adjust.",
-      "script": "scripts/ocr-text-smoke.js",
+      "script": "packages/slideclone-native-engine/scripts/ocr-text-smoke.js",
       "args": [
         "--ir",
         "skills/pd-hifi-slideclone/examples/text-micro-adjust-smoke.ir.json",
@@ -1782,19 +1785,19 @@
     },
     "structural-native-audit": {
       "description": "Versioned command profile for slideclone:structural-native-audit.",
-      "script": "scripts/structural-native-audit.js",
+      "script": "packages/slideclone-native-engine/scripts/structural-native-audit.js",
       "args": []
     },
     "validate": {
       "description": "Versioned command profile for slideclone:validate.",
-      "script": "scripts/slideclone.js",
+      "script": "packages/slideclone-native-engine/scripts/slideclone.js",
       "args": [
         "validate"
       ]
     },
     "watch-active-pptx-component": {
       "description": "Versioned command profile for slideclone:watch-active-pptx-component.",
-      "script": "scripts/watch-plugin-component-downloads.js",
+      "script": "packages/slideclone-native-engine/scripts/watch-plugin-component-downloads.js",
       "args": [
         "--active-powerpoint",
         "--no-default-roots"
@@ -1802,7 +1805,7 @@
     },
     "watch-plugin-component-downloads": {
       "description": "Versioned command profile for slideclone:watch-plugin-component-downloads.",
-      "script": "scripts/watch-plugin-component-downloads.js",
+      "script": "packages/slideclone-native-engine/scripts/watch-plugin-component-downloads.js",
       "args": []
     }
   }

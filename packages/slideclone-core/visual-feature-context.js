@@ -3,13 +3,14 @@
 const crypto = require("node:crypto");
 
 function createVisualFeatureContext(options = {}) {
-  const sourceImage = options.sourceImage;
-  const slideSize = normalizeSlide(options.slideSize);
-  const extractVisualAtoms = options.extractVisualAtoms;
+  const rawOptions = optionalRecord(options, "visual feature context options");
+  const sourceImage = rawOptions.sourceImage;
+  const slideSize = normalizeSlide(rawOptions.slideSize);
+  const extractVisualAtoms = rawOptions.extractVisualAtoms;
   if (!validRaster(sourceImage)) throw new TypeError("visual feature context requires a bounded raster sourceImage");
   if (!slideSize) throw new TypeError("visual feature context requires a valid slideSize");
   if (typeof extractVisualAtoms !== "function") throw new TypeError("visual feature context requires extractVisualAtoms");
-  const maximumEntries = boundedInteger(options.maximumEntries, 512, 1, 10000);
+  const maximumEntries = boundedInteger(rawOptions.maximumEntries, 512, 1, 10000);
   const visualAtomsByKey = new Map();
   let hits = 0;
   let misses = 0;
@@ -70,8 +71,18 @@ function normalizeBox(value) {
 }
 
 function boundedInteger(value, fallback, minimum, maximum) {
-  const number = Number(value);
-  return Number.isInteger(number) && number >= minimum && number <= maximum ? number : fallback;
+  if (value === undefined || value === null) return fallback;
+  const number = typeof value === "number" ? value : Number.NaN;
+  if (!Number.isSafeInteger(number) || number < minimum || number > maximum) {
+    throw new RangeError(`visual feature context maximumEntries must be an integer between ${minimum} and ${maximum}`);
+  }
+  return number;
+}
+
+function optionalRecord(value, label) {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
+  return value;
 }
 
 module.exports = { createVisualFeatureContext };

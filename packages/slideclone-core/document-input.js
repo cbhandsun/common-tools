@@ -2,7 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { inspectPptx } = require("../ppt-quality-core");
+const { inspectPptx } = require("../ooxml-core");
 
 const EDITABLE_DOCUMENT_EXTENSIONS = new Set([".pdf", ".pptx"]);
 const MAX_EDITABLE_DOCUMENT_BYTES = 60 * 1024 * 1024;

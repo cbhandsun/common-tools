@@ -7,6 +7,8 @@ const { spawnSync } = require("node:child_process");
 const ROOT = path.resolve(__dirname, "..");
 const SKILL_ROOT = path.join(ROOT, "skills", "pd-hifi-slideclone");
 const PROFILE_ROOT = path.join(SKILL_ROOT, "profiles");
+const LEGACY_SCRIPT_ROOT = path.join(SKILL_ROOT, "scripts");
+const NATIVE_SCRIPT_ROOT = path.join(ROOT, "packages", "slideclone-native-engine", "scripts");
 const REGISTRY_FILE = path.join(PROFILE_ROOT, "registry.json");
 const MAX_PROFILE_BYTES = 64 * 1024;
 const MAX_REGISTRY_BYTES = 512 * 1024;
@@ -85,7 +87,10 @@ function validateProfileDefinition(name, profile) {
   if (!profile || typeof profile !== "object" || Array.isArray(profile) || Object.keys(profile).some((key) => !["description", "script", "args"].includes(key))) {
     throw new Error(`slideclone profile has an invalid shape: ${name}`);
   }
-  if (typeof profile.script !== "string" || !profile.script.startsWith("scripts/") || !profile.script.endsWith(".js") || profile.script.includes("\\") || profile.script.includes("\0")) {
+  if (typeof profile.script !== "string" || !profile.script.endsWith(".js") || profile.script.includes("\\") || profile.script.includes("\0")) {
+    throw new Error(`slideclone profile script is invalid: ${name}`);
+  }
+  if (!profile.script.startsWith("scripts/") && !profile.script.startsWith("packages/slideclone-native-engine/scripts/")) {
     throw new Error(`slideclone profile script is invalid: ${name}`);
   }
   return Object.freeze({
@@ -97,13 +102,21 @@ function validateProfileDefinition(name, profile) {
 
 function resolveProfile(name, rawProfile) {
   const profile = validateProfileDefinition(name, rawProfile);
-  const script = path.resolve(SKILL_ROOT, profile.script);
-  const relative = path.relative(path.join(SKILL_ROOT, "scripts"), script);
+  const script = resolveProfileScript(profile.script);
+  const scriptRoot = profile.script.startsWith("packages/slideclone-native-engine/scripts/")
+    ? NATIVE_SCRIPT_ROOT
+    : LEGACY_SCRIPT_ROOT;
+  const relative = path.relative(scriptRoot, script);
   const scriptStat = fs.lstatSync(script, { throwIfNoEntry: false });
   if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative) || !scriptStat?.isFile() || scriptStat.isSymbolicLink()) {
     throw new Error(`slideclone profile script is unavailable: ${name}`);
   }
   return Object.freeze({ name, script, args: profile.args });
+}
+
+function resolveProfileScript(script) {
+  if (script.startsWith("packages/slideclone-native-engine/scripts/")) return path.resolve(ROOT, script);
+  return path.resolve(SKILL_ROOT, script);
 }
 
 function buildInvocation(name, extraArgs = []) {

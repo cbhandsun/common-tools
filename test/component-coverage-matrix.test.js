@@ -18,13 +18,13 @@ const {
   summarizeComponentRebuildReport,
   summarizeExpressionPolicyReport,
   summarizeFinalIrNativeOpportunities
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-coverage-matrix");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-coverage-matrix");
 const {
   applyCoverageGates,
   normalizeMotifTargetMinimums,
   parseArgs,
   readCoverageManifest
-} = require("../skills/pd-hifi-slideclone/scripts/component-coverage-matrix");
+} = require("../packages/slideclone-native-engine/scripts/component-coverage-matrix");
 
 test("component coverage matrix summarizes rebuild reports and actionable residuals", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "component-coverage-matrix-"));

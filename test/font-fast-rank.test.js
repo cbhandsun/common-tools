@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 
 const {
   rankedOptionsForRole
-} = require("../skills/pd-hifi-slideclone/scripts/lib/font-fast-rank");
+} = require("../packages/slideclone-native-engine/scripts/lib/font-fast-rank");
 
 test("rankedOptionsForRole returns ranked options when available", () => {
   const fallback = [

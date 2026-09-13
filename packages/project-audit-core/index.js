@@ -412,4 +412,15 @@ function nextAction(id) {
   return actions[id] || "Inspect the referenced candidate evidence, confirm the boundary is complete, and add a focused verification or regression test.";
 }
 
-module.exports = { CAPABILITY, DEFAULT_GATE_TIMEOUT_MS, REGISTRATION, auditGateOptions, auditProject, createExperienceEvidenceTemplate, createProjectAuditJob, projectAuditQuality, projectAuditSummary, renderMarkdown, runDeclaredProjectGates, runProjectAuditJob, writeReport };
+const CAPABILITY_MODULE = Object.freeze({
+  registration: REGISTRATION,
+  createHandlers: Object.freeze({
+    create_project_audit_job: (args, context) => createProjectAuditJob({ ...context, projectRoot: args.projectRoot || context.workspaceRoot, output: args.output, level: args.level, scope: args.scope, idempotencyKey: args.idempotencyKey })
+  }),
+  reportHandlers: Object.freeze({
+    get_project_audit_report: Object.freeze({ label: "project audit", key: "audit", summary: projectAuditSummary })
+  }),
+  uiContributions: Object.freeze([])
+});
+
+module.exports = { CAPABILITY, CAPABILITY_MODULE, DEFAULT_GATE_TIMEOUT_MS, REGISTRATION, auditGateOptions, auditProject, createExperienceEvidenceTemplate, createProjectAuditJob, projectAuditQuality, projectAuditSummary, renderMarkdown, runDeclaredProjectGates, runProjectAuditJob, writeReport };

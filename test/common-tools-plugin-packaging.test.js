@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { assertUnifiedGitMarketplace, capabilityNames, verifyPluginPackaging } = require("../scripts/verify-plugins");
+const { UNIFIED_REMOTE_SKILL_OVERRIDES, assertUnifiedGitMarketplace, capabilityNames, verifyPluginPackaging } = require("../scripts/verify-plugins");
 const { spawnSync } = require("node:child_process");
 
 const repositoryRoot = path.resolve(__dirname, "..");
@@ -16,8 +16,8 @@ test("Runtime package declares an installable CLI and a release-only file allowl
   assert.equal(packageManifest.private, true);
   assert.deepEqual(packageManifest.bin, { "common-tools": "packages/cli/bin/common-tools.js" });
   assert.equal(Array.isArray(packageManifest.files), true);
-  for (const required of ["packages/", "plugins/", "marketplaces/", "skills/pd-hifi-slideclone/scripts/", "skills/pd-hifi-slideclone/schemas/", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj", "scripts/verify-capability-contracts.js", "scripts/verify-plugins.js", "scripts/generate-sbom.js", "scripts/team-keycloak-volume-restore-drill.ps1", "deploy/"]) assert.equal(packageManifest.files.includes(required), true);
-  for (const forbidden of ["test/", ".codex-tmp/", "runs/", "node_modules/", "skills/pd-hifi-slideclone/", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/bin/", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/obj/"]) assert.equal(packageManifest.files.includes(forbidden), false);
+  for (const required of ["packages/", "plugins/", "marketplaces/", "skills/pd-hifi-slideclone/scripts/", "skills/pd-hifi-slideclone/schemas/", "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj", "scripts/verify-capability-contracts.js", "scripts/verify-plugins.js", "scripts/generate-sbom.js", "scripts/team-keycloak-volume-restore-drill.ps1", "deploy/"]) assert.equal(packageManifest.files.includes(required), true);
+  for (const forbidden of ["test/", ".codex-tmp/", "runs/", "node_modules/", "skills/pd-hifi-slideclone/", "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/bin/", "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/obj/"]) assert.equal(packageManifest.files.includes(forbidden), false);
 });
 
 function copiedPluginRoot() {
@@ -75,6 +75,13 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.match(auditSkill, /obtain separate explicit user approval/);
   assert.match(auditSkill, /Do not silently reduce the selected level/);
   assert.match(auditSkill, /Completion gate/);
+});
+
+test("unified plugin skill mirror policy covers every runtime capability", () => {
+  const mirrored = capabilities.filter((capability) => !UNIFIED_REMOTE_SKILL_OVERRIDES.includes(capability)).sort();
+  assert.deepEqual(mirrored, ["ppt-create", "ppt-improve", "ppt-quality"]);
+  assert.deepEqual([...UNIFIED_REMOTE_SKILL_OVERRIDES].sort(), ["image-to-editable", "project-audit", "siyuan-note"]);
+  assert.deepEqual([...new Set([...mirrored, ...UNIFIED_REMOTE_SKILL_OVERRIDES])].sort(), capabilities);
 });
 
 test("Git Marketplace rejects removal of the image residual deduplication release contract", () => {

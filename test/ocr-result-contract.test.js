@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { MAX_ITEMS, normalizeOcrItems } = require("../skills/pd-hifi-slideclone/scripts/lib/ocr-result-contract");
+const { MAX_ITEMS, normalizeOcrItems } = require("../packages/slideclone-native-engine/scripts/lib/ocr-result-contract");
 
 test("OCR result contract accepts bounded polygons and normalizes text", () => {
   const result = normalizeOcrItems([{ text: " 你好 ", score: 0.8, box: [[0, 0], [10, 0], [10, 5], [0, 5]], orientation: -1 }], { imageWidth: 20, imageHeight: 20 });

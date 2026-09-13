@@ -22,7 +22,7 @@ const {
   shouldUsePaddleOcrBroker,
   summarizeTotals,
   validationStrategyProfile
-} = require("../skills/pd-hifi-slideclone/scripts/quality-gate-ocr-batch");
+} = require("../packages/slideclone-native-engine/scripts/quality-gate-ocr-batch");
 
 test("discoverCases pairs native editable PPTX files with matching IR files", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ocr-batch-test-"));

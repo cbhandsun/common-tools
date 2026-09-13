@@ -8,7 +8,7 @@ const { spawnSync } = require("node:child_process");
 const { writeReleaseEvidence } = require("../scripts/release-evidence");
 const { createSbom } = require("../scripts/generate-sbom");
 const test = require("node:test");
-const { credentialSourceMode, immutableImageReference, inspectProductionRelease, releaseSignatureRequired, runProductionPreflight, validateResolvedProductionCompose } = require("../packages/cli/production-preflight");
+const { REQUIRED_PRODUCTION_MIGRATIONS, credentialSourceMode, immutableImageReference, inspectProductionRelease, releaseSignatureRequired, runProductionPreflight, validateResolvedProductionCompose, verifyProductionSchemaMigrations } = require("../packages/cli/production-preflight");
 
 const DIGEST = "a".repeat(64);
 function productionEnvironment(overrides = {}) {
@@ -60,6 +60,32 @@ test("production preflight validates only immutable images and a complete single
   assert.throws(() => inspectProductionRelease(productionEnvironment({ COMMON_TOOLS_REMOTE_IMAGE: "registry.example.test/common-tools:v1.2.3" })), /REMOTE_IMAGE.*sha256 digest/);
   assert.throws(() => credentialSourceMode(productionEnvironment({ COMMON_TOOLS_REDIS_PASSWORD_FILE: "C:\\secure\\redis-password" })), /mutually exclusive/);
   assert.throws(() => credentialSourceMode(productionEnvironment({ COMMON_TOOLS_REDIS_PASSWORD: undefined })), /complete direct or file source set/);
+});
+
+test("production preflight requires delivery schema migrations before Compose", () => {
+  const repositoryRoot = path.resolve(__dirname, "..");
+  const loaded = [];
+  const environment = productionEnvironment();
+  assert.deepEqual(verifyProductionSchemaMigrations(repositoryRoot).required, REQUIRED_PRODUCTION_MIGRATIONS);
+  assert.throws(() => runProductionPreflight(environment, {
+    repositoryRoot,
+    migrationLoader(directory) {
+      loaded.push(directory);
+      return [{ name: "001_jobs.sql" }, { name: "010_retention_recheck.sql" }];
+    },
+    evidenceVerifier() { assert.fail("must not verify release evidence before required migrations"); },
+    composeValidator() { assert.fail("must not parse Compose before required migrations"); }
+  }), /missing required remote delivery migrations/);
+  assert.equal(loaded.length, 1);
+  const report = runProductionPreflight(environment, {
+    repositoryRoot,
+    migrationLoader() {
+      return REQUIRED_PRODUCTION_MIGRATIONS.map((name) => ({ name }));
+    },
+    evidenceVerifier: verifiedEvidence(environment),
+    composeValidator() {}
+  });
+  assert.deepEqual(report.schemaMigrations, { required: REQUIRED_PRODUCTION_MIGRATIONS, latest: "011_delivery_outbox.sql", count: 2 });
 });
 
 test("production preflight supports a complete Compose file-secret source without reading secret contents", () => {
@@ -172,7 +198,7 @@ test("production admission verifies real release files against the independently
   const environment = productionEnvironment({ COMMON_TOOLS_RELEASE_EVIDENCE_FILE: outputPath });
   writeReleaseEvidence({ packagePath, lockPath, sbomPath, outputPath, revision: environment.COMMON_TOOLS_RELEASE_REVISION, images: [environment.COMMON_TOOLS_REMOTE_IMAGE, environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE] });
   let composeCalls = 0;
-  const options = { repositoryRoot, composeValidator() { composeCalls++; } };
+  const options = { repositoryRoot, migrationLoader() { return REQUIRED_PRODUCTION_MIGRATIONS.map((name) => ({ name })); }, composeValidator() { composeCalls++; } };
   assert.equal(runProductionPreflight(environment, options).releaseEvidence.revision, environment.COMMON_TOOLS_RELEASE_REVISION);
   assert.equal(composeCalls, 1);
   assert.throws(() => runProductionPreflight({ ...environment, COMMON_TOOLS_RELEASE_REVISION: "d".repeat(40) }, options), /expected revision/);
@@ -354,6 +380,7 @@ test("resolved production Compose cannot regain build paths, local ports, or loc
     "ppt-quality-worker": service(remoteImage)
   } };
   assert.equal(validateResolvedProductionCompose(pptQualityOnly, { remoteImage, enabledCapabilities: ["ppt-quality"] }), true);
+  assert.throws(() => validateResolvedProductionCompose({ services: { ...pptQualityOnly.services, "project-audit-worker": service(remoteImage) } }, { remoteImage, enabledCapabilities: ["ppt-quality"] }), /Worker services do not match/);
   const pptImproveOnly = { services: {
     "team-migrate": { image: remoteImage, environment },
     "remote-mcp": { ...service(remoteImage), environment: { ...environment, COMMON_TOOLS_REMOTE_BACKEND: "postgres-redis-s3", COMMON_TOOLS_REQUIRE_PROJECT_RBAC: "true", COMMON_TOOLS_REMOTE_HOST: "0.0.0.0" } },

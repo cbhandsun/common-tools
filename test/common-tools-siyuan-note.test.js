@@ -2,11 +2,15 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const { CAPABILITY_MANIFESTS } = require("../packages/capability-manifests");
 const {
-  MAX_MARKDOWN_BYTES, SiyuanApiError, createSiyuanClient, createSiyuanNoteService,
+  CAPABILITY, MAX_MARKDOWN_BYTES, REGISTRATION, REMOTE_CAPABILITY_MODULE, SIYUAN_DIRECT_TEAM_TOOLS, SIYUAN_TOOL_ARGUMENTS, SIYUAN_TOOL_METHODS, SiyuanApiError, createSiyuanClient, createSiyuanNoteService,
   idempotencyStorageKey, normalizeSiyuanBaseUrl, searchStatement
 } = require("../packages/siyuan-note-core");
 const { callTeamTool, toolsFor } = require("../packages/remote-mcp-server/team-mcp");
+const { DIRECT_CAPABILITY_CATALOG, DIRECT_CAPABILITY_SOURCE_CATALOG, directToolArguments, directToolContracts, directToolMethods } = require("../packages/remote-mcp-server/direct-capability-catalog");
+const { TEAM_TOOLS } = require("../packages/remote-mcp-server/team-tool-contracts");
+const { TEAM_TOOL_ARGUMENTS, assertDirectCapabilityModuleContracts, assertDirectSiyuanModuleContracts } = require("../packages/remote-mcp-server/team-tool-registry");
 const { createRedisIdempotencyStore } = require("../packages/remote-mcp-server/team-providers");
 
 const NOTEBOOK_ID = "20260829123456-abc1234";
@@ -16,6 +20,31 @@ const BLOCK_ID = "20260829123458-ghi9012";
 function principal(capabilities) {
   return { subject: "user-1", capabilities: new Set(capabilities), projects: new Map() };
 }
+
+test("SiYuan remote capability module matches its signed manifest and team registry contracts", () => {
+  const manifest = CAPABILITY_MANIFESTS.get("siyuan-note");
+  assert.ok(manifest);
+  assert.equal(CAPABILITY, "siyuan-note");
+  assert.equal(REMOTE_CAPABILITY_MODULE.registration, REGISTRATION);
+  assert.equal(REMOTE_CAPABILITY_MODULE.serviceName, "siyuan");
+  assert.equal(REMOTE_CAPABILITY_MODULE.teamMode, "direct");
+  assert.deepEqual([...REGISTRATION.toolNames].sort(), [...manifest.toolNames].sort());
+  assert.equal(REGISTRATION.minimumRuntimeVersion, manifest.minimumRuntimeVersion);
+  assert.equal(REGISTRATION.requiredWorkerProfile, manifest.requiredWorkerProfile);
+  assert.deepEqual(Object.keys(SIYUAN_TOOL_METHODS).sort(), [...manifest.toolNames].sort());
+  assert.deepEqual(Object.keys(SIYUAN_TOOL_ARGUMENTS).sort(), [...manifest.toolNames].sort());
+  assert.equal(REMOTE_CAPABILITY_MODULE.directToolArguments, SIYUAN_TOOL_ARGUMENTS);
+  assert.equal(REMOTE_CAPABILITY_MODULE.directToolContracts, SIYUAN_DIRECT_TEAM_TOOLS);
+  assert.ok(DIRECT_CAPABILITY_CATALOG.includes(REMOTE_CAPABILITY_MODULE));
+  assert.deepEqual(DIRECT_CAPABILITY_SOURCE_CATALOG[0], { packageName: "@common-tools/siyuan-note-core", module: REMOTE_CAPABILITY_MODULE });
+  assert.equal(directToolArguments().siyuan_save_note, SIYUAN_TOOL_ARGUMENTS.siyuan_save_note);
+  assert.equal(directToolMethods().siyuan_save_note, SIYUAN_TOOL_METHODS.siyuan_save_note);
+  assert.ok(directToolContracts().includes(SIYUAN_DIRECT_TEAM_TOOLS[1]));
+  for (const [name, allowed] of Object.entries(SIYUAN_TOOL_ARGUMENTS)) assert.deepEqual(TEAM_TOOL_ARGUMENTS[name], allowed);
+  for (const tool of SIYUAN_DIRECT_TEAM_TOOLS) assert.ok(TEAM_TOOLS.includes(tool));
+  assert.equal(assertDirectCapabilityModuleContracts(), true);
+  assert.equal(assertDirectSiyuanModuleContracts(), true);
+});
 
 test("SiYuan URL validation blocks credentials, paths, and unapproved plaintext hosts", () => {
   assert.equal(normalizeSiyuanBaseUrl("http://host.docker.internal:6806"), "http://host.docker.internal:6806");

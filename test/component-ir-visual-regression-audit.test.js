@@ -13,10 +13,10 @@ const {
   runComponentIrVisualRegressionAudit,
   selectJobs,
   summarizeDeckResults
-} = require("../skills/pd-hifi-slideclone/scripts/component-ir-visual-regression-audit");
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
-const { readPng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
-const { writeRenderCacheMetadata } = require("../skills/pd-hifi-slideclone/scripts/lib/render-cache-metadata");
+} = require("../packages/slideclone-native-engine/scripts/component-ir-visual-regression-audit");
+const { writePng } = require("../packages/slideclone-core/png");
+const { readPng } = require("../packages/slideclone-core/png");
+const { writeRenderCacheMetadata } = require("../packages/slideclone-native-engine/scripts/lib/render-cache-metadata");
 
 test("isolated render reuse requires matching identity and complete target pages", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "component-render-identity-"));

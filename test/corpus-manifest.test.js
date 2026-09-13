@@ -8,10 +8,11 @@ const {
   resolveCorpusCases,
   summarizeCorpusCoverage,
   validateCorpusManifest
-} = require("../skills/pd-hifi-slideclone/scripts/lib/real-pptx-corpus");
-const { applyFreshExecution, readTrendMetrics, resolveCorpusConcurrency, summarizeCorpusPerformance } = require("../skills/pd-hifi-slideclone/scripts/real-pptx-corpus-runner");
+} = require("../packages/slideclone-native-engine/scripts/lib/real-pptx-corpus");
+const { applyFreshExecution, readTrendMetrics, resolveCorpusConcurrency, summarizeCorpusPerformance } = require("../packages/slideclone-native-engine/scripts/real-pptx-corpus-runner");
 
 const root = path.resolve(__dirname, "..");
+const legacyComplexGoldenScript = ["skills", "pd-hifi-slideclone", "scripts", "complex-graphic-golden-smoke.js"].join("/");
 const corpus = JSON.parse(fs.readFileSync(path.join(root, "skills/pd-hifi-slideclone/examples/real-pptx-corpus.manifest.json"), "utf8"));
 const golden = JSON.parse(fs.readFileSync(path.join(root, "skills/pd-hifi-slideclone/examples/golden-set.manifest.json"), "utf8"));
 
@@ -22,6 +23,8 @@ test("real PPTX corpus covers every required presentation family", () => {
   assert.equal(resolved.cases.length, 31);
   assert.equal(resolved.cases.find((item) => item.id === "system-map-hybrid").goldenCaseId, "complex-system-map-hybrid-real");
   assert.equal(resolved.cases.find((item) => item.id === "system-map-fidelity-sentinel").expect.maxPixelDiffRatio, 0.083);
+  assert.equal(resolved.cases.every((item) => String(item.command?.[1] || "") !== legacyComplexGoldenScript), true);
+  assert.equal(resolved.cases.some((item) => item.command?.[1] === "packages/slideclone-native-engine/scripts/complex-graphic-golden-smoke.js"), true);
   assert.equal(resolved.coverage.deckCount, 7);
 });
 
@@ -89,7 +92,7 @@ test("real PPTX corpus serializes Office cases unless isolated workers are expli
 
 test("fresh corpus execution disables reuse only for golden commands that support force", () => {
   const cases = [
-    { id: "golden", command: ["node", "skills/pd-hifi-slideclone/scripts/complex-graphic-golden-smoke.js", "--deck", "safe"] },
+    { id: "golden", command: ["node", "packages/slideclone-native-engine/scripts/complex-graphic-golden-smoke.js", "--deck", "safe"] },
     { id: "chart", command: ["node", "scripts/chart-native-render-golden.js"] }
   ];
   const fresh = applyFreshExecution(cases, true);

@@ -2,16 +2,16 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { classifyVisualLayer } = require("../skills/pd-hifi-slideclone/scripts/lib/layer-classifier");
+const { classifyVisualLayer } = require("../packages/slideclone-core/layer-classifier");
 const {
   understandDiagramLayer,
   _private: { inferArchetype }
-} = require("../skills/pd-hifi-slideclone/scripts/lib/diagram-understanding");
+} = require("../packages/slideclone-core/diagram-understanding");
 const {
   createRelationshipNativeShell,
   _private: { dominantFlowNodes, validBox }
-} = require("../skills/pd-hifi-slideclone/scripts/lib/relationship-native-shell");
-const { createVisualAtomNativeShapes } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-core/relationship-native-shell");
+const { createVisualAtomNativeShapes } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 const SLIDE = { widthPt: 640, heightPt: 240 };
 

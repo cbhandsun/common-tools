@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { applyReviewPatches, ReviewPatchError } = require("../skills/pd-hifi-slideclone/scripts/lib/review-patch");
+const { applyReviewPatches, ReviewPatchError } = require("../packages/slideclone-native-engine/scripts/lib/review-patch");
 
 function fixture() {
   return {

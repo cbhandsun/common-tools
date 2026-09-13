@@ -9,11 +9,12 @@ const {
   caseTimeoutMs,
   evaluateDeliveryExpectations,
   parsePositiveInt,
+  defaultManifest,
   goldenSetRunnerUsage,
   runCases,
   selectCases,
   summarizeTotals
-} = require("../skills/pd-hifi-slideclone/scripts/golden-set-runner");
+} = require("../packages/slideclone-native-engine/scripts/golden-set-runner");
 
 function deliveryReport(overrides = {}) {
   return {
@@ -69,6 +70,68 @@ test("golden-set runner documents a side-effect-free help path", () => {
   assert.match(usage, /--help, -h/);
   assert.match(usage, /without running any cases/);
   assert.match(usage, /Concurrent cases \(default: 2\)/);
+});
+
+test("golden-set runner defaults to the versioned skill resource manifest from the native package", () => {
+  assert.equal(defaultManifest, path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "golden-set.manifest.json"));
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const chart = manifest.cases.find((entry) => entry.id === "chart-native-render-golden");
+  assert.deepEqual(chart.command.slice(0, 2), ["node", "packages/slideclone-native-engine/scripts/chart-native-render-golden-smoke.js"]);
+});
+
+test("golden-set manifest routes native golden harnesses through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const nativeGoldenCases = manifest.cases.filter((entry) => entry.id === "chart-native-render-golden" || entry.command?.includes("packages/slideclone-native-engine/scripts/complex-graphic-golden-smoke.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(nativeGoldenCases.length, 55);
+  assert.ok(nativeGoldenCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/chart-native-render-golden-smoke.js`)));
+  assert.ok(nativeGoldenCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/complex-graphic-golden-smoke.js`)));
+});
+
+test("golden-set manifest routes LibreOffice benchmark cases through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const benchmarkCases = manifest.cases.filter((entry) => entry.command?.includes("packages/slideclone-native-engine/scripts/libreoffice-benchmark.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(benchmarkCases.length, 3);
+  assert.ok(benchmarkCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/libreoffice-benchmark.js`)));
+});
+
+test("golden-set manifest routes flow smoke cases through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const flowCases = manifest.cases.filter((entry) => entry.command?.includes("packages/slideclone-native-engine/scripts/flow-e2e-smoke.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(flowCases.length, 4);
+  assert.ok(flowCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/flow-e2e-smoke.js`)));
+});
+
+test("golden-set manifest routes real PPTX normalize smoke through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const normalizeCases = manifest.cases.filter((entry) => entry.command?.includes("packages/slideclone-native-engine/scripts/real-pptx-normalize-smoke.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(normalizeCases.length, 1);
+  assert.ok(normalizeCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/real-pptx-normalize-smoke.js`)));
+});
+
+test("golden-set manifest routes IR delivery smoke cases through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const irDeliveryCases = manifest.cases.filter((entry) => entry.command?.includes("packages/slideclone-native-engine/scripts/ir-delivery-smoke.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(irDeliveryCases.length, 2);
+  assert.ok(irDeliveryCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/ir-delivery-smoke.js`)));
+});
+
+test("golden-set manifest routes OCR text smoke cases through the package runtime", () => {
+  const manifest = JSON.parse(fs.readFileSync(defaultManifest, "utf8"));
+  const ocrTextCases = manifest.cases.filter((entry) => entry.command?.includes("packages/slideclone-native-engine/scripts/ocr-text-smoke.js"));
+  const legacyScriptRoot = ["skills", "pd-hifi-slideclone", "scripts"].join("/");
+
+  assert.equal(ocrTextCases.length, 2);
+  assert.ok(ocrTextCases.every((entry) => !entry.command.includes(`${legacyScriptRoot}/ocr-text-smoke.js`)));
 });
 
 test("golden-set runner keeps report order while using bounded concurrency", async () => {

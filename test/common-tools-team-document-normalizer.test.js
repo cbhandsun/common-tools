@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { createTeamDocumentNormalizer } = require("../packages/slideclone-core/team-document-normalizer");
+const { createTeamDocumentNormalizer } = require("../packages/slideclone-worker-adapter/team-document-normalizer");
 
 function fixtureRoot() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-document-normalizer-"));

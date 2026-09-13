@@ -8,7 +8,7 @@ const {
   buildComponentSearchPlan,
   scoreCandidateDocument,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-candidate-planner");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-candidate-planner");
 
 test("component planner seeds legacy circular arrow layers as cycle-loop before hub-spoke", () => {
   const seed = buildLegacyLayerComponentSeed({

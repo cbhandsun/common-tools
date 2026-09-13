@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const {
   createSegmentedAssetOsClosedLoopCycleObjects
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 test("Asset OS closed loop emits seven semantic components around minimum-unit crops", () => {
   const assetDir = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-asset-os-closed-loop-"));

@@ -5,6 +5,9 @@
   "toolNames": ["create_editable_job", "get_job", "cancel_job", "list_job_artifacts"],
   "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
   "requiredWorkerProfile": "image-to-editable",
+  "execution": {
+    "localSupported": false
+  },
   "team": {
     "oauthScope": "common-tools:capability:image-to-editable",
     "acceptedUploadMediaTypes": ["application/gzip", "application/x-gzip"],
@@ -15,5 +18,10 @@
       "workerCommand": "packages/remote-mcp-server/bin/common-tools-team-image-worker.js"
     }
   },
-  "contentSha256": "54d4b782d6e05f315689c067958c937a5a509890063ffb521c407d68b6ca71dd"
+  "moduleSource": {
+    "packageName": "@common-tools/slideclone-core",
+    "requirePath": "../slideclone-core",
+    "exportName": "CAPABILITY_MODULE"
+  },
+  "contentSha256": "4f1cb2f31ec85e08f15a6d5628d3fe89603172947d3067bc3fd5dfbfe0502acd"
 }

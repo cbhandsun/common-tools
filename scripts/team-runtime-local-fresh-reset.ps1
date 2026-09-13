@@ -8,6 +8,7 @@ param(
   [int]$WaitTimeoutSeconds = 180,
   [ValidateRange(5, 60)]
   [int]$DockerEngineTimeoutSeconds = 20,
+  [switch]$PromptForSecrets,
   [switch]$Confirm
 )
 
@@ -23,7 +24,7 @@ $apiFile = Join-Path $repositoryRoot 'deploy/compose.team-api.yaml'
 $gatewayFile = Join-Path $repositoryRoot 'deploy/compose.team-gateway.yaml'
 $allProfiles = @('team-infra', 'team-idp', 'team-api', 'team-gateway', 'team-maintenance', 'team-worker-audit', 'team-worker-image', 'team-worker-ppt-create', 'team-worker-ppt-improve', 'team-worker-ppt-quality')
 $requiredEnvironment = @(
-  'COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD',
+  'COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_DATABASE_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD',
   'COMMON_TOOLS_KEYCLOAK_ADMIN', 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD',
   'COMMON_TOOLS_REMOTE_PUBLIC_URL', 'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS', 'COMMON_TOOLS_OIDC_ISSUER',
   'COMMON_TOOLS_OIDC_JWKS_URL', 'COMMON_TOOLS_OIDC_AUDIENCE'
@@ -50,6 +51,7 @@ function Set-MissingLocalDefaults {
     COMMON_TOOLS_OIDC_ISSUER = 'http://127.0.0.1:58080/realms/common-tools'
     COMMON_TOOLS_OIDC_JWKS_URL = 'http://keycloak:8080/realms/common-tools/protocol/openid-connect/certs'
     COMMON_TOOLS_OIDC_AUDIENCE = 'common-tools-mcp'
+    COMMON_TOOLS_KEYCLOAK_ADMIN = 'local-admin'
     COMMON_TOOLS_TEAM_CAPABILITIES = 'image-to-editable,project-audit,ppt-create,ppt-quality,ppt-improve'
   }
   foreach ($entry in $defaults.GetEnumerator()) {
@@ -57,6 +59,43 @@ function Set-MissingLocalDefaults {
       [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'Process')
     }
   }
+}
+
+function Read-SecretValue([string]$Prompt) {
+  $secure = Read-Host -Prompt $Prompt -AsSecureString
+  $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+  try { $value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
+  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+  if ([string]::IsNullOrWhiteSpace($value)) { throw 'Secret value is required' }
+  return $value
+}
+
+function Set-MissingFreshResetPassword {
+  $passwordVariables = @(
+    'COMMON_TOOLS_POSTGRES_PASSWORD',
+    'COMMON_TOOLS_DATABASE_PASSWORD',
+    'COMMON_TOOLS_REDIS_PASSWORD',
+    'COMMON_TOOLS_MINIO_PASSWORD',
+    'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD'
+  )
+  $missingPasswords = @($passwordVariables | Where-Object {
+    [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process'))
+  })
+  if ($missingPasswords.Count -eq 0) { return }
+  if (-not $PromptForSecrets) { return }
+  $sharedPassword = Read-SecretValue 'Shared fresh local reset password'
+  if ($sharedPassword.Length -lt 8) { throw 'Fresh local reset password must contain at least 8 characters' }
+  foreach ($name in $missingPasswords) {
+    [Environment]::SetEnvironmentVariable($name, $sharedPassword, 'Process')
+  }
+}
+
+function Set-MissingLocalDatabasePassword {
+  $existing = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_DATABASE_PASSWORD', 'Process')
+  if (-not [string]::IsNullOrWhiteSpace($existing)) { return }
+  $postgresPassword = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_POSTGRES_PASSWORD', 'Process')
+  if ([string]::IsNullOrWhiteSpace($postgresPassword)) { return }
+  [Environment]::SetEnvironmentVariable('COMMON_TOOLS_DATABASE_PASSWORD', $postgresPassword, 'Process')
 }
 
 function Test-LoopbackPortAvailable([int]$Port) {
@@ -82,9 +121,11 @@ function Set-MissingLocalMinioPorts {
 
 Set-MissingLocalDefaults
 Set-MissingLocalMinioPorts
+Set-MissingFreshResetPassword
+Set-MissingLocalDatabasePassword
 $missing = @($requiredEnvironment | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process')) })
 if ($missing.Count -gt 0) { throw "Required fresh-reset configuration is missing: $($missing -join ', ')" }
-$sharedPasswords = @('COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD', 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD') | ForEach-Object { [Environment]::GetEnvironmentVariable($_, 'Process') }
+$sharedPasswords = @('COMMON_TOOLS_POSTGRES_PASSWORD', 'COMMON_TOOLS_DATABASE_PASSWORD', 'COMMON_TOOLS_REDIS_PASSWORD', 'COMMON_TOOLS_MINIO_PASSWORD', 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD') | ForEach-Object { [Environment]::GetEnvironmentVariable($_, 'Process') }
 if (($sharedPasswords | Select-Object -Unique).Count -ne 1) { throw 'Fresh local reset requires one shared local password for PostgreSQL, Redis, MinIO, and Keycloak' }
 if ($sharedPasswords[0].Length -lt 8) { throw 'Fresh local reset password must contain at least 8 characters' }
 
@@ -112,7 +153,7 @@ if (-not $Confirm) { throw 'Apply requires -Confirm' }
 Invoke-FreshCompose @('down', '--volumes')
 Invoke-InitialCompose @('up', '--detach', '--wait', '--wait-timeout', $WaitTimeoutSeconds)
 $localDeploy = Join-Path $PSScriptRoot 'team-runtime-local-deploy.ps1'
-& $localDeploy -Mode Apply -Project $Project -WaitTimeoutSeconds $WaitTimeoutSeconds -DockerEngineTimeoutSeconds $DockerEngineTimeoutSeconds -DiscoverLocalPorts
+& $localDeploy -Mode Apply -Project $Project -WaitTimeoutSeconds $WaitTimeoutSeconds -DockerEngineTimeoutSeconds $DockerEngineTimeoutSeconds -DiscoverLocalPorts -EnableIdentityProvider
 if ($LASTEXITCODE -ne 0) { throw 'Fresh local API and Worker deployment failed' }
 } finally {
   Exit-CommonToolsTeamRuntimeOperationLock -Lock $operationLock

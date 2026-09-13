@@ -11,7 +11,7 @@ const {
   componentAssetLayersForPage,
   componentAssetShapeLayersForPage,
   shouldDeferNativeRebuildForComponentStrategy
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-strategy-annotator");
+} = require("../packages/slideclone-core/component-strategy-annotator");
 const {
   collectComponentTemplateFallbackDiagramTextBoxes,
   componentAssetLayerPseudoImages,
@@ -24,7 +24,7 @@ const {
   resolveComponentIndexPage,
   shouldAllowSpecializedNativeRebuildForDeferredComponent,
   suppressComponentTemplateShapesForSpecializedLayers
-} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 test("component strategy annotator maps report layers back to page images", () => {
   const index = buildComponentStrategyIndex({

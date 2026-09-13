@@ -14,7 +14,7 @@ const {
   screenChangedComponentFiles,
   snapshotRoots,
   watchPluginComponentDownloads
-} = require("../skills/pd-hifi-slideclone/scripts/watch-plugin-component-downloads");
+} = require("../packages/slideclone-native-engine/scripts/watch-plugin-component-downloads");
 
 test("watch plugin component downloads parses bounded arguments", () => {
   const args = parseArgs([

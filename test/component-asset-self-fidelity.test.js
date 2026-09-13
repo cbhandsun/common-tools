@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { deriveComponentRegions, parseArgs, projectBox } = require("../skills/pd-hifi-slideclone/scripts/component-asset-self-fidelity");
+const { deriveComponentRegions, parseArgs, projectBox } = require("../packages/slideclone-native-engine/scripts/component-asset-self-fidelity");
 
 test("component self fidelity parses bounded thresholds", () => {
   const args = parseArgs([

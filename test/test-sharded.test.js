@@ -9,9 +9,12 @@ const { spawnSync } = require("node:child_process");
 const {
   balanceTestFiles,
   createExecutionWaves,
+  parseListFilesMode,
+  parseListMode,
   parseReporter,
   parseShardCount,
-  parseSuite
+  parseSuite,
+  summarizeExecutionWaves
 } = require("../scripts/test-sharded");
 const {
   classifyTestFile,
@@ -35,13 +38,58 @@ test("balanceTestFiles deterministically distributes the largest files first", (
 });
 
 test("parseReporter bounds CI output modes", () => {
-  assert.equal(parseReporter({}), "");
+  assert.equal(parseReporter({}), "dot");
   assert.equal(parseReporter({ TEST_REPORTER: "dot" }), "dot");
+  assert.equal(parseReporter({ TEST_REPORTER: "tap" }), "tap");
   assert.throws(() => parseReporter({ TEST_REPORTER: "json" }), /dot, spec, or tap/);
 });
 
+test("parseListMode enables a read-only suite inventory", () => {
+  assert.equal(parseListMode([]), false);
+  assert.equal(parseListMode(["--suite", "unit"]), false);
+  assert.equal(parseListMode(["--suite", "unit", "--list"]), true);
+  assert.equal(parseListFilesMode(["--suite", "unit", "--list"]), false);
+  assert.equal(parseListFilesMode(["--suite", "unit", "--list", "--list-files"]), true);
+});
+
+test("suite inventory summarizes scheduled waves without listing files by default", () => {
+  const waves = createExecutionWaves([
+    { file: "test/a.test.js", size: 10, resource: "standard" },
+    { file: "test/b.test.js", size: 8, resource: "standard" },
+    { file: "test/heavy.test.js", size: 7, resource: "memory-heavy" }
+  ], 2);
+  assert.deepEqual(summarizeExecutionWaves(waves), {
+    waveCount: 2,
+    shardCount: 3,
+    waves: [
+      {
+        wave: 1,
+        shardCount: 2,
+        resources: ["standard"],
+        fileCount: 2,
+        shards: [
+          { shard: 1, fileCount: 1, resources: ["standard"] },
+          { shard: 2, fileCount: 1, resources: ["standard"] }
+        ]
+      },
+      {
+        wave: 2,
+        shardCount: 1,
+        resources: ["memory-heavy"],
+        fileCount: 1,
+        shards: [
+          { shard: 1, fileCount: 1, resources: ["memory-heavy"] }
+        ]
+      }
+    ]
+  });
+  assert.deepEqual(summarizeExecutionWaves(waves, { includeFiles: true }).waves[1].shards[0].files, ["test/heavy.test.js"]);
+});
+
 test("parseShardCount validates command and environment boundaries", () => {
+  assert.equal(parseShardCount([], {}), 4);
   assert.equal(parseShardCount(["--shards", "4"], {}), 4);
+  assert.equal(parseShardCount(["--shards", "4", "--shards", "2"], {}), 2);
   assert.equal(parseShardCount([], { TEST_SHARDS: "3" }), 3);
   assert.throws(() => parseShardCount(["--shards", "0"], {}), /integer from 1 to 8/);
   assert.throws(() => parseShardCount(["--shards", "many"], {}), /integer from 1 to 8/);
@@ -50,11 +98,32 @@ test("parseShardCount validates command and environment boundaries", () => {
 test("test suites classify fast feedback, contracts, and integration checks", () => {
   assert.equal(classifyTestFile("test/font-fit.test.js"), "unit");
   assert.equal(classifyTestFile("test/package-scripts.test.js"), "contract");
+  assert.equal(classifyTestFile("test/workspace-package-boundaries.test.js"), "contract");
+  assert.equal(classifyTestFile("test/engine-core-package.test.js"), "contract");
+  assert.equal(classifyTestFile("test/common-tools-project-audit-runtime-package.test.js"), "contract");
   assert.equal(classifyTestFile("test/quality-gate-real-pptx.test.js"), "integration");
+  assert.equal(classifyTestFile("test/common-tools-project-audit.test.js"), "integration");
+  assert.equal(classifyTestFile("test/common-tools-remote-plugin-bundles.test.js"), "integration");
+  assert.equal(classifyTestFile("test/common-tools-mcp.test.js"), "integration");
+  assert.equal(classifyTestFile("test/common-tools-team-ocr-profile.test.js"), "integration");
+  assert.equal(classifyTestFile("test/openxml-native-chart-smoke.test.js"), "integration");
+  assert.equal(classifyTestFile("test/openxml-dotnet-contract.test.js"), "contract");
   assert.equal(includesSuite("test/font-fit.test.js", "unit"), true);
   assert.equal(includesSuite("test/font-fit.test.js", "integration"), false);
+  assert.equal(includesSuite("test/workspace-package-boundaries.test.js", "unit"), false);
+  assert.equal(includesSuite("test/workspace-package-boundaries.test.js", "contract"), true);
+  assert.equal(includesSuite("test/common-tools-project-audit-runtime-package.test.js", "unit"), false);
+  assert.equal(includesSuite("test/common-tools-project-audit-runtime-package.test.js", "contract"), true);
+  assert.equal(includesSuite("test/common-tools-project-audit-runtime-package.test.js", "common-tools"), true);
+  assert.equal(includesSuite("test/common-tools-project-audit.test.js", "unit"), false);
+  assert.equal(includesSuite("test/common-tools-project-audit.test.js", "integration"), true);
+  assert.equal(includesSuite("test/common-tools-remote-plugin-bundles.test.js", "unit"), false);
+  assert.equal(includesSuite("test/common-tools-remote-plugin-bundles.test.js", "integration"), true);
+  assert.equal(includesSuite("test/common-tools-mcp.test.js", "unit"), false);
+  assert.equal(includesSuite("test/common-tools-mcp.test.js", "integration"), true);
   assert.equal(includesSuite("test/font-fit.test.js", "all"), true);
   assert.equal(parseSuite(["--suite", "contract"], {}), "contract");
+  assert.equal(parseSuite(["--suite", "all", "--suite", "unit"], {}), "unit");
   assert.equal(parseSuite([], { TEST_SUITE: "integration" }), "integration");
   assert.equal(parseSuite(["--suite", "common-tools"], {}), "common-tools");
   assert.equal(includesSuite("test/common-tools-project-audit.test.js", "common-tools"), true);
@@ -70,6 +139,16 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.equal(classifyTestResource("test/common-tools-team-ocr-profile.test.js"), "external-process");
   assert.equal(classifyTestResource("test/common-tools-mcp.test.js"), "external-process");
   assert.equal(classifyTestResource("test/common-tools-production-preflight.test.js"), "external-process");
+});
+
+test("unit suite excludes external-process tests so fast feedback stays local", () => {
+  const root = path.resolve(__dirname, "..");
+  const externalUnitTests = require("../scripts/test-sharded")
+    .discoverTestFiles(root, "unit")
+    .filter(({ resource }) => resource === "external-process")
+    .map(({ file }) => path.basename(file))
+    .sort();
+  assert.deepEqual(externalUnitTests, []);
 });
 
 test("real shards serialize files even for standard resources and propagate failures", () => {
@@ -103,12 +182,14 @@ test("resource-aware execution isolates heavy shards while retaining standard pa
     { file: "test/a.test.js", size: 10, resource: "standard" },
     { file: "test/b.test.js", size: 8, resource: "standard" },
     { file: "test/heavy.test.js", size: 7, resource: "memory-heavy" },
-    { file: "test/external.test.js", size: 6, resource: "external-process" }
+    { file: "test/heavy-2.test.js", size: 5, resource: "memory-heavy" },
+    { file: "test/external.test.js", size: 6, resource: "external-process" },
+    { file: "test/external-2.test.js", size: 4, resource: "external-process" }
   ], 2);
   assert.equal(waves[0].length, 2);
   assert.deepEqual(waves.slice(1).map((wave) => wave[0].files), [
-    ["test/heavy.test.js"],
-    ["test/external.test.js"]
+    ["test/heavy.test.js", "test/heavy-2.test.js"],
+    ["test/external.test.js", "test/external-2.test.js"]
   ]);
   assert.ok(waves.slice(1).every((wave) => wave.length === 1));
 });

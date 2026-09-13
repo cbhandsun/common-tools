@@ -11,6 +11,7 @@ const OFFICE_PATHS = Object.freeze([
   "packages/ppt-create-core/",
   "packages/ppt-improve-core/",
   "packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker.js",
+  "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/",
   "scripts/cross-renderer-corpus-audit.js",
   "scripts/lib/ppt-create-office-corpus.js",
   "scripts/lib/ppt-create-template-archive-corpus.js",

@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { eraseDarkPixelsInRects } = require("../skills/pd-hifi-slideclone/scripts/lib/text-mask-cleanup");
+const { eraseDarkPixelsInRects } = require("../packages/slideclone-core/text-mask-cleanup");
 
 test("text mask cleanup removes dark text pixels but preserves light diagram strokes", () => {
   const image = makeImage(3, 1, [

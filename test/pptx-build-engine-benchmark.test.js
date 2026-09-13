@@ -14,8 +14,8 @@ const {
   resolveEngines,
   safeFileStem,
   summarizeBenchmarkResults
-} = require("../skills/pd-hifi-slideclone/scripts/pptx-build-engine-benchmark");
-const { buildPptxBatch } = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+} = require("../packages/slideclone-native-engine/scripts/pptx-build-engine-benchmark");
+const { buildPptxBatch } = require("../packages/slideclone-native-engine/scripts/rebuild-real-pptx-native");
 
 test("pptx build benchmark parses repeated IR inputs safely", () => {
   const args = parseArgs([

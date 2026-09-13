@@ -7,7 +7,7 @@ const path = require("node:path");
 const test = require("node:test");
 const {spawnSync} = require("node:child_process");
 const packageManifest = require("../package.json");
-const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe } = require("../scripts/verify-runtime-package");
+const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, collectPackageSurfaceTargets, imageEditableEnhancementProbe, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe, runtimePackageFolders, verifyInstalledPackageSurfaces } = require("../scripts/verify-runtime-package");
 
 function metadata(files = REQUIRED_FILES) {
   return JSON.stringify([{
@@ -31,6 +31,44 @@ test("runtime package verifier accepts a bounded release-only file manifest", ()
   assert.equal(result.filename, `common-tools-${packageManifest.version}.tgz`);
   assert.equal(result.size, 1024);
   assert.deepEqual(result.files, [...REQUIRED_FILES, "README.md"]);
+});
+
+test("installed runtime package surfaces must remain package-owned files", () => {
+  assert.deepEqual(collectPackageSurfaceTargets({ main: "index.js", exports: { ".": "./index.js", "./feature": { require: "./feature.js" } } }), [
+    { label: "main", target: "index.js" },
+    { label: "exports[.]", target: "./index.js" },
+    { label: "exports[./feature].require", target: "./feature.js" }
+  ]);
+  assert.throws(() => collectPackageSurfaceTargets({ exports: ["./index.js"] }), /package surface/);
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-installed-surface-"));
+  try {
+    const packageRoot = path.join(root, "common-tools");
+    const featureRoot = path.join(packageRoot, "packages", "feature-core");
+    fs.mkdirSync(featureRoot, { recursive: true });
+    fs.writeFileSync(path.join(featureRoot, "index.js"), "module.exports = {};\n");
+    fs.writeFileSync(path.join(featureRoot, "package.json"), JSON.stringify({ name: "@fixture/feature-core", version: "1.0.0", main: "index.js", exports: { ".": "./index.js" } }));
+    assert.deepEqual(verifyInstalledPackageSurfaces(packageRoot), ["feature-core"]);
+    assert.deepEqual(verifyInstalledPackageSurfaces(packageRoot, ["feature-core"]), ["feature-core"]);
+    assert.throws(() => verifyInstalledPackageSurfaces(packageRoot, ["feature-core", "missing-core"]), /package set/);
+
+    fs.writeFileSync(path.join(featureRoot, "package.json"), JSON.stringify({ name: "@fixture/feature-core", version: "1.0.0", main: "index.js", exports: { ".": "../outside.js" } }));
+    assert.throws(() => verifyInstalledPackageSurfaces(packageRoot), /surface escapes the package/);
+
+    fs.writeFileSync(path.join(featureRoot, "package.json"), JSON.stringify({ name: "@fixture/other-core", version: "1.0.0", main: "index.js" }));
+    assert.throws(() => verifyInstalledPackageSurfaces(packageRoot), /package identity/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime package verifier derives the release package set from workspace packages", () => {
+  const packages = runtimePackageFolders(path.resolve(__dirname, ".."));
+  assert.ok(packages.includes("cli"));
+  assert.ok(packages.includes("slideclone-core"));
+  assert.ok(packages.includes("slideclone-native-engine"));
+  assert.equal(new Set(packages).size, packages.length);
+  assert.deepEqual(packages, [...packages].sort());
 });
 
 test("runtime package verifier rejects missing, unsafe, duplicate, and oversized package metadata", () => {
@@ -62,7 +100,7 @@ test("runtime package release gate retains and probes the ppt-create layout cand
 });
 
 test("runtime package release gate retains and functionally probes the complete ppt-create enhancement set", () => {
-  for (const file of ["packages/ppt-create-core/assets.js", "packages/ppt-create-core/image-delivery.js", "packages/ppt-create-core/ir-editor.js", "packages/ppt-create-core/ir-editor-session.js", "packages/ppt-create-core/ir-lifecycle.js", "packages/ppt-create-core/semantic-components.js", "packages/ppt-create-core/document-ingest.js", "packages/ppt-create-core/pdf-text.js", "packages/ppt-create-core/template.js", "packages/ppt-create-core/variants.js", "packages/ppt-create-core/content-metadata.js", "packages/ppt-create-core/content-provider.js", "packages/ppt-create-core/team-worker.js", "packages/ppt-create-core/team-archive.js", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/DeckPackageWriter.cs", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/PptxPackageAdmissionValidator.cs", "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/SpeakerNotesWriter.cs"]) assert.ok(PPT_CREATE_RELEASE_FILES.includes(file));
+  for (const file of ["packages/ppt-create-core/assets.js", "packages/ppt-create-core/image-delivery.js", "packages/ppt-create-core/ir-editor.js", "packages/ppt-create-core/ir-editor-session.js", "packages/ppt-create-core/ir-lifecycle.js", "packages/ppt-create-core/semantic-components.js", "packages/ppt-create-core/document-ingest.js", "packages/ppt-create-core/pdf-text.js", "packages/ppt-create-core/template.js", "packages/ppt-create-core/variants.js", "packages/ppt-create-core/content-metadata.js", "packages/ppt-create-core/content-provider.js", "packages/ppt-create-core/team-worker.js", "packages/ppt-create-core/team-archive.js", "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/DeckPackageWriter.cs", "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/PptxPackageAdmissionValidator.cs", "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/SpeakerNotesWriter.cs"]) assert.ok(PPT_CREATE_RELEASE_FILES.includes(file));
   const probe = pptCreateEnhancementProbe();
   for (const marker of ["controlled-semantic-editor", "showModal", "openTableEditor", "openChartEditor"]) assert.match(probe, new RegExp(marker));
   for (const marker of ["asset-provenance", "createImageDeliveryArtifacts", "applyAndExportIrArtifacts", "applyIrEditorPatch", "startIrEditorSession", "set-table-cell", "set-chart-data", "applyObjectLifecycleOperation", "applyPageLifecycleOperation", "exportEditedIrArtifacts", "edit-finalization-report.json", "realpathSync.native", "extractMarkdownOutline", "promptToPresentation", "promptToPresentationAsync", "ContentProviderError", "MAX_PROVIDER_REQUEST_BYTES", "ContentProviderRegistry", "createHttpsJsonContentProvider", "loadContentProviderConfig", "persistPromptPlan", "persistPromptPlanAsync", "semantic-depth", "validateGenerationManifest", "applyTemplateLayoutMap", "extractPdfText", "extractPdfLayout", "generatedTemplateRejected", "createDeckVariants", "describeVariants", "composeSpeakerNotes", "createPptCreateHandler", "createPptCreateArchive", "admitPptCreateArchive", "deckVariantCount", "ValidateTemplate", "SpeakerNotesWriter.Add", "ppt edit-session", "loopback-editor-session-bound", "semantic-table-data-editable", "semantic-chart-data-editable", "ppt draft", "ppt compose", "--provider-config", "document-visual-structure-preserved", "template-semantic-layout-mapped", "template-layout-capacity-respected", "complex-graphic-native-gate", "ir-batch-style-validated", "ir-object-lifecycle-validated", "ir-page-lifecycle-validated", "ppt archive", "ppt apply-ir-edit", "ppt finalize-ir-edit", "ppt export-ir", "deck.variants.json", "asset-manifest.json", "generation-manifest.json", "asset-license-policy-compliant"]) assert.match(probe, new RegExp(marker.replaceAll(".", "\\.")));
@@ -91,6 +129,31 @@ test("runtime package retains the release OCR evidence, doctor, and Keycloak rem
     assert.ok(REQUIRED_FILES.includes(file));
   }
   assert.equal(packageManifest.scripts["common-tools:team-doctor"], "node scripts/team-runtime-doctor.js");
+});
+
+test("runtime package exposes production acceptance evidence entrypoints", () => {
+  const repositoryRoot = path.resolve(__dirname, "..");
+  const verifierSource = fs.readFileSync(path.join(repositoryRoot, "scripts", "verify-runtime-package.js"), "utf8");
+  assert.equal(packageManifest.scripts["common-tools:production-acceptance-plan"], "node packages/cli/bin/common-tools.js team production-acceptance-plan");
+  assert.equal(packageManifest.scripts["common-tools:production-acceptance-evidence"], "node packages/cli/bin/common-tools.js team production-acceptance-evidence");
+  assert.equal(packageManifest.scripts["common-tools:production-acceptance-preflight"], "pwsh -NoProfile -File scripts/team-runtime-production-acceptance.ps1 -Mode Plan");
+  assert.equal(packageManifest.scripts["common-tools:production-acceptance-collect"], "pwsh -NoProfile -File scripts/team-runtime-production-acceptance.ps1 -Mode Evidence");
+  assert.equal(packageManifest.scripts["common-tools:production-preflight"], "node packages/cli/bin/common-tools.js team production-preflight");
+  assert.equal(packageManifest.scripts["common-tools:production-migration-status"], "node packages/cli/bin/common-tools.js team migration-status");
+  assert.ok(packageManifest.files.includes("packages/"));
+  assert.ok(packageManifest.files.includes("scripts/team-runtime-production-acceptance.ps1"));
+  assert.ok(REQUIRED_FILES.includes("scripts/team-runtime-production-acceptance.ps1"));
+  assert.ok(fs.existsSync(path.join(repositoryRoot, "packages", "cli", "production-acceptance-plan.js")));
+  assert.match(verifierSource, /team", "production-acceptance-plan"/);
+  assert.match(verifierSource, /productionAcceptancePlan: true/);
+});
+
+test("runtime package exposes architecture closeout status with its default checklist", () => {
+  assert.ok(packageManifest.files.includes("config/architecture-closeout-checklist.json"));
+  assert.ok(packageManifest.files.includes("scripts/verify-architecture-closeout.js"));
+  assert.ok(REQUIRED_FILES.includes("config/architecture-closeout-checklist.json"));
+  assert.ok(REQUIRED_FILES.includes("scripts/verify-architecture-closeout.js"));
+  assert.equal(packageManifest.scripts["common-tools:architecture-closeout"], "node scripts/verify-architecture-closeout.js");
 });
 
 test("runtime package verifier invokes npm through the current Node installation without a shell", () => {

@@ -13,9 +13,11 @@ param(
   [switch]$DiscoverLocalConfiguration,
   [switch]$DiscoverLocalPorts,
   [switch]$EnableRawImageOcr,
+  [switch]$EnableIdentityProvider,
   [switch]$EnableSingleIngress,
   [string]$SingleIngressPublicUrl,
   [switch]$PromptForSecrets,
+  [switch]$SeparatePasswords,
   [string]$Capabilities,
   [ValidateSet('PaddleOCR', 'Tesseract')]
   [string]$RawImageOcrProvider = 'PaddleOCR',
@@ -39,14 +41,20 @@ $resolvedRawImageOcrImage = if (-not [string]::IsNullOrWhiteSpace($RawImageOcrIm
   'common-tools-image-to-editable-ocr:local'
 }
 
+function Read-SecretValue([string]$Prompt) {
+  $secure = Read-Host -Prompt $Prompt -AsSecureString
+  $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+  try { $value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
+  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+  if ([string]::IsNullOrWhiteSpace($value)) { throw 'Secret value is required' }
+  return $value
+}
+
 function Set-MissingPromptedEnvironment([string]$Name, [string]$Prompt, [switch]$Secret) {
   $existing = [Environment]::GetEnvironmentVariable($Name, 'Process')
   if (-not [string]::IsNullOrWhiteSpace($existing)) { return }
   if ($Secret) {
-    $secure = Read-Host -Prompt $Prompt -AsSecureString
-    $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-    try { $value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
-    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+    $value = Read-SecretValue $Prompt
   } else {
     $value = Read-Host -Prompt $Prompt
   }
@@ -55,12 +63,64 @@ function Set-MissingPromptedEnvironment([string]$Name, [string]$Prompt, [switch]
   $script:promptedEnvironmentNames.Add($Name)
 }
 
+function Set-MissingSharedLocalPassword {
+  $secretNames = @(
+    'COMMON_TOOLS_POSTGRES_PASSWORD',
+    'COMMON_TOOLS_DATABASE_PASSWORD',
+    'COMMON_TOOLS_REDIS_PASSWORD',
+    'COMMON_TOOLS_MINIO_PASSWORD',
+    'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD'
+  )
+  $missing = @($secretNames | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process')) })
+  if ($missing.Count -ne $secretNames.Count) { return $false }
+  $password = Read-SecretValue 'Shared local deployment password'
+  if ($password.Length -lt 8) { throw 'Shared local deployment password must contain at least 8 characters' }
+  foreach ($name in $secretNames) {
+    [Environment]::SetEnvironmentVariable($name, $password, 'Process')
+    $script:promptedEnvironmentNames.Add($name)
+  }
+  return $true
+}
+
 function Set-MissingDeploymentSecretsFromPrompt {
+  if (-not $SeparatePasswords) {
+    if (Set-MissingSharedLocalPassword) {
+      Set-MissingPromptedEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' 'Keycloak admin username'
+      return
+    }
+  }
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_POSTGRES_PASSWORD' 'PostgreSQL password' -Secret
+  Set-MissingLocalDatabasePassword
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_REDIS_PASSWORD' 'Redis password' -Secret
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_MINIO_PASSWORD' 'MinIO password' -Secret
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN' 'Keycloak admin username'
   Set-MissingPromptedEnvironment 'COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD' 'Keycloak admin password' -Secret
+}
+
+function Set-MissingLocalDatabasePassword {
+  $existing = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_DATABASE_PASSWORD', 'Process')
+  if (-not [string]::IsNullOrWhiteSpace($existing)) { return }
+  $postgresPassword = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_POSTGRES_PASSWORD', 'Process')
+  if ([string]::IsNullOrWhiteSpace($postgresPassword)) { return }
+  [Environment]::SetEnvironmentVariable('COMMON_TOOLS_DATABASE_PASSWORD', $postgresPassword, 'Process')
+  $script:promptedEnvironmentNames.Add('COMMON_TOOLS_DATABASE_PASSWORD')
+}
+
+function Set-MissingPlanPlaceholderSecrets {
+  $placeholders = [ordered]@{
+    COMMON_TOOLS_POSTGRES_PASSWORD = 'local-plan-placeholder'
+    COMMON_TOOLS_DATABASE_PASSWORD = 'local-plan-placeholder'
+    COMMON_TOOLS_REDIS_PASSWORD = 'local-plan-placeholder'
+    COMMON_TOOLS_MINIO_PASSWORD = 'local-plan-placeholder'
+    COMMON_TOOLS_KEYCLOAK_ADMIN = 'local-admin'
+    COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD = 'local-plan-placeholder'
+  }
+  foreach ($entry in $placeholders.GetEnumerator()) {
+    if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($entry.Key, 'Process'))) {
+      [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'Process')
+      $script:promptedEnvironmentNames.Add($entry.Key)
+    }
+  }
 }
 
 function Test-SiyuanCapabilityEnabled {
@@ -88,6 +148,7 @@ $composeFiles = @(
 $profiles = @('team-infra', 'team-api', 'team-gateway', 'team-maintenance')
 $requiredEnvironment = @(
   'COMMON_TOOLS_POSTGRES_PASSWORD',
+  'COMMON_TOOLS_DATABASE_PASSWORD',
   'COMMON_TOOLS_REDIS_PASSWORD',
   'COMMON_TOOLS_MINIO_PASSWORD',
   'COMMON_TOOLS_REMOTE_PUBLIC_URL',
@@ -107,6 +168,65 @@ function Invoke-Compose([string[]]$Arguments) {
   }
   & docker @baseArguments @Arguments
   if ($LASTEXITCODE -ne 0) { throw 'Docker Compose command failed' }
+}
+
+function Remove-LocalStatelessComposeContainers([string[]]$Services) {
+  $allowedServices = @(
+    'remote-mcp',
+    'remote-mcp-gateway',
+    'team-migrate',
+    'team-retention',
+    'image-to-editable-worker',
+    'ppt-create-worker',
+    'ppt-improve-worker',
+    'ppt-quality-worker',
+    'project-audit-worker'
+  )
+  $containerIds = @()
+  foreach ($service in $Services) {
+    if ($service -notin $allowedServices) { throw "Refusing to clean unsupported service: $service" }
+    $reported = @(& docker ps -a --filter "label=com.docker.compose.project=$Project" --filter "label=com.docker.compose.service=$service" --format '{{.ID}}')
+    if ($LASTEXITCODE -ne 0) { throw 'Docker container inventory failed' }
+    foreach ($id in $reported) {
+      if (-not [string]::IsNullOrWhiteSpace($id)) { $containerIds += $id.Trim() }
+    }
+  }
+  $containerIds = @($containerIds | Select-Object -Unique)
+  if ($containerIds.Count -eq 0) { return }
+  $safeIds = @()
+  foreach ($id in $containerIds) {
+    $raw = & docker inspect $id
+    if ($LASTEXITCODE -ne 0) { throw 'Docker container inspection failed' }
+    try { $container = @($raw | Out-String | ConvertFrom-Json -ErrorAction Stop)[0] }
+    catch { throw 'Docker container inspection returned invalid JSON' }
+    $labels = $container.Config.Labels
+    if ($labels.'com.docker.compose.project' -ne $Project) { throw 'Refusing to clean a container from another Compose project' }
+    if ($labels.'com.docker.compose.service' -notin $Services) { throw 'Refusing to clean an unexpected Compose service' }
+    $namedVolumeMounts = @($container.Mounts | Where-Object { $_.Type -eq 'volume' })
+    if ($namedVolumeMounts.Count -gt 0) { throw 'Refusing to clean a container with Docker volume mounts' }
+    $safeIds += $container.Id
+  }
+  if ($safeIds.Count -gt 0) {
+    & docker rm --force @safeIds | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Docker stateless container cleanup failed' }
+  }
+}
+
+function Resolve-LocalStatelessDeploymentServices($DeploymentPlan) {
+  if ($null -eq $DeploymentPlan -or $null -eq $DeploymentPlan.workerServices) {
+    throw 'Team deployment plan did not include worker services'
+  }
+  $services = @(
+    'remote-mcp',
+    'remote-mcp-gateway',
+    'team-migrate',
+    'team-retention'
+  )
+  foreach ($service in @($DeploymentPlan.workerServices)) {
+    if ([string]::IsNullOrWhiteSpace([string]$service)) { throw 'Team deployment plan included an invalid worker service' }
+    $services += ([string]$service).Trim()
+  }
+  return @($services | Select-Object -Unique)
 }
 
 function Invoke-RawImageOcrImageBuild {
@@ -229,6 +349,7 @@ function Set-MissingLocalConfiguration {
   foreach ($name in @(
     'COMMON_TOOLS_REMOTE_PUBLIC_URL',
     'COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS',
+    'COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT',
     'COMMON_TOOLS_OIDC_ISSUER',
     'COMMON_TOOLS_OIDC_JWKS_URL',
     'COMMON_TOOLS_OIDC_AUDIENCE'
@@ -284,27 +405,71 @@ function Set-MissingLocalMinioPorts {
   throw 'Could not find available loopback ports for local MinIO'
 }
 
+function Set-MissingLocalObjectStorePublicEndpoint {
+  $existing = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT', 'Process')
+  $apiPort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_PORT', 'Process')
+  if ([string]::IsNullOrWhiteSpace($apiPort)) { $apiPort = '59000' }
+  if ($apiPort -notmatch '^[1-9][0-9]{0,4}$' -or [int]$apiPort -gt 65535) { throw 'COMMON_TOOLS_MINIO_PORT is invalid' }
+  if (-not [string]::IsNullOrWhiteSpace($existing)) {
+    try {
+      $existingUri = [Uri]$existing
+      if ($existingUri.Scheme -ne 'http' -or $existingUri.Host -notin @('127.0.0.1', 'localhost', '[::1]')) { return }
+      if ($existingUri.Port -eq [int]$apiPort) { return }
+    } catch {
+      return
+    }
+  }
+  [Environment]::SetEnvironmentVariable('COMMON_TOOLS_OBJECT_STORE_PUBLIC_ENDPOINT', "http://127.0.0.1:$apiPort", 'Process')
+}
+
+function Set-MissingLocalRemotePort {
+  $remotePort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
+  if (-not [string]::IsNullOrWhiteSpace($remotePort)) { return }
+  if (Test-LoopbackPortAvailable 54000) { return }
+  for ($attempt = 0; $attempt -lt 128; $attempt += 1) {
+    $candidate = Get-Random -Minimum 20000 -Maximum 65535
+    if (Test-LoopbackPortAvailable $candidate) {
+      [Environment]::SetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', "$candidate", 'Process')
+      return
+    }
+  }
+  throw 'Could not find an available loopback port for the local remote MCP gateway'
+}
+
 $dockerEngineChecked = $false
 if ($DiscoverLocalConfiguration) {
   Assert-DockerEngineAvailable -TimeoutSeconds $DockerEngineTimeoutSeconds
   $dockerEngineChecked = $true
   Set-MissingLocalConfiguration
 }
-if ($DiscoverLocalPorts) { Set-MissingLocalMinioPorts }
+if ($DiscoverLocalPorts) {
+  Set-MissingLocalRemotePort
+  Set-MissingLocalMinioPorts
+}
+Set-MissingLocalObjectStorePublicEndpoint
 if ($EnableSingleIngress) {
   Set-SingleIngressConfiguration $SingleIngressPublicUrl
+  $EnableIdentityProvider = $true
+}
+if ($EnableIdentityProvider) {
   $composeFiles += (Join-Path $repositoryRoot 'deploy/compose.team-idp.yaml')
-  $composeFiles += (Join-Path $repositoryRoot 'deploy/compose.team-single-ingress.yaml')
   $profiles += 'team-idp'
+}
+if ($EnableSingleIngress) {
+  $composeFiles += (Join-Path $repositoryRoot 'deploy/compose.team-single-ingress.yaml')
 }
 if (-not [string]::IsNullOrWhiteSpace($Capabilities)) {
   [Environment]::SetEnvironmentVariable('COMMON_TOOLS_TEAM_CAPABILITIES', $Capabilities.Trim(), 'Process')
   $restoreCapabilities = $true
 }
+if ($Mode -eq 'Plan' -and -not $PromptForSecrets) {
+  Set-MissingPlanPlaceholderSecrets
+}
 if ($PromptForSecrets) {
   Set-MissingDeploymentSecretsFromPrompt
   if (Test-SiyuanCapabilityEnabled) { Set-MissingSiyuanConfigurationFromPrompt }
 }
+Set-MissingLocalDatabasePassword
 if (Test-SiyuanCapabilityEnabled) {
   $requiredEnvironment += @('COMMON_TOOLS_SIYUAN_URL', 'COMMON_TOOLS_SIYUAN_TOKEN')
 }
@@ -340,10 +505,12 @@ if ($Mode -eq 'Plan') {
     enabledCapabilities = @($deploymentPlan.capabilities)
     workerProfiles = @($deploymentPlan.workerProfiles)
     rawImageOcrProfile = $rawImageOcrProfile
+    identityProviderEnabled = [bool]$EnableIdentityProvider
     localMinioPorts = @{
       api = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_PORT', 'Process')
       console = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_MINIO_CONSOLE_PORT', 'Process')
     }
+    localRemotePort = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_REMOTE_PORT', 'Process')
     composeConfigurationValid = $true
     deployment = 'No containers or images were changed.'
   } | ConvertTo-Json -Compress
@@ -354,8 +521,9 @@ if ($Mode -eq 'Plan') {
 # Do not replace it with --no-deps: API and Workers must wait for team-migrate.
 # Validate the existing persistent object store before rebuilding the API and
 # Workers. A root-password mismatch must not trigger a costly partial rollout.
-Invoke-Compose @('up', '--detach', '--wait', '--wait-timeout', $WaitTimeoutSeconds, 'minio')
-Invoke-Compose @('up', '--detach', '--build', '--wait', '--wait-timeout', $WaitTimeoutSeconds, '--scale', "remote-mcp=$ApiReplicas")
+Remove-LocalStatelessComposeContainers @(Resolve-LocalStatelessDeploymentServices $deploymentPlan)
+Invoke-Compose @('up', '--detach', '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, 'minio')
+Invoke-Compose @('up', '--detach', '--build', '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, '--scale', "remote-mcp=$ApiReplicas")
 Assert-LocalRuntime @($deploymentPlan.capabilities)
 Synchronize-SingleIngressMcpOAuthClient
 Assert-SingleIngressRuntime @($deploymentPlan.capabilities)

@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const renderLibreOffice = require("../skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice");
+const renderLibreOffice = require("../packages/slideclone-native-engine/scripts/adapters/render-libreoffice");
 
 const tinyPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",

@@ -18,6 +18,11 @@ function normalDirectory(value, label) {
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`${label} is invalid`);
   return value;
 }
+function ensureDirectory(value, label) {
+  if (typeof value !== "string" || !path.isAbsolute(value)) throw new TypeError(`${label} is invalid`);
+  fs.mkdirSync(value, { recursive: true, mode: 0o700 });
+  return normalDirectory(value, label);
+}
 function packageManifest() {
   return Object.freeze({
     name: "@common-tools/project-audit-runtime",
@@ -47,7 +52,7 @@ function parsePackResult(stdout) {
   if (!Array.isArray(parsed) || parsed.length !== 1 || !plainObject(parsed[0]) || typeof parsed[0].filename !== "string" || !/^[a-zA-Z0-9._-]+\.tgz$/.test(parsed[0].filename) || !Number.isSafeInteger(parsed[0].size) || parsed[0].size < 1 || parsed[0].size > MAX_PACKAGE_BYTES || !Array.isArray(parsed[0].files)) throw new Error("project audit npm package metadata is invalid");
   const files = parsed[0].files.map((entry) => plainObject(entry) && typeof entry.path === "string" ? entry.path.replace(/\\/g, "/").toLowerCase() : "");
   if (files.some((file) => !file || file.includes("../") || FORBIDDEN_MARKERS.some((marker) => file.includes(marker)))) throw new Error("project audit npm package contains a forbidden file");
-  for (const required of ["package.json", "packages/project-audit-runtime/bin/common-tools-audit.js", "packages/project-audit-core/index.js", "packages/capability-runtime/index.js", "packages/capability-contracts/index.js"]) if (!files.includes(required)) throw new Error("project audit npm package is incomplete");
+  for (const required of ["package.json", "packages/project-audit-runtime/bin/common-tools-audit.js", "packages/project-audit-core/index.js", "packages/archive-core/index.js", "packages/capability-runtime/index.js", "packages/capability-contracts/index.js"]) if (!files.includes(required)) throw new Error("project audit npm package is incomplete");
   return Object.freeze({ filename: parsed[0].filename, size: parsed[0].size, files: Object.freeze(files) });
 }
 function run(commandRunner, command, argumentsList, cwd, message) {
@@ -55,9 +60,20 @@ function run(commandRunner, command, argumentsList, cwd, message) {
   if (!result || result.error || result.status !== 0 || typeof result.stdout !== "string") throw new Error(message);
   return result.stdout;
 }
+function copyArchive(sourceArchive, destinationArchive) {
+  const source = path.resolve(sourceArchive);
+  const destination = path.resolve(destinationArchive);
+  if (!fs.lstatSync(source).isFile()) throw new Error("project audit runtime archive source is invalid");
+  normalDirectory(path.dirname(destination), "output directory");
+  if (fs.existsSync(destination)) {
+    const stat = fs.lstatSync(destination);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("project audit runtime archive destination is invalid");
+  }
+  fs.copyFileSync(source, destination);
+}
 function buildProjectAuditRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), outputDirectory, commandRunner = childProcess.spawnSync, temporaryDirectory = fs.mkdtempSync } = {}) {
   const root = normalDirectory(path.resolve(repositoryRoot), "repository root");
-  const output = normalDirectory(path.resolve(outputDirectory || path.join(root, "dist", "project-audit-runtime")), "output directory");
+  const output = ensureDirectory(path.resolve(outputDirectory || path.join(root, "dist", "project-audit-runtime")), "output directory");
   const temporaryRoot = temporaryDirectory(path.join(os.tmpdir(), "common-tools-project-audit-package-"));
   let cleanable = false;
   try {
@@ -74,7 +90,7 @@ function buildProjectAuditRuntimePackage({ repositoryRoot = path.resolve(__dirna
     const metadata = parsePackResult(run(commandRunner, pack.command, pack.arguments, stage, "project audit runtime pack failed"));
     const sourceArchive = path.join(packedOutput, metadata.filename);
     const destinationArchive = path.join(output, metadata.filename);
-    fs.copyFileSync(sourceArchive, destinationArchive, fs.constants.COPYFILE_EXCL);
+    copyArchive(sourceArchive, destinationArchive);
     const install = npmInvocation(["install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", installRoot, destinationArchive]);
     run(commandRunner, install.command, install.arguments, root, "project audit runtime installation failed");
     const cli = path.join(installRoot, "node_modules", "@common-tools", "project-audit-runtime", "packages", "project-audit-runtime", "bin", "common-tools-audit.js");
@@ -88,10 +104,10 @@ function buildProjectAuditRuntimePackage({ repositoryRoot = path.resolve(__dirna
 function parseArguments(argv) {
   if (!Array.isArray(argv) || argv.length > 2 || argv.some((value) => typeof value !== "string" || value.length > 4096)) throw new Error("package arguments are invalid");
   if (argv.length === 0) return {};
-  if (argv.length !== 2 || argv[0] !== "--out" || !argv[1].trim()) throw new Error("usage: build-project-audit-runtime-package --out <existing-directory>");
+  if (argv.length !== 2 || argv[0] !== "--out" || !argv[1].trim()) throw new Error("usage: build-project-audit-runtime-package --out <directory>");
   return { outputDirectory: path.resolve(argv[1]) };
 }
 
 if (require.main === module) process.stdout.write(`${JSON.stringify(buildProjectAuditRuntimePackage(parseArguments(process.argv.slice(2))))}\n`);
 
-module.exports = { FORBIDDEN_MARKERS, INCLUDED_DIRECTORIES, MAX_PACKAGE_BYTES, buildProjectAuditRuntimePackage, createStage, packageManifest, parseArguments, parsePackResult };
+module.exports = { FORBIDDEN_MARKERS, INCLUDED_DIRECTORIES, MAX_PACKAGE_BYTES, buildProjectAuditRuntimePackage, copyArchive, createStage, ensureDirectory, packageManifest, parseArguments, parsePackResult };

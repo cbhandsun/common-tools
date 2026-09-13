@@ -7,7 +7,7 @@ const {
   sanitizeNativeCharts,
   sanitizeNativeShape,
   sanitizeNativeShapes
-} = require("../skills/pd-hifi-slideclone/scripts/lib/native-output-sanitizer");
+} = require("../packages/slideclone-core/native-output-sanitizer");
 
 test("legacy output sanitizer forwards to the core boundary", () => {
   assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/native-output-sanitizer"), require("../packages/slideclone-core/native-output-sanitizer"));

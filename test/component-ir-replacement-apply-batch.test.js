@@ -11,7 +11,7 @@ const {
   parseArgs,
   runComponentIrReplacementApplyBatch,
   summarizeResults
-} = require("../skills/pd-hifi-slideclone/scripts/component-ir-replacement-apply-batch");
+} = require("../packages/slideclone-native-engine/scripts/component-ir-replacement-apply-batch");
 
 test("component IR replacement apply batch parses CLI flags", () => {
   const args = parseArgs([

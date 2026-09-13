@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectSemanticQuadrantPanels } = require("../skills/pd-hifi-slideclone/scripts/lib/visual-quadrant-panels");
+const { detectSemanticQuadrantPanels } = require("../packages/slideclone-core/visual-quadrant-panels");
 
 test("detects exactly four complete quadrant panels", () => {
   const panels = detectSemanticQuadrantPanels(fixture(), { x: 0, y: 0, w: 520, h: 360 }, "impact effort quadrant matrix 四象限");

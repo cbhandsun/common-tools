@@ -7,7 +7,7 @@ const {
   buildComponentAssetReplayIr,
   parsePresentationSlideSize,
   selectReplayGroup
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-replay-fixture");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-asset-replay-fixture");
 
 function replayGroup(id, count, overrides = {}) {
   return {

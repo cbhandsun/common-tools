@@ -12,12 +12,12 @@ const {
   summarizeStyleJson,
   summarizeSvg,
   _private
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning");
 const {
   countPptxSlides,
   listZipEntries,
   readZipEntry
-} = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+} = require("../packages/ooxml-core/pptx-inventory");
 
 function roundBox(box = {}) {
   return Object.fromEntries(Object.entries(box).map(([key, value]) => [key, Math.round(Number(value) * 1000) / 1000]));
@@ -470,7 +470,7 @@ test("component asset learning bounds malformed and excessively deep group input
 });
 
 test("component asset learning extracts fine-grained component motifs", () => {
-  const { summarizeComponentStructure } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { summarizeComponentStructure } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const structure = summarizeComponentStructure({
     children: [
       { kind: "shape", box: { x: 0.1, y: 0.1, w: 0.3, h: 0.3 }, style: { shapeType: "arc" } },
@@ -487,7 +487,7 @@ test("component asset learning extracts fine-grained component motifs", () => {
 });
 
 test("component asset learning recognizes segmented iSlide arc-arrow components", () => {
-  const { summarizeComponentStructure } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { summarizeComponentStructure } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const structure = summarizeComponentStructure({
     children: [
       { kind: "shape", box: { x: 0.49, y: 0.00, w: 0.51, h: 0.68 }, style: {} },
@@ -513,7 +513,7 @@ test("component asset learning recognizes segmented iSlide arc-arrow components"
 });
 
 test("component asset learning recognizes iSlide freeform arrow chains without promoting single arrows", () => {
-  const { summarizeComponentStructure } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { summarizeComponentStructure } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const arrowStyle = {
     freeform: {
       points: [
@@ -557,7 +557,7 @@ test("component asset learning recognizes iSlide freeform arrow chains without p
 });
 
 test("component asset learning recognizes cyclic freeform arrows without treating them as a card grid", () => {
-  const { summarizeComponentStructure } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { summarizeComponentStructure } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const cycleArrow = {
     freeform: {
       points: Array.from({ length: 20 }, (_, index) => ({
@@ -615,7 +615,7 @@ test("component asset learning promotes curved milestone roadmaps to timeline co
 });
 
 test("component asset learning promotes connector-rich branching components to relationship templates", () => {
-  const { refineGroupStructure } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { refineGroupStructure } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const structure = refineGroupStructure({
     kind: "timeline",
     roles: { background: 0, node: 3, connector: 0, textSlot: 0, pictureSlot: 0, decoration: 0 },
@@ -639,7 +639,7 @@ test("component asset learning promotes connector-rich branching components to r
 });
 
 test("component asset learning recognizes fishbone cause-effect spines before generic hub-spoke routing", () => {
-  const { refineGroupStructure } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { refineGroupStructure } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const structure = refineGroupStructure({
     kind: "hub-spoke",
     roles: { background: 0, node: 5, connector: 0, textSlot: 0, pictureSlot: 0, decoration: 0 },
@@ -671,7 +671,7 @@ test("component asset learning recognizes fishbone cause-effect spines before ge
 });
 
 test("component asset learning recognizes native pyramid and funnel component stacks", () => {
-  const { refineGroupStructure } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { refineGroupStructure } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const base = {
     kind: "matrix",
     roles: { background: 0, node: 4, connector: 0, textSlot: 8, pictureSlot: 0, decoration: 0 },
@@ -721,7 +721,7 @@ test("component asset learning recognizes native pyramid and funnel component st
 });
 
 test("component asset learning recognizes a quadrant component only with a central axis", () => {
-  const { refineGroupStructure } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { refineGroupStructure } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const base = {
     kind: "matrix",
     roles: { background: 0, node: 5, connector: 0, textSlot: 4, pictureSlot: 0, decoration: 0 },
@@ -750,7 +750,7 @@ test("component asset learning recognizes a quadrant component only with a centr
 });
 
 test("component asset learning recognizes offset layered stacks without relabeling equal-width lists", () => {
-  const { refineGroupStructure } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { refineGroupStructure } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const base = {
     kind: "card-group",
     roles: { background: 0, node: 3, connector: 0, textSlot: 3, pictureSlot: 0, decoration: 0 },
@@ -785,7 +785,7 @@ test("component asset learning recognizes offset layered stacks without relabeli
 });
 
 test("component asset learning recognizes lens funnel and branch card flow motifs", () => {
-  const { summarizeComponentStructure } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { summarizeComponentStructure } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const structure = summarizeComponentStructure({
     children: [
       { kind: "shape", box: { x: 0.04, y: 0.20, w: 0.16, h: 0.16 }, style: { shapeType: "roundRect" } },
@@ -807,7 +807,7 @@ test("component asset learning recognizes lens funnel and branch card flow motif
 });
 
 test("component asset learning resolves theme scheme colors in plugin gradients", () => {
-  const { parseGradientFill, parseThemeColorsXml } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { parseGradientFill, parseThemeColorsXml } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const themeColors = parseThemeColorsXml([
     '<a:themeOverride xmlns:a="a"><a:clrScheme name="iSlide">',
     '<a:accent1><a:srgbClr val="FD6D25"/></a:accent1>',
@@ -831,7 +831,7 @@ test("component asset learning resolves theme scheme colors in plugin gradients"
 });
 
 test("component asset learning extracts safe text style from plugin template shapes", () => {
-  const layout = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")
+  const layout = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")
     ._private
     .summarizeGroupChildLayout([
       '<p:grpSp xmlns:p="p" xmlns:a="a">',
@@ -862,7 +862,7 @@ test("component asset learning extracts safe text style from plugin template sha
 });
 
 test("component asset learning preserves OpenXML child order and rotation", () => {
-  const layout = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")
+  const layout = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")
     ._private
     .summarizeGroupChildLayout([
       '<p:grpSp xmlns:p="p" xmlns:a="a">',
@@ -885,7 +885,7 @@ test("component asset learning preserves OpenXML child order and rotation", () =
 });
 
 test("component asset learning resolves only safe package media relationships", () => {
-  const { parseRelationshipsXml, resolveRelationshipTarget } = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-learning")._private;
+  const { parseRelationshipsXml, resolveRelationshipTarget } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-learning")._private;
   const relationships = parseRelationshipsXml([
     '<Relationships>',
     '<Relationship Id="rId1" Target="../media/icon.svg"/>',

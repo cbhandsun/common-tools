@@ -25,6 +25,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/slideclone-core/orthogonal-connector-promotion.js",
   "packages/slideclone-core/paradigm-shift-matrix.js",
   "packages/slideclone-core/pptx-inventory.js",
+  "packages/ooxml-core/pptx-inventory.js",
   "packages/slideclone-core/prd-segmented-flow-components.js",
   "packages/slideclone-core/product-collaboration-protection.js",
   "packages/slideclone-core/product-manager-friction-network.js",
@@ -71,6 +72,13 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/slideclone-core/relationship-native-layouts.js",
   "packages/slideclone-core/relationship-native-shapes.js",
   "packages/slideclone-core/relationship-native-geometry.js",
+  "packages/slideclone-core/relationship-topology-helpers.js",
+  "packages/slideclone-core/relationship-branch-card-shell.js",
+  "packages/slideclone-core/relationship-basic-shells.js",
+  "packages/slideclone-core/relationship-funnel-lens-shell.js",
+  "packages/slideclone-core/relationship-hub-spoke-shell.js",
+  "packages/slideclone-core/relationship-layered-flow-shells.js",
+  "packages/slideclone-core/relationship-sankey-shell.js",
   "packages/slideclone-core/visual-atom-native-reconstruction.js",
   "packages/slideclone-core/pixel-branch-curve-detector.js",
   "packages/slideclone-core/component-strategy-annotator.js",
@@ -124,6 +132,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/cli/verification/project-audit-runtime.js",
   "packages/cli/verification/verify-plugins.js",
   "packages/cli/verification/verify-capability-contracts.js",
+  "packages/cli/verification/verify-capability-catalogs.js",
   "packages/cli/verification/release-evidence.js",
   "packages/cli/verification/verify-release-signature.js",
   "packages/cli/verification/generate-sbom.js",
@@ -163,7 +172,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
     "packages/slideclone-core/color-component-bounds.js",
   "packages/slideclone-core/image-layer-metadata.js",
   "packages/slideclone-core/graphic-expression-policy.js",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/NativeResidualLayerPlan.cs",
+  "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/NativeResidualLayerPlan.cs",
   "packages/slideclone-core/page-output-finalizer.js",
   "packages/slideclone-core/page-shape-finalizer.js",
   "packages/slideclone-core/page-text-finalizer.js",
@@ -176,7 +185,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/slideclone-core/team-native-rebuild.js",
   "packages/slideclone-core/ocr-source-deck.js",
   "packages/slideclone-core/ocr-glyph-residual.js",
-  "packages/slideclone-core/ocr-checkpoint.js",
+  "packages/slideclone-worker-adapter/ocr-checkpoint.js",
   "packages/slideclone-core/ocr-result-admission.js",
   "packages/slideclone-core/rebuilt-page-metadata.js",
   "packages/slideclone-core/page-image-finalizer.js",
@@ -198,7 +207,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/slideclone-core/native-text-style.js",
   "packages/slideclone-core/screenshot-flow-reconstruction.js",
   "packages/slideclone-core/screenshot-texture-evidence.js",
-  "packages/slideclone-core/team-structured-deck-archive.js",
+  "packages/slideclone-worker-adapter/team-structured-deck-archive.js",
   "packages/slideclone-core/tool-platform-reconstruction.js",
   "packages/slideclone-core/review-risk-reconstruction.js",
   "packages/slideclone-core/openxml-build-jobs.js",
@@ -207,6 +216,7 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/slideclone-core/restricted-svg.js",
   "packages/slideclone-core/openxml-build-cache.js",
   "packages/slideclone-core/pptx-zip.js",
+  "packages/ooxml-core/pptx-zip.js",
   "packages/slideclone-core/cache-budget.js",
   "packages/slideclone-core/render-libreoffice.js",
   "packages/slideclone-core/renderer-process.js",
@@ -236,10 +246,11 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/slideclone-core/native-rebuild-deck-pipeline.js",
   "packages/slideclone-core/progress-reporter.js",
   "packages/slideclone-core/knowledge-graph-native.js",
-  "packages/slideclone-core/team-raw-image-archive.js",
-  "packages/slideclone-core/team-document-normalizer.js",
-  "packages/slideclone-core/team-render-quality.js",
-  "packages/slideclone-core/team-worker.js",
+  "packages/slideclone-worker-adapter/team-raw-image-archive.js",
+  "packages/slideclone-worker-adapter/team-document-normalizer.js",
+  "packages/slideclone-worker-adapter/team-render-quality.js",
+  "packages/slideclone-worker-adapter/team-worker.js",
+  "packages/slideclone-worker-adapter/package.json",
   "packages/team-runtime/worker-failure.js",
   "packages/team-runtime/worker-lease.js",
   "packages/team-runtime/worker-context.js",
@@ -247,7 +258,6 @@ const IMAGE_EDITABLE_RELEASE_FILES = Object.freeze([
   "packages/team-runtime/worker-runner.js",
   "packages/team-runtime/retention-output-keys.js",
   "packages/remote-mcp-server/bin/common-tools-team-image-worker.js",
-  "skills/pd-hifi-slideclone/scripts/lib/full-slide-native-residual.js",
   "plugins/common-tools/skills/image-to-editable/SKILL.md",
   "plugins/codex/image-to-editable/skills/image-to-editable/SKILL.md"
 ]);
@@ -284,26 +294,41 @@ const PPT_CREATE_RELEASE_FILES = Object.freeze([
   "packages/ppt-create-core/layout.js",
   "packages/ppt-create-core/presentation-brief.schema.json",
   "packages/ppt-create-core/presentation-spec.schema.json",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/DeckPackageWriter.cs",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/Models.cs",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/PptxPackageAdmissionValidator.cs",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/SpeakerNotesWriter.cs",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/DeckPackageWriter.cs",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/Models.cs",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/PptxPackageAdmissionValidator.cs",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/SpeakerNotesWriter.cs",
   "plugins/common-tools/skills/ppt-create/SKILL.md"
 ]);
 const REQUIRED_FILES = Object.freeze([
   ".agents/plugins/marketplace.json",
   "package.json",
+  "config/architecture-closeout-checklist.json",
   "packages/cli/bin/common-tools.js",
+  "packages/cli/production-env-file.js",
+  "packages/capability-registry/index.js",
+  "packages/capability-registry/package.json",
   "packages/mcp-server/core.js",
   "packages/team-runtime/schema/010_retention_recheck.sql",
   "packages/team-runtime/schema/011_delivery_outbox.sql",
+  "scripts/verify-architecture-closeout.js",
   "scripts/generate-sbom.js",
   "scripts/release-evidence.js",
   "scripts/generate-image-ocr-release-input.js",
   "scripts/generate-remote-plugin-bundles.js",
   "scripts/common-tools-docker-engine.ps1",
   "scripts/team-runtime-compose-smoke.ps1",
+  "scripts/team-runtime-local-apply.ps1",
   "scripts/team-runtime-local-deploy.ps1",
+  "scripts/team-runtime-local-acceptance.ps1",
+  "scripts/team-runtime-local-closeout.ps1",
+  "scripts/verify-local-acceptance-evidence.js",
+  "scripts/team-runtime-local-job-smoke.ps1",
+  "scripts/team-runtime-local-repair-migration-ledger.ps1",
+  "scripts/team-runtime-local-smoke.ps1",
+  "scripts/team-runtime-authenticated-job-smoke.js",
+  "scripts/team-runtime-production-acceptance.ps1",
+  "scripts/team-keycloak-local-test-user.ps1",
   "scripts/team-keycloak-mcp-client-sync.ps1",
   "scripts/team-keycloak-recovery-admin.ps1",
   "scripts/team-runtime-production-deploy.ps1",
@@ -317,15 +342,16 @@ const REQUIRED_FILES = Object.freeze([
   "scripts/team-minio-volume-backup.ps1",
   "scripts/team-runtime-local-fresh-reset.ps1",
   "scripts/team-runtime-doctor.js",
-  "skills/pd-hifi-slideclone/scripts/slideclone.js",
-  "skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-com.js",
-  "skills/pd-hifi-slideclone/scripts/lib/powerpoint-open-evidence.js",
-  "skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-client.js",
-  "skills/pd-hifi-slideclone/scripts/lib/powerpoint-session-broker.js",
-  "skills/pd-hifi-slideclone/scripts/lib/powerpoint-corpus-session.js",
-  "skills/pd-hifi-slideclone/scripts/lib/progress-reporter.js",
+  "packages/slideclone-native-engine/scripts/slideclone.js",
+  "packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-com.js",
+  "packages/slideclone-native-engine/scripts/lib/powerpoint-roundtrip-evidence.js",
+  "packages/slideclone-native-engine/scripts/lib/powerpoint-open-evidence.js",
+  "packages/slideclone-native-engine/scripts/lib/powerpoint-session-client.js",
+  "packages/slideclone-native-engine/scripts/lib/powerpoint-session-broker.js",
+  "packages/slideclone-native-engine/scripts/lib/powerpoint-corpus-session.js",
+  "packages/slideclone-native-engine/scripts/lib/progress-reporter.js",
   "skills/pd-hifi-slideclone/schemas/slideclone.config.schema.json",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj",
   "packages/remote-mcp-server/worker-settings.js",
   "packages/remote-mcp-server/image-worker-settings.js",
   "packages/team-runtime/team-config.js",
@@ -340,8 +366,8 @@ const FORBIDDEN_PREFIXES = Object.freeze([
   "runs/",
   "test/",
   "skills/pd-hifi-slideclone/examples/",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/bin/",
-  "skills/pd-hifi-slideclone/dotnet/OpenXmlDeckBuilder/obj/"
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/bin/",
+    "packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/obj/"
 ]);
 
 function plainObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
@@ -440,6 +466,60 @@ function installedCliPath(installRoot) {
   return path.join(installRoot, "node_modules", "common-tools", "packages", "cli", "bin", "common-tools.js");
 }
 
+function runtimePackageFolders(repositoryRoot) {
+  const packagesRoot = path.join(normalDirectory(repositoryRoot, "repository root"), "packages");
+  return Object.freeze(fs.readdirSync(packagesRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(packagesRoot, entry.name, "package.json")))
+    .map((entry) => entry.name)
+    .sort());
+}
+
+function collectPackageSurfaceTargets(value, label = "package surface") {
+  const targets = [];
+  function collect(current, currentLabel) {
+    if (typeof current === "string") {
+      targets.push(Object.freeze({ label: currentLabel, target: current }));
+      return;
+    }
+    if (!plainObject(current)) throw new TypeError(`${label} is invalid`);
+    for (const [name, child] of Object.entries(current).sort(([left], [right]) => left.localeCompare(right))) {
+      collect(child, currentLabel === "exports" ? `exports[${name}]` : `${currentLabel}.${name}`);
+    }
+  }
+  if (typeof value.main === "string") targets.push(Object.freeze({ label: "main", target: value.main }));
+  else if (Object.hasOwn(value, "main")) throw new TypeError(`${label} main is invalid`);
+  if (Object.hasOwn(value, "exports")) collect(value.exports, "exports");
+  return Object.freeze(targets);
+}
+
+function verifyInstalledPackageSurfaces(packageRoot, expectedPackageFolders) {
+  const packagesRoot = path.join(normalDirectory(packageRoot, "installed package root"), "packages");
+  const packageNames = [];
+  for (const entry of fs.readdirSync(packagesRoot, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+    if (!entry.isDirectory()) continue;
+    const packageDirectory = path.join(packagesRoot, entry.name);
+    const manifestPath = path.join(packageDirectory, "package.json");
+    if (!fs.existsSync(manifestPath)) continue;
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    if (typeof manifest.name !== "string" || manifest.name.split("/")[1] !== entry.name) throw new Error("installed runtime package identity is invalid");
+    packageNames.push(entry.name);
+    for (const { target } of collectPackageSurfaceTargets(manifest, "installed runtime package surface")) {
+      if (path.isAbsolute(target) || target.includes("\0")) throw new Error("installed runtime package surface is invalid");
+      const resolved = path.resolve(packageDirectory, target);
+      const relative = path.relative(packageDirectory, resolved);
+      if (relative === "" || path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) throw new Error("installed runtime package surface escapes the package");
+      const details = fs.statSync(fs.realpathSync(resolved));
+      if (!details.isFile()) throw new Error("installed runtime package surface is missing");
+    }
+  }
+  if (packageNames.length === 0) throw new Error("installed runtime package surfaces are missing");
+  if (expectedPackageFolders !== undefined) {
+    if (!Array.isArray(expectedPackageFolders) || expectedPackageFolders.some((item) => typeof item !== "string" || !item)) throw new TypeError("expected runtime package folders are invalid");
+    if (JSON.stringify(packageNames) !== JSON.stringify([...expectedPackageFolders].sort())) throw new Error("installed runtime package set does not match the workspace package set");
+  }
+  return Object.freeze(packageNames);
+}
+
 function imageEditableEnhancementProbe() {
   return [
     "let stage='initialization';try{const fs=require('node:fs');const path=require('node:path');",
@@ -449,12 +529,12 @@ function imageEditableEnhancementProbe() {
     "const version=String(manifest.version||'').split('.').map(Number);",
     "stage='core-load';",
     "const native=require(path.join(root,'packages','slideclone-core','team-native-rebuild.js'));const profile=require(path.join(root,'packages','slideclone-core','native-rebuild-profile.js'));",
-    "const worker=require(path.join(root,'packages','slideclone-core','team-worker.js'));const archive=require(path.join(root,'packages','slideclone-core','team-raw-image-archive.js'));const documentNormalizer=require(path.join(root,'packages','slideclone-core','team-document-normalizer.js'));const quality=require(path.join(root,'packages','slideclone-core','team-render-quality.js'));",
+    "const worker=require(path.join(root,'packages','slideclone-worker-adapter','team-worker.js'));const archive=require(path.join(root,'packages','slideclone-worker-adapter','team-raw-image-archive.js'));const documentNormalizer=require(path.join(root,'packages','slideclone-worker-adapter','team-document-normalizer.js'));const quality=require(path.join(root,'packages','slideclone-worker-adapter','team-render-quality.js'));",
     "const archiveAdmission=require(path.join(root,'packages','slideclone-core','archive-admission.js'));const normalizedAdmission=require(path.join(root,'packages','slideclone-core','normalized-pages-admission.js'));let oversizedPagesRejected=false;try{normalizedAdmission.admitNormalizedPages({sources:Array.from({length:21},()=>({})),pages:21,assets:21},root);}catch(error){oversizedPagesRejected=error instanceof TypeError&&error.message==='document normalization returned an invalid page set';}",
-    "const residual=require(path.join(root,'skills','pd-hifi-slideclone','scripts','lib','full-slide-native-residual.js'));",
+    "const residual=require(path.join(root,'packages','slideclone-core','full-slide-native-residual.js'));",
     "stage='source-read';",
     "const nativeSource=fs.readFileSync(path.join(root,'packages','slideclone-core','team-native-rebuild.js'),'utf8');const localCoreSource=fs.readFileSync(path.join(root,'packages','slideclone-core','index.js'),'utf8');const cliSource=fs.readFileSync(path.join(root,'packages','cli','bin','common-tools.js'),'utf8');",
-    "const workerSource=fs.readFileSync(path.join(root,'packages','slideclone-core','team-worker.js'),'utf8');",
+    "const workerSource=fs.readFileSync(path.join(root,'packages','slideclone-worker-adapter','team-worker.js'),'utf8');",
     "const remoteSource=fs.readFileSync(path.join(root,'packages','remote-mcp-server','bin','common-tools-team-image-worker.js'),'utf8');",
     "const skill=fs.readFileSync(path.join(root,'plugins','common-tools','skills','image-to-editable','SKILL.md'),'utf8');const localSkill=fs.readFileSync(path.join(root,'plugins','codex','image-to-editable','skills','image-to-editable','SKILL.md'),'utf8');",
     "const versionReady=version.length===3&&version.every(Number.isSafeInteger)&&(version[0]>0||version[1]>1||(version[1]===1&&version[2]>=7));",
@@ -496,7 +576,7 @@ function pptCreateEnhancementProbe() {
     "stage='document-ingest';const outline=ingest.extractMarkdownOutline('# Probe\\n\\n## Facts\\n\\n- Verified point');const brief=ingest.outlineToBrief(outline,{audience:'Reviewers',purpose:'Approve direction',theme:'clean-light-v1',deckVariantCount:2,maxSlides:4});",
     "stage='template-safety';let generatedTemplateRejected=false;try{template.normalizeTemplate({path:'template.pptx',sha256:'b'.repeat(64),source:{kind:'generated',locator:'probe',license:'generated'},mode:'master-and-theme'});}catch{generatedTemplateRejected=true;}",
     "stage='variants';const spec={version:'1.0',title:'Enhancement probe',theme:'clean-light-v1',seed:'enhancement-probe',variantCount:2,deckVariantCount:2,slides:[{id:'cover',role:'cover',title:'Enhancement probe'},{id:'facts',role:'content',title:'Facts',items:[{id:'fact',label:'Verified point'}],citations:[{id:'source-1',title:'Primary source',locator:'https://example.com/source'}],speakerNotes:'Explain the verified point.'},{id:'close',role:'closing',title:'Next step'}]};const deckVariants=layout.createDeckVariants(spec);const variantRecords=variants.describeVariants(deckVariants);const notes=metadata.composeSpeakerNotes(spec.slides[1].speakerNotes,spec.slides[1].citations);const semanticBounds={x:0,y:0,w:800,h:300};const semanticEntries=Array.from({length:4},(_,index)=>({id:'n'+index,label:'N'+index}));const roadmap=semantic.planSemanticAnalysis({kind:'analysis',model:'roadmap',entries:semanticEntries},semanticBounds);const gantt=semantic.planSemanticAnalysis({kind:'analysis',model:'gantt',entries:semanticEntries},semanticBounds);",
-    "stage='source-read';const skill=fs.readFileSync(path.join(root,'plugins','common-tools','skills','ppt-create','SKILL.md'),'utf8');const irEditorSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','ir-editor.js'),'utf8');const irEditorClientSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','ir-editor-client.js'),'utf8');const providerConfigSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','content-provider-config.js'),'utf8');const packageWriter=fs.readFileSync(path.join(root,'skills','pd-hifi-slideclone','dotnet','OpenXmlDeckBuilder','DeckPackageWriter.cs'),'utf8');const admission=fs.readFileSync(path.join(root,'skills','pd-hifi-slideclone','dotnet','OpenXmlDeckBuilder','PptxPackageAdmissionValidator.cs'),'utf8');const notesWriter=fs.readFileSync(path.join(root,'skills','pd-hifi-slideclone','dotnet','OpenXmlDeckBuilder','SpeakerNotesWriter.cs'),'utf8');",
+    "stage='source-read';const skill=fs.readFileSync(path.join(root,'plugins','common-tools','skills','ppt-create','SKILL.md'),'utf8');const irEditorSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','ir-editor.js'),'utf8');const irEditorClientSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','ir-editor-client.js'),'utf8');const providerConfigSource=fs.readFileSync(path.join(root,'packages','ppt-create-core','content-provider-config.js'),'utf8');const packageWriter=fs.readFileSync(path.join(root,'packages','slideclone-native-engine','dotnet','OpenXmlDeckBuilder','DeckPackageWriter.cs'),'utf8');const admission=fs.readFileSync(path.join(root,'packages','slideclone-native-engine','dotnet','OpenXmlDeckBuilder','PptxPackageAdmissionValidator.cs'),'utf8');const notesWriter=fs.readFileSync(path.join(root,'packages','slideclone-native-engine','dotnet','OpenXmlDeckBuilder','SpeakerNotesWriter.cs'),'utf8');",
     "stage='editable-data-admission';const admissionDeck=structuredClone(deckVariants[0].ir);admissionDeck.pages[0].tables=[{id:'admission-table',box:{x:10,y:10,w:100,h:100},rows:[['valid']]}];irEditor.validateEditableIr(admissionDeck);admissionDeck.pages[0].tables[0].rows=[null];let malformedTableRejected=false;try{irEditor.validateEditableIr(admissionDeck);}catch{malformedTableRejected=true;}if(!malformedTableRejected){process.stdout.write(stage);process.exit(2);}",
     "const versionReady=version.length===3&&version.every(Number.isSafeInteger)&&(version[0]>0||version[1]>1||(version[1]===1&&version[2]>=13));",
     "if(!(irEditorClientSource.includes('showModal')&&irEditorClientSource.includes('openTableEditor')&&irEditorClientSource.includes('openChartEditor')&&!irEditorClientSource.includes('编辑图表 JSON'))){process.stdout.write('controlled-semantic-editor');process.exit(2);}",
@@ -506,15 +586,27 @@ function pptCreateEnhancementProbe() {
   ].join("");
 }
 
-function verifyInstalledCli({ installRoot, commandRunner }) {
+function verifyInstalledCli({ installRoot, commandRunner, expectedPackageFolders }) {
   const cli = installedCliPath(installRoot);
   const packageRoot = path.join(installRoot, "node_modules", "common-tools");
+  const packageNames = verifyInstalledPackageSurfaces(packageRoot, expectedPackageFolders);
   const help = run(commandRunner, process.execPath, [cli, "help"], installRoot, "installed runtime CLI help check failed");
   if (!help.includes("usage: common-tools <command>")) throw new Error("installed runtime CLI help is invalid");
   const listed = run(commandRunner, process.execPath, [cli, "plugin", "list"], installRoot, "installed runtime plugin check failed");
   let catalog;
   try { catalog = JSON.parse(listed); } catch { throw new Error("installed runtime plugin output is invalid"); }
   if (!plainObject(catalog) || catalog.distributionVerified !== true || !Array.isArray(catalog.capabilities) || catalog.capabilities.length === 0) throw new Error("installed runtime plugin output is invalid");
+  const acceptancePlan = run(commandRunner, process.execPath, [cli, "team", "production-acceptance-plan"], installRoot, "installed production acceptance plan check failed");
+  let parsedAcceptancePlan;
+  try { parsedAcceptancePlan = JSON.parse(acceptancePlan); } catch { throw new Error("installed production acceptance plan output is invalid"); }
+  if (!plainObject(parsedAcceptancePlan) || !["blocked-by-configuration", "ready-for-production-preflight"].includes(parsedAcceptancePlan.status) || !plainObject(parsedAcceptancePlan.requiredConfiguration)) {
+    throw new Error("installed production acceptance plan output is invalid");
+  }
+  const envFileRejection = commandRunner(process.execPath, [cli, "team", "migration-status", "--production-env-file", "production.env"], { cwd: installRoot, encoding: "utf8", windowsHide: true, maxBuffer: MAX_COMMAND_OUTPUT_BYTES });
+  const envFileDiagnostic = `${envFileRejection.stdout || ""}${envFileRejection.stderr || ""}`;
+  if (envFileRejection.status !== 1 || !envFileDiagnostic.includes("--production-env-file must be an absolute path")) {
+    throw new Error("installed production env file argument check failed");
+  }
   const probe = "const path=require('node:path');const root=path.resolve(process.argv[1]);const api=require(path.join(root,'packages','cli','slideclone-runner.js'));const result=api.inspectBundledSlideclone({repositoryRoot:root});if(!result.available)process.exit(2);process.stdout.write('ready');";
   const imageEngine = run(commandRunner, process.execPath, ["-e", probe, packageRoot], installRoot, "installed image-to-editable engine check failed");
   if (imageEngine !== "ready") throw new Error("installed image-to-editable engine check failed");
@@ -523,7 +615,7 @@ function verifyInstalledCli({ installRoot, commandRunner }) {
   runClassifiedProbe(commandRunner, ["-e", imageEditableEnhancementProbe(), packageRoot], installRoot, "installed image-to-editable residual deduplication check failed");
   runClassifiedProbe(commandRunner, ["-e", pptCreateLayoutProbe(), packageRoot], installRoot, "installed ppt-create layout candidate check failed");
   runClassifiedProbe(commandRunner, ["-e", pptCreateEnhancementProbe(), packageRoot], installRoot, "installed ppt-create enhancement check failed");
-  return Object.freeze({ capabilityCount: catalog.capabilities.length, imageToEditableEngine: true, residualDeduplication: true, rawImageBatch: true, pptCreateLayoutCandidates: true, pptCreatePlanning: true, pptCreateEnhancements: true });
+  return Object.freeze({ capabilityCount: catalog.capabilities.length, packageCount: packageNames.length, imageToEditableEngine: true, productionAcceptancePlan: true, residualDeduplication: true, rawImageBatch: true, pptCreateLayoutCandidates: true, pptCreatePlanning: true, pptCreateEnhancements: true });
 }
 
 function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), commandRunner = childProcess.spawnSync, temporaryDirectory = fs.mkdtempSync } = {}) {
@@ -544,8 +636,8 @@ function verifyRuntimePackage({ repositoryRoot = path.resolve(__dirname, ".."), 
     fs.mkdirSync(installRoot, { recursive: true, mode: 0o700 });
     const installInvocation = npmInvocation(["install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", installRoot, tarball]);
     run(commandRunner, installInvocation.command, installInvocation.arguments, root, "runtime package installation failed");
-    const installed = verifyInstalledCli({ installRoot, commandRunner });
-    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, imageToEditableEngine: installed.imageToEditableEngine, residualDeduplication: installed.residualDeduplication, rawImageBatch: installed.rawImageBatch, pptCreateLayoutCandidates: installed.pptCreateLayoutCandidates, pptCreatePlanning: installed.pptCreatePlanning, pptCreateEnhancements: installed.pptCreateEnhancements });
+    const installed = verifyInstalledCli({ installRoot, commandRunner, expectedPackageFolders: runtimePackageFolders(root) });
+    return Object.freeze({ packedBytes: packed.size, fileCount: packed.files.length, capabilityCount: installed.capabilityCount, packageCount: installed.packageCount, imageToEditableEngine: installed.imageToEditableEngine, productionAcceptancePlan: installed.productionAcceptancePlan, residualDeduplication: installed.residualDeduplication, rawImageBatch: installed.rawImageBatch, pptCreateLayoutCandidates: installed.pptCreateLayoutCandidates, pptCreatePlanning: installed.pptCreatePlanning, pptCreateEnhancements: installed.pptCreateEnhancements });
   } finally {
     if (cleanable) fs.rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
@@ -556,4 +648,4 @@ if (require.main === module) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-module.exports = { FORBIDDEN_PREFIXES, IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, imageEditableEnhancementProbe, installedCliPath, npmCliPath, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe, verifyInstalledCli, verifyRuntimePackage };
+module.exports = { FORBIDDEN_PREFIXES, IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILES, REQUIRED_FILES, collectPackageSurfaceTargets, imageEditableEnhancementProbe, installedCliPath, npmCliPath, npmInvocation, parsePackMetadata, pptCreateEnhancementProbe, pptCreateLayoutProbe, runClassifiedProbe, runtimePackageFolders, verifyInstalledCli, verifyInstalledPackageSurfaces, verifyRuntimePackage };

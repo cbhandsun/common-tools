@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { readPng, writePng, withPngReadCache } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { readPng, readPngBuffer, writePng, withPngReadCache } = require("../packages/slideclone-native-engine/scripts/lib/png");
 
 test("PNG reader accepts a valid bounded image", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-png-valid-"));
@@ -81,6 +81,36 @@ test("PNG reader rejects inflated payloads that do not match declared dimensions
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("PNG reader rejects invalid read options instead of falling back", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-png-options-"));
+  try {
+    const file = path.join(root, "valid.png");
+    writePng(file, {
+      width: 2,
+      height: 2,
+      rgba: Buffer.alloc(2 * 2 * 4, 255)
+    });
+    const payload = fs.readFileSync(file);
+
+    assert.throws(() => readPng(file, []), /PNG read options must be an object/);
+    assert.throws(() => readPng(file, { maxPixels: "bad" }), /maxPixels/);
+    assert.throws(() => readPng(file, { maxDimension: Infinity }), /maxDimension/);
+    assert.throws(() => readPng(file, { maxInflatedBytes: 1023 }), /maxInflatedBytes/);
+    assert.throws(() => readPngBuffer(payload, { label: "private-token", maxFileBytes: "bad" }), (error) => {
+      assert.match(/** @type {Error} */ (error).message, /maxFileBytes/);
+      assert.doesNotMatch(/** @type {Error} */ (error).message, /private-token/);
+      return true;
+    });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("PNG read cache rejects invalid option containers", () => {
+  assert.throws(() => withPngReadCache(() => undefined, []), /PNG read cache options must be an object/);
+  assert.throws(() => withPngReadCache(() => undefined, { maxBytes: "bad" }), /PNG read cache/);
 });
 
 test("PNG reader rejects truncated chunks", () => {

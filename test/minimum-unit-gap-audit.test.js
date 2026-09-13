@@ -13,7 +13,7 @@ const {
   inferRecommendedRoute,
   parseArgs,
   shouldFlagMinimumUnitGap
-} = require("../skills/pd-hifi-slideclone/scripts/minimum-unit-gap-audit");
+} = require("../packages/slideclone-native-engine/scripts/minimum-unit-gap-audit");
 
 function writeIr(dir, name, ir) {
   const file = path.join(dir, `${name}.native.ir.json`);

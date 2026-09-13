@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { createVisualFeatureContext } = require("../skills/pd-hifi-slideclone/scripts/lib/visual-feature-context");
+const { createVisualFeatureContext } = require("../packages/slideclone-core/visual-feature-context");
 
 test("visual feature context caches identical page-region analysis", () => {
   let calls = 0;
@@ -36,7 +36,10 @@ test("visual feature context separates semantic and mask inputs and bounds its c
 test("visual feature context rejects invalid external boundaries", () => {
   const valid = { sourceImage: { width: 1, height: 1 }, slideSize: { widthPt: 1, heightPt: 1 }, extractVisualAtoms: () => [] };
   assert.doesNotThrow(() => createVisualFeatureContext(valid));
+  assert.throws(() => createVisualFeatureContext([]), /options must be an object/);
   assert.throws(() => createVisualFeatureContext({ ...valid, sourceImage: { width: 0, height: 1 } }), /sourceImage/);
   assert.throws(() => createVisualFeatureContext({ ...valid, slideSize: {} }), /slideSize/);
   assert.throws(() => createVisualFeatureContext({ ...valid, extractVisualAtoms: null }), /extractVisualAtoms/);
+  assert.throws(() => createVisualFeatureContext({ ...valid, maximumEntries: "bad" }), /maximumEntries/);
+  assert.throws(() => createVisualFeatureContext({ ...valid, maximumEntries: 10001 }), /maximumEntries/);
 });

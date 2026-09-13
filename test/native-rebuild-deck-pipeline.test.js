@@ -2,7 +2,7 @@
 
 require("node:test")("expression summaries keep long preservation reasons as values", () => {
   const assert = require("node:assert/strict");
-  const {summarizeExpressionProfile} = require("../skills/pd-hifi-slideclone/scripts/rebuild-real-pptx-native");
+  const {summarizeExpressionProfile} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
   const reason = "Preserve complex source illustration and editable labels. ".repeat(3);
   const image = {source:{nonEditableReason:reason,expressionForm:"complex-diagram",expressionSubtype:"diagram",recommendedAction:"preserve"}};
   const profile = summarizeExpressionProfile({pages:[{images:[image,image]}]});
@@ -18,7 +18,7 @@ const {
   createNativeRebuildPlan,
   createPageProgressLifecycle,
   rebuildStrategyOptions
-} = require("../skills/pd-hifi-slideclone/scripts/lib/native-rebuild-deck-pipeline");
+} = require("../packages/slideclone-core/native-rebuild-deck-pipeline");
 
 function planServices(overrides = {}) {
   return {

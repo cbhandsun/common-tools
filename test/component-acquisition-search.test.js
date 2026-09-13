@@ -15,7 +15,7 @@ const {
   runComponentAcquisitionSearch,
   scoreAcquisitionDocument,
   shouldResolveOfficePlusDownload
-} = require("../skills/pd-hifi-slideclone/scripts/component-acquisition-search");
+} = require("../packages/slideclone-native-engine/scripts/component-acquisition-search");
 
 test("component acquisition search collects unique manifest tasks", () => {
   const manifest = {

@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { measureStackedLayerFront, sampleStackedLayerFrontFill, sampleStackedLayerTopFill } = require("../skills/pd-hifi-slideclone/scripts/lib/stacked-layer-color-sampling");
+const { measureStackedLayerFront, sampleStackedLayerFrontFill, sampleStackedLayerTopFill } = require("../packages/slideclone-core/stacked-layer-color-sampling");
 
 test("samples the dominant interior fill while ignoring text-colored noise", () => {
   const width = 200;

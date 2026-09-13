@@ -10,7 +10,7 @@ const {
   createTextAnchoredProcessNetworkObjects,
   inferTextAnchoredProcessNetwork,
   _private: { detectSideInputIconBoxes }
-} = require("../skills/pd-hifi-slideclone/scripts/lib/text-anchored-process-network");
+} = require("../packages/slideclone-core/text-anchored-process-network");
 
 test("infers a generic branch-join process network from OCR text geometry", () => {
   const region = { x: 48, y: 161, w: 819, h: 229 };

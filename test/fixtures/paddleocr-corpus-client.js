@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const path = require("node:path");
-const adapter = require("../../skills/pd-hifi-slideclone/scripts/adapters/ocr-paddleocr-local");
+const adapter = require("../../packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local");
 
 async function main() {
   const context = JSON.parse(process.env.CORPUS_TEST_CONTEXT);

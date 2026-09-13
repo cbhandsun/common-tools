@@ -6,8 +6,8 @@ const { spawn } = require("child_process");
 const { classifyTestResource, includesSuite, parseSuite, validateTestSuiteManifest } = require("./test-suites");
 
 function parseShardCount(argv = process.argv.slice(2), env = process.env) {
-  const index = argv.indexOf("--shards");
-  const raw = index >= 0 ? argv[index + 1] : env.TEST_SHARDS || "2";
+  const index = argv.lastIndexOf("--shards");
+  const raw = index >= 0 ? argv[index + 1] : env.TEST_SHARDS || "4";
   const count = Number(raw);
   if (!Number.isInteger(count) || count < 1 || count > 8) {
     throw new Error(`--shards must be an integer from 1 to 8; received ${JSON.stringify(raw)}`);
@@ -16,12 +16,19 @@ function parseShardCount(argv = process.argv.slice(2), env = process.env) {
 }
 
 function parseReporter(env = process.env) {
-  const reporter = String(env.TEST_REPORTER || "").trim();
-  if (!reporter) return "";
+  const reporter = String(env.TEST_REPORTER || "dot").trim();
   if (!["dot", "spec", "tap"].includes(reporter)) {
     throw new Error(`TEST_REPORTER must be dot, spec, or tap; received ${JSON.stringify(reporter)}`);
   }
   return reporter;
+}
+
+function parseListMode(argv = process.argv.slice(2)) {
+  return argv.includes("--list");
+}
+
+function parseListFilesMode(argv = process.argv.slice(2)) {
+  return argv.includes("--list-files");
 }
 
 function balanceTestFiles(files, shardCount) {
@@ -47,7 +54,7 @@ function createExecutionWaves(files, shardCount) {
   if (standard.length > 0) waves.push(standard);
   for (const resource of ["memory-heavy", "external-process"]) {
     const resourceFiles = groups.get(resource);
-    const dedicated = balanceTestFiles(resourceFiles, Math.min(shardCount, Math.max(1, resourceFiles.length)));
+    const dedicated = balanceTestFiles(resourceFiles, 1);
     for (const shard of dedicated) waves.push([shard]);
   }
   return waves;
@@ -64,6 +71,36 @@ function discoverTestFiles(root, suite = "all") {
   const manifestErrors = validateTestSuiteManifest(entries.map(({ file }) => file));
   if (manifestErrors.length > 0) throw new Error(`Invalid test suite manifest:\n- ${manifestErrors.join("\n- ")}`);
   return entries.filter(({ file }) => includesSuite(file, suite));
+}
+
+function summarizeTestFiles(files, options = {}) {
+  const resources = {};
+  for (const file of files) resources[file.resource] = (resources[file.resource] || 0) + 1;
+  const summary = {
+    fileCount: files.length,
+    resources
+  };
+  if (options.includeFiles === true) summary.files = files.map((file) => file.file).sort();
+  return summary;
+}
+
+function summarizeExecutionWaves(waves, options = {}) {
+  return {
+    waveCount: waves.length,
+    shardCount: waves.reduce((total, wave) => total + wave.length, 0),
+    waves: waves.map((wave, waveIndex) => ({
+      wave: waveIndex + 1,
+      shardCount: wave.length,
+      resources: [...new Set(wave.flatMap((shard) => [...shard.resources]))].sort(),
+      fileCount: wave.reduce((total, shard) => total + shard.files.length, 0),
+      shards: wave.map((shard, shardIndex) => ({
+        shard: shardIndex + 1,
+        fileCount: shard.files.length,
+        resources: [...shard.resources].sort(),
+        ...(options.includeFiles === true ? { files: [...shard.files].sort() } : {})
+      }))
+    }))
+  };
 }
 
 function runShard(root, shard, index) {
@@ -102,6 +139,15 @@ async function main() {
     throw new Error(`No test files found for suite ${JSON.stringify(suite)}`);
   }
   const waves = createExecutionWaves(files, shardCount);
+  if (parseListMode()) {
+    const includeFiles = parseListFilesMode();
+    console.log(JSON.stringify({
+      suite,
+      ...summarizeTestFiles(files, { includeFiles }),
+      schedule: summarizeExecutionWaves(waves, { includeFiles })
+    }, null, 2));
+    return;
+  }
   const startedAt = Date.now();
   const results = [];
   let shardIndex = 0;
@@ -127,8 +173,12 @@ module.exports = {
   balanceTestFiles,
   createExecutionWaves,
   discoverTestFiles,
+  parseListFilesMode,
+  parseListMode,
   parseShardCount,
   parseReporter,
   runShard,
+  summarizeExecutionWaves,
+  summarizeTestFiles,
   parseSuite
 };

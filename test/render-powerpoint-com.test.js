@@ -5,7 +5,7 @@ const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const adapterFile = path.resolve(__dirname, "../skills/pd-hifi-slideclone/scripts/adapters/render-powerpoint-com.js");
+const adapterFile = path.resolve(__dirname, "../packages/slideclone-native-engine/scripts/adapters/render-powerpoint-com.js");
 const renderPowerPointCom = require(adapterFile);
 
 test("PowerPoint renderer only closes the COM instance it creates", () => {

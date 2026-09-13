@@ -6,11 +6,11 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
-const { editableRoundTripScript } = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip");
+const { editableRoundTripScript } = require("../packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-editable-roundtrip");
 const { discoverTestFiles } = require("../scripts/test-sharded");
 
-test("PowerPoint target regression runs in the unified unit suite as an external-process test", () => {
-  const entry = discoverTestFiles(path.resolve(__dirname, ".."), "unit").find(({ file }) => path.basename(file) === "powerpoint-roundtrip-targets.test.js");
+test("PowerPoint target regression runs in the integration suite as an external-process test", () => {
+  const entry = discoverTestFiles(path.resolve(__dirname, ".."), "integration").find(({ file }) => path.basename(file) === "powerpoint-roundtrip-targets.test.js");
   assert.equal(entry?.resource, "external-process");
 });
 

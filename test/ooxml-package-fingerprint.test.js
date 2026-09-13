@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
-const { fingerprintOoxmlPackage } = require("../skills/pd-hifi-slideclone/scripts/lib/ooxml-package-fingerprint");
+const { fingerprintOoxmlPackage } = require("../packages/slideclone-native-engine/scripts/lib/ooxml-package-fingerprint");
 
 test("OOXML fingerprint ignores ZIP container timestamps but detects content changes", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ooxml-fingerprint-"));
@@ -38,6 +38,32 @@ test("OOXML fingerprint rejects oversized expanded entries", () => {
     const zip = path.join(tmp, "input.zip");
     makeZip(source, zip);
     assert.throws(() => fingerprintOoxmlPackage(zip, { maxEntryBytes: 5 }), /entry is too large/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("OOXML fingerprint rejects invalid explicit limit options", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ooxml-fingerprint-options-"));
+  try {
+    const source = path.join(tmp, "source");
+    fs.mkdirSync(source);
+    fs.writeFileSync(path.join(source, "entry.txt"), "alpha");
+    const zip = path.join(tmp, "input.zip");
+    makeZip(source, zip);
+    for (const options of [
+      [],
+      { maxPackageBytes: 1023 },
+      { maxEntries: 0 },
+      { maxEntryBytes: "private-token-value" },
+      { maxTotalUncompressedBytes: Infinity }
+    ]) {
+      assert.throws(() => fingerprintOoxmlPackage(zip, options), (error) => {
+        assert.match(error.message, /OOXML package fingerprint/);
+        assert.doesNotMatch(error.message, /private-token-value/);
+        return true;
+      });
+    }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

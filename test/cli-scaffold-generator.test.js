@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   createCliScaffoldGeneratorObjects,
   normalizeCliScaffoldGeneratorTextBoxes
-} = require("../skills/pd-hifi-slideclone/scripts/lib/cli-scaffold-generator");
+} = require("../packages/slideclone-core/cli-scaffold-generator");
 
 test("CLI scaffold generator emits thirteen semantic minimum-unit component groups", () => {
   const page = cliScaffoldPage();

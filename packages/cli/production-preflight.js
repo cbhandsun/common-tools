@@ -4,6 +4,7 @@ const childProcess = require("node:child_process");
 const path = require("node:path");
 const { loadRemoteConfig } = require("../remote-mcp-server");
 const { TEAM_DEPLOYMENT_CAPABILITIES, loadTeamConfig } = require("../team-runtime");
+const { REQUIRED_PRODUCTION_MIGRATIONS, migrationDirectory } = require("../team-runtime/migrations");
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 const { loadSiyuanConfig } = require("../siyuan-note-core");
 const { assertRevision, verifyReleaseEvidenceFile } = require("./verification/release-evidence");
@@ -189,6 +190,11 @@ function validateResolvedProductionCompose(configuration, { remoteImage, imageWo
   };
   const workerCapabilities = deployedWorkerCapabilities(enabledCapabilities);
   for (const capability of workerCapabilities) expectedImages[WORKER_SERVICES[capability]] = TEAM_DEPLOYMENT_CAPABILITIES[capability].imageKind === "image-worker" ? imageWorkerImage : remoteImage;
+  const expectedWorkerServices = workerCapabilities.map((capability) => WORKER_SERVICES[capability]).sort();
+  const actualWorkerServices = Object.keys(services).filter((name) => name.endsWith("-worker")).sort();
+  if (JSON.stringify(actualWorkerServices) !== JSON.stringify(expectedWorkerServices)) {
+    throw new Error("Docker Compose production Worker services do not match enabled capabilities");
+  }
   for (const [name, image] of Object.entries(expectedImages)) {
     const service = services[name];
     if (!service || typeof service !== "object" || Array.isArray(service) || service.image !== image || Object.hasOwn(service, "build") || !service.environment || typeof service.environment !== "object" || Array.isArray(service.environment) || service.environment.NODE_ENV !== "production" || service.environment.COMMON_TOOLS_TEAM_MODE !== "production") {
@@ -235,9 +241,22 @@ function validateProductionCompose(repositoryRoot, files, expectedImages) {
   validateResolvedProductionCompose(configuration, expectedImages);
 }
 
-function runProductionPreflight(environment = process.env, { repositoryRoot, composeValidator = validateProductionCompose, evidenceVerifier = verifyReleaseEvidenceFile, signatureVerifier = verifyReleaseSignature } = {}) {
+function verifyProductionSchemaMigrations(repositoryRoot, { migrationLoader = migrationDirectory } = {}) {
+  if (typeof repositoryRoot !== "string" || !path.isAbsolute(repositoryRoot)) throw new TypeError("production preflight repository root is invalid");
+  if (typeof migrationLoader !== "function") throw new TypeError("production migration loader is invalid");
+  const migrations = migrationLoader(path.join(repositoryRoot, "packages", "team-runtime", "schema"));
+  if (!Array.isArray(migrations)) throw new Error("production schema migrations are invalid");
+  const names = migrations.map((migration) => migration && migration.name);
+  if (names.some((name) => typeof name !== "string")) throw new Error("production schema migrations are invalid");
+  const missing = REQUIRED_PRODUCTION_MIGRATIONS.filter((name) => !names.includes(name));
+  if (missing.length) throw new Error("production schema migrations are missing required remote delivery migrations");
+  return Object.freeze({ required: REQUIRED_PRODUCTION_MIGRATIONS, latest: names[names.length - 1], count: names.length });
+}
+
+function runProductionPreflight(environment = process.env, { repositoryRoot, composeValidator = validateProductionCompose, evidenceVerifier = verifyReleaseEvidenceFile, signatureVerifier = verifyReleaseSignature, migrationLoader = migrationDirectory } = {}) {
   const report = inspectProductionRelease(environment);
   if (typeof composeValidator !== "function") throw new TypeError("production preflight Compose validator is invalid");
+  const schemaMigrations = verifyProductionSchemaMigrations(repositoryRoot, { migrationLoader });
   const releaseEvidence = verifyProductionReleaseEvidence(repositoryRoot, environment, { evidenceVerifier });
   const releaseSignature = verifyProductionReleaseSignature(environment, releaseEvidence, { signatureVerifier });
   composeValidator(repositoryRoot, report.composeFiles, {
@@ -245,7 +264,7 @@ function runProductionPreflight(environment = process.env, { repositoryRoot, com
     imageWorkerImage: environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE?.trim(),
     enabledCapabilities: report.enabledCapabilities
   });
-  return Object.freeze({ ...report, releaseEvidence, releaseSignature, composeValidated: true });
+  return Object.freeze({ ...report, schemaMigrations, releaseEvidence, releaseSignature, composeValidated: true });
 }
 
-module.exports = { PRODUCTION_COMPOSE_FILES, REQUIRED_CREDENTIALS, WORKER_PROFILES, WORKER_SERVICES, credentialSourceMode, immutableImageReference, inspectProductionRelease, releaseSignatureRequired, runProductionPreflight, validateProductionCompose, validateResolvedProductionCompose, verifyProductionReleaseEvidence, verifyProductionReleaseSignature };
+module.exports = { PRODUCTION_COMPOSE_FILES, REQUIRED_CREDENTIALS, REQUIRED_PRODUCTION_MIGRATIONS, WORKER_PROFILES, WORKER_SERVICES, credentialSourceMode, immutableImageReference, inspectProductionRelease, releaseSignatureRequired, runProductionPreflight, validateProductionCompose, validateResolvedProductionCompose, verifyProductionReleaseEvidence, verifyProductionReleaseSignature, verifyProductionSchemaMigrations };

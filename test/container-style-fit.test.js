@@ -8,7 +8,7 @@ const {
   collectContainerStylePlan,
   describeContainerOption,
   normalizeContainerKind
-} = require("../skills/pd-hifi-slideclone/scripts/lib/container-style-fit");
+} = require("../packages/slideclone-native-engine/scripts/lib/container-style-fit");
 
 test("normalizeContainerKind infers banner, card, and strong-card containers", () => {
   assert.equal(normalizeContainerKind({ id: "banner" }), "banner");

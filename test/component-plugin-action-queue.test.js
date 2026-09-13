@@ -21,7 +21,7 @@ const {
   collectTargetAuditActions,
   parseArgs,
   renderPluginActionQueueMarkdown
-} = require("../skills/pd-hifi-slideclone/scripts/component-plugin-action-queue");
+} = require("../packages/slideclone-native-engine/scripts/component-plugin-action-queue");
 
 function makeSearchReport() {
   return {

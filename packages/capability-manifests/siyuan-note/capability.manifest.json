@@ -11,9 +11,17 @@
   ],
   "minimumRuntimeVersion": ">=0.1.0 <1.0.0",
   "requiredWorkerProfile": "direct",
+  "execution": {
+    "localSupported": false
+  },
   "team": {
     "mode": "direct",
     "oauthScope": "common-tools:capability:siyuan-note"
   },
-  "contentSha256": "6dfb22a9f008a8ef4da890e0a3edbc290113ee24cb702e7f822d32d651ba4851"
+  "moduleSource": {
+    "packageName": "@common-tools/siyuan-note-core",
+    "requirePath": "../siyuan-note-core",
+    "exportName": "REMOTE_CAPABILITY_MODULE"
+  },
+  "contentSha256": "5bb576362cfd24da3ef9644cb838175d6bd0627a311b779d97a6f076aa10653f"
 }

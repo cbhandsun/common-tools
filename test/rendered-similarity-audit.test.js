@@ -5,13 +5,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { writePng } = require("../skills/pd-hifi-slideclone/scripts/lib/png");
+const { writePng } = require("../packages/slideclone-core/png");
 
 const {
   auditRenderedSimilarity,
   collectPages,
   comparePageImages
-} = require("../skills/pd-hifi-slideclone/scripts/rendered-similarity-audit");
+} = require("../packages/slideclone-native-engine/scripts/rendered-similarity-audit");
 
 test("rendered similarity audit accepts identical previews", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "rendered-similarity-pass-"));

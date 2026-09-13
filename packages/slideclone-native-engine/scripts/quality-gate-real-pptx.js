@@ -1,0 +1,1414 @@
+#!/usr/bin/env node
+"use strict";
+const { countLogicalNativeShapes, countLogicalNativeTextBoxes, isAllowedDecorativeBackgroundImage, isIntentionalRasterImage } = require("./lib/logical-native-object-count");
+const fs = require("fs");
+const path = require("path");
+const { spawn } = require("child_process");
+const { readPng, writePng } = require("./lib/png");
+const { summarizeLayerProfile } = require("./lib/layer-classifier");
+const { summarizeComponentStrategyProfile } = require("./lib/component-strategy-profile");
+const { summarizeNativeObjectConflicts } = require("./lib/native-object-conflict-audit");
+const { createRenderCacheIdentity, normalizeRenderer, readRenderCacheMetadata, writeRenderCacheMetadata } = require("./lib/render-cache-metadata");
+const { auditPptxTextLayers } = require("./lib/ooxml-text-layer-audit");
+const { validateReconstructionContracts } = require("./lib/reconstruction-contract");
+const { evaluateDeckReconstructionBudget } = require("./lib/reconstruction-quality-budget");
+const {
+  DEFAULT_OCR_ADAPTER,
+  boundedHeartbeatMs,
+  consumePaddleOcrBrokerEnvironment,
+  readPaddleOcrConfig,
+  readReconstructionBudgetConfig,
+  readUmiOcrConfig,
+  summarizeQualityGateStatus: summarizeQualityGateStatusCore
+} = require("./lib/quality-gate-policy");
+const { buildQualityGateOutput, readQualityGateOutputFormat } = require("./lib/quality-gate-output");
+const { auditSourceMediaExclusion } = require("./lib/source-media-exclusion");
+const renderPowerPointCom = require("./adapters/render-powerpoint-com");
+const { createQualityEvidenceIdentity, loadOrComputeQualityEvidence, qualityEvidenceConfig, qualityEvidenceImplementationFiles, tryWriteQualityEvidenceCache } = require("./lib/quality-evidence-cache");
+const {
+  countRenderedPages,
+  expectedRenderPageCount,
+  findRenderDirsByIdentity,
+  findRenderDirsByPrefix,
+  findRenderDirsFromQualityReports,
+  readRenderedPages,
+  realWorkspaceCwd,
+  resolveRenderOutputDir,
+  resolveReusableRenderDir,
+  reusableRenderMatches
+} = require("./lib/quality-gate-render-cache");
+const {
+  collectNativeOverlayRisks,
+  collectTextOverlayRisks,
+  summarizeComponentTemplateCropStatus
+} = require("./lib/quality-gate-editability-profile");
+
+const DEFAULT_THRESHOLDS = { acceptPixelDiffRatio: 0.22, acceptForegroundMissingRatio: 0.3, reviewPixelDiffRatio: 0.38, reviewForegroundMissingRatio: 0.5, maxRasterImageAreaRatio: 0.65, fullPageWidthRatio: 0.92, fullPageHeightRatio: 0.92 };
+
+async function main() {
+  const startedAt = Date.now();
+  const args = parseArgs(process.argv.slice(2));
+  const brokerConfig = consumePaddleOcrBrokerEnvironment(process.env);
+  const outputFormat = readQualityGateOutputFormat(args);
+  const progress = createProgressReporter(args);
+  const timings = {};
+  progress({ phase: "run", status: "start" });
+  if (!args.ir) throw new Error("--ir is required");
+  const irFile = path.resolve(args.ir);
+  const pptxFile = args.pptx ? path.resolve(args.pptx) : null;
+  const outputDir = path.resolve(args.out || path.join(process.cwd(), "runs", "real-pptx-quality-gate", path.basename(irFile, ".json")));
+  ensureDir(outputDir);
+  ensureDir(path.join(outputDir, "diff"));
+
+  const thresholds = readThresholds(args);
+  const sourceIr = readJson(irFile);
+  const ir = hydrateSourceImages(sourceIr, path.dirname(irFile));
+  const qualityIrFile = path.join(outputDir, "quality-input.ir.json");
+  fs.writeFileSync(qualityIrFile, `${JSON.stringify(ir, null, 2)}\n`, "utf8");
+
+  const requestedRenderer = normalizeRenderer(args.renderer || args.render || "libreoffice");
+  const rendererSelection = selectRendererForIr(requestedRenderer, ir);
+  const renderer = rendererSelection.effectiveRenderer;
+  const renderOutputDir = resolveRenderOutputDir(args, outputDir, irFile);
+  const renderCacheIdentity = pptxFile ? createRenderCacheIdentity({
+    pptxFile,
+    renderer,
+    expectedPages: expectedRenderPageCount({ args, irFile }),
+    dpi: Number(args.dpi || 144)
+  }) : null;
+  const reusableRenderDir = resolveReusableRenderDir({
+    args,
+    outputDir,
+    irFile,
+    pptxFile,
+    renderOutputDir,
+    renderer,
+    cacheIdentity: renderCacheIdentity
+  });
+  const renderStartedAt = Date.now();
+  progress({ phase: "render", status: "start", cached: Boolean(reusableRenderDir), renderer });
+  const render = reusableRenderDir
+    ? readRenderedPages(reusableRenderDir, {
+      renderer,
+      expectedPages: expectedRenderPageCount({ args, irFile })
+    })
+    : await renderWithEngine({
+      renderer,
+      pptxFile,
+      outputDir: renderOutputDir,
+      maxPages: Number(args["max-pages"] || 999),
+      progress,
+      heartbeatMs: boundedHeartbeatMs(args["heartbeat-ms"])
+    });
+  timings.renderMs = Date.now() - renderStartedAt;
+  progress({ phase: "render", status: "done", cached: Boolean(reusableRenderDir), renderer, elapsedMs: timings.renderMs });
+  if (!reusableRenderDir && renderCacheIdentity && render?.renderDir) {
+    writeRenderCacheMetadata(render.renderDir, renderCacheIdentity);
+  }
+  const alignedRender = {
+    ...alignRenderedPageIndexesToIr(render, ir),
+    rendererSelection
+  };
+  const context = {
+    outputDir,
+    config: {
+      diff: {
+        foregroundTolerancePx: Number(args.foregroundTolerancePx || 2),
+        foregroundToleranceDelta: Number(args.foregroundToleranceDelta || 54)
+      },
+      thresholds: {
+        pixelDiffRatio: thresholds.acceptPixelDiffRatio,
+        foregroundMissingRatio: thresholds.acceptForegroundMissingRatio,
+        maxRasterImageAreaRatio: thresholds.maxRasterImageAreaRatio,
+        ...(typeof thresholds.textCoverage === "number" ? { textCoverage: thresholds.textCoverage } : {})
+      },
+      textOcr: readTextOcrConfig(args),
+      umiOcr: readUmiOcrConfig(args),
+      paddleOcr: { ...readPaddleOcrConfig(args), ...brokerConfig }
+    },
+    skillRoot: path.resolve(__dirname, ".."),
+    onProgress: progress
+  };
+  const evidenceCacheDir = String(args["no-evidence-cache"] || "").toLowerCase() === "true"
+    ? ""
+    : path.resolve(args["evidence-cache-dir"] || path.join("runs", "slideclone-quality-evidence-cache"));
+  const evidenceIdentity = evidenceCacheDir ? createQualityEvidenceIdentity({
+    ir,
+    irFile,
+    render: alignedRender,
+    config: qualityEvidenceConfig(context),
+    thresholds,
+    implementationFiles: qualityEvidenceImplementationFiles(context, __filename)
+  }) : null;
+  const evidence = await loadOrComputeQualityEvidence({ cacheDir: evidenceCacheDir, identity: evidenceIdentity, outputDir, qualityIrFile, ir, render: alignedRender, thresholds: context.config.thresholds, context, progress });
+  const { cachedEvidence, diff, compare } = evidence;
+  Object.assign(timings, evidence.timings);
+
+  const auditStartedAt = Date.now();
+  progress({ phase: "audit", status: "start" });
+  const raster = summarizeRasterImages(ir, thresholds);
+  const pages = assessPages({
+    ir,
+    render: alignedRender,
+    diff: diff.data,
+    compare: compare.data,
+    raster,
+    thresholds
+  });
+  const summary = summarizePages(pages);
+  const editabilityProfile = summarizeEditabilityProfile({
+    ir,
+    raster,
+    editability: compare.data?.editability || null
+  });
+  const nativeComponentProfile = summarizeNativeComponentProfile(ir);
+  const componentTemplateCropStatus = summarizeComponentTemplateCropStatus(ir);
+  const layerProfile = summarizeLayerProfile(ir);
+  const componentStrategyProfile = summarizeComponentStrategyProfile(ir);
+  const visualUnitDecisionProfile = summarizeVisualUnitDecisionProfile(ir);
+  const nativeObjectConflictProfile = summarizeNativeObjectConflicts(ir);
+  const pptxTextLayerAudit = auditPptxTextLayers(pptxFile, ir);
+  const reconstructionContract = validateReconstructionContracts(ir, { requireComplete: true });
+  const reconstructionBudgetConfig = readReconstructionBudgetConfig(args);
+  const reconstructionBudget = evaluateDeckReconstructionBudget(ir, reconstructionBudgetConfig);
+  const sourceMediaExclusion = auditSourceMediaExclusion({
+    ir,
+    pptxFile,
+    baseDir: path.dirname(irFile),
+    options: {
+      perceptualDistance: Number(args["source-media-perceptual-distance"] ?? 4)
+    }
+  });
+  timings.auditMs = Date.now() - auditStartedAt;
+  progress({ phase: "audit", status: "done", elapsedMs: timings.auditMs });
+  const contactSheetStartedAt = Date.now();
+  const contactPageCount = Number(args["contact-pages"] ?? 12);
+  progress({ phase: "contact-sheet", status: "start", pages: Math.max(0, contactPageCount) });
+  const contactSheet = cachedEvidence?.contactSheet || (contactPageCount > 0
+    ? buildContactSheet({
+      pages,
+      render: alignedRender,
+      maxPages: contactPageCount,
+      outFile: path.join(outputDir, "quality-contact-sheet.png")
+    })
+    : null);
+  timings.contactSheetMs = Date.now() - contactSheetStartedAt;
+  timings.contactSheetCacheHit = Boolean(cachedEvidence?.contactSheet);
+  progress({ phase: "contact-sheet", status: "done", elapsedMs: timings.contactSheetMs, skipped: contactPageCount <= 0 });
+  const requireCompareThresholds = args["fail-on-thresholds"] === "true"
+    || typeof thresholds.textCoverage === "number";
+  const gate = summarizeQualityGateStatus({
+    summary,
+    editabilityProfile,
+    nativeComponentProfile,
+    layerProfile,
+    requireNoTextOverlayRisk: args["fail-on-text-overlay-risk"] === "true",
+    requireNoResidualLayerCandidates: args["fail-on-residual-layer-candidates"] === "true",
+    requireNoRetainedComponentTemplateCrops: args["fail-on-component-template-retained-crops"] === "true",
+    requireNoActionableRetainedComponentTemplateCrops: args["fail-on-actionable-component-template-retained-crops"] === "true",
+    requireNoActionableUnexplainedCrops: args["fail-on-actionable-unexplained-crops"] === "true",
+    requireNoNativeObjectConflicts: args["fail-on-native-object-conflicts"] === "true",
+    requireNoDuplicatePptxText: args["fail-on-duplicate-pptx-text"] === "true",
+    requireCompareThresholds,
+    comparePassed: compare.data?.passed !== false,
+    componentTemplateCropStatus,
+    visualUnitDecisionProfile,
+    nativeObjectConflictProfile,
+    pptxTextLayerAudit,
+    reconstructionContract,
+    reconstructionBudget,
+    sourceMediaExclusion,
+    requireReconstructionContract: args["fail-on-reconstruction-contract"] !== "false",
+    requireReconstructionBudget: reconstructionBudgetConfig.required,
+    requireNoSourceMedia: args["fail-on-source-media"] !== "false"
+  });
+  const evidenceCacheWriteStartedAt = Date.now();
+  const evidenceCacheWrite = !cachedEvidence && evidenceIdentity
+    ? tryWriteQualityEvidenceCache({
+      cacheDir: evidenceCacheDir,
+      identity: evidenceIdentity,
+      outputDir,
+      diff: diff.data,
+      compare: compare.data,
+      contactSheet
+    })
+    : null;
+  timings.evidenceCacheWriteMs = Date.now() - evidenceCacheWriteStartedAt;
+  timings.totalMs = Date.now() - startedAt;
+  const report = {
+    provider: "quality-gate-real-pptx",
+    irFile,
+    pptxFile,
+    outputDir,
+    thresholds,
+    summary,
+    pages,
+    deckMetrics: summarizeComparedDeckMetrics(compare.data?.summary || {}, pages),
+    editability: compare.data?.editability || null,
+    editabilityProfile,
+    nativeComponentProfile,
+    componentTemplateCropStatus,
+    layerProfile,
+    componentStrategyProfile,
+    visualUnitDecisionProfile,
+    nativeObjectConflictProfile,
+    pptxTextLayerAudit,
+    reconstructionContract,
+    reconstructionBudget,
+    reconstructionBudgetConfig,
+    sourceMediaExclusion,
+    raster,
+    render: alignedRender,
+    diff: diff.data,
+    compare: compare.data,
+    gate,
+    timings,
+    evidenceCache: evidenceIdentity ? {
+      enabled: true,
+      key: evidenceIdentity.key,
+      hit: Boolean(cachedEvidence),
+      files: cachedEvidence?.files ?? evidenceCacheWrite?.files ?? 0
+    } : { enabled: false, hit: false },
+    contactSheet,
+    generatedAt: new Date().toISOString()
+  };
+  const reportFile = path.join(outputDir, "quality-gate-report.json");
+  fs.writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  progress({ phase: "run", status: "done", elapsedMs: timings.totalMs, passed: gate.passed });
+
+  const stdout = buildQualityGateOutput({ ...report, reportFile }, {
+    format: outputFormat
+  });
+  process.stdout.write(`${JSON.stringify(stdout, null, 2)}\n`);
+  if ((args["fail-on-rejected"] === "true" && summary.rejected > 0)
+    || (args["fail-on-text-overlay-risk"] === "true" && gate.failures.includes("text-overlay-risk"))
+    || (args["fail-on-residual-layer-candidates"] === "true" && gate.failures.includes("residual-layer-candidates"))
+    || (args["fail-on-component-template-retained-crops"] === "true" && gate.failures.includes("component-template-retained-crops"))
+    || (args["fail-on-actionable-component-template-retained-crops"] === "true" && gate.failures.includes("actionable-component-template-retained-crops"))
+    || (args["fail-on-actionable-unexplained-crops"] === "true" && gate.failures.includes("actionable-unexplained-crops"))
+    || (args["fail-on-native-object-conflicts"] === "true" && gate.failures.includes("native-object-conflicts"))
+    || (args["fail-on-duplicate-pptx-text"] === "true" && gate.failures.includes("duplicate-pptx-text"))
+    || (requireCompareThresholds && gate.failures.includes("required-thresholds"))
+    || ((args["fail-on-reconstruction-contract"] !== "false") && gate.failures.includes("reconstruction-contract"))
+    || (reconstructionBudgetConfig.required && gate.failures.includes("reconstruction-budget"))
+    || ((args["fail-on-source-media"] !== "false") && gate.failures.includes("source-media-exclusion"))) {
+    process.exitCode = 1;
+  }
+}
+
+function parseArgs(argv) {
+  const args = {};
+  for (let index = 0; index < argv.length; index += 1) {
+    const item = argv[index];
+    if (!item.startsWith("--")) continue;
+    const key = item.slice(2);
+    const next = argv[index + 1];
+    if (!next || next.startsWith("--")) {
+      args[key] = "true";
+    } else {
+      args[key] = next;
+      index += 1;
+    }
+  }
+  return args;
+}
+
+function createProgressReporter(args = {}) {
+  if (args.progress === "false" || args.quiet === "true") return () => {};
+  return (event) => process.stderr.write(`[slideclone-progress] ${JSON.stringify({ scope: "quality-gate", ...event })}\n`);
+}
+
+function readThresholds(args = {}) {
+  return {
+    acceptPixelDiffRatio: numberArg(args["accept-pixel"], DEFAULT_THRESHOLDS.acceptPixelDiffRatio),
+    acceptForegroundMissingRatio: numberArg(args["accept-foreground"], DEFAULT_THRESHOLDS.acceptForegroundMissingRatio),
+    reviewPixelDiffRatio: numberArg(args["review-pixel"], DEFAULT_THRESHOLDS.reviewPixelDiffRatio),
+    reviewForegroundMissingRatio: numberArg(args["review-foreground"], DEFAULT_THRESHOLDS.reviewForegroundMissingRatio),
+    maxRasterImageAreaRatio: numberArg(args["max-raster-area"], DEFAULT_THRESHOLDS.maxRasterImageAreaRatio),
+    fullPageWidthRatio: numberArg(args["full-page-width"], DEFAULT_THRESHOLDS.fullPageWidthRatio),
+    fullPageHeightRatio: numberArg(args["full-page-height"], DEFAULT_THRESHOLDS.fullPageHeightRatio),
+    textCoverage: optionalNumberArg(args["min-text-coverage"])
+  };
+}
+
+function readTextOcrConfig(args = {}) {
+  const enabled = args["text-ocr"] === "true"
+    || Boolean(args["text-ocr-adapter"])
+    || Boolean(args["text-ocr-mode"])
+    || Boolean(args["text-ocr-pages"])
+    || Boolean(args["min-text-coverage"]);
+  return {
+    enabled,
+    adapter: args["text-ocr-adapter"] || DEFAULT_OCR_ADAPTER,
+    mode: args["text-ocr-mode"] || "anchored",
+    sourceOcr: args["text-ocr-source"] === "true",
+    // Keep the gate crop aligned with text micro-adjust: OCR needs enough
+    // surrounding pixels to avoid rejecting correct Chinese glyph edges.
+    paddingPt: numberArg(args["text-ocr-padding"], 16),
+    microBatch: args["text-ocr-micro-batch"] !== "false",
+    microBatchSize: numberArg(args["text-ocr-micro-batch-size"], 8),
+    psm: args["text-ocr-psm"] || undefined,
+    pageIndexes: parsePageIndexes(args["text-ocr-pages"])
+  };
+}
+
+
+function hydrateSourceImages(ir, irDir) {
+  const next = JSON.parse(JSON.stringify(ir));
+  for (const page of next.pages || []) {
+    const sourceImage = resolveSourceImage(page, irDir);
+    if (sourceImage) page.sourceImage = sourceImage;
+  }
+  return next;
+}
+
+function resolveSourceImage(page, irDir) {
+  const candidates = [
+    page.sourceImage,
+    ...collectItems(page).map((item) => item?.source?.pageImage),
+    ...collectItems(page).map((item) => item?.sourceImage)
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    const resolved = path.isAbsolute(candidate)
+      ? candidate
+      : path.resolve(irDir, candidate);
+    if (fs.existsSync(resolved)) return resolved;
+  }
+  return null;
+}
+
+async function renderWithEngine({ renderer, pptxFile, outputDir, maxPages, progress, heartbeatMs }) {
+  if (renderer === "powerpoint") {
+    return renderWithPowerPoint({ pptxFile, outputDir, maxPages, progress, heartbeatMs });
+  }
+  return renderWithLibreOffice({ pptxFile, outputDir, maxPages, progress, heartbeatMs });
+}
+
+function selectRendererForIr(requestedRenderer, ir = {}) {
+  const requested = normalizeRenderer(requestedRenderer || "libreoffice");
+  const tableCount = (Array.isArray(ir?.pages) ? ir.pages : [])
+    .reduce((sum, page) => sum + (Array.isArray(page?.tables) ? page.tables.length : 0), 0);
+  const mixedImageTextGroupCount = countMixedImageTextComponentGroups(ir);
+  const largeNoWrapGroupTextCount = countLargeNoWrapGroupText(ir);
+  return {
+    requestedRenderer: requested,
+    effectiveRenderer: requested,
+    tableCount,
+    mixedImageTextGroupCount,
+    largeNoWrapGroupTextCount,
+    fallbackApplied: false,
+    reason: "requested renderer is compatible with detected IR content"
+  };
+}
+
+function countLargeNoWrapGroupText(ir = {}) {
+  let count = 0;
+  for (const page of Array.isArray(ir?.pages) ? ir.pages : []) {
+    for (const item of Array.isArray(page?.textBoxes) ? page.textBoxes : []) {
+      const groupId = String(item?.source?.nativeComponentGroupId || item?.style?.nativeComponentGroupId || "").trim();
+      const noWrap = item?.wrap === false || item?.style?.wrap === false;
+      if (groupId && noWrap && Number(item?.font?.sizePt || 0) >= 24) count += 1;
+    }
+  }
+  return count;
+}
+
+function countMixedImageTextComponentGroups(ir = {}) {
+  let count = 0;
+  for (const page of Array.isArray(ir?.pages) ? ir.pages : []) {
+    const imageGroups = new Set((Array.isArray(page?.images) ? page.images : [])
+      .map((item) => String(item?.source?.nativeComponentGroupId || "").trim())
+      .filter(Boolean));
+    const textGroups = new Set((Array.isArray(page?.textBoxes) ? page.textBoxes : [])
+      .map((item) => String(item?.source?.nativeComponentGroupId || item?.style?.nativeComponentGroupId || "").trim())
+      .filter(Boolean));
+    count += [...imageGroups].filter((groupId) => textGroups.has(groupId)).length;
+  }
+  return count;
+}
+
+function alignRenderedPageIndexesToIr(render = {}, ir = {}) {
+  const renderedPages = Array.isArray(render?.renderedPages) ? render.renderedPages : [];
+  const sourcePages = Array.isArray(ir?.pages) ? ir.pages : [];
+  if (renderedPages.length === 0 || sourcePages.length === 0) return render;
+  const irPageIndexes = sourcePages.map((page, index) => page?.pageIndex ?? index);
+  const renderedPageIndexes = new Set(renderedPages.map((page) => page?.pageIndex));
+  if (irPageIndexes.every((pageIndex) => renderedPageIndexes.has(pageIndex))) return render;
+  if (renderedPages.length !== sourcePages.length) return render;
+  return {
+    ...render,
+    pageIndexAlignment: {
+      provider: "quality-gate-page-shard-render-index-alignment-v1",
+      reason: "rendered pages are ordinal but IR preserves original slide page indexes",
+      originalRenderedPageIndexes: renderedPages.map((page) => page?.pageIndex ?? null),
+      irPageIndexes
+    },
+    renderedPages: renderedPages.map((page, index) => ({
+      ...page,
+      originalRenderedPageIndex: page?.pageIndex,
+      pageIndex: irPageIndexes[index]
+    }))
+  };
+}
+
+async function renderWithLibreOffice({ pptxFile, outputDir, maxPages, progress, heartbeatMs }) {
+  if (!pptxFile) {
+    throw new Error("--pptx is required when --render-dir is not provided");
+  }
+  const script = path.join(__dirname, "libreoffice-benchmark.js");
+  const result = await runJsonRenderer(process.execPath, [
+    script,
+    "--pptx",
+    pptxFile,
+    "--out",
+    outputDir,
+    "--max-pages",
+    String(maxPages)
+  ], {
+    cwd: path.resolve(__dirname, "..", "..", ".."),
+    progress,
+    heartbeatMs
+  });
+  const report = parseRendererReport(result.stdout, "LibreOffice");
+  return {
+    provider: "libreoffice-benchmark",
+    renderDir: path.join(outputDir, "render"),
+    renderedPages: report.renderedPages || [],
+    reportFile: report.reportFile,
+    totalElapsedMs: report.totalElapsedMs
+  };
+}
+
+async function renderWithPowerPoint({ pptxFile, outputDir, maxPages, progress, heartbeatMs }) {
+  if (!pptxFile) {
+    throw new Error("--pptx is required when --render-dir is not provided");
+  }
+  const startedAt = Date.now();
+  const result = await renderPowerPointCom({
+    pptx: { pptxFile },
+    ir: { pages: [] },
+    iteration: 0,
+    maxPages
+  }, {
+    outputDir,
+    config: {
+      powerPoint: {
+        exportTimeoutMs: Math.max(60_000, Number(heartbeatMs || 0) * 12)
+      }
+    },
+    onProgress: progress
+  });
+  if (result?.ok !== true) throw new Error(result?.error || "PowerPoint renderer failed");
+  return {
+    ...result.data,
+    totalElapsedMs: Date.now() - startedAt
+  };
+}
+
+function runJsonRenderer(command, args, options = {}) {
+  const maxOutputChars = 20 * 1024 * 1024;
+  const startedAt = Date.now();
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: options.cwd || process.cwd(),
+      windowsHide: true,
+      shell: false
+    });
+    let stdout = "";
+    let stderr = "";
+    let overflow = false;
+    const heartbeatMs = boundedHeartbeatMs(options.heartbeatMs);
+    const heartbeat = heartbeatMs > 0
+      ? setInterval(() => options.progress?.({
+        phase: "render",
+        status: "heartbeat",
+        elapsedMs: Date.now() - startedAt
+      }), heartbeatMs)
+      : null;
+    heartbeat?.unref?.();
+    child.stdout.on("data", (chunk) => {
+      const appended = appendBoundedOutput(stdout, chunk, maxOutputChars);
+      stdout = appended.value;
+      overflow ||= appended.overflow;
+    });
+    child.stderr.on("data", (chunk) => {
+      const appended = appendBoundedOutput(stderr, chunk, maxOutputChars);
+      stderr = appended.value;
+      overflow ||= appended.overflow;
+    });
+    child.on("error", (error) => {
+      if (heartbeat) clearInterval(heartbeat);
+      reject(error);
+    });
+    child.on("close", (status) => {
+      if (heartbeat) clearInterval(heartbeat);
+      if (overflow) return reject(new Error("Renderer output exceeded the bounded 20 MiB limit"));
+      if (status !== 0) return reject(new Error(`Renderer exited with ${status}: ${sanitizeRendererError(stderr || stdout)}`));
+      resolve({ stdout, stderr });
+    });
+  });
+}
+
+function parseRendererReport(stdout, rendererName) {
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    throw new Error(`${rendererName} renderer returned invalid JSON`);
+  }
+}
+
+function appendBoundedOutput(current, chunk, limit) {
+  const combined = `${current}${String(chunk || "")}`;
+  return { value: combined.slice(-limit), overflow: combined.length > limit };
+}
+
+function sanitizeRendererError(value) {
+  return String(value || "")
+    .replace(/(?:bearer\s+)[^\s]+/gi, "Bearer [redacted]")
+    .replace(/(token|api[_-]?key|secret|password|cookie|license)\s*[=:]\s*[^\s,;]+/gi, "$1=[redacted]")
+    .replace(/[\r\n]+/g, " ")
+    .slice(-4000);
+}
+
+function assessPages({ ir, render, diff, compare, raster, thresholds }) {
+  const renderedByPage = new Map((render.renderedPages || []).map((page) => [page.pageIndex, page]));
+  const metricsByPage = new Map((diff.metrics || []).map((metric) => [metric.pageIndex, metric]));
+  const rasterByPage = new Map((raster.pages || []).map((page) => [page.pageIndex, page]));
+  const textCoverageByPage = new Map((compare?.textCoverage?.pages || []).map((page) => [page.pageIndex, page]));
+  const comparablePageIndexes = new Set([
+    ...renderedByPage.keys(),
+    ...[...metricsByPage.values()].filter((metric) => metric?.ok === true).map((metric) => metric.pageIndex)
+  ]);
+  const sourcePages = (ir.pages || []).map((page, index) => ({
+    page,
+    pageIndex: page.pageIndex ?? index
+  }));
+  const pages = comparablePageIndexes.size > 0
+    ? sourcePages.filter((entry) => comparablePageIndexes.has(entry.pageIndex))
+    : sourcePages;
+  return pages.map(({ page, pageIndex }) => {
+    const metrics = metricsByPage.get(pageIndex) || { ok: false, error: "No diff metrics for page." };
+    const rasterPage = rasterByPage.get(pageIndex) || { fullPageImages: 0, imageAreaRatio: 0, maxImageAreaRatio: 0 };
+    const textCoveragePage = textCoverageByPage.get(pageIndex) || null;
+    const status = assessPageQuality({
+      metrics,
+      raster: rasterPage,
+      textCoverage: textCoveragePage,
+      sourceImage: page.sourceImage,
+      renderedImage: renderedByPage.get(pageIndex)?.image,
+      thresholds
+    });
+    return {
+      pageIndex,
+      status: status.status,
+      reasons: status.reasons,
+      sourceImage: page.sourceImage || null,
+      renderedImage: renderedByPage.get(pageIndex)?.image || null,
+      diffImage: metrics.diffImage || null,
+      pixelDiffRatio: metrics.pixelDiffRatio ?? null,
+      foregroundMissingRatio: metrics.foregroundMissingRatio ?? null,
+      foregroundMissingRatioRaw: metrics.foregroundMissingRatioRaw ?? null,
+      meanAbsoluteDelta: metrics.meanAbsoluteDelta ?? null,
+      rasterImageAreaRatio: rasterPage.imageAreaRatio,
+      maxRasterImageAreaRatio: rasterPage.maxImageAreaRatio,
+      fullPageImages: rasterPage.fullPageImages,
+      imageCount: rasterPage.imageCount,
+      textCoverage: textCoveragePage?.textCoverage ?? null,
+      textOcrFailedBoxes: textCoveragePage?.failedBoxes ?? null
+    };
+  });
+}
+
+function summarizeComparedDeckMetrics(summary = {}, pages = []) {
+  const comparedPages = pages.length;
+  const failedPages = pages.filter((page) => page.status === "rejected").length;
+  return {
+    ...summary,
+    comparedPages,
+    failedPages
+  };
+}
+
+function assessPageQuality({ metrics, raster, textCoverage, sourceImage, renderedImage, thresholds = DEFAULT_THRESHOLDS }) {
+  const reasons = [];
+  if (!sourceImage) reasons.push("missing-source-image");
+  if (!renderedImage) reasons.push("missing-rendered-image");
+  if (!metrics?.ok) reasons.push(metrics?.error || "missing-diff-metrics");
+  const allowedBackgrounds = raster?.allowedFullPageBackgroundImages || 0;
+  const disallowedFullPageImages = Math.max(0, (raster?.fullPageImages || 0) - allowedBackgrounds);
+  const maxDisallowedImageAreaRatio = raster?.maxDisallowedImageAreaRatio ?? raster?.maxImageAreaRatio ?? raster?.imageAreaRatio ?? 0;
+  if (disallowedFullPageImages > 0) reasons.push("contains-full-page-raster-image");
+  if (maxDisallowedImageAreaRatio > thresholds.maxRasterImageAreaRatio) reasons.push("raster-image-area-too-high");
+
+  const pixel = typeof metrics?.pixelDiffRatio === "number" ? metrics.pixelDiffRatio : Number.POSITIVE_INFINITY;
+  const foreground = typeof metrics?.foregroundMissingRatio === "number" ? metrics.foregroundMissingRatio : Number.POSITIVE_INFINITY;
+  if (pixel > thresholds.reviewPixelDiffRatio) reasons.push("pixel-diff-too-high");
+  if (foreground > thresholds.reviewForegroundMissingRatio) reasons.push("foreground-missing-too-high");
+  if (typeof thresholds.textCoverage === "number"
+    && typeof textCoverage?.textCoverage === "number"
+    && textCoverage.textCoverage < thresholds.textCoverage) {
+    reasons.push("text-coverage-too-low");
+  }
+
+  const hardFailure = reasons.some((reason) => reason.startsWith("missing-")
+    || reason === "contains-full-page-raster-image"
+    || reason === "raster-image-area-too-high"
+    || reason === "pixel-diff-too-high"
+    || reason === "foreground-missing-too-high");
+  if (hardFailure) return { status: "rejected", reasons };
+  if (pixel > thresholds.acceptPixelDiffRatio || foreground > thresholds.acceptForegroundMissingRatio) {
+    return { status: "needs-review", reasons: [...reasons, "outside-accept-threshold"] };
+  }
+  if (reasons.includes("text-coverage-too-low")) return { status: "needs-review", reasons };
+  return { status: "accepted", reasons };
+}
+
+function summarizeRasterImages(ir, thresholds = DEFAULT_THRESHOLDS) {
+  const slideSize = ir.slideSize || { widthPt: 960, heightPt: 540 };
+  const slideArea = Math.max(1, slideSize.widthPt * slideSize.heightPt);
+  const pages = (ir.pages || []).map((page, index) => {
+    const pageIndex = page.pageIndex ?? index;
+    const images = page.images || [];
+    let area = 0;
+    let maxImageArea = 0;
+    let maxDisallowedImageArea = 0;
+    let fullPageImages = 0;
+    let allowedFullPageBackgroundImages = 0;
+    for (const image of images) {
+      const box = image.box || {};
+      const w = Number(box.w || 0);
+      const h = Number(box.h || 0);
+      const imageArea = Math.max(0, w * h);
+      const allowedBackground = isAllowedDecorativeBackgroundImage(image);
+      area += imageArea;
+      maxImageArea = Math.max(maxImageArea, imageArea);
+      if (!allowedBackground) maxDisallowedImageArea = Math.max(maxDisallowedImageArea, imageArea);
+      if (w >= slideSize.widthPt * thresholds.fullPageWidthRatio
+        && h >= slideSize.heightPt * thresholds.fullPageHeightRatio) {
+        fullPageImages += 1;
+        if (allowedBackground) allowedFullPageBackgroundImages += 1;
+      }
+    }
+    return {
+      pageIndex,
+      imageCount: images.length,
+      fullPageImages,
+      allowedFullPageBackgroundImages,
+      imageAreaRatio: round(area / slideArea),
+      maxImageAreaRatio: round(maxImageArea / slideArea),
+      maxDisallowedImageAreaRatio: round(maxDisallowedImageArea / slideArea)
+    };
+  });
+  return {
+    provider: "ir-raster-summary",
+    pages,
+    totalImages: pages.reduce((sum, page) => sum + page.imageCount, 0),
+    fullPageImages: pages.reduce((sum, page) => sum + page.fullPageImages, 0),
+    meanImageAreaRatio: pages.length
+    ? round(pages.reduce((sum, page) => sum + page.imageAreaRatio, 0) / pages.length)
+    : 0
+  };
+}
+
+function summarizeEditabilityProfile({ ir, raster, editability } = {}) {
+  const pages = ir?.pages || [];
+  const slideSize = ir?.slideSize || { widthPt: 960, heightPt: 540 };
+  const slideArea = Math.max(1, Number(slideSize.widthPt || 960) * Number(slideSize.heightPt || 540));
+  const detectorCounts = {};
+  const intentionalRasterDetectorCounts = {};
+  const actionableRasterDetectorCounts = {};
+  const imageExpressionCounts = {};
+  const imageSubtypeCounts = {};
+  const imageRecommendationCounts = {};
+  const textOverlayRiskSubtypeCounts = {};
+  const textOverlayRiskRecommendationCounts = {};
+  const nativeOverlayRiskSubtypeCounts = {};
+  const nativeOverlayRiskDetectorCounts = {};
+  const pageProfiles = pages.map((page, index) => {
+    const pageIndex = page.pageIndex ?? index;
+    const images = page.images || [];
+    const textBoxes = page.textBoxes || [];
+    const shapes = page.shapes || [];
+    const logicalShapes = countLogicalNativeShapes(shapes);
+    const logicalTextBoxes = countLogicalNativeTextBoxes(textBoxes, shapes);
+    const tables = page.tables || [];
+    const charts = page.charts || [];
+    const icons = page.icons || [];
+    const nonEditableImages = images.filter((image) => image?.source?.editable !== true);
+    const intentionalRasterImages = nonEditableImages.filter(isIntentionalRasterImage);
+    const actionableNonEditableImages = nonEditableImages.filter((image) => !isIntentionalRasterImage(image));
+    for (const image of nonEditableImages) {
+      addProfileCount(detectorCounts, image?.source?.detector || "unknown");
+      addProfileCount(imageExpressionCounts, image?.source?.expressionForm || "unknown-expression");
+      addProfileCount(imageSubtypeCounts, image?.source?.expressionSubtype || "unknown-subtype");
+      addProfileCount(imageRecommendationCounts, image?.source?.recommendedAction || "manual-review-before-native-rebuild");
+    }
+    for (const image of intentionalRasterImages) {
+      addProfileCount(intentionalRasterDetectorCounts, image?.source?.detector || "unknown");
+    }
+    for (const image of actionableNonEditableImages) {
+      addProfileCount(actionableRasterDetectorCounts, image?.source?.detector || "unknown");
+    }
+    const rasterPage = (raster?.pages || []).find((item) => item.pageIndex === pageIndex) || {};
+    const sourceNativePassthrough = page?.preserveTemplateSlide === true
+      && page?.source?.detector === "source-native-slide-passthrough";
+    const sourceNativeObjectCount = sourceNativePassthrough
+      ? Math.max(0, Number(page?.source?.nativeObjects || 0))
+      : 0;
+    const sourceNativeTextRuns = sourceNativePassthrough
+      ? Math.max(0, Number(page?.source?.textRuns || 0))
+      : 0;
+    const editableObjects = textBoxes.length + shapes.length + tables.length + charts.length + icons.length
+      + sourceNativeObjectCount
+      + images.filter((image) => image?.source?.editable === true).length;
+    const totalObjects = editableObjects + nonEditableImages.length;
+    const actionableTotalObjects = editableObjects + actionableNonEditableImages.length;
+    const textOverlayRisks = collectTextOverlayRisks({
+      images: nonEditableImages,
+      textBoxes,
+      slideArea
+    });
+    for (const risk of textOverlayRisks) {
+      addProfileCount(textOverlayRiskSubtypeCounts, risk.expressionSubtype);
+      addProfileCount(textOverlayRiskRecommendationCounts, risk.recommendedAction);
+    }
+    const nativeOverlayRisks = collectNativeOverlayRisks({
+      images: nonEditableImages,
+      shapes,
+      slideArea
+    });
+    for (const risk of nativeOverlayRisks) {
+      addProfileCount(nativeOverlayRiskSubtypeCounts, risk.expressionSubtype);
+      addProfileCount(nativeOverlayRiskDetectorCounts, risk.detector);
+    }
+    return {
+      pageIndex,
+      textBoxes: textBoxes.length,
+      physicalTextBoxes: textBoxes.length,
+      logicalTextBoxes,
+      physicalShapes: shapes.length,
+      logicalShapes,
+      sourceNativePassthrough,
+      sourceNativeObjectCount,
+      sourceNativeTextRuns,
+      editableObjects,
+      totalObjects,
+      nonEditableImages: nonEditableImages.length,
+      intentionalRasterImages: intentionalRasterImages.length,
+      actionableNonEditableImages: actionableNonEditableImages.length,
+      actionableEditableObjectRatio: actionableTotalObjects > 0 ? round(editableObjects / actionableTotalObjects) : 1,
+      fullPageImages: rasterPage.fullPageImages || 0,
+      allowedFullPageBackgroundImages: rasterPage.allowedFullPageBackgroundImages || 0,
+      rasterImageAreaRatio: rasterPage.imageAreaRatio || 0,
+      maxRasterImageAreaRatio: rasterPage.maxImageAreaRatio || 0,
+      detectors: nonEditableImages.map((image) => image?.source?.detector || "unknown"),
+      imageExpressions: nonEditableImages.map((image) => image?.source?.expressionForm || "unknown-expression"),
+      imageSubtypes: nonEditableImages.map((image) => image?.source?.expressionSubtype || "unknown-subtype"),
+      imageRecommendations: nonEditableImages.map((image) => image?.source?.recommendedAction || "manual-review-before-native-rebuild"),
+      textOverlayRiskBoxes: textOverlayRisks.reduce((sum, item) => sum + item.textBoxes, 0),
+      textOverlayRiskImages: textOverlayRisks.length,
+      textOverlayRisks,
+      nativeOverlayRiskShapes: nativeOverlayRisks.reduce((sum, item) => sum + item.shapes, 0),
+      nativeOverlayRiskImages: nativeOverlayRisks.length,
+      nativeOverlayRisks
+    };
+  });
+  const totalObjects = pageProfiles.reduce((sum, page) => sum + page.totalObjects, 0);
+  const editableObjects = pageProfiles.reduce((sum, page) => sum + page.editableObjects, 0);
+  const physicalTextBoxes = pageProfiles.reduce((sum, page) => sum + page.physicalTextBoxes, 0);
+  const logicalTextBoxes = pageProfiles.reduce((sum, page) => sum + page.logicalTextBoxes, 0);
+  const physicalShapes = pageProfiles.reduce((sum, page) => sum + page.physicalShapes, 0);
+  const logicalShapes = pageProfiles.reduce((sum, page) => sum + page.logicalShapes, 0);
+  const intentionalRasterImages = pageProfiles.reduce((sum, page) => sum + page.intentionalRasterImages, 0);
+  const actionableNonEditableImages = pageProfiles.reduce((sum, page) => sum + page.actionableNonEditableImages, 0);
+  const actionableTotalObjects = editableObjects + actionableNonEditableImages;
+  const fullPageImages = pageProfiles.reduce((sum, page) => sum + page.fullPageImages, 0);
+  const allowedFullPageBackgroundImages = pageProfiles.reduce((sum, page) => sum + page.allowedFullPageBackgroundImages, 0);
+  const disallowedFullPageImages = Math.max(0, fullPageImages - allowedFullPageBackgroundImages);
+  const sourceNativePassthroughPages = pageProfiles.filter((page) => page.sourceNativePassthrough).length;
+  const sourceNativePassthroughObjects = pageProfiles.reduce((sum, page) => sum + page.sourceNativeObjectCount, 0);
+  const sourceNativePassthroughTextRuns = pageProfiles.reduce((sum, page) => sum + page.sourceNativeTextRuns, 0);
+  return {
+    provider: "quality-gate-editability-profile",
+    pages: pageProfiles.length,
+    physicalTextBoxes,
+    logicalTextBoxes,
+    physicalShapes,
+    logicalShapes,
+    editableObjects,
+    totalObjects,
+    editableObjectRatio: totalObjects > 0 ? round(editableObjects / totalObjects) : 1,
+    nonEditableImages: pageProfiles.reduce((sum, page) => sum + page.nonEditableImages, 0),
+    intentionalRasterImages,
+    actionableNonEditableImages,
+    actionableEditableObjectRatio: actionableTotalObjects > 0 ? round(editableObjects / actionableTotalObjects) : 1,
+    sourceNativePassthroughPages,
+    sourceNativePassthroughObjects,
+    sourceNativePassthroughTextRuns,
+    pagesWithRasterImages: pageProfiles.filter((page) => page.nonEditableImages > 0).length,
+    fullPageImages,
+    allowedFullPageBackgroundImages,
+    disallowedFullPageImages,
+    maxRasterImageAreaRatio: pageProfiles.reduce((max, page) => Math.max(max, page.maxRasterImageAreaRatio), 0),
+    meanRasterImageAreaRatio: pageProfiles.length
+      ? round(pageProfiles.reduce((sum, page) => sum + page.rasterImageAreaRatio, 0) / pageProfiles.length)
+      : 0,
+    detectorCounts,
+    intentionalRasterDetectorCounts,
+    actionableRasterDetectorCounts,
+    imageExpressionCounts,
+    imageSubtypeCounts,
+    imageRecommendationCounts,
+    textOverlayRiskBoxes: pageProfiles.reduce((sum, page) => sum + page.textOverlayRiskBoxes, 0),
+    textOverlayRiskImages: pageProfiles.reduce((sum, page) => sum + page.textOverlayRiskImages, 0),
+    pagesWithTextOverlayRisk: pageProfiles.filter((page) => page.textOverlayRiskImages > 0).length,
+    textOverlayRiskSubtypeCounts,
+    textOverlayRiskRecommendationCounts,
+    nativeOverlayRiskShapes: pageProfiles.reduce((sum, page) => sum + page.nativeOverlayRiskShapes, 0),
+    nativeOverlayRiskImages: pageProfiles.reduce((sum, page) => sum + page.nativeOverlayRiskImages, 0),
+    pagesWithNativeOverlayRisk: pageProfiles.filter((page) => page.nativeOverlayRiskImages > 0).length,
+    nativeOverlayRiskSubtypeCounts,
+    nativeOverlayRiskDetectorCounts,
+    compareEditability: editability
+      ? {
+        editableObjects: editability.editableObjects ?? null,
+        nonEditableObjects: editability.nonEditableObjects ?? null,
+        rasterImageAreaRatio: typeof editability.rasterImageAreaRatio === "number"
+          ? round(editability.rasterImageAreaRatio)
+          : null
+      }
+      : null,
+    pagesDetail: pageProfiles
+  };
+}
+
+function summarizeNativeComponentProfile(ir = {}, options = {}) {
+  const maxExamples = normalizePositiveInt(options.maxExamples, 30);
+  const groupKeys = new Set();
+  const byArchetype = {};
+  const pagesWithGroups = new Set();
+  const ungroupedExamples = [];
+  let shapeParts = 0;
+  let textParts = 0;
+  let imageParts = 0;
+  let tableParts = 0;
+  let ungroupedNativeComponentParts = 0;
+
+  for (const [pageOrdinal, page] of (Array.isArray(ir?.pages) ? ir.pages : []).entries()) {
+    const pageIndex = page?.pageIndex ?? pageOrdinal;
+    const collections = [
+      ["shape", Array.isArray(page?.shapes) ? page.shapes : []],
+      ["text", Array.isArray(page?.textBoxes) ? page.textBoxes : []],
+      ["image", Array.isArray(page?.images) ? page.images : []],
+      ["table", Array.isArray(page?.tables) ? page.tables : []]
+    ];
+    for (const [partType, items] of collections) {
+      for (const item of items) {
+        const source = item?.source || {};
+        const groupId = String(source.nativeComponentGroupId || item?.style?.nativeComponentGroupId || "").trim();
+        const declaredComponent = source.nativeComponentInstance === true || Boolean(groupId);
+        if (!declaredComponent) continue;
+        if (!groupId) {
+          ungroupedNativeComponentParts += 1;
+          if (ungroupedExamples.length < maxExamples) {
+            ungroupedExamples.push({ pageIndex, id: String(item?.id || ""), partType, detector: String(source.detector || "") });
+          }
+          continue;
+        }
+        groupKeys.add(`${pageIndex}:${groupId}`);
+        pagesWithGroups.add(pageIndex);
+        addProfileCount(byArchetype, source.nativeComponentArchetype || "unknown-component");
+        if (partType === "shape") shapeParts += 1;
+        else if (partType === "text") textParts += 1;
+        else if (partType === "image") imageParts += 1;
+        else tableParts += 1;
+      }
+    }
+  }
+
+  return {
+    provider: "quality-gate-native-component-profile-v1",
+    groups: groupKeys.size,
+    pagesWithGroups: pagesWithGroups.size,
+    shapeParts,
+    textParts,
+    imageParts,
+    tableParts,
+    totalParts: shapeParts + textParts + imageParts + tableParts,
+    ungroupedNativeComponentParts,
+    byArchetype,
+    ungroupedExamples
+  };
+}
+
+function addProfileCount(target, key) {
+  const safeKey = String(key || "unknown");
+  target[safeKey] = (target[safeKey] || 0) + 1;
+}
+
+function safeProfileKey(value) {
+  const text = stripControlCharacters(String(value ?? "")).trim();
+  return text || "unknown";
+}
+
+function stripControlCharacters(value) {
+  let result = "";
+  for (const character of value) {
+    const code = character.codePointAt(0);
+    if (code > 0x1f && code !== 0x7f) result += character;
+  }
+  return result;
+}
+
+function normalizePositiveInt(value, fallback) {
+  const number = Math.trunc(Number(value));
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function summarizeVisualUnitDecisionProfile(ir = {}, options = {}) {
+  const maxExamples = normalizePositiveInt(options.maxExamples, 40);
+  const byDecision = {};
+  const byReason = {};
+  const byExpression = {};
+  const byLayerType = {};
+  const byUnitDisposition = {};
+  const examples = [];
+  const examplesByDecision = {};
+  const pages = [];
+  let nativeStructureCandidates = 0;
+  let intentionalMinimumUnitCrops = 0;
+  let actionableUnexplainedCrops = 0;
+  let suspiciousMonolithicStructuredCrops = 0;
+  let editableNativeObjects = 0;
+  for (const [pageOrdinal, page] of (Array.isArray(ir?.pages) ? ir.pages : []).entries()) {
+    const pageIndex = page?.pageIndex ?? pageOrdinal;
+    const pageSummary = {
+      pageIndex,
+      nativeStructureCandidates: 0,
+      intentionalMinimumUnitCrops: 0,
+      actionableUnexplainedCrops: 0,
+      suspiciousMonolithicStructuredCrops: 0,
+      editableNativeObjects: 0
+    };
+    for (const key of ["shapes", "tables", "charts", "icons", "textBoxes"]) {
+      const items = Array.isArray(page?.[key]) ? page[key] : [];
+      editableNativeObjects += items.length;
+      pageSummary.editableNativeObjects += items.length;
+      for (const item of items) {
+        const decision = classifyEditableVisualUnitDecision(item, key);
+        if (decision !== "native-structure-candidate") continue;
+        nativeStructureCandidates += 1;
+        pageSummary.nativeStructureCandidates += 1;
+        addProfileCount(byDecision, decision);
+        addProfileCount(byReason, safeProfileKey(item?.source?.detector || key));
+        addProfileCount(byExpression, safeProfileKey(item?.source?.expressionForm || key));
+        addProfileCount(byLayerType, safeProfileKey(item?.source?.layerType || item?.source?.layer?.layerType || "native-object"));
+        addProfileCount(byUnitDisposition, "semantic-native-structure");
+        pushVisualUnitExample(examples, maxExamples, {
+          pageIndex,
+          id: item?.id || `${key}-${pageSummary.editableNativeObjects}`,
+          decision,
+          unitDisposition: "semantic-native-structure",
+          type: key,
+          detector: item?.source?.detector || key,
+          expressionForm: item?.source?.expressionForm || key,
+          reason: item?.source?.minimumUnitPolicy || item?.source?.componentTemplatePart || item?.source?.detector || "native editable object"
+        });
+        pushVisualUnitDecisionExample(examplesByDecision, decision, maxExamples, {
+          pageIndex,
+          id: item?.id || `${key}-${pageSummary.editableNativeObjects}`,
+          type: key,
+          unitDisposition: "semantic-native-structure",
+          detector: item?.source?.detector || key,
+          expressionForm: item?.source?.expressionForm || key,
+          reason: item?.source?.minimumUnitPolicy || item?.source?.componentTemplatePart || item?.source?.detector || "native editable object"
+        });
+      }
+    }
+    for (const image of Array.isArray(page?.images) ? page.images : []) {
+      if (image?.source?.editable === true) {
+        editableNativeObjects += 1;
+        pageSummary.editableNativeObjects += 1;
+        continue;
+      }
+      const suspiciousMonolithicCrop = isSuspiciousMonolithicStructuredScreenshotCrop(
+        image,
+        pageSummary.editableNativeObjects,
+        ir?.slideSize
+      );
+      const decision = suspiciousMonolithicCrop
+        ? "actionable-unexplained-crop"
+        : classifyImageVisualUnitDecision(image);
+      const unitDisposition = suspiciousMonolithicCrop
+        ? "semantic-native-structure"
+        : imageVisualUnitDisposition(image, decision);
+      const decisionReason = suspiciousMonolithicCrop
+        ? "large process-like screenshot crop has too few editable semantic objects"
+        : visualUnitDecisionReason(image, decision);
+      addProfileCount(byDecision, decision);
+      addProfileCount(byReason, decisionReason);
+      addProfileCount(byExpression, safeProfileKey(image?.source?.expressionForm || "unknown-expression"));
+      addProfileCount(byLayerType, safeProfileKey(image?.source?.layerType || image?.source?.layer?.layerType || image?.layerType || "unknown-layer"));
+      addProfileCount(byUnitDisposition, unitDisposition);
+      if (decision === "intentional-minimum-unit-crop") {
+        intentionalMinimumUnitCrops += 1;
+        pageSummary.intentionalMinimumUnitCrops += 1;
+      } else if (decision === "actionable-unexplained-crop") {
+        actionableUnexplainedCrops += 1;
+        pageSummary.actionableUnexplainedCrops += 1;
+      }
+      if (suspiciousMonolithicCrop) {
+        suspiciousMonolithicStructuredCrops += 1;
+        pageSummary.suspiciousMonolithicStructuredCrops += 1;
+      }
+      pushVisualUnitExample(examples, maxExamples, {
+        pageIndex,
+        id: image?.id || `image-${pageSummary.intentionalMinimumUnitCrops + pageSummary.actionableUnexplainedCrops}`,
+        decision,
+        unitDisposition,
+        type: image?.type || "image",
+        detector: image?.source?.detector || "unknown",
+        expressionForm: image?.source?.expressionForm || "unknown-expression",
+        expressionSubtype: image?.source?.expressionSubtype || "unknown-subtype",
+        recommendedAction: image?.source?.recommendedAction || "manual-review-before-native-rebuild",
+        areaRatio: visualUnitAreaRatio(image?.box, ir?.slideSize),
+        reason: decisionReason
+      });
+      pushVisualUnitDecisionExample(examplesByDecision, decision, maxExamples, {
+        pageIndex,
+        id: image?.id || `image-${pageSummary.intentionalMinimumUnitCrops + pageSummary.actionableUnexplainedCrops}`,
+        type: image?.type || "image",
+        unitDisposition,
+        detector: image?.source?.detector || "unknown",
+        expressionForm: image?.source?.expressionForm || "unknown-expression",
+        expressionSubtype: image?.source?.expressionSubtype || "unknown-subtype",
+        recommendedAction: image?.source?.recommendedAction || "manual-review-before-native-rebuild",
+        areaRatio: visualUnitAreaRatio(image?.box, ir?.slideSize),
+        reason: decisionReason
+      });
+    }
+    pages.push(pageSummary);
+  }
+  return {
+    provider: "quality-gate-visual-unit-decision-profile",
+    pages: pages.length,
+    editableNativeObjects,
+    nativeStructureCandidates,
+    intentionalMinimumUnitCrops,
+    actionableUnexplainedCrops,
+    suspiciousMonolithicStructuredCrops,
+    byDecision,
+    byReason,
+    byExpression,
+    byLayerType,
+    byUnitDisposition,
+    examples,
+    examplesByDecision,
+    pagesDetail: pages
+  };
+}
+
+function isSuspiciousMonolithicStructuredScreenshotCrop(image = {}, editableNativeObjects = 0, slideSize = {}) {
+  const source = image?.source || {};
+  if (String(source.detector || "") !== "screenshot-process-underlay-crop") return false;
+  const retainedTemplateShell = source.componentTemplateApplicationMode === "native-shell-over-fidelity-crop"
+    && source.componentTemplateCropReplacedByNative === false;
+  if (!retainedTemplateShell && Number(editableNativeObjects) > 3) return false;
+  if (visualUnitAreaRatio(image?.box, slideSize) < 0.45) return false;
+  if (retainedTemplateShell) return true;
+  const text = String(source.pageText || source.allText || "").normalize("NFKC");
+  const semanticMarkers = [
+    /输入|标准\s*PRD|原文件/,
+    /引擎|转换|处理/,
+    /输出|原型|手册/,
+    /门户|平台|交付|展示/,
+    /路由|连接|同步|闭环/
+  ];
+  return semanticMarkers.filter((pattern) => pattern.test(text)).length >= 4;
+}
+
+function classifyEditableVisualUnitDecision(item = {}, key = "") {
+  const source = item?.source || {};
+  const text = [
+    key,
+    source.detector,
+    source.expressionForm,
+    source.expressionSubtype,
+    source.minimumUnitPolicy,
+    source.nativeRebuild === true ? "native-rebuild" : "",
+    source.componentTemplatePart,
+    source.layerType,
+    source.layer?.layerType
+  ].filter(Boolean).join(" ").toLowerCase();
+  return /native|rebuild-semantic-structure|table|chart|diagram|matrix|grid|connector|shape|text/.test(text)
+    ? "native-structure-candidate"
+    : "editable-object";
+}
+
+function classifyImageVisualUnitDecision(image = {}) {
+  const source = image?.source || {};
+  const unitDisposition = imageVisualUnitDisposition(image);
+  if (unitDisposition === "intentional-visual-crop"
+    || unitDisposition === "intentional-decorative-crop"
+    || unitDisposition === "hybrid-crop-with-native-overlays") {
+    return "intentional-minimum-unit-crop";
+  }
+  if (unitDisposition === "semantic-native-structure" || unitDisposition === "classification-needed") {
+    return "actionable-unexplained-crop";
+  }
+  if (source.protectedMinimumUnit === true
+    || source.intentionalMinimumUnitCrop === true
+    || source.specializedNativeHybridResidual === true
+    || isIntentionalRasterImage(image)) {
+    return "intentional-minimum-unit-crop";
+  }
+  return "actionable-unexplained-crop";
+}
+
+function imageVisualUnitDisposition(image = {}, decision = "") {
+  const source = image?.source || {};
+  const explicit = safeProfileKey(
+    source.expressionPolicy?.unitDisposition
+    || source.unitDisposition
+    || source.componentRenderStrategy?.expressionPolicy?.unitDisposition
+    || source.layer?.componentRenderStrategy?.expressionPolicy?.unitDisposition
+  );
+  if (explicit !== "unknown") return explicit;
+  if (decision === "intentional-minimum-unit-crop") return "intentional-visual-crop";
+  if (decision === "actionable-unexplained-crop") return "classification-needed";
+  return "unknown";
+}
+
+function visualUnitDecisionReason(image = {}, decision = "") {
+  const source = image?.source || {};
+  if (decision === "actionable-unexplained-crop") {
+    return safeProfileKey(source.componentTemplateCropReplacementReason || source.recommendedAction || "unexplained-non-editable-crop");
+  }
+  return safeProfileKey(
+    source.minimumUnitPolicy
+    || source.componentTemplateCropReplacementReason
+    || source.recommendedAction
+    || source.nonEditableReason
+    || source.reason
+    || "intentional-raster-fidelity-unit"
+  );
+}
+
+function visualUnitAreaRatio(box = {}, slideSize = {}) {
+  const slideArea = Math.max(1, Number(slideSize.widthPt || 960) * Number(slideSize.heightPt || 540));
+  return round((Number(box?.w || 0) * Number(box?.h || 0)) / slideArea);
+}
+
+function pushVisualUnitExample(examples, maxExamples, example) {
+  if (examples.length >= maxExamples) return;
+  examples.push(example);
+}
+
+function pushVisualUnitDecisionExample(examplesByDecision, decision, maxExamples, example) {
+  const key = safeProfileKey(decision || "unknown-decision");
+  if (!Array.isArray(examplesByDecision[key])) examplesByDecision[key] = [];
+  const perDecisionLimit = Math.max(1, Math.min(10, Math.floor(maxExamples / 3) || 1));
+  if (examplesByDecision[key].length >= perDecisionLimit) return;
+  examplesByDecision[key].push(example);
+}
+
+function summarizePages(pages) {
+  const summary = {
+    pages: pages.length,
+    accepted: 0,
+    needsReview: 0,
+    rejected: 0
+  };
+  for (const page of pages) {
+    if (page.status === "accepted") summary.accepted += 1;
+    else if (page.status === "needs-review") summary.needsReview += 1;
+    else summary.rejected += 1;
+  }
+  summary.passed = summary.rejected === 0;
+  return summary;
+}
+
+function summarizeQualityGateStatus(input = {}) {
+  return summarizeQualityGateStatusCore(input);
+}
+
+function buildContactSheet({ pages, maxPages, outFile }) {
+  const selected = pages
+    .filter((page) => page.sourceImage && page.renderedImage && page.diffImage)
+    .slice(0, Math.max(1, maxPages));
+  if (selected.length === 0) return null;
+  const panelW = 320;
+  const gap = 8;
+  const rowH = 205;
+  const sheet = {
+    width: panelW * 3 + gap * 4,
+    height: selected.length * (rowH + gap) + gap,
+    rgba: Buffer.alloc((panelW * 3 + gap * 4) * (selected.length * (rowH + gap) + gap) * 4, 255)
+  };
+  selected.forEach((page, row) => {
+    const y = gap + row * (rowH + gap);
+    const statusColor = statusColorRgba(page.status);
+    fillRect(sheet, gap, y, sheet.width - gap * 2, 5, statusColor);
+    [page.sourceImage, page.renderedImage, page.diffImage].forEach((file, col) => {
+      const image = readPng(file);
+      const thumb = resizeFit(image, panelW, rowH - 10);
+      const x = gap + col * (panelW + gap);
+      paste(sheet, thumb, x, y + 10);
+    });
+  });
+  ensureDir(path.dirname(outFile));
+  writePng(outFile, sheet);
+  return outFile;
+}
+
+function resizeFit(image, maxW, maxH) {
+  const scale = Math.min(maxW / image.width, maxH / image.height);
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const out = { width, height, rgba: Buffer.alloc(width * height * 4, 255) };
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const sx = Math.min(image.width - 1, Math.floor(x / scale));
+      const sy = Math.min(image.height - 1, Math.floor(y / scale));
+      const src = (sy * image.width + sx) * 4;
+      const dst = (y * width + x) * 4;
+      image.rgba.copy(out.rgba, dst, src, src + 4);
+    }
+  }
+  return out;
+}
+
+function paste(target, image, x, y) {
+  for (let row = 0; row < image.height; row += 1) {
+    if (y + row < 0 || y + row >= target.height) continue;
+    for (let col = 0; col < image.width; col += 1) {
+      if (x + col < 0 || x + col >= target.width) continue;
+      const src = (row * image.width + col) * 4;
+      const dst = ((y + row) * target.width + x + col) * 4;
+      image.rgba.copy(target.rgba, dst, src, src + 4);
+    }
+  }
+}
+
+function fillRect(image, x, y, w, h, rgba) {
+  for (let yy = y; yy < y + h; yy += 1) {
+    for (let xx = x; xx < x + w; xx += 1) {
+      if (xx < 0 || yy < 0 || xx >= image.width || yy >= image.height) continue;
+      const offset = (yy * image.width + xx) * 4;
+      image.rgba[offset] = rgba[0];
+      image.rgba[offset + 1] = rgba[1];
+      image.rgba[offset + 2] = rgba[2];
+      image.rgba[offset + 3] = rgba[3];
+    }
+  }
+}
+
+function statusColorRgba(status) {
+  if (status === "accepted") return [35, 159, 84, 255];
+  if (status === "needs-review") return [244, 123, 32, 255];
+  return [196, 45, 45, 255];
+}
+
+function collectItems(page) {
+  return [
+    ...(page.shapes || []),
+    ...(page.images || []),
+    ...(page.tables || []),
+    ...(page.textBoxes || [])
+  ];
+}
+
+function ensureDir(dir) {
+  fs.mkdirSync(dir, { recursive: true });
+}
+
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, "utf8").replace(/^\uFEFF/, ""));
+}
+
+function numberArg(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function optionalNumberArg(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
+
+function parsePageIndexes(value) {
+  if (!value) return null;
+  const indexes = new Set();
+  for (const part of String(value).split(",")) {
+    const item = part.trim();
+    if (!item) continue;
+    const range = item.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (range) {
+      const start = Number.parseInt(range[1], 10);
+      const end = Number.parseInt(range[2], 10);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end < start) continue;
+      for (let page = start; page <= end; page += 1) indexes.add(page - 1);
+      continue;
+    }
+    const page = Number.parseInt(item, 10);
+    if (Number.isFinite(page) && page > 0) indexes.add(page - 1);
+  }
+  return indexes.size ? [...indexes].sort((a, b) => a - b) : null;
+}
+
+function round(value) {
+  return Math.round(Number(value) * 10000) / 10000;
+}
+
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`${error.stack || error.message}\n`);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  alignRenderedPageIndexesToIr,
+  appendBoundedOutput,
+  assessPageQuality,
+  assessPages,
+  boundedHeartbeatMs,
+  countRenderedPages,
+  createRenderCacheIdentity,
+  createProgressReporter,
+  findRenderDirsByPrefix,
+  findRenderDirsByIdentity,
+  findRenderDirsFromQualityReports,
+  hydrateSourceImages,
+  main,
+  normalizeRenderer,
+  readRenderedPages,
+  readRenderCacheMetadata,
+  readReconstructionBudgetConfig,
+  readTextOcrConfig,
+  readPaddleOcrConfig,
+  readThresholds,
+  readUmiOcrConfig,
+  parsePageIndexes,
+  parseRendererReport,
+  realWorkspaceCwd,
+  resolveRenderOutputDir,
+  resolveReusableRenderDir,
+  reusableRenderMatches,
+  sanitizeRendererError,
+  selectRendererForIr,
+  summarizeComponentTemplateCropStatus,
+  summarizeEditabilityProfile,
+  summarizeNativeComponentProfile,
+  summarizeVisualUnitDecisionProfile,
+  summarizeComparedDeckMetrics,
+  summarizeQualityGateStatus,
+  summarizeNativeObjectConflicts,
+  summarizePages,
+  summarizeRasterImages,
+  auditSourceMediaExclusion,
+  collectTextOverlayRisks,
+  countLogicalNativeShapes,
+  countLogicalNativeTextBoxes,
+  writeRenderCacheMetadata
+};

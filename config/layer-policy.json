@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "transports": ["cli", "mcp-server", "remote-mcp-server"],
+  "forbiddenSources": ["capability-contracts", "capability-manifests"],
+  "allowedDependencies": {
+    "capability-runtime": ["capability-contracts", "capability-manifests"],
+    "team-runtime": ["capability-contracts", "capability-runtime", "capability-manifests"]
+  },
+  "forbiddenDependencies": {
+    "slideclone-core": ["project-audit-core", "slideclone-native-engine", "slideclone-worker-adapter", "team-runtime"],
+    "slideclone-worker-adapter": ["slideclone-native-engine"]
+  }
+}

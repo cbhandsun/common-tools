@@ -10,7 +10,7 @@ const {
   _private,
   matchLocalComponentAssets,
   scoreLocalAsset
-} = require("../skills/pd-hifi-slideclone/scripts/lib/component-asset-matcher");
+} = require("../packages/slideclone-native-engine/scripts/lib/component-asset-matcher");
 
 test("component asset matcher maps plugin candidates to local installed assets", () => {
   const assetPath = path.join(process.cwd(), "OfficePLUS", "assets", "流程组件模板.pptx");

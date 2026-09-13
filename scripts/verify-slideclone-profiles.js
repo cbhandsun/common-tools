@@ -6,6 +6,7 @@ const path = require("node:path");
 const { loadProfile, loadRegistry } = require("./slideclone-profile");
 
 const root = path.resolve(__dirname, "..");
+const nativeScriptRoot = path.join(root, "packages", "slideclone-native-engine", "scripts");
 
 function verifySlidecloneProfiles(packageFile = path.join(root, "package.json")) {
   const packageJson = JSON.parse(fs.readFileSync(packageFile, "utf8").replace(/^\uFEFF/u, ""));
@@ -14,6 +15,13 @@ function verifySlidecloneProfiles(packageFile = path.join(root, "package.json"))
   const registry = loadRegistry();
   const aliases = [];
   const errors = [];
+  for (const [profileName, profile] of Object.entries(registry)) {
+    if (!profile.script.startsWith("scripts/")) continue;
+    const nativeScript = path.join(nativeScriptRoot, path.basename(profile.script));
+    if (fs.statSync(nativeScript, { throwIfNoEntry: false })?.isFile()) {
+      errors.push(`${profileName} points at a skill wrapper even though a native-engine script exists: ${profile.script}`);
+    }
+  }
   for (const [name, command] of Object.entries(scripts)) {
     if (!name.startsWith("slideclone:")) continue;
     if (typeof command !== "string" || command.length > 32768 || command.includes("\0")) {
@@ -21,6 +29,10 @@ function verifySlidecloneProfiles(packageFile = path.join(root, "package.json"))
       continue;
     }
     if (command.startsWith("node skills/pd-hifi-slideclone/scripts/")) {
+      errors.push(`${name} bypasses the versioned profile registry`);
+      continue;
+    }
+    if (command.startsWith("node packages/slideclone-native-engine/scripts/")) {
       errors.push(`${name} bypasses the versioned profile registry`);
       continue;
     }
@@ -34,13 +46,14 @@ function verifySlidecloneProfiles(packageFile = path.join(root, "package.json"))
     }
   }
   if (errors.length > 0) throw new Error(`slideclone profile verification failed:\n- ${errors.join("\n- ")}`);
-  return Object.freeze({ profileCount: Object.keys(registry).length, aliasCount: aliases.length });
+  const nativeProfileCount = Object.values(registry).filter((profile) => profile.script.startsWith("packages/slideclone-native-engine/scripts/")).length;
+  return Object.freeze({ profileCount: Object.keys(registry).length, aliasCount: aliases.length, nativeProfileCount });
 }
 
 if (require.main === module) {
   try {
     const result = verifySlidecloneProfiles();
-    process.stdout.write(`verified ${result.profileCount} slideclone profiles and ${result.aliasCount} package aliases\n`);
+    process.stdout.write(`verified ${result.profileCount} slideclone profiles, ${result.nativeProfileCount} native-engine profiles, and ${result.aliasCount} package aliases\n`);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

@@ -11,7 +11,7 @@ const {
   parseArgs,
   parseBuilderReport,
   runComponentReplacementApply
-} = require("../skills/pd-hifi-slideclone/scripts/component-replacement-apply");
+} = require("../packages/slideclone-native-engine/scripts/component-replacement-apply");
 
 test("component replacement apply parses CLI boundary options", () => {
   const args = parseArgs([

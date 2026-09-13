@@ -16,7 +16,7 @@ const {
   resolveSampleFile,
   sanitizeMetadataValue,
   toApplyOperation
-} = require("../skills/pd-hifi-slideclone/scripts/component-ir-replacement-apply-plan");
+} = require("../packages/slideclone-native-engine/scripts/component-ir-replacement-apply-plan");
 
 test("component IR replacement apply plan parses CLI options", () => {
   const args = parseArgs([

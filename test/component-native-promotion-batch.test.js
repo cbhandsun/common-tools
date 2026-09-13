@@ -11,7 +11,7 @@ const {
   materializeSelectedPptx,
   parseArgs,
   rowsByDeck
-} = require("../skills/pd-hifi-slideclone/scripts/component-native-promotion-batch");
+} = require("../packages/slideclone-native-engine/scripts/component-native-promotion-batch");
 
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });

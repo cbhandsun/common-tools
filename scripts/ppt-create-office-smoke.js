@@ -10,8 +10,8 @@ const { inspectPptx } = require("../packages/ppt-create-core/export");
 const { createBundledSlidecloneRunner } = require("../packages/cli/slideclone-runner");
 const { createEditableJob, runEditableJob } = require("../packages/slideclone-core");
 const { buildPptx } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-create-worker");
-const { validatePowerPointEditableRoundTrip } = require("../skills/pd-hifi-slideclone/scripts/adapters/validate-powerpoint-editable-roundtrip");
-const renderLibreOffice = require("../skills/pd-hifi-slideclone/scripts/adapters/render-libreoffice");
+const { validatePowerPointEditableRoundTrip } = require("../packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-editable-roundtrip");
+const renderLibreOffice = require("../packages/slideclone-native-engine/scripts/adapters/render-libreoffice");
 const { buildPptCreateBoundaryCases, buildPptCreateOfficeCorpus } = require("./lib/ppt-create-office-corpus");
 const { buildUserTemplateArchiveCase } = require("./lib/ppt-create-template-archive-corpus");
 

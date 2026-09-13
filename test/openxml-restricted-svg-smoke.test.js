@@ -6,10 +6,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { expandRestrictedSvgGraphics } = require("../skills/pd-hifi-slideclone/scripts/lib/restricted-svg");
-const { listZipEntries, readZipEntry } = require("../skills/pd-hifi-slideclone/scripts/lib/pptx-inventory");
+const { expandRestrictedSvgGraphics } = require("../packages/slideclone-core/restricted-svg");
+const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
+const { resolveOpenXmlBuilderRoot } = require("../packages/slideclone-native-engine");
 
-const projectDirectory = path.resolve(__dirname, "..", "skills", "pd-hifi-slideclone", "dotnet", "OpenXmlDeckBuilder");
+const projectDirectory = resolveOpenXmlBuilderRoot(path.join(__dirname, ".."));
 
 test("restricted SVG carrier becomes editable DrawingML without embedding source media", (t) => {
   const builder = findBuilder();

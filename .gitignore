@@ -8,6 +8,7 @@ runs/
 /.codex-build/
 /.codex-remote-attachments/
 /.codex-tmp/
+/.cache/
 /artifacts/
 *.pptx.inspect.ndjson
 .common-tools*/
