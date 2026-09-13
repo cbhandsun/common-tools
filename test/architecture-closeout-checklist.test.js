@@ -14,6 +14,11 @@ function writeJson(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
+function writeText(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, value);
+}
+
 function repeatedLines(count) {
   return `${Array.from({ length: count }, (_, index) => `module.exports.value${index} = ${index};`).join("\n")}\n`;
 }
@@ -22,8 +27,147 @@ function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-test("architecture closeout checklist validates current open and verified evidence boundaries", () => {
-  const result = summarizeCloseout({ repositoryRoot: path.resolve(__dirname, "..") });
+test("architecture closeout checklist validates configured and dynamic evidence boundaries", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-closeout-"));
+  const strictFiles = Array.from({ length: 8 }, (_, index) => `packages/strict-boundary-${index}.js`);
+  const recoveryFiles = Array.from({ length: 6 }, (_, index) => `packages/recovery-${index}.js`);
+  const editableFiles = Array.from({ length: 8 }, (_, index) => `packages/editable-quality-${index}.js`);
+  const editableArtifacts = Array.from({ length: 3 }, (_, index) => `.codex-tmp/editable-artifact-${index}.json`);
+  for (const file of [
+    "config/workspace-package-policy.json",
+    "config/layer-policy.json",
+    "config/architecture-budgets.json",
+    ".codex-tmp/architecture-current-consolidated-ci-evidence.json",
+    "config/skill-source-migration-budget.json",
+    ".codex-tmp/auxiliary-runtime-package-evidence.json",
+    ".codex-tmp/registry-callback-delivery-evidence.json",
+    "docs/architecture-current-status.md",
+    "docs/architecture-closeout-plan.md",
+    "scripts/team-runtime-local-closeout.ps1",
+    "scripts/team-runtime-local-acceptance.ps1",
+    "scripts/verify-local-acceptance-evidence.js",
+    "scripts/prepare-production-env.ps1",
+    "scripts/team-runtime-production-deploy.ps1",
+    "packages/cli/production-acceptance-plan.js",
+    "docs/stage-recovery-acceptance.md",
+    ".codex-tmp/architecture-recovery-consolidated-ci-evidence.json",
+    ".codex-tmp/relationship-worker-delivery-evidence.json",
+    ".codex-tmp/ppt-create-acceptance-LMJ7Mz/evidence.json",
+    ".codex-tmp/image-office-9161d475/independent-evidence.json"
+  ]) {
+    writeText(path.join(workspace, file), "{}\n");
+  }
+  writeText(path.join(workspace, "packages", "slideclone-native-engine", "scripts", "rebuild-real-pptx-native.js"), repeatedLines(1600));
+  writeText(path.join(workspace, "packages", "slideclone-native-engine", "scripts", "lib", "native-rebuild-focused-domain.js"), repeatedLines(12));
+  for (const [index, file] of [...strictFiles, ...recoveryFiles, ...editableFiles, ...editableArtifacts].entries()) {
+    writeText(path.join(workspace, file), `{"index":${index}}\n`);
+  }
+  writeJson(path.join(workspace, ".codex-tmp", "strict-input-boundaries-current-evidence.json"), {
+    schemaVersion: 1,
+    files: strictFiles.map((file, index) => ({ file, sha256: sha256(`{"index":${index}}\n`) })),
+    checks: {
+      targetedTests: { exitCode: 0, passed: 46, failed: 0 },
+      typecheck: { exitCode: 0 },
+      workspaceBoundaries: { exitCode: 0 },
+      architectureBudgets: { exitCode: 0 }
+    }
+  });
+  writeJson(path.join(workspace, ".codex-tmp", "recovery-retention-current-evidence.json"), {
+    schemaVersion: 1,
+    files: recoveryFiles.map((file, index) => ({ file, sha256: sha256(`{"index":${strictFiles.length + index}}\n`) })),
+    checks: {
+      postgresRecovery: { exitCode: 0, passed: 1, failed: 0 },
+      s3Retention: { exitCode: 0, passed: 1, failed: 0 },
+      typecheck: { exitCode: 0 },
+      workspaceBoundaries: { exitCode: 0 },
+      architectureBudgets: { exitCode: 0 }
+    }
+  });
+  writeJson(path.join(workspace, ".codex-tmp", "editable-output-quality-current-evidence.json"), {
+    schemaVersion: 1,
+    files: editableFiles.map((file, index) => ({ file, sha256: sha256(`{"index":${strictFiles.length + recoveryFiles.length + index}}\n`) })),
+    artifacts: editableArtifacts.map((file, index) => ({ file, sha256: sha256(`{"index":${strictFiles.length + recoveryFiles.length + editableFiles.length + index}}\n`) })),
+    checks: {
+      pptCreateOfficeSmoke: { exitCode: 0, passed: true, mainRoundTripCases: 2, independentRoundTripCases: 5, independentDeckCount: 5, independentPageCount: 33 },
+      typecheck: { exitCode: 0 },
+      workspaceBoundaries: { exitCode: 0 },
+      architectureBudgets: { exitCode: 0 }
+    }
+  });
+  writeJson(path.join(workspace, "config", "architecture-closeout-checklist.json"), {
+    version: 1,
+    objective: "verify architecture closeout boundaries",
+    items: [
+      {
+        id: "platform-capability-boundary",
+        area: "A",
+        status: "verified",
+        summary: "Static platform capability evidence is present.",
+        evidenceFiles: ["config/workspace-package-policy.json", "config/layer-policy.json", "config/architecture-budgets.json", ".codex-tmp/architecture-current-consolidated-ci-evidence.json"],
+        verificationCommands: ["npm run common-tools:verify-capabilities"]
+      },
+      {
+        id: "skill-production-decoupling",
+        area: "B",
+        status: "verified",
+        summary: "Static skill production decoupling evidence is present.",
+        evidenceFiles: ["config/skill-source-migration-budget.json", ".codex-tmp/auxiliary-runtime-package-evidence.json", ".codex-tmp/registry-callback-delivery-evidence.json"],
+        verificationCommands: ["node scripts/verify-slideclone-profiles.js"]
+      },
+      {
+        id: "native-engine-core-modularization",
+        area: "B",
+        status: "verified",
+        summary: "Native engine modularization is dynamically verified.",
+        evidenceFiles: ["docs/architecture-current-status.md", "docs/architecture-closeout-plan.md"],
+        verificationCommands: ["node scripts/verify-architecture-budgets.js"]
+      },
+      {
+        id: "strict-input-boundaries",
+        area: "C",
+        status: "verified",
+        summary: "Strict input boundary evidence is current.",
+        evidenceFiles: [".codex-tmp/strict-input-boundaries-current-evidence.json"],
+        verificationCommands: ["node --test test/strict-boundaries.test.js"]
+      },
+      {
+        id: "local-authenticated-acceptance",
+        area: "D",
+        status: "open",
+        summary: "Local acceptance stays open until runtime evidence exists.",
+        evidenceFiles: ["scripts/team-runtime-local-closeout.ps1", "scripts/team-runtime-local-acceptance.ps1", "scripts/verify-local-acceptance-evidence.js"],
+        verificationCommands: ["npm run common-tools:team-local-closeout"],
+        remaining: ["Run local acceptance evidence."]
+      },
+      {
+        id: "production-remote-acceptance",
+        area: "D",
+        status: "not-applicable",
+        summary: "Production remote acceptance is outside the current local-only scope.",
+        evidenceFiles: ["scripts/prepare-production-env.ps1", "scripts/team-runtime-production-deploy.ps1", "packages/cli/production-acceptance-plan.js"],
+        verificationCommands: ["npm run common-tools:production-acceptance-evidence"],
+        remaining: []
+      },
+      {
+        id: "recovery-and-retention",
+        area: "E",
+        status: "verified",
+        summary: "Recovery and retention evidence is current.",
+        evidenceFiles: ["docs/stage-recovery-acceptance.md", ".codex-tmp/architecture-recovery-consolidated-ci-evidence.json", ".codex-tmp/recovery-retention-current-evidence.json"],
+        verificationCommands: ["npm run test:postgres-recovery", "npm run test:s3-retention"]
+      },
+      {
+        id: "editable-output-quality",
+        area: "F",
+        status: "verified",
+        summary: "Editable output quality evidence is current.",
+        evidenceFiles: [".codex-tmp/relationship-worker-delivery-evidence.json", ".codex-tmp/ppt-create-acceptance-LMJ7Mz/evidence.json", ".codex-tmp/image-office-9161d475/independent-evidence.json", ".codex-tmp/editable-output-quality-current-evidence.json"],
+        verificationCommands: ["node scripts/ppt-create-office-smoke.js --out .codex-tmp/ppt-create-office-smoke-current"]
+      }
+    ]
+  });
+
+  const result = summarizeCloseout({ repositoryRoot: workspace });
   assert.equal(result.failures.length, 0);
   assert.ok(result.counts.verified >= 6);
   assert.equal(result.counts.partial, 0);
