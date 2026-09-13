@@ -57,6 +57,7 @@ const INTEGRATION_TESTS = new Set([
   "render-powerpoint-com.test.js",
   "rendered-preview-audit.test.js",
   "rendered-similarity-audit.test.js",
+  "team-semantic-fallback-smoke.test.js",
   "watch-plugin-component-downloads.test.js"
 ]);
 const INTEGRATION_NAME_HINT = /(smoke|golden|benchmark|quality-gate|real-pptx|render|libreoffice|watch|harvest)/;

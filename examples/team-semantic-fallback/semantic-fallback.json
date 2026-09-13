@@ -1,0 +1,30 @@
+{
+  "semanticFallback": {
+    "archetype": "process_flow",
+    "items": [
+      {
+        "title": "识别",
+        "body": "模型抽取文本结构与语义层级",
+        "badge": "01"
+      },
+      {
+        "title": "归档",
+        "body": "CLI 打包图片与 Sidecar 为 team 格式",
+        "badge": "02"
+      },
+      {
+        "title": "准入",
+        "body": "Worker 严格校验尺寸上限与零几何依赖",
+        "badge": "03"
+      },
+      {
+        "title": "重建",
+        "body": "声明式流水线生成原生形状与可编辑文本",
+        "badge": "04"
+      }
+    ],
+    "slotValues": {
+      "theme": "knowledge-graph"
+    }
+  }
+}
