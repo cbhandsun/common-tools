@@ -9,7 +9,15 @@ const { createObjectStore } = require("../../packages/remote-mcp-server/team-pro
 
 function docker(args) {
   const result = spawnSync("docker", args, { encoding: "utf8", windowsHide: true, timeout: 60000, maxBuffer: 1024 * 1024 });
-  if (result.status !== 0) throw new Error("isolated image S3 command failed");
+  if (result.status !== 0) {
+    const redact = (value) => String(value || "").replace(/MINIO_ROOT_PASSWORD=[^\s"']+/gu, "MINIO_ROOT_PASSWORD=[REDACTED]");
+    const stderr = redact(result.stderr).slice(0, 2000).trim();
+    const stdout = redact(result.stdout).slice(0, 1000).trim();
+    const detail = [`exit=${result.status ?? "null"}`, `signal=${result.signal || "none"}`];
+    if (stderr) detail.push(`stderr=${stderr}`);
+    if (stdout) detail.push(`stdout=${stdout}`);
+    throw new Error(`isolated image S3 command failed (${detail.join("; ")})`);
+  }
   return result.stdout.trim();
 }
 
