@@ -7,6 +7,9 @@ const { addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebu
 const { auditNativeComponentQuality } = require("./native-component-quality");
 const { PRODUCTION_PROFILE_NAME, createProductionNativeRebuildOptions } = require("./native-rebuild-profile");
 const { compactTeamComponentEvidence } = require("./team-component-evidence");
+const { createDeclarativePipeline } = require("./declarative-rebuilder-pipeline");
+const { applySemanticFallbackPipeline } = require("./declarative-fallback-projection");
+const { semanticFallbackToPageContext } = require("./semantic-fallback-adapter");
 
 const { boundedOcrSourceDeck, correctContextualOcrLines } = require("./ocr-source-deck");
 
@@ -87,7 +90,7 @@ function shouldOmitFullSlideResidual(semanticNative) {
   return semanticNative?.matched === true && semanticNative.imageRefinement?.matched === true && semanticNative.pictorialConnectors?.matched === true && !(semanticNative.shapeAdmission?.rejected > 0);
 }
 
-function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageFile, createFullSlideResidual, refineSemanticImages, admitSemanticShapes, restoreOcrGlyphs, refineGrayBorders, resolveComponentIndexes, preserveLocalFidelityImages = false } = {}) {
+function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageFile, createFullSlideResidual, refineSemanticImages, admitSemanticShapes, restoreOcrGlyphs, refineGrayBorders, resolveComponentIndexes, preserveLocalFidelityImages = false, createSemanticFallbackPipeline = createDeclarativePipeline } = {}) {
   if (typeof rebuildDeckFromWorkDir !== "function") throw new TypeError("native image rebuild implementation is required");
   if (resolveComponentIndexes !== undefined && typeof resolveComponentIndexes !== "function") throw new TypeError("native image component resolver is invalid");
   if (normalizeImageFile !== undefined && typeof normalizeImageFile !== "function") throw new TypeError("native image normalizer is invalid");
@@ -96,6 +99,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
   if (admitSemanticShapes !== undefined && typeof admitSemanticShapes !== "function") throw new TypeError("native image semantic shape admission is invalid");
   if (restoreOcrGlyphs !== undefined && typeof restoreOcrGlyphs !== "function") throw new TypeError("native image OCR glyph restorer is invalid");
   if (refineGrayBorders !== undefined && typeof refineGrayBorders !== "function") throw new TypeError("native image gray border refiner is invalid");
+  if (createSemanticFallbackPipeline !== undefined && typeof createSemanticFallbackPipeline !== "function") throw new TypeError("native image semantic fallback pipeline is invalid");
   if (typeof preserveLocalFidelityImages !== "boolean") throw new TypeError("native image local fidelity policy is invalid");
   if (restoreOcrGlyphs && createFullSlideResidual && !preserveLocalFidelityImages) throw new TypeError("native image OCR glyph restoration requires preserved local images");
   return async ({ root, metadata, ocr, isCancellationRequested }) => {
@@ -113,6 +117,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
     const sourceDeck = boundedOcrSourceDeck({ metadata, ocr, sourceImage: "normalized/001.png" });
     const admittedSourceDeck = restoreOcrGlyphs ? boundedOcrSourceDeck({ metadata, ocr, sourceImage: "normalized/001.png", preserveUncertainGlyphs: true }) : sourceDeck;
     fs.writeFileSync(path.join(workDir, "ir", "deck.json"), `${JSON.stringify(sourceDeck)}\n`, "utf8");
+    const semanticFallbackContext = metadata.semanticFallback === undefined ? null : semanticFallbackToPageContext(metadata.semanticFallback, { slideSize: sourceDeck.slideSize, pageIndex: 0 });
     const components = resolveComponentIndexes ? await resolveComponentIndexes({ workDir, root, metadata, isCancellationRequested }) : undefined;
     if (await isCancellationRequested?.()) throw new Error("editable job was cancelled");
     const componentOptions = {};
@@ -131,6 +136,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
       deckName: "deck"
     });
     assertUnverifiedRegionTextPreserved(generatedDeck.pages[0], admittedSourceDeck.pages[0].textBoxes);
+    applySemanticFallbackPipeline(generatedDeck.pages[0], semanticFallbackContext, createSemanticFallbackPipeline);
     if (components?.evidence) generatedDeck.pages[0].source = { ...generatedDeck.pages[0].source, componentAnalysis: components.evidence };
     if (restoreOcrGlyphs && admittedSourceDeck.meta.ocrAdmission.rasterFallbackGlyphs > 0) {
       const admittedIds = new Set(admittedSourceDeck.pages[0].textBoxes.map(item => item.id));

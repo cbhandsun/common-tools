@@ -53,6 +53,40 @@ test("raw native rebuilder runs once without an optional component resolver", as
   assert.equal(calls, 1);
 });
 
+test("raw native rebuilder applies a validated semantic fallback through the declarative pipeline", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "team-declarative-fallback-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const request = createRequest(root);
+  request.metadata.semanticFallback = {
+    archetype: "process_flow",
+    items: [
+      { title: "识别", body: "语义输入", badge: "01" },
+      { title: "生成", body: "本地布局", badge: "02" }
+    ]
+  };
+  const rebuild = createRawImageNativeRebuilder({ rebuildDeckFromWorkDir() { return generatedDeck(); } });
+
+  const result = await rebuild(request);
+  const page = result.deck.pages[0];
+
+  assert.equal(page.source.declarativeRebuild.status, "matched");
+  assert.equal(page.source.declarativeRebuild.matchedPlugin, "builtin-step-chain");
+  assert.ok(page.shapes.some((shape) => shape.source?.declarativeRebuilder === true));
+  assert.ok(page.textBoxes.some((textBox) => textBox.source?.declarativeRebuilder === true && textBox.text === "识别"));
+});
+
+test("raw native rebuilder rejects unsafe semantic fallback geometry before final generation", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "team-declarative-fallback-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const request = createRequest(root);
+  request.metadata.semanticFallback = { items: [{ title: "bad", x: 10 }] };
+  let calls = 0;
+  const rebuild = createRawImageNativeRebuilder({ rebuildDeckFromWorkDir() { calls += 1; return generatedDeck(); } });
+
+  await assert.rejects(() => rebuild(request), /must not contain geometry key "x"/);
+  assert.equal(calls, 0);
+});
+
 test("invalid component indexes and resolver failures stop before the final generator", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "team-component-wiring-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

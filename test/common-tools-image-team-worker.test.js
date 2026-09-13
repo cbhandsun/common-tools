@@ -711,6 +711,36 @@ test("team image worker retains an OCR-only raw-image diagnostic artifact while 
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
 });
 
+test("team image worker routes admitted raw semantic fallback metadata to native rebuilding", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-semantic-fallback-"));
+  const builderFile = path.join(temporaryRoot, "builder.js");
+  fs.writeFileSync(builderFile, "const fs=require('node:fs'); const i=process.argv.indexOf('--out'); fs.writeFileSync(process.argv[i + 1], Buffer.from('PK\\x03\\x04'));", "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"));
+  let receivedFallback;
+  const handler = createImageToEditableArchiveHandler({
+    temporaryRoot,
+    builderExecutable: process.execPath,
+    builderArgs: [builderFile],
+    rawImageOcr: async () => ({ lines: [] }),
+    rawImageRebuilder: async ({ metadata, ocr }) => {
+      receivedFallback = metadata.semanticFallback;
+      const rebuilt = boundedOcrSourceDeck({ metadata, ocr, sourceImage: metadata.assetPath });
+      rebuilt.pages[0].shapes.push({ id: "native-shape", type: "roundRect", box: { x: 4, y: 4, w: 120, h: 40 }, style: { fill: "#FFFFFF" }, source: { editable: true } });
+      return { deck: rebuilt, nativeComponentQuality: { passed: true, metrics: { connectors: 0, minimumUnitCrops: 0, evidencedMinimumUnitCrops: 0, unverifiedMinimumUnitCrops: 0 } } };
+    },
+    objectStore: { readObject: async () => archive([
+      tarEntry("assets/source.png", source),
+      tarEntry("assets/semantic-fallback.json", JSON.stringify({ semanticFallback: { archetype: "process_flow", items: [{ title: "From archive" }] } }))
+    ]), putObject: async () => {} }
+  });
+  try {
+    const output = await handler({ job: { capability: "image-to-editable", inputObjectKey: "owners/a/inputs/source.tar.gz", outputPrefix: "owners/a/jobs/job-raw/" }, isCancellationRequested: async () => false });
+    assert.equal(output.quality.checks.find((check) => check.name === "native-component-quality")?.passed, true);
+    assert.equal(receivedFallback.archetype, "process_flow");
+    assert.equal(receivedFallback.items[0].title, "From archive");
+  } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
+});
+
 test("team image worker retains a batch diagnostic artifact when one page has no native graphics", async () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-team-image-batch-graphics-gate-"));
   const builderFile = path.join(temporaryRoot, "builder.js");

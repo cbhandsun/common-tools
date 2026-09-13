@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {validateDeckIrTree} = require("./deck-ir-tree");
 const {readRawImageDimensions} = require("./archive-admission");
+const {validateSemanticFallback} = require("./semantic-fallback-adapter");
 
 /** @param {unknown} value @returns {Record<string, unknown>} */
 function record(value) {
@@ -34,7 +35,7 @@ function admitNormalizedPages(value, root) {
     if (dimensions.widthPx !== actual.widthPx || dimensions.heightPx !== actual.heightPx || !Number.isSafeInteger(pixels) || pixels > 40000000) throw new Error("normalized document dimensions are invalid");
     totalBytes += info.size; totalPixels += pixels;
     if (totalBytes > 60 * 1024 * 1024 || totalPixels > 200000000) throw new Error("normalized document pages exceed the batch processing limit");
-    return Object.freeze({inputFile, assetPath, dimensions:Object.freeze(actual), pageIndex});
+    return Object.freeze({inputFile, assetPath, dimensions:Object.freeze(actual), pageIndex, ...(source.semanticFallback === undefined ? {} : {semanticFallback: validateSemanticFallback(source.semanticFallback)})});
   });
   return Object.freeze({sources:Object.freeze(sources), pages:sources.length, assets:sources.length});
 }

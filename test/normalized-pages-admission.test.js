@@ -11,6 +11,9 @@ test("normalized page admission checks actual dimensions, canonical paths and in
   const make=()=>({sources:[structuredClone(source)],pages:1,assets:1});
   const input=make(),before=structuredClone(input),output=admitNormalizedPages(input,root);
   assert.deepEqual(output,input);assert.deepEqual(input,before);assert.ok(Object.isFrozen(output.sources[0].dimensions));
+  const semantic=admitNormalizedPages({sources:[{...source,semanticFallback:{items:[{title:"Normalized"}]}}],pages:1,assets:1},root);
+  assert.equal(semantic.sources[0].semanticFallback.items[0].title,"Normalized");
+  assert.throws(()=>admitNormalizedPages({sources:[{...source,semanticFallback:{items:[{title:"bad",box:{x:1,y:1,w:1,h:1}}]}}],pages:1,assets:1},root),/must not contain geometry key "box"/u);
   for(const patch of [{inputFile:path.join(root,"outside.png")},{assetPath:"../source.png"},{pageIndex:2},{dimensions:{widthPx:1,heightPx:1}}]) {
     const invalid=make();Object.assign(invalid.sources[0],patch);assert.throws(()=>admitNormalizedPages(invalid,root),/normalized document/u);
   }

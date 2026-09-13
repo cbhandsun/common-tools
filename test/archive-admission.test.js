@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const {createArchiveAdmission} = require("../packages/slideclone-core/archive-admission");
+const {writePng} = require("../packages/slideclone-core/png");
 
 test("archive admission routes documents only after validating exclusive archive contents", t => {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),"archive-admission-"));
@@ -39,4 +40,24 @@ test("archive image reader rejects incomplete PNG and truncated JPEG dimensions"
     const file=path.join(root,"source"+extension);fs.writeFileSync(file,bytes);
     assert.throws(()=>admission.readRawImageDimensions(file,extension),/raw editable/u);
   }
+});
+
+test("raw image archive admits bounded semantic fallback sidecar per page", t => {
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),"archive-semantic-fallback-"));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  fs.mkdirSync(path.join(root,"assets"));
+  const admission=createArchiveAdmission(()=>{throw new Error("unexpected document");});
+  const first=path.join(root,"assets","source-001.png"),second=path.join(root,"assets","source-002.png");
+  writePng(first,{width:2,height:2,rgba:Buffer.alloc(16,255)});
+  writePng(second,{width:2,height:2,rgba:Buffer.alloc(16,255)});
+  fs.writeFileSync(path.join(root,"assets","semantic-fallback.json"),JSON.stringify({sources:[
+    {pageIndex:0,semanticFallback:{archetype:"process_flow",items:[{title:"One"}]}},
+    {pageIndex:1,semanticFallback:{items:[{title:"Two"}]}}
+  ]}));
+  const result=admission.validatePackage(root);
+  assert.equal(result.sources[0].semanticFallback.archetype,"process_flow");
+  assert.equal(result.sources[0].semanticFallback.items[0].title,"One");
+  assert.equal(result.sources[1].semanticFallback.items[0].title,"Two");
+  fs.writeFileSync(path.join(root,"assets","semantic-fallback.json"),JSON.stringify({sources:[{pageIndex:0,semanticFallback:{items:[{title:"bad",x:1}]}}]}));
+  assert.throws(()=>admission.validatePackage(root),/must not contain geometry key "x"/u);
 });
