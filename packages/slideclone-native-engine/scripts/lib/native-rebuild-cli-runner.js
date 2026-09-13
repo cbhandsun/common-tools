@@ -1,9 +1,11 @@
 "use strict";
 
 const path = require("path");
-const { shouldRunPowerPointOpenGate } = require("@common-tools/slideclone-core/pptx-build-execution");
 const {
   isFlagDisabled,
+  shouldRunPowerPointOpenGate
+} = require("@common-tools/slideclone-core/pptx-build-execution");
+const {
   isFlagEnabled,
   parseNativeRebuildArgs,
   rebuildRealPptxNativeUsage,
