@@ -5,10 +5,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { readRawImageDimensions } = require("./team-worker");
 const { EDITABLE_DOCUMENT_EXTENSIONS, assertEditableInputDocument } = require("../slideclone-core/document-input");
+const { validateSemanticFallback } = require("../slideclone-core/semantic-fallback-adapter");
 
 const MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES = 20 * 1024 * 1024;
 const MAX_RAW_IMAGE_ARCHIVE_TOTAL_BYTES = 60 * 1024 * 1024;
 const MAX_RAW_IMAGE_ARCHIVE_PAGES = 20;
+const MAX_SEMANTIC_FALLBACK_BYTES = 64 * 1024;
 const MAX_RAW_IMAGE_DIMENSION = 16384;
 const MAX_RAW_IMAGE_PIXELS = 40000000;
 const RAW_IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);
@@ -49,7 +51,38 @@ function assertNewOutput(outputFile) {
   try { parentStat = fs.lstatSync(parent); } catch { throw new Error("raw image archive output directory is unavailable"); }
   if (!parentStat.isDirectory() || parentStat.isSymbolicLink()) throw new Error("raw image archive output directory is invalid");
 }
-function createRawImageArchive({ inputFile, inputFiles, outputFile }) {
+function serializeSemanticFallbackSidecar(payload) {
+  const buffer = Buffer.from(`${JSON.stringify(payload)}\n`, "utf8");
+  if (buffer.length > MAX_SEMANTIC_FALLBACK_BYTES) throw new Error("semantic fallback input exceeds the normalized size limit");
+  return buffer;
+}
+function readSemanticFallbackFile(semanticFallbackFile, sourceCount) {
+  if (semanticFallbackFile === undefined) return null;
+  if (typeof semanticFallbackFile !== "string" || !path.isAbsolute(semanticFallbackFile) || path.extname(semanticFallbackFile).toLowerCase() !== ".json") throw new TypeError("semantic fallback input must be an absolute JSON path");
+  let stat;
+  try { stat = fs.lstatSync(semanticFallbackFile); } catch { throw new Error("semantic fallback input is unavailable"); }
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size < 1 || stat.size > MAX_SEMANTIC_FALLBACK_BYTES) throw new Error("semantic fallback input is invalid");
+  /** @type {unknown} */
+  let payload;
+  try { payload = JSON.parse(fs.readFileSync(semanticFallbackFile, "utf8")); }
+  catch { throw new Error("semantic fallback input is invalid JSON"); }
+  if (sourceCount === 1 && payload && typeof payload === "object" && !Array.isArray(payload) && !Array.isArray(/** @type {Record<string, unknown>} */ (payload).sources)) {
+    const raw = /** @type {Record<string, unknown>} */ (payload);
+    return serializeSemanticFallbackSidecar({ semanticFallback: validateSemanticFallback(raw.semanticFallback === undefined ? payload : raw.semanticFallback) });
+  }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) || !Array.isArray(/** @type {Record<string, unknown>} */ (payload).sources)) throw new TypeError("semantic fallback batch input must describe sources");
+  const seen = new Set();
+  const sources = /** @type {unknown[]} */ (/** @type {Record<string, unknown>} */ (payload).sources).map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError("semantic fallback source is invalid");
+    const source = /** @type {Record<string, unknown>} */ (value);
+    const pageIndex = source.pageIndex;
+    if (typeof pageIndex !== "number" || !Number.isSafeInteger(pageIndex) || pageIndex < 0 || pageIndex >= sourceCount || seen.has(pageIndex)) throw new TypeError("semantic fallback page index is invalid");
+    seen.add(pageIndex);
+    return { pageIndex, semanticFallback: validateSemanticFallback(source.semanticFallback) };
+  });
+  return serializeSemanticFallbackSidecar({ sources });
+}
+function createRawImageArchive({ inputFile, inputFiles, outputFile, semanticFallbackFile }) {
   const files = inputFiles === undefined ? [inputFile] : inputFiles;
   if (!Array.isArray(files) || files.length < 1 || files.length > MAX_RAW_IMAGE_ARCHIVE_PAGES || files.some((file) => typeof file !== "string") || new Set(files).size !== files.length) throw new TypeError("raw image archive inputs must contain one to twenty unique files");
   const inputs = files.map((file) => ({ file, ...assertRegularInput(file) }));
@@ -64,19 +97,27 @@ function createRawImageArchive({ inputFile, inputFiles, outputFile }) {
     const extension = input.extension === ".png" ? ".png" : input.extension === ".jpg" ? ".jpg" : ".jpeg";
     return Object.freeze({ file: input.file, assetPath: `assets/source${suffix}${extension}`, bytes: input.bytes, widthPx: dimensions.widthPx, heightPx: dimensions.heightPx });
   });
-  const archive = require("node:zlib").gzipSync(Buffer.concat([...sources.map((source) => tarEntry(source.assetPath, fs.readFileSync(source.file))), Buffer.alloc(1024)]), { level: 9 });
+  const semanticFallback = readSemanticFallbackFile(semanticFallbackFile, sources.length);
+  const archiveEntries = sources.map((source) => tarEntry(source.assetPath, fs.readFileSync(source.file)));
+  if (semanticFallback) archiveEntries.push(tarEntry("assets/semantic-fallback.json", semanticFallback));
+  const archive = require("node:zlib").gzipSync(Buffer.concat([...archiveEntries, Buffer.alloc(1024)]), { level: 9 });
   const temporary = `${outputFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
   try {
     fs.writeFileSync(temporary, archive, { mode: 0o600, flag: "wx" });
     fs.renameSync(temporary, outputFile);
   } catch (error) { try { fs.rmSync(temporary, { force: true }); } catch { /* Preserve the primary archive creation failure. */ } throw error; }
   const sourceDetails = sources.map(({ assetPath, bytes, widthPx, heightPx }) => Object.freeze({ assetPath, bytes, widthPx, heightPx }));
-  return Object.freeze({ archive: outputFile, contentType: "application/gzip", contentLength: archive.length, sha256: sha256(archive), pages: sources.length, sources: Object.freeze(sourceDetails), ...(sources.length === 1 ? { source: sourceDetails[0] } : {}) });
+  return Object.freeze({ archive: outputFile, contentType: "application/gzip", contentLength: archive.length, sha256: sha256(archive), pages: sources.length, sources: Object.freeze(sourceDetails), ...(semanticFallback ? { semanticFallback: "assets/semantic-fallback.json" } : {}), ...(sources.length === 1 ? { source: sourceDetails[0] } : {}) });
 }
 
-function createEditableSourceArchive({ inputFile, inputFiles, outputFile }) {
-  if (inputFiles === undefined && path.extname(String(inputFile || "")).toLowerCase() === ".json") return require("./team-structured-deck-archive").createStructuredDeckArchive({ inputFile, outputFile });
-  if (inputFiles !== undefined || !EDITABLE_DOCUMENT_EXTENSIONS.has(path.extname(String(inputFile || "")).toLowerCase())) return createRawImageArchive({ inputFile, inputFiles, outputFile });
+function createEditableSourceArchive({ inputFile, inputFiles, outputFile, semanticFallbackFile }) {
+  const extension = path.extname(String(inputFile || "")).toLowerCase();
+  if (inputFiles === undefined && extension === ".json") {
+    if (semanticFallbackFile !== undefined) throw new Error("semantic fallback metadata is only supported for raw image archives");
+    return require("./team-structured-deck-archive").createStructuredDeckArchive({ inputFile, outputFile });
+  }
+  if (inputFiles !== undefined || !EDITABLE_DOCUMENT_EXTENSIONS.has(extension)) return createRawImageArchive({ inputFile, inputFiles, outputFile, semanticFallbackFile });
+  if (semanticFallbackFile !== undefined) throw new Error("semantic fallback metadata is only supported for raw image archives");
   if (typeof inputFile !== "string" || !path.isAbsolute(inputFile)) throw new TypeError("editable source archive input must be an absolute path");
   const admitted = assertEditableInputDocument(inputFile);
   assertNewOutput(outputFile);
