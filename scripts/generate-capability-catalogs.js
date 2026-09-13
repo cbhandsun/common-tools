@@ -160,9 +160,34 @@ function writeGeneratedCatalogs() {
   for (const file of generatedCatalogFiles()) fs.writeFileSync(file.path, file.content);
 }
 
+function firstDifference(left, right) {
+  const max = Math.min(left.length, right.length);
+  for (let index = 0; index < max; index += 1) if (left[index] !== right[index]) return index;
+  return left.length === right.length ? -1 : max;
+}
+
+function summarizeDifference(actual, expected) {
+  const index = firstDifference(actual, expected);
+  const windowStart = Math.max(0, index - 40);
+  const windowEnd = index < 0 ? 0 : index + 80;
+  return Object.freeze({
+    actualLength: actual.length,
+    expectedLength: expected.length,
+    firstDifference: index,
+    actualPreview: index < 0 ? "" : actual.slice(windowStart, windowEnd),
+    expectedPreview: index < 0 ? "" : expected.slice(windowStart, windowEnd)
+  });
+}
+
 function verifyGeneratedCatalogs() {
-  const stale = generatedCatalogFiles().filter((file) => fs.readFileSync(file.path, "utf8") !== file.content).map((file) => path.relative(root, file.path).replaceAll("\\", "/"));
-  if (stale.length > 0) throw new Error(`capability catalogs are stale; run node scripts/generate-capability-catalogs.js\n- ${stale.join("\n- ")}`);
+  const stale = generatedCatalogFiles().map((file) => {
+    const actual = fs.readFileSync(file.path, "utf8");
+    return actual === file.content ? null : Object.freeze({
+      file: path.relative(root, file.path).replaceAll("\\", "/"),
+      difference: summarizeDifference(actual, file.content)
+    });
+  }).filter(Boolean);
+  if (stale.length > 0) throw new Error(`capability catalogs are stale; run node scripts/generate-capability-catalogs.js\n${JSON.stringify(stale, null, 2)}`);
   return true;
 }
 
