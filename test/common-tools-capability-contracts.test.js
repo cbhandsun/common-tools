@@ -22,7 +22,7 @@ function contractTool(name, capability) {
 }
 
 test("capability manifests exactly match local MCP registrations", () => {
-  const expected = { capabilities: ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit", "siyuan-note"], toolCount: 18 };
+  const expected = { capabilities: ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit", "siyuan-note"], toolCount: 19 };
   assert.deepEqual(verifyCapabilityToolContracts(), expected);
   const localManifests = new Map([...CAPABILITY_MANIFESTS].filter(([, manifest]) => manifest.team.mode !== "direct"));
   assert.deepEqual(assertCapabilityToolContracts({ manifests: localManifests, tools: TOOLS }), { capabilities: ["image-to-editable", "ppt-create", "ppt-improve", "ppt-quality", "project-audit"], toolCount: 13 });

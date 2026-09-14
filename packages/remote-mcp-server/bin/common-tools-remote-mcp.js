@@ -29,7 +29,7 @@ async function main() {
     const client = createSiyuanClient({ ...siyuanConfig, token: secretFromEnvironment(process.env, "COMMON_TOOLS_SIYUAN_TOKEN") });
     siyuan = Object.freeze({
       check: () => client.check(),
-      forOwner: (ownerId) => createSiyuanNoteService({ client, inboxPath: siyuanConfig.inboxPath, idempotencyStore: bundle.createIdempotencyStore(ownerId) })
+      forOwner: (ownerId) => createSiyuanNoteService({ client, inboxPath: siyuanConfig.inboxPath, defaultNotebookName: siyuanConfig.defaultNotebookName, idempotencyStore: bundle.createIdempotencyStore(ownerId) })
     });
   }
   const metricsToken = optionalSecretFromEnvironment(process.env, "COMMON_TOOLS_METRICS_TOKEN");

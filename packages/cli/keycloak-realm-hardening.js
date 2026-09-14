@@ -18,7 +18,7 @@ const CLOSED_REALM_POLICY = Object.freeze({
   minimumQuickLoginWaitSeconds: 60,
   maxFailureWaitSeconds: 900,
   maxDeltaTimeSeconds: 43200,
-  passwordPolicy: "length(12) and notUsername"
+  passwordPolicy: "length(8) and notUsername"
 });
 
 function policySnapshot(realm) {

@@ -641,6 +641,7 @@ test("SiYuan remote Skill uses direct restricted tools instead of the job protoc
   const skill = remoteSkill("siyuan-note", "https://tunnel.example.test");
   assert.match(skill, /name: siyuan-note/);
   assert.match(skill, /siyuan_save_note/);
+  assert.match(skill, /siyuan_create_notebook/);
   assert.match(skill, /不可信数据/);
   assert.match(skill, /siyuan_list_notebooks/);
   assert.match(skill, /common-tools-auth-v2/);

@@ -279,6 +279,7 @@ test("production preflight supports direct SiYuan access without requiring a Wor
   const environment = productionEnvironment({
     COMMON_TOOLS_TEAM_CAPABILITIES: "siyuan-note",
     COMMON_TOOLS_SIYUAN_URL: "http://host.docker.internal:6806",
+    COMMON_TOOLS_SIYUAN_DEFAULT_NOTEBOOK_NAME: "AI 助手笔记",
     COMMON_TOOLS_SIYUAN_TOKEN: "local-token-kept-out-of-reports"
   });
   delete environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE;
@@ -298,6 +299,7 @@ test("production preflight supports direct SiYuan access without requiring a Wor
   assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_URL: "" }), /COMMON_TOOLS_SIYUAN_URL/);
   assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_URL: "http://10.0.0.9:6806" }), /approved internal HTTP host/);
   assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_INBOX_PATH: "/Agent Inbox/" }), /SIYUAN_INBOX_PATH/);
+  assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_DEFAULT_NOTEBOOK_NAME: "bad/name" }), /SIYUAN_DEFAULT_NOTEBOOK_NAME/);
   assert.throws(() => inspectProductionRelease({ ...environment, COMMON_TOOLS_SIYUAN_TIMEOUT_MS: "0" }), /SIYUAN_TIMEOUT_MS/);
 });
 

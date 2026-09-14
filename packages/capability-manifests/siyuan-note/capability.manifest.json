@@ -1,9 +1,10 @@
 {
   "manifestVersion": 1,
   "capability": "siyuan-note",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "toolNames": [
     "siyuan_list_notebooks",
+    "siyuan_create_notebook",
     "siyuan_save_note",
     "siyuan_append_note",
     "siyuan_search_notes",
@@ -23,5 +24,5 @@
     "requirePath": "../siyuan-note-core",
     "exportName": "REMOTE_CAPABILITY_MODULE"
   },
-  "contentSha256": "5bb576362cfd24da3ef9644cb838175d6bd0627a311b779d97a6f076aa10653f"
+  "contentSha256": "81cf68ce2b67ac416acb65e2f33503e43ac1499c85ea836aadb60e8e300b8d5a"
 }
