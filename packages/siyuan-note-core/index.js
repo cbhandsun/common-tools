@@ -337,16 +337,19 @@ function createSiyuanNoteService({ client, inboxPath = DEFAULT_INBOX_PATH, defau
   const root = normalizeInboxPath(inboxPath);
   const defaultName = normalizeDefaultNotebookName(defaultNotebookName);
 
-  async function normalizedNotebooks() {
+  async function allNormalizedNotebooks() {
     const data = plainObject(await client.listNotebooks(), "notebooks");
     const notebooks = Array.isArray(data.notebooks) ? data.notebooks : [];
-    return Object.freeze({ notebooks: Object.freeze(notebooks.slice(0, 100).map(normalizeNotebook)) });
+    return Object.freeze(notebooks.map(normalizeNotebook));
+  }
+
+  async function normalizedNotebooks() {
+    return Object.freeze({ notebooks: Object.freeze((await allNormalizedNotebooks()).slice(0, 100)) });
   }
 
   /** @param {string} name */
   async function findOpenNotebook(name) {
-    const listed = await normalizedNotebooks();
-    return listed.notebooks.find((entry) => entry.name === name && !entry.closed) || null;
+    return (await allNormalizedNotebooks()).find((entry) => entry.name === name && !entry.closed) || null;
   }
 
   /** @param {string} name */
@@ -369,8 +372,14 @@ function createSiyuanNoteService({ client, inboxPath = DEFAULT_INBOX_PATH, defau
   }
 
   async function ensureDefaultNotebook() {
-    const outcome = await idempotencyStore.run("default-notebook", "ensure-default", () => createOrFindNotebook(defaultName));
-    return plainObject(outcome.value, "default-notebook");
+    const nameHash = crypto.createHash("sha256").update(defaultName).digest("hex").slice(0, 32);
+    const outcome = await idempotencyStore.run(`default-notebook:${nameHash}`, "ensure-default", () => createOrFindNotebook(defaultName));
+    const cached = plainObject(outcome.value, "default-notebook");
+    if (!outcome.replay) return cached;
+    const current = await findOpenNotebook(defaultName);
+    if (current && current.id === cached.notebookId) return cached;
+    if (current) return Object.freeze({ notebookId: current.id, name: current.name });
+    return createOrFindNotebook(defaultName);
   }
 
   return Object.freeze({

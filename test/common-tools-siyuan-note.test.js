@@ -17,6 +17,11 @@ const NOTEBOOK_ID = "20260829123456-abc1234";
 const DOCUMENT_ID = "20260829123457-def5678";
 const BLOCK_ID = "20260829123458-ghi9012";
 
+function generatedNotebookId(index) {
+  const number = String(index).padStart(6, "0");
+  return `20260829${number}-a${number}`;
+}
+
 function principal(capabilities) {
   return { subject: "user-1", capabilities: new Set(capabilities), projects: new Map() };
 }
@@ -128,6 +133,71 @@ test("SiYuan note service creates and reuses the configured default notebook for
   assert.equal((await service.saveNote(input)).idempotentReplay, true);
   assert.equal(notebookCreated, 1);
   assert.equal(documentsCreated, 1);
+});
+
+test("SiYuan note service searches the complete notebook list for the default while bounding public output", async () => {
+  const targetId = generatedNotebookId(120);
+  const notebooks = Array.from({ length: 120 }, (_, index) => ({
+    id: generatedNotebookId(index + 1),
+    name: `Notebook ${index + 1}`,
+    closed: false
+  }));
+  notebooks[119] = { id: targetId, name: "AI 助手笔记", closed: false };
+  let createdNotebook = false;
+  const service = createSiyuanNoteService({
+    defaultNotebookName: "AI 助手笔记",
+    client: {
+      check: async () => true,
+      listNotebooks: async () => ({ notebooks }),
+      createNotebook: async () => { createdNotebook = true; throw new Error("should not create a duplicate default notebook"); },
+      createDocument: async (notebookId) => { assert.equal(notebookId, targetId); return DOCUMENT_ID; },
+      appendBlock: async () => [{ doOperations: [{ id: BLOCK_ID }] }],
+      exportMarkdown: async () => ({ hPath: "/Agent Inbox/Test", content: "safe" }),
+      search: async () => []
+    }
+  });
+  assert.equal((await service.listNotebooks()).notebooks.length, 100);
+  assert.deepEqual(await service.saveNote({ title: "默认保存", markdown: "内容", idempotencyKey: "default-save-after-100" }), {
+    documentId: DOCUMENT_ID,
+    notebookId: targetId,
+    path: "/Agent Inbox/默认保存",
+    idempotentReplay: false
+  });
+  assert.equal(createdNotebook, false);
+});
+
+test("SiYuan note service revalidates a cached default notebook before reuse", async () => {
+  const staleNotebookId = generatedNotebookId(998);
+  const currentNotebookId = generatedNotebookId(999);
+  let scopeUsed = "";
+  const service = createSiyuanNoteService({
+    defaultNotebookName: "AI 助手笔记",
+    idempotencyStore: {
+      run: async (scope, key, operation) => {
+        if (scope.startsWith("default-notebook:")) {
+          scopeUsed = scope;
+          return { value: { notebookId: staleNotebookId, name: "AI 助手笔记" }, replay: true };
+        }
+        return { value: await operation(), replay: false };
+      }
+    },
+    client: {
+      check: async () => true,
+      listNotebooks: async () => ({ notebooks: [{ id: currentNotebookId, name: "AI 助手笔记", closed: false }] }),
+      createNotebook: async () => { throw new Error("should not create while the current default notebook exists"); },
+      createDocument: async (notebookId) => { assert.equal(notebookId, currentNotebookId); return DOCUMENT_ID; },
+      appendBlock: async () => [{ doOperations: [{ id: BLOCK_ID }] }],
+      exportMarkdown: async () => ({ hPath: "/Agent Inbox/Test", content: "safe" }),
+      search: async () => []
+    }
+  });
+  assert.deepEqual(await service.saveNote({ title: "缓存重验", markdown: "内容", idempotencyKey: "default-save-revalidate" }), {
+    documentId: DOCUMENT_ID,
+    notebookId: currentNotebookId,
+    path: "/Agent Inbox/缓存重验",
+    idempotentReplay: false
+  });
+  assert.match(scopeUsed, /^default-notebook:[a-f0-9]{32}$/);
 });
 
 test("SiYuan note service exposes idempotent notebook creation by name", async () => {

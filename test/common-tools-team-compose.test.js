@@ -302,9 +302,12 @@ test("unified local password script writes secrets outside the repo and requires
   assert.match(script, /Reset local Docker state and redeploy project '\$Project' now so the new password takes effect\?/);
   assert.match(script, /This will remove Docker volumes for project '\$Project' before redeploying\. Continue\?/);
   assert.ok(script.indexOf("$interactiveSharedPassword = Read-ConfirmedSecretValue 'New shared Common Tools password'") < script.indexOf("Reset local Docker state and redeploy project '$Project' now so the new password takes effect?"));
-  assert.match(script, /if \(\$ResetState -and \(-not \$Redeploy\)\) \{ throw '-ResetState requires -Redeploy' \}/);
-  assert.match(script, /if \(\$ResetState -and \(-not \$ConfirmReset\)\) \{ throw 'State reset requires -ConfirmReset' \}/);
+  assert.match(script, /function Assert-RedeployResetSafety/);
+  assert.match(script, /if \(\$ResetStateRequested -and \(-not \$RedeployRequested\)\) \{ throw '-ResetState requires -Redeploy' \}/);
+  assert.match(script, /if \(\$ResetStateRequested -and \(-not \$ResetConfirmed\)\) \{ throw 'State reset requires -ConfirmReset' \}/);
   assert.match(script, /Redeploying with a new shared password requires -ResetState/);
+  assert.match(script, /Assert-RedeployResetSafety \(\[bool\]\$Redeploy\) \(\[bool\]\$ResetState\) \(\[bool\]\$ConfirmReset\)/);
+  assert.ok(script.indexOf("Assert-RedeployResetSafety ([bool]$Redeploy) ([bool]$ResetState) ([bool]$ConfirmReset)") < script.indexOf("Write-SecretFile $secretFile $values"));
   assert.match(script, /Remove-ComposeProjectContainers \$Project/);
   assert.match(script, /if \(\$ResetState\) \{ Remove-ComposeProjectVolumes \$Project \}/);
   assert.ok(script.indexOf("if ($Mode -eq 'Plan')") < script.indexOf("if ($Redeploy) {"));

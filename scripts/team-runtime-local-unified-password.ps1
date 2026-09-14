@@ -175,6 +175,14 @@ function Remove-ComposeProjectVolumes([string]$ComposeProject) {
   }
 }
 
+function Assert-RedeployResetSafety([bool]$RedeployRequested, [bool]$ResetStateRequested, [bool]$ResetConfirmed) {
+  if ($ResetStateRequested -and (-not $RedeployRequested)) { throw '-ResetState requires -Redeploy' }
+  if ($ResetStateRequested -and (-not $ResetConfirmed)) { throw 'State reset requires -ConfirmReset' }
+  if ($RedeployRequested -and (-not $ResetStateRequested)) {
+    throw 'Redeploying with a new shared password requires -ResetState because persisted local service passwords are stored in Docker volumes'
+  }
+}
+
 $interactiveSharedPassword = $null
 if ($Interactive) {
   if (-not $PSBoundParameters.ContainsKey('Mode')) { $Mode = 'Apply' }
@@ -225,6 +233,8 @@ $values = @{
   COMMON_TOOLS_SIYUAN_TOKEN = $siyuanToken
 }
 
+Assert-RedeployResetSafety ([bool]$Redeploy) ([bool]$ResetState) ([bool]$ConfirmReset)
+
 $operationLock = Enter-CommonToolsTeamRuntimeOperationLock -Project $Project
 try {
   Write-SecretFile $secretFile $values
@@ -250,12 +260,6 @@ try {
     $plan.applyRequires = if ($Redeploy) { 'rerun with -Mode Apply and explicit reset switches when needed' } else { 'none; secret file only' }
     $plan | ConvertTo-Json -Depth 4
     return
-  }
-
-  if ($ResetState -and (-not $Redeploy)) { throw '-ResetState requires -Redeploy' }
-  if ($ResetState -and (-not $ConfirmReset)) { throw 'State reset requires -ConfirmReset' }
-  if ($Redeploy -and (-not $ResetState)) {
-    throw 'Redeploying with a new shared password requires -ResetState because persisted local service passwords are stored in Docker volumes'
   }
 
   if ($Redeploy) {
