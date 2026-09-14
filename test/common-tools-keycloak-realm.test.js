@@ -30,7 +30,7 @@ test("local Keycloak realm mints the restricted project-membership claim without
   assert.equal(realm.minimumQuickLoginWaitSeconds, 60);
   assert.equal(realm.maxFailureWaitSeconds, 900);
   assert.equal(realm.maxDeltaTimeSeconds, 43200);
-  assert.match(realm.passwordPolicy, /(?:^|\s)length\(12\)(?:\s|$)/);
+  assert.match(realm.passwordPolicy, /(?:^|\s)length\(8\)(?:\s|$)/);
   assert.match(realm.passwordPolicy, /(?:^|\s)notUsername(?:\s|$)/);
   assert.equal(Object.prototype.hasOwnProperty.call(realm, "users"), false);
   const client = realm.clients.find((entry) => entry.clientId === "common-tools-mcp");

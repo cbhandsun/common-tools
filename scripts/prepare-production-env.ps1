@@ -127,6 +127,7 @@ function Get-LocalDockerDefaults([string]$ComposeProject) {
     COMMON_TOOLS_OIDC_AUDIENCE = 'common-tools-mcp'
     COMMON_TOOLS_TEAM_CAPABILITIES = 'image-to-editable,ppt-create,ppt-quality,ppt-improve,project-audit'
     COMMON_TOOLS_SIYUAN_URL = 'http://host.docker.internal:6806'
+    COMMON_TOOLS_SIYUAN_DEFAULT_NOTEBOOK_NAME = 'AI 助手笔记'
   }
   $cli = Join-Path $repositoryRoot 'packages/cli/bin/common-tools.js'
   if (Test-Path -LiteralPath $cli -PathType Leaf) {
@@ -234,6 +235,7 @@ if ($IncludeReleaseSignature) {
 
 if ($IncludeSiyuan) {
   Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_SIYUAN_URL' 'SiYuan URL')
+  Add-Entry $entries (Read-DefaultedValue $defaults 'COMMON_TOOLS_SIYUAN_DEFAULT_NOTEBOOK_NAME' 'SiYuan default notebook name')
   if ($UseCredentialFiles) {
     Add-Entry $entries (Read-RequiredValue 'COMMON_TOOLS_SIYUAN_TOKEN_FILE' 'SiYuan token file')
   } else {

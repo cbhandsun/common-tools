@@ -206,7 +206,7 @@ test("Codex plugin manifests require install-page metadata and accept cachebuste
   const root = copiedPluginRoot();
   try {
     const siyuanManifest = JSON.parse(fs.readFileSync(path.join(root, "plugins", "codex", "siyuan-note", ".codex-plugin", "plugin.json"), "utf8"));
-    assert.match(siyuanManifest.version, /^0\.1\.0\+codex\./, "SiYuan auth changes must invalidate installed plugin caches");
+    assert.match(siyuanManifest.version, /^0\.1\.1\+codex\./, "SiYuan auth changes must invalidate installed plugin caches");
     const manifest = path.join(root, "plugins", "codex", "image-to-editable", ".codex-plugin", "plugin.json");
     const parsed = JSON.parse(fs.readFileSync(manifest, "utf8"));
     assert.match(parsed.version, /^0\.1\.7\+codex\./);
@@ -245,7 +245,7 @@ test("CLI lists separately installable capabilities only after package verificat
     assert.equal(verified.status, 0, verified.stderr);
     const verification = JSON.parse(verified.stdout);
     assert.deepEqual(verification.capabilities, capabilities);
-    assert.deepEqual(verification.capabilityContracts, { capabilities, toolCount: 18 });
+    assert.deepEqual(verification.capabilityContracts, { capabilities, toolCount: 19 });
 
     const enabledAudit = spawnSync(process.execPath, [cli, "plugin", "enable", "--workspace", path.dirname(state), "--state", state, "--capability", "project-audit"], { encoding: "utf8", windowsHide: true });
     assert.equal(enabledAudit.status, 0, enabledAudit.stderr);

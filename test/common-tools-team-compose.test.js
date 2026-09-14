@@ -63,6 +63,7 @@ test("team Compose applies restart and resource limits to untrusted execution se
   assert.match(serviceBlock(api, "remote-mcp"), /COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: \$\{COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-\}/);
   assert.match(serviceBlock(api, "remote-mcp"), /COMMON_TOOLS_OTEL_SERVICE_NAME: \$\{COMMON_TOOLS_OTEL_SERVICE_NAME:-\}/);
   assert.match(serviceBlock(api, "remote-mcp"), /COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS: \$\{COMMON_TOOLS_OTEL_EXPORTER_TIMEOUT_MS:-\}/);
+  assert.match(serviceBlock(api, "remote-mcp"), /COMMON_TOOLS_SIYUAN_DEFAULT_NOTEBOOK_NAME: \$\{COMMON_TOOLS_SIYUAN_DEFAULT_NOTEBOOK_NAME:-AI 助手笔记\}/u);
   for (const name of ["project-audit-worker", "ppt-create-worker", "ppt-quality-worker", "ppt-improve-worker", "image-to-editable-worker"]) {
     const worker = serviceBlock(api, name);
     assert.match(worker, /COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: \$\{COMMON_TOOLS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-\}/);
@@ -91,6 +92,7 @@ test("production Compose override requires managed endpoints and disables direct
   assert.match(production, /COMMON_TOOLS_TEAM_MODE: production/);
   assert.match(production, /COMMON_TOOLS_REQUIRE_PROJECT_RBAC: "true"/);
   assert.match(production, /COMMON_TOOLS_REMOTE_IMAGE:\?set immutable remote API image reference/);
+  assert.match(production, /COMMON_TOOLS_SIYUAN_DEFAULT_NOTEBOOK_NAME: \$\{COMMON_TOOLS_SIYUAN_DEFAULT_NOTEBOOK_NAME:-AI 助手笔记\}/u);
   assert.match(production, /COMMON_TOOLS_IMAGE_WORKER_IMAGE:-/);
   assert.match(production, /COMMON_TOOLS_OBJECT_STORE_ENDPOINT:\?set HTTPS object-store endpoint/);
   assert.match(production, /managed PostgreSQL URL without credentials/);
@@ -257,6 +259,63 @@ test("fresh local reset requires one password and only removes declared project 
   assert.match(script, /\} finally \{\s+Exit-CommonToolsTeamRuntimeOperationLock -Lock \$operationLock/s);
   assert.match(packageJson, /common-tools:team-local-fresh-reset/);
   assert.match(packageJson, /team-runtime-local-fresh-reset\.ps1 -Mode Apply -Confirm -PromptForSecrets/);
+});
+
+test("unified local password script writes secrets outside the repo and requires explicit state reset for redeploy", () => {
+  const root = path.resolve(__dirname, "..");
+  const script = fs.readFileSync(path.join(root, "scripts", "team-runtime-local-unified-password.ps1"), "utf8");
+  const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
+  assert.match(script, /ValidateSet\('Plan', 'Apply'\)/);
+  assert.match(script, /\[string\]\$Project = 'common-tools-public'/);
+  assert.match(script, /\[string\]\$KeycloakAdmin = 'common-tools-admin'/);
+  assert.match(script, /\[switch\]\$Interactive/);
+  assert.match(script, /\[switch\]\$PromptForPassword/);
+  assert.match(script, /\[switch\]\$Redeploy/);
+  assert.match(script, /\[switch\]\$ResetState/);
+  assert.match(script, /\[switch\]\$ConfirmReset/);
+  assert.match(script, /Secret file must be outside the repository root/);
+  assert.match(script, /function New-SharedPassword/);
+  assert.match(script, /function Read-YesNo/);
+  assert.match(script, /function Read-ConfirmedSecretValue/);
+  assert.match(script, /\$minimumSharedPasswordLength = 8/);
+  assert.match(script, /RandomNumberGenerator/);
+  assert.match(script, /Input is hidden; type the value and press Enter/);
+  assert.match(script, /Shared password must contain at least \$minimumSharedPasswordLength characters/);
+  assert.match(script, /Confirm new shared Common Tools password/);
+  assert.match(script, /Shared password confirmation did not match; please try again\./);
+  assert.match(script, /while \(\$true\)/);
+  assert.match(script, /COMMON_TOOLS_SHARED_PASSWORD/);
+  assert.match(script, /COMMON_TOOLS_POSTGRES_PASSWORD/);
+  assert.match(script, /COMMON_TOOLS_DATABASE_PASSWORD/);
+  assert.match(script, /COMMON_TOOLS_REDIS_PASSWORD/);
+  assert.match(script, /COMMON_TOOLS_MINIO_PASSWORD/);
+  assert.match(script, /COMMON_TOOLS_KEYCLOAK_ADMIN_PASSWORD/);
+  assert.match(script, /COMMON_TOOLS_SINGLE_INGRESS_PUBLIC_URL/);
+  assert.match(script, /COMMON_TOOLS_KEYCLOAK_PUBLIC_URL/);
+  assert.match(script, /COMMON_TOOLS_SIYUAN_DEFAULT_NOTEBOOK_NAME/);
+  assert.match(script, /COMMON_TOOLS_SIYUAN_TOKEN/);
+  assert.match(script, /team-runtime-operation-lock\.ps1/);
+  assert.match(script, /Enter-CommonToolsTeamRuntimeOperationLock -Project \$Project/);
+  assert.match(script, /if \(\$Mode -eq 'Plan'\)/);
+  assert.match(script, /if \(\$Interactive\) \{/);
+  assert.match(script, /\$PromptForPassword = \$true/);
+  assert.match(script, /Reset local Docker state and redeploy project '\$Project' now so the new password takes effect\?/);
+  assert.match(script, /This will remove Docker volumes for project '\$Project' before redeploying\. Continue\?/);
+  assert.ok(script.indexOf("$interactiveSharedPassword = Read-ConfirmedSecretValue 'New shared Common Tools password'") < script.indexOf("Reset local Docker state and redeploy project '$Project' now so the new password takes effect?"));
+  assert.match(script, /function Assert-RedeployResetSafety/);
+  assert.match(script, /if \(\$ResetStateRequested -and \(-not \$RedeployRequested\)\) \{ throw '-ResetState requires -Redeploy' \}/);
+  assert.match(script, /if \(\$ResetStateRequested -and \(-not \$ResetConfirmed\)\) \{ throw 'State reset requires -ConfirmReset' \}/);
+  assert.match(script, /Redeploying with a new shared password requires -ResetState/);
+  assert.match(script, /Assert-RedeployResetSafety \(\[bool\]\$Redeploy\) \(\[bool\]\$ResetState\) \(\[bool\]\$ConfirmReset\)/);
+  assert.ok(script.indexOf("Assert-RedeployResetSafety ([bool]$Redeploy) ([bool]$ResetState) ([bool]$ConfirmReset)") < script.indexOf("Write-SecretFile $secretFile $values"));
+  assert.match(script, /Remove-ComposeProjectContainers \$Project/);
+  assert.match(script, /if \(\$ResetState\) \{ Remove-ComposeProjectVolumes \$Project \}/);
+  assert.ok(script.indexOf("if ($Mode -eq 'Plan')") < script.indexOf("if ($Redeploy) {"));
+  assert.ok(script.indexOf("if ($Redeploy) {") < script.indexOf("if ($ResetState) { Remove-ComposeProjectVolumes $Project }"));
+  assert.match(script, /team-runtime-local-deploy\.ps1/);
+  assert.match(packageJson, /scripts\/team-runtime-local-unified-password\.ps1/);
+  assert.match(packageJson, /common-tools:team-local-unified-password/);
+  assert.match(packageJson, /team-runtime-local-unified-password\.ps1 -Interactive/);
 });
 
 test("local team deployment script preflights configuration and keeps the migration gate intact", () => {
