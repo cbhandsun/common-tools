@@ -32,6 +32,11 @@ test("team MCP exposes a fixed tool surface and scopes input capability", async 
     assert.equal(tool.outputSchema.type, "object");
     assert.deepEqual(Object.keys(tool.annotations).sort(), ["destructiveHint", "idempotentHint", "openWorldHint", "readOnlyHint"]);
   }
+  const createJob = listed.result.tools.find((tool) => tool.name === "create_team_job");
+  assert.equal(createJob.inputSchema.required.includes("options"), true);
+  assert.equal(createJob.inputSchema.properties.options.properties.auditScope.type, "string");
+  assert.deepEqual(createJob.inputSchema.properties.options.required, ["auditScope"]);
+  assert.equal(createJob.inputSchema.properties.options.properties.repairProfile, undefined);
   const upload = await callTeamTool("create_team_upload_target", { capability: "project-audit", contentType: "application/gzip", contentLength: 12 }, ctx);
   assert.match(upload.objectKey, /^owners\//);
   await assert.rejects(() => callTeamTool("create_team_upload_target", { capability: "image-to-editable", contentType: "image/png", contentLength: 12 }, ctx), /not authorized/);
@@ -75,7 +80,7 @@ test("team MCP validates unknown input and never forwards owner identifiers from
   const response = await handleTeamMcp({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "create_team_job", arguments: { capability: "project-audit", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "request-1", ownerId: "attacker" } } }, ctx);
   assert.equal(response.result.isError, true);
   assert.match(response.result.content[0].text, /unexpected tool argument/);
-  const job = await callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "request-1" }, ctx);
+  const job = await callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "request-1", options: { auditScope: "engineering-delivery" } }, ctx);
   assert.equal(job.ownerId, "member-1");
 });
 
@@ -86,15 +91,42 @@ test("team MCP forwards only bounded PPT improvement options", async () => {
   const listed = await handleTeamMcp({ jsonrpc: "2.0", id: 1, method: "tools/list" }, ctx);
   const createJob = listed.result.tools.find((tool) => tool.name === "create_team_job");
   assert.deepEqual(createJob.inputSchema.properties.options.properties.repairProfile.enum, ["safe-package", "layout-safe", "typography-safe", "editability-safe", "audit-only"]);
+  assert.equal(createJob.inputSchema.properties.options.required, undefined);
+  assert.equal(createJob.inputSchema.properties.options.properties.auditScope, undefined);
   await callTeamTool("create_team_job", { capability: "ppt-improve", inputObjectKey: "owners/hash/inputs/deck.pptx", idempotencyKey: "audit-only", options: { repairProfile: "audit-only" } }, ctx);
   assert.deepEqual(ctx.calls[0][1].options, { repairProfile: "audit-only" });
   await assert.rejects(() => callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/deck", idempotencyKey: "bad", options: { repairProfile: "audit-only" } }, context()), /options/);
 });
 
+test("team MCP advertises conditional project-audit job options for mixed capabilities", async () => {
+  const ctx = context();
+  ctx.principal.capabilities = new Set(["project-audit", "ppt-improve"]);
+  ctx.enabledCapabilities = ["project-audit", "ppt-improve"];
+  const listed = await handleTeamMcp({ jsonrpc: "2.0", id: 1, method: "tools/list" }, ctx);
+  const createJob = listed.result.tools.find((tool) => tool.name === "create_team_job");
+  assert.equal(Array.isArray(createJob.inputSchema.oneOf), true);
+  const auditVariant = createJob.inputSchema.oneOf.find((variant) => variant.properties.capability.const === "project-audit");
+  assert.equal(auditVariant.required.includes("options"), true);
+  assert.deepEqual(auditVariant.properties.options.required, ["auditScope"]);
+  const improveVariant = createJob.inputSchema.oneOf.find((variant) => variant.properties.capability.const === "ppt-improve");
+  assert.equal(improveVariant.required.includes("options"), false);
+  assert.equal(improveVariant.properties.options.properties.repairProfile.type, "string");
+});
+
+test("team MCP requires and forwards bounded project-audit scope options", async () => {
+  const ctx = context();
+  await assert.rejects(() => callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/source.tar.gz", idempotencyKey: "missing-scope" }, ctx), /options\.auditScope/);
+  await callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/source.tar.gz", idempotencyKey: "scoped", options: { auditScope: "2,3" } }, ctx);
+  assert.deepEqual(ctx.calls[0][1].options, { auditScope: "product-journey,visual-interaction" });
+  await callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/source.tar.gz", idempotencyKey: "scoped-cn", options: { auditScope: "产品闭环，视觉交互" } }, ctx);
+  assert.deepEqual(ctx.calls[1][1].options, { auditScope: "product-journey,visual-interaction" });
+  await assert.rejects(() => callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/source.tar.gz", idempotencyKey: "mixed-all", options: { auditScope: "1,2" } }, context()), /options/);
+});
+
 test("team MCP accepts trace parent only from its trusted transport context", async () => {
   const ctx = context();
   ctx.traceParent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
-  await callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "request-1" }, ctx);
+  await callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "request-1", options: { auditScope: "engineering-delivery" } }, ctx);
   assert.equal(ctx.calls[0][1].traceParent, ctx.traceParent);
   await assert.rejects(() => callTeamTool("create_team_job", { capability: "project-audit", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "request-2", traceParent: "attacker-controlled" }, ctx), /unexpected tool argument/);
 });
@@ -112,10 +144,10 @@ test("team MCP returns a Tasks result only after protocol and client opt-in", as
   const createJob = listed.result.tools.find((tool) => tool.name === "create_team_job");
   assert.deepEqual(createJob.execution, { taskSupport: "optional" });
   assert.deepEqual(createJob.annotations, { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false });
-  const created = await handleTeamMcp({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "create_team_job", arguments: { capability: "project-audit", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "tasks-request" }, _meta: { "io.modelcontextprotocol/clientCapabilities": { extensions: { "io.modelcontextprotocol/tasks": {} } } } } }, ctx);
+  const created = await handleTeamMcp({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "create_team_job", arguments: { capability: "project-audit", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "tasks-request", options: { auditScope: "engineering-delivery" } }, _meta: { "io.modelcontextprotocol/clientCapabilities": { extensions: { "io.modelcontextprotocol/tasks": {} } } } } }, ctx);
   assert.equal(created.result.resultType, "task");
   assert.equal(created.result.status, "working");
-  const fallback = await handleTeamMcp({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "create_team_job", arguments: { capability: "project-audit", inputObjectKey: "owners/hash/inputs/two", idempotencyKey: "fallback-request" } } }, ctx);
+  const fallback = await handleTeamMcp({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "create_team_job", arguments: { capability: "project-audit", inputObjectKey: "owners/hash/inputs/two", idempotencyKey: "fallback-request", options: { auditScope: "engineering-delivery" } } } }, ctx);
   assert.equal(fallback.result.structuredContent.id, "b7f5d1be-3d34-4f20-9e0b-b45c1697b516");
 });
 
@@ -125,7 +157,7 @@ test("team MCP requires project roles before exposing project-scoped Jobs", asyn
   ctx.principal.projects = new Map([["product-core", "editor"]]);
   const listed = await handleTeamMcp({ jsonrpc: "2.0", id: 1, method: "tools/list" }, ctx);
   assert.equal(listed.result.tools.find((tool) => tool.name === "create_team_job").inputSchema.required.includes("projectId"), true);
-  const created = await callTeamTool("create_team_job", { capability: "project-audit", projectId: "product-core", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "project-request" }, ctx);
+  const created = await callTeamTool("create_team_job", { capability: "project-audit", projectId: "product-core", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "project-request", options: { auditScope: "engineering-delivery" } }, ctx);
   assert.equal(created.projectId, "product-core");
   assert.equal(ctx.calls[0][1].projectId, "product-core");
   await assert.rejects(() => callTeamTool("get_team_job", { id: "job-1" }, ctx), /projectId/);

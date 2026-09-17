@@ -26,7 +26,7 @@ function createProjectAuditArchiveHandler({ objectStore, temporaryRoot = os.tmpd
     try {
       extractProjectArchive(archive, root, { ignoredDirectories: PROJECT_AUDIT_IGNORED_ARCHIVE_DIRECTORIES });
       if (await isCancellationRequested()) throw new Error("project audit was cancelled");
-      const report = { ...auditProject(root), root: "uploaded-project" };
+      const report = { ...auditProject(root, { scope: job.options?.auditScope }), root: "uploaded-project" };
       const artifacts = [
         { name: "project-audit-report.json", objectKey: `${job.outputPrefix}project-audit-report.json`, mediaType: "application/json", body: Buffer.from(`${JSON.stringify(report, null, 2)}\n`) },
         { name: "project-audit-report.md", objectKey: `${job.outputPrefix}project-audit-report.md`, mediaType: "text/markdown", body: Buffer.from(renderMarkdown(report)) }

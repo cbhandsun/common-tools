@@ -101,6 +101,13 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
          assert.match(capabilitySkill, new RegExp(`name: ${capability}`));
          const chineseGuide = fs.readFileSync(path.join(root, "docs", "zh-CN", `${capability}.md`), "utf8");
          assert.match(chineseGuide, /输入边界/);
+         if (capability === "project-audit") {
+           assert.match(capabilitySkill, /Scope selection is host-neutral/);
+           assert.match(capabilitySkill, /中文或英文名称/);
+           assert.match(capabilitySkill, /options: \{ auditScope: "<selected-scope-ids>" \}/);
+           assert.match(chineseGuide, /执行前必须先选择审计范围/);
+           assert.match(chineseGuide, /中英文组合/);
+         }
        }
        const helpSkill = fs.readFileSync(path.join(root, "skills", "common-tools-help", "SKILL.md"), "utf8");
        assert.match(helpSkill, /用中文说明/);
@@ -616,7 +623,10 @@ test("remote capability Skills are self-contained and use the team job protocol"
     if (capability === "project-audit") {
       assert.match(skill, /runtime resolve --capability project-audit/);
       assert.match(skill, /请选择项目审计范围/);
+      assert.match(skill, /中文或英文名称/);
       assert.match(skill, /--scope <selected-scope-ids>/);
+      assert.match(skill, /Scope selection is host-neutral/);
+      assert.match(skill, /create_team_job.*options: \{ auditScope: "<selected-scope-ids>" \}/s);
       assert.match(skill, /local-preferred/);
       assert.match(skill, /never silently upload/);
       assert.match(skill, /four-domain static review/);
@@ -660,5 +670,7 @@ test("unified remote router honors the visible MCP capability boundary", () => {
   assert.match(router, /do not silently substitute another capability/);
   assert.match(router, /create_team_upload_target/);
   assert.match(router, /project-audit/);
+  assert.match(router, /options\.auditScope/);
+  assert.match(router, /without an explicit resolved scope/);
   assert.throws(() => remoteRouterSkill(["project-audit", "project-audit"]), /invalid/);
 });

@@ -12,6 +12,28 @@ function teamToolExecution(name, tasksEnabled) {
   if (typeof tasksEnabled !== "boolean") throw new TypeError("team Tasks availability is invalid");
   return tasksEnabled && name === "create_team_job" ? { taskSupport: "optional" } : undefined;
 }
+function jobOptionsSchemaFor(capability, properties) {
+  if (capability === "project-audit") return Object.freeze({ ...properties.options, properties: Object.freeze({ auditScope: properties.options.properties.auditScope }), required: Object.freeze(["auditScope"]) });
+  if (capability === "ppt-improve") return Object.freeze({ ...properties.options, properties: Object.freeze({ repairProfile: properties.options.properties.repairProfile }) });
+  return undefined;
+}
+function teamToolInputSchema(tool, capabilities, needsProject) {
+  const properties = teamToolProperties(tool.name, capabilities, needsProject);
+  const required = needsProject ? [...tool.required, "projectId"] : [...tool.required];
+  const base = { type: "object", properties, required, additionalProperties: false };
+  if (tool.name !== "create_team_job" || !capabilities.includes("project-audit")) return base;
+  if (capabilities.length === 1) return { ...base, properties: { ...properties, options: jobOptionsSchemaFor("project-audit", properties) }, required: [...new Set([...required, "options"])] };
+  return {
+    ...base,
+    oneOf: capabilities.map((capability) => {
+      const optionSchema = jobOptionsSchemaFor(capability, properties);
+      const variantProperties = { ...properties, capability: { type: "string", const: capability } };
+      if (optionSchema) variantProperties.options = optionSchema;
+      else delete variantProperties.options;
+      return Object.freeze({ type: "object", properties: Object.freeze(variantProperties), required: Object.freeze(capability === "project-audit" ? [...new Set([...required, "options"])] : required), additionalProperties: false });
+    })
+  };
+}
 function toolsFor(principal, requireProjectRbac = false, enabledCapabilities = Object.keys(CAPABILITY_SCOPES), appEnabled = false, tasksEnabled = false) {
   if (!principal || typeof principal.subject !== "string" || !principal.capabilities || typeof principal.capabilities.has !== "function") throw new TypeError("principal is invalid");
   if (typeof requireProjectRbac !== "boolean") throw new TypeError("project RBAC requirement is invalid");
@@ -22,7 +44,8 @@ function toolsFor(principal, requireProjectRbac = false, enabledCapabilities = O
   return TEAM_TOOLS.filter((tool) => tool.capability ? capabilities.includes(tool.capability) : jobCapabilities.length > 0 || !["create_team_upload_target", "create_team_job"].includes(tool.name)).map((tool) => {
     const execution = teamToolExecution(tool.name, tasksEnabled);
     const needsProject = requireProjectRbac && tool.capability === null;
-    return withQualityReportApp({ name: tool.name, description: tool.description, inputSchema: { type: "object", properties: teamToolProperties(tool.name, tool.capability ? capabilities : jobCapabilities, needsProject), required: needsProject ? [...tool.required, "projectId"] : tool.required, additionalProperties: false }, outputSchema: tool.outputSchema, annotations: tool.annotations, ...(execution ? { execution } : {}) }, appEnabled);
+    const schemaCapabilities = tool.capability ? capabilities : jobCapabilities;
+    return withQualityReportApp({ name: tool.name, description: tool.description, inputSchema: teamToolInputSchema(tool, schemaCapabilities, needsProject), outputSchema: tool.outputSchema, annotations: tool.annotations, ...(execution ? { execution } : {}) }, appEnabled);
   });
 }
 function teamServerCapabilities(tasksEnabled) {

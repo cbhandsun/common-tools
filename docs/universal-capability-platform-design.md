@@ -232,7 +232,7 @@ npm install -g @your-org/common-tools
 common-tools doctor
 common-tools mcp serve
 common-tools editable create --input .\input --out .\runs\job-001
-common-tools audit run --root . --out .\runs\audit-001
+common-tools audit run --root . --scope all --out .\runs\audit-001
 ```
 
 Codex 和 Claude 插件只需配置其 MCP 客户端启动以上 `mcp serve` 命令。

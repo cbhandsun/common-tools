@@ -56,7 +56,11 @@ test("project audit writes evidence-only JSON and Markdown artifacts", () => {
     const mcpJob = callTool("create_project_audit_job", { output: path.join(root, "mcp-audit"), level: "deep", scope: "3" }, { workspaceRoot: root, stateRoot, ownerId: "test-user" });
     assert.equal(mcpJob.audit.level, "deep");
     assert.deepEqual(mcpJob.audit.scopes, ["visual-interaction"]);
-    assert.throws(() => callTool("create_project_audit_job", { output: path.join(root, "invalid-mcp-audit"), level: "unknown" }, { workspaceRoot: root, stateRoot, ownerId: "test-user" }), /declared input schema/);
+    const chineseMcpJob = callTool("create_project_audit_job", { output: path.join(root, "mcp-audit-cn"), level: "标准审计", scope: "产品闭环，工程与交付" }, { workspaceRoot: root, stateRoot, ownerId: "test-user" });
+    assert.equal(chineseMcpJob.audit.level, "standard");
+    assert.deepEqual(chineseMcpJob.audit.scopes, ["product-journey", "engineering-delivery"]);
+    assert.throws(() => callTool("create_project_audit_job", { output: path.join(root, "missing-scope-audit") }, { workspaceRoot: root, stateRoot, ownerId: "test-user" }), /tool argument scope/);
+    assert.throws(() => callTool("create_project_audit_job", { output: path.join(root, "invalid-mcp-audit"), level: "unknown", scope: "3" }, { workspaceRoot: root, stateRoot, ownerId: "test-user" }), /declared input schema/);
     const mcpReport = callTool("get_project_audit_report", { id: job.id }, { workspaceRoot: root, stateRoot, ownerId: "test-user" });
     assert.deepEqual(mcpReport.audit, projectAuditSummary(completed, root));
     fs.writeFileSync(path.join(output, "project-audit-report.json"), JSON.stringify({ summary: { scannedFiles: 1, warnings: 0 }, findings: [] }));
@@ -198,6 +202,8 @@ test("audit level defaults to standard and supports safe interactive selection",
   assert.equal(parseAuditLevel().id, "standard");
   assert.equal(parseAuditLevel("1").id, "quick");
   assert.equal(parseAuditLevel("standard").id, "standard");
+  assert.equal(parseAuditLevel("标准").id, "standard");
+  assert.equal(parseAuditLevel("深度审计").id, "deep");
   assert.deepEqual(auditLevelPlan("3"), {
     level: "deep",
     label: "深度审计",
@@ -220,9 +226,12 @@ test("audit scope accepts all, single and combined numbered choices and rejects 
   assert.deepEqual(parseAuditScope(), AUDIT_SCOPE_IDS);
   assert.deepEqual(parseAuditScope("1"), AUDIT_SCOPE_IDS);
   assert.deepEqual(parseAuditScope("all"), AUDIT_SCOPE_IDS);
+  assert.deepEqual(parseAuditScope("全部四域"), AUDIT_SCOPE_IDS);
   assert.deepEqual(parseAuditScope("2,4"), ["product-journey", "data-security"]);
   assert.deepEqual(parseAuditScope("engineering-delivery,visual-interaction"), ["visual-interaction", "engineering-delivery"]);
-  for (const value of ["", "0", "1,2", "2,2", "2,,3", "unknown"]) assert.throws(() => parseAuditScope(value), /audit scope/);
+  assert.deepEqual(parseAuditScope("产品闭环，工程与交付"), ["product-journey", "engineering-delivery"]);
+  assert.deepEqual(parseAuditScope("视觉、交互与无障碍"), ["visual-interaction"]);
+  for (const value of ["", "0", "1,2", "全部,工程", "2,2", "产品,产品闭环", "2,,3", "unknown"]) assert.throws(() => parseAuditScope(value), /audit scope/);
   let promptText = "";
   const scopeAnswers = ["1,2", "3,5"];
   const selected = await promptAuditScope({ output: { write: (value) => { promptText += value; } }, ask: async () => scopeAnswers.shift() });
@@ -319,6 +328,7 @@ test("browser experience collector accepts only a bounded local plan and emits r
     const fakeClient = {
       async send(method, params = {}) {
         calls.push({ method, params });
+        if (method === "Runtime.evaluate") return { result: { value: { schemaVersion: 1, counts: { interactive: 0 }, candidates: [] } } };
         if (method === "Page.captureScreenshot") return { data: "iVBORw0KGgo=" };
         return {};
       },
@@ -345,8 +355,13 @@ test("browser experience collector accepts only a bounded local plan and emits r
     const evidence = readExperienceEvidence(root, "browser-evidence/experience.json");
     assert.equal(evidence.scenarios.length, 8);
     assert.equal(evidence.scenarios.every((scenario) => scenario.status === "not-verified"), true);
-    assert.equal(evidence.scenarios[0].evidence[0].file, "browser-evidence/first-visit.png");
+    assert.equal(evidence.scenarios[0].evidence[0].file, "browser-evidence/first-visit.dom.json");
+    assert.equal(evidence.scenarios[0].evidence[0].rule, "experience-dom-snapshot");
+    assert.equal(evidence.scenarios[0].evidence[1].file, "browser-evidence/first-visit.png");
+    const domSnapshot = JSON.parse(fs.readFileSync(path.join(root, "browser-evidence", "first-visit.dom.json"), "utf8"));
+    assert.equal(domSnapshot.schemaVersion, 1);
     assert.equal(fs.readFileSync(path.join(root, "browser-evidence", "experience.json"), "utf8").includes("never-store-this"), false);
+    assert.equal(fs.readFileSync(path.join(root, "browser-evidence", "first-visit.dom.json"), "utf8").includes("never-store-this"), false);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -441,7 +456,7 @@ test("audit capability is individually installable and CLI supports queued and d
     const enabledAgain = spawnSync(process.execPath, [cli, "plugin", "enable", "--workspace", root, "--state", stateRoot, "--capability", "project-audit"], { encoding: "utf8", windowsHide: true });
     assert.equal(enabledAgain.status, 0, enabledAgain.stderr);
     assert.equal(JSON.parse(enabledAgain.stdout).generation, 1);
-    const created = spawnSync(process.execPath, [cli, "audit", "create", "--workspace", root, "--state", stateRoot, "--out", path.join(root, "audit")], { encoding: "utf8", windowsHide: true });
+    const created = spawnSync(process.execPath, [cli, "audit", "create", "--workspace", root, "--state", stateRoot, "--scope", "1", "--out", path.join(root, "audit")], { encoding: "utf8", windowsHide: true });
     assert.equal(created.status, 0, created.stderr);
     const job = JSON.parse(created.stdout);
     const ran = spawnSync(process.execPath, [cli, "job", "run", "--workspace", root, "--state", stateRoot, "--id", job.id], { encoding: "utf8", windowsHide: true });
@@ -455,7 +470,13 @@ test("audit capability is individually installable and CLI supports queued and d
     const missingOutput = spawnSync(process.execPath, [cli, "audit", "run", "--workspace", root, "--state", stateRoot], { encoding: "utf8", windowsHide: true });
     assert.equal(missingOutput.status, 1);
     assert.match(missingOutput.stderr, /audit run requires --out/);
-    const invalidTimeout = spawnSync(process.execPath, [cli, "audit", "run", "--workspace", root, "--state", stateRoot, "--out", path.join(root, "audit-invalid"), "--run-gates", "--gate-timeout-ms", "10"], { encoding: "utf8", windowsHide: true });
+    const missingScope = spawnSync(process.execPath, [cli, "audit", "run", "--workspace", root, "--state", stateRoot, "--out", path.join(root, "audit-missing-scope")], { encoding: "utf8", windowsHide: true });
+    assert.equal(missingScope.status, 1);
+    assert.match(missingScope.stderr, /audit run requires --scope/);
+    const missingCreateScope = spawnSync(process.execPath, [cli, "audit", "create", "--workspace", root, "--state", stateRoot, "--out", path.join(root, "audit-create-missing-scope")], { encoding: "utf8", windowsHide: true });
+    assert.equal(missingCreateScope.status, 1);
+    assert.match(missingCreateScope.stderr, /audit create requires --scope/);
+    const invalidTimeout = spawnSync(process.execPath, [cli, "audit", "run", "--workspace", root, "--state", stateRoot, "--scope", "1", "--out", path.join(root, "audit-invalid"), "--run-gates", "--gate-timeout-ms", "10"], { encoding: "utf8", windowsHide: true });
     assert.equal(invalidTimeout.status, 1);
     assert.match(invalidTimeout.stderr, /gateTimeoutMs/);
     const scopes = spawnSync(process.execPath, [cli, "audit", "scopes"], { encoding: "utf8", windowsHide: true });

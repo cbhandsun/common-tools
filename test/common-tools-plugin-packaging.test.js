@@ -73,6 +73,9 @@ test("Git Marketplace installs one hosted plugin and routes image conversion to 
   assert.match(auditSkill, /<plugin-root>\/runtime\/project-audit/);
   assert.match(auditSkill, /contains no SlideClone, OCR, \.NET, Docker/);
   assert.match(auditSkill, /obtain separate explicit user approval/);
+  assert.match(auditSkill, /explicit resolved scope/);
+  assert.match(auditSkill, /Scope selection is host-neutral/);
+  assert.match(auditSkill, /Chinese scope replies/);
   assert.match(auditSkill, /Do not silently reduce the selected level/);
   assert.match(auditSkill, /Completion gate/);
 });
@@ -172,6 +175,9 @@ test("project audit Skill keeps one evidence-review contract across packaged hos
   assert.match(skills[0], /candidate-evidence inventory/);
   assert.match(skills[0], /confirmed-issue/);
   assert.match(skills[0], /请选择项目审计范围/);
+  assert.match(skills[0], /中文或英文名称/);
+  assert.match(skills[0], /explicit resolved scope/);
+  assert.match(skills[0], /Scope selection is host-neutral/);
   assert.match(skills[0], /--scope <selected-scope-ids>/);
   assert.match(contracts[0], /Do not use .pass. for candidate presence/);
 });

@@ -392,7 +392,7 @@ test("team remote MCP negotiates Tasks and enforces task routing headers", async
     const initialized = await request({}, { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2026-06-30" } });
     assert.equal(initialized.status, 200);
     assert.deepEqual(JSON.parse(initialized.body).result.capabilities.extensions, { "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] }, "io.modelcontextprotocol/tasks": {} });
-    const created = await request({ "MCP-Protocol-Version": "2026-06-30" }, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "create_team_job", arguments: { capability: "project-audit", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "tasks-request" }, _meta: { "io.modelcontextprotocol/clientCapabilities": { extensions: { "io.modelcontextprotocol/tasks": {} } } } } });
+    const created = await request({ "MCP-Protocol-Version": "2026-06-30" }, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "create_team_job", arguments: { capability: "project-audit", inputObjectKey: "owners/hash/inputs/one", idempotencyKey: "tasks-request", options: { auditScope: "engineering-delivery" } }, _meta: { "io.modelcontextprotocol/clientCapabilities": { extensions: { "io.modelcontextprotocol/tasks": {} } } } } });
     const createdBody = JSON.parse(created.body);
     assert.equal(createdBody.result.resultType, "task");
     assert.equal(createdBody.result.taskId, taskId);
@@ -402,7 +402,7 @@ test("team remote MCP negotiates Tasks and enforces task routing headers", async
     const read = await request({ "MCP-Protocol-Version": "2026-06-30", "MCP-Method": "tasks/get", "MCP-Name": taskId }, { jsonrpc: "2.0", id: 4, method: "tasks/get", params: { taskId } });
     assert.equal(read.status, 200);
     assert.equal(JSON.parse(read.body).result.status, "working");
-    const currentCreated = await request({ "MCP-Protocol-Version": LATEST_MCP_PROTOCOL_VERSION, "MCP-Method": "tools/call", "MCP-Name": "create_team_job" }, { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "create_team_job", arguments: { capability: "project-audit", inputObjectKey: "owners/hash/inputs/two", idempotencyKey: "latest-tasks-request" }, _meta: { traceparent: traceParent, "io.modelcontextprotocol/clientCapabilities": { extensions: { "io.modelcontextprotocol/tasks": {} } } } } });
+    const currentCreated = await request({ "MCP-Protocol-Version": LATEST_MCP_PROTOCOL_VERSION, "MCP-Method": "tools/call", "MCP-Name": "create_team_job" }, { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "create_team_job", arguments: { capability: "project-audit", inputObjectKey: "owners/hash/inputs/two", idempotencyKey: "latest-tasks-request", options: { auditScope: "engineering-delivery" } }, _meta: { traceparent: traceParent, "io.modelcontextprotocol/clientCapabilities": { extensions: { "io.modelcontextprotocol/tasks": {} } } } } });
     assert.equal(currentCreated.status, 200);
     assert.equal(JSON.parse(currentCreated.body).result.resultType, "task");
     assert.equal(persistedTraceParent, traceParent);

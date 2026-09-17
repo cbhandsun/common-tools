@@ -1,6 +1,7 @@
 "use strict";
 // @ts-check
 const crypto = require("node:crypto");
+const { containsControlCharacter } = require("../capability-contracts");
 /** @param {unknown} value @param {string} label */
 function assertNonEmptyString(value, label) {
   if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be a non-empty string`);
@@ -16,6 +17,50 @@ const PROJECT_ID_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
 const TRACE_PARENT_PATTERN = /^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/;
 
 const PPT_IMPROVE_REPAIR_PROFILES = new Set(["safe-package", "layout-safe", "typography-safe", "editability-safe", "audit-only"]);
+const PROJECT_AUDIT_SCOPE_IDS = Object.freeze(["product-journey", "visual-interaction", "data-security", "engineering-delivery"]);
+const PROJECT_AUDIT_SCOPE_BY_TOKEN = new Map([
+  ["2", ["product-journey"]],
+  ["product", ["product-journey"]],
+  ["product-journey", ["product-journey"]],
+  ["journey", ["product-journey"]],
+  ["产品", ["product-journey"]],
+  ["产品闭环", ["product-journey"]],
+  ["产品旅程", ["product-journey"]],
+  ["用户旅程", ["product-journey"]],
+  ["业务闭环", ["product-journey"]],
+  ["3", ["visual-interaction"]],
+  ["visual", ["visual-interaction"]],
+  ["interaction", ["visual-interaction"]],
+  ["ux", ["visual-interaction"]],
+  ["accessibility", ["visual-interaction"]],
+  ["visual-interaction", ["visual-interaction"]],
+  ["视觉", ["visual-interaction"]],
+  ["交互", ["visual-interaction"]],
+  ["无障碍", ["visual-interaction"]],
+  ["视觉交互", ["visual-interaction"]],
+  ["视觉交互与无障碍", ["visual-interaction"]],
+  ["视觉、交互与无障碍", ["visual-interaction"]],
+  ["4", ["data-security"]],
+  ["data", ["data-security"]],
+  ["security", ["data-security"]],
+  ["reliability", ["data-security"]],
+  ["data-security", ["data-security"]],
+  ["数据", ["data-security"]],
+  ["权限", ["data-security"]],
+  ["可靠性", ["data-security"]],
+  ["数据权限", ["data-security"]],
+  ["数据权限可靠性", ["data-security"]],
+  ["数据、权限与可靠性", ["data-security"]],
+  ["5", ["engineering-delivery"]],
+  ["engineering", ["engineering-delivery"]],
+  ["delivery", ["engineering-delivery"]],
+  ["工程", ["engineering-delivery"]],
+  ["交付", ["engineering-delivery"]],
+  ["工程交付", ["engineering-delivery"]],
+  ["工程与交付", ["engineering-delivery"]],
+  ["engineering-delivery", ["engineering-delivery"]]
+]);
+const PROJECT_AUDIT_ALL_SCOPE_TOKENS = new Set(["1", "all", "全部", "全域", "全部四域", "四域", "所有", "全量"]);
 
 /** @param {unknown} value @param {string} label */
 function assertObjectKey(value, label) {
@@ -36,6 +81,20 @@ function assertTraceParent(value) {
   const match = TRACE_PARENT_PATTERN.exec(value);
   if (!match || /^0{32}$/.test(match[1] || "") || /^0{16}$/.test(match[2] || "")) throw new TypeError("traceParent is invalid");
   return value;
+}
+/** @param {unknown} value */
+function normalizeProjectAuditScopeOption(value) {
+  const scope = assertNonEmptyString(value, "auditScope");
+  if (scope.length > 256 || containsControlCharacter(scope)) throw new TypeError("auditScope is invalid");
+  const tokens = scope.split(/[,，;；]/u).map((token) => token.trim().toLowerCase());
+  if (tokens.some((token) => !token) || new Set(tokens).size !== tokens.length) throw new TypeError("auditScope is invalid");
+  if (tokens.some((token) => PROJECT_AUDIT_ALL_SCOPE_TOKENS.has(token))) {
+    if (tokens.length !== 1) throw new TypeError("auditScope is invalid");
+    return PROJECT_AUDIT_SCOPE_IDS.join(",");
+  }
+  const selected = tokens.flatMap((token) => PROJECT_AUDIT_SCOPE_BY_TOKEN.get(token) || []);
+  if (selected.length !== tokens.length || new Set(selected).size !== selected.length) throw new TypeError("auditScope is invalid");
+  return PROJECT_AUDIT_SCOPE_IDS.filter((id) => selected.includes(id)).join(",");
 }
 /** @template {object} T @param {T} job @param {string | undefined} traceParent @returns {Readonly<T & {traceParent: string | undefined}>} */
 function withTraceParent(job, traceParent) {
@@ -63,8 +122,10 @@ function normalizeTeamJobOptions(capability, value) {
   try { keys = Object.keys(value); } catch { throw new TypeError("team Job options are invalid"); }
   if (keys.length === 0) return Object.freeze({});
   const repairProfile = readField(value, "repairProfile");
-  if (capability !== "ppt-improve" || keys.some((key) => key !== "repairProfile") || keys.length !== 1 || (typeof repairProfile !== "string" || !PPT_IMPROVE_REPAIR_PROFILES.has(repairProfile))) throw new TypeError("team Job options are invalid for the capability");
-  return Object.freeze({ repairProfile });
+  if (capability === "ppt-improve" && keys.every((key) => key === "repairProfile") && keys.length === 1 && typeof repairProfile === "string" && PPT_IMPROVE_REPAIR_PROFILES.has(repairProfile)) return Object.freeze({ repairProfile });
+  const auditScope = readField(value, "auditScope");
+  if (capability === "project-audit" && keys.every((key) => key === "auditScope") && keys.length === 1) return Object.freeze({ auditScope: normalizeProjectAuditScopeOption(auditScope) });
+  throw new TypeError("team Job options are invalid for the capability");
 }
 
 /** @param {readonly string[]} capabilities */

@@ -45,10 +45,11 @@ test("project audit worker safely extracts a tar.gz input and uploads redacted r
     }
   });
   try {
-    const output = await handler({ job: { capability: "project-audit", inputObjectKey: "owners/a/inputs/source.tar.gz", outputPrefix: "owners/a/jobs/job-1/" }, isCancellationRequested: async () => false });
+    const output = await handler({ job: { capability: "project-audit", inputObjectKey: "owners/a/inputs/source.tar.gz", outputPrefix: "owners/a/jobs/job-1/", options: { auditScope: "engineering-delivery" } }, isCancellationRequested: async () => false });
     assert.equal(output.artifacts.length, 2);
     const report = JSON.parse(uploads.get("owners/a/jobs/job-1/project-audit-report.json").body.toString("utf8"));
     assert.equal(report.root, "uploaded-project");
+    assert.deepEqual(report.scope.auditDomains, ["engineering-delivery"]);
     assert.equal(report.summary.scannedFiles, 2);
     assert.equal(fs.readdirSync(temporaryRoot).length, 0);
   } finally { fs.rmSync(temporaryRoot, { recursive: true, force: true }); }
