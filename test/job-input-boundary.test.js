@@ -56,6 +56,9 @@ test("Job attempts, ownership, trace privacy and option validation remain enforc
   const options = {}; Object.defineProperty(options, "repairProfile", { enumerable: true, get() { throw new Error("private-token"); } });
   assert.throws(() => normalizeTeamJobOptions("ppt-improve", options), { message: "team Job input is invalid" });
   assert.deepEqual(normalizeTeamJobOptions("ppt-improve", { repairProfile: "safe-package" }), { repairProfile: "safe-package" });
+  const auditOptions = {}; Object.defineProperty(auditOptions, "auditScope", { enumerable: true, get() { throw new Error("private-token"); } });
+  assert.throws(() => normalizeTeamJobOptions("project-audit", auditOptions), { message: "team Job input is invalid" });
+  assert.deepEqual(normalizeTeamJobOptions("project-audit", { auditScope: "engineering-delivery" }), { auditScope: "engineering-delivery" });
 });
 
 

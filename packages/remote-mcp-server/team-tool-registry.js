@@ -2,6 +2,7 @@
 
 const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 const { normalizeTeamJobOptions } = require("../team-runtime");
+const { parseAuditScope } = require("../project-audit-core/audit-scope");
 const { directCapabilityModules, directToolArguments, directToolMethods } = require("./direct-capability-catalog");
 const { TEAM_TOOLS, validateTeamToolOutput } = require("./team-tool-contracts");
 
@@ -14,7 +15,7 @@ const COMMON_TOOL_PROPERTIES = Object.freeze({
   contentLength: Object.freeze({ type: "integer", minimum: 1, maximum: 104857600 }),
   inputObjectKey: Object.freeze({ type: "string" }),
   idempotencyKey: Object.freeze({ type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9._:-]+$" }),
-  options: Object.freeze({ type: "object", properties: { repairProfile: { type: "string", enum: ["safe-package", "layout-safe", "typography-safe", "editability-safe", "audit-only"] } }, additionalProperties: false }),
+  options: Object.freeze({ type: "object", properties: { auditScope: { type: "string", minLength: 1, maxLength: 256 }, repairProfile: { type: "string", enum: ["safe-package", "layout-safe", "typography-safe", "editability-safe", "audit-only"] } }, additionalProperties: false }),
   id: Object.freeze({ type: "string" }),
   name: Object.freeze({ type: "string" }),
   projectId: Object.freeze({ type: "string", pattern: "^[a-z][a-z0-9-]{2,63}$" }),
@@ -72,6 +73,25 @@ function projectAccess(principal, projectId, allowedRoles) {
 function teamArgs(rawArgs, allowed, required, requireProjectRbac) {
   return requireProjectRbac ? assertKeys(rawArgs, [...allowed, "projectId"], [...required, "projectId"]) : assertKeys(rawArgs, allowed, required);
 }
+function optionsPropertyFor(capabilities) {
+  const properties = {};
+  if (capabilities.includes("project-audit")) properties.auditScope = COMMON_TOOL_PROPERTIES.options.properties.auditScope;
+  if (capabilities.includes("ppt-improve")) properties.repairProfile = COMMON_TOOL_PROPERTIES.options.properties.repairProfile;
+  return Object.freeze({ type: "object", properties: Object.freeze(properties), additionalProperties: false });
+}
+function normalizeCreateTeamJobOptions(capability, value) {
+  if (capability === "project-audit") {
+    if (value === undefined || value === null) throw new TypeError("project-audit team Job requires options.auditScope");
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError("team Job options are invalid");
+    let keys;
+    try { keys = Object.keys(value); } catch { throw new TypeError("team Job options are invalid"); }
+    if (keys.length !== 1 || keys[0] !== "auditScope") throw new TypeError("team Job options are invalid for the capability");
+    let auditScope;
+    try { auditScope = parseAuditScope(value.auditScope).join(","); } catch { throw new TypeError("team Job options are invalid for the capability"); }
+    return normalizeTeamJobOptions(capability, { auditScope });
+  }
+  return value === undefined ? undefined : normalizeTeamJobOptions(capability, value);
+}
 
 function directCapabilityOperation(capability, serviceName, name, method) {
   return async function callDirectCapabilityTool(rawArgs, context, enabledCapabilities) {
@@ -97,7 +117,7 @@ const TEAM_TOOL_OPERATIONS = Object.freeze({
   create_team_job: async (rawArgs, context, enabledCapabilities) => {
     const args = teamArgs(rawArgs, TEAM_TOOL_ARGUMENTS.create_team_job, ["capability", "inputObjectKey", "idempotencyKey"], context.requireProjectRbac === true);
     const capability = authorizedCapability(context.principal, args.capability, enabledCapabilities);
-    const options = args.options === undefined ? undefined : normalizeTeamJobOptions(capability, args.options);
+    const options = normalizeCreateTeamJobOptions(capability, args.options);
     if (context.requireProjectRbac === true) projectAccess(context.principal, args.projectId, ["editor", "admin"]);
     return validateTeamToolOutput("create_team_job", await context.services.createJob({ capability, ownerId: context.principal.subject, projectId: context.requireProjectRbac === true ? args.projectId : undefined, inputObjectKey: args.inputObjectKey, idempotencyKey: args.idempotencyKey, options, expiresAt: new Date(context.now() + 24 * 60 * 60 * 1000).toISOString(), traceParent: context.traceParent }));
   },
@@ -142,7 +162,7 @@ function teamToolArgumentKeys(name) {
 
 function teamToolProperties(name, capabilities = Object.keys(CAPABILITY_SCOPES), requireProjectRbac = false) {
   const keys = teamToolArgumentKeys(name);
-  const properties = { ...COMMON_TOOL_PROPERTIES, capability: { ...COMMON_TOOL_PROPERTIES.capability, enum: capabilities } };
+  const properties = { ...COMMON_TOOL_PROPERTIES, capability: { ...COMMON_TOOL_PROPERTIES.capability, enum: capabilities }, options: optionsPropertyFor(capabilities) };
   return Object.fromEntries((requireProjectRbac ? [...keys, "projectId"] : keys).map((key) => [key, properties[key]]));
 }
 

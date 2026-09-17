@@ -17,6 +17,7 @@ const MAX_ACTIONS_PER_SCENARIO = 32;
 const MAX_CAPTURE_TIMEOUT_MS = 60 * 1000;
 const DEFAULT_CAPTURE_TIMEOUT_MS = 15 * 1000;
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024;
+const MAX_DOM_SNAPSHOT_BYTES = 256 * 1024;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 const BROWSERS = Object.freeze({
   chrome: Object.freeze(["C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe", path.join(process.env.LOCALAPPDATA || "", "Google", "Chrome", "Application", "chrome.exe")]),
@@ -185,6 +186,8 @@ async function executeAction(client, action, baseUrl, timeoutMs) {
 async function waitForSelector(client, selector, timeoutMs) { const deadline = Date.now() + timeoutMs; while (Date.now() < deadline) { try { if (await evaluate(client, `Boolean(document.querySelector(${JSON.stringify(selector)}))`)) return; } catch { /* Transient page state is retried until the bounded deadline. */ } await delay(100); } throw new Error("experience selector timed out"); }
 async function evaluate(client, expression) { const result = await client.send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }); if (result?.exceptionDetails) throw new Error("browser action failed"); return result?.result?.value; }
 async function captureScenario(client, outputRoot, outputRelative, id, before, consoleCounts, network) {
+  const domFile = `${id}.dom.json`;
+  fs.writeFileSync(path.join(outputRoot, domFile), `${JSON.stringify(await captureDomSnapshot(client))}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
   const screenshot = await client.send("Page.captureScreenshot", { format: "png" });
   const png = Buffer.from(screenshot.data, "base64");
   if (!png.length || png.length > MAX_SCREENSHOT_BYTES) throw new Error("browser screenshot is invalid");
@@ -193,7 +196,77 @@ async function captureScenario(client, outputRoot, outputRelative, id, before, c
   fs.writeFileSync(path.join(outputRoot, consoleFile), `${JSON.stringify({ errors: consoleCounts.error - before.errors, warnings: consoleCounts.warning - before.warnings })}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
   const statuses = Object.fromEntries(Object.entries(network.statusCounts).map(([status, count]) => [status, count - (before.statusCounts[status] || 0)]).filter(([, count]) => count > 0));
   fs.writeFileSync(path.join(outputRoot, networkFile), `${JSON.stringify({ failedRequests: network.failed - before.failed, statusCounts: statuses })}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
-  return [{ kind: "screenshot", file: `${outputRelative}/${screenshotFile}` }, { kind: "console", file: `${outputRelative}/${consoleFile}` }, { kind: "network", file: `${outputRelative}/${networkFile}` }];
+  return [{ kind: "dom-snapshot", file: `${outputRelative}/${domFile}` }, { kind: "screenshot", file: `${outputRelative}/${screenshotFile}` }, { kind: "console", file: `${outputRelative}/${consoleFile}` }, { kind: "network", file: `${outputRelative}/${networkFile}` }];
+}
+
+async function captureDomSnapshot(client) {
+  const expression = `(() => {
+    const round = (value) => Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
+    const elementLabel = (element) => element ? {
+      tag: String(element.tagName || "").toLowerCase(),
+      role: element.getAttribute("role") || "",
+      type: element.getAttribute("type") || "",
+      ariaHidden: element.getAttribute("aria-hidden") || "",
+      disabled: Boolean(element.disabled || element.getAttribute("aria-disabled") === "true")
+    } : null;
+    const rectValue = (rect) => ({ x: round(rect.x), y: round(rect.y), width: round(rect.width), height: round(rect.height) });
+    const viewport = { width: window.innerWidth, height: window.innerHeight, deviceScaleFactor: window.devicePixelRatio || 1, scrollX: round(window.scrollX), scrollY: round(window.scrollY) };
+    const selectors = [
+      "button", "a[href]", "input", "select", "textarea", "[role=button]", "[role=link]", "[role=checkbox]", "[role=menuitem]", "[tabindex]:not([tabindex='-1'])"
+    ].join(",");
+    const candidates = Array.from(document.querySelectorAll(selectors)).slice(0, 50).map((element, index) => {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      const centerX = Math.min(Math.max(rect.left + rect.width / 2, 0), Math.max(0, window.innerWidth - 1));
+      const centerY = Math.min(Math.max(rect.top + rect.height / 2, 0), Math.max(0, window.innerHeight - 1));
+      const hit = document.elementFromPoint(centerX, centerY);
+      return {
+        index,
+        element: elementLabel(element),
+        rect: rectValue(rect),
+        visible: rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none",
+        style: { position: style.position, zIndex: style.zIndex, pointerEvents: style.pointerEvents, overflow: style.overflow },
+        hitTarget: elementLabel(hit),
+        hitMatchesElement: hit === element || Boolean(hit && element.contains(hit))
+      };
+    });
+    const overflowCandidates = [];
+    const overflowWalker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_ELEMENT);
+    let overflowInspected = 0;
+    while (overflowInspected < 500 && overflowCandidates.length < 25) {
+      const element = overflowWalker.nextNode();
+      if (!element) break;
+      overflowInspected += 1;
+      const rect = element.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0 && (rect.right > window.innerWidth + 1 || rect.bottom > window.innerHeight + 1 || rect.left < -1 || rect.top < -1)) overflowCandidates.push({ index: overflowCandidates.length, element: elementLabel(element), rect: rectValue(rect) });
+    }
+    return {
+      schemaVersion: 1,
+      readyState: document.readyState,
+      viewport,
+      activeElement: elementLabel(document.activeElement),
+      counts: {
+        elements: document.getElementsByTagName("*").length,
+        headings: document.querySelectorAll("h1,h2,h3,h4,h5,h6").length,
+        landmarks: document.querySelectorAll("main,nav,aside,header,footer,[role=main],[role=navigation],[role=banner],[role=contentinfo]").length,
+        forms: document.querySelectorAll("form").length,
+        interactive: candidates.length,
+        hidden: document.querySelectorAll("[hidden],[aria-hidden=true],[style*='display: none'],[style*='visibility: hidden']").length
+      },
+      candidates,
+      overflowCandidates
+    };
+  })()`;
+  try {
+    const result = await client.send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+    if (result?.exceptionDetails) throw new Error("dom snapshot failed");
+    const value = result?.result?.value;
+    const serialized = JSON.stringify(value);
+    if (!serialized || Buffer.byteLength(serialized, "utf8") > MAX_DOM_SNAPSHOT_BYTES) throw new Error("dom snapshot is invalid");
+    return value;
+  } catch {
+    return { schemaVersion: 1, status: "failed" };
+  }
 }
 
 function createCdpClient(url) { return new Promise((resolve, reject) => { const socket = new WebSocket(url); const pending = new Map(); const listeners = new Map(); let sequence = 0; socket.addEventListener("open", () => resolve(Object.freeze({ send(method, params = {}) { return new Promise((resolveSend, rejectSend) => { const id = ++sequence; pending.set(id, { method, resolve: resolveSend, reject: rejectSend }); socket.send(JSON.stringify({ id, method, params })); }); }, on(method, listener) { const values = listeners.get(method) || []; values.push(listener); listeners.set(method, values); }, close() { for (const value of pending.values()) value.reject(new Error("browser connection closed")); pending.clear(); socket.close(); } }))); socket.addEventListener("error", () => reject(new Error("browser connection failed"))); socket.addEventListener("message", (event) => { let message; try { message = JSON.parse(event.data); } catch { return; } if (message.id) { const pendingValue = pending.get(message.id); if (!pendingValue) return; pending.delete(message.id); if (message.error) pendingValue.reject(new Error(`browser protocol error for ${pendingValue.method}`)); else pendingValue.resolve(message.result); return; } for (const listener of listeners.get(message.method) || []) listener(message.params); }); }); }

@@ -98,7 +98,7 @@ common-tools audit run --mode enhanced --scope all --out .common-tools/reports/p
 如果用户明确要求执行本机质量门禁，才添加 `--run-gates`：
 
 ```powershell
-common-tools audit run --mode gates --out .common-tools/reports/project-audit --run-gates
+common-tools audit run --mode gates --scope all --out .common-tools/reports/project-audit --run-gates
 ```
 
 该选项只尝试项目已经声明的 `check`、`lint`、`typecheck`、`test`、`build` 脚本；每项均有独立状态与最长两分钟超时。它可能执行项目代码，因此不能默认启用。未声明的脚本记为 `not-configured`，不可当作通过。
@@ -155,8 +155,8 @@ common-tools audit experience-collect --plan audit-evidence/plan.json --out audi
 `status` 只能是 `passed`、`failed` 或 `not-verified`。已通过或失败的场景至少要关联一个已有的、项目内、非符号链接且不超过 20 MiB 的证据文件；报告仅保存相对路径和证据种类，不读取或回显其中内容。
 
 ```powershell
-common-tools audit run --mode experience --experience-evidence audit-evidence/capture/experience.json --out .common-tools/reports/project-experience
-common-tools audit run --mode full --run-gates --experience-evidence audit-evidence/capture/experience.json --out .common-tools/reports/project-full
+common-tools audit run --mode experience --scope all --experience-evidence audit-evidence/capture/experience.json --out .common-tools/reports/project-experience
+common-tools audit run --mode full --scope all --run-gates --experience-evidence audit-evidence/capture/experience.json --out .common-tools/reports/project-full
 ```
 
 只有所有八个体验场景均有 `passed` 证据时，体验审查质量检查才通过。缺失或 `not-verified` 会如实保留，不能被静态审查或测试绿灯覆盖。

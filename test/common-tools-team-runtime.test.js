@@ -600,8 +600,14 @@ test("team Job options are capability-scoped and preserve PPT improvement profil
   const inputObjectKey = `owners/${ownerHash}/inputs/deck.pptx`;
   const job = createTeamJob({ capability: "ppt-improve", ownerId, idempotencyKey: "audit-only", inputObjectKey, options: { repairProfile: "audit-only" }, expiresAt: "2030-01-01T00:00:00.000Z" });
   assert.deepEqual(job.options, { repairProfile: "audit-only" });
+  const auditJob = createTeamJob({ capability: "project-audit", ownerId, idempotencyKey: "scoped-audit", inputObjectKey, options: { auditScope: "2,3" }, expiresAt: "2030-01-01T00:00:00.000Z" });
+  assert.deepEqual(auditJob.options, { auditScope: "product-journey,visual-interaction" });
+  assert.deepEqual(normalizeTeamJobOptions("project-audit", { auditScope: "产品闭环，视觉交互" }), { auditScope: "product-journey,visual-interaction" });
+  assert.deepEqual(normalizeTeamJobOptions("project-audit", { auditScope: "全部四域" }), { auditScope: "product-journey,visual-interaction,data-security,engineering-delivery" });
   assert.deepEqual(normalizeTeamJobOptions("ppt-improve", undefined), {});
   assert.throws(() => createTeamJob({ capability: "project-audit", ownerId, idempotencyKey: "bad-options", inputObjectKey, options: { repairProfile: "audit-only" }, expiresAt: "2030-01-01T00:00:00.000Z" }), /options/);
+  assert.throws(() => createTeamJob({ capability: "project-audit", ownerId, idempotencyKey: "bad-scope", inputObjectKey, options: { auditScope: "1,2" }, expiresAt: "2030-01-01T00:00:00.000Z" }), /auditScope|options/);
+  assert.throws(() => normalizeTeamJobOptions("project-audit", { auditScope: "全部,工程" }), /auditScope|options/);
   assert.throws(() => normalizeTeamJobOptions("ppt-improve", { repairProfile: "visual-repair" }), /options/);
   assert.throws(() => normalizeTeamJobOptions("ppt-improve", { repairProfile: "safe-package", token: "secret" }), /options/);
 });
@@ -1013,7 +1019,8 @@ test("team Workers persist only fixed quality reports and hide historic arbitrar
   assert.equal(fromRow(unsafeRow).quality, null);
   assert.equal(fromRow({ ...unsafeRow, quality: "{private invalid JSON" }).quality, null);
   assert.equal(fromRow({ ...unsafeRow, quality: "x".repeat(262145) }).quality, null);
-  for (const options of ["{private invalid JSON", "x".repeat(8193), { unknown: true }]) assert.throws(() => fromRow({ ...unsafeRow, options }), (error) => error.message === "database job options are invalid");
+  assert.deepEqual(fromRow({ ...unsafeRow, options: { auditScope: "engineering-delivery" } }).options, { auditScope: "engineering-delivery" });
+  for (const options of ["{private invalid JSON", "x".repeat(8193), { unknown: true }, { auditScope: "1,2" }]) assert.throws(() => fromRow({ ...unsafeRow, options }), (error) => error.message === "database job options are invalid");
   for (const patch of [{ id: "" }, { owner_id: null }, { capability: "unknown" }, { project_id: "../bad" }, { input_object_key: "../bad" }, { trace_parent: "private invalid trace" }]) assert.throws(() => fromRow({ ...unsafeRow, ...patch }), (error) => error.message === "database job identity is invalid");
 
   const storedArtifact = { name: "report.json", objectKey: unsafeRow.output_prefix + "report.json", mediaType: "application/json", sha256: "a".repeat(64) };

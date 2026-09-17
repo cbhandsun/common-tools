@@ -8,7 +8,7 @@ const MAX_EVIDENCE_FILE_BYTES = 256 * 1024;
 const MAX_CAPTURE_BYTES = 20 * 1024 * 1024;
 const EXPERIENCE_SCENARIOS = Object.freeze(["first-visit", "core-flow", "result-followup", "state-feedback", "recovery", "responsive", "keyboard", "console-network"]);
 const EXPERIENCE_STATUSES = new Set(["passed", "failed", "not-verified"]);
-const EVIDENCE_KINDS = new Set(["screenshot", "recording", "console", "network"]);
+const EVIDENCE_KINDS = new Set(["screenshot", "recording", "console", "network", "dom-snapshot"]);
 
 function relativeEvidencePath(value) {
   if (typeof value !== "string" || !value || value.length > 512 || path.isAbsolute(value) || value.includes("\\")) throw new TypeError("experience evidence path is invalid");

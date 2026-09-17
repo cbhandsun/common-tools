@@ -106,6 +106,8 @@ Keep source and captured user content out of logs and reports. For possible secr
 
 List every requested journey step. Inspect each accepted screenshot before using it. A scenario can be healthy only when its evidence supports the specific claim.
 
+Use DOM/runtime captures for the diagnostic loop and screenshots for final visual truth. DOM evidence can support geometry, focus, overflow, hit-target, accessibility-structure, console, network, and app-state assertions; screenshots support canvas/WebGL, font rendering, subpixel/DPR behavior, baseline visual regression, and human acceptance. When an interaction depends on coordinates or handles, prefer a `getBoundingClientRect` plus `document.elementFromPoint` hit-test over screenshot coordinate guessing. Treat app-owned runtime state as implementation-specific evidence and label it as such.
+
 - `first-visit`: stable initial state, clear purpose, discoverable primary action
 - `core-flow`: critical actions work in order with clear feedback
 - `result-followup`: result is understandable and next action is available

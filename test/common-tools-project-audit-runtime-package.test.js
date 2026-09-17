@@ -86,6 +86,9 @@ test("standalone audit CLI validates input and runs locally without the unified 
     const job = JSON.parse(completed.stdout);
     assert.equal(job.status, "succeeded");
     assert.equal(fs.existsSync(path.join(root, ".common-tools", "reports", "project-audit", "project-audit-report.json")), true);
+    const missingScope = runCli(["run", "--workspace", root, "--out", ".common-tools/reports/project-audit-missing-scope"], root);
+    assert.equal(missingScope.status, 1);
+    assert.match(missingScope.stderr, /run requires --scope/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 

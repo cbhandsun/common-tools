@@ -11,6 +11,7 @@ const AUDIT_LEVEL_DEFINITIONS = Object.freeze([
     code: "1",
     id: "quick",
     label: "快速审计",
+    aliases: Object.freeze(["quick", "fast", "快速审计", "快速", "快", "日常检查", "变更评审"]),
     coverageStrategy: "changed-and-critical",
     evidenceExpectation: "static candidate evidence plus critical-path gaps",
     requiredExperienceScenarios: Object.freeze([]),
@@ -21,6 +22,7 @@ const AUDIT_LEVEL_DEFINITIONS = Object.freeze([
     code: "2",
     id: "standard",
     label: "标准审计",
+    aliases: Object.freeze(["standard", "normal", "regular", "标准审计", "标准", "常规", "推荐"]),
     coverageStrategy: "representative-journeys",
     evidenceExpectation: "representative journey, state, viewport, and related code evidence",
     requiredExperienceScenarios: STANDARD_EXPERIENCE_SCENARIOS,
@@ -31,6 +33,7 @@ const AUDIT_LEVEL_DEFINITIONS = Object.freeze([
     code: "3",
     id: "deep",
     label: "深度审计",
+    aliases: Object.freeze(["deep", "comprehensive", "深入", "深度审计", "深度", "重大版本", "高风险"]),
     coverageStrategy: "risk-driven-comprehensive",
     evidenceExpectation: "risk-driven comprehensive runtime, accessibility, security, and delivery evidence",
     requiredExperienceScenarios: EXPERIENCE_SCENARIOS,
@@ -41,16 +44,18 @@ const AUDIT_LEVEL_DEFINITIONS = Object.freeze([
 
 const AUDIT_LEVEL_BY_TOKEN = new Map(AUDIT_LEVEL_DEFINITIONS.flatMap((definition) => [
   [definition.code, definition],
-  [definition.id, definition]
+  [definition.id, definition],
+  [definition.label.toLowerCase(), definition],
+  ...definition.aliases.map((alias) => [alias.toLowerCase(), definition])
 ]));
 
 function parseAuditLevel(value) {
   if (value === undefined) return AUDIT_LEVEL_BY_TOKEN.get("standard");
-  if (typeof value !== "string") throw new TypeError("audit level must be quick, standard, deep, or a numbered choice");
+  if (typeof value !== "string") throw new TypeError("audit level must be quick, standard, deep, a Chinese level name, or a numbered choice");
   const normalized = value.trim().toLowerCase();
   if (!normalized || normalized.length > 32 || containsControlCharacter(normalized)) throw new TypeError("audit level is invalid");
   const selected = AUDIT_LEVEL_BY_TOKEN.get(normalized);
-  if (!selected) throw new TypeError("audit level must use choice 1 to 3 or quick, standard, deep");
+  if (!selected) throw new TypeError("audit level must use choice 1 to 3, quick/standard/deep, or 快速/标准/深度");
   return selected;
 }
 
@@ -82,7 +87,7 @@ async function promptAuditLevel({ input = process.stdin, output = process.stdout
   const terminal = ask === undefined ? readline.createInterface({ input, output }) : null;
   try {
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const answer = ask ? await ask("请输入编号: ") : await terminal.question("请输入编号: ");
+      const answer = ask ? await ask("请输入编号或名称: ") : await terminal.question("请输入编号或名称: ");
       try { return parseAuditLevel(answer).id; }
       catch (error) {
         if (attempt === 2) throw error;

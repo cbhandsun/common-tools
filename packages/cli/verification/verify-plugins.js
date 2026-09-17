@@ -93,6 +93,12 @@ function assertPptCreateSkill(file) {
   }
   if (!skill.includes("controlled visual panels")) throw new Error("ppt-create Skill does not protect controlled semantic editing");
 }
+function assertProjectAuditSkill(file) {
+  const skill = fs.readFileSync(file, "utf8");
+  for (const marker of ["请选择项目审计范围", "explicit resolved scope", "Scope selection is host-neutral", "--scope <selected-scope-ids>", "candidate-evidence inventory", "confirmed-issue"]) {
+    if (!skill.includes(marker)) throw new Error("project-audit Skill does not protect the cross-host scope and evidence-review contract");
+  }
+}
 function assertPluginPackage(root, capability, host, capabilityVersion) {
   if (!CAPABILITY_PATTERN.test(capability)) throw new Error("capability name is invalid");
   const metadataFile = path.join(root, host === "codex" ? ".codex-plugin" : ".claude-plugin", "plugin.json");
@@ -167,8 +173,10 @@ function assertUnifiedGitMarketplace(root, _capabilities) {
   if (!imageSkill.includes("hosted Common Tools Runtime") || !imageSkill.includes("create_team_upload_target") || imageSkill.includes("common-tools editable run --input")) throw new Error("unified image-to-editable Skill is not remote-only");
   assertImageToEditableSkill(imageSkillFile);
   assertPptCreateSkill(path.join(pluginRoot, "skills", "ppt-create", "SKILL.md"));
-  const auditSkill = fs.readFileSync(path.join(pluginRoot, "skills", "project-audit", "SKILL.md"), "utf8");
+  const auditSkillFile = path.join(pluginRoot, "skills", "project-audit", "SKILL.md");
+  const auditSkill = fs.readFileSync(auditSkillFile, "utf8");
   if (!auditSkill.includes("Source-code privacy is the default boundary") || !auditSkill.includes("<plugin-root>/runtime/project-audit/") || !auditSkill.includes("contains no SlideClone, OCR, .NET, Docker") || !auditSkill.includes("obtain separate explicit user approval") || !auditSkill.includes("create_team_upload_target")) throw new Error("unified project-audit Skill is not embedded local-first with an explicit remote boundary");
+  assertProjectAuditSkill(auditSkillFile);
   const siyuanSkill = fs.readFileSync(path.join(pluginRoot, "skills", "siyuan-note", "SKILL.md"), "utf8");
   if (!siyuanSkill.includes("siyuan_save_note") || !siyuanSkill.includes("siyuan_create_notebook") || !siyuanSkill.includes("不可信数据") || !siyuanSkill.includes("不提供删除") || siyuanSkill.includes("create_team_upload_target")) throw new Error("unified SiYuan Skill does not enforce the direct private-note boundary");
   // This source-only verifier is intentionally loaded lazily. Remote runtime
@@ -205,9 +213,12 @@ function verifyPluginPackaging(root = REPOSITORY_ROOT, capabilities = capability
     if (capability === "ppt-create") {
       for (const skill of [codex, claude, marketplacePlugin, codexMarketplacePlugin].map((pluginRoot) => path.join(pluginRoot, "skills", capability, "SKILL.md"))) assertPptCreateSkill(skill);
     }
+    if (capability === "project-audit") {
+      for (const skill of [codex, claude, marketplacePlugin, codexMarketplacePlugin].map((pluginRoot) => path.join(pluginRoot, "skills", capability, "SKILL.md"))) assertProjectAuditSkill(skill);
+    }
   }
   assertUnifiedGitMarketplace(root, uniqueCapabilities);
   return Object.freeze({ capabilities: Object.freeze(uniqueCapabilities), hosts: Object.freeze(["codex", "claude"]), marketplaces: Object.freeze(["claude", "codex"]) });
 }
 
-module.exports = { UNIFIED_REMOTE_SKILL_OVERRIDES, assertCodexMarketplace, assertImageToEditableSkill, assertMirroredPackage, assertPluginPackage, assertPptCreateSkill, assertSafeSkill, assertUnifiedGitMarketplace, capabilityNames, capabilityVersions, pluginRuntimeVersion, verifyPluginPackaging, versionAtLeast };
+module.exports = { UNIFIED_REMOTE_SKILL_OVERRIDES, assertCodexMarketplace, assertImageToEditableSkill, assertMirroredPackage, assertPluginPackage, assertPptCreateSkill, assertProjectAuditSkill, assertSafeSkill, assertUnifiedGitMarketplace, capabilityNames, capabilityVersions, pluginRuntimeVersion, verifyPluginPackaging, versionAtLeast };

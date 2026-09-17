@@ -391,7 +391,7 @@ test("stdio MCP keeps simultaneously enabled capability jobs isolated", () => {
     setCapabilityEnabled(state, "project-audit", true);
     const requests = [
       { jsonrpc: "2.0", id: 1, method: "tools/list" },
-      { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "create_project_audit_job", arguments: { projectRoot: workspace, output: path.join(workspace, "report") } } }
+      { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "create_project_audit_job", arguments: { projectRoot: workspace, output: path.join(workspace, "report"), scope: "1" } } }
     ];
     const created = spawnSync(process.execPath, [server], { input: `${requests.map(JSON.stringify).join("\n")}\n`, encoding: "utf8", timeout: 5000, windowsHide: true, env: { ...process.env, COMMON_TOOLS_WORKSPACE: workspace, COMMON_TOOLS_STATE: state } });
     assert.equal(created.status, 0);
@@ -401,6 +401,9 @@ test("stdio MCP keeps simultaneously enabled capability jobs isolated", () => {
     const rejectedRequest = { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "get_job", arguments: { id: jobId } } };
     const rejected = spawnSync(process.execPath, [server], { input: `${JSON.stringify(rejectedRequest)}\n`, encoding: "utf8", timeout: 5000, windowsHide: true, env: { ...process.env, COMMON_TOOLS_WORKSPACE: workspace, COMMON_TOOLS_STATE: state } });
     assert.match(JSON.parse(rejected.stdout).result.content[0].text, /different capability/);
+    const missingScopeRequest = { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "create_project_audit_job", arguments: { projectRoot: workspace, output: path.join(workspace, "missing-scope-report") } } };
+    const missingScope = spawnSync(process.execPath, [server], { input: `${JSON.stringify(missingScopeRequest)}\n`, encoding: "utf8", timeout: 5000, windowsHide: true, env: { ...process.env, COMMON_TOOLS_WORKSPACE: workspace, COMMON_TOOLS_STATE: state } });
+    assert.match(JSON.parse(missingScope.stdout).result.content[0].text, /tool argument scope/);
   } finally {
     fs.rmSync(workspace, { recursive: true, force: true });
   }

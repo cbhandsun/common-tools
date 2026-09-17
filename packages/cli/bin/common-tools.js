@@ -56,7 +56,7 @@ const COMMAND_USAGE = [
   "  team doctor [--runtime] [--project <compose-project>] | team runtime [--project <compose-project>] [--capabilities <csv>] [--require-gateway] | team local-config [--project <compose-project>] | team deployment-plan [--capabilities <csv>] | team migration-status [--production-env-file <absolute.env>] | team production-acceptance-plan [--production-env-file <absolute.env>] [--out <json>] | team production-acceptance-evidence [--production-env-file <absolute.env>] --out <directory> | team editable-source-archive (--input <png|jpg|pdf|pptx|deck.json> | --inputs <ordered-images,csv>) [--semantic-fallback <json>] --out <archive.tar.gz> | team raw-image-archive (--input <png|jpg> | --inputs <ordered,csv>) [--semantic-fallback <json>] --out <archive.tar.gz> | team production-preflight [--production-env-file <absolute.env>] | team keycloak-realm [--apply --backup-file <new.json> --evidence-file <new.json>] | team keycloak-mcp-client [--apply --backup-file <new.json>] | team keycloak-local-test-user --apply [--username <name>] [--project-id <id>] [--role viewer|editor|admin]",
   "  plugin list | plugin verify | plugin status | plugin set --capabilities <id,...> | plugin enable --capability <id> [--only] | plugin disable --capability <id> | plugin rollback | plugin upgrade [--capability <id>]",
   "  template list|show|export|import|harvest | quality-headless --input <json> [--reference-png <png> --rendered-png <png>] [--min-ssim <0..1>] [--max-phash-distance <0..63>] [--out <json>] | retheme --input <json> --brand-kit <json> --out <json>",
-  "  editable init|create|run|batch|apply-edit | editable batch --inputs <ordered,csv> --out <directory> --config <json> | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] [--scope 1|2,3|scope-ids] [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose [--provider-config <json> --provider-id <id>]|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|edit-session|apply-edit|apply-ir-edit|finalize-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|layout-safe|typography-safe|editability-safe|audit-only] | job get|run|cancel"
+  "  editable init|create|run|batch|apply-edit | editable batch --inputs <ordered,csv> --out <directory> --config <json> | audit levels|scopes|interactive|plan|evidence-template|experience-collect|create|run [--level 1|2|3|quick|standard|deep] --scope 1|2,3|scope-ids [--mode code|enhanced|gates|experience|full] [--instruction <text>] [--run-gates --gate-timeout-ms <1000..600000>] [--experience-evidence <json>] | ppt draft|compose [--provider-config <json> --provider-id <id>]|ingest [--deck-variants 1|2|3]|plan|archive|create|enqueue|preview|edit-session|apply-edit|apply-ir-edit|finalize-ir-edit|export-ir | ppt-quality create|run | ppt-improve create|run|pipeline [--profile safe-package|layout-safe|typography-safe|editability-safe|audit-only] | job get|run|cancel"
 ].join("\n");
 
 function parse(argv) { const result = { _: [] }; for (let index = 0; index < argv.length; index += 1) { const item = argv[index]; if (!item.startsWith("--")) { result._.push(item); continue; } const next = argv[index + 1]; if (next && !next.startsWith("--")) { result[item.slice(2)] = next; index += 1; } else result[item.slice(2)] = true; } return result; }
@@ -121,6 +121,9 @@ function runCreatedLocalJob(ctx, job) {
   if (job.capability === PPT_CREATE_CAPABILITY) return runPptCreateJob({ ...ctx, id: job.id, buildPptx: buildCreatedPptx, buildPdf: buildPdfWithLibreOffice });
   if (job.capability === REGISTRATION.capability) return runEditableJob({ ...ctx, id: job.id, executeSlideclone: bundledSlidecloneRunner(), enhanceArtifacts: ({ outputDir }) => createImageDeliveryArtifacts({ outputDir, buildPdf: buildPdfWithLibreOffice }) });
   throw new Error("job capability cannot be run locally");
+}
+function requireExplicitAuditScope(args, command) {
+  if (typeof args.scope !== "string" || !args.scope.trim()) throw new Error(`audit ${command} requires --scope; run audit interactive to choose one`);
 }
 function buildCreatedPptx({ irFile, outFile, templatePptx }) {
   const nativeEngineRoot = path.join(REPOSITORY_ROOT, "packages", "slideclone-native-engine");
@@ -331,6 +334,7 @@ async function main() {
   }
   if (area === "audit" && action === "run") {
     if (!args.out) throw new Error("audit run requires --out");
+    requireExplicitAuditScope(args, "run");
     requireEnabledCapability(ctx, PROJECT_AUDIT_CAPABILITY);
     const job = runCreatedLocalJob(ctx, createProjectAuditJob({ ...ctx, projectRoot: args.root || ctx.workspaceRoot, output: args.out, idempotencyKey: args.idempotencyKey, level: args.level, mode: args.mode, instruction: args.instruction, scope: args.scope, experienceEvidence: args["experience-evidence"], runGates: args["run-gates"] === true, gateTimeoutMs: args["gate-timeout-ms"] }));
     process.stdout.write(`${JSON.stringify(job, null, 2)}\n`);
@@ -347,6 +351,7 @@ async function main() {
   }
   if (area === "audit" && action === "create") {
     if (!args.out) throw new Error("audit create requires --out");
+    requireExplicitAuditScope(args, "create");
     requireEnabledCapability(ctx, PROJECT_AUDIT_CAPABILITY);
     process.stdout.write(`${JSON.stringify(createProjectAuditJob({ ...ctx, projectRoot: args.root || ctx.workspaceRoot, output: args.out, idempotencyKey: args.idempotencyKey, level: args.level, mode: args.mode, instruction: args.instruction, scope: args.scope, experienceEvidence: args["experience-evidence"], runGates: args["run-gates"] === true, gateTimeoutMs: args["gate-timeout-ms"] }), null, 2)}\n`);
     return 0;

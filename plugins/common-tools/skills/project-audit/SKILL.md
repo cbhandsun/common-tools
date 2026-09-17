@@ -24,12 +24,12 @@ Unless the request already specifies them, present the missing level and scope c
 3. 深度审计：重大版本或高风险系统
 ```
 
-Map the choice to `quick`, `standard`, or `deep` and pass it with `--level`. Default non-interactive execution to `standard`. The level controls coverage strategy and evidence expectations; it never authorizes gates, browser automation, external URLs, source upload, or remote execution.
+Accept numbered, English, or Chinese level replies such as `2`, `standard`, `标准`, or `标准审计`. Map the choice to `quick`, `standard`, or `deep` and pass it with `--level`. Default non-interactive execution to `standard`. The level controls coverage strategy and evidence expectations; it never authorizes gates, browser automation, external URLs, source upload, or remote execution.
 
 Before executing an audit, ask the user to select a scope unless the request already contains one or more exact domain choices:
 
 ```text
-请选择项目审计范围（可输入单个编号或用逗号组合）：
+请选择项目审计范围（可输入单个编号、中文或英文名称，或用逗号组合）：
 1. 全部四域（推荐）
 2. 产品闭环
 3. 视觉、交互与无障碍
@@ -37,11 +37,15 @@ Before executing an audit, ask the user to select a scope unless the request alr
 5. 工程与交付
 ```
 
-Accept scope choice `1` only by itself, or a unique comma-separated combination such as `2,3`. Map the answer to `all`, `product-journey`, `visual-interaction`, `data-security`, or `engineering-delivery`, then pass it with `--scope`. Reject invalid, empty, duplicate, or mixed `1,other` input and ask again. Choice `1` means all audit domains; it does not authorize gates, browser automation, source upload, or `full` execution mode.
+Accept numbered, English, or Chinese scope replies. Scope choice `1`, `all`, or `全部四域` is valid only by itself; otherwise accept a unique comma-separated or Chinese-comma-separated combination such as `2,3`, `product-journey,engineering-delivery`, or `产品闭环，工程与交付`. Map the answer to `all`, `product-journey`, `visual-interaction`, `data-security`, or `engineering-delivery`, then pass it with `--scope`. Reject invalid, empty, duplicate, or mixed all-plus-other input and ask again. Choice `1` means all audit domains; it does not authorize gates, browser automation, source upload, or `full` execution mode.
 
 Treat level and scope as orthogonal. A quick engineering audit and a deep visual-interaction audit are both valid. If either choice is already explicit, do not ask for it again.
 
 Accept a compact combined reply such as `2；2,3`, meaning standard level plus product-journey and visual-interaction scope. Echo the resolved level, domains, execution mode, and authorization boundary before execution.
+
+Do not call `create_project_audit_job`, `audit run`, or `audit create` without an explicit resolved scope. Non-interactive execution must fail closed or ask the user rather than silently defaulting to all domains.
+
+Scope selection is host-neutral across Codex, Claude, the local CLI, and remote bundles. Every entrypoint must ask for or receive the same resolved audit domains before execution; ordinary project-audit requests must not be silently widened to all domains by a host-specific default.
 
 Do not silently reduce the selected level when required browser evidence or gate authorization is missing. Continue with safe candidate collection where useful, mark the unmet level requirements `not-verified`, and explain exactly what authorization or evidence is still needed.
 
@@ -70,7 +74,7 @@ For ambiguity, run `<audit-cli> plan --instruction "<user request>"`. State the 
 
 ## Gates
 
-Run `<audit-cli> run --mode gates --run-gates --out <output>` only after explicit authorization. Report each declared `check`, `lint`, `typecheck`, `test`, and `build` result separately. An unconfigured, unavailable, timed-out, or unrun gate is not a pass.
+Run `<audit-cli> run --mode gates --scope <selected-scope-ids> --run-gates --out <output>` only after explicit authorization. Report each declared `check`, `lint`, `typecheck`, `test`, and `build` result separately. An unconfigured, unavailable, timed-out, or unrun gate is not a pass.
 
 ## Experience evidence
 
@@ -82,7 +86,9 @@ Obtain explicit approval before starting the product or using browser automation
 
 Use only fixed safe actions and non-sensitive synthetic values. Do not use `--allow-external-url` without explicit approval. Collection proves that actions and captures completed; scenarios remain `not-verified` until their screenshots and console/network artifacts are inspected. Reject blank, loading, blocked, cropped, wrong-state, or error-page screenshots. Do not infer keyboard, focus, contrast, reflow, screen-reader, or recovery health from a screenshot alone.
 
-Create a separately reviewed manifest after inspection, then run `<audit-cli> run --mode experience --experience-evidence <reviewed-manifest.json> --out <output>`. Use `--mode full --run-gates --experience-evidence <reviewed-manifest.json>` for a full audit.
+For browser debugging and visual-interaction audits, use DOM and `Runtime.evaluate` evidence as the primary diagnostic path, then use screenshots as final visual confirmation. Prefer structured facts such as `getBoundingClientRect`, computed style, overflow, focus state, `document.elementFromPoint`, console/network records, and app-owned runtime state when available. Screenshots are required for canvas/WebGL, font rendering, DPR/subpixel behavior, visual-regression baselines, PR evidence, and human review, but they do not identify root cause by themselves. If screenshot diffing is used, keep viewport, device scale factor, fonts, animation state, `document.fonts.ready`, and reduced-motion settings stable.
+
+Create a separately reviewed manifest after inspection, then run `<audit-cli> run --mode experience --scope <selected-scope-ids> --experience-evidence <reviewed-manifest.json> --out <output>`. Use `--mode full --scope <selected-scope-ids> --run-gates --experience-evidence <reviewed-manifest.json>` for a full audit.
 
 ## Remote boundary
 

@@ -72,6 +72,9 @@ function jobInput(ctx, args) {
 }
 
 function writeJson(value) { process.stdout.write(`${JSON.stringify(value, null, 2)}\n`); }
+function requireExplicitScope(args, command) {
+  if (typeof args.scope !== "string" || !args.scope.trim()) throw new Error(`${command} requires --scope; run interactive mode to choose one`);
+}
 
 async function main(argv = process.argv.slice(2)) {
   const args = parse(argv);
@@ -103,6 +106,7 @@ async function main(argv = process.argv.slice(2)) {
   }
   if (command === "run") {
     if (typeof args.out !== "string") throw new Error("run requires --out");
+    requireExplicitScope(args, "run");
     const created = createProjectAuditJob(jobInput(ctx, args));
     writeJson(created.status === "queued" ? runProjectAuditJob({ ...ctx, id: created.id }) : created);
     return 0;
