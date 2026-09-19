@@ -19,6 +19,18 @@ function resolveRenderOutputDir(args, outputDir, irFile) {
   return path.join(realWorkspaceCwd(), "runs", "quality-gate-render-cache", safeName);
 }
 
+function resolveFreshRenderOutputDir(args, renderOutputDir) {
+  const resolved = path.resolve(renderOutputDir);
+  if (args["render-out"]) return resolved;
+  const suffix = [
+    "attempt",
+    Date.now().toString(36),
+    process.pid.toString(36),
+    crypto.randomBytes(4).toString("hex")
+  ].join("-");
+  return path.join(path.dirname(resolved), `${path.basename(resolved)}-${suffix}`);
+}
+
 function resolveReusableRenderDir({ args = {}, outputDir, irFile, pptxFile, renderOutputDir, renderer = "", cacheIdentity = null }) {
   const expectedPages = expectedRenderPageCount({ args, irFile });
   if (args["render-dir"]) {
@@ -254,6 +266,7 @@ module.exports = {
   findRenderDirsFromQualityReports,
   readRenderedPages,
   realWorkspaceCwd,
+  resolveFreshRenderOutputDir,
   resolveRenderOutputDir,
   resolveReusableRenderDir,
   reusableRenderMatches,

@@ -13,6 +13,7 @@ function createCenterBadgeQuadrantCycleFactory(dependencies = {}) {
     ensureDir,
     expandPtBox,
     hexToRgb,
+    inferWeight,
     normalizeCjkText,
     path,
     pixel,

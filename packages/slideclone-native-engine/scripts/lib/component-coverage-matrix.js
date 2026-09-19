@@ -2,7 +2,23 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { isKnownTargetMotif, sanitizeMotifs } = require("./component-motifs");
+const {
+  addComponentFamilyAppliedCounts,
+  addMotifReadyTargetCounts,
+  COMPONENT_FAMILY_BY_MOTIF,
+  COMPONENT_FAMILY_IDS,
+  componentFamilyAppliedCountsFromResult,
+  componentFamilyForMotif,
+  countKnownMotifTypes,
+  countPositiveCounts,
+  inferComponentFamiliesFromLayer,
+  inferComponentFamiliesFromSource,
+  isMotifReadyComponentTemplateSource,
+  isWholeProcessTemplateSource,
+  summarizeComponentFamilyActions,
+  summarizeComponentFamilyCoverage,
+  summarizeComponentFamilyGaps
+} = require("./component-coverage-family");
 const { classifyGraphicExpressionPolicy } = require("./graphic-expression-policy");
 
 function buildComponentCoverageMatrix({ reports = [] } = {}) {
@@ -38,6 +54,11 @@ function summarizeResult({ result = {}, reportFile = "" } = {}) {
     ? summarizeExpressionPolicyReport(candidateFile, { finalIrFile })
     : emptyExpressionPolicySummary();
   const componentAssetDiagnostics = summarizeComponentAssetDiagnostics(result.componentAssetManifest);
+  const componentFamilyGaps = summarizeComponentFamilyGaps(candidateSummary, finalOpportunities);
+  const componentFamilyAppliedCounts = finalMetrics
+    ? finalMetrics.componentFamilyAppliedCounts
+    : componentFamilyAppliedCountsFromResult(result);
+  const componentFamilyCoverage = summarizeComponentFamilyCoverage(componentFamilyAppliedCounts, componentFamilyGaps.counts);
   const deck = deckNameFromResult(result);
   return {
     deck,
@@ -71,6 +92,12 @@ function summarizeResult({ result = {}, reportFile = "" } = {}) {
     componentTemplateStructureFitTextBoxes: finalMetrics ? finalMetrics.componentTemplateStructureFitTextBoxes : safeNumber(result.componentTemplateStructureFitTextBoxes),
     componentTemplateStructureFitPictures: finalMetrics ? finalMetrics.componentTemplateStructureFitPictures : safeNumber(result.componentTemplateStructureFitPictures),
     componentTemplateStructureFitReasonCounts: finalMetrics ? finalMetrics.componentTemplateStructureFitReasonCounts : result.componentTemplateStructureFitReasonCounts || {},
+    componentFamilyAppliedCounts,
+    componentFamilyGapCounts: componentFamilyGaps.counts,
+    componentFamilyGapExamples: componentFamilyGaps.examples,
+    componentFamilyCoverage,
+    componentFamilyAppliedTypes: countPositiveCounts(componentFamilyAppliedCounts),
+    componentFamilyGapTypes: countPositiveCounts(componentFamilyGaps.counts),
     componentReplacementPlanComponents: finalMetrics ? finalMetrics.componentReplacementPlanComponents : safeNumber(result.nativeComponentReplacementPlan?.components),
     componentReplacementPlanLayers: finalMetrics ? finalMetrics.componentReplacementPlanLayers : safeNumber(result.nativeComponentReplacementPlan?.layers),
     componentReplacementPlanShapes: finalMetrics ? finalMetrics.componentReplacementPlanShapes : safeNumber(result.nativeComponentReplacementPlan?.shapes),
@@ -424,6 +451,7 @@ function summarizeFinalIrMetrics(ir = null) {
     componentTemplateWholeProcessTextBoxes: 0,
     componentTemplateWholeProcessPictures: 0,
     componentTemplateMotifReadyTargetCounts: {},
+    componentFamilyAppliedCounts: {},
     componentTemplateStructureFitShapes: 0,
     componentTemplateStructureFitTextBoxes: 0,
     componentTemplateStructureFitPictures: 0,
@@ -462,6 +490,9 @@ function summarizeFinalIrMetrics(ir = null) {
         if (isComponentTemplateNativePicture(image)) metrics.componentTemplateWholeProcessPictures += 1;
       }
       if (isComponentTemplateNativePicture(image)) addStructureFitMetrics(metrics, image.source, "picture");
+      addComponentFamilyAppliedCounts(metrics.componentFamilyAppliedCounts, image.source, {
+        nativeEvidence: image?.source?.nativeRebuild === true || isComponentTemplateNativePicture(image)
+      });
       const mode = componentStrategyModeFromFinalImage(image);
       if (!mode) continue;
       metrics.componentStrategyLayers += 1;
@@ -479,6 +510,9 @@ function summarizeFinalIrMetrics(ir = null) {
         wholeProcessLayerKeys.add(componentTemplateLayerKey(shape.source, pageIndex, "shape", shapes.indexOf(shape)));
       }
       if (shape?.source?.componentTemplateGroupApplied === true) addStructureFitMetrics(metrics, shape.source, "shape");
+      addComponentFamilyAppliedCounts(metrics.componentFamilyAppliedCounts, shape.source, {
+        nativeEvidence: shape?.source?.nativeRebuild === true || shape?.source?.componentTemplateGroupApplied === true
+      });
       if (isVisualAtomTopologyConnectorSource(shape.source)) metrics.visualAtomTopologyConnectors += 1;
       if (isVisualAtomContainerNodeSource(shape.source)) metrics.visualAtomContainerNodes += 1;
       if (isVisualAtomContainedNodeSource(shape.source)) metrics.visualAtomContainedNodes += 1;
@@ -499,6 +533,9 @@ function summarizeFinalIrMetrics(ir = null) {
         wholeProcessLayerKeys.add(componentTemplateLayerKey(textBox.source, pageIndex, "textBox", textBoxes.indexOf(textBox)));
       }
       if (textBox?.source?.componentTemplateGroupApplied === true) addStructureFitMetrics(metrics, textBox.source, "textBox");
+      addComponentFamilyAppliedCounts(metrics.componentFamilyAppliedCounts, textBox.source, {
+        nativeEvidence: textBox?.source?.nativeRebuild === true || textBox?.source?.componentTemplateGroupApplied === true
+      });
     }
   }
   metrics.componentReplacementPlanComponents = replacementComponents.size;
@@ -565,77 +602,6 @@ function isVisualAtomContainedNodeSource(source = {}) {
 function isComponentTemplateNativePicture(image = {}) {
   return image?.source?.detector === "plugin-component-template-native-picture"
     || image?.type === "plugin-component-picture";
-}
-
-function isMotifReadyComponentTemplateSource(source = {}) {
-  if (!source || typeof source !== "object") return false;
-  return source.matchedComponentAssetMotifReady === true
-    || source.componentTemplateAssetMotifReady === true
-    || (source.componentTemplateGroupApplied === true && componentTemplateTargetMotifs(source).length > 0);
-}
-
-function isWholeProcessTemplateSource(source = {}) {
-  if (!source || typeof source !== "object") return false;
-  return source.matchedComponentWholeProcessTemplate === true
-    || source.componentTemplateWholeProcessApplied === true
-    || componentTemplateTargetMotifs(source).includes("whole-process-template");
-}
-
-function addMotifReadyTargetCounts(target, source = {}) {
-  const motifs = componentTemplateTargetMotifs(source);
-  if (motifs.length === 0) {
-    addCount(target, "unknown");
-  } else {
-    for (const motif of motifs) addCount(target, motif);
-  }
-}
-
-function componentTemplateTargetMotifs(source = {}) {
-  const values = [
-    ...(Array.isArray(source.matchedComponentTargetMotifs) ? source.matchedComponentTargetMotifs : []),
-    ...(Array.isArray(source.componentTemplateTargetMotifs) ? source.componentTemplateTargetMotifs : []),
-    ...inferredComponentTemplateTargetMotifs(source)
-  ];
-  return sanitizeMotifs(values);
-}
-
-function inferredComponentTemplateTargetMotifs(source = {}) {
-  const text = [
-    source.componentTemplatePart,
-    source.componentTemplateFamilyApplied,
-    source.nativeComponentArchetype,
-    source.nativeComponentPart,
-    source.nativeComponentRole,
-    source.appliedPluginStructureRole,
-    source.detector
-  ].map((value) => safeString(value).toLowerCase()).join(" ");
-  const specialtyMotifs = [];
-  if (/donut|doughnut/.test(text)) specialtyMotifs.push("donut-segment-chart");
-  if (/treemap/.test(text)) specialtyMotifs.push("treemap-chart");
-  if (/bubble|scatter/.test(text)) specialtyMotifs.push("bubble-scatter-chart");
-  if (/concentric/.test(text)) specialtyMotifs.push("concentric-circles");
-  if (/sankey/.test(text)) specialtyMotifs.push("sankey-flow-chart");
-  if (/\bmap\b|geo|region/.test(text)) specialtyMotifs.push("map-chart");
-  if (/word-cloud|word cloud|keyword/.test(text)) specialtyMotifs.push("word-cloud-chart");
-  if (/waterfall/.test(text)) specialtyMotifs.push("waterfall-chart");
-  if (/gauge|dial|speedometer/.test(text)) specialtyMotifs.push("gauge-chart");
-  if (/radar|spider/.test(text)) specialtyMotifs.push("radar-chart");
-  if (/swimlane|lane/.test(text)) specialtyMotifs.push("swimlane-flow");
-  if (/topology|network/.test(text)) specialtyMotifs.push("topology-network");
-  if (specialtyMotifs.length > 0) return specialtyMotifs;
-  const motifs = [];
-  if (/matrix|grid|cell|quadrant/.test(text)) motifs.push("card-grid");
-  if (/quadrant|axis/.test(text)) motifs.push("quadrant-axis");
-  if (/process|step|swimlane|flow|chain/.test(text)) motifs.push("linear-arrow-chain");
-  if (/whole-process/.test(text)) motifs.push("whole-process-template");
-  if (/timeline|milestone/.test(text)) motifs.push("milestone-roadmap");
-  if (/cycle|loop|arc/.test(text)) motifs.push("arc-arrow");
-  if (/tree|org|hierarchy/.test(text)) motifs.push("tree-link");
-  if (/hub|spoke|radial|relationship/.test(text)) motifs.push("radial-link");
-  if (/funnel/.test(text)) motifs.push("funnel-stack");
-  if (/pyramid/.test(text)) motifs.push("pyramid-stack");
-  if (/layer|stack/.test(text)) motifs.push("layered-stack");
-  return motifs;
 }
 
 function summarizeFinalIrNativeOpportunities(ir = null) {
@@ -713,6 +679,9 @@ function summarizeFinalIrImageOpportunity(image = {}, { pageIndex = 0, imageInde
     residualSplitRejectedBandReason: safeString(source.residualSplitRejected?.bandSplitRejected || ""),
     objectifiedGrid: source.objectifiedGrid || null,
     erasedPrimitiveCount: numberOrNull(source.erasedPrimitiveCount),
+    intentionalMinimumUnitCrop: source.intentionalMinimumUnitCrop === true,
+    protectedMinimumUnit: source.protectedMinimumUnit === true,
+    systemMapHybridNetworkCrop: source.systemMapHybridNetworkCrop === true,
     areaRatio,
     box,
     candidateTitle: safeString(source.componentTemplateGroupTitle || source.layer?.candidateTitle || ""),
@@ -833,6 +802,11 @@ function aggregateRows(rows = []) {
     componentTemplateWholeProcessTextBoxes: 0,
     componentTemplateWholeProcessPictures: 0,
     componentTemplateMotifReadyTargetCounts: {},
+    componentFamilyAppliedCounts: {},
+    componentFamilyGapCounts: {},
+    componentFamilyGapExamples: [],
+    componentFamilyCoverage: [],
+    componentFamilyActions: [],
     componentTemplateStructureFitShapes: 0,
     componentTemplateStructureFitTextBoxes: 0,
     componentTemplateStructureFitPictures: 0,
@@ -945,6 +919,8 @@ function aggregateRows(rows = []) {
     }
     mergeCounts(totals.componentStrategyModeCounts, row.componentStrategyModeCounts);
     mergeCounts(totals.componentTemplateMotifReadyTargetCounts, row.componentTemplateMotifReadyTargetCounts);
+    mergeCounts(totals.componentFamilyAppliedCounts, row.componentFamilyAppliedCounts);
+    mergeCounts(totals.componentFamilyGapCounts, row.componentFamilyGapCounts);
     mergeCounts(totals.componentTemplateStructureFitReasonCounts, row.componentTemplateStructureFitReasonCounts);
     mergeCounts(totals.componentReplacementPlanProviderCounts, row.componentReplacementPlanProviderCounts);
     mergeCounts(totals.componentReplacementPlanSuitabilityTierCounts, row.componentReplacementPlanSuitabilityTierCounts);
@@ -968,6 +944,15 @@ function aggregateRows(rows = []) {
         ...item,
         deck: row.deck
       })));
+    }
+    if (Array.isArray(row.componentFamilyGapExamples)) {
+      for (const example of row.componentFamilyGapExamples) {
+        if (totals.componentFamilyGapExamples.length >= 30) break;
+        totals.componentFamilyGapExamples.push({
+          ...example,
+          deck: row.deck
+        });
+      }
     }
     if (Array.isArray(row.expressionPolicyViolations)) {
       for (const violation of row.expressionPolicyViolations) {
@@ -1007,6 +992,13 @@ function aggregateRows(rows = []) {
     ? round(totals.componentTemplateStructureFitShapes / totals.componentTemplateAppliedShapes)
     : null;
   totals.componentTemplateMotifReadyTargetTypes = countKnownMotifTypes(totals.componentTemplateMotifReadyTargetCounts);
+  totals.componentFamilyAppliedTypes = countPositiveCounts(totals.componentFamilyAppliedCounts);
+  totals.componentFamilyGapTypes = countPositiveCounts(totals.componentFamilyGapCounts);
+  totals.componentFamilyCoverage = summarizeComponentFamilyCoverage(
+    totals.componentFamilyAppliedCounts,
+    totals.componentFamilyGapCounts
+  );
+  totals.componentFamilyActions = summarizeComponentFamilyActions(totals);
   totals.componentAssetLocalCoverageRatio = totals.componentAssetLayers
     ? round(totals.componentAssetLayersWithLocalAssets / totals.componentAssetLayers)
     : null;
@@ -1027,12 +1019,6 @@ function aggregateRows(rows = []) {
     || safeNumber(a.image) - safeNumber(b.image)
   ));
   return totals;
-}
-
-function countKnownMotifTypes(counts = {}) {
-  return Object.entries(counts || {})
-    .filter(([motif, count]) => isKnownTargetMotif(motif) && safeNumber(count) > 0)
-    .length;
 }
 
 function duplicateDeckNames(rows = []) {
@@ -1061,6 +1047,15 @@ function classifyResidualDisposition(layer = {}) {
   const text = residualText(layer);
   if (/preserve-fidelity-crop-until-subtype-rebuilder-is-confident/.test(text)) {
     return "keep-protected-mixed-visual-crop";
+  }
+  if (
+    layer.systemMapHybridNetworkCrop === true
+    && layer.protectedMinimumUnit === true
+    && layer.intentionalMinimumUnitCrop === true
+    && layer.mode === "preserve-crop-with-native-overlays"
+    && layer.detector === "system-map-network-fidelity-crop"
+  ) {
+    return "keep-protected-minimum-unit-crop";
   }
   if (layer.residualState === "objectified-table-grid-large-residual") return "residual-split-needed-after-native-grid";
   if (layer.mode === "native-visual-atom-rebuild" || /primitive-erased|objectified-table-grid/.test(safeString(layer.residualState))) {
@@ -1357,6 +1352,8 @@ module.exports = {
   summarizeComponentRebuildReport,
   summarizeExpressionPolicyReport,
   summarizeFinalIrNativeOpportunities,
+  COMPONENT_FAMILY_BY_MOTIF,
+  COMPONENT_FAMILY_IDS,
   _private: {
     deckNameFromResult,
     boxOverlapRatio,
@@ -1379,6 +1376,12 @@ module.exports = {
     classifyExpressionPolicyDisposition,
     classifyExpressionPolicyOutcome,
     expressionPolicyViolation,
+    componentFamilyForMotif,
+    inferComponentFamiliesFromLayer,
+    inferComponentFamiliesFromSource,
+    summarizeComponentFamilyActions,
+    summarizeComponentFamilyCoverage,
+    summarizeComponentFamilyGaps,
     isStandaloneExpressionPolicyAsset,
     summarizeExpressionPolicyLayer,
     summarizeResidualLayer,

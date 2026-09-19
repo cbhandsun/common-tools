@@ -83,6 +83,9 @@ function parseArgs(argv) {
     } else if (arg === "--min-component-template-motif-ready-target-types" && next) {
       args.minComponentTemplateMotifReadyTargetTypes = next;
       index += 1;
+    } else if (arg === "--min-component-family-applied-types" && next) {
+      args.minComponentFamilyAppliedTypes = next;
+      index += 1;
     } else if (arg === "--min-visual-atom-topology-connectors" && next) {
       args.minVisualAtomTopologyConnectors = next;
       index += 1;
@@ -154,6 +157,8 @@ function main() {
       ?? manifest?.gates?.minComponentTemplateMotifReadyTargetCounts,
     minComponentTemplateMotifReadyTargetTypes: args.minComponentTemplateMotifReadyTargetTypes
       ?? manifest?.gates?.minComponentTemplateMotifReadyTargetTypes,
+    minComponentFamilyAppliedTypes: args.minComponentFamilyAppliedTypes
+      ?? manifest?.gates?.minComponentFamilyAppliedTypes,
     minVisualAtomTopologyConnectors: args.minVisualAtomTopologyConnectors
       ?? manifest?.gates?.minVisualAtomTopologyConnectors,
     minVisualAtomContainerNodes: args.minVisualAtomContainerNodes
@@ -201,6 +206,7 @@ function applyCoverageGates(matrix, options = {}) {
   const minComponentTemplateStructureFitPictures = optionalPositiveInteger(options.minComponentTemplateStructureFitPictures);
   const minComponentTemplateMotifReadyTargetCounts = normalizeMotifTargetMinimums(options.minComponentTemplateMotifReadyTargetCounts);
   const minComponentTemplateMotifReadyTargetTypes = optionalPositiveInteger(options.minComponentTemplateMotifReadyTargetTypes);
+  const minComponentFamilyAppliedTypes = optionalPositiveInteger(options.minComponentFamilyAppliedTypes);
   const minVisualAtomTopologyConnectors = optionalPositiveInteger(options.minVisualAtomTopologyConnectors);
   const minVisualAtomContainerNodes = optionalPositiveInteger(options.minVisualAtomContainerNodes);
   const minVisualAtomContainedNodes = optionalPositiveInteger(options.minVisualAtomContainedNodes);
@@ -235,6 +241,9 @@ function applyCoverageGates(matrix, options = {}) {
   const componentTemplateMotifReadyTargetTypes = countPositiveMotifs(matrix?.totals?.componentTemplateMotifReadyTargetCounts);
   const componentTemplateMotifReadyTargetTypesMet = minComponentTemplateMotifReadyTargetTypes === null
     || componentTemplateMotifReadyTargetTypes >= minComponentTemplateMotifReadyTargetTypes;
+  const componentFamilyAppliedTypes = Number(matrix?.totals?.componentFamilyAppliedTypes || 0);
+  const componentFamilyAppliedTypesMet = minComponentFamilyAppliedTypes === null
+    || componentFamilyAppliedTypes >= minComponentFamilyAppliedTypes;
   const visualAtomTopologyConnectorsMet = minVisualAtomTopologyConnectors === null
     || Number(matrix?.totals?.visualAtomTopologyConnectors || 0) >= minVisualAtomTopologyConnectors;
   const visualAtomContainerNodesMet = minVisualAtomContainerNodes === null
@@ -278,6 +287,7 @@ function applyCoverageGates(matrix, options = {}) {
     minComponentTemplateStructureFitPictures,
     minComponentTemplateMotifReadyTargetCounts,
     minComponentTemplateMotifReadyTargetTypes,
+    minComponentFamilyAppliedTypes,
     minVisualAtomTopologyConnectors,
     minVisualAtomContainerNodes,
     minVisualAtomContainedNodes
@@ -306,6 +316,7 @@ function applyCoverageGates(matrix, options = {}) {
     && componentTemplateStructureFitPicturesMet
     && componentTemplateMotifReadyTargetCountsMet
     && componentTemplateMotifReadyTargetTypesMet
+    && componentFamilyAppliedTypesMet
     && visualAtomTopologyConnectorsMet
     && visualAtomContainerNodesMet
     && visualAtomContainedNodesMet
@@ -338,6 +349,8 @@ function applyCoverageGates(matrix, options = {}) {
   matrix.totals.componentTemplateMotifReadyTargetCountsMet = componentTemplateMotifReadyTargetCountsMet;
   matrix.totals.componentTemplateMotifReadyTargetTypes = componentTemplateMotifReadyTargetTypes;
   matrix.totals.componentTemplateMotifReadyTargetTypesMet = componentTemplateMotifReadyTargetTypesMet;
+  matrix.totals.componentFamilyAppliedTypes = componentFamilyAppliedTypes;
+  matrix.totals.componentFamilyAppliedTypesMet = componentFamilyAppliedTypesMet;
   matrix.totals.visualAtomTopologyConnectorsMet = visualAtomTopologyConnectorsMet;
   matrix.totals.visualAtomContainerNodesMet = visualAtomContainerNodesMet;
   matrix.totals.visualAtomContainedNodesMet = visualAtomContainedNodesMet;

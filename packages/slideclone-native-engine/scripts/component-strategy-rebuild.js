@@ -995,9 +995,10 @@ function hashFileOrEmpty(file) {
 }
 
 function safeErrorMessage(error) {
-  return String(error?.message || error || "unknown error")
+  return String(error?.stack || error?.message || error || "unknown error")
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer <redacted>")
-    .replace(/([?&](?:token|key|secret|session|cookie)=)[^&\s]+/gi, "$1<redacted>");
+    .replace(/([?&](?:token|key|secret|session|cookie)=)[^&\s]+/gi, "$1<redacted>")
+    .slice(0, 4000);
 }
 
 function safeString(value) {

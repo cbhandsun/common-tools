@@ -10,6 +10,8 @@ const {
   aggregateRows,
   buildComponentCoverageMatrix,
   classifyResidualDisposition,
+  COMPONENT_FAMILY_BY_MOTIF,
+  COMPONENT_FAMILY_IDS,
   isIntentionalPreserveLayer,
   _private,
   residualPriority,
@@ -25,6 +27,9 @@ const {
   parseArgs,
   readCoverageManifest
 } = require("../packages/slideclone-native-engine/scripts/component-coverage-matrix");
+const {
+  inferComponentFamiliesFromText
+} = require("../packages/slideclone-native-engine/scripts/lib/component-motifs");
 
 test("component coverage matrix summarizes rebuild reports and actionable residuals", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "component-coverage-matrix-"));
@@ -140,6 +145,21 @@ test("component coverage matrix summarizes rebuild reports and actionable residu
     keep: 1,
     high: 1
   });
+});
+
+test("component family inference uses bounded English tokens for short motif aliases", () => {
+  assert.deepEqual(
+    inferComponentFamiliesFromText("layered-architecture hierarchy milestone-roadmap search"),
+    ["hierarchy-tree", "layered-architecture", "timeline-roadmap"]
+  );
+  assert.deepEqual(
+    inferComponentFamiliesFromText("cycle-loop arc-arrow map-chart word-cloud"),
+    ["cycle-loop", "specialty-chart"]
+  );
+  assert.deepEqual(
+    inferComponentFamiliesFromText("架构 圆环 地图"),
+    ["cycle-loop", "layered-architecture", "specialty-chart"]
+  );
 });
 
 test("component coverage matrix fails gate when referenced output pptx is missing", () => {
@@ -647,6 +667,24 @@ test("component coverage matrix derives native opportunities from final IR image
           source: { nativeRebuild: true, componentRenderStrategy: { mode: "plugin-component-template" } }
         },
         {
+          box: { x: 320, y: 150, w: 410, h: 260 },
+          source: {
+            nativeRebuild: true,
+            detector: "system-map-network-fidelity-crop",
+            layerType: "diagram-zone",
+            expressionForm: "complex-diagram",
+            expressionSubtype: "dense-system-map-network-minimum-unit",
+            recommendedAction: "preserve-local-crop",
+            intentionalMinimumUnitCrop: true,
+            protectedMinimumUnit: true,
+            systemMapHybridNetworkCrop: true,
+            componentRenderStrategy: {
+              mode: "preserve-crop-with-native-overlays",
+              implementationMode: "hybrid-native-overlay"
+            }
+          }
+        },
+        {
           layerType: "screenshot-zone",
           detector: "product-illustration-segment-crop",
           expressionForm: "screenshot-or-document",
@@ -665,6 +703,7 @@ test("component coverage matrix derives native opportunities from final IR image
   assert.equal(summary.nativeOpportunities[0].page, 1);
   assert.equal(summary.nativeOpportunities[0].layerType, "table-zone");
   assert.equal(summary.nativeOpportunities[0].disposition, "native-rebuild-candidate");
+  assert.equal(summary.nativeOpportunities.some((item) => item.detector === "system-map-network-fidelity-crop"), false);
 });
 
 test("component coverage matrix highlights objectified table grids that still have large residual crops", () => {
@@ -1281,6 +1320,8 @@ test("component coverage matrix CLI parses coverage gate flags", () => {
     "arc-arrow=2,tree-link=1,whole-process-template=1",
     "--min-component-template-motif-ready-target-types",
     "3",
+    "--min-component-family-applied-types",
+    "4",
     "--min-visual-atom-topology-connectors",
     "3",
     "--min-visual-atom-container-nodes",
@@ -1312,6 +1353,7 @@ test("component coverage matrix CLI parses coverage gate flags", () => {
   assert.equal(args.minComponentTemplateStructureFitPictures, "1");
   assert.equal(args.minComponentTemplateMotifReadyTargetCounts, "arc-arrow=2,tree-link=1,whole-process-template=1");
   assert.equal(args.minComponentTemplateMotifReadyTargetTypes, "3");
+  assert.equal(args.minComponentFamilyAppliedTypes, "4");
   assert.equal(args.minVisualAtomTopologyConnectors, "3");
   assert.equal(args.minVisualAtomContainerNodes, "1");
   assert.equal(args.minVisualAtomContainedNodes, "2");
@@ -1348,7 +1390,8 @@ test("component coverage matrix reads coverage manifests", () => {
       minComponentTemplateMotifReadyTargetCounts: {
         "whole-process-template": 1
       },
-      minComponentTemplateMotifReadyTargetTypes: 4
+      minComponentTemplateMotifReadyTargetTypes: 4,
+      minComponentFamilyAppliedTypes: 3
     }
   })}\n`, "utf8");
 
@@ -1378,6 +1421,7 @@ test("component coverage matrix reads coverage manifests", () => {
     "whole-process-template": 1
   });
   assert.equal(manifest.gates.minComponentTemplateMotifReadyTargetTypes, 4);
+  assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 3);
 });
 
 test("component coverage matrix fails gate when expected deck count is not met", () => {
@@ -1464,6 +1508,8 @@ test("component coverage matrix fails gate when component asset participation is
       componentTemplateStructureFitTextBoxes: 1,
       componentTemplateStructureFitPictures: 0,
       componentTemplateMotifReadyTargetCounts: { "arc-arrow": 3 },
+      componentFamilyAppliedTypes: 1,
+      componentFamilyAppliedCounts: { "cycle-loop": 3 },
       visualAtomTopologyConnectors: 2,
       visualAtomContainerNodes: 0,
       visualAtomContainedNodes: 1
@@ -1490,6 +1536,7 @@ test("component coverage matrix fails gate when component asset participation is
     minComponentTemplateStructureFitPictures: 1,
     minComponentTemplateMotifReadyTargetCounts: "arc-arrow=4,tree-link=1,whole-process-template=1",
     minComponentTemplateMotifReadyTargetTypes: 4,
+    minComponentFamilyAppliedTypes: 2,
     minVisualAtomTopologyConnectors: 4,
     minVisualAtomContainerNodes: 1,
     minVisualAtomContainedNodes: 3
@@ -1512,6 +1559,8 @@ test("component coverage matrix fails gate when component asset participation is
   assert.equal(matrix.totals.componentTemplateMotifReadyTargetCountsMet, false);
   assert.equal(matrix.totals.componentTemplateMotifReadyTargetTypes, 1);
   assert.equal(matrix.totals.componentTemplateMotifReadyTargetTypesMet, false);
+  assert.equal(matrix.totals.componentFamilyAppliedTypes, 1);
+  assert.equal(matrix.totals.componentFamilyAppliedTypesMet, false);
   assert.equal(matrix.totals.visualAtomTopologyConnectorsMet, false);
   assert.equal(matrix.totals.visualAtomContainerNodesMet, false);
   assert.equal(matrix.totals.visualAtomContainedNodesMet, false);
@@ -1524,6 +1573,157 @@ test("component coverage matrix fails gate when component asset participation is
     normalizeMotifTargetMinimums({ "arc-arrow": 2, "whole-process-template": 1, invalid: 9 }),
     { "arc-arrow": 2, "whole-process-template": 1 }
   );
+});
+
+test("component coverage matrix summarizes image-to-editable component families", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "component-family-coverage-"));
+  const finalIrFile = path.join(tmp, "Family.native.ir.json");
+  const candidateFile = path.join(tmp, "Family.component-candidates.json");
+  const reportFile = path.join(tmp, "component-strategy-rebuild-report.json");
+  fs.writeFileSync(finalIrFile, `${JSON.stringify({
+    pages: [{
+      images: [{
+        box: { x: 80, y: 80, w: 260, h: 180 },
+        source: {
+          detector: "relationship-underlay",
+          layerType: "diagram-zone",
+          layer: {
+            detector: "relationship-underlay",
+            layerType: "diagram-zone",
+            templateFamily: "hub-spoke",
+            componentRenderStrategy: { mode: "preserve-local-crop" }
+          },
+          componentRenderStrategy: { mode: "preserve-local-crop" }
+        }
+      }, {
+        box: { x: 420, y: 80, w: 220, h: 180 },
+        source: {
+          detector: "gauge-underlay",
+          layerType: "chart-zone",
+          expressionSubtype: "gauge-chart",
+          layer: {
+            detector: "gauge-underlay",
+            layerType: "chart-zone",
+            templateFamily: "gauge-chart",
+            componentRenderStrategy: { mode: "preserve-local-crop" }
+          },
+          componentRenderStrategy: { mode: "preserve-local-crop" }
+        }
+      }],
+      shapes: [{
+        type: "rect",
+        source: {
+          detector: "plugin-component-template-native-shape",
+          componentTemplateGroupApplied: true,
+          componentTemplateTargetMotifs: ["treemap-chart"],
+          componentTemplateFamilyApplied: "treemap-chart"
+        }
+      }, {
+        type: "line",
+        source: {
+          nativeRebuild: true,
+          nativeComponentArchetype: "wms-route-chain",
+          nativeComponentRole: "connector"
+        }
+      }],
+      textBoxes: [{
+        text: "阶段",
+        source: {
+          componentTemplateGroupApplied: true,
+          componentTemplatePart: "timeline-dot",
+          componentTemplateFamilyApplied: "timeline"
+        }
+      }]
+    }]
+  }, null, 2)}\n`, "utf8");
+  fs.writeFileSync(candidateFile, `${JSON.stringify({
+    layers: [{
+      pageIndex: 0,
+      imageIndex: 0,
+      layerType: "diagram-zone",
+      detector: "relationship-underlay",
+      box: { x: 80, y: 80, w: 260, h: 180 },
+      templateFamily: "hub-spoke",
+      componentRenderStrategy: { mode: "preserve-local-crop" },
+      bestCandidates: [{ title: "中心辐射关系图", candidateScore: 72 }]
+    }, {
+      pageIndex: 0,
+      imageIndex: 1,
+      layerType: "chart-zone",
+      detector: "gauge-underlay",
+      box: { x: 420, y: 80, w: 220, h: 180 },
+      templateFamily: "gauge-chart",
+      componentRenderStrategy: { mode: "preserve-local-crop" },
+      bestCandidates: [{ title: "仪表盘进度图", candidateScore: 66 }]
+    }]
+  }, null, 2)}\n`, "utf8");
+  fs.writeFileSync(reportFile, `${JSON.stringify({
+    results: [{
+      inputWorkDir: path.join(tmp, "Family.work"),
+      outputIr: finalIrFile,
+      componentCandidateReport: candidateFile,
+      status: "ir-built"
+    }]
+  }, null, 2)}\n`, "utf8");
+
+  const [row] = summarizeComponentRebuildReport(reportFile);
+  const matrix = buildComponentCoverageMatrix({ reports: [reportFile] });
+
+  assert.equal(COMPONENT_FAMILY_BY_MOTIF["treemap-chart"], "specialty-chart");
+  assert.ok(COMPONENT_FAMILY_IDS.includes("process-flow"));
+  assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "treemap-chart" }), ["specialty-chart"]);
+  assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "funnel-stack" }), ["funnel-flow"]);
+  assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "layered-stack" }), ["layered-architecture"]);
+  assert.deepEqual(row.componentFamilyAppliedCounts, {
+    "process-flow": 1,
+    "specialty-chart": 1,
+    "timeline-roadmap": 1
+  });
+  assert.deepEqual(row.componentFamilyGapCounts, {
+    "relationship-network": 1,
+    "specialty-chart": 1
+  });
+  assert.equal(row.componentFamilyAppliedTypes, 3);
+  assert.equal(row.componentFamilyGapTypes, 2);
+  assert.deepEqual(row.componentFamilyCoverage, [
+    { family: "process-flow", appliedObjects: 1, gapLayers: 0, status: "covered" },
+    { family: "relationship-network", appliedObjects: 0, gapLayers: 1, status: "gap" },
+    { family: "specialty-chart", appliedObjects: 1, gapLayers: 1, status: "partial" },
+    { family: "timeline-roadmap", appliedObjects: 1, gapLayers: 0, status: "covered" }
+  ]);
+  assert.equal(matrix.totals.componentFamilyAppliedTypes, 3);
+  assert.equal(matrix.totals.componentFamilyGapTypes, 2);
+  assert.equal(matrix.totals.componentFamilyGapExamples.length, 2);
+  assert.deepEqual(matrix.totals.componentFamilyActions.map((item) => ({
+    family: item.family,
+    priority: item.priority,
+    action: item.action,
+    gapLayers: item.gapLayers,
+    appliedObjects: item.appliedObjects
+  })), [
+    {
+      family: "relationship-network",
+      priority: "high",
+      action: "add-first-native-family-coverage",
+      gapLayers: 1,
+      appliedObjects: 0
+    },
+    {
+      family: "specialty-chart",
+      priority: "medium",
+      action: "expand-existing-family-coverage",
+      gapLayers: 1,
+      appliedObjects: 1
+    }
+  ]);
+
+  applyCoverageGates(matrix, {
+    minComponentFamilyAppliedTypes: 4
+  });
+
+  assert.equal(matrix.passed, false);
+  assert.equal(matrix.gates.minComponentFamilyAppliedTypes, 4);
+  assert.equal(matrix.totals.componentFamilyAppliedTypesMet, false);
 });
 
 test("component coverage matrix passes motif diversity gate when enough target motif types are present", () => {

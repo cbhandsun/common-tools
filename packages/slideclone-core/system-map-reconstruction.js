@@ -18,15 +18,17 @@ function chooseSystemMapReconstructionMode(input = {}) {
   const structuredLineMap = input.structuredLineMap === true;
   const decorativeGridTexture = input.decorativeGridTexture === true;
   const innerLabelCount = boundedInteger(input.innerLabelCount, "innerLabelCount", 0, 10000);
-  if (topologyReady && !pictorialEnclosure) {
+  if (topologyReady && (!pictorialEnclosure || decorativeGridTexture)) {
     return Object.freeze({
       mode: MODES.NATIVE_HYBRID,
       protectFullCrop: false,
       preserveDenseCenter: true,
       rebuildOuterTexture: decorativeGridTexture,
-      reasonCode: decorativeGridTexture
-        ? "system-map.topology-and-texture-measurable"
-        : "system-map.topology-measurable"
+      reasonCode: pictorialEnclosure
+        ? "system-map.topology-texture-and-enclosure-measurable"
+        : decorativeGridTexture
+          ? "system-map.topology-and-texture-measurable"
+          : "system-map.topology-measurable"
     });
   }
   if (structuredLineMap) {

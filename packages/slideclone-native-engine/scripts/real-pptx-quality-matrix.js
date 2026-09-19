@@ -2,6 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { componentFamilyForMotif } = require("./lib/component-motifs");
 
 function parseArgs(argv) {
   const args = { reports: [] };
@@ -66,6 +67,12 @@ function summarizeReport(file) {
   const protectedNonSemanticSkips = protectedNonSemanticSkipCount(report);
   const layerTotals = report.layerProfile?.totals || {};
   const pages = report.pages || [];
+  const componentFamilyAppliedCounts = componentFamilyAppliedCountsFromProfile(componentStrategyProfile);
+  const componentFamilyGapCounts = componentStrategyProfile.componentFamilyGapCounts || {};
+  const componentFamilyGapExamples = normalizeComponentFamilyGapExamples(componentStrategyProfile.componentFamilyGapExamples, {
+    deck: deckNameFromReport(file, report),
+    reportFile: file
+  });
   const rejected = Number(summary.rejected || 0);
   const disallowedFullPageImages = Number(profile.disallowedFullPageImages || 0);
   const rejectedPages = pages.filter((page) => page.status === "rejected").map((page) => page.pageIndex + 1);
@@ -248,6 +255,11 @@ function summarizeReport(file) {
     componentTemplateStructureFitTextBoxes: Number(componentStrategyProfile.componentTemplateStructureFitTextBoxes || 0),
     componentTemplateStructureFitPictures: Number(componentStrategyProfile.componentTemplateStructureFitPictures || 0),
     componentTemplateStructureFitReasonCounts: componentStrategyProfile.componentTemplateStructureFitReasonCounts || {},
+    componentFamilyAppliedCounts,
+    componentFamilyGapCounts,
+    componentFamilyGapExamples,
+    componentFamilyAppliedTypes: Number(componentStrategyProfile.componentFamilyAppliedTypes || countPositiveCounts(componentFamilyAppliedCounts)),
+    componentFamilyGapTypes: Number(componentStrategyProfile.componentFamilyGapTypes || countPositiveCounts(componentFamilyGapCounts)),
     componentTemplateNativeRoleCounts: componentStrategyProfile.componentTemplateNativeRoleCounts || {},
     componentTemplateStructureRoleCounts: componentStrategyProfile.componentTemplateStructureRoleCounts || {},
     componentTemplateCropPreservedReasonCounts: componentStrategyProfile.componentTemplateCropPreservedReasonCounts || {}
@@ -320,6 +332,91 @@ function normalizeVisualUnitRepairCandidates(candidates = [], context = {}) {
       };
     })
     .filter((candidate) => candidate.priority > 0 || candidate.areaRatio !== null);
+}
+
+function componentFamilyAppliedCountsFromProfile(componentStrategyProfile = {}) {
+  const direct = componentStrategyProfile.componentFamilyAppliedCounts || {};
+  if (Object.keys(direct).length > 0) return direct;
+  const counts = {};
+  for (const [motif, rawCount] of Object.entries(componentStrategyProfile.componentTemplateMotifReadyTargetCounts || {})) {
+    const family = componentFamilyForMotif(motif);
+    if (!family) continue;
+    addDetectorCounts(counts, { [family]: rawCount });
+  }
+  return counts;
+}
+
+function normalizeComponentFamilyGapExamples(examples = [], context = {}) {
+  return (Array.isArray(examples) ? examples : [])
+    .map((example) => ({
+      deck: safeMatrixText(context.deck || example?.deck || "unknown-deck"),
+      reportFile: safeMatrixText(context.reportFile || example?.reportFile || ""),
+      page: normalizeNonNegativeNumber(example?.page),
+      image: normalizeNonNegativeNumber(example?.image),
+      families: (Array.isArray(example?.families) ? example.families : [])
+        .map((family) => safeMatrixText(family))
+        .filter(Boolean)
+        .slice(0, 8),
+      mode: safeMatrixText(example?.mode || "unknown-mode"),
+      detector: safeMatrixText(example?.detector || "unknown-detector"),
+      layerType: safeMatrixText(example?.layerType || "unknown-layer"),
+      family: safeMatrixText(example?.family || "unknown-family"),
+      reason: safeMatrixText(example?.reason || "unknown-reason")
+    }))
+    .filter((example) => example.families.length > 0);
+}
+
+function summarizeComponentFamilyActions(totals = {}) {
+  const coverage = Array.isArray(totals.componentFamilyCoverage) ? totals.componentFamilyCoverage : [];
+  const examples = Array.isArray(totals.componentFamilyGapExamples) ? totals.componentFamilyGapExamples : [];
+  return coverage
+    .filter((item) => normalizeNonNegativeNumber(item.gapLayers) > 0)
+    .map((item) => {
+      const family = safeMatrixText(item.family || "unknown-family");
+      const gapLayers = normalizeNonNegativeNumber(item.gapLayers);
+      const appliedObjects = normalizeNonNegativeNumber(item.appliedObjects);
+      const action = appliedObjects > 0
+        ? "expand-existing-family-coverage"
+        : "add-first-native-family-coverage";
+      const priority = appliedObjects === 0 && gapLayers >= 3
+        ? "critical"
+        : appliedObjects === 0
+          ? "high"
+          : "medium";
+      return {
+        family,
+        priority,
+        action,
+        gapLayers,
+        appliedObjects,
+        status: safeMatrixText(item.status || "gap"),
+        examples: examples
+          .filter((example) => Array.isArray(example.families) && example.families.includes(family))
+          .slice(0, 5)
+          .map((example) => ({
+            deck: safeMatrixText(example.deck || "unknown-deck"),
+            page: normalizeNonNegativeNumber(example.page),
+            image: normalizeNonNegativeNumber(example.image),
+            mode: safeMatrixText(example.mode || "unknown-mode"),
+            layerType: safeMatrixText(example.layerType || "unknown-layer"),
+            detector: safeMatrixText(example.detector || "unknown-detector"),
+            reason: safeMatrixText(example.reason || "unknown-reason")
+          }))
+      };
+    })
+    .sort((a, b) => (
+      componentFamilyPriorityRank(a.priority) - componentFamilyPriorityRank(b.priority)
+      || b.gapLayers - a.gapLayers
+      || a.appliedObjects - b.appliedObjects
+      || a.family.localeCompare(b.family)
+    ));
+}
+
+function componentFamilyPriorityRank(priority = "") {
+  if (priority === "critical") return 0;
+  if (priority === "high") return 1;
+  if (priority === "medium") return 2;
+  return 3;
 }
 
 function protectedNonSemanticSkipCount(report = {}) {
@@ -535,6 +632,18 @@ function aggregateMatrix(rows, options = {}) {
     addDetectorCounts(acc.componentTemplateMotifReadyTargetCounts, row.componentTemplateMotifReadyTargetCounts);
     addDetectorCounts(acc.componentTemplateShapePartCounts, row.componentTemplateShapePartCounts);
     addDetectorCounts(acc.componentTemplateStructureFitReasonCounts, row.componentTemplateStructureFitReasonCounts);
+    addDetectorCounts(acc.componentFamilyAppliedCounts, row.componentFamilyAppliedCounts);
+    addDetectorCounts(acc.componentFamilyGapCounts, row.componentFamilyGapCounts);
+    if (Array.isArray(row.componentFamilyGapExamples)) {
+      for (const example of row.componentFamilyGapExamples) {
+        if (acc.componentFamilyGapExamples.length >= 30) break;
+        acc.componentFamilyGapExamples.push({
+          ...example,
+          deck: safeMatrixText(example.deck || row.deck),
+          reportFile: safeMatrixText(example.reportFile || row.reportFile)
+        });
+      }
+    }
     addDetectorCounts(acc.componentTemplateNativeRoleCounts, row.componentTemplateNativeRoleCounts);
     addDetectorCounts(acc.componentTemplateStructureRoleCounts, row.componentTemplateStructureRoleCounts);
     addDetectorCounts(acc.componentTemplateCropPreservedReasonCounts, row.componentTemplateCropPreservedReasonCounts);
@@ -664,6 +773,11 @@ function aggregateMatrix(rows, options = {}) {
     componentTemplateMotifReadyTargetCounts: {},
     componentTemplateShapePartCounts: {},
     componentTemplateStructureFitReasonCounts: {},
+    componentFamilyAppliedCounts: {},
+    componentFamilyGapCounts: {},
+    componentFamilyGapExamples: [],
+    componentFamilyCoverage: [],
+    componentFamilyActions: [],
     componentTemplateNativeRoleCounts: {},
     componentTemplateStructureRoleCounts: {},
     componentTemplateCropPreservedReasonCounts: {},
@@ -683,6 +797,12 @@ function aggregateMatrix(rows, options = {}) {
   totals.componentTemplateCropStatusReplacementRate = totals.componentTemplateCropStatusImages
     ? round(totals.componentTemplateCropStatusReplacedImages / totals.componentTemplateCropStatusImages)
     : null;
+  totals.componentFamilyAppliedTypes = countPositiveCounts(totals.componentFamilyAppliedCounts);
+  totals.componentFamilyGapTypes = countPositiveCounts(totals.componentFamilyGapCounts);
+  totals.componentFamilyCoverage = summarizeComponentFamilyCoverage(
+    totals.componentFamilyAppliedCounts,
+    totals.componentFamilyGapCounts
+  );
   totals.largestUnexplainedCropAreaRatio = round(totals.largestUnexplainedCropAreaRatio);
   totals.topDetectors = topDetectorCounts(totals.detectorCounts);
   totals.topImageExpressions = topDetectorCounts(totals.imageExpressionCounts);
@@ -713,6 +833,9 @@ function aggregateMatrix(rows, options = {}) {
   totals.topComponentTemplateGroups = topDetectorCounts(totals.componentTemplateGroupCounts);
   totals.topComponentTemplateShapeParts = topDetectorCounts(totals.componentTemplateShapePartCounts);
   totals.topComponentTemplateStructureFitReasons = topDetectorCounts(totals.componentTemplateStructureFitReasonCounts);
+  totals.topComponentFamiliesApplied = topDetectorCounts(totals.componentFamilyAppliedCounts);
+  totals.topComponentFamilyGaps = topDetectorCounts(totals.componentFamilyGapCounts);
+  totals.componentFamilyActions = summarizeComponentFamilyActions(totals);
   totals.topComponentTemplateNativeRoles = topDetectorCounts(totals.componentTemplateNativeRoleCounts);
   totals.topComponentTemplateStructureRoles = topDetectorCounts(totals.componentTemplateStructureRoleCounts);
   totals.topComponentTemplateCropPreservedReasons = topDetectorCounts(totals.componentTemplateCropPreservedReasonCounts);
@@ -757,6 +880,9 @@ function aggregateMatrix(rows, options = {}) {
   const minComponentTemplateMotifReadyTargetCounts = normalizeMotifTargetMinimums(options.minComponentTemplateMotifReadyTargetCounts);
   const componentTemplateMotifReadyTargetCountsMet = Object.entries(minComponentTemplateMotifReadyTargetCounts)
     .every(([motif, minimum]) => Number(totals.componentTemplateMotifReadyTargetCounts?.[motif] || 0) >= minimum);
+  const minComponentFamilyAppliedTypes = optionalPositiveInteger(options.minComponentFamilyAppliedTypes);
+  const componentFamilyAppliedTypesMet = minComponentFamilyAppliedTypes === null
+    || totals.componentFamilyAppliedTypes >= minComponentFamilyAppliedTypes;
   const minComponentTemplateStructureFitShapeRatio = optionalNonNegativeNumber(options.minComponentTemplateStructureFitShapeRatio);
   const componentTemplateStructureFitShapeRatioMet = minComponentTemplateStructureFitShapeRatio === null
     || Number(totals.componentTemplateStructureFitShapeRatio || 0) >= minComponentTemplateStructureFitShapeRatio;
@@ -801,6 +927,7 @@ function aggregateMatrix(rows, options = {}) {
       && componentHighReusableGroupMatchesMet
       && componentTemplateMotifReadyShapesMet
       && componentTemplateMotifReadyTargetCountsMet
+      && componentFamilyAppliedTypesMet
       && componentTemplateStructureFitShapeRatioMet
       && visualAtomTopologyConnectorsMet
       && visualAtomContainerNodesMet
@@ -820,6 +947,7 @@ function aggregateMatrix(rows, options = {}) {
       minComponentHighReusableGroupMatches,
       minComponentTemplateMotifReadyShapes,
       minComponentTemplateMotifReadyTargetCounts,
+      minComponentFamilyAppliedTypes,
       minComponentTemplateStructureFitShapeRatio,
       minVisualAtomTopologyConnectors,
       minVisualAtomContainerNodes,
@@ -837,6 +965,7 @@ function aggregateMatrix(rows, options = {}) {
       componentHighReusableGroupMatchesMet,
       componentTemplateMotifReadyShapesMet,
       componentTemplateMotifReadyTargetCountsMet,
+      componentFamilyAppliedTypesMet,
       componentTemplateStructureFitShapeRatioMet,
       visualAtomTopologyConnectorsMet,
       visualAtomContainerNodesMet,
@@ -1025,6 +1154,8 @@ function compareQualityRowPair(baseline, candidate, gates) {
     componentLocalAssetMatches: candidate.componentLocalAssetMatches - baseline.componentLocalAssetMatches,
     componentHighReusableGroupMatches: candidate.componentHighReusableGroupMatches - baseline.componentHighReusableGroupMatches,
     componentTemplateAppliedShapes: candidate.componentTemplateAppliedShapes - baseline.componentTemplateAppliedShapes,
+    componentFamilyAppliedTypes: numberOrDefault(candidate.componentFamilyAppliedTypes, 0) - numberOrDefault(baseline.componentFamilyAppliedTypes, 0),
+    componentFamilyGapTypes: numberOrDefault(candidate.componentFamilyGapTypes, 0) - numberOrDefault(baseline.componentFamilyGapTypes, 0),
     componentTemplateStructureFitShapeRatio: diffOrNull(
       candidate.componentTemplateStructureFitShapeRatio,
       baseline.componentTemplateStructureFitShapeRatio
@@ -1053,6 +1184,7 @@ function compareQualityRowPair(baseline, candidate, gates) {
     reasons.push("component-template-eligibility-rejections-increased");
   }
   if (deltas.residualLayerCandidates > 0) reasons.push("residual-layer-candidates-increased");
+  if (deltas.componentFamilyGapTypes > 0) reasons.push("component-family-gap-types-increased");
   if (deltas.visualUnitActionableUnexplainedCrops > 0) reasons.push("actionable-unexplained-crops-increased");
   if (deltas.textOverlayRiskBoxes > 0) reasons.push("text-overlay-risk-increased");
   if (deltas.nativeOverlayRiskShapes > 0) reasons.push("native-overlay-risk-increased");
@@ -1079,6 +1211,10 @@ function compactQualityRow(row) {
     componentLocalAssetMatches: row.componentLocalAssetMatches,
     componentHighReusableGroupMatches: row.componentHighReusableGroupMatches,
     componentTemplateAppliedShapes: row.componentTemplateAppliedShapes,
+    componentFamilyAppliedTypes: row.componentFamilyAppliedTypes,
+    componentFamilyGapTypes: row.componentFamilyGapTypes,
+    componentFamilyAppliedCounts: row.componentFamilyAppliedCounts || {},
+    componentFamilyGapCounts: row.componentFamilyGapCounts || {},
     componentTemplateStructureFitShapeRatio: row.componentTemplateStructureFitShapeRatio,
     componentTemplateRejectedByLayerEligibilityImages: row.componentTemplateRejectedByLayerEligibilityImages,
     residualLayerCandidates: row.residualLayerCandidates,
@@ -1167,6 +1303,29 @@ function topDetectorCounts(counts = {}, limit = 12) {
     .slice(0, limit);
 }
 
+function countPositiveCounts(counts = {}) {
+  return Object.values(counts || {})
+    .filter((count) => Number(count || 0) > 0)
+    .length;
+}
+
+function summarizeComponentFamilyCoverage(appliedCounts = {}, gapCounts = {}) {
+  const families = [...new Set([
+    ...Object.keys(appliedCounts || {}),
+    ...Object.keys(gapCounts || {})
+  ])].sort((a, b) => a.localeCompare(b));
+  return families.map((family) => {
+    const appliedObjects = normalizeNonNegativeNumber(appliedCounts[family]);
+    const gapLayers = normalizeNonNegativeNumber(gapCounts[family]);
+    return {
+      family,
+      appliedObjects,
+      gapLayers,
+      status: appliedObjects > 0 && gapLayers > 0 ? "partial" : appliedObjects > 0 ? "covered" : "gap"
+    };
+  });
+}
+
 function average(values) {
   const finite = values.filter((value) => Number.isFinite(value));
   if (finite.length === 0) return null;
@@ -1199,6 +1358,7 @@ function main() {
     minComponentHighReusableGroupMatches: args["min-component-high-reusable-group-matches"] ?? comparisonManifest?.gates?.minComponentHighReusableGroupMatches,
     minComponentTemplateMotifReadyShapes: args["min-component-template-motif-ready-shapes"] ?? comparisonManifest?.gates?.minComponentTemplateMotifReadyShapes,
     minComponentTemplateMotifReadyTargetCounts: args["min-component-template-motif-ready-target-counts"] ?? comparisonManifest?.gates?.minComponentTemplateMotifReadyTargetCounts,
+    minComponentFamilyAppliedTypes: args["min-component-family-applied-types"] ?? comparisonManifest?.gates?.minComponentFamilyAppliedTypes,
     minComponentTemplateStructureFitShapeRatio: args["min-component-template-structure-fit-shape-ratio"] ?? comparisonManifest?.gates?.minComponentTemplateStructureFitShapeRatio,
     minVisualAtomTopologyConnectors: args["min-visual-atom-topology-connectors"] ?? comparisonManifest?.gates?.minVisualAtomTopologyConnectors,
     minVisualAtomContainerNodes: args["min-visual-atom-container-nodes"] ?? comparisonManifest?.gates?.minVisualAtomContainerNodes,
@@ -1269,7 +1429,9 @@ module.exports = {
   readComparisonManifest,
   resolveReportFiles,
   normalizeMotifTargetMinimums,
+  normalizeComponentFamilyGapExamples,
   summarizeReport,
+  summarizeComponentFamilyActions,
   topDetectorCounts,
   truthyArg
 };

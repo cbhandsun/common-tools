@@ -93,6 +93,11 @@ test("component strategy profile summarizes plugin and fidelity strategy coverag
                   requiresDownload: false,
                   preservesFidelityNow: true
                 }
+              },
+              layer: {
+                layerType: "diagram-zone",
+                templateFamily: "hub-spoke",
+                detector: "relationship-underlay"
               }
             }
           },
@@ -111,7 +116,7 @@ test("component strategy profile summarizes plugin and fidelity strategy coverag
               detector: "plugin-component-template-native-picture",
               layerSourceId: "component-preserved",
               matchedComponentAssetMotifReady: true,
-              matchedComponentTargetMotifs: ["arc-arrow", "whole-process-template"],
+              matchedComponentTargetMotifs: ["arc-arrow", "whole-process-template", "gauge-chart"],
               matchedComponentWholeProcessTemplate: true,
               matchedComponentStructureFitScore: 12,
               matchedComponentStructureFitReasons: ["native-group-node-count-close"],
@@ -262,7 +267,31 @@ test("component strategy profile summarizes plugin and fidelity strategy coverag
   assert.deepEqual(profile.componentTemplateFamilyCounts, { "process-chain": 1 });
   assert.deepEqual(profile.componentTemplateMotifReadyFamilyCounts, { "process-chain": 5 });
   assert.deepEqual(profile.componentTemplateMotifReadyGroupCounts, { "slide5-group2": 5 });
-  assert.deepEqual(profile.componentTemplateMotifReadyTargetCounts, { "arc-arrow": 5, "whole-process-template": 5 });
+  assert.deepEqual(profile.componentTemplateMotifReadyTargetCounts, { "arc-arrow": 5, "gauge-chart": 1, "whole-process-template": 5 });
+  assert.deepEqual(profile.componentFamilyAppliedCounts, { "cycle-loop": 5, "process-flow": 7, "specialty-chart": 1 });
+  assert.equal(profile.componentFamilyAppliedTypes, 3);
+  assert.deepEqual(profile.componentFamilyGapCounts, {
+    "cycle-loop": 1,
+    "process-flow": 1,
+    "relationship-network": 1
+  });
+  assert.equal(profile.componentFamilyGapTypes, 3);
+  assert.deepEqual(profile.componentFamilyGapExamples.map((item) => ({
+    families: item.families,
+    mode: item.mode,
+    reason: item.reason
+  })), [
+    {
+      families: ["cycle-loop", "process-flow"],
+      mode: "plugin-component-template",
+      reason: "component-template-contains-picture-children"
+    },
+    {
+      families: ["relationship-network"],
+      mode: "preserve-local-crop",
+      reason: "preserve-local-crop"
+    }
+  ]);
   assert.deepEqual(profile.componentTemplateShapePartCounts, { "process-node": 3, "process-connector": 1 });
   assert.equal(profile.componentTemplateStructureFitShapes, 2);
   assert.equal(profile.componentTemplateStructureFitTextBoxes, 1);
