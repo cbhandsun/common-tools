@@ -27,6 +27,7 @@ const {
   readRenderCacheMetadata,
   readReconstructionBudgetConfig,
   readTextOcrConfig,
+  resolveFreshRenderOutputDir,
   resolveRenderOutputDir,
   readThresholds,
   readUmiOcrConfig,
@@ -1543,6 +1544,18 @@ test("resolveRenderOutputDir isolates concurrent quality folders with the same b
   assert.notEqual(first, second);
   assert.match(path.basename(first), /^_quality-[a-f0-9]{8}$/);
   assert.match(path.basename(second), /^_quality-[a-f0-9]{8}$/);
+});
+
+test("resolveFreshRenderOutputDir avoids stale LibreOffice profiles while preserving explicit output", () => {
+  const stable = path.join("runs", "quality-gate-render-cache", "_quality-deadbeef");
+  const first = resolveFreshRenderOutputDir({}, stable);
+  const second = resolveFreshRenderOutputDir({}, stable);
+
+  assert.notEqual(first, stable);
+  assert.notEqual(first, second);
+  assert.equal(path.dirname(first), path.dirname(path.resolve(stable)));
+  assert.match(path.basename(first), /^_quality-deadbeef-attempt-[a-z0-9]+-[a-z0-9]+-[a-f0-9]{8}$/);
+  assert.equal(resolveFreshRenderOutputDir({ "render-out": stable }, stable), path.resolve(stable));
 });
 
 test("quality gate renderer aliases can select PowerPoint", () => {

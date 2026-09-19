@@ -32,6 +32,7 @@ const {
   findRenderDirsByPrefix,
   findRenderDirsFromQualityReports,
   readRenderedPages,
+  resolveFreshRenderOutputDir,
   realWorkspaceCwd,
   resolveRenderOutputDir,
   resolveReusableRenderDir,
@@ -85,6 +86,9 @@ async function main() {
     renderer,
     cacheIdentity: renderCacheIdentity
   });
+  const activeRenderOutputDir = reusableRenderDir
+    ? renderOutputDir
+    : resolveFreshRenderOutputDir(args, renderOutputDir);
   const renderStartedAt = Date.now();
   progress({ phase: "render", status: "start", cached: Boolean(reusableRenderDir), renderer });
   const render = reusableRenderDir
@@ -95,7 +99,7 @@ async function main() {
     : await renderWithEngine({
       renderer,
       pptxFile,
-      outputDir: renderOutputDir,
+      outputDir: activeRenderOutputDir,
       maxPages: Number(args["max-pages"] || 999),
       progress,
       heartbeatMs: boundedHeartbeatMs(args["heartbeat-ms"])
@@ -1392,6 +1396,7 @@ module.exports = {
   parsePageIndexes,
   parseRendererReport,
   realWorkspaceCwd,
+  resolveFreshRenderOutputDir,
   resolveRenderOutputDir,
   resolveReusableRenderDir,
   reusableRenderMatches,
