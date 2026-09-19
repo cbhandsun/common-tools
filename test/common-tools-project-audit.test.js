@@ -51,7 +51,15 @@ test("project audit writes evidence-only JSON and Markdown artifacts", () => {
     assert.equal(secretFinding.passed, false);
     assert.deepEqual(secretFinding.evidence, [{ file: "src.js", line: 1, rule: "inline-secret-assignment" }]);
     assert.equal(fs.readFileSync(path.join(output, "project-audit-report.json"), "utf8").includes("abcdefghijklmnop"), false);
-    assert.deepEqual(projectAuditSummary(completed, root), { scope: { auditLevel: "standard", auditDomains: ["product-journey", "visual-interaction", "data-security", "engineering-delivery"], coverageStrategy: "representative-journeys", requiredExperienceScenarios: ["first-visit", "core-flow", "state-feedback", "responsive", "keyboard"], requiresRuntimeGates: true }, scannedFiles: report.summary.scannedFiles, warnings: report.summary.warnings, unverified: report.summary.unverified, findings: report.findings.map((finding) => ({ id: finding.id, passed: finding.passed, severity: finding.severity, assessment: finding.assessment, evidence: finding.evidence })) });
+    const summaryResult = projectAuditSummary(completed, root);
+    assert.deepEqual(
+      { ...summaryResult, diagnostics: undefined },
+      { scope: { auditLevel: "standard", auditDomains: ["product-journey", "visual-interaction", "data-security", "engineering-delivery"], coverageStrategy: "representative-journeys", requiredExperienceScenarios: ["first-visit", "core-flow", "state-feedback", "responsive", "keyboard"], requiresRuntimeGates: true }, scannedFiles: report.summary.scannedFiles, warnings: report.summary.warnings, unverified: report.summary.unverified, findings: report.findings.map((finding) => ({ id: finding.id, passed: finding.passed, severity: finding.severity, assessment: finding.assessment, evidence: finding.evidence })), diagnostics: undefined }
+    );
+    assert.equal(summaryResult.diagnostics.confidence, report.diagnostics.confidence);
+    assert.deepEqual(summaryResult.diagnostics.capabilityMatrix.map((item) => item.domain), ["product-journey", "visual-interaction", "data-security", "engineering-delivery"]);
+    assert.equal(summaryResult.diagnostics.bottlenecks[0].id, "secret-handling-risk");
+    assert.ok(summaryResult.diagnostics.acceptanceChecklist.some((item) => item.id === "secret-handling-risk-acceptance"));
     setCapabilityEnabled(stateRoot, "project-audit", true);
     const mcpJob = callTool("create_project_audit_job", { output: path.join(root, "mcp-audit"), level: "deep", scope: "3" }, { workspaceRoot: root, stateRoot, ownerId: "test-user" });
     assert.equal(mcpJob.audit.level, "deep");
@@ -63,6 +71,7 @@ test("project audit writes evidence-only JSON and Markdown artifacts", () => {
     assert.throws(() => callTool("create_project_audit_job", { output: path.join(root, "invalid-mcp-audit"), level: "unknown", scope: "3" }, { workspaceRoot: root, stateRoot, ownerId: "test-user" }), /declared input schema/);
     const mcpReport = callTool("get_project_audit_report", { id: job.id }, { workspaceRoot: root, stateRoot, ownerId: "test-user" });
     assert.deepEqual(mcpReport.audit, projectAuditSummary(completed, root));
+    assert.equal(mcpReport.audit.diagnostics.bottlenecks[0].id, "secret-handling-risk");
     fs.writeFileSync(path.join(output, "project-audit-report.json"), JSON.stringify({ summary: { scannedFiles: 1, warnings: 0 }, findings: [] }));
     assert.equal(projectAuditSummary(completed, root), null);
   } finally {
@@ -119,12 +128,28 @@ test("ordinary project audit uses the enhanced four-domain static review without
     assert.equal(completed.status, "succeeded");
     assert.equal(report.scope.auditMode, "enhanced");
     assert.equal(report.scope.auditLevel, "standard");
+    assert.equal(report.scope.projectType, "web-application");
+    assert.deepEqual(report.scope.projectTraits, ["api", "frontend", "testable"]);
     assert.equal(report.scope.coverageStrategy, "representative-journeys");
     assert.equal(report.scope.staticAnalysis, "enhanced-four-domain-candidate-scan-completed");
     assert.deepEqual(report.reviewDomains.map((domain) => domain.id), ["product-journey", "visual-interaction", "data-security", "engineering-delivery"]);
     for (const id of ["journey-state-evidence", "interaction-feedback-evidence", "api-contract-evidence", "authorization-evidence", "observability-evidence", "release-governance-evidence"]) assert.equal(report.findings.find((finding) => finding.id === id).assessment, "observed");
     assert.equal(report.scope.runtimeVerification, "not-verified");
+    assert.equal(report.diagnostics.confidence, "high-for-issues-low-for-health");
+    assert.deepEqual(report.diagnostics.capabilityMatrix.map((domain) => domain.domain), ["product-journey", "visual-interaction", "data-security", "engineering-delivery"]);
+    assert.ok(report.diagnostics.capabilityMatrix.every((domain) => domain.maturityLevel && (domain.maturityScore === null || Number.isSafeInteger(domain.maturityScore))));
+    assert.equal(report.diagnostics.bottlenecks[0].id, "secret-handling-risk");
+    assert.equal(report.diagnostics.bottlenecks[0].priority, "P0");
+    assert.ok(report.diagnostics.bottlenecks.some((bottleneck) => bottleneck.id === "ci-gates-not-wired"));
+    assert.ok(report.diagnostics.recommendations.some((recommendation) => recommendation.id === "secret-handling-risk-recommendation"));
+    assert.ok(report.diagnostics.acceptanceChecklist.some((check) => check.id === "secret-handling-risk-acceptance"));
     const markdown = fs.readFileSync(path.join(output, "project-audit-report.md"), "utf8");
+    assert.match(markdown, /## Diagnostic synthesis/);
+    assert.match(markdown, /### Capability matrix/);
+    assert.match(markdown, /### Bottlenecks/);
+    assert.match(markdown, /### Recommended roadmap/);
+    assert.match(markdown, /### Acceptance checklist/);
+    assert.match(markdown, /\| Domain \| Status \| Level \| Score \|/);
     assert.match(markdown, /## Requested review coverage/);
     assert.match(markdown, /Audit level: standard/);
     assert.match(markdown, /产品闭环/);
@@ -134,10 +159,33 @@ test("ordinary project audit uses the enhanced four-domain static review without
   }
 });
 
+test("project audit records specific project profile type and traits", () => {
+  const root = fixture();
+  try {
+    fs.mkdirSync(path.join(root, "bin"), { recursive: true });
+    fs.mkdirSync(path.join(root, "prompts"), { recursive: true });
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({
+      bin: { "sample-cli": "bin/sample.js" },
+      dependencies: { openai: "1.0.0", pg: "1.0.0" },
+      scripts: { build: "node -e \"process.exit(0)\"" }
+    }));
+    fs.writeFileSync(path.join(root, "bin", "sample.js"), "#!/usr/bin/env node\n");
+    fs.writeFileSync(path.join(root, "prompts", "system.md"), "diagnose safely\n");
+    const report = auditProject(root, { mode: "enhanced", scope: "5" });
+    assert.equal(report.scope.projectType, "cli-tool");
+    assert.deepEqual(report.scope.projectTraits, ["ai", "buildable", "cli", "data"]);
+    assert.match(renderMarkdown(report), /Project type: cli-tool/);
+    assert.match(renderMarkdown(report), /Project traits: ai, buildable, cli, data/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("audit implementation regexes do not make a tooling package look like a frontend application", () => {
   const packageRoot = path.join(__dirname, "..", "packages", "project-audit-core");
   const report = auditProject(packageRoot, { mode: "enhanced" });
   assert.equal(report.scope.projectKind, "library-or-tooling");
+  assert.equal(report.scope.projectType, "library-or-tooling");
   for (const id of ["product-entrypoints", "responsive-evidence", "accessibility-evidence", "journey-state-evidence", "interaction-feedback-evidence", "experience-review"]) {
     assert.equal(report.findings.find((finding) => finding.id === id).assessment, "not-applicable");
   }
@@ -297,6 +345,183 @@ test("scoped audit records selected domains and excludes unrelated findings", ()
   }
 });
 
+test("project audit detects GitHub repository governance evidence", () => {
+  const root = fixture();
+  try {
+    fs.mkdirSync(path.join(root, ".github", "ISSUE_TEMPLATE"), { recursive: true });
+    fs.writeFileSync(path.join(root, ".github", "dependabot.yml"), "version: 2\nupdates: []\n");
+    fs.writeFileSync(path.join(root, ".github", "CODEOWNERS"), "* @team/reviewers\n");
+    fs.writeFileSync(path.join(root, ".github", "pull_request_template.md"), "## Verification\n");
+    fs.writeFileSync(path.join(root, ".github", "ISSUE_TEMPLATE", "bug.md"), "---\nname: Bug\n---\n");
+    fs.writeFileSync(path.join(root, "SECURITY.md"), "# Security\n");
+    fs.writeFileSync(path.join(root, "CHANGELOG.md"), "# Changelog\n");
+    const report = auditProject(root, { mode: "enhanced", scope: "5" });
+    const finding = report.findings.find((item) => item.id === "repository-governance-evidence");
+    assert.equal(finding.assessment, "observed");
+    assert.equal(finding.evidence.length, 6);
+    assert.ok(report.reviewDomains[0].findingIds.includes("repository-governance-evidence"));
+    assert.match(renderMarkdown(report), /repository-governance-evidence/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("project audit diagnoses missing declared quality gate entrypoints", () => {
+  const root = fixture();
+  try {
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: { test: "node --test" } }));
+    const report = auditProject(root, { mode: "enhanced", scope: "5" });
+    const finding = report.findings.find((item) => item.id === "declared-quality-gates");
+    assert.equal(finding.assessment, "missing");
+    assert.equal(finding.severity, "warn");
+    assert.match(finding.message, /check/);
+    assert.match(finding.message, /lint/);
+    assert.match(finding.message, /typecheck/);
+    assert.match(finding.message, /build/);
+    assert.doesNotMatch(finding.message, /\btest\b/);
+    assert.deepEqual(finding.evidence, [{ file: "package.json", line: 1, rule: "declared-quality-gates" }]);
+    assert.ok(report.diagnostics.bottlenecks.some((item) => item.id === "missing-quality-gate-entrypoints"));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("project audit observes complete declared quality gate entrypoints", () => {
+  const root = fixture();
+  try {
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({
+      scripts: {
+        check: "node scripts/check.js",
+        lint: "eslint .",
+        typecheck: "tsc --noEmit",
+        test: "node --test",
+        build: "tsc"
+      }
+    }));
+    const report = auditProject(root, { mode: "enhanced", scope: "5" });
+    const finding = report.findings.find((item) => item.id === "declared-quality-gates");
+    assert.equal(finding.assessment, "observed");
+    assert.equal(finding.passed, true);
+    assert.match(finding.message, /check, lint, typecheck, test, build/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("project audit diagnoses declared gates that are not wired into CI", () => {
+  const root = fixture();
+  try {
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({
+      scripts: {
+        lint: "eslint .",
+        typecheck: "tsc --noEmit",
+        test: "node --test",
+        build: "tsc"
+      }
+    }));
+    fs.writeFileSync(path.join(root, ".github", "workflows", "ci.yml"), "name: ci\njobs:\n  verify:\n    steps:\n      - run: npm run build\n");
+    const report = auditProject(root, { mode: "enhanced", scope: "5" });
+    const finding = report.findings.find((item) => item.id === "ci-gate-coverage-evidence");
+    assert.equal(finding.assessment, "missing");
+    assert.equal(finding.severity, "warn");
+    assert.match(finding.message, /lint/);
+    assert.match(finding.message, /typecheck/);
+    assert.match(finding.message, /test/);
+    assert.doesNotMatch(finding.message, /\bbuild\b/);
+    assert.ok(finding.evidence.some((item) => item.file === ".github/workflows/ci.yml"));
+    assert.ok(report.diagnostics.bottlenecks.some((item) => item.id === "ci-gates-not-wired"));
+    assert.match(renderMarkdown(report), /ci-gate-coverage-evidence/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("project audit observes CI coverage for every declared package gate script", () => {
+  const root = fixture();
+  try {
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({
+      scripts: {
+        check: "node scripts/check.js",
+        lint: "eslint .",
+        typecheck: "tsc --noEmit",
+        test: "node --test",
+        build: "tsc"
+      }
+    }));
+    fs.writeFileSync(path.join(root, ".github", "workflows", "ci.yml"), [
+      "name: ci",
+      "jobs:",
+      "  verify:",
+      "    steps:",
+      "      - run: npm run check",
+      "      - run: npm run lint",
+      "      - run: pnpm typecheck",
+      "      - run: yarn test",
+      "      - run: npm run build",
+      ""
+    ].join("\n"));
+    const report = auditProject(root, { mode: "enhanced", scope: "5" });
+    const finding = report.findings.find((item) => item.id === "ci-gate-coverage-evidence");
+    assert.equal(finding.assessment, "observed");
+    assert.equal(finding.passed, true);
+    assert.match(finding.message, /check, lint, typecheck, test, build/);
+    assert.ok(finding.evidence.some((item) => item.file === ".github/workflows/ci.yml"));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("project audit diagnoses incomplete release safety controls", () => {
+  const root = fixture();
+  try {
+    fs.writeFileSync(path.join(root, ".github", "workflows", "release.yml"), [
+      "name: release",
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - run: deploy production",
+      "      - run: smoke --healthcheck",
+      ""
+    ].join("\n"));
+    const report = auditProject(root, { mode: "enhanced", scope: "5" });
+    const finding = report.findings.find((item) => item.id === "release-safety-evidence");
+    assert.equal(finding.assessment, "missing");
+    assert.equal(finding.severity, "warn");
+    assert.match(finding.message, /rollback\/recovery/);
+    assert.match(finding.message, /artifact\/provenance/);
+    assert.ok(finding.evidence.some((item) => item.file === ".github/workflows/release.yml"));
+    assert.ok(report.diagnostics.bottlenecks.some((item) => item.id === "release-safety-gap"));
+    assert.match(renderMarkdown(report), /release-safety-evidence/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("project audit observes release safety evidence when deploy controls form a candidate loop", () => {
+  const root = fixture();
+  try {
+    fs.writeFileSync(path.join(root, ".github", "workflows", "release.yml"), [
+      "name: release",
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - run: publish-artifact --sbom",
+      "      - run: deploy production --tag $GITHUB_SHA",
+      "      - run: smoke --healthcheck",
+      "      - run: rollback --on-failure",
+      ""
+    ].join("\n"));
+    const report = auditProject(root, { mode: "enhanced", scope: "5" });
+    const finding = report.findings.find((item) => item.id === "release-safety-evidence");
+    assert.equal(finding.assessment, "observed");
+    assert.equal(finding.passed, true);
+    assert.match(finding.message, /health\/smoke/);
+    assert.ok(finding.evidence.some((item) => item.file === ".github/workflows/release.yml"));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("experience evidence template creates the complete bounded checklist without overwriting files", () => {
   const root = fixture();
   try {
@@ -308,6 +533,50 @@ test("experience evidence template creates the complete bounded checklist withou
     assert.throws(() => createExperienceEvidenceTemplate(root, "audit-evidence/experience.json"), /already exists/);
     assert.throws(() => createExperienceEvidenceTemplate(root, "audit-evidence/experience.txt"), /JSON file/);
     assert.throws(() => createExperienceEvidenceTemplate(root, "../experience.json"), /outside the approved root/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("experience diagnostics turns bounded browser artifacts into suspected bottlenecks", () => {
+  const root = fixture();
+  try {
+    fs.mkdirSync(path.join(root, "src"), { recursive: true });
+    fs.mkdirSync(path.join(root, "evidence"), { recursive: true });
+    fs.writeFileSync(path.join(root, "src", "App.tsx"), "export function App() { return <main><button>Go</button></main>; }\n");
+    fs.writeFileSync(path.join(root, "evidence", "core.dom.json"), JSON.stringify({
+      schemaVersion: 1,
+      candidates: [{ visible: true, hitMatchesElement: false }],
+      overflowCandidates: [{ index: 0, element: { tag: "main" }, rect: { x: 0, y: 0, width: 1200, height: 900 } }]
+    }));
+    fs.writeFileSync(path.join(root, "evidence", "core.console.json"), JSON.stringify({ errors: 1, warnings: 2 }));
+    fs.writeFileSync(path.join(root, "evidence", "core.network.json"), JSON.stringify({ failedRequests: 1, statusCounts: { 500: 1 } }));
+    fs.writeFileSync(path.join(root, "evidence", "core.png"), "bounded-screenshot-reference");
+    fs.writeFileSync(path.join(root, "experience.json"), JSON.stringify({
+      schemaVersion: 1,
+      scenarios: [{
+        id: "core-flow",
+        status: "passed",
+        evidence: [
+          { kind: "dom-snapshot", file: "evidence/core.dom.json" },
+          { kind: "console", file: "evidence/core.console.json" },
+          { kind: "network", file: "evidence/core.network.json" },
+          { kind: "screenshot", file: "evidence/core.png" }
+        ]
+      }]
+    }));
+    const experience = readExperienceEvidence(root, "experience.json");
+    assert.equal(experience.diagnostics.summary.overflowCandidates, 1);
+    assert.equal(experience.diagnostics.summary.hitTargetMismatches, 1);
+    assert.equal(experience.diagnostics.summary.consoleErrors, 1);
+    assert.equal(experience.diagnostics.summary.failedRequests, 1);
+    assert.equal(experience.diagnostics.summary.serverErrors, 1);
+    const report = auditProject(root, { mode: "experience", scope: "3", experience });
+    assert.ok(report.diagnostics.bottlenecks.some((bottleneck) => bottleneck.id === "experience-console-errors"));
+    assert.ok(report.diagnostics.bottlenecks.some((bottleneck) => bottleneck.id === "experience-network-failures"));
+    assert.ok(report.diagnostics.acceptanceChecklist.some((check) => check.id === "experience-console-errors-acceptance"));
+    assert.match(renderMarkdown(report), /core-flow: 1 console error/);
+    assert.match(renderMarkdown(report), /Acceptance checklist/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
