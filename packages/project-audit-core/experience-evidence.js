@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { insideRoot } = require("../capability-runtime");
+const { createExperienceDiagnostics } = require("./experience-diagnostics");
 
 const MAX_EVIDENCE_FILE_BYTES = 256 * 1024;
 const MAX_CAPTURE_BYTES = 20 * 1024 * 1024;
@@ -27,7 +28,7 @@ function readExperienceEvidence(projectRoot, source) {
   if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).sort().join(",") !== "scenarios,schemaVersion" || value.schemaVersion !== 1 || !Array.isArray(value.scenarios) || value.scenarios.length > EXPERIENCE_SCENARIOS.length) throw new Error("experience evidence schema is invalid");
   const seen = new Set();
   const scenarios = value.scenarios.map((scenario) => normalizeScenario(projectRoot, scenario, seen));
-  return Object.freeze({ schemaVersion: 1, scenarios: Object.freeze(scenarios) });
+  return Object.freeze({ schemaVersion: 1, scenarios: Object.freeze(scenarios), diagnostics: createExperienceDiagnostics(projectRoot, scenarios) });
 }
 
 function createExperienceEvidenceTemplate(projectRoot, output) {

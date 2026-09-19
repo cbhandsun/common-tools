@@ -93,7 +93,7 @@ test("standalone audit CLI validates input and runs locally without the unified 
 });
 
 test("Git Marketplace embeds a byte-synchronized runnable audit Runtime", () => {
-  assert.deepEqual(verifyProjectAuditPluginRuntime({ repositoryRoot }), { fileCount: 27, synchronized: true });
+  assert.deepEqual(verifyProjectAuditPluginRuntime({ repositoryRoot }), { fileCount: 30, synchronized: true });
   const root = temporaryRoot();
   try {
     const result = childProcess.spawnSync(process.execPath, [embeddedCli, "doctor", "--workspace", root], { cwd: root, encoding: "utf8", windowsHide: true });

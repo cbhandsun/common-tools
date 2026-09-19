@@ -165,9 +165,24 @@ common-tools audit run --mode full --scope all --run-gates --experience-evidence
 
 报告按“产品闭环 → 视觉与交互 → 工程可靠性 → 真实运行与门禁”组织，但会严格标明证据来源：
 
-- **增强静态候选证据**：产品入口和流程文档、加载/空/成功/错误状态、交互反馈、组件与浏览器测试线索、响应式/可访问性线索、API 契约、输入校验、认证/授权、错误恢复、持久化/后台任务、可观测性、测试与 CI、发布/回滚/健康检查线索、运维文件、依赖锁文件与疑似密钥赋值。候选证据必须打开核验，不代表设计或控制健康。
+- **增强静态候选证据**：产品入口和流程文档、加载/空/成功/错误状态、交互反馈、组件与浏览器测试线索、响应式/可访问性线索、API 契约、输入校验、认证/授权、错误恢复、持久化/后台任务、可观测性、测试与 CI、是否声明稳定的 `check` / `lint` / `typecheck` / `test` / `build` 质量门禁入口、CI 是否调用已声明的门禁脚本、发布/回滚/健康检查线索、发布安全闭环线索（健康/冒烟、回滚/恢复、产物/SBOM/版本/出处）、GitHub 仓库治理线索（CODEOWNERS、Dependabot、SECURITY、Issue/PR 模板、变更日志等）、运维文件、依赖锁文件与疑似密钥赋值。候选证据必须打开核验，不代表设计或控制健康。
 - **真实门禁**：仅在 `--run-gates` 后记录实际运行的脚本状态与耗时。
 - **未验证**：浏览器主链路、视觉层级、键盘与读屏、窄屏/高缩放、网络错误恢复、SCA、部署和生产行为；这些必须用浏览器、控制台、网络、容器或 CI 证据补齐。
+
+报告还会生成 `diagnostics` 诊断综合层，并在 Markdown 中显示：
+
+- **Capability matrix**：按所选审计域汇总候选信号、警告和证据缺口，用于判断能力画像，而不是宣称健康。
+- **Bottlenecks**：把高风险发现和关键 `not-verified` 缺口合成为瓶颈列表，包含优先级、影响、建议和验证方式。
+- **Recommended roadmap**：把瓶颈转换为可验收的下一步行动，便于从“证据库存”进入修复或增强计划。
+- **Acceptance checklist**：从瓶颈和能力缺口生成可验收的下一步检查项，包含所需证据、优先级和开放状态。
+- **Project profile**：除兼容的 `application` / `library-or-tooling` 外，还会记录更细的 `projectType` 与 `projectTraits`，例如 `web-application`、`api-service`、`cli-tool`、`plugin`、`ai`、`data`、`testable` 等。
+- **Experience diagnostics**：对已批准清单中的 DOM 快照、控制台聚合和网络聚合做自动初筛，识别溢出、命中目标错位、控制台错误、请求失败和 4xx/5xx 响应；这些只会成为 `suspected-issue` 瓶颈，仍需审计者结合截图和运行上下文确认。
+- **Declared quality gates**：检查 `package.json` 是否暴露稳定的 `check`、`lint`、`typecheck`、`test`、`build` 入口，避免把“有测试文件”误读为“有可运行、可接入 CI 的质量门禁”。这只说明入口存在，实际通过状态仍必须通过授权后的运行结果证明。
+- **CI gate coverage**：在静态层面比对 `package.json` 已声明质量门禁与 GitHub workflow 命令，区分“存在 CI 文件”和“CI 覆盖了声明门禁”。这只能证明配置中有调用线索，不能替代真实 CI 运行结果。
+- **Release safety evidence**：在发布、部署、运维和文档候选文件中检查健康/冒烟、回滚/恢复、产物/SBOM/版本/出处三类线索，区分“有 deploy 字样”和“有可验收的发布安全闭环”。这仍然只是静态候选证据，不能替代真实发布、回滚演练或生产监控记录。
+
+诊断综合层仍受同一证据层级约束：`observed` 只代表候选信号存在，`not-verified` 不会被路线图、成熟度分数或建议自动升级为健康结论。
+`get_project_audit_report` 也会返回同一组经过白名单化和长度限制的诊断摘要，便于调用方直接读取能力矩阵、瓶颈、路线图和验收清单；它不会回显源码、页面文本、输入值或疑似凭据内容。
 
 报告不会回显源码或疑似凭据值。疑似密钥只包含相对路径、行号和规则名。Worker 和本地遍历都会跳过 `.git`、`.claude`、`.codex`、`.common-tools`、依赖与常见构建目录。
 

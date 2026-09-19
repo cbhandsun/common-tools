@@ -9,7 +9,9 @@ const { assertNonEmptyString, assertQualityReport } = require("../capability-con
 const { auditLevelPlan } = require("./audit-level");
 const { auditModeOptions } = require("./audit-mode");
 const { AUDIT_SCOPE_IDS, parseAuditScope } = require("./audit-scope");
+const { createAuditDiagnostics } = require("./diagnostics");
 const { createExperienceEvidenceTemplate, experienceReviewFinding, readExperienceEvidence } = require("./experience-evidence");
+const { detectProjectProfile } = require("./project-profile");
 
 const CAPABILITY = "project-audit";
 const REGISTRATION = Object.freeze({ capability: CAPABILITY, toolNames: ["create_project_audit_job", "get_project_audit_report"], minimumRuntimeVersion: ">=0.1.0 <1.0.0", requiredWorkerProfile: "base" });
@@ -46,17 +48,23 @@ const PATTERNS = Object.freeze({
   observability: /\b(?:logger|log\.|metrics?|telemetry|trac(?:e|ing)|sentry|opentelemetry)\b/i,
   releaseGovernance: /\b(?:deploy|release|rollback|health(?:check)?|smoke|artifact|sbom)\b/i
 });
+const RELEASE_SAFETY_CONTROLS = Object.freeze([
+  Object.freeze({ id: "health-or-smoke", label: "health/smoke verification", expression: /\b(?:health(?:check)?|smoke|readiness|liveness|post[-\s]?deploy|synthetic)\b/i }),
+  Object.freeze({ id: "rollback-or-recovery", label: "rollback/recovery control", expression: /\b(?:rollback|roll\s*back|revert|restore|recovery|canary|blue[-\s]?green)\b/i }),
+  Object.freeze({ id: "artifact-or-provenance", label: "artifact/provenance control", expression: /\b(?:artifact|version|tag|release\s+notes?|changelog|sbom|provenance|attestation)\b/i })
+]);
 const AUDIT_FINDING_IDS = new Set([
   "project-profile", "product-entrypoints", "product-flow-evidence", "visual-interaction-evidence", "responsive-evidence", "accessibility-evidence",
-  "package-manifest", "dependency-lock", "automated-tests", "ci-workflows", "input-validation-evidence", "error-recovery-evidence",
+  "package-manifest", "dependency-lock", "automated-tests", "declared-quality-gates", "ci-workflows", "ci-gate-coverage-evidence", "input-validation-evidence", "error-recovery-evidence",
   "data-lifecycle-evidence", "worker-reliability-evidence", "operations-evidence", "runtime-gates", "experience-review", "possible-secrets",
-  "journey-state-evidence", "interaction-feedback-evidence", "api-contract-evidence", "authorization-evidence", "observability-evidence", "release-governance-evidence"
+  "journey-state-evidence", "interaction-feedback-evidence", "api-contract-evidence", "authorization-evidence", "observability-evidence", "release-governance-evidence",
+  "release-safety-evidence", "repository-governance-evidence"
 ]);
 const AUDIT_DOMAINS = Object.freeze([
   Object.freeze({ id: "product-journey", label: "产品闭环", findings: Object.freeze(["product-entrypoints", "product-flow-evidence", "journey-state-evidence"]) }),
   Object.freeze({ id: "visual-interaction", label: "视觉、交互与无障碍", findings: Object.freeze(["visual-interaction-evidence", "interaction-feedback-evidence", "responsive-evidence", "accessibility-evidence", "experience-review"]) }),
   Object.freeze({ id: "data-security", label: "数据、权限与可靠性", findings: Object.freeze(["input-validation-evidence", "error-recovery-evidence", "api-contract-evidence", "authorization-evidence", "data-lifecycle-evidence", "worker-reliability-evidence", "possible-secrets"]) }),
-  Object.freeze({ id: "engineering-delivery", label: "工程与交付", findings: Object.freeze(["package-manifest", "dependency-lock", "automated-tests", "ci-workflows", "observability-evidence", "operations-evidence", "release-governance-evidence", "runtime-gates"]) })
+  Object.freeze({ id: "engineering-delivery", label: "工程与交付", findings: Object.freeze(["package-manifest", "dependency-lock", "automated-tests", "declared-quality-gates", "ci-workflows", "ci-gate-coverage-evidence", "observability-evidence", "operations-evidence", "release-governance-evidence", "release-safety-evidence", "repository-governance-evidence", "runtime-gates"]) })
 ]);
 
 function createProjectAuditJob({ workspaceRoot, stateRoot, ownerId, projectRoot, output, idempotencyKey, level, mode, instruction, scope, experienceEvidence, runGates = false, gateTimeoutMs }) {
@@ -117,6 +125,85 @@ function safeEvidence(value) {
   if (!value.file || value.file.length > 512 || value.file.includes("\\") || value.file.startsWith("/") || normalized !== value.file || normalized === "." || normalized.startsWith("../") || !Number.isSafeInteger(value.line) || value.line < 1 || value.line > 10000000) return null;
   return Object.freeze({ file: value.file, line: value.line, rule: value.rule });
 }
+function safeShortString(value, maxLength = 512) {
+  if (typeof value !== "string" || !value || value.length > maxLength || /[\0\r\n]/.test(value)) return null;
+  return value;
+}
+function safeEnum(value, allowed) { return typeof value === "string" && allowed.includes(value) ? value : null; }
+function safeCount(value, max = 10000) { return Number.isSafeInteger(value) && value >= 0 && value <= max ? value : null; }
+function safeDiagnosticsSummary(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const confidence = safeShortString(value.confidence, 64);
+  const evidenceBoundary = safeEvidenceBoundary(value.evidenceBoundary);
+  const capabilityMatrix = safeCapabilityMatrix(value.capabilityMatrix);
+  const bottlenecks = safeDiagnosticItems(value.bottlenecks, "bottleneck");
+  const recommendations = safeDiagnosticItems(value.recommendations, "recommendation");
+  const acceptanceChecklist = safeDiagnosticItems(value.acceptanceChecklist, "acceptance");
+  if (!confidence || !evidenceBoundary || !capabilityMatrix || !bottlenecks || !recommendations || !acceptanceChecklist) return null;
+  return Object.freeze({ confidence, evidenceBoundary, capabilityMatrix, bottlenecks, recommendations, acceptanceChecklist });
+}
+function safeEvidenceBoundary(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const staticAnalysis = safeShortString(value.staticAnalysis, 96);
+  const runtimeGates = safeEnum(value.runtimeGates, ["executed", "not-executed"]);
+  const experienceEvidence = safeEnum(value.experienceEvidence, ["manifest-supplied", "not-supplied"]);
+  const healthClaimLimit = safeShortString(value.healthClaimLimit, 256);
+  if (!staticAnalysis || !runtimeGates || !experienceEvidence || !healthClaimLimit) return null;
+  return Object.freeze({ staticAnalysis, runtimeGates, experienceEvidence, healthClaimLimit });
+}
+function safeCapabilityMatrix(value) {
+  if (!Array.isArray(value) || value.length > AUDIT_SCOPE_IDS.length) return null;
+  const seen = new Set();
+  return Object.freeze(value.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("invalid diagnostic capability");
+    const domain = safeEnum(item.domain, AUDIT_SCOPE_IDS);
+    const label = safeShortString(item.label, 64);
+    const status = safeEnum(item.status, ["not-applicable", "needs-action", "evidence-gap", "candidate-covered", "not-verified"]);
+    const maturityLevel = safeEnum(item.maturityLevel, ["not-applicable", "unknown", "verified", "candidate-covered", "partial", "at-risk"]);
+    const maturityScore = item.maturityScore === null ? null : safeCount(item.maturityScore, 100);
+    const candidateSignals = safeCount(item.candidateSignals);
+    const warnings = safeCount(item.warnings);
+    const evidenceGaps = safeCount(item.evidenceGaps);
+    const notApplicable = safeCount(item.notApplicable);
+    const findingCount = safeCount(item.findingCount);
+    if (!domain || seen.has(domain) || !label || !status || !maturityLevel || (item.maturityScore !== null && maturityScore === null) || candidateSignals === null || warnings === null || evidenceGaps === null || notApplicable === null || findingCount === null) throw new Error("invalid diagnostic capability");
+    seen.add(domain);
+    return Object.freeze({ domain, label, status, maturityScore, maturityLevel, candidateSignals, warnings, evidenceGaps, notApplicable, findingCount });
+  }));
+}
+function safeDiagnosticItems(value, type) {
+  if (!Array.isArray(value) || value.length > 10) return null;
+  return Object.freeze(value.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("invalid diagnostic item");
+    const id = safeShortString(item.id, 96);
+    const priority = safeEnum(item.priority, ["P0", "P1", "P2", "P3"]);
+    const domain = safeShortString(item.domain, 64);
+    if (!id || !priority || !domain) throw new Error("invalid diagnostic item");
+    if (type === "recommendation") {
+      const action = safeShortString(item.action);
+      const acceptance = safeShortString(item.acceptance);
+      const expectedImpact = safeShortString(item.expectedImpact);
+      const effort = safeShortString(item.effort, 64);
+      if (!action || !acceptance || !expectedImpact || !effort) throw new Error("invalid diagnostic item");
+      return Object.freeze({ id, priority, domain, action, acceptance, expectedImpact, effort });
+    }
+    if (type === "acceptance") {
+      const requirement = safeShortString(item.requirement);
+      const evidence = safeShortString(item.evidence);
+      const status = safeEnum(item.status, ["open"]);
+      if (!requirement || !evidence || !status) throw new Error("invalid diagnostic item");
+      return Object.freeze({ id, priority, domain, requirement, evidence, status });
+    }
+    const classification = safeShortString(item.classification, 64);
+    const confidence = safeShortString(item.confidence, 64);
+    const signal = safeShortString(item.signal);
+    const impact = safeShortString(item.impact);
+    const recommendation = safeShortString(item.recommendation);
+    const verification = safeShortString(item.verification);
+    if (!classification || !confidence || !signal || !impact || !recommendation || !verification) throw new Error("invalid diagnostic item");
+    return Object.freeze({ id, domain, priority, classification, confidence, signal, impact, recommendation, verification });
+  }));
+}
 function projectAuditSummary(job, workspaceRoot) {
   try {
     if (!job || job.capability !== CAPABILITY || job.status !== "succeeded" || !job.output || typeof job.output.path !== "string" || typeof workspaceRoot !== "string") throw new Error("unavailable");
@@ -147,12 +234,14 @@ function projectAuditSummary(job, workspaceRoot) {
       if (evidence.some((item) => item === null)) throw new Error("unavailable");
       return Object.freeze({ id: findingValue.id, passed: findingValue.passed, severity: findingValue.severity, assessment: findingValue.assessment, evidence: Object.freeze(evidence) });
     });
+    const diagnostics = safeDiagnosticsSummary(report.diagnostics);
     return Object.freeze({
       scope: Object.freeze({ auditLevel: auditLevel.level, auditDomains: Object.freeze([...auditDomains]), coverageStrategy: auditLevel.coverageStrategy, requiredExperienceScenarios: auditLevel.requiredExperienceScenarios, requiresRuntimeGates: auditLevel.requiresRuntimeGates }),
       scannedFiles: summary.scannedFiles,
       warnings: summary.warnings,
       unverified: summary.unverified,
-      findings: Object.freeze(findings)
+      findings: Object.freeze(findings),
+      diagnostics
     });
   } catch {
     return null;
@@ -195,7 +284,10 @@ function auditProject(projectRoot, { gates = Object.freeze({ requested: false, r
   const observabilityFiles = productionSourceFiles.filter((file) => fileContains(file, PATTERNS.observability));
   const operationsFiles = files.filter((file) => /(?:^|[\\/])(?:dockerfile|docker-compose|compose\..*\.ya?ml|deployment|kubernetes|helm|terraform)(?:\.[^\\/]*)?$/i.test(relative(file)) || /(?:^|[\\/])\.github[\\/]workflows[\\/]/i.test(relative(file)));
   const releaseGovernanceFiles = [...new Set([...workflowFiles, ...operationsFiles])].filter((file) => fileContains(file, PATTERNS.releaseGovernance));
+  const releaseSafetyFiles = [...new Set([...workflowFiles, ...operationsFiles, ...documentationFiles])];
+  const repositoryGovernanceFiles = files.filter((file) => repositoryGovernanceFile(relative(file)));
   const isApplication = frontendFiles.length > 0 || apiFiles.length > 0;
+  const projectProfile = detectProjectProfile({ files, relative, packageValue, frontendFiles, apiFiles });
   const secretEvidence = scanForSecrets(files, projectRoot);
   const allFindings = [
     finding("project-profile", true, "info", "observed", `${packageValue ? "Node package" : "Repository"} profile; ${sourceFiles.length} text source file(s) examined`, evidenceForFiles(packageValue ? [packageFile] : files, projectRoot, "project-profile", 1)),
@@ -207,13 +299,15 @@ function auditProject(projectRoot, { gates = Object.freeze({ requested: false, r
     finding("package-manifest", Boolean(packageValue), packageValue ? "info" : "warn", packageValue ? "observed" : "missing", packageValue ? "package.json detected" : "package.json is missing", packageValue ? evidenceForFiles([packageFile], projectRoot, "package-manifest", 1) : []),
     finding("dependency-lock", hasLockfile, hasLockfile ? "info" : "warn", hasLockfile ? "observed" : "missing", hasLockfile ? "lockfile detected" : "no supported Node lockfile detected", evidenceForFiles(files.filter((file) => ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"].includes(relative(file))), projectRoot, "dependency-lock")),
     finding("automated-tests", testFiles.length > 0, testFiles.length > 0 ? "info" : "warn", testFiles.length > 0 ? "observed" : "missing", `${testFiles.length} test file(s) detected`, evidenceForFiles(testFiles, projectRoot, "automated-tests")),
+    declaredQualityGatesFinding({ packageValue, packageFile, projectRoot }),
     finding("ci-workflows", workflowFiles.length > 0, workflowFiles.length > 0 ? "info" : "warn", workflowFiles.length > 0 ? "observed" : "missing", `${workflowFiles.length} CI workflow file(s) detected`, evidenceForFiles(workflowFiles, projectRoot, "ci-workflows")),
+    ciGateCoverageFinding({ packageValue, packageFile, workflowFiles, projectRoot }),
     observedFinding("input-validation-evidence", validationFiles.length, isApplication, "candidate input validation", "external-input validation was not evidenced by static patterns", evidenceForFiles(validationFiles, projectRoot, "input-validation-evidence", MAX_EVIDENCE_PER_FINDING, PATTERNS.validation)),
     observedFinding("error-recovery-evidence", errorFiles.length, isApplication, "candidate error or recovery handler", "error recovery was not evidenced by static patterns", evidenceForFiles(errorFiles, projectRoot, "error-recovery-evidence", MAX_EVIDENCE_PER_FINDING, PATTERNS.errorRecovery)),
     observedFinding("data-lifecycle-evidence", persistenceFiles.length, apiFiles.length > 0, "candidate persistence or repository implementation", "data lifecycle and consistency require manual data-flow review", evidenceForFiles(persistenceFiles, projectRoot, "data-lifecycle-evidence", MAX_EVIDENCE_PER_FINDING, PATTERNS.persistence), { missingAssessment: "not-verified", missingSeverity: "info" }),
     observedFinding("worker-reliability-evidence", workerFiles.length, isApplication, "candidate background task or retry implementation", "background task recovery was not evidenced by static patterns", evidenceForFiles(workerFiles, projectRoot, "worker-reliability-evidence", MAX_EVIDENCE_PER_FINDING, PATTERNS.worker), { missingAssessment: "not-verified", missingSeverity: "info" }),
     observedFinding("operations-evidence", operationsFiles.length, true, "deployment, health or CI evidence", "no deployment, health or CI evidence detected", evidenceForFiles(operationsFiles, projectRoot, "operations-evidence")),
-    ...enhancedStaticFindings({ mode, isApplication, apiFiles, journeyStateFiles, interactionFeedbackFiles, apiContractFiles, authorizationFiles, observabilityFiles, releaseGovernanceFiles, projectRoot }),
+    ...enhancedStaticFindings({ mode, isApplication, apiFiles, journeyStateFiles, interactionFeedbackFiles, apiContractFiles, authorizationFiles, observabilityFiles, releaseGovernanceFiles, releaseSafetyFiles, repositoryGovernanceFiles, projectRoot }),
     runtimeGateFinding(gates, { required: selectedLevel.requiresRuntimeGates }),
     experienceReviewFinding(experience, isApplication, { requiredScenarioIds: selectedLevel.requiredExperienceScenarios }),
     finding("possible-secrets", secretEvidence.length === 0, secretEvidence.length === 0 ? "info" : "warn", "observed", secretEvidence.length === 0 ? "no high-confidence inline secret pattern detected" : `${secretEvidence.length} possible secret assignment(s) detected`, secretEvidence)
@@ -224,14 +318,17 @@ function auditProject(projectRoot, { gates = Object.freeze({ requested: false, r
   if (experience) selectedFindingIds.add("experience-review");
   const findings = allFindings.filter((item) => selectedFindingIds.has(item.id));
   const allDomainsSelected = selectedScopeIds.length === AUDIT_SCOPE_IDS.length;
+  const scopeSummary = { projectKind: isApplication ? "application" : "library-or-tooling", projectType: projectProfile.type, projectTraits: projectProfile.traits, auditLevel: selectedLevel.level, coverageStrategy: selectedLevel.coverageStrategy, evidenceExpectation: selectedLevel.evidenceExpectation, requiredExperienceScenarios: selectedLevel.requiredExperienceScenarios, requiresRuntimeGates: selectedLevel.requiresRuntimeGates, auditMode: mode, auditDomains: selectedScopeIds, staticAnalysis: mode === "code" ? "baseline-candidate-scan-completed" : allDomainsSelected ? "enhanced-four-domain-candidate-scan-completed" : "enhanced-scoped-candidate-scan-completed", runtimeVerification: gates.requested ? "completed" : selectedLevel.requiresRuntimeGates ? "not-verified" : "not-required-for-level", experienceVerification: experience ? "manifest-supplied" : selectedLevel.requiredExperienceScenarios.length ? "not-verified" : "not-required-for-level", visualVerification: experience ? "evidence-manifest-supplied" : frontendFiles.length && selectedLevel.requiredExperienceScenarios.length ? "not-verified" : frontendFiles.length ? "not-required-for-level" : "not-applicable" };
+  const reviewDomains = mode === "code" ? [] : selectedDomains.map((domain) => ({ id: domain.id, label: domain.label, findingIds: domain.findings }));
   return {
     version: "0.3.0", capability: CAPABILITY, generatedAt: new Date().toISOString(), root: projectRoot,
-    scope: { projectKind: isApplication ? "application" : "library-or-tooling", auditLevel: selectedLevel.level, coverageStrategy: selectedLevel.coverageStrategy, evidenceExpectation: selectedLevel.evidenceExpectation, requiredExperienceScenarios: selectedLevel.requiredExperienceScenarios, requiresRuntimeGates: selectedLevel.requiresRuntimeGates, auditMode: mode, auditDomains: selectedScopeIds, staticAnalysis: mode === "code" ? "baseline-candidate-scan-completed" : allDomainsSelected ? "enhanced-four-domain-candidate-scan-completed" : "enhanced-scoped-candidate-scan-completed", runtimeVerification: gates.requested ? "completed" : selectedLevel.requiresRuntimeGates ? "not-verified" : "not-required-for-level", experienceVerification: experience ? "manifest-supplied" : selectedLevel.requiredExperienceScenarios.length ? "not-verified" : "not-required-for-level", visualVerification: experience ? "evidence-manifest-supplied" : frontendFiles.length && selectedLevel.requiredExperienceScenarios.length ? "not-verified" : frontendFiles.length ? "not-required-for-level" : "not-applicable" },
-    reviewDomains: mode === "code" ? [] : selectedDomains.map((domain) => ({ id: domain.id, label: domain.label, findingIds: domain.findings })),
+    scope: scopeSummary,
+    reviewDomains,
     gates,
     experience: experience || { scenarios: [] },
     summary: { scannedFiles: files.length, warnings: findings.filter((item) => item.severity === "warn").length, unverified: findings.filter((item) => item.assessment === "not-verified").length, passed: findings.filter((item) => item.passed).length, failed: findings.filter((item) => !item.passed).length },
-    findings
+    findings,
+    diagnostics: createAuditDiagnostics({ findings, reviewDomains, scope: scopeSummary, gates, experience: experience || { scenarios: [] } })
   };
 }
 
@@ -240,7 +337,137 @@ function observedFinding(id, count, applicable, observedMessage, missingMessage,
   if (!applicable) return finding(id, true, "info", "not-applicable", "not applicable to the detected project profile", []);
   return finding(id, count > 0, count > 0 ? "info" : missingSeverity, count > 0 ? "observed" : missingAssessment, count > 0 ? `${count} ${observedMessage} detected` : missingMessage, evidence);
 }
-function enhancedStaticFindings({ mode, isApplication, apiFiles, journeyStateFiles, interactionFeedbackFiles, apiContractFiles, authorizationFiles, observabilityFiles, releaseGovernanceFiles, projectRoot }) {
+function ciGateCoverageFinding({ packageValue, packageFile, workflowFiles, projectRoot }) {
+  const declared = declaredGateScripts(packageValue);
+  if (!declared.length) return finding("ci-gate-coverage-evidence", true, "info", "not-applicable", "no declared check, lint, typecheck, test or build package scripts to map into CI", []);
+  const coverage = workflowGateCoverage(workflowFiles, declared);
+  const covered = declared.filter((name) => coverage.get(name)?.length);
+  const missing = declared.filter((name) => !coverage.get(name)?.length);
+  const evidenceFiles = [...new Set([...covered.flatMap((name) => coverage.get(name) || []), ...workflowFiles, packageFile].filter(Boolean))];
+  const evidence = evidenceForFiles(evidenceFiles, projectRoot, "ci-gate-coverage-evidence");
+  if (!missing.length) return finding("ci-gate-coverage-evidence", true, "info", "observed", `CI workflow invokes all ${declared.length} declared gate script(s): ${declared.join(", ")}`, evidence);
+  const message = workflowFiles.length
+    ? `CI workflow coverage is missing declared gate script(s): ${missing.join(", ")}`
+    : `no CI workflow file detected to run declared gate script(s): ${missing.join(", ")}`;
+  return finding("ci-gate-coverage-evidence", false, "warn", "missing", message, evidence);
+}
+function declaredGateScripts(packageValue) {
+  const scripts = packageValue && typeof packageValue === "object" && packageValue.scripts && typeof packageValue.scripts === "object" && !Array.isArray(packageValue.scripts)
+    ? packageValue.scripts
+    : {};
+  return GATE_SCRIPT_NAMES.filter((name) => typeof scripts[name] === "string" && scripts[name].trim());
+}
+function declaredQualityGatesFinding({ packageValue, packageFile, projectRoot }) {
+  if (!packageValue) return finding("declared-quality-gates", true, "info", "not-applicable", "not applicable without a package manifest", []);
+  const declared = declaredGateScripts(packageValue);
+  const missing = GATE_SCRIPT_NAMES.filter((name) => !declared.includes(name));
+  const evidence = evidenceForFiles([packageFile], projectRoot, "declared-quality-gates", 1);
+  if (!missing.length) return finding("declared-quality-gates", true, "info", "observed", `package scripts declare all quality gate entrypoints: ${GATE_SCRIPT_NAMES.join(", ")}`, evidence);
+  if (!declared.length) return finding("declared-quality-gates", false, "warn", "missing", `package scripts do not declare quality gate entrypoints: ${GATE_SCRIPT_NAMES.join(", ")}`, evidence);
+  return finding("declared-quality-gates", false, "warn", "missing", `package scripts are missing quality gate entrypoints: ${missing.join(", ")}`, evidence);
+}
+function workflowGateCoverage(workflowFiles, declared) {
+  const coverage = new Map(declared.map((name) => [name, []]));
+  for (const file of workflowFiles) {
+    const content = readBoundedText(file);
+    if (!content) continue;
+    const executableText = workflowExecutableText(content);
+    if (!executableText) continue;
+    for (const name of declared) {
+      if (workflowInvokesScript(executableText, name)) coverage.get(name).push(file);
+    }
+  }
+  return coverage;
+}
+function workflowExecutableText(content) {
+  const commands = [];
+  const lines = content.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.trimStart().startsWith("#")) continue;
+    const match = /^(\s*)(?:-\s*)?run:\s*(.*)$/.exec(line);
+    if (!match) continue;
+    const runIndent = match[1].length;
+    const value = match[2].trim();
+    if (/^[|>]/.test(value)) {
+      const blockLines = [];
+      index += 1;
+      for (; index < lines.length; index += 1) {
+        const blockLine = lines[index];
+        if (!blockLine.trim()) {
+          blockLines.push("");
+          continue;
+        }
+        const indent = leadingSpaces(blockLine);
+        if (indent <= runIndent) {
+          index -= 1;
+          break;
+        }
+        blockLines.push(blockLine.trim());
+      }
+      commands.push(...blockLines);
+    } else if (value) {
+      commands.push(stripYamlScalarQuotes(value));
+    }
+  }
+  return commands.map(stripShellCommentLine).filter(Boolean).join("\n");
+}
+function stripYamlScalarQuotes(value) {
+  const trimmed = value.trim();
+  if (trimmed.length >= 2 && ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) || (trimmed.startsWith("'") && trimmed.endsWith("'")))) return trimmed.slice(1, -1);
+  return trimmed;
+}
+function stripShellCommentLine(value) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.startsWith("#")) return "";
+  return trimmed;
+}
+function leadingSpaces(value) {
+  const match = /^ */.exec(value);
+  return match ? match[0].length : 0;
+}
+function workflowInvokesScript(content, scriptName) {
+  const escaped = scriptName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const commandStart = String.raw`(?:^|[;&|]\s*)`;
+  const runPattern = new RegExp(`${commandStart}(?:npm|pnpm|yarn)\\s+run(?:\\s+-[\\w-]+)*\\s+${escaped}(?=$|[\\s#&|;'"])`, "im");
+  if (runPattern.test(content)) return true;
+  const directPattern = new RegExp(`${commandStart}(?:pnpm|yarn)\\s+(?:-[\\w-]+\\s+)*${escaped}(?=$|[\\s#&|;'"])`, "im");
+  if (directPattern.test(content)) return true;
+  return scriptName === "test" && new RegExp(`${commandStart}npm\\s+(?:-[\\w-]+\\s+)*test(?=$|[\\s#&|;'"])`, "im").test(content);
+}
+function releaseSafetyFinding({ candidateFiles, projectRoot }) {
+  const matches = RELEASE_SAFETY_CONTROLS.map((control) => Object.freeze({
+    ...control,
+    files: candidateFiles.filter((file) => fileContains(file, control.expression))
+  }));
+  const present = matches.filter((control) => control.files.length > 0);
+  if (!present.length) return finding("release-safety-evidence", false, "info", "not-verified", "release safety controls need reviewed health, rollback, and artifact evidence", []);
+  const missing = matches.filter((control) => control.files.length === 0).map((control) => control.label);
+  const evidence = releaseSafetyEvidence(present, projectRoot);
+  if (!missing.length) return finding("release-safety-evidence", true, "info", "observed", "candidate release safety evidence covers health/smoke, rollback/recovery, and artifact/provenance controls", evidence);
+  return finding("release-safety-evidence", false, "warn", "missing", `release safety evidence is missing: ${missing.join(", ")}`, evidence);
+}
+function releaseSafetyEvidence(matches, projectRoot) {
+  const evidence = [];
+  const seen = new Set();
+  for (const control of matches) {
+    for (const file of control.files) {
+      if (seen.has(file)) continue;
+      seen.add(file);
+      evidence.push({ file: path.relative(projectRoot, file).split(path.sep).join("/"), line: firstMatchLine(file, control.expression), rule: "release-safety-evidence" });
+      if (evidence.length >= MAX_EVIDENCE_PER_FINDING) return evidence;
+    }
+  }
+  return evidence;
+}
+function readBoundedText(file) {
+  try {
+    const stats = fs.statSync(file);
+    if (stats.size === 0 || stats.size > MAX_SCANNED_BYTES) return "";
+    return fs.readFileSync(file, "utf8");
+  } catch { return ""; }
+}
+function enhancedStaticFindings({ mode, isApplication, apiFiles, journeyStateFiles, interactionFeedbackFiles, apiContractFiles, authorizationFiles, observabilityFiles, releaseGovernanceFiles, releaseSafetyFiles, repositoryGovernanceFiles, projectRoot }) {
   if (mode === "code") return [];
   return [
     observedFinding("journey-state-evidence", journeyStateFiles.length, isApplication, "candidate loading, empty, success, error, or recovery UI state", "the primary user journey has no static state-transition evidence", evidenceForFiles(journeyStateFiles, projectRoot, "journey-state-evidence", MAX_EVIDENCE_PER_FINDING, PATTERNS.journeyState), { missingAssessment: "not-verified", missingSeverity: "info" }),
@@ -248,7 +475,9 @@ function enhancedStaticFindings({ mode, isApplication, apiFiles, journeyStateFil
     observedFinding("api-contract-evidence", apiContractFiles.length, apiFiles.length > 0, "candidate API request, response, or contract", "API contract and failure semantics need a focused data-flow review", evidenceForFiles(apiContractFiles, projectRoot, "api-contract-evidence", MAX_EVIDENCE_PER_FINDING, PATTERNS.apiContract), { missingAssessment: "not-verified", missingSeverity: "info" }),
     observedFinding("authorization-evidence", authorizationFiles.length, apiFiles.length > 0, "candidate authentication or authorization boundary", "authorization boundaries were not evidenced by static patterns", evidenceForFiles(authorizationFiles, projectRoot, "authorization-evidence", MAX_EVIDENCE_PER_FINDING, PATTERNS.authorization), { missingAssessment: "not-verified", missingSeverity: "info" }),
     observedFinding("observability-evidence", observabilityFiles.length, isApplication, "candidate observability, telemetry, or structured logging implementation", "operational observability was not evidenced by static patterns", evidenceForFiles(observabilityFiles, projectRoot, "observability-evidence", MAX_EVIDENCE_PER_FINDING, PATTERNS.observability), { missingAssessment: "not-verified", missingSeverity: "info" }),
-    observedFinding("release-governance-evidence", releaseGovernanceFiles.length, true, "candidate release, health, rollback, smoke, artifact, or SBOM control", "release governance and rollback evidence were not detected", evidenceForFiles(releaseGovernanceFiles, projectRoot, "release-governance-evidence", MAX_EVIDENCE_PER_FINDING, PATTERNS.releaseGovernance), { missingAssessment: "not-verified", missingSeverity: "info" })
+    observedFinding("release-governance-evidence", releaseGovernanceFiles.length, true, "candidate release, health, rollback, smoke, artifact, or SBOM control", "release governance and rollback evidence were not detected", evidenceForFiles(releaseGovernanceFiles, projectRoot, "release-governance-evidence", MAX_EVIDENCE_PER_FINDING, PATTERNS.releaseGovernance), { missingAssessment: "not-verified", missingSeverity: "info" }),
+    releaseSafetyFinding({ candidateFiles: releaseSafetyFiles, projectRoot }),
+    observedFinding("repository-governance-evidence", repositoryGovernanceFiles.length, true, "candidate GitHub collaboration, ownership, dependency, security, or release-note control", "GitHub repository governance evidence was not detected", evidenceForFiles(repositoryGovernanceFiles, projectRoot, "repository-governance-evidence", MAX_EVIDENCE_PER_FINDING), { missingAssessment: "not-verified", missingSeverity: "info" })
   ];
 }
 function evidenceForFiles(files, root, rule, limit = MAX_EVIDENCE_PER_FINDING, expression) {
@@ -370,6 +599,11 @@ function renderMarkdown(report) {
   const findings = Array.isArray(report.findings) ? report.findings : [];
   const reviewItems = findings.filter((item) => item?.severity === "warn" || (item?.passed === false && item?.assessment === "missing"));
   const evidenceGaps = findings.filter((item) => item?.assessment === "not-verified");
+  const diagnostics = report.diagnostics || {};
+  const capabilityMatrix = renderCapabilityMatrix(diagnostics.capabilityMatrix);
+  const bottlenecks = renderBottlenecks(diagnostics.bottlenecks);
+  const recommendations = renderRecommendations(diagnostics.recommendations);
+  const acceptanceChecklist = renderAcceptanceChecklist(diagnostics.acceptanceChecklist);
   const reviewTable = reviewItems.length
     ? `| Priority | Area | Problem | Evidence | Next action |\n| --- | --- | --- | --- | --- |\n${reviewItems.map((item) => `| ${item.severity === "warn" ? "P1" : "P2"} | ${markdownCell(item.id)} | ${markdownCell(item.message)} | ${markdownCell(renderFindingEvidence(item))} | ${markdownCell(nextAction(item.id))} |`).join("\n")}`
     : "- No confirmed warning-level static findings. This does not close the evidence gaps below.";
@@ -384,8 +618,51 @@ function renderMarkdown(report) {
       return `- ${domain.label}: ${coverage}`;
     }).join("\n")
     : "- Baseline code/static review only; use enhanced mode for four-domain coverage.";
-  return `# Project audit\n\n## Overall judgment\n\n${reviewItems.length} review item(s) and ${evidenceGaps.length} evidence gap(s) were identified. Static matches are candidate evidence, not proof that the related design or control is healthy.\n\n## Scope and limits\n\n- Audit level: ${report.scope?.auditLevel || "standard"}\n- Coverage strategy: ${report.scope?.coverageStrategy || "representative-journeys"}\n- Evidence expectation: ${report.scope?.evidenceExpectation || "representative journey, state, viewport, and related code evidence"}\n- Required experience scenarios: ${Array.isArray(report.scope?.requiredExperienceScenarios) && report.scope.requiredExperienceScenarios.length ? report.scope.requiredExperienceScenarios.join(", ") : "none"}\n- Runtime gates required by level: ${report.scope?.requiresRuntimeGates === true ? "yes" : "no"}\n- Audit mode: ${report.scope?.auditMode || "code"}\n- Audit domains: ${Array.isArray(report.scope?.auditDomains) ? report.scope.auditDomains.join(", ") : "all"}\n- Project profile: ${report.scope?.projectKind || "unknown"}\n- Static analysis: ${report.scope?.staticAnalysis || "unknown"}\n- Runtime verification: ${report.scope?.runtimeVerification || "unknown"}\n- Experience verification: ${report.scope?.experienceVerification || "unknown"}\n- Visual verification: ${report.scope?.visualVerification || "unknown"}\n- Scanned files: ${report.summary.scannedFiles}\n- Warnings: ${report.summary.warnings}\n- Not verified: ${report.summary.unverified}\n\n## Review items\n\n${reviewTable}\n\n## Evidence gaps\n\n${gapTable}\n\n## Requested review coverage\n\n${reviewDomains}\n\n## Evidence inventory\n\n| Area | Assessment | Status | Evidence | Candidate signal |\n| --- | --- | --- | --- | --- |\n${findings.map((item) => `| ${markdownCell(item.id)} | ${markdownCell(item.assessment)} | ${findingStatus(item)} | ${markdownCell(renderFindingEvidence(item))} | ${markdownCell(item.message)} |`).join("\n")}\n\n## Local runtime gates\n\n| Gate | Status | Duration (ms) |\n| --- | --- | ---: |\n${gates}\n\n## Experience evidence\n\n- Supplied scenarios: ${Array.isArray(report.experience?.scenarios) ? report.experience.scenarios.length : 0}\n- A supplied manifest proves only that bounded capture files exist. Inspect every screenshot and console/network artifact before promoting a scenario to verified health.\n\n## Interpretation\n\n- Audit level controls depth and evidence expectations; it does not authorize browser automation, project gates, or remote upload.\n- \`observed\` means candidate source or artifact evidence was found; it is not a design-quality pass.\n- \`not-verified\` requires real browser, keyboard, responsive, accessibility, network, gate, or deployment evidence.\n- Runtime gates run only when explicitly requested locally; this audit never runs project code by default.\n- Possible-secret evidence identifies only relative paths and line numbers. It never includes matched values.\n`;
+  const evidenceRows = findings.map((item) => `| ${markdownCell(item.id)} | ${markdownCell(item.assessment)} | ${findingStatus(item)} | ${markdownCell(renderFindingEvidence(item))} | ${markdownCell(item.message)} |`).join("\n");
+  const scopeLines = [
+    `- Audit level: ${report.scope?.auditLevel || "standard"}`,
+    `- Coverage strategy: ${report.scope?.coverageStrategy || "representative-journeys"}`,
+    `- Evidence expectation: ${report.scope?.evidenceExpectation || "representative journey, state, viewport, and related code evidence"}`,
+    `- Required experience scenarios: ${Array.isArray(report.scope?.requiredExperienceScenarios) && report.scope.requiredExperienceScenarios.length ? report.scope.requiredExperienceScenarios.join(", ") : "none"}`,
+    `- Runtime gates required by level: ${report.scope?.requiresRuntimeGates === true ? "yes" : "no"}`,
+    `- Audit mode: ${report.scope?.auditMode || "code"}`,
+    `- Audit domains: ${Array.isArray(report.scope?.auditDomains) ? report.scope.auditDomains.join(", ") : "all"}`,
+    `- Project profile: ${report.scope?.projectKind || "unknown"}`,
+    `- Project type: ${report.scope?.projectType || "unknown"}`,
+    `- Project traits: ${Array.isArray(report.scope?.projectTraits) && report.scope.projectTraits.length ? report.scope.projectTraits.join(", ") : "none"}`,
+    `- Static analysis: ${report.scope?.staticAnalysis || "unknown"}`,
+    `- Runtime verification: ${report.scope?.runtimeVerification || "unknown"}`,
+    `- Experience verification: ${report.scope?.experienceVerification || "unknown"}`,
+    `- Visual verification: ${report.scope?.visualVerification || "unknown"}`,
+    `- Scanned files: ${report.summary.scannedFiles}`,
+    `- Warnings: ${report.summary.warnings}`,
+    `- Not verified: ${report.summary.unverified}`
+  ].join("\n");
+  return `# Project audit\n\n## Overall judgment\n\n${reviewItems.length} review item(s) and ${evidenceGaps.length} evidence gap(s) were identified. Static matches are candidate evidence, not proof that the related design or control is healthy.\n\n## Diagnostic synthesis\n\n- Confidence: ${markdownCell(diagnostics.confidence || "unknown")}\n- Health-claim limit: ${markdownCell(diagnostics.evidenceBoundary?.healthClaimLimit || "static inventory requires human review before health claims")}\n\n### Capability matrix\n\n${capabilityMatrix}\n\n### Bottlenecks\n\n${bottlenecks}\n\n### Recommended roadmap\n\n${recommendations}\n\n### Acceptance checklist\n\n${acceptanceChecklist}\n\n## Scope and limits\n\n${scopeLines}\n\n## Review items\n\n${reviewTable}\n\n## Evidence gaps\n\n${gapTable}\n\n## Requested review coverage\n\n${reviewDomains}\n\n## Evidence inventory\n\n| Area | Assessment | Status | Evidence | Candidate signal |\n| --- | --- | --- | --- | --- |\n${evidenceRows}\n\n## Local runtime gates\n\n| Gate | Status | Duration (ms) |\n| --- | --- | ---: |\n${gates}\n\n## Experience evidence\n\n- Supplied scenarios: ${Array.isArray(report.experience?.scenarios) ? report.experience.scenarios.length : 0}\n- A supplied manifest proves only that bounded capture files exist. Inspect every screenshot and console/network artifact before promoting a scenario to verified health.\n\n## Interpretation\n\n- Audit level controls depth and evidence expectations; it does not authorize browser automation, project gates, or remote upload.\n- \`observed\` means candidate source or artifact evidence was found; it is not a design-quality pass.\n- \`not-verified\` requires real browser, keyboard, responsive, accessibility, network, gate, or deployment evidence.\n- Runtime gates run only when explicitly requested locally; this audit never runs project code by default.\n- Possible-secret evidence identifies only relative paths and line numbers. It never includes matched values.\n`;
 }
+function repositoryGovernanceFile(relativeFile) {
+  return /^(?:CODEOWNERS|SECURITY\.md|CHANGELOG\.md|RELEASES?\.md)$/i.test(relativeFile)
+    || /^\.github\/(?:CODEOWNERS|SECURITY\.md|dependabot\.ya?ml|pull_request_template\.md)$/i.test(relativeFile)
+    || /^\.github\/(?:ISSUE_TEMPLATE|PULL_REQUEST_TEMPLATE)\//i.test(relativeFile);
+}
+function renderCapabilityMatrix(values) {
+  if (!Array.isArray(values) || values.length === 0) return "- No diagnostic domains were selected.";
+  return `| Domain | Status | Level | Score | Candidate signals | Warnings | Evidence gaps |\n| --- | --- | --- | ---: | ---: | ---: | ---: |\n${values.map((item) => `| ${markdownCell(item.label || item.domain)} | ${markdownCell(item.status)} | ${markdownCell(item.maturityLevel)} | ${scoreCell(item.maturityScore)} | ${numberCell(item.candidateSignals)} | ${numberCell(item.warnings)} | ${numberCell(item.evidenceGaps)} |`).join("\n")}`;
+}
+function renderBottlenecks(values) {
+  if (!Array.isArray(values) || values.length === 0) return "- No prioritized bottleneck was synthesized from the current evidence. This does not close evidence gaps.";
+  return `| Priority | Domain | Bottleneck | Impact | Verification |\n| --- | --- | --- | --- | --- |\n${values.map((item) => `| ${markdownCell(item.priority)} | ${markdownCell(item.domain)} | ${markdownCell(item.signal)} | ${markdownCell(item.impact)} | ${markdownCell(item.verification)} |`).join("\n")}`;
+}
+function renderRecommendations(values) {
+  if (!Array.isArray(values) || values.length === 0) return "- No roadmap action was generated from the current evidence.";
+  return `| Priority | Domain | Action | Acceptance check |\n| --- | --- | --- | --- |\n${values.map((item) => `| ${markdownCell(item.priority)} | ${markdownCell(item.domain)} | ${markdownCell(item.action)} | ${markdownCell(item.acceptance)} |`).join("\n")}`;
+}
+function renderAcceptanceChecklist(values) {
+  if (!Array.isArray(values) || values.length === 0) return "- No open acceptance check was generated from the current evidence.";
+  return `| Priority | Domain | Requirement | Evidence | Status |\n| --- | --- | --- | --- | --- |\n${values.map((item) => `| ${markdownCell(item.priority)} | ${markdownCell(item.domain)} | ${markdownCell(item.requirement)} | ${markdownCell(item.evidence)} | ${markdownCell(item.status)} |`).join("\n")}`;
+}
+function numberCell(value) { return Number.isSafeInteger(value) ? String(value) : "0"; }
+function scoreCell(value) { return Number.isSafeInteger(value) ? String(value) : "n/a"; }
 function findingStatus(item) {
   if (item.assessment === "not-applicable") return "not-applicable";
   if (item.assessment === "not-verified") return "not-verified";
@@ -403,11 +680,15 @@ function nextAction(id) {
   const actions = {
     "possible-secrets": "Inspect the referenced assignments without exposing values; remove or rotate any real credential and add a regression check.",
     "runtime-gates": "Run the declared check, lint, typecheck, test, and build gates only with explicit authorization.",
+    "declared-quality-gates": "Declare package quality gate scripts for check, lint, typecheck, test, and build so local and CI verification have stable entrypoints.",
+    "ci-gate-coverage-evidence": "Wire every declared local quality gate into CI and verify the workflow runs on the target branch.",
     "experience-review": "Capture and inspect the primary journey, responsive, keyboard, accessibility, console, and network scenarios.",
     "visual-interaction-evidence": "Exercise the primary flow in a browser and inspect stable screenshots plus interaction states.",
     "responsive-evidence": "Verify narrow, wide, zoomed, and reflowed layouts with captured evidence.",
     "accessibility-evidence": "Verify keyboard order, visible focus, labels, contrast, state announcements, and assistive-technology behavior.",
-    "release-governance-evidence": "Provide and inspect release, health-check, rollback, artifact, and recovery evidence."
+    "release-governance-evidence": "Provide and inspect release, health-check, rollback, artifact, and recovery evidence.",
+    "release-safety-evidence": "Close the release safety loop with health or smoke checks, rollback or recovery controls, and artifact provenance evidence.",
+    "repository-governance-evidence": "Add or inspect GitHub ownership, dependency update, security policy, issue/PR template, and changelog evidence."
   };
   return actions[id] || "Inspect the referenced candidate evidence, confirm the boundary is complete, and add a focused verification or regression test.";
 }
@@ -423,4 +704,4 @@ const CAPABILITY_MODULE = Object.freeze({
   uiContributions: Object.freeze([])
 });
 
-module.exports = { CAPABILITY, CAPABILITY_MODULE, DEFAULT_GATE_TIMEOUT_MS, REGISTRATION, auditGateOptions, auditProject, createExperienceEvidenceTemplate, createProjectAuditJob, projectAuditQuality, projectAuditSummary, renderMarkdown, runDeclaredProjectGates, runProjectAuditJob, writeReport };
+module.exports = { CAPABILITY, CAPABILITY_MODULE, DEFAULT_GATE_TIMEOUT_MS, REGISTRATION, auditGateOptions, auditProject, createAuditDiagnostics, createExperienceEvidenceTemplate, createProjectAuditJob, projectAuditQuality, projectAuditSummary, renderMarkdown, runDeclaredProjectGates, runProjectAuditJob, writeReport };
