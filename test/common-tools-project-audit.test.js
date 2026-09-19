@@ -471,6 +471,39 @@ test("project audit observes CI coverage for every declared package gate script"
   }
 });
 
+test("project audit ignores gate commands that are not executable workflow run steps", () => {
+  const root = fixture();
+  try {
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({
+      scripts: {
+        lint: "eslint .",
+        test: "node --test"
+      }
+    }));
+    fs.writeFileSync(path.join(root, ".github", "workflows", "ci.yml"), [
+      "name: ci",
+      "# npm run lint",
+      "env:",
+      "  MAYBE_TEST: npm run test",
+      "jobs:",
+      "  verify:",
+      "    steps:",
+      "      - name: npm run lint",
+      "      - run: |",
+      "          echo preparing",
+      "          # npm run test",
+      ""
+    ].join("\n"));
+    const report = auditProject(root, { mode: "enhanced", scope: "5" });
+    const finding = report.findings.find((item) => item.id === "ci-gate-coverage-evidence");
+    assert.equal(finding.assessment, "missing");
+    assert.match(finding.message, /lint/);
+    assert.match(finding.message, /test/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("project audit diagnoses incomplete release safety controls", () => {
   const root = fixture();
   try {
@@ -546,6 +579,7 @@ test("experience diagnostics turns bounded browser artifacts into suspected bott
     fs.writeFileSync(path.join(root, "src", "App.tsx"), "export function App() { return <main><button>Go</button></main>; }\n");
     fs.writeFileSync(path.join(root, "evidence", "core.dom.json"), JSON.stringify({
       schemaVersion: 1,
+      viewport: { width: 1000, height: 800 },
       candidates: [{ visible: true, hitMatchesElement: false }],
       overflowCandidates: [{ index: 0, element: { tag: "main" }, rect: { x: 0, y: 0, width: 1200, height: 900 } }]
     }));
@@ -577,6 +611,32 @@ test("experience diagnostics turns bounded browser artifacts into suspected bott
     assert.ok(report.diagnostics.acceptanceChecklist.some((check) => check.id === "experience-console-errors-acceptance"));
     assert.match(renderMarkdown(report), /core-flow: 1 console error/);
     assert.match(renderMarkdown(report), /Acceptance checklist/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("experience diagnostics ignores normal below-fold vertical content", () => {
+  const root = fixture();
+  try {
+    fs.mkdirSync(path.join(root, "evidence"), { recursive: true });
+    fs.writeFileSync(path.join(root, "evidence", "dom.json"), JSON.stringify({
+      schemaVersion: 1,
+      viewport: { width: 1280, height: 720 },
+      candidates: [],
+      overflowCandidates: [{ index: 0, element: { tag: "section" }, rect: { x: 0, y: 760, width: 960, height: 400 } }]
+    }));
+    fs.writeFileSync(path.join(root, "experience.json"), JSON.stringify({
+      schemaVersion: 1,
+      scenarios: [{
+        id: "responsive",
+        status: "passed",
+        evidence: [{ kind: "dom-snapshot", file: "evidence/dom.json" }]
+      }]
+    }));
+    const experience = readExperienceEvidence(root, "experience.json");
+    assert.equal(experience.diagnostics.summary.overflowCandidates, 0);
+    assert.ok(!experience.diagnostics.issues.some((item) => item.id === "experience-overflow-candidates"));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

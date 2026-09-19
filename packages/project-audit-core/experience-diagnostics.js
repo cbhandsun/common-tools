@@ -43,7 +43,7 @@ function inspectDomSnapshot(projectRoot, scenarioId, evidence, summary, issues) 
     issues.push(issue("experience-dom-snapshot-failed", scenarioId, "P2", "DOM snapshot capture failed; runtime geometry, focus and overflow evidence is incomplete.", evidence, "Repeat browser evidence collection after confirming the page reaches a stable loaded state."));
     return;
   }
-  const overflowCandidates = Array.isArray(value.overflowCandidates) ? value.overflowCandidates.length : 0;
+  const overflowCandidates = actionableOverflowCandidates(value).length;
   if (overflowCandidates > 0) {
     summary.overflowCandidates += overflowCandidates;
     issues.push(issue("experience-overflow-candidates", scenarioId, "P2", `${overflowCandidates} element(s) extend outside the captured viewport.`, evidence, "Inspect the referenced DOM snapshot and screenshot, then verify responsive and zoomed layouts."));
@@ -107,6 +107,22 @@ function statusTotal(statusCounts, low, high) {
   }
   return total;
 }
+
+function actionableOverflowCandidates(value) {
+  if (!Array.isArray(value.overflowCandidates)) return [];
+  return value.overflowCandidates.filter((candidate) => {
+    const rect = candidate && typeof candidate === "object" ? candidate.rect : null;
+    if (!rect || typeof rect !== "object") return false;
+    const left = numberValue(rect.left ?? rect.x);
+    const top = numberValue(rect.top ?? rect.y);
+    const right = numberValue(rect.right ?? (Number.isFinite(left) && Number.isFinite(numberValue(rect.width)) ? left + numberValue(rect.width) : undefined));
+    const viewportWidth = numberValue(value.viewport && value.viewport.width);
+    if (!Number.isFinite(left) || !Number.isFinite(top) || !Number.isFinite(right)) return false;
+    return left < -1 || top < -1 || (Number.isFinite(viewportWidth) && right > viewportWidth + 1);
+  });
+}
+
+function numberValue(value) { return typeof value === "number" && Number.isFinite(value) ? value : NaN; }
 
 function safeCount(value) { return Number.isSafeInteger(value) && value > 0 && value < 100000 ? value : 0; }
 

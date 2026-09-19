@@ -371,19 +371,69 @@ function workflowGateCoverage(workflowFiles, declared) {
   for (const file of workflowFiles) {
     const content = readBoundedText(file);
     if (!content) continue;
+    const executableText = workflowExecutableText(content);
+    if (!executableText) continue;
     for (const name of declared) {
-      if (workflowInvokesScript(content, name)) coverage.get(name).push(file);
+      if (workflowInvokesScript(executableText, name)) coverage.get(name).push(file);
     }
   }
   return coverage;
 }
+function workflowExecutableText(content) {
+  const commands = [];
+  const lines = content.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.trimStart().startsWith("#")) continue;
+    const match = /^(\s*)(?:-\s*)?run:\s*(.*)$/.exec(line);
+    if (!match) continue;
+    const runIndent = match[1].length;
+    const value = match[2].trim();
+    if (/^[|>]/.test(value)) {
+      const blockLines = [];
+      index += 1;
+      for (; index < lines.length; index += 1) {
+        const blockLine = lines[index];
+        if (!blockLine.trim()) {
+          blockLines.push("");
+          continue;
+        }
+        const indent = leadingSpaces(blockLine);
+        if (indent <= runIndent) {
+          index -= 1;
+          break;
+        }
+        blockLines.push(blockLine.trim());
+      }
+      commands.push(...blockLines);
+    } else if (value) {
+      commands.push(stripYamlScalarQuotes(value));
+    }
+  }
+  return commands.map(stripShellCommentLine).filter(Boolean).join("\n");
+}
+function stripYamlScalarQuotes(value) {
+  const trimmed = value.trim();
+  if (trimmed.length >= 2 && ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) || (trimmed.startsWith("'") && trimmed.endsWith("'")))) return trimmed.slice(1, -1);
+  return trimmed;
+}
+function stripShellCommentLine(value) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.startsWith("#")) return "";
+  return trimmed;
+}
+function leadingSpaces(value) {
+  const match = /^ */.exec(value);
+  return match ? match[0].length : 0;
+}
 function workflowInvokesScript(content, scriptName) {
   const escaped = scriptName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const runPattern = new RegExp(`\\b(?:npm|pnpm|yarn)\\s+run(?:\\s+-[\\w-]+)*\\s+${escaped}(?=$|[\\s#&|;'"])`, "i");
+  const commandStart = String.raw`(?:^|[;&|]\s*)`;
+  const runPattern = new RegExp(`${commandStart}(?:npm|pnpm|yarn)\\s+run(?:\\s+-[\\w-]+)*\\s+${escaped}(?=$|[\\s#&|;'"])`, "im");
   if (runPattern.test(content)) return true;
-  const directPattern = new RegExp(`\\b(?:pnpm|yarn)\\s+(?:-[\\w-]+\\s+)*${escaped}(?=$|[\\s#&|;'"])`, "i");
+  const directPattern = new RegExp(`${commandStart}(?:pnpm|yarn)\\s+(?:-[\\w-]+\\s+)*${escaped}(?=$|[\\s#&|;'"])`, "im");
   if (directPattern.test(content)) return true;
-  return scriptName === "test" && /\bnpm\s+(?:-[\w-]+\s+)*test(?=$|[\s#&|;'"])/i.test(content);
+  return scriptName === "test" && new RegExp(`${commandStart}npm\\s+(?:-[\\w-]+\\s+)*test(?=$|[\\s#&|;'"])`, "im").test(content);
 }
 function releaseSafetyFinding({ candidateFiles, projectRoot }) {
   const matches = RELEASE_SAFETY_CONTROLS.map((control) => Object.freeze({
