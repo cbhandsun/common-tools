@@ -27,6 +27,9 @@ const {
   parseArgs,
   readCoverageManifest
 } = require("../packages/slideclone-native-engine/scripts/component-coverage-matrix");
+const {
+  inferComponentFamiliesFromText
+} = require("../packages/slideclone-native-engine/scripts/lib/component-motifs");
 
 test("component coverage matrix summarizes rebuild reports and actionable residuals", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "component-coverage-matrix-"));
@@ -142,6 +145,21 @@ test("component coverage matrix summarizes rebuild reports and actionable residu
     keep: 1,
     high: 1
   });
+});
+
+test("component family inference uses bounded English tokens for short motif aliases", () => {
+  assert.deepEqual(
+    inferComponentFamiliesFromText("layered-architecture hierarchy milestone-roadmap search"),
+    ["hierarchy-tree", "layered-architecture", "timeline-roadmap"]
+  );
+  assert.deepEqual(
+    inferComponentFamiliesFromText("cycle-loop arc-arrow map-chart word-cloud"),
+    ["cycle-loop", "specialty-chart"]
+  );
+  assert.deepEqual(
+    inferComponentFamiliesFromText("架构 圆环 地图"),
+    ["cycle-loop", "layered-architecture", "specialty-chart"]
+  );
 });
 
 test("component coverage matrix fails gate when referenced output pptx is missing", () => {

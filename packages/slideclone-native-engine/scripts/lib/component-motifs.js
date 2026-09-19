@@ -121,11 +121,22 @@ function inferComponentFamiliesFromText(value = "") {
   if (/funnel|lens|漏斗/.test(text)) families.push("funnel-flow");
   if (/pyramid|金字塔/.test(text)) families.push("pyramid-stack");
   if (/layered|layer[-\s]?stack|stacked[-\s]?layer|architecture|分层|架构/.test(text)) families.push("layered-architecture");
-  if (/cycle|loop|arc|ring|concentric|循环|圆环|同心/.test(text)) families.push("cycle-loop");
+  if (containsAnyTextTerm(text, ["cycle", "loop", "arc", "ring", "concentric", "arc-arrow", "ring-node", "cycle-loop", "concentric-circles", "循环", "圆环", "同心"])) families.push("cycle-loop");
   if (/venn|intersection|overlap|交集|重叠/.test(text)) families.push("overlap-diagram");
   if (/fishbone|cause|鱼骨|因果/.test(text)) families.push("fishbone-cause");
-  if (/chart|donut|pie|treemap|bubble|scatter|sankey|map|word-cloud|waterfall|gauge|radar|图表|词云|地图|仪表|雷达/.test(text)) families.push("specialty-chart");
+  if (containsAnyTextTerm(text, ["chart", "donut", "pie", "treemap", "treemap-chart", "bubble", "scatter", "bubble-scatter-chart", "sankey", "sankey-flow-chart", "map chart", "map-chart", "geo-map", "word-cloud", "word-cloud-chart", "waterfall", "waterfall-chart", "gauge", "gauge-chart", "radar", "radar-chart", "pie-share-chart", "donut-segment-chart", "图表", "词云", "地图", "仪表", "雷达"])) families.push("specialty-chart");
   return uniqueComponentFamilies(families);
+}
+
+function containsAnyTextTerm(text, terms = []) {
+  return terms.some((term) => {
+    if (/[\u0080-\uFFFF]/.test(term)) return text.includes(term);
+    return new RegExp(`(^|[^a-z0-9-])${escapeRegExp(term)}($|[^a-z0-9-])`).test(text);
+  });
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function uniqueComponentFamilies(values = []) {
