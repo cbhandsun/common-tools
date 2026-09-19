@@ -16,7 +16,9 @@ const {
   readComparisonManifest,
   resolveReportFiles,
   normalizeMotifTargetMinimums,
+  normalizeComponentFamilyGapExamples,
   summarizeReport,
+  summarizeComponentFamilyActions,
   topDetectorCounts,
   truthyArg
 } = require("../packages/slideclone-native-engine/scripts/real-pptx-quality-matrix");
@@ -177,6 +179,29 @@ test("quality matrix aggregates pass state and editability metrics", () => {
       componentTemplateMotifReadyFamilyCounts: { "process-chain": 4 },
       componentTemplateMotifReadyGroupCounts: { "slide5-group2": 4 },
       componentTemplateMotifReadyTargetCounts: { "arc-arrow": 4, "whole-process-template": 4 },
+      componentFamilyAppliedCounts: { "process-flow": 4, "specialty-chart": 2 },
+      componentFamilyGapCounts: { "relationship-network": 1, "specialty-chart": 1 },
+      componentFamilyAppliedTypes: 2,
+      componentFamilyGapTypes: 2,
+      componentFamilyGapExamples: [{
+        page: 2,
+        image: 1,
+        families: ["relationship-network"],
+        mode: "preserve-local-crop",
+        detector: "relationship-underlay",
+        layerType: "diagram-zone",
+        family: "hub-spoke",
+        reason: "preserve-local-crop"
+      }, {
+        page: 3,
+        image: 2,
+        families: ["specialty-chart"],
+        mode: "preserve-crop-with-component-reference",
+        detector: "gauge-underlay",
+        layerType: "chart-zone",
+        family: "gauge-chart",
+        reason: "component-reference-only"
+      }],
       componentTemplateShapePartCounts: { "process-node": 4, "process-connector": 3 },
       componentTemplateStructureFitShapes: 5,
       componentTemplateStructureFitTextBoxes: 2,
@@ -490,6 +515,62 @@ test("quality matrix aggregates pass state and editability metrics", () => {
   assert.deepEqual(matrix.totals.componentTemplateMotifReadyFamilyCounts, { "process-chain": 4 });
   assert.deepEqual(matrix.totals.componentTemplateMotifReadyGroupCounts, { "slide5-group2": 4 });
   assert.deepEqual(matrix.totals.componentTemplateMotifReadyTargetCounts, { "arc-arrow": 4, "whole-process-template": 4 });
+  assert.deepEqual(row.componentFamilyAppliedCounts, { "process-flow": 4, "specialty-chart": 2 });
+  assert.equal(row.componentFamilyAppliedTypes, 2);
+  assert.deepEqual(matrix.totals.componentFamilyAppliedCounts, { "process-flow": 4, "specialty-chart": 2 });
+  assert.deepEqual(matrix.totals.componentFamilyGapCounts, { "relationship-network": 1, "specialty-chart": 1 });
+  assert.equal(matrix.totals.componentFamilyAppliedTypes, 2);
+  assert.equal(matrix.totals.componentFamilyGapTypes, 2);
+  assert.deepEqual(matrix.totals.componentFamilyCoverage, [
+    { family: "process-flow", appliedObjects: 4, gapLayers: 0, status: "covered" },
+    { family: "relationship-network", appliedObjects: 0, gapLayers: 1, status: "gap" },
+    { family: "specialty-chart", appliedObjects: 2, gapLayers: 1, status: "partial" }
+  ]);
+  assert.deepEqual(matrix.totals.topComponentFamiliesApplied, [
+    { detector: "process-flow", count: 4 },
+    { detector: "specialty-chart", count: 2 }
+  ]);
+  assert.deepEqual(matrix.totals.topComponentFamilyGaps, [
+    { detector: "relationship-network", count: 1 },
+    { detector: "specialty-chart", count: 1 }
+  ]);
+  assert.equal(row.componentFamilyGapExamples.length, 2);
+  assert.deepEqual(matrix.totals.componentFamilyActions, [
+    {
+      family: "relationship-network",
+      priority: "high",
+      action: "add-first-native-family-coverage",
+      gapLayers: 1,
+      appliedObjects: 0,
+      status: "gap",
+      examples: [{
+        deck: "Deck_A",
+        page: 2,
+        image: 1,
+        mode: "preserve-local-crop",
+        layerType: "diagram-zone",
+        detector: "relationship-underlay",
+        reason: "preserve-local-crop"
+      }]
+    },
+    {
+      family: "specialty-chart",
+      priority: "medium",
+      action: "expand-existing-family-coverage",
+      gapLayers: 1,
+      appliedObjects: 2,
+      status: "partial",
+      examples: [{
+        deck: "Deck_A",
+        page: 3,
+        image: 2,
+        mode: "preserve-crop-with-component-reference",
+        layerType: "chart-zone",
+        detector: "gauge-underlay",
+        reason: "component-reference-only"
+      }]
+    }
+  ]);
   assert.deepEqual(matrix.totals.componentStrategyModeCounts, {
     "plugin-component-template": 1,
     "preserve-crop-with-component-reference": 1,
@@ -566,6 +647,31 @@ test("quality matrix aggregates pass state and editability metrics", () => {
   assert.equal(matrix.averages.textCoverage, 0.95);
   assert.equal(matrix.averages.actionableEditableObjectRatio, 0.75);
   assert.equal(matrix.rows[1].rejectedPages[0], 1);
+});
+
+test("quality matrix infers component family coverage from legacy motif-ready reports", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "quality-matrix-family-fallback-"));
+  const file = writeReport(root, "Legacy_family", {
+    summary: { pages: 1, accepted: 1, needsReview: 0, rejected: 0, passed: true },
+    gate: { passed: true },
+    componentStrategyProfile: {
+      componentTemplateMotifReadyTargetCounts: {
+        "radial-link": 2,
+        "whole-process-template": 1,
+        "gauge-chart": 1
+      }
+    },
+    editabilityProfile: {}
+  });
+
+  const row = summarizeReport(file);
+
+  assert.deepEqual(row.componentFamilyAppliedCounts, {
+    "relationship-network": 2,
+    "process-flow": 1,
+    "specialty-chart": 1
+  });
+  assert.equal(row.componentFamilyAppliedTypes, 3);
 });
 
 test("quality matrix enforces visual similarity thresholds", () => {
@@ -923,6 +1029,92 @@ test("quality matrix can require motif-ready target counts explicitly", () => {
   assert.deepEqual(strict.totals.missingComponentTemplateMotifReadyTargetCounts, {
     "arc-arrow": { expected: 4, actual: 3 }
   });
+});
+
+test("quality matrix can require component family applied type diversity explicitly", () => {
+  const rows = [{
+    deck: "Component family diversity deck",
+    passed: true,
+    pages: 1,
+    accepted: 1,
+    needsReview: 0,
+    rejected: 0,
+    nonEditableImages: 0,
+    fullPageImages: 0,
+    disallowedFullPageImages: 0,
+    componentFamilyAppliedCounts: {
+      "process-flow": 4,
+      "specialty-chart": 2
+    }
+  }];
+
+  assert.equal(aggregateMatrix(rows, { minComponentFamilyAppliedTypes: 2 }).passed, true);
+  const strict = aggregateMatrix(rows, { minComponentFamilyAppliedTypes: 3 });
+  assert.equal(strict.passed, false);
+  assert.equal(strict.gates.minComponentFamilyAppliedTypes, 3);
+  assert.equal(strict.totals.componentFamilyAppliedTypes, 2);
+  assert.equal(strict.totals.componentFamilyAppliedTypesMet, false);
+});
+
+test("quality matrix normalizes component family gap examples and action priorities", () => {
+  const examples = normalizeComponentFamilyGapExamples([{
+    deck: "Raw deck",
+    reportFile: "raw.json",
+    page: 1,
+    image: 2,
+    families: ["relationship-network", ""],
+    mode: "preserve-local-crop",
+    detector: "topology-underlay",
+    layerType: "diagram-zone",
+    family: "topology-network",
+    reason: "preserve-local-crop"
+  }, {
+    families: []
+  }], { deck: "Deck override", reportFile: "report.json" });
+
+  assert.deepEqual(examples, [{
+    deck: "Deck override",
+    reportFile: "report.json",
+    page: 1,
+    image: 2,
+    families: ["relationship-network"],
+    mode: "preserve-local-crop",
+    detector: "topology-underlay",
+    layerType: "diagram-zone",
+    family: "topology-network",
+    reason: "preserve-local-crop"
+  }]);
+  assert.deepEqual(summarizeComponentFamilyActions({
+    componentFamilyCoverage: [
+      { family: "specialty-chart", appliedObjects: 2, gapLayers: 1, status: "partial" },
+      { family: "relationship-network", appliedObjects: 0, gapLayers: 4, status: "gap" }
+    ],
+    componentFamilyGapExamples: examples
+  }), [{
+    family: "relationship-network",
+    priority: "critical",
+    action: "add-first-native-family-coverage",
+    gapLayers: 4,
+    appliedObjects: 0,
+    status: "gap",
+    examples: [{
+      deck: "Deck override",
+      page: 1,
+      image: 2,
+      mode: "preserve-local-crop",
+      layerType: "diagram-zone",
+      detector: "topology-underlay",
+      reason: "preserve-local-crop"
+    }]
+  }, {
+    family: "specialty-chart",
+    priority: "medium",
+    action: "expand-existing-family-coverage",
+    gapLayers: 1,
+    appliedObjects: 2,
+    status: "partial",
+    examples: []
+  }]);
 });
 
 test("quality matrix accepts expanded diagram motif target gates", () => {
@@ -1417,6 +1609,49 @@ test("quality matrix flags component asset visual and gate regressions", () => {
   assert.equal(result.comparisons[0].candidate.visualUnitActionableUnexplainedCrops, 1);
 });
 
+test("quality matrix flags component family gap type regressions", () => {
+  const baseline = {
+    deck: "Deck_A",
+    reportFile: "baseline.json",
+    passed: true,
+    pages: 2,
+    accepted: 2,
+    needsReview: 0,
+    rejected: 0,
+    pixelDiffRatio: 0.04,
+    foregroundMissingRatio: 0.05,
+    actionableEditableObjectRatio: 1,
+    componentLocalAssetMatches: 10,
+    componentHighReusableGroupMatches: 3,
+    componentTemplateAppliedShapes: 20,
+    componentFamilyAppliedTypes: 2,
+    componentFamilyGapTypes: 0,
+    componentFamilyAppliedCounts: { "process-flow": 6, "matrix-table": 2 },
+    componentFamilyGapCounts: {},
+    componentTemplateRejectedByLayerEligibilityImages: 0,
+    residualLayerCandidates: 0,
+    visualUnitActionableUnexplainedCrops: 0,
+    textOverlayRiskBoxes: 0,
+    nativeOverlayRiskShapes: 0
+  };
+  const candidate = {
+    ...baseline,
+    reportFile: "candidate.json",
+    componentFamilyGapTypes: 1,
+    componentFamilyGapCounts: { "relationship-network": 1 }
+  };
+
+  const result = compareQualityRows([baseline], [candidate]);
+
+  assert.equal(result.passed, false);
+  assert.deepEqual(result.comparisons[0].reasons, ["component-family-gap-types-increased"]);
+  assert.equal(result.comparisons[0].deltas.componentFamilyAppliedTypes, 0);
+  assert.equal(result.comparisons[0].deltas.componentFamilyGapTypes, 1);
+  assert.deepEqual(result.comparisons[0].candidate.componentFamilyGapCounts, {
+    "relationship-network": 1
+  });
+});
+
 test("quality matrix allows bounded component template structure fit ratio drops", () => {
   const baseline = {
     deck: "Deck_A",
@@ -1510,6 +1745,7 @@ test("quality matrix reads component asset comparison manifests", () => {
       minComponentTemplateMotifReadyTargetCounts: {
         "whole-process-template": 1
       },
+      minComponentFamilyAppliedTypes: 3,
       maxComponentTemplateStructureFitShapeRatioDrop: 0.02,
       maxComponentTemplateEligibilityRejectionIncrease: 1,
       requireNoClassificationNeededVisualUnits: true,
@@ -1527,6 +1763,7 @@ test("quality matrix reads component asset comparison manifests", () => {
   assert.deepEqual(manifest.gates.minComponentTemplateMotifReadyTargetCounts, {
     "whole-process-template": 1
   });
+  assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 3);
   assert.equal(manifest.gates.maxComponentTemplateStructureFitShapeRatioDrop, 0.02);
   assert.equal(manifest.gates.maxComponentTemplateEligibilityRejectionIncrease, 1);
   assert.equal(manifest.gates.requireNoClassificationNeededVisualUnits, true);

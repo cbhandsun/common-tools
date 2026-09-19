@@ -10,6 +10,7 @@
     "minComponentTemplateMotifReadyTargetCounts": {
       "whole-process-template": 1
     },
+    "minComponentFamilyAppliedTypes": 4,
     "expectedComparedDecks": 6,
     "expectedDeckNames": [
       "AI_Powered_Product_Workflow_Transformation",

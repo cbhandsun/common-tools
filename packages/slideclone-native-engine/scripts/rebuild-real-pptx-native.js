@@ -1133,11 +1133,9 @@ const {
   ptToPxBox,
   pxToPtBox,
   safeComponentToken,
-  safeIdentifier,
-  temporaryAnswerWorkflowTextBox,
-  writePng
+  safeIdentifier,smartReviewPictorialRegions,temporaryAnswerWorkflowTextBox,writePng
 });
-const {
+const{
   createWorkflowComparisonMatrixObjects,
   sampleWorkflowMatrixCellFill,
   workflowComparisonMeasuredTextBox,
@@ -1188,27 +1186,20 @@ const {
   measureBranchCurvesFromAnchors,
   measuredFontSize,
   median,
-  normalizeCjkText,
-  normalizeMatrixLabel,
-  path,
-  protectProductCollaborationChallengeCrop,
-  ptToPxBox,
-  pxToPtBox,
+  normalizeCjkText,normalizeMatrixLabel,
+  path,pixel,protectProductCollaborationChallengeCrop,
+  ptToPxBox,pxToPtBox,
   round,
   roundedBox,
   roundRatio,
   readPng,
-  refineGraphicCrop,
-  resolveAssetPathForIr,
-  safeIdentifier,
-  shouldObjectifyProductCollaborationChallenge,
+  refineGraphicCrop,resolveAssetPathForIr,rgbToHex,
+  safeIdentifier,shouldObjectifyProductCollaborationChallenge,
   splitResidualLayerSource,
   temporaryAnswerWorkflowTextBox,
   unionPtBoxes,
-  workflowCollaborationBranchGlowStyle,
-  workflowCollaborationHubLayerStyle,
-  workflowSupplyChainTwoPanelEvidenceText,
-  writePng
+  workflowCollaborationBranchGlowStyle,workflowCollaborationHubLayerStyle,
+  workflowSupplyChainTwoPanelEvidenceText,writePng
 });
 const {
   createCenterBadgeQuadrantCycleObjects,
@@ -1229,25 +1220,16 @@ const {
   clampPtBoxToSlide,
   constrainPtBox,
   cropPng,
-  darkerHex,
-  eraseDarkPixelsInRects,
-  ensureDir,
-  expandPtBox,
-  hexToRgb,
-  normalizeCjkText,
-  path,
-  pixel,
-  parseHex,
+  darkerHex,eraseDarkPixelsInRects,
+  ensureDir,expandPtBox,
+  hexToRgb,inferWeight,
+  normalizeCjkText,path,
+  pixel,parseHex,
   ptBoxOverlapAreaValue,
-  ptToPxBox,
-  pxToPtBox,
-  rgbToHex,
-  round,
-  roundedBox,
-  sampleInkColor,
-  safeIdentifier,
-  temporaryAnswerWorkflowTextBox,
-  writePng
+  ptToPxBox,pxToPtBox,
+  rgbToHex,round,
+  roundedBox,sampleInkColor,
+  safeIdentifier,temporaryAnswerWorkflowTextBox,writePng
 });
 const {
   createAssetOsDemandUnderstandingAssistantObjects,

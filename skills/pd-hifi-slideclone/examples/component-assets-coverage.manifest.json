@@ -32,6 +32,7 @@
       "whole-process-template": 1
     },
     "minComponentTemplateMotifReadyTargetTypes": 4,
+    "minComponentFamilyAppliedTypes": 4,
     "requireOutputPptxExists": true,
     "requireOutputPptxZip": true,
     "requireOutputPptxOpenXml": true

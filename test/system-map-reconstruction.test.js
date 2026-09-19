@@ -37,11 +37,26 @@ test("system map policy does not flatten an enclosing pictorial composition into
     topologyReady: true,
     pictorialEnclosure: true,
     structuredLineMap: false,
-    decorativeGridTexture: true,
+    decorativeGridTexture: false,
     innerLabelCount: 2
   });
   assert.equal(decision.mode, MODES.FIDELITY);
   assert.equal(decision.protectFullCrop, true);
+});
+
+test("system map policy uses center-fidelity hybrid when enclosed topology and texture are measurable", () => {
+  const decision = chooseSystemMapReconstructionMode({
+    topologyReady: true,
+    pictorialEnclosure: true,
+    structuredLineMap: false,
+    decorativeGridTexture: true,
+    innerLabelCount: 2
+  });
+  assert.equal(decision.mode, MODES.NATIVE_HYBRID);
+  assert.equal(decision.protectFullCrop, false);
+  assert.equal(decision.preserveDenseCenter, true);
+  assert.equal(decision.rebuildOuterTexture, true);
+  assert.equal(decision.reasonCode, "system-map.topology-texture-and-enclosure-measurable");
 });
 
 test("system map composition keeps only the dense center crop and native outer structure", () => {

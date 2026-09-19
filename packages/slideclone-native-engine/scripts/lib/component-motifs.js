@@ -36,6 +36,42 @@ const KNOWN_TARGET_MOTIFS = Object.freeze([
 
 const KNOWN_TARGET_MOTIF_SET = new Set(KNOWN_TARGET_MOTIFS);
 
+const COMPONENT_FAMILY_BY_MOTIF = Object.freeze({
+  "arc-arrow": "cycle-loop",
+  "ring-node": "cycle-loop",
+  "card-grid": "matrix-table",
+  "tree-link": "hierarchy-tree",
+  "fishbone-cause": "fishbone-cause",
+  "radial-link": "relationship-network",
+  "linear-arrow-chain": "process-flow",
+  "whole-process-template": "process-flow",
+  "lens-funnel-flow": "funnel-flow",
+  "branch-card-flow": "process-flow",
+  "layered-stack": "layered-architecture",
+  "funnel-stack": "funnel-flow",
+  "pyramid-stack": "pyramid-stack",
+  "venn-overlap": "overlap-diagram",
+  "intersection-overlap": "overlap-diagram",
+  "milestone-roadmap": "timeline-roadmap",
+  "quadrant-axis": "matrix-table",
+  "pie-share-chart": "specialty-chart",
+  "donut-segment-chart": "specialty-chart",
+  "treemap-chart": "specialty-chart",
+  "bubble-scatter-chart": "specialty-chart",
+  "concentric-circles": "cycle-loop",
+  "sankey-flow-chart": "specialty-chart",
+  "map-chart": "specialty-chart",
+  "word-cloud-chart": "specialty-chart",
+  "waterfall-chart": "specialty-chart",
+  "gauge-chart": "specialty-chart",
+  "radar-chart": "specialty-chart",
+  "org-hierarchy": "hierarchy-tree",
+  "swimlane-flow": "process-flow",
+  "topology-network": "relationship-network"
+});
+
+const COMPONENT_FAMILY_IDS = Object.freeze([...new Set(Object.values(COMPONENT_FAMILY_BY_MOTIF))].sort((a, b) => a.localeCompare(b)));
+
 const TARGET_MOTIF_ALIASES = Object.freeze({
   "cycle-arrow": "arc-arrow",
   "circular-arrow": "arc-arrow",
@@ -64,6 +100,39 @@ function sanitizeMotifs(values = []) {
 
 function isKnownTargetMotif(value) {
   return Boolean(normalizeTargetMotif(value));
+}
+
+function componentFamilyForMotif(motif = "") {
+  return COMPONENT_FAMILY_BY_MOTIF[normalizeTargetMotif(motif)] || "";
+}
+
+function componentFamiliesForMotifs(motifs = []) {
+  return uniqueComponentFamilies(sanitizeMotifs(motifs).map(componentFamilyForMotif));
+}
+
+function inferComponentFamiliesFromText(value = "") {
+  const text = safeString(value).toLowerCase();
+  const families = [];
+  if (/swimlane|lane|process|flow|step|chain|branch|workflow|route|路径|流程|步骤|链路/.test(text)) families.push("process-flow");
+  if (/timeline|milestone|roadmap|gantt|时间轴|里程碑|路线图/.test(text)) families.push("timeline-roadmap");
+  if (/matrix|grid|table|quadrant|cell|comparison|paradigm|表格|矩阵|象限|对比/.test(text)) families.push("matrix-table");
+  if (/hub|spoke|radial|network|topology|relationship|system-map|关系|网络|拓扑/.test(text)) families.push("relationship-network");
+  if (/(^|[^a-z])tree(?!map)|org|hierarchy|层级|组织/.test(text)) families.push("hierarchy-tree");
+  if (/funnel|lens|漏斗/.test(text)) families.push("funnel-flow");
+  if (/pyramid|金字塔/.test(text)) families.push("pyramid-stack");
+  if (/layered|layer[-\s]?stack|stacked[-\s]?layer|architecture|分层|架构/.test(text)) families.push("layered-architecture");
+  if (/cycle|loop|arc|ring|concentric|循环|圆环|同心/.test(text)) families.push("cycle-loop");
+  if (/venn|intersection|overlap|交集|重叠/.test(text)) families.push("overlap-diagram");
+  if (/fishbone|cause|鱼骨|因果/.test(text)) families.push("fishbone-cause");
+  if (/chart|donut|pie|treemap|bubble|scatter|sankey|map|word-cloud|waterfall|gauge|radar|图表|词云|地图|仪表|雷达/.test(text)) families.push("specialty-chart");
+  return uniqueComponentFamilies(families);
+}
+
+function uniqueComponentFamilies(values = []) {
+  return [...new Set(values
+    .map((value) => safeString(value))
+    .filter((value) => COMPONENT_FAMILY_IDS.includes(value)))]
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function motifTokens(motifs = []) {
@@ -109,9 +178,15 @@ function safeString(value) {
 }
 
 module.exports = {
+  COMPONENT_FAMILY_BY_MOTIF,
+  COMPONENT_FAMILY_IDS,
   KNOWN_TARGET_MOTIFS,
+  componentFamiliesForMotifs,
+  componentFamilyForMotif,
+  inferComponentFamiliesFromText,
   isKnownTargetMotif,
   motifTokens,
   normalizeTargetMotif,
-  sanitizeMotifs
+  sanitizeMotifs,
+  uniqueComponentFamilies
 };

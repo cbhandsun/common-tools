@@ -93,6 +93,12 @@ test("package scripts expose OfficePLUS/iSlide component asset regression gate",
   assert.match(command, /--comparison-manifest skills\/pd-hifi-slideclone\/examples\/component-assets-regression\.manifest\.json/);
   assert.match(command, /--out runs\/component-assets-regression-matrix\.json/);
   assert.match(command, /--fail-on-regression/);
+
+  const manifest = JSON.parse(fs.readFileSync(
+    path.join(process.cwd(), "skills/pd-hifi-slideclone/examples/component-assets-regression.manifest.json"),
+    "utf8"
+  ));
+  assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 4);
 });
 
 test("package scripts expose batch native audit and golden-set gate entrypoints", () => {
@@ -287,6 +293,12 @@ test("package scripts expose OfficePLUS/iSlide component asset coverage gate", (
   assert.match(command, /--coverage-manifest skills\/pd-hifi-slideclone\/examples\/component-assets-coverage\.manifest\.json/);
   assert.match(command, /--out runs\/component-assets-coverage-matrix\.json/);
   assert.match(command, /--fail-on-coverage-gap/);
+
+  const manifest = JSON.parse(fs.readFileSync(
+    path.join(process.cwd(), "skills/pd-hifi-slideclone/examples/component-assets-coverage.manifest.json"),
+    "utf8"
+  ));
+  assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 4);
 });
 
 test("package scripts expose expression policy repair queue entrypoints", () => {

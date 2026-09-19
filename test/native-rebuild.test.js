@@ -26814,45 +26814,45 @@ test("measurable system-map topology enables automatic native reconstruction wit
   assert.equal(page.images[0].source.systemMapFidelityProtected, undefined);
 });
 
-test("dense decorative system-map grids use a bounded hybrid when the center topology is measurable", () => {
-  const sourceImage = { width: 960, height: 540, rgba: Buffer.alloc(960 * 540 * 4, 255) };
-  const drawBlueRect = (x, y, w, h) => {
+test("system-map hybrid", () => {
+  const img = { width: 960, height: 540, rgba: Buffer.alloc(960 * 540 * 4, 255) };
+  const rect = (x, y, w, h, [r, g, b] = [45, 120, 180]) => {
     for (let yy = y; yy < y + h; yy += 1) {
       for (let xx = x; xx < x + w; xx += 1) {
-        const offset = (yy * sourceImage.width + xx) * 4;
-        sourceImage.rgba[offset] = 45;
-        sourceImage.rgba[offset + 1] = 120;
-        sourceImage.rgba[offset + 2] = 180;
-        sourceImage.rgba[offset + 3] = 255;
+        const offset = (yy * img.width + xx) * 4;
+        img.rgba[offset] = r;
+        img.rgba[offset + 1] = g;
+        img.rgba[offset + 2] = b;
+        img.rgba[offset + 3] = 255;
       }
     }
   };
-  const drawBlueLine = (x1, y1, x2, y2) => {
-    if (y1 === y2) drawBlueRect(Math.min(x1, x2), y1, Math.abs(x2 - x1) + 1, 3);
-    else drawBlueRect(x1, Math.min(y1, y2), 3, Math.abs(y2 - y1) + 1);
+  const line = (x1, y1, x2, y2) => y1 === y2 ? rect(Math.min(x1, x2), y1, Math.abs(x2 - x1) + 1, 3) : rect(x1, Math.min(y1, y2), 3, Math.abs(y2 - y1) + 1);
+  const oval = (cx, cy, rx, ry) => {
+    for (let angle = 0; angle < 360; angle += 1) {
+      const radians = Math.PI * 2 * angle / 360; rect(Math.round(cx + rx * Math.cos(radians)) - 2, Math.round(cy + ry * Math.sin(radians)) - 2, 5, 5, [65, 185, 118]);
+    }
   };
-  for (const x of [365, 420, 475, 530, 585, 640]) {
-    for (const y of [190, 240, 290, 340, 390]) drawBlueRect(x - 7, y - 7, 14, 14);
-    drawBlueLine(x, 190, x, 390);
+  for (const x of [365,420,475,530,585,640]) {
+    for (const y of [190,240,290,340,390]) rect(x - 7, y - 7, 14, 14);
+    line(x, 190, x, 390);
   }
-  for (const y of [190, 240, 290, 340, 390]) drawBlueLine(365, y, 640, y);
-  for (const left of [35, 660]) {
+  for (const y of [190,240,290,340,390]) line(365, y, 640, y);
+  for (const left of [35,660]) {
     for (let y = 95; y < 440; y += 12) {
-      for (let x = left; x < left + 250; x += 12) drawBlueRect(x, y, 8, 8);
+      for (let x = left; x < left + 250; x += 12) rect(x, y, 8, 8);
     }
   }
+  oval(480, 240, 150, 135);
   const page = { images: [] };
-  const textBoxes = [
-    { text: "终局视野：生生不息的企业级数字化产品大脑", box: { x: 31, y: 34, w: 460, h: 35 } },
-    { text: "产品版图（System Map）", box: { x: 404, y: 121, w: 165, h: 19 } }
-  ];
+  const t = [{text:"终局视野：生生不息的企业级数字化产品大脑",box:{x:31,y:34,w:460,h:35}},{text:"产品版图（System Map）",box:{x:404,y:121,w:165,h:19}}];
 
-  assert.equal(prepareSystemMapTopologyProbe(page, textBoxes, { widthPt: 960, heightPt: 540 }, { sourceImage }), true);
-  assert.equal(protectUnreadableSystemMapFidelityCrop(page, textBoxes, { widthPt: 960, heightPt: 540 }, { sourceImage }), false);
-  assert.equal(page.images[0].source.systemMapFidelityProtected, undefined);
-  assert.equal(page.images[0].source.systemMapDecorativeGridTextureDetected, true);
-  assert.equal(page.images[0].source.systemMapHybridEligible, true);
-  assert.equal(page.images[0].source.systemMapReconstructionReasonCode, "system-map.topology-and-texture-measurable");
+  assert.equal(prepareSystemMapTopologyProbe(page, t, {widthPt:960,heightPt:540}, {sourceImage:img}), true);
+  assert.equal(protectUnreadableSystemMapFidelityCrop(page, t, {widthPt:960,heightPt:540}, {sourceImage:img}), false);
+  const s = page.images[0].source; assert.equal(s.systemMapFidelityProtected, undefined);
+  assert.equal(s.systemMapDecorativeGridTextureDetected, true);
+  assert.equal(s.systemMapHybridEligible, true);
+  assert.equal(s.systemMapReconstructionReasonCode, "system-map.topology-texture-and-enclosure-measurable");
 });
 
 test("unmeasurable automatic system-map probe removes its synthetic source candidate", () => {

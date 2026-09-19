@@ -6,10 +6,10 @@
   },
   "maxLegacyExceptions": 8,
   "legacyExceptions": {
-    "packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js": { "maxLines": 4005, "maxBytes": 183413, "maxRelativeImports": 111 },
+    "packages/slideclone-native-engine/scripts/rebuild-real-pptx-native.js": { "maxLines": 3987, "maxBytes": 183413, "maxRelativeImports": 111 },
     "packages/slideclone-native-engine/scripts/lib/component-template-native-shapes.js": { "maxRelativeImports": 22 },
     "packages/slideclone-native-engine/scripts/quality-gate-real-pptx.js": { "maxRelativeImports": 16 },
-    "test/native-rebuild.test.js": { "maxLines": 27161, "maxBytes": 1230292 },
+    "test/native-rebuild.test.js": { "maxLines": 27161, "maxBytes": 1230277 },
     "test/component-template-native-shapes.test.js": { "maxLines": 3175 },
     "test/visual-atoms.test.js": { "maxLines": 2456 },
     "test/component-render-strategy.test.js": { "maxLines": 2201 },

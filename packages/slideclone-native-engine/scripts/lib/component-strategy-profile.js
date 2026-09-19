@@ -1,5 +1,12 @@
 "use strict";
 
+const {
+  componentFamilyForMotif,
+  inferComponentFamiliesFromText,
+  sanitizeMotifs,
+  uniqueComponentFamilies
+} = require("./component-motifs");
+
 function summarizeComponentStrategyProfile(ir = {}) {
   const profile = emptyProfile();
   const appliedImageKeys = new Set();
@@ -7,8 +14,9 @@ function summarizeComponentStrategyProfile(ir = {}) {
   const wholeProcessImageKeys = new Set();
   const replacedImageKeys = new Set();
   const splitImageKeys = new Set();
-  for (const page of Array.isArray(ir.pages) ? ir.pages : []) {
-    for (const image of Array.isArray(page.images) ? page.images : []) {
+  for (const [pageOffset, page] of (Array.isArray(ir.pages) ? ir.pages : []).entries()) {
+    const pageIndex = Number.isFinite(Number(page?.pageIndex)) ? Number(page.pageIndex) : pageOffset;
+    for (const [imageOffset, image] of (Array.isArray(page.images) ? page.images : []).entries()) {
       const strategy = readStrategy(image);
       if (strategy) {
         const mode = safeKey(strategy.mode, "unknown");
@@ -46,6 +54,8 @@ function summarizeComponentStrategyProfile(ir = {}) {
         }
         collectLocalAssetMatches(profile, image);
       }
+      addComponentFamilyAppliedCounts(profile.componentFamilyAppliedCounts, image?.source);
+      addComponentFamilyGapCounts(profile, image, { pageIndex, imageIndex: imageOffset });
       if (image?.source?.componentTemplateGroupApplied === true) {
         appliedImageKeys.add(componentTemplateLayerKey(image, image?.id));
         if (isMotifReadyComponentTemplateSource(image.source)) {
@@ -89,6 +99,7 @@ function summarizeComponentStrategyProfile(ir = {}) {
       if (isVisualAtomTopologyConnectorSource(shape.source)) profile.visualAtomTopologyConnectors += 1;
       if (isVisualAtomContainerNodeSource(shape.source)) profile.visualAtomContainerNodes += 1;
       if (isVisualAtomContainedNodeSource(shape.source)) profile.visualAtomContainedNodes += 1;
+      addComponentFamilyAppliedCounts(profile.componentFamilyAppliedCounts, shape?.source);
       if (shape?.source?.componentTemplateGroupApplied !== true) continue;
       profile.componentTemplateAppliedShapes += 1;
       appliedImageKeys.add(componentTemplateLayerKey(shape, shape.source.layerSourceId));
@@ -112,6 +123,7 @@ function summarizeComponentStrategyProfile(ir = {}) {
       }
     }
     for (const textBox of Array.isArray(page.textBoxes) ? page.textBoxes : []) {
+      addComponentFamilyAppliedCounts(profile.componentFamilyAppliedCounts, textBox?.source);
       if (textBox?.source?.componentTemplateGroupApplied !== true) continue;
       profile.componentTemplateAppliedTextBoxes += 1;
       appliedImageKeys.add(componentTemplateLayerKey(textBox, textBox.source.layerSourceId));
@@ -136,6 +148,8 @@ function summarizeComponentStrategyProfile(ir = {}) {
   profile.pluginReferencedImages = profile.pluginComponentTemplateImages
     + profile.preserveCropWithComponentReferenceImages
     + profile.nativeRebuildWithComponentStyleGuideImages;
+  profile.componentFamilyAppliedTypes = countPositiveCounts(profile.componentFamilyAppliedCounts);
+  profile.componentFamilyGapTypes = countPositiveCounts(profile.componentFamilyGapCounts);
   return profile;
 }
 
@@ -173,6 +187,11 @@ function emptyProfile() {
     componentTemplateCropSplitImages: 0,
     componentTemplatePictureResidualImages: 0,
     componentTemplateCropPreservedImages: 0,
+    componentFamilyAppliedCounts: {},
+    componentFamilyAppliedTypes: 0,
+    componentFamilyGapCounts: {},
+    componentFamilyGapTypes: 0,
+    componentFamilyGapExamples: [],
     visualAtomTopologyConnectors: 0,
     visualAtomContainerNodes: 0,
     visualAtomContainedNodes: 0,
@@ -302,9 +321,96 @@ function componentTemplateTargetMotifs(source = {}) {
     ...(Array.isArray(source.matchedComponentTargetMotifs) ? source.matchedComponentTargetMotifs : []),
     ...(Array.isArray(source.componentTemplateTargetMotifs) ? source.componentTemplateTargetMotifs : [])
   ];
-  return [...new Set(values
-    .map((motif) => safeKey(motif, "").toLowerCase())
-    .filter((motif) => /^(arc-arrow|ring-node|card-grid|tree-link|radial-link|linear-arrow-chain|whole-process-template|lens-funnel-flow|branch-card-flow|pie-share-chart)$/.test(motif)))];
+  return sanitizeMotifs(values);
+}
+
+function addComponentFamilyAppliedCounts(target, source = {}) {
+  if (!source || typeof source !== "object") return;
+  if (
+    source.componentTemplateGroupApplied !== true
+    && source.nativeComponentInstance !== true
+    && source.nativeRebuild !== true
+    && !safeKey(source.nativeComponentArchetype || "", "")
+  ) {
+    return;
+  }
+  const families = inferComponentFamiliesFromSource(source);
+  for (const family of families) addCount(target, family);
+}
+
+function inferComponentFamiliesFromSource(source = {}) {
+  const motifFamilies = componentTemplateTargetMotifs(source).map(componentFamilyForMotif).filter(Boolean);
+  const textFamilies = inferComponentFamiliesFromText([
+    source.componentTemplateFamilyApplied,
+    source.nativeComponentArchetype,
+    source.nativeComponentRole,
+    source.nativeComponentPart,
+    source.componentTemplatePart,
+    source.expressionForm,
+    source.expressionSubtype,
+    source.recommendedAction,
+    source.detector,
+    source.layer?.templateFamily,
+    source.layer?.layerType,
+    source.layer?.expressionForm,
+    source.layer?.expressionSubtype,
+    source.layer?.recommendedAction,
+    source.layer?.detector,
+    source.layer?.diagramUnderstanding?.archetype,
+    source.layer?.diagramUnderstanding?.componentStrategy?.templateFamily
+  ].map((value) => safeKey(value, "")).join(" "));
+  return uniqueComponentFamilies([...motifFamilies, ...textFamilies]);
+}
+
+function addComponentFamilyGapCounts(profile, image = {}, context = {}) {
+  const source = image?.source || {};
+  if (!source || typeof source !== "object") return;
+  if (!isComponentFamilyGapImage(image)) return;
+  const families = inferComponentFamiliesFromSource(source);
+  if (families.length === 0) return;
+  for (const family of families) addCount(profile.componentFamilyGapCounts, family);
+  if (profile.componentFamilyGapExamples.length >= 24) return;
+  const layer = source.layer || {};
+  const strategy = readStrategy(image) || {};
+  profile.componentFamilyGapExamples.push({
+    page: Number(context.pageIndex || 0) + 1,
+    image: Number(context.imageIndex || 0) + 1,
+    families,
+    mode: safeKey(strategy.mode || source.componentStrategyMode || "", ""),
+    detector: safeKey(source.detector || layer.detector || "", ""),
+    layerType: safeKey(source.layerType || layer.layerType || "", ""),
+    family: safeKey(
+      source.componentTemplateFamilyApplied
+      || layer.templateFamily
+      || layer.diagramUnderstanding?.componentStrategy?.templateFamily
+      || layer.diagramUnderstanding?.archetype
+      || source.expressionSubtype
+      || layer.expressionSubtype
+      || "",
+      ""
+    ),
+    reason: componentFamilyGapReason(source, strategy)
+  });
+}
+
+function isComponentFamilyGapImage(image = {}) {
+  const source = image?.source || {};
+  if (!source || typeof source !== "object") return false;
+  if (isComponentTemplateNativePicture(image)) return false;
+  if (source.editable === true || source.nativeRebuild === true || source.nativeComponentInstance === true) return false;
+  const strategy = readStrategy(image) || {};
+  const mode = safeKey(strategy.mode || source.componentStrategyMode || "", "");
+  if (source.componentTemplateCropReplacedByNative === false) return true;
+  if (source.residualSplitRejected && typeof source.residualSplitRejected === "object") return true;
+  return /^(preserve-local-crop|preserve-crop-with-component-reference)$/u.test(mode);
+}
+
+function componentFamilyGapReason(source = {}, strategy = {}) {
+  if (source.componentTemplateCropReplacedByNative === false) {
+    return safeKey(source.componentTemplateCropReplacementReason || "component-template-crop-retained", "component-template-crop-retained");
+  }
+  if (source.residualSplitRejected && typeof source.residualSplitRejected === "object") return "residual-split-rejected";
+  return safeKey(strategy.mode || source.componentStrategyMode || "preserve-local-crop", "preserve-local-crop");
 }
 
 function readStrategy(image = {}) {
@@ -325,6 +431,12 @@ function addCount(target, key, count = 1) {
   target[safe] = (target[safe] || 0) + (Number.isFinite(value) ? value : 0);
 }
 
+function countPositiveCounts(counts = {}) {
+  return Object.values(counts || {})
+    .filter((count) => Number(count || 0) > 0)
+    .length;
+}
+
 function safeKey(value, fallback) {
   const text = String(value ?? "")
     .replace(/[\u0000-\u001f\u007f]/g, "")
@@ -339,6 +451,9 @@ module.exports = {
   summarizeComponentStrategyProfile,
   _private: {
     emptyProfile,
+    componentFamilyGapReason,
+    inferComponentFamiliesFromSource,
+    isComponentFamilyGapImage,
     readStrategy,
     safeKey
   }

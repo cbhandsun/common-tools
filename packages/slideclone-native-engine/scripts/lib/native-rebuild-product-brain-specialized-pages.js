@@ -15,6 +15,7 @@ function createProductBrainSpecializedPagesFactory(dependencies = {}) {
     pxToPtBox,
     safeComponentToken,
     safeIdentifier,
+    smartReviewPictorialRegions,
     temporaryAnswerWorkflowTextBox,
     writePng
   } = dependencies;
