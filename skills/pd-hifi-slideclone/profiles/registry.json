@@ -122,6 +122,16 @@
         "runs/image-to-editable-component-recall/component-strategy-rebuild-report.json"
       ]
     },
+    "image-to-editable-component-recall-corpus": {
+      "description": "Versioned command profile for slideclone:image-to-editable-component-recall-corpus.",
+      "script": "packages/slideclone-native-engine/scripts/image-to-editable-component-recall-corpus.js",
+      "args": [
+        "--manifest",
+        "skills/pd-hifi-slideclone/examples/image-to-editable-component-recall-corpus.manifest.json",
+        "--out",
+        "runs/image-to-editable-component-recall/corpus-plan.json"
+      ]
+    },
     "image-to-editable-component-recall-gate": {
       "description": "Versioned command profile for slideclone:image-to-editable-component-recall-gate.",
       "script": "packages/slideclone-native-engine/scripts/component-coverage-matrix.js",

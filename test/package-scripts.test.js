@@ -304,11 +304,15 @@ test("package scripts expose OfficePLUS/iSlide component asset coverage gate", (
 test("package scripts expose image-to-editable component recall gate", () => {
   const scripts = readPackageScripts();
   const report = scripts["slideclone:image-to-editable-component-recall-report"];
+  const corpus = scripts["slideclone:image-to-editable-component-recall-corpus"];
   const command = scripts["slideclone:image-to-editable-component-recall-gate"];
 
   assert.match(report, /image-to-editable-component-recall-report\.js/);
   assert.match(report, /--root runs\/image-to-editable-component-recall/);
   assert.match(report, /--out runs\/image-to-editable-component-recall\/component-strategy-rebuild-report\.json/);
+  assert.match(corpus, /image-to-editable-component-recall-corpus\.js/);
+  assert.match(corpus, /--manifest skills\/pd-hifi-slideclone\/examples\/image-to-editable-component-recall-corpus\.manifest\.json/);
+  assert.match(corpus, /--out runs\/image-to-editable-component-recall\/corpus-plan\.json/);
   assert.match(command, /component-coverage-matrix\.js/);
   assert.match(command, /--coverage-manifest skills\/pd-hifi-slideclone\/examples\/image-to-editable-component-recall\.manifest\.json/);
   assert.match(command, /--root runs\/image-to-editable-component-recall/);
@@ -324,6 +328,15 @@ test("package scripts expose image-to-editable component recall gate", () => {
   assert.equal(manifest.gates.minImageComponentStrategyFamilyTypes, 2);
   assert.equal(manifest.gates.maxImageComponentMissingFamilyTypes, 2);
   assert.equal(manifest.gates.requireNoExpressionPolicyViolations, undefined);
+
+  const corpusManifest = JSON.parse(fs.readFileSync(
+    path.join(process.cwd(), "skills/pd-hifi-slideclone/examples/image-to-editable-component-recall-corpus.manifest.json"),
+    "utf8"
+  ));
+  assert.ok(corpusManifest.requiredComponentFamilies.includes("hierarchy-tree"));
+  assert.ok(corpusManifest.requiredComponentFamilies.includes("specialty-chart"));
+  assert.equal(corpusManifest.acceptanceProfiles.recallReport, "image-to-editable-component-recall-report");
+  assert.equal(corpusManifest.acceptanceProfiles.coverageGate, "image-to-editable-component-recall-gate");
 });
 
 test("package scripts expose expression policy repair queue entrypoints", () => {
