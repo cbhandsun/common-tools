@@ -3,6 +3,7 @@
   "id": "image-to-editable-component-recall-corpus-v1",
   "description": "Reusable real image-to-PPT component recall corpus contract. Cases define source inputs, expected component families, generated IR/PPTX artifacts, and the recall-report plus coverage-gate acceptance path.",
   "requiredComponentFamilies": [
+    "cycle-loop",
     "fishbone-cause",
     "funnel-flow",
     "hierarchy-tree",
@@ -114,6 +115,22 @@
         "outputIr": "runs/image-to-editable-component-recall/matrix-process-dashboard/ir/deck.json",
         "outputPptx": "runs/image-to-editable-component-recall/matrix-process-dashboard/deck.pptx",
         "componentCandidateReport": "runs/image-to-editable-component-recall/matrix-process-dashboard/deck.component-candidates.json"
+      }
+    },
+    {
+      "id": "cycle-loop-process",
+      "title": "Cycle loop process image converted through image-to-editable recall",
+      "source": {
+        "kind": "image",
+        "path": "runs/image-to-editable-component-recall/sources/cycle-loop-process.png",
+        "provenance": "Real or approved user-owned image fixture."
+      },
+      "expectedComponentFamilies": ["cycle-loop", "process-flow"],
+      "artifacts": {
+        "inputWorkDir": "runs/image-to-editable-component-recall/cycle-loop-process",
+        "outputIr": "runs/image-to-editable-component-recall/cycle-loop-process/ir/deck.json",
+        "outputPptx": "runs/image-to-editable-component-recall/cycle-loop-process/deck.pptx",
+        "componentCandidateReport": "runs/image-to-editable-component-recall/cycle-loop-process/deck.component-candidates.json"
       }
     }
   ]

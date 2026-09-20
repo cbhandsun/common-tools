@@ -333,6 +333,7 @@ test("package scripts expose image-to-editable component recall gate", () => {
     path.join(process.cwd(), "skills/pd-hifi-slideclone/examples/image-to-editable-component-recall-corpus.manifest.json"),
     "utf8"
   ));
+  assert.ok(corpusManifest.requiredComponentFamilies.includes("cycle-loop"));
   assert.ok(corpusManifest.requiredComponentFamilies.includes("hierarchy-tree"));
   assert.ok(corpusManifest.requiredComponentFamilies.includes("specialty-chart"));
   assert.equal(corpusManifest.acceptanceProfiles.recallReport, "image-to-editable-component-recall-report");
