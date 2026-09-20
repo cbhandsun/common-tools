@@ -129,11 +129,7 @@ function parseArgs(argv) {
 function main() {
   const args = parseArgs(process.argv);
   const manifest = args.coverageManifest ? readCoverageManifest(args.coverageManifest) : null;
-  const reports = manifest?.reports?.length > 0
-    ? manifest.reports.map((file) => path.resolve(file))
-    : args.reports.length > 0
-    ? args.reports.map((file) => path.resolve(file))
-    : resolveLatestReports(args.root);
+  const reports = resolveCoverageReportInputs(args, manifest);
   const matrix = buildComponentCoverageMatrix({ reports });
   applyCoverageGates(matrix, {
     requireNoActionableResiduals: args.requireNoActionableResiduals === true
@@ -431,6 +427,18 @@ function applyCoverageGates(matrix, options = {}) {
   return matrix;
 }
 
+function resolveCoverageReportInputs(args = {}, manifest = null) {
+  const cliReports = Array.isArray(args.reports)
+    ? args.reports.map((file) => String(file || "").trim()).filter(Boolean)
+    : [];
+  if (cliReports.length > 0) return cliReports.map((file) => path.resolve(file));
+  const manifestReports = Array.isArray(manifest?.reports)
+    ? manifest.reports.map((file) => String(file || "").trim()).filter(Boolean)
+    : [];
+  if (manifestReports.length > 0) return manifestReports.map((file) => path.resolve(file));
+  return resolveLatestReports(args.root || "runs");
+}
+
 function countPositiveMotifs(counts = {}) {
   return Object.entries(counts || {})
     .filter(([motif, count]) => normalizeTargetMotif(motif) && Number(count || 0) > 0)
@@ -574,5 +582,6 @@ module.exports = {
   normalizeMotifTargetMinimums,
   normalizeRequiredComponentFamilies,
   parseArgs,
-  readCoverageManifest
+  readCoverageManifest,
+  resolveCoverageReportInputs
 };
