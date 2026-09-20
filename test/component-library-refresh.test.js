@@ -159,12 +159,18 @@ test("buildRefreshPlan allows explicit live search and fail gate", () => {
   const plan = buildRefreshPlan({
     outDir: "runs/live",
     liveSearch: true,
-    failOnMissingReady: true
+    motifs: ["arc-arrow"],
+    failOnMissingReady: true,
+    failOnMissingFamilyReady: true
   });
 
   assert.equal(plan.mode, "live-search");
   assert.equal(plan.steps[1].args.includes("--dry-run"), false);
+  assert.deepEqual(plan.steps[1].args.slice(-2), ["--target-motifs", "arc-arrow"]);
+  assert.ok(plan.steps[3].args.includes("--motifs"));
+  assert.ok(plan.steps[3].args.includes("arc-arrow"));
   assert.ok(plan.steps[3].args.includes("--fail-on-missing-ready"));
+  assert.ok(plan.steps[3].args.includes("--fail-on-missing-family-ready"));
   assert.equal(plan.steps[4].name, "component-plugin-action-queue");
 });
 

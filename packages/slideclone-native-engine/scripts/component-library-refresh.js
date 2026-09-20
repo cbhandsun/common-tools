@@ -49,6 +49,7 @@ function parseArgs(argv) {
     includeReferenceAssets: false,
     componentStoreRoot: path.join("runs", "plugin-component-inventory"),
     failOnMissingReady: false,
+    failOnMissingFamilyReady: false,
     roots: [],
     motifs: [],
     maxDepth: 5,
@@ -136,6 +137,8 @@ function parseArgs(argv) {
       i += 1;
     } else if (arg === "--fail-on-missing-ready") {
       args.failOnMissingReady = true;
+    } else if (arg === "--fail-on-missing-family-ready") {
+      args.failOnMissingFamilyReady = true;
     } else if (arg === "--root" && next) {
       args.roots.push(next);
       i += 1;
@@ -353,7 +356,9 @@ function buildRefreshPlan(options = {}) {
       paths.inventory,
       "--out",
       paths.motifRecall,
-      ...(args.failOnMissingReady ? ["--fail-on-missing-ready"] : [])
+      ...(args.motifs && args.motifs.length ? ["--motifs", args.motifs.join(",")] : []),
+      ...(args.failOnMissingReady ? ["--fail-on-missing-ready"] : []),
+      ...(args.failOnMissingFamilyReady ? ["--fail-on-missing-family-ready"] : [])
     ]
   });
   steps.push({

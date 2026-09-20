@@ -536,6 +536,8 @@ npm run slideclone:component-library-materialize -- `
 
 后续默认生成只读取该离线库；iSlide、OfficePLUS 仅在显式采集模式下使用。仅供视觉参考、尚未采用的素材默认不会复制；确有许可并需要保留时，显式添加 `--include-reference-assets`。
 
+`component-library-refresh` 输出的 `component-motif-recall-report.json` 同时包含 motif 明细和 `familyRows` 组件族汇总。需要按组件丰富度验收刷新结果时，优先使用 `--fail-on-missing-family-ready`，要求每个出现的组件族至少有一个 native-ready applied component；需要逐 motif 全覆盖时再使用更严格的 `--fail-on-missing-ready`。
+
 OfficePLUS 的“图表”分类还可能下载 `.crtx` 原生 Office 图表模板，而不是 PPTX。采集器会把它标记为 `chart-template`，只读取图表类型、系列/数据点数量、图例/标签及主题样式入口，绝不写入图表数据文本；目前可直接识别饼图为 `pie-share-chart`，让份额图优先保持为可编辑原生图表。
 
 只有明确需要学习整份模板包时才加 `--full-deck`。默认活动页模式会返回 `saveScope: "active-slide-only"` 和原始 `slideIndex`，后续 registry 会把这些 PPTX 识别为 `applied-component`，并优先作为 `inspect-openxml-applied-plugin-component` 参与本地组件匹配和原生重放。

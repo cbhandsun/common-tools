@@ -5,6 +5,7 @@ const path = require("node:path");
 const {
   _private: plannerPrivate = {}
 } = require("./lib/component-candidate-planner");
+const { componentFamilyForMotif } = require("./lib/component-motifs");
 
 const DEFAULT_MOTIFS = [
   "arc-arrow",
@@ -34,7 +35,8 @@ function parseArgs(argv) {
     inventories: [],
     motifs: null,
     out: path.join("runs", "plugin-component-inventory", "component-motif-recall-report.json"),
-    failOnMissingReady: false
+    failOnMissingReady: false,
+    failOnMissingFamilyReady: false
   };
   for (let i = 2; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -56,6 +58,8 @@ function parseArgs(argv) {
       i += 1;
     } else if (arg === "--fail-on-missing-ready") {
       args.failOnMissingReady = true;
+    } else if (arg === "--fail-on-missing-family-ready") {
+      args.failOnMissingFamilyReady = true;
     } else {
       throw new Error(`Unknown component-motif-recall-report argument: ${arg}`);
     }
@@ -84,11 +88,13 @@ function buildMotifRecallReport(options = {}) {
     row.suggestedCollectionActions = buildSuggestedCollectionActions(row);
   }
 
-  const summary = summarizeRows(rows);
+  const familyRows = buildFamilyRows(rows);
+  const summary = summarizeRows(rows, familyRows);
   return {
     provider: "component-motif-recall-report-v1",
     generatedAt: new Date().toISOString(),
     summary,
+    familyRows,
     rows
   };
 }
@@ -96,6 +102,7 @@ function buildMotifRecallReport(options = {}) {
 function createMotifRow(motif) {
   return {
     motif,
+    componentFamily: componentFamilyForMotif(motif),
     expectedKeywords: motifKeywords(motif),
     plannedQueries: 0,
     candidateDocuments: 0,
@@ -318,17 +325,98 @@ function buildNotes(row) {
   return notes;
 }
 
-function summarizeRows(rows) {
+function summarizeRows(rows, familyRows = []) {
   const byStatus = {};
   for (const row of rows) byStatus[row.status] = (byStatus[row.status] || 0) + 1;
   return {
     motifs: rows.length,
     ready: byStatus.ready || 0,
+    families: familyRows.length,
+    familiesFullyReady: familyRows.filter((row) => row.status === "ready").length,
+    familiesWithNativeReady: familyRows.filter((row) => row.nativeReadyMotifs > 0).length,
+    familiesNeedingCollection: familyRows.filter((row) => row.nativeReadyMotifs === 0).length,
     searchable: rows.filter((row) => row.candidateHits > 0 || row.downloadableCandidates > 0).length,
     localStructured: rows.filter((row) => row.localStructureMatches > 0).length,
     appliedComponentBacked: rows.filter((row) => row.appliedComponentAssets > 0).length,
     byStatus
   };
+}
+
+function buildFamilyRows(rows = []) {
+  const groups = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const family = row.componentFamily || componentFamilyForMotif(row.motif);
+    if (!family) continue;
+    if (!groups.has(family)) groups.set(family, createFamilyRow(family));
+    addMotifToFamilyRow(groups.get(family), row);
+  }
+  return [...groups.values()]
+    .map(finalizeFamilyRow)
+    .sort((a, b) => a.componentFamily.localeCompare(b.componentFamily));
+}
+
+function createFamilyRow(componentFamily) {
+  return {
+    componentFamily,
+    motifs: [],
+    readyMotifs: [],
+    missingNativeReadyMotifs: [],
+    plannedQueries: 0,
+    candidateHits: 0,
+    localAssets: 0,
+    localStructureMatches: 0,
+    appliedComponentAssets: 0,
+    downloadableCandidates: 0,
+    nativeReadyMotifs: 0,
+    status: "missing",
+    suggestedCollectionActions: []
+  };
+}
+
+function addMotifToFamilyRow(familyRow, motifRow) {
+  familyRow.motifs.push(motifRow.motif);
+  familyRow.plannedQueries += Number(motifRow.plannedQueries || 0);
+  familyRow.candidateHits += Number(motifRow.candidateHits || 0);
+  familyRow.localAssets += Number(motifRow.localAssets || 0);
+  familyRow.localStructureMatches += Number(motifRow.localStructureMatches || 0);
+  familyRow.appliedComponentAssets += Number(motifRow.appliedComponentAssets || 0);
+  familyRow.downloadableCandidates += Number(motifRow.downloadableCandidates || 0);
+  if (motifRow.status === "ready") {
+    familyRow.readyMotifs.push(motifRow.motif);
+  } else {
+    familyRow.missingNativeReadyMotifs.push(motifRow.motif);
+  }
+}
+
+function finalizeFamilyRow(familyRow) {
+  familyRow.motifs = [...new Set(familyRow.motifs)].sort((a, b) => a.localeCompare(b));
+  familyRow.readyMotifs = [...new Set(familyRow.readyMotifs)].sort((a, b) => a.localeCompare(b));
+  familyRow.missingNativeReadyMotifs = [...new Set(familyRow.missingNativeReadyMotifs)].sort((a, b) => a.localeCompare(b));
+  familyRow.nativeReadyMotifs = familyRow.readyMotifs.length;
+  familyRow.status = classifyFamilyStatus(familyRow);
+  familyRow.suggestedCollectionActions = buildFamilyCollectionActions(familyRow);
+  return familyRow;
+}
+
+function classifyFamilyStatus(familyRow) {
+  if (familyRow.nativeReadyMotifs > 0 && familyRow.nativeReadyMotifs === familyRow.motifs.length) return "ready";
+  if (familyRow.nativeReadyMotifs > 0) return "partial-ready";
+  if (familyRow.candidateHits > 0 || familyRow.downloadableCandidates > 0) return "search-only";
+  if (familyRow.localStructureMatches > 0) return "local-structure-only";
+  if (familyRow.localAssets > 0) return "local-only";
+  if (familyRow.plannedQueries > 0) return "planned-only";
+  return "missing";
+}
+
+function buildFamilyCollectionActions(familyRow) {
+  if (familyRow.status === "ready") return [];
+  return familyRow.missingNativeReadyMotifs.map((motif) => ({
+    action: "close-family-native-component-gap",
+    componentFamily: familyRow.componentFamily,
+    motif,
+    keywords: motifKeywords(motif).slice(0, 4),
+    reason: "component family is not fully backed by native-ready applied component motifs"
+  }));
 }
 
 function buildSuggestedCollectionActions(row) {
@@ -467,8 +555,12 @@ function main() {
   fs.writeFileSync(args.out, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   process.stdout.write(`motifs: ${report.summary.motifs}\n`);
   process.stdout.write(`ready: ${report.summary.ready}\n`);
+  process.stdout.write(`families: ${report.summary.families}\n`);
+  process.stdout.write(`familiesWithNativeReady: ${report.summary.familiesWithNativeReady}\n`);
   process.stdout.write(`report: ${path.resolve(args.out)}\n`);
   if (args.failOnMissingReady && report.summary.ready < report.summary.motifs) {
+    process.exitCode = 1;
+  } else if (args.failOnMissingFamilyReady && report.summary.familiesWithNativeReady < report.summary.families) {
     process.exitCode = 1;
   }
 }
@@ -494,6 +586,7 @@ module.exports = {
     motifsForAsset,
     motifsForInventoryItem,
     normalizeDetectedMotifs,
+    buildFamilyRows,
     textMatchesMotif
   }
 };

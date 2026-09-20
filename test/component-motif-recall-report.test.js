@@ -195,6 +195,53 @@ test("buildMotifRecallReport emits concrete collection actions for missing motif
   assert.ok(row.suggestedCollectionActions[0].keywords.includes("整组流程组件"));
 });
 
+test("buildMotifRecallReport summarizes component family readiness and gaps", () => {
+  const report = buildMotifRecallReport({
+    motifs: ["linear-arrow-chain", "branch-card-flow", "card-grid"],
+    candidateReports: [{
+      layers: [{
+        plan: {
+          targetMotifs: ["branch-card-flow", "card-grid"],
+          queries: [
+            { keywords: ["分支卡片流程"] },
+            { keywords: ["卡片矩阵"] }
+          ]
+        },
+        bestCandidates: [
+          { title: "分支卡片流程组件", downloadUrl: "https://example.invalid/branch.pptx" },
+          { title: "卡片矩阵组件", downloadUrl: "https://example.invalid/grid.pptx" }
+        ]
+      }]
+    }],
+    inventories: [{
+      provider: "plugin-component-registry-v1",
+      candidates: [{
+        provider: "islide",
+        title: "applied linear arrow chain process",
+        roleTags: ["applied-component"],
+        structureSignature: {
+          primaryMotif: "linear-arrow-chain",
+          motifs: ["linear-arrow-chain"]
+        }
+      }]
+    }]
+  });
+
+  const processFamily = report.familyRows.find((row) => row.componentFamily === "process-flow");
+  const matrixFamily = report.familyRows.find((row) => row.componentFamily === "matrix-table");
+
+  assert.equal(report.summary.families, 2);
+  assert.equal(report.summary.familiesFullyReady, 0);
+  assert.equal(report.summary.familiesWithNativeReady, 1);
+  assert.equal(report.summary.familiesNeedingCollection, 1);
+  assert.equal(processFamily.status, "partial-ready");
+  assert.deepEqual(processFamily.readyMotifs, ["linear-arrow-chain"]);
+  assert.deepEqual(processFamily.missingNativeReadyMotifs, ["branch-card-flow"]);
+  assert.equal(processFamily.suggestedCollectionActions[0].componentFamily, "process-flow");
+  assert.equal(matrixFamily.status, "search-only");
+  assert.deepEqual(matrixFamily.missingNativeReadyMotifs, ["card-grid"]);
+});
+
 test("motif recall does not assign all motifs to unclassified local assets", () => {
   assert.deepEqual(_private.normalizeDetectedMotifs([]), []);
   assert.deepEqual(_private.motifsForAsset({
@@ -225,7 +272,8 @@ test("parseArgs accepts repeated report inputs and fail gate flag", () => {
     "arc-arrow,tree-link",
     "--out",
     "out.json",
-    "--fail-on-missing-ready"
+    "--fail-on-missing-ready",
+    "--fail-on-missing-family-ready"
   ]);
 
   assert.deepEqual(args.candidateReports, ["candidate.json"]);
@@ -234,6 +282,7 @@ test("parseArgs accepts repeated report inputs and fail gate flag", () => {
   assert.deepEqual(args.motifs, ["arc-arrow", "tree-link"]);
   assert.equal(args.out, "out.json");
   assert.equal(args.failOnMissingReady, true);
+  assert.equal(args.failOnMissingFamilyReady, true);
 });
 
 test("motif helpers read nested component strategy target motifs", () => {
