@@ -133,21 +133,26 @@ function buildComponentAssetAdmissionGate(options = {}) {
 function collectCandidates(report = {}) {
   const results = Array.isArray(report.results) ? report.results : [];
   const promotedAssets = Array.isArray(report.promotedAssets) ? report.promotedAssets : [];
-  const seedAssets = promotedAssets.length > 0 ? promotedAssets : results.filter((item) => item?.passed === true);
+  const seedAssets = results.length > 0 ? results : promotedAssets;
   const byIdentity = new Map();
-  for (const result of results) byIdentity.set(candidateKey(result), result);
-  return seedAssets.map((asset) => {
-    const result = byIdentity.get(candidateKey(asset)) || {};
+  for (const asset of promotedAssets) byIdentity.set(candidateKey(asset), asset);
+  const candidates = seedAssets.map((item) => {
+    const promotedAsset = byIdentity.get(candidateKey(item)) || {};
     return {
-      ...result,
-      ...asset,
-      group: asset.group || result.group,
-      nativeObjects: result.nativeObjects || asset.nativeObjects,
-      comparison: result.comparison || asset.comparison,
-      regionSummary: result.regionSummary || asset.regionSummary,
-      passed: result.passed === true || asset.passed === true
+      ...item,
+      ...promotedAsset,
+      group: promotedAsset.group || item.group,
+      nativeObjects: item.nativeObjects || promotedAsset.nativeObjects,
+      comparison: item.comparison || promotedAsset.comparison,
+      regionSummary: item.regionSummary || promotedAsset.regionSummary,
+      passed: item.passed === true || promotedAsset.passed === true
     };
   });
+  const seen = new Set(candidates.map(candidateKey));
+  for (const asset of promotedAssets) {
+    if (!seen.has(candidateKey(asset))) candidates.push(asset);
+  }
+  return candidates;
 }
 
 function assessCandidate(candidate = {}) {

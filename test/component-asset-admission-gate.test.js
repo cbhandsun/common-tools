@@ -167,12 +167,52 @@ test("component asset admission gate fails thresholds and fail-on-reject when ca
   assert.ok(report.gateReasons.includes("candidate-assets-rejected"));
 });
 
-test("component asset admission gate collects passed results when promotedAssets is absent", (t) => {
+test("component asset admission gate includes failed batch results in reject accounting", (t) => {
+  const fixture = createFixture(t);
+  const rejectedAsset = path.join(fixture.dir, "rejected-process-component.pptx");
+  fs.writeFileSync(rejectedAsset, "rejected process component");
+  const rejectedSha = crypto.createHash("sha256").update(fs.readFileSync(rejectedAsset)).digest("hex");
+  const admitted = validCandidate(fixture);
+  const rejected = validCandidate(fixture, {
+    file: rejectedAsset,
+    sha256: rejectedSha,
+    passed: false
+  });
+  const reportFile = path.join(fixture.dir, "self-fidelity-batch.json");
+  const report = {
+    provider: "component-asset-self-fidelity-batch-v1",
+    promotedAssets: [{
+      file: admitted.file,
+      sha256: admitted.sha256,
+      provider: admitted.provider,
+      group: admitted.group,
+      reportFile: admitted.reportFile,
+      replayPptx: admitted.replayPptx
+    }],
+    results: [admitted, rejected]
+  };
+  fs.writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+
+  const gate = buildComponentAssetAdmissionGate({
+    selfFidelityReport: reportFile,
+    out: path.join(fixture.dir, "admission.json"),
+    failOnReject: true
+  });
+
+  assert.equal(gate.passed, false);
+  assert.equal(gate.summary.candidates, 2);
+  assert.equal(gate.summary.admitted, 1);
+  assert.equal(gate.summary.rejected, 1);
+  assert.ok(gate.rejectedAssets[0].reasons.includes("self-fidelity-not-passed"));
+  assert.ok(gate.gateReasons.includes("candidate-assets-rejected"));
+});
+
+test("component asset admission gate collects promoted assets when results are absent", (t) => {
   const fixture = createFixture(t);
   const candidate = validCandidate(fixture);
   const candidates = collectCandidates({
     provider: "component-asset-self-fidelity-batch-v1",
-    results: [candidate, { ...candidate, file: path.join(fixture.dir, "other.pptx"), passed: false }]
+    promotedAssets: [candidate]
   });
 
   assert.equal(candidates.length, 1);
