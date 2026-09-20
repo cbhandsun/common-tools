@@ -24,6 +24,7 @@ const {
 const {
   applyCoverageGates,
   normalizeMotifTargetMinimums,
+  normalizeRequiredComponentFamilies,
   parseArgs,
   readCoverageManifest
 } = require("../packages/slideclone-native-engine/scripts/component-coverage-matrix");
@@ -1391,7 +1392,8 @@ test("component coverage matrix reads coverage manifests", () => {
         "whole-process-template": 1
       },
       minComponentTemplateMotifReadyTargetTypes: 4,
-      minComponentFamilyAppliedTypes: 3
+      minComponentFamilyAppliedTypes: 3,
+      requiredComponentFamilies: ["process-flow", "matrix-table", "unknown-family", "process-flow"]
     }
   })}\n`, "utf8");
 
@@ -1422,6 +1424,10 @@ test("component coverage matrix reads coverage manifests", () => {
   });
   assert.equal(manifest.gates.minComponentTemplateMotifReadyTargetTypes, 4);
   assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 3);
+  assert.deepEqual(
+    normalizeRequiredComponentFamilies(manifest.gates.requiredComponentFamilies),
+    ["matrix-table", "process-flow"]
+  );
 });
 
 test("component coverage matrix fails gate when expected deck count is not met", () => {
@@ -1573,6 +1579,33 @@ test("component coverage matrix fails gate when component asset participation is
     normalizeMotifTargetMinimums({ "arc-arrow": 2, "whole-process-template": 1, invalid: 9 }),
     { "arc-arrow": 2, "whole-process-template": 1 }
   );
+});
+
+test("component coverage matrix fails gate when required component families are missing", () => {
+  const matrix = {
+    totals: {
+      ...aggregateRows([
+        { deck: "Deck_A", pages: 1, actionableResidualLayers: 0 }
+      ]),
+      componentFamilyAppliedCounts: {
+        "process-flow": 3,
+        "timeline-roadmap": 1
+      },
+      componentFamilyAppliedTypes: 2
+    }
+  };
+
+  applyCoverageGates(matrix, {
+    expectedDecks: 1,
+    expectedDeckNames: ["Deck_A"],
+    requiredComponentFamilies: "process-flow,matrix-table,not-a-family"
+  });
+
+  assert.equal(matrix.passed, false);
+  assert.deepEqual(matrix.gates.requiredComponentFamilies, ["matrix-table", "process-flow"]);
+  assert.equal(matrix.totals.requiredComponentFamiliesMet, false);
+  assert.deepEqual(matrix.totals.missingRequiredComponentFamilies, ["matrix-table"]);
+  assert.deepEqual(normalizeRequiredComponentFamilies("matrix-table;process-flow;invalid"), ["matrix-table", "process-flow"]);
 });
 
 test("component coverage matrix summarizes image-to-editable component families", () => {
