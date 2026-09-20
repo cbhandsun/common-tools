@@ -796,11 +796,15 @@ test("local authenticated job smoke wrapper prepares input and supports local di
   assert.match(script, /team-runtime-authenticated-job-smoke\.js/);
   assert.match(script, /team-runtime-local-job-smoke-input\.js/);
   assert.match(script, /--content-type', \$contentType/);
+  assert.match(script, /--job-options-json', \$defaultJobOptionsJson/);
   assert.match(script, /--artifact-name', \$defaultArtifactName/);
   assert.match(inputHelper, /deck\.json/);
   assert.match(inputHelper, /tarEntry\("deck\.json"/);
   assert.match(inputHelper, /createPptCreateArchive/);
   assert.match(inputHelper, /ppt-create/);
+  assert.match(inputHelper, /ppt-quality-report\.json/);
+  assert.match(inputHelper, /ppt-improve-report\.json/);
+  assert.match(inputHelper, /repairProfile: "safe-package"/);
   assert.doesNotMatch(script, /team' 'raw-image-archive'/);
   assert.doesNotMatch(script, /iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB/);
   assert.match(script, /Set \$TokenEnv to a bearer token/u);

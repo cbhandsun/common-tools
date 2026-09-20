@@ -328,11 +328,16 @@ try {
   $archive = [string]$inputReport.inputFile
   $contentType = [string]$inputReport.contentType
   $defaultArtifactName = [string]$inputReport.defaultArtifactName
-  if ([string]::IsNullOrWhiteSpace($archive) -or -not (Test-Path -LiteralPath $archive -PathType Leaf)) { throw 'Local authenticated job smoke input archive is unavailable' }
+  $defaultJobOptionsJson = ''
+  if ($null -ne $inputReport.defaultJobOptions) {
+    $defaultJobOptionsJson = $inputReport.defaultJobOptions | ConvertTo-Json -Depth 8 -Compress
+  }
+  if ([string]::IsNullOrWhiteSpace($archive) -or -not (Test-Path -LiteralPath $archive -PathType Leaf)) { throw 'Local authenticated job smoke input file is unavailable' }
   if ([string]::IsNullOrWhiteSpace($contentType)) { throw 'Local authenticated job smoke content type is unavailable' }
 
   $arguments = @('--project', $Project, '--capability', $Capability, '--input-file', $archive, '--content-type', $contentType, '--token-env', $TokenEnv)
   if (-not [string]::IsNullOrWhiteSpace($GatewayUrl)) { $arguments += @('--gateway-url', $GatewayUrl) }
+  if (-not [string]::IsNullOrWhiteSpace($defaultJobOptionsJson)) { $arguments += @('--job-options-json', $defaultJobOptionsJson) }
   if ($Wait) {
     $arguments += '--wait'
     if ([string]::IsNullOrWhiteSpace($ArtifactName) -and -not [string]::IsNullOrWhiteSpace($defaultArtifactName)) {
