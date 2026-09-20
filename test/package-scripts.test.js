@@ -494,6 +494,7 @@ test("package scripts expose a native component promotion gate", () => {
   const strict = scripts["slideclone:component-native-promotion-gate-strict"];
   const batch = scripts["slideclone:component-native-promotion-batch"];
   const materialize = scripts["slideclone:component-native-promotion-materialize"];
+  const admission = scripts["slideclone:component-asset-admission-gate"];
 
   assert.match(command, /component-native-promotion-gate\.js/);
   assert.match(strict, /component-native-promotion-gate\.js/);
@@ -503,6 +504,10 @@ test("package scripts expose a native component promotion gate", () => {
   assert.match(materialize, /component-native-promotion-batch\.js/);
   assert.match(materialize, /--require-actionable-retained-reduction/);
   assert.match(materialize, /--min-actionable-retained-reduction 1/);
+  assert.match(admission, /component-asset-admission-gate\.js/);
+  assert.match(admission, /--self-fidelity-report runs\/component-asset-self-fidelity-batch\/component-self-fidelity-batch\.report\.json/);
+  assert.match(admission, /--out runs\/component-asset-admission-gate\.json/);
+  assert.match(admission, /--fail-on-reject/);
 });
 
 test("package scripts expose a parallel component strategy rebuild entrypoint", () => {

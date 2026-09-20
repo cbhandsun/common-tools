@@ -21,6 +21,7 @@
     "batch-native-audit-summary.js",
     "component-acquisition-search.js",
     "component-asset-manifest.js",
+    "component-asset-admission-gate.js",
     "component-assets-golden-gate.js",
     "component-asset-self-fidelity.js",
     "component-asset-self-fidelity-batch.js",
@@ -172,6 +173,7 @@
     "componentAcquisitionTools": [
       "component-acquisition-search.js",
       "component-asset-manifest.js",
+      "component-asset-admission-gate.js",
       "component-asset-self-fidelity.js",
       "component-asset-self-fidelity-batch.js",
       "component-candidate-search.js",
