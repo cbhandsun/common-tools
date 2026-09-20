@@ -7,6 +7,7 @@ const path = require("node:path");
 const { ReadableStream } = require("node:stream/web");
 const test = require("node:test");
 const { admitPptCreateArchive } = require("../packages/ppt-create-core/team-archive");
+const { inspectPptx } = require("../packages/ppt-quality-core");
 const {
   bearerToken,
   gatewayOrigin,
@@ -93,6 +94,23 @@ test("local job smoke input helper prepares capability-specific upload archives"
     assert.equal(admitted.spec.title, "Common Tools remote PPT create smoke");
     assert.equal(admitted.assets.length, 0);
     assert.equal(admitted.template, undefined);
+
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.mkdirSync(root);
+    const quality = prepareLocalJobSmokeInput({ capability: "ppt-quality", temporaryRoot: root });
+    assert.equal(quality.contentType, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+    assert.equal(quality.defaultArtifactName, "ppt-quality-report.json");
+    assert.equal(quality.defaultJobOptions, undefined);
+    assert.equal(path.basename(quality.inputFile), "deck.pptx");
+    assert.equal(inspectPptx(quality.inputFile).unusedMediaCount, 1);
+
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.mkdirSync(root);
+    const improve = prepareLocalJobSmokeInput({ capability: "ppt-improve", temporaryRoot: root });
+    assert.equal(improve.contentType, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+    assert.equal(improve.defaultArtifactName, "ppt-improve-report.json");
+    assert.deepEqual(improve.defaultJobOptions, { repairProfile: "safe-package" });
+    assert.equal(inspectPptx(improve.inputFile).textShapeCount, 1);
 
     assert.throws(() => prepareLocalJobSmokeInput({ capability: "project-audit", temporaryRoot: root }), /not defined/);
   } finally {

@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const zlib = require("node:zlib");
 const { createPptCreateArchive } = require("../packages/ppt-create-core/team-archive");
+const { crc32 } = require("../packages/ppt-quality-core");
 const { tarEntry } = require("../packages/slideclone-worker-adapter/team-raw-image-archive");
 
 function parse(argv) {
@@ -40,6 +41,45 @@ function writeJson(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { flag: "wx", mode: 0o600 });
 }
 
+function storedZip(entries) {
+  const local = [];
+  const central = [];
+  let offset = 0;
+  for (const [name, value] of entries) {
+    const nameBytes = Buffer.from(name, "utf8");
+    const content = Buffer.isBuffer(value) ? value : Buffer.from(value, "utf8");
+    const checksum = crc32(content);
+    const header = Buffer.alloc(30);
+    header.writeUInt32LE(0x04034b50, 0);
+    header.writeUInt16LE(20, 4);
+    header.writeUInt32LE(checksum, 14);
+    header.writeUInt32LE(content.length, 18);
+    header.writeUInt32LE(content.length, 22);
+    header.writeUInt16LE(nameBytes.length, 26);
+    const localEntry = Buffer.concat([header, nameBytes, content]);
+    local.push(localEntry);
+    const record = Buffer.alloc(46);
+    record.writeUInt32LE(0x02014b50, 0);
+    record.writeUInt16LE(20, 4);
+    record.writeUInt16LE(20, 6);
+    record.writeUInt32LE(checksum, 16);
+    record.writeUInt32LE(content.length, 20);
+    record.writeUInt32LE(content.length, 24);
+    record.writeUInt16LE(nameBytes.length, 28);
+    record.writeUInt32LE(offset, 42);
+    central.push(Buffer.concat([record, nameBytes]));
+    offset += localEntry.length;
+  }
+  const directory = Buffer.concat(central);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(entries.length, 8);
+  eocd.writeUInt16LE(entries.length, 10);
+  eocd.writeUInt32LE(directory.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  return Buffer.concat([...local, directory, eocd]);
+}
+
 function prepareImageToEditableInput({ temporaryRoot }) {
   const deckFile = path.join(temporaryRoot, "deck.json");
   const archive = path.join(temporaryRoot, "input.tar.gz");
@@ -66,6 +106,23 @@ function prepareImageToEditableInput({ temporaryRoot }) {
   const packed = zlib.gzipSync(Buffer.concat([tarEntry("deck.json", body), Buffer.alloc(1024)]), { level: 9 });
   fs.writeFileSync(archive, packed, { mode: 0o600, flag: "wx" });
   return Object.freeze({ inputFile: archive, contentType: "application/gzip", defaultArtifactName: "deck.pptx" });
+}
+
+function preparePptxAuditInput({ temporaryRoot, defaultArtifactName, defaultJobOptions }) {
+  const deck = path.join(temporaryRoot, "deck.pptx");
+  const pptx = storedZip([
+    ["[Content_Types].xml", '<Types><Override ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/></Types>'],
+    ["ppt/presentation.xml", '<p:presentation xmlns:p="urn:p"/>'],
+    ["ppt/slides/slide1.xml", '<p:sld xmlns:p="urn:p" xmlns:a="urn:a"><p:sp/><p:pic/><a:tbl/></p:sld>'],
+    ["ppt/media/orphan.png", Buffer.from([137, 80, 78, 71])]
+  ]);
+  fs.writeFileSync(deck, pptx, { mode: 0o600, flag: "wx" });
+  return Object.freeze({
+    inputFile: deck,
+    contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    defaultArtifactName,
+    ...(defaultJobOptions ? { defaultJobOptions: Object.freeze(defaultJobOptions) } : {})
+  });
 }
 
 function preparePptCreateInput({ temporaryRoot }) {
@@ -111,6 +168,8 @@ function prepareLocalJobSmokeInput({ capability, temporaryRoot }) {
   const root = assertDirectory(temporaryRoot, "temporary root");
   if (selectedCapability === "image-to-editable") return prepareImageToEditableInput({ temporaryRoot: root });
   if (selectedCapability === "ppt-create") return preparePptCreateInput({ temporaryRoot: root });
+  if (selectedCapability === "ppt-quality") return preparePptxAuditInput({ temporaryRoot: root, defaultArtifactName: "ppt-quality-report.json" });
+  if (selectedCapability === "ppt-improve") return preparePptxAuditInput({ temporaryRoot: root, defaultArtifactName: "ppt-improve-report.json", defaultJobOptions: { repairProfile: "safe-package" } });
   throw new Error(`local job smoke input is not defined for capability: ${selectedCapability}`);
 }
 

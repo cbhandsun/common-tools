@@ -572,10 +572,12 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 
 归档固定包含 `ppt-create-archive.json`、`presentation.json`、PresentationSpec 明确声明的素材，以及至多一个明确声明的模板。归档清单记录每个文件的角色、字节数和 SHA-256；Worker 解包后还会使用本地创建链路相同的图片、模板和 PresentationSpec 验证器再次验收。未声明或缺失文件、重复路径、绝对/回退/反斜杠路径、链接、截断、超限、哈希漂移、清单与 spec 不一致，以及包含宏、嵌入对象、签名、外链或未授权来源的模板都会在生成前失败。归档命令只写入新的本地文件，不上传内容、不读取凭据，也不创建团队 Job。
 
-本地受保护 MCP 闭环验收可直接复用 authenticated Job smoke。该 helper 会生成最小 `ppt-create` archive，获取对应 capability scope 的临时 token（如使用 `-Login` 或 `-DirectLogin`），调用 `create_team_upload_target`、上传、`create_team_job`、轮询 `get_team_job`，并在 `-Wait` 时验证 `deck.pptx` artifact target：
+本地受保护 MCP 闭环验收可直接复用 authenticated Job smoke。该 helper 会按能力生成最小输入：`ppt-create` archive、`ppt-quality` / `ppt-improve` PPTX，获取对应 capability scope 的临时 token（如使用 `-Login` 或 `-DirectLogin`），调用 `create_team_upload_target`、上传、`create_team_job`、轮询 `get_team_job`，并在 `-Wait` 时验证默认 artifact target：
 
 ```powershell
 npm run common-tools:team-local-job-smoke -- -Capability ppt-create -Wait -DirectLogin
+npm run common-tools:team-local-job-smoke -- -Capability ppt-quality -Wait -DirectLogin
+npm run common-tools:team-local-job-smoke -- -Capability ppt-improve -Wait -DirectLogin
 ```
 
 ## 图片转可编辑归档协议
