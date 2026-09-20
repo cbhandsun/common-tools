@@ -19,6 +19,11 @@ const {
   summarizeComponentFamilyCoverage,
   summarizeComponentFamilyGaps
 } = require("./component-coverage-family");
+const {
+  emptyImageComponentAnalysisMetrics,
+  mergeImageComponentAnalysisMetrics,
+  mergeImageComponentFamilyRows
+} = require("./image-component-analysis-metrics");
 const { classifyGraphicExpressionPolicy } = require("./graphic-expression-policy");
 
 function buildComponentCoverageMatrix({ reports = [] } = {}) {
@@ -58,6 +63,9 @@ function summarizeResult({ result = {}, reportFile = "" } = {}) {
   const componentFamilyAppliedCounts = finalMetrics
     ? finalMetrics.componentFamilyAppliedCounts
     : componentFamilyAppliedCountsFromResult(result);
+  const imageComponentAnalysis = finalMetrics
+    ? finalMetrics.imageComponentAnalysis
+    : emptyImageComponentAnalysisMetrics();
   const componentFamilyCoverage = summarizeComponentFamilyCoverage(componentFamilyAppliedCounts, componentFamilyGaps.counts);
   const deck = deckNameFromResult(result);
   return {
@@ -98,6 +106,17 @@ function summarizeResult({ result = {}, reportFile = "" } = {}) {
     componentFamilyCoverage,
     componentFamilyAppliedTypes: countPositiveCounts(componentFamilyAppliedCounts),
     componentFamilyGapTypes: countPositiveCounts(componentFamilyGaps.counts),
+    imageComponentAnalysisPages: imageComponentAnalysis.pages,
+    imageComponentAnalysisPreImages: imageComponentAnalysis.preImages,
+    imageComponentAnalysisLayers: imageComponentAnalysis.analysisLayers,
+    imageComponentAnalysisAssetMatches: imageComponentAnalysis.assetMatches,
+    imageComponentAnalysisStrategyLayers: imageComponentAnalysis.strategyLayers,
+    imageComponentAnalysisAssetLayers: imageComponentAnalysis.assetLayers,
+    imageComponentDetectedFamilyCounts: imageComponentAnalysis.detectedComponentFamilyCounts,
+    imageComponentMatchedFamilyCounts: imageComponentAnalysis.matchedComponentFamilyCounts,
+    imageComponentStrategyFamilyCounts: imageComponentAnalysis.strategyComponentFamilyCounts,
+    imageComponentMissingFamilyCounts: imageComponentAnalysis.missingComponentFamilyCounts,
+    imageComponentFamilies: imageComponentAnalysis.componentFamilies,
     componentReplacementPlanComponents: finalMetrics ? finalMetrics.componentReplacementPlanComponents : safeNumber(result.nativeComponentReplacementPlan?.components),
     componentReplacementPlanLayers: finalMetrics ? finalMetrics.componentReplacementPlanLayers : safeNumber(result.nativeComponentReplacementPlan?.layers),
     componentReplacementPlanShapes: finalMetrics ? finalMetrics.componentReplacementPlanShapes : safeNumber(result.nativeComponentReplacementPlan?.shapes),
@@ -452,6 +471,7 @@ function summarizeFinalIrMetrics(ir = null) {
     componentTemplateWholeProcessPictures: 0,
     componentTemplateMotifReadyTargetCounts: {},
     componentFamilyAppliedCounts: {},
+    imageComponentAnalysis: emptyImageComponentAnalysisMetrics(),
     componentTemplateStructureFitShapes: 0,
     componentTemplateStructureFitTextBoxes: 0,
     componentTemplateStructureFitPictures: 0,
@@ -477,6 +497,7 @@ function summarizeFinalIrMetrics(ir = null) {
     metrics.images += images.length;
     metrics.shapes += shapes.length;
     metrics.textBoxes += textBoxes.length;
+    mergeImageComponentAnalysisMetrics(metrics.imageComponentAnalysis, page?.source?.componentAnalysis);
     for (const image of images) {
       if (image?.source?.componentTemplateGroupApplied === true) metrics.componentTemplateAppliedImages += 1;
       if (isComponentTemplateNativePicture(image)) metrics.componentTemplateAppliedPictures += 1;
@@ -807,6 +828,17 @@ function aggregateRows(rows = []) {
     componentFamilyGapExamples: [],
     componentFamilyCoverage: [],
     componentFamilyActions: [],
+    imageComponentAnalysisPages: 0,
+    imageComponentAnalysisPreImages: 0,
+    imageComponentAnalysisLayers: 0,
+    imageComponentAnalysisAssetMatches: 0,
+    imageComponentAnalysisStrategyLayers: 0,
+    imageComponentAnalysisAssetLayers: 0,
+    imageComponentDetectedFamilyCounts: {},
+    imageComponentMatchedFamilyCounts: {},
+    imageComponentStrategyFamilyCounts: {},
+    imageComponentMissingFamilyCounts: {},
+    imageComponentFamilies: [],
     componentTemplateStructureFitShapes: 0,
     componentTemplateStructureFitTextBoxes: 0,
     componentTemplateStructureFitPictures: 0,
@@ -896,6 +928,12 @@ function aggregateRows(rows = []) {
       "componentAssetHighReusableGroups",
       "componentAssetRejectedGroups",
       "componentAssetAcquisitionTasks",
+      "imageComponentAnalysisPages",
+      "imageComponentAnalysisPreImages",
+      "imageComponentAnalysisLayers",
+      "imageComponentAnalysisAssetMatches",
+      "imageComponentAnalysisStrategyLayers",
+      "imageComponentAnalysisAssetLayers",
       "residualLayers",
       "intentionalPreserveLayers",
       "actionableResidualLayers",
@@ -921,6 +959,10 @@ function aggregateRows(rows = []) {
     mergeCounts(totals.componentTemplateMotifReadyTargetCounts, row.componentTemplateMotifReadyTargetCounts);
     mergeCounts(totals.componentFamilyAppliedCounts, row.componentFamilyAppliedCounts);
     mergeCounts(totals.componentFamilyGapCounts, row.componentFamilyGapCounts);
+    mergeCounts(totals.imageComponentDetectedFamilyCounts, row.imageComponentDetectedFamilyCounts);
+    mergeCounts(totals.imageComponentMatchedFamilyCounts, row.imageComponentMatchedFamilyCounts);
+    mergeCounts(totals.imageComponentStrategyFamilyCounts, row.imageComponentStrategyFamilyCounts);
+    mergeCounts(totals.imageComponentMissingFamilyCounts, row.imageComponentMissingFamilyCounts);
     mergeCounts(totals.componentTemplateStructureFitReasonCounts, row.componentTemplateStructureFitReasonCounts);
     mergeCounts(totals.componentReplacementPlanProviderCounts, row.componentReplacementPlanProviderCounts);
     mergeCounts(totals.componentReplacementPlanSuitabilityTierCounts, row.componentReplacementPlanSuitabilityTierCounts);
@@ -953,6 +995,9 @@ function aggregateRows(rows = []) {
           deck: row.deck
         });
       }
+    }
+    if (Array.isArray(row.imageComponentFamilies)) {
+      mergeImageComponentFamilyRows(totals.imageComponentFamilies, row.imageComponentFamilies);
     }
     if (Array.isArray(row.expressionPolicyViolations)) {
       for (const violation of row.expressionPolicyViolations) {
@@ -994,6 +1039,11 @@ function aggregateRows(rows = []) {
   totals.componentTemplateMotifReadyTargetTypes = countKnownMotifTypes(totals.componentTemplateMotifReadyTargetCounts);
   totals.componentFamilyAppliedTypes = countPositiveCounts(totals.componentFamilyAppliedCounts);
   totals.componentFamilyGapTypes = countPositiveCounts(totals.componentFamilyGapCounts);
+  totals.imageComponentDetectedFamilyTypes = countPositiveCounts(totals.imageComponentDetectedFamilyCounts);
+  totals.imageComponentMatchedFamilyTypes = countPositiveCounts(totals.imageComponentMatchedFamilyCounts);
+  totals.imageComponentStrategyFamilyTypes = countPositiveCounts(totals.imageComponentStrategyFamilyCounts);
+  totals.imageComponentMissingFamilyTypes = countPositiveCounts(totals.imageComponentMissingFamilyCounts);
+  totals.imageComponentFamilies.sort((a, b) => safeString(a.family).localeCompare(safeString(b.family)));
   totals.componentFamilyCoverage = summarizeComponentFamilyCoverage(
     totals.componentFamilyAppliedCounts,
     totals.componentFamilyGapCounts
