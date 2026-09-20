@@ -547,6 +547,21 @@
       "script": "packages/slideclone-native-engine/scripts/component-replacement-sample-gap-report.js",
       "args": []
     },
+    "component-asset-admission-gate": {
+      "description": "Versioned command profile for slideclone:component-asset-admission-gate.",
+      "script": "packages/slideclone-native-engine/scripts/component-asset-admission-gate.js",
+      "args": [
+        "--self-fidelity-report",
+        "runs/component-asset-self-fidelity-batch/component-self-fidelity-batch.report.json",
+        "--out",
+        "runs/component-asset-admission-gate.json",
+        "--min-admitted",
+        "1",
+        "--min-component-family-types",
+        "1",
+        "--fail-on-reject"
+      ]
+    },
     "component-self-fidelity-batch": {
       "description": "Versioned command profile for slideclone:component-self-fidelity-batch.",
       "script": "packages/slideclone-native-engine/scripts/component-asset-self-fidelity-batch.js",

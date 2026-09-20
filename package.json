@@ -180,6 +180,7 @@
     "slideclone:component-replacement-close-loop-gate-smoke-allow": "node scripts/slideclone-profile.js component-replacement-close-loop-gate-smoke-allow",
     "slideclone:component-asset-manifest": "node scripts/slideclone-profile.js component-asset-manifest",
     "slideclone:component-self-fidelity-batch": "node scripts/slideclone-profile.js component-self-fidelity-batch",
+    "slideclone:component-asset-admission-gate": "node scripts/slideclone-profile.js component-asset-admission-gate",
     "slideclone:component-motif-recall-report": "node scripts/slideclone-profile.js component-motif-recall-report",
     "slideclone:component-library-refresh": "node scripts/slideclone-profile.js component-library-refresh",
     "slideclone:component-library-refresh-harvest": "node scripts/slideclone-profile.js component-library-refresh-harvest",
