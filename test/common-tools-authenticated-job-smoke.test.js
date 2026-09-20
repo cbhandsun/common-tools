@@ -1,8 +1,12 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const { ReadableStream } = require("node:stream/web");
 const test = require("node:test");
+const { admitPptCreateArchive } = require("../packages/ppt-create-core/team-archive");
 const {
   bearerToken,
   gatewayOrigin,
@@ -10,6 +14,7 @@ const {
   uploadUrl
 } = require("../packages/cli/team-job-smoke");
 const { main } = require("../scripts/team-runtime-authenticated-job-smoke");
+const { prepareLocalJobSmokeInput } = require("../scripts/team-runtime-local-job-smoke-input");
 
 function jsonResponse(status, value) {
   const text = JSON.stringify(value);
@@ -67,4 +72,30 @@ test("authenticated job smoke fails closed for missing credentials and unsafe re
   assert.equal(uploadUrl("http://localhost:59000/bucket/key?signature=value"), "http://localhost:59000/bucket/key?signature=value");
   assert.equal(uploadUrl("https://mcp.example.test/bucket/key?signature=value", true), "https://mcp.example.test/bucket/key?signature=value");
   await assert.rejects(() => main(["--gateway-url", "http://127.0.0.1:37684", "--input-file", __filename], {}), /COMMON_TOOLS_JOB_SMOKE_TOKEN/);
+});
+
+test("local job smoke input helper prepares capability-specific upload archives", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-local-job-smoke-input-"));
+  try {
+    const image = prepareLocalJobSmokeInput({ capability: "image-to-editable", temporaryRoot: root });
+    assert.equal(image.contentType, "application/gzip");
+    assert.equal(image.defaultArtifactName, "deck.pptx");
+    assert.equal(fs.readFileSync(image.inputFile)[0], 0x1f);
+
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.mkdirSync(root);
+    const ppt = prepareLocalJobSmokeInput({ capability: "ppt-create", temporaryRoot: root });
+    assert.equal(ppt.contentType, "application/gzip");
+    assert.equal(ppt.defaultArtifactName, "deck.pptx");
+    const admittedRoot = path.join(root, "admitted");
+    fs.mkdirSync(admittedRoot);
+    const admitted = admitPptCreateArchive(fs.readFileSync(ppt.inputFile), admittedRoot);
+    assert.equal(admitted.spec.title, "Common Tools remote PPT create smoke");
+    assert.equal(admitted.assets.length, 0);
+    assert.equal(admitted.template, undefined);
+
+    assert.throws(() => prepareLocalJobSmokeInput({ capability: "project-audit", temporaryRoot: root }), /not defined/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

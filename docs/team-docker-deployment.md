@@ -572,6 +572,12 @@ docker compose -f deploy/compose.team-infra.yaml -f deploy/compose.team-api.yaml
 
 归档固定包含 `ppt-create-archive.json`、`presentation.json`、PresentationSpec 明确声明的素材，以及至多一个明确声明的模板。归档清单记录每个文件的角色、字节数和 SHA-256；Worker 解包后还会使用本地创建链路相同的图片、模板和 PresentationSpec 验证器再次验收。未声明或缺失文件、重复路径、绝对/回退/反斜杠路径、链接、截断、超限、哈希漂移、清单与 spec 不一致，以及包含宏、嵌入对象、签名、外链或未授权来源的模板都会在生成前失败。归档命令只写入新的本地文件，不上传内容、不读取凭据，也不创建团队 Job。
 
+本地受保护 MCP 闭环验收可直接复用 authenticated Job smoke。该 helper 会生成最小 `ppt-create` archive，获取对应 capability scope 的临时 token（如使用 `-Login` 或 `-DirectLogin`），调用 `create_team_upload_target`、上传、`create_team_job`、轮询 `get_team_job`，并在 `-Wait` 时验证 `deck.pptx` artifact target：
+
+```powershell
+npm run common-tools:team-local-job-smoke -- -Capability ppt-create -Wait -DirectLogin
+```
+
 ## 图片转可编辑归档协议
 
 本地 CLI / stdio MCP 与团队 Worker 使用不同的受信任输入边界。前者只接收 workspace 内的 PNG、JPG 或 JPEG（单文件不超过 100 MiB，宽高均不超过 16,384 像素，总像素不超过 40,000,000），并且必须显式提供 slideclone 配置；配置中的 `inputDir` 必须等于输入图片目录、`outputDir` 必须等于请求的输出目录。它不会默认选择 OCR、视觉、渲染或质量 Provider。后者**不接收原始图片或该配置文件**，而是使用下述受限归档协议；客户端不能把本地 Provider、脚本或二进制文件带入团队 Worker。
