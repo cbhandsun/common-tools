@@ -770,6 +770,7 @@ test("local authenticated job smoke wrapper prepares input and supports local di
   const root = path.resolve(__dirname, "..");
   const scriptPath = path.join(root, "scripts", "team-runtime-local-job-smoke.ps1");
   const script = fs.readFileSync(scriptPath, "utf8");
+  const inputHelper = fs.readFileSync(path.join(root, "scripts", "team-runtime-local-job-smoke-input.js"), "utf8");
   const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
   const packageVerifier = fs.readFileSync(path.join(root, "scripts", "verify-runtime-package.js"), "utf8");
   assert.match(script, /\[string\]\$Project = 'deploy'/);
@@ -793,18 +794,22 @@ test("local authenticated job smoke wrapper prepares input and supports local di
   assert.match(script, /SetEnvironmentVariable\(\$TokenEnv, \$token, 'Process'\)/);
   assert.match(script, /SetEnvironmentVariable\(\$TokenEnv, \$null, 'Process'\)/);
   assert.match(script, /team-runtime-authenticated-job-smoke\.js/);
-  assert.match(script, /deck\.json/);
-  assert.match(script, /pack-smoke-input\.cjs/);
-  assert.match(script, /tarEntry\("deck\.json"/);
+  assert.match(script, /team-runtime-local-job-smoke-input\.js/);
+  assert.match(script, /--content-type', \$contentType/);
+  assert.match(script, /--artifact-name', \$defaultArtifactName/);
+  assert.match(inputHelper, /deck\.json/);
+  assert.match(inputHelper, /tarEntry\("deck\.json"/);
+  assert.match(inputHelper, /createPptCreateArchive/);
+  assert.match(inputHelper, /ppt-create/);
   assert.doesNotMatch(script, /team' 'raw-image-archive'/);
   assert.doesNotMatch(script, /iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB/);
   assert.match(script, /Set \$TokenEnv to a bearer token/u);
   assert.match(script, /rerun with -DirectLogin/u);
   assert.match(script, /rerun with -Login/u);
   assert.match(script, /does not print OAuth tokens/u);
-  assert.match(script, /--artifact-name', 'deck\.pptx'/);
   assert.match(script, /Remove-Item -LiteralPath \$temporaryRoot -Recurse -Force/);
   assert.match(packageJson, /scripts\/team-runtime-local-job-smoke\.ps1/);
+  assert.match(packageJson, /scripts\/team-runtime-local-job-smoke-input\.js/);
   assert.match(packageJson, /common-tools:team-local-job-smoke/);
   assert.match(packageVerifier, /scripts\/team-runtime-local-job-smoke\.ps1/);
 
