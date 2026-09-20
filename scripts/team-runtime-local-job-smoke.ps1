@@ -25,10 +25,12 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $cli = Join-Path $repositoryRoot 'packages/cli/bin/common-tools.js'
 $jobSmoke = Join-Path $PSScriptRoot 'team-runtime-authenticated-job-smoke.js'
+$inputPrep = Join-Path $PSScriptRoot 'team-runtime-local-job-smoke-input.js'
 $loopbackRedirectUri = 'http://127.0.0.1:43123/callback/common-tools-mcp/'
 
 if (-not (Test-Path -LiteralPath $cli -PathType Leaf)) { throw 'Common Tools CLI is unavailable' }
 if (-not (Test-Path -LiteralPath $jobSmoke -PathType Leaf)) { throw 'Authenticated job smoke script is unavailable' }
+if (-not (Test-Path -LiteralPath $inputPrep -PathType Leaf)) { throw 'Authenticated job smoke input helper is unavailable' }
 
 function ConvertTo-Base64Url {
   param([byte[]]$Bytes)
@@ -320,37 +322,21 @@ if ([string]::IsNullOrWhiteSpace($token)) {
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("common-tools-local-job-smoke-" + [Guid]::NewGuid().ToString('N'))
 [System.IO.Directory]::CreateDirectory($temporaryRoot) | Out-Null
 try {
-  $deckFile = Join-Path $temporaryRoot 'deck.json'
-  $archive = Join-Path $temporaryRoot 'input.tar.gz'
-  $archiveScript = Join-Path $temporaryRoot 'pack-smoke-input.cjs'
-  $deckJson = @'
-{"version":"1.0","slideSize":{"widthPt":960,"heightPt":540},"pages":[{"pageIndex":0,"background":{"fill":"#FFFFFF"},"textBoxes":[{"id":"title","text":"Common Tools local authenticated smoke","box":{"x":48,"y":48,"w":720,"h":56},"font":{"family":"Arial","sizePt":28}}],"shapes":[{"id":"accent","type":"rect","box":{"x":48,"y":128,"w":240,"h":24},"fill":"#4472C4"}],"images":[],"tables":[],"charts":[],"icons":[]}]}
-'@
-  [System.IO.File]::WriteAllText($deckFile, $deckJson, [System.Text.UTF8Encoding]::new($false))
-  $archiveScriptSource = @'
-const fs = require("node:fs");
-const path = require("node:path");
-const zlib = require("node:zlib");
-const repositoryRoot = process.argv[2];
-const deckFile = process.argv[3];
-const archiveFile = process.argv[4];
-if (!repositoryRoot || !deckFile || !archiveFile) throw new Error("smoke archive arguments are required");
-const { tarEntry } = require(path.join(repositoryRoot, "packages", "slideclone-worker-adapter", "team-raw-image-archive.js"));
-const body = fs.readFileSync(deckFile);
-const archive = zlib.gzipSync(Buffer.concat([tarEntry("deck.json", body), Buffer.alloc(1024)]), { level: 9 });
-fs.writeFileSync(archiveFile, archive, { mode: 0o600, flag: "wx" });
-'@
-  [System.IO.File]::WriteAllText($archiveScript, $archiveScriptSource, [System.Text.UTF8Encoding]::new($false))
-
-  & node $archiveScript $repositoryRoot $deckFile $archive
+  $inputJson = & node $inputPrep --capability $Capability --temporary-root $temporaryRoot
   if ($LASTEXITCODE -ne 0) { throw 'Local authenticated job smoke input archive could not be prepared' }
+  $inputReport = $inputJson | ConvertFrom-Json
+  $archive = [string]$inputReport.inputFile
+  $contentType = [string]$inputReport.contentType
+  $defaultArtifactName = [string]$inputReport.defaultArtifactName
+  if ([string]::IsNullOrWhiteSpace($archive) -or -not (Test-Path -LiteralPath $archive -PathType Leaf)) { throw 'Local authenticated job smoke input archive is unavailable' }
+  if ([string]::IsNullOrWhiteSpace($contentType)) { throw 'Local authenticated job smoke content type is unavailable' }
 
-  $arguments = @('--project', $Project, '--capability', $Capability, '--input-file', $archive, '--token-env', $TokenEnv)
+  $arguments = @('--project', $Project, '--capability', $Capability, '--input-file', $archive, '--content-type', $contentType, '--token-env', $TokenEnv)
   if (-not [string]::IsNullOrWhiteSpace($GatewayUrl)) { $arguments += @('--gateway-url', $GatewayUrl) }
   if ($Wait) {
     $arguments += '--wait'
-    if ([string]::IsNullOrWhiteSpace($ArtifactName) -and $Capability -eq 'image-to-editable') {
-      $arguments += @('--artifact-name', 'deck.pptx')
+    if ([string]::IsNullOrWhiteSpace($ArtifactName) -and -not [string]::IsNullOrWhiteSpace($defaultArtifactName)) {
+      $arguments += @('--artifact-name', $defaultArtifactName)
     }
   }
   if (-not [string]::IsNullOrWhiteSpace($ArtifactName)) { $arguments += @('--artifact-name', $ArtifactName) }
