@@ -1419,6 +1419,14 @@ test("component coverage matrix CLI parses coverage gate flags", () => {
     "3",
     "--min-component-family-applied-types",
     "4",
+    "--min-image-component-detected-family-types",
+    "3",
+    "--min-image-component-matched-family-types",
+    "2",
+    "--min-image-component-strategy-family-types",
+    "2",
+    "--max-image-component-missing-family-types",
+    "1",
     "--min-visual-atom-topology-connectors",
     "3",
     "--min-visual-atom-container-nodes",
@@ -1451,6 +1459,10 @@ test("component coverage matrix CLI parses coverage gate flags", () => {
   assert.equal(args.minComponentTemplateMotifReadyTargetCounts, "arc-arrow=2,tree-link=1,whole-process-template=1");
   assert.equal(args.minComponentTemplateMotifReadyTargetTypes, "3");
   assert.equal(args.minComponentFamilyAppliedTypes, "4");
+  assert.equal(args.minImageComponentDetectedFamilyTypes, "3");
+  assert.equal(args.minImageComponentMatchedFamilyTypes, "2");
+  assert.equal(args.minImageComponentStrategyFamilyTypes, "2");
+  assert.equal(args.maxImageComponentMissingFamilyTypes, "1");
   assert.equal(args.minVisualAtomTopologyConnectors, "3");
   assert.equal(args.minVisualAtomContainerNodes, "1");
   assert.equal(args.minVisualAtomContainedNodes, "2");
@@ -1489,6 +1501,10 @@ test("component coverage matrix reads coverage manifests", () => {
       },
       minComponentTemplateMotifReadyTargetTypes: 4,
       minComponentFamilyAppliedTypes: 3,
+      minImageComponentDetectedFamilyTypes: 3,
+      minImageComponentMatchedFamilyTypes: 2,
+      minImageComponentStrategyFamilyTypes: 2,
+      maxImageComponentMissingFamilyTypes: 1,
       requiredComponentFamilies: ["process-flow", "matrix-table", "unknown-family", "process-flow"]
     }
   })}\n`, "utf8");
@@ -1520,6 +1536,10 @@ test("component coverage matrix reads coverage manifests", () => {
   });
   assert.equal(manifest.gates.minComponentTemplateMotifReadyTargetTypes, 4);
   assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 3);
+  assert.equal(manifest.gates.minImageComponentDetectedFamilyTypes, 3);
+  assert.equal(manifest.gates.minImageComponentMatchedFamilyTypes, 2);
+  assert.equal(manifest.gates.minImageComponentStrategyFamilyTypes, 2);
+  assert.equal(manifest.gates.maxImageComponentMissingFamilyTypes, 1);
   assert.deepEqual(
     normalizeRequiredComponentFamilies(manifest.gates.requiredComponentFamilies),
     ["matrix-table", "process-flow"]
@@ -1612,6 +1632,10 @@ test("component coverage matrix fails gate when component asset participation is
       componentTemplateMotifReadyTargetCounts: { "arc-arrow": 3 },
       componentFamilyAppliedTypes: 1,
       componentFamilyAppliedCounts: { "cycle-loop": 3 },
+      imageComponentDetectedFamilyTypes: 2,
+      imageComponentMatchedFamilyTypes: 1,
+      imageComponentStrategyFamilyTypes: 1,
+      imageComponentMissingFamilyTypes: 2,
       visualAtomTopologyConnectors: 2,
       visualAtomContainerNodes: 0,
       visualAtomContainedNodes: 1
@@ -1639,6 +1663,10 @@ test("component coverage matrix fails gate when component asset participation is
     minComponentTemplateMotifReadyTargetCounts: "arc-arrow=4,tree-link=1,whole-process-template=1",
     minComponentTemplateMotifReadyTargetTypes: 4,
     minComponentFamilyAppliedTypes: 2,
+    minImageComponentDetectedFamilyTypes: 3,
+    minImageComponentMatchedFamilyTypes: 2,
+    minImageComponentStrategyFamilyTypes: 2,
+    maxImageComponentMissingFamilyTypes: 1,
     minVisualAtomTopologyConnectors: 4,
     minVisualAtomContainerNodes: 1,
     minVisualAtomContainedNodes: 3
@@ -1663,6 +1691,10 @@ test("component coverage matrix fails gate when component asset participation is
   assert.equal(matrix.totals.componentTemplateMotifReadyTargetTypesMet, false);
   assert.equal(matrix.totals.componentFamilyAppliedTypes, 1);
   assert.equal(matrix.totals.componentFamilyAppliedTypesMet, false);
+  assert.equal(matrix.totals.imageComponentDetectedFamilyTypesMet, false);
+  assert.equal(matrix.totals.imageComponentMatchedFamilyTypesMet, false);
+  assert.equal(matrix.totals.imageComponentStrategyFamilyTypesMet, false);
+  assert.equal(matrix.totals.imageComponentMissingFamilyTypesMet, false);
   assert.equal(matrix.totals.visualAtomTopologyConnectorsMet, false);
   assert.equal(matrix.totals.visualAtomContainerNodesMet, false);
   assert.equal(matrix.totals.visualAtomContainedNodesMet, false);

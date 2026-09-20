@@ -89,6 +89,18 @@ function parseArgs(argv) {
     } else if (arg === "--min-component-family-applied-types" && next) {
       args.minComponentFamilyAppliedTypes = next;
       index += 1;
+    } else if (arg === "--min-image-component-detected-family-types" && next) {
+      args.minImageComponentDetectedFamilyTypes = next;
+      index += 1;
+    } else if (arg === "--min-image-component-matched-family-types" && next) {
+      args.minImageComponentMatchedFamilyTypes = next;
+      index += 1;
+    } else if (arg === "--min-image-component-strategy-family-types" && next) {
+      args.minImageComponentStrategyFamilyTypes = next;
+      index += 1;
+    } else if (arg === "--max-image-component-missing-family-types" && next) {
+      args.maxImageComponentMissingFamilyTypes = next;
+      index += 1;
     } else if (arg === "--required-component-families" && next) {
       args.requiredComponentFamilies = next;
       index += 1;
@@ -165,6 +177,14 @@ function main() {
       ?? manifest?.gates?.minComponentTemplateMotifReadyTargetTypes,
     minComponentFamilyAppliedTypes: args.minComponentFamilyAppliedTypes
       ?? manifest?.gates?.minComponentFamilyAppliedTypes,
+    minImageComponentDetectedFamilyTypes: args.minImageComponentDetectedFamilyTypes
+      ?? manifest?.gates?.minImageComponentDetectedFamilyTypes,
+    minImageComponentMatchedFamilyTypes: args.minImageComponentMatchedFamilyTypes
+      ?? manifest?.gates?.minImageComponentMatchedFamilyTypes,
+    minImageComponentStrategyFamilyTypes: args.minImageComponentStrategyFamilyTypes
+      ?? manifest?.gates?.minImageComponentStrategyFamilyTypes,
+    maxImageComponentMissingFamilyTypes: args.maxImageComponentMissingFamilyTypes
+      ?? manifest?.gates?.maxImageComponentMissingFamilyTypes,
     requiredComponentFamilies: args.requiredComponentFamilies
       ?? manifest?.gates?.requiredComponentFamilies,
     minVisualAtomTopologyConnectors: args.minVisualAtomTopologyConnectors
@@ -215,6 +235,10 @@ function applyCoverageGates(matrix, options = {}) {
   const minComponentTemplateMotifReadyTargetCounts = normalizeMotifTargetMinimums(options.minComponentTemplateMotifReadyTargetCounts);
   const minComponentTemplateMotifReadyTargetTypes = optionalPositiveInteger(options.minComponentTemplateMotifReadyTargetTypes);
   const minComponentFamilyAppliedTypes = optionalPositiveInteger(options.minComponentFamilyAppliedTypes);
+  const minImageComponentDetectedFamilyTypes = optionalPositiveInteger(options.minImageComponentDetectedFamilyTypes);
+  const minImageComponentMatchedFamilyTypes = optionalPositiveInteger(options.minImageComponentMatchedFamilyTypes);
+  const minImageComponentStrategyFamilyTypes = optionalPositiveInteger(options.minImageComponentStrategyFamilyTypes);
+  const maxImageComponentMissingFamilyTypes = optionalNonNegativeInteger(options.maxImageComponentMissingFamilyTypes);
   const minVisualAtomTopologyConnectors = optionalPositiveInteger(options.minVisualAtomTopologyConnectors);
   const minVisualAtomContainerNodes = optionalPositiveInteger(options.minVisualAtomContainerNodes);
   const minVisualAtomContainedNodes = optionalPositiveInteger(options.minVisualAtomContainedNodes);
@@ -252,6 +276,18 @@ function applyCoverageGates(matrix, options = {}) {
   const componentFamilyAppliedTypes = Number(matrix?.totals?.componentFamilyAppliedTypes || 0);
   const componentFamilyAppliedTypesMet = minComponentFamilyAppliedTypes === null
     || componentFamilyAppliedTypes >= minComponentFamilyAppliedTypes;
+  const imageComponentDetectedFamilyTypes = Number(matrix?.totals?.imageComponentDetectedFamilyTypes || 0);
+  const imageComponentDetectedFamilyTypesMet = minImageComponentDetectedFamilyTypes === null
+    || imageComponentDetectedFamilyTypes >= minImageComponentDetectedFamilyTypes;
+  const imageComponentMatchedFamilyTypes = Number(matrix?.totals?.imageComponentMatchedFamilyTypes || 0);
+  const imageComponentMatchedFamilyTypesMet = minImageComponentMatchedFamilyTypes === null
+    || imageComponentMatchedFamilyTypes >= minImageComponentMatchedFamilyTypes;
+  const imageComponentStrategyFamilyTypes = Number(matrix?.totals?.imageComponentStrategyFamilyTypes || 0);
+  const imageComponentStrategyFamilyTypesMet = minImageComponentStrategyFamilyTypes === null
+    || imageComponentStrategyFamilyTypes >= minImageComponentStrategyFamilyTypes;
+  const imageComponentMissingFamilyTypes = Number(matrix?.totals?.imageComponentMissingFamilyTypes || 0);
+  const imageComponentMissingFamilyTypesMet = maxImageComponentMissingFamilyTypes === null
+    || imageComponentMissingFamilyTypes <= maxImageComponentMissingFamilyTypes;
   const requiredComponentFamilies = normalizeRequiredComponentFamilies(options.requiredComponentFamilies);
   const missingRequiredComponentFamilies = requiredComponentFamilies.filter((family) => Number(matrix?.totals?.componentFamilyAppliedCounts?.[family] || 0) <= 0);
   const requiredComponentFamiliesMet = missingRequiredComponentFamilies.length === 0;
@@ -299,6 +335,10 @@ function applyCoverageGates(matrix, options = {}) {
     minComponentTemplateMotifReadyTargetCounts,
     minComponentTemplateMotifReadyTargetTypes,
     minComponentFamilyAppliedTypes,
+    minImageComponentDetectedFamilyTypes,
+    minImageComponentMatchedFamilyTypes,
+    minImageComponentStrategyFamilyTypes,
+    maxImageComponentMissingFamilyTypes,
     requiredComponentFamilies,
     minVisualAtomTopologyConnectors,
     minVisualAtomContainerNodes,
@@ -329,6 +369,10 @@ function applyCoverageGates(matrix, options = {}) {
     && componentTemplateMotifReadyTargetCountsMet
     && componentTemplateMotifReadyTargetTypesMet
     && componentFamilyAppliedTypesMet
+    && imageComponentDetectedFamilyTypesMet
+    && imageComponentMatchedFamilyTypesMet
+    && imageComponentStrategyFamilyTypesMet
+    && imageComponentMissingFamilyTypesMet
     && requiredComponentFamiliesMet
     && visualAtomTopologyConnectorsMet
     && visualAtomContainerNodesMet
@@ -364,6 +408,14 @@ function applyCoverageGates(matrix, options = {}) {
   matrix.totals.componentTemplateMotifReadyTargetTypesMet = componentTemplateMotifReadyTargetTypesMet;
   matrix.totals.componentFamilyAppliedTypes = componentFamilyAppliedTypes;
   matrix.totals.componentFamilyAppliedTypesMet = componentFamilyAppliedTypesMet;
+  matrix.totals.imageComponentDetectedFamilyTypes = imageComponentDetectedFamilyTypes;
+  matrix.totals.imageComponentDetectedFamilyTypesMet = imageComponentDetectedFamilyTypesMet;
+  matrix.totals.imageComponentMatchedFamilyTypes = imageComponentMatchedFamilyTypes;
+  matrix.totals.imageComponentMatchedFamilyTypesMet = imageComponentMatchedFamilyTypesMet;
+  matrix.totals.imageComponentStrategyFamilyTypes = imageComponentStrategyFamilyTypes;
+  matrix.totals.imageComponentStrategyFamilyTypesMet = imageComponentStrategyFamilyTypesMet;
+  matrix.totals.imageComponentMissingFamilyTypes = imageComponentMissingFamilyTypes;
+  matrix.totals.imageComponentMissingFamilyTypesMet = imageComponentMissingFamilyTypesMet;
   matrix.totals.requiredComponentFamiliesMet = requiredComponentFamiliesMet;
   matrix.totals.missingRequiredComponentFamilies = missingRequiredComponentFamilies;
   matrix.totals.visualAtomTopologyConnectorsMet = visualAtomTopologyConnectorsMet;
@@ -451,6 +503,12 @@ function optionalPositiveInteger(value) {
   if (value === undefined || value === null || value === "") return null;
   const number = Number(value);
   return Number.isInteger(number) && number > 0 ? number : null;
+}
+
+function optionalNonNegativeInteger(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
 }
 
 function optionalNonNegativeNumber(value) {
