@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { createTeamComponentAnalysis } = require("../packages/slideclone-core/team-component-analysis");
+const { createTeamComponentAnalysis, _private } = require("../packages/slideclone-core/team-component-analysis");
 
 function fixture(t, overrides = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "team-component-analysis-")); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -26,7 +26,7 @@ function fixture(t, overrides = {}) {
     buildComponentAssetIndex(value) { return new Map([["asset", value.layers.length]]); },
     ...overrides
   };
-  return { root, workDir, inputFile, dependencies, calls };
+  return { root, workDir, inputFile, asset, dependencies, calls };
 }
 
 test("component analysis builds per-source indexes offline with bounded pre-analysis", async t => {
@@ -36,6 +36,84 @@ test("component analysis builds per-source indexes offline with bounded pre-anal
   assert.equal(f.calls[0][2].preserveGraphics, true); assert.equal(f.calls[0][2].pages, "1");
   assert.deepEqual(f.calls[1][1].dryRun, true); assert.deepEqual(f.calls[1][1].size, 3);
   assert.equal(f.calls[2][1].maxAssetsPerLayer, 4); assert.equal(result.evidence.preImages, 1);
+});
+
+test("component analysis records bounded component family recall evidence", async t => {
+  const f = fixture(t, {
+    searchIrComponentCandidates: async () => ({
+      layers: [
+        {
+          pageIndex: 0,
+          imageIndex: 0,
+          targetMotifs: ["linear-arrow-chain"],
+          componentRenderStrategy: {
+            mode: "native-visual-atom-rebuild",
+            applicationPlan: { targetMotifs: ["linear-arrow-chain"] }
+          }
+        },
+        {
+          pageIndex: 0,
+          shapeLayerId: "shape-network",
+          templateFamily: "topology-network",
+          componentRenderStrategy: { mode: "native-rebuild-with-component-style-guide" }
+        },
+        {
+          pageIndex: 0,
+          imageIndex: 0,
+          templateFamily: "unknown-template",
+          componentRenderStrategy: { mode: "preserve-local-crop" }
+        }
+      ]
+    }),
+    buildComponentAssetManifest: () => ({
+      layers: [
+        {
+          pageIndex: 0,
+          imageIndex: 0,
+          targetMotifs: ["linear-arrow-chain"],
+          templateFamily: "step-chain",
+          localAssets: [{ path: f.asset }, { path: f.asset }]
+        },
+        {
+          pageIndex: 0,
+          shapeLayerId: "shape-network",
+          templateFamily: "topology-network",
+          localAssets: []
+        }
+      ]
+    })
+  });
+  const result = await createTeamComponentAnalysis(f.dependencies).resolve({ workDir: f.workDir, root: f.root, metadata: { inputFile: f.inputFile } });
+  assert.deepEqual(result.evidence.detectedComponentFamilyCounts, {
+    "process-flow": 1,
+    "relationship-network": 1
+  });
+  assert.deepEqual(result.evidence.matchedComponentFamilyCounts, { "process-flow": 1 });
+  assert.deepEqual(result.evidence.strategyComponentFamilyCounts, { "process-flow": 1 });
+  assert.deepEqual(result.evidence.missingComponentFamilyCounts, { "relationship-network": 1 });
+  assert.deepEqual(result.evidence.componentFamilies, [
+    {
+      family: "process-flow",
+      detectedLayers: 1,
+      matchedLayers: 1,
+      assetMatches: 2,
+      strategyLayers: 1,
+      missingLayers: 0
+    },
+    {
+      family: "relationship-network",
+      detectedLayers: 1,
+      matchedLayers: 0,
+      assetMatches: 0,
+      strategyLayers: 0,
+      missingLayers: 1
+    }
+  ]);
+});
+
+test("component analysis family inference follows canonical motif boundaries", () => {
+  assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "layered-architecture" }), ["layered-architecture"]);
+  assert.deepEqual(_private.inferComponentFamiliesFromLayer({ targetMotifs: ["sankey-flow-chart"] }), ["specialty-chart"]);
 });
 
 test("component analysis returns no fake maps when reports and manifests are empty", async t => {

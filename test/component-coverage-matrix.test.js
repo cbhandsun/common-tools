@@ -148,6 +148,102 @@ test("component coverage matrix summarizes rebuild reports and actionable residu
   });
 });
 
+test("component coverage matrix aggregates image component analysis family evidence separately from applied native coverage", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "component-coverage-image-analysis-"));
+  const finalIrFile = path.join(tmp, "deck.ir.json");
+  const reportFile = path.join(tmp, "component-strategy-rebuild-report.json");
+  fs.writeFileSync(finalIrFile, `${JSON.stringify({
+    pages: [{
+      source: {
+        componentAnalysis: {
+          provider: "team-component-analysis-v1",
+          sourceSha256: "0".repeat(64),
+          preImages: 2,
+          analysisLayers: 3,
+          assetMatches: 2,
+          strategyLayers: 1,
+          assetLayers: 1,
+          detectedComponentFamilyCounts: {
+            "process-flow": 1,
+            "relationship-network": 1,
+            "unknown-family": 99
+          },
+          matchedComponentFamilyCounts: { "process-flow": 1 },
+          strategyComponentFamilyCounts: { "process-flow": 1 },
+          missingComponentFamilyCounts: { "relationship-network": 1 },
+          componentFamilies: [{
+            family: "process-flow",
+            detectedLayers: 1,
+            matchedLayers: 1,
+            assetMatches: 2,
+            strategyLayers: 1,
+            missingLayers: 0
+          }, {
+            family: "relationship-network",
+            detectedLayers: 1,
+            matchedLayers: 0,
+            assetMatches: 0,
+            strategyLayers: 0,
+            missingLayers: 1
+          }, {
+            family: "unknown-family",
+            detectedLayers: 99,
+            matchedLayers: 99,
+            assetMatches: 99,
+            strategyLayers: 99,
+            missingLayers: 99
+          }]
+        }
+      },
+      images: [],
+      shapes: [],
+      textBoxes: []
+    }]
+  }, null, 2)}\n`, "utf8");
+  fs.writeFileSync(reportFile, `${JSON.stringify({
+    results: [{
+      inputWorkDir: path.join(tmp, "Image.work"),
+      outputIr: finalIrFile,
+      status: "ir-built"
+    }]
+  }, null, 2)}\n`, "utf8");
+
+  const [row] = summarizeComponentRebuildReport(reportFile);
+  const matrix = buildComponentCoverageMatrix({ reports: [reportFile] });
+
+  assert.equal(row.imageComponentAnalysisPages, 1);
+  assert.equal(row.imageComponentAnalysisPreImages, 2);
+  assert.equal(row.imageComponentAnalysisLayers, 3);
+  assert.equal(row.imageComponentAnalysisAssetMatches, 2);
+  assert.equal(row.imageComponentAnalysisStrategyLayers, 1);
+  assert.deepEqual(row.imageComponentDetectedFamilyCounts, {
+    "process-flow": 1,
+    "relationship-network": 1
+  });
+  assert.deepEqual(row.imageComponentMissingFamilyCounts, { "relationship-network": 1 });
+  assert.deepEqual(row.componentFamilyAppliedCounts, {});
+  assert.equal(row.componentFamilyAppliedTypes, 0);
+  assert.equal(matrix.totals.imageComponentDetectedFamilyTypes, 2);
+  assert.equal(matrix.totals.imageComponentMatchedFamilyTypes, 1);
+  assert.equal(matrix.totals.imageComponentStrategyFamilyTypes, 1);
+  assert.equal(matrix.totals.imageComponentMissingFamilyTypes, 1);
+  assert.deepEqual(matrix.totals.imageComponentFamilies, [{
+    family: "process-flow",
+    detectedLayers: 1,
+    matchedLayers: 1,
+    assetMatches: 2,
+    strategyLayers: 1,
+    missingLayers: 0
+  }, {
+    family: "relationship-network",
+    detectedLayers: 1,
+    matchedLayers: 0,
+    assetMatches: 0,
+    strategyLayers: 0,
+    missingLayers: 1
+  }]);
+});
+
 test("component family inference uses bounded English tokens for short motif aliases", () => {
   assert.deepEqual(
     inferComponentFamiliesFromText("layered-architecture hierarchy milestone-roadmap search"),
