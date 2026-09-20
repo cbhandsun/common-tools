@@ -26,7 +26,8 @@ const {
   normalizeMotifTargetMinimums,
   normalizeRequiredComponentFamilies,
   parseArgs,
-  readCoverageManifest
+  readCoverageManifest,
+  resolveCoverageReportInputs
 } = require("../packages/slideclone-native-engine/scripts/component-coverage-matrix");
 const {
   inferComponentFamiliesFromText
@@ -1543,6 +1544,37 @@ test("component coverage matrix reads coverage manifests", () => {
   assert.deepEqual(
     normalizeRequiredComponentFamilies(manifest.gates.requiredComponentFamilies),
     ["matrix-table", "process-flow"]
+  );
+});
+
+test("component coverage matrix lets explicit reports override manifest reports", () => {
+  const matrixRoot = fs.mkdtempSync(path.join(os.tmpdir(), "component-coverage-inputs-"));
+  const cliReport = path.join(matrixRoot, "image-job-report.json");
+  const manifestReport = path.join(matrixRoot, "stale-manifest-report.json");
+  const fallbackReport = path.join(matrixRoot, "fallback", "component-strategy-rebuild-report.json");
+
+  assert.deepEqual(
+    resolveCoverageReportInputs(
+      { reports: [cliReport], root: path.dirname(fallbackReport) },
+      { reports: [manifestReport] }
+    ),
+    [path.resolve(cliReport)]
+  );
+  assert.deepEqual(
+    resolveCoverageReportInputs(
+      { reports: [], root: path.dirname(fallbackReport) },
+      { reports: [manifestReport] }
+    ),
+    [path.resolve(manifestReport)]
+  );
+
+  fs.mkdirSync(path.dirname(fallbackReport), { recursive: true });
+  fs.writeFileSync(fallbackReport, `${JSON.stringify({
+    results: [{ inputWorkDir: path.join(matrixRoot, "ImageJob.work"), status: "ir-built" }]
+  })}\n`, "utf8");
+  assert.deepEqual(
+    resolveCoverageReportInputs({ reports: [], root: path.dirname(fallbackReport) }, { reports: [] }),
+    [path.resolve(fallbackReport)]
   );
 });
 

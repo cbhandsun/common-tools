@@ -112,6 +112,19 @@
       "script": "packages/slideclone-native-engine/scripts/component-coverage-matrix.js",
       "args": []
     },
+    "image-to-editable-component-recall-gate": {
+      "description": "Versioned command profile for slideclone:image-to-editable-component-recall-gate.",
+      "script": "packages/slideclone-native-engine/scripts/component-coverage-matrix.js",
+      "args": [
+        "--coverage-manifest",
+        "skills/pd-hifi-slideclone/examples/image-to-editable-component-recall.manifest.json",
+        "--root",
+        "runs/image-to-editable-component-recall",
+        "--out",
+        "runs/image-to-editable-component-recall-matrix.json",
+        "--fail-on-coverage-gap"
+      ]
+    },
     "component-gap-learning-plan": {
       "description": "Versioned command profile for slideclone:component-gap-learning-plan.",
       "script": "packages/slideclone-native-engine/scripts/component-gap-learning-plan.js",

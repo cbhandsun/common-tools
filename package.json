@@ -218,6 +218,7 @@
     "slideclone:component-native-promotion-batch": "node scripts/slideclone-profile.js component-native-promotion-batch",
     "slideclone:component-native-promotion-materialize": "node scripts/slideclone-profile.js component-native-promotion-materialize",
     "slideclone:component-coverage-matrix": "node scripts/slideclone-profile.js component-coverage-matrix",
+    "slideclone:image-to-editable-component-recall-gate": "node scripts/slideclone-profile.js image-to-editable-component-recall-gate",
     "slideclone:expression-policy-repair-queue": "node scripts/slideclone-profile.js expression-policy-repair-queue",
     "slideclone:expression-policy-repair-queue-assets": "node scripts/slideclone-profile.js expression-policy-repair-queue-assets",
     "slideclone:expression-policy-repair-queue-batch": "node scripts/slideclone-profile.js expression-policy-repair-queue-batch",

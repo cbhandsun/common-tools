@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "id": "image-to-editable-component-recall-v1",
+  "description": "Gate image-to-PPT component-family recall from source.componentAnalysis evidence before final native reconstruction is assessed.",
+  "gates": {
+    "requireNoExpressionPolicyViolations": true,
+    "minImageComponentDetectedFamilyTypes": 4,
+    "minImageComponentMatchedFamilyTypes": 3,
+    "minImageComponentStrategyFamilyTypes": 2,
+    "maxImageComponentMissingFamilyTypes": 2
+  }
+}
