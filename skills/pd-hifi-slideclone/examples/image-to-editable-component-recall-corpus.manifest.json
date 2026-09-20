@@ -1,0 +1,120 @@
+{
+  "version": "1.0",
+  "id": "image-to-editable-component-recall-corpus-v1",
+  "description": "Reusable real image-to-PPT component recall corpus contract. Cases define source inputs, expected component families, generated IR/PPTX artifacts, and the recall-report plus coverage-gate acceptance path.",
+  "requiredComponentFamilies": [
+    "fishbone-cause",
+    "funnel-flow",
+    "hierarchy-tree",
+    "layered-architecture",
+    "matrix-table",
+    "overlap-diagram",
+    "process-flow",
+    "pyramid-stack",
+    "relationship-network",
+    "specialty-chart",
+    "timeline-roadmap"
+  ],
+  "acceptanceProfiles": {
+    "recallReport": "image-to-editable-component-recall-report",
+    "coverageGate": "image-to-editable-component-recall-gate"
+  },
+  "cases": [
+    {
+      "id": "hierarchy-tree-org-chart",
+      "title": "Org hierarchy image converted through image-to-editable recall",
+      "source": {
+        "kind": "image",
+        "path": "runs/image-to-editable-component-recall/sources/hierarchy-tree-org-chart.png",
+        "provenance": "Real or approved user-owned image fixture."
+      },
+      "expectedComponentFamilies": ["hierarchy-tree", "relationship-network"],
+      "artifacts": {
+        "inputWorkDir": "runs/image-to-editable-component-recall/hierarchy-tree-org-chart",
+        "outputIr": "runs/image-to-editable-component-recall/hierarchy-tree-org-chart/ir/deck.json",
+        "outputPptx": "runs/image-to-editable-component-recall/hierarchy-tree-org-chart/deck.pptx",
+        "componentCandidateReport": "runs/image-to-editable-component-recall/hierarchy-tree-org-chart/deck.component-candidates.json"
+      }
+    },
+    {
+      "id": "cause-analysis-fishbone",
+      "title": "Fishbone cause analysis image converted through image-to-editable recall",
+      "source": {
+        "kind": "image",
+        "path": "runs/image-to-editable-component-recall/sources/cause-analysis-fishbone.png",
+        "provenance": "Real or approved user-owned image fixture."
+      },
+      "expectedComponentFamilies": ["fishbone-cause", "process-flow"],
+      "artifacts": {
+        "inputWorkDir": "runs/image-to-editable-component-recall/cause-analysis-fishbone",
+        "outputIr": "runs/image-to-editable-component-recall/cause-analysis-fishbone/ir/deck.json",
+        "outputPptx": "runs/image-to-editable-component-recall/cause-analysis-fishbone/deck.pptx",
+        "componentCandidateReport": "runs/image-to-editable-component-recall/cause-analysis-fishbone/deck.component-candidates.json"
+      }
+    },
+    {
+      "id": "layered-architecture-stack",
+      "title": "Layered architecture image converted through image-to-editable recall",
+      "source": {
+        "kind": "image",
+        "path": "runs/image-to-editable-component-recall/sources/layered-architecture-stack.png",
+        "provenance": "Real or approved user-owned image fixture."
+      },
+      "expectedComponentFamilies": ["layered-architecture", "pyramid-stack"],
+      "artifacts": {
+        "inputWorkDir": "runs/image-to-editable-component-recall/layered-architecture-stack",
+        "outputIr": "runs/image-to-editable-component-recall/layered-architecture-stack/ir/deck.json",
+        "outputPptx": "runs/image-to-editable-component-recall/layered-architecture-stack/deck.pptx",
+        "componentCandidateReport": "runs/image-to-editable-component-recall/layered-architecture-stack/deck.component-candidates.json"
+      }
+    },
+    {
+      "id": "funnel-roadmap-flow",
+      "title": "Funnel and roadmap image converted through image-to-editable recall",
+      "source": {
+        "kind": "image",
+        "path": "runs/image-to-editable-component-recall/sources/funnel-roadmap-flow.png",
+        "provenance": "Real or approved user-owned image fixture."
+      },
+      "expectedComponentFamilies": ["funnel-flow", "timeline-roadmap"],
+      "artifacts": {
+        "inputWorkDir": "runs/image-to-editable-component-recall/funnel-roadmap-flow",
+        "outputIr": "runs/image-to-editable-component-recall/funnel-roadmap-flow/ir/deck.json",
+        "outputPptx": "runs/image-to-editable-component-recall/funnel-roadmap-flow/deck.pptx",
+        "componentCandidateReport": "runs/image-to-editable-component-recall/funnel-roadmap-flow/deck.component-candidates.json"
+      }
+    },
+    {
+      "id": "overlap-specialty-chart",
+      "title": "Overlap and specialty chart image converted through image-to-editable recall",
+      "source": {
+        "kind": "image",
+        "path": "runs/image-to-editable-component-recall/sources/overlap-specialty-chart.png",
+        "provenance": "Real or approved user-owned image fixture."
+      },
+      "expectedComponentFamilies": ["overlap-diagram", "specialty-chart"],
+      "artifacts": {
+        "inputWorkDir": "runs/image-to-editable-component-recall/overlap-specialty-chart",
+        "outputIr": "runs/image-to-editable-component-recall/overlap-specialty-chart/ir/deck.json",
+        "outputPptx": "runs/image-to-editable-component-recall/overlap-specialty-chart/deck.pptx",
+        "componentCandidateReport": "runs/image-to-editable-component-recall/overlap-specialty-chart/deck.component-candidates.json"
+      }
+    },
+    {
+      "id": "matrix-process-dashboard",
+      "title": "Matrix and process dashboard image converted through image-to-editable recall",
+      "source": {
+        "kind": "image",
+        "path": "runs/image-to-editable-component-recall/sources/matrix-process-dashboard.png",
+        "provenance": "Real or approved user-owned image fixture."
+      },
+      "expectedComponentFamilies": ["matrix-table", "process-flow"],
+      "artifacts": {
+        "inputWorkDir": "runs/image-to-editable-component-recall/matrix-process-dashboard",
+        "outputIr": "runs/image-to-editable-component-recall/matrix-process-dashboard/ir/deck.json",
+        "outputPptx": "runs/image-to-editable-component-recall/matrix-process-dashboard/deck.pptx",
+        "componentCandidateReport": "runs/image-to-editable-component-recall/matrix-process-dashboard/deck.component-candidates.json"
+      }
+    }
+  ]
+}
