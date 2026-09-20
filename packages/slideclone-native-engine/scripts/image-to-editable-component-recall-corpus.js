@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const zlib = require("node:zlib");
 const { COMPONENT_FAMILY_IDS } = require("./lib/component-coverage-family");
 
 const DEFAULT_MANIFEST = path.join("skills", "pd-hifi-slideclone", "examples", "image-to-editable-component-recall-corpus.manifest.json");
@@ -9,8 +10,19 @@ const DEFAULT_OUT = path.join("runs", "image-to-editable-component-recall", "cor
 const MAX_CASES = 128;
 const MAX_FAMILIES = 32;
 const MAX_TEXT = 500;
+const MAX_ZIP_ENTRIES = 4096;
+const MAX_XML_BYTES = 4 * 1024 * 1024;
 const ACCEPTANCE_REPORT_PROFILE = "image-to-editable-component-recall-report";
 const ACCEPTANCE_GATE_PROFILE = "image-to-editable-component-recall-gate";
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let index = 0; index < table.length; index += 1) {
+    let value = index;
+    for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ ((value & 1) ? 0xedb88320 : 0);
+    table[index] = value >>> 0;
+  }
+  return table;
+})();
 
 function parseArgs(argv = process.argv) {
   const args = {
@@ -108,11 +120,15 @@ function validateAcceptanceProfiles(value) {
 }
 
 function normalizeCaseArtifacts(entry, options = {}) {
+  const sourcePath = resolveArtifactPath(entry.source.path, "source path", { file: true, required: options.requireArtifacts });
   const outputIr = resolveArtifactPath(entry.artifacts.outputIr, "outputIr", { file: true, required: options.requireArtifacts });
+  const outputPptx = resolveArtifactPath(entry.artifacts.outputPptx, "outputPptx", { file: true, required: options.requireArtifacts });
+  if (options.requireArtifacts) validatePptxOpenXml(outputPptx, entry.id);
   const artifacts = {
+    source: sourcePath,
     inputWorkDir: resolveArtifactPath(entry.artifacts.inputWorkDir, "inputWorkDir", { directory: true, required: options.requireArtifacts }),
     outputIr,
-    outputPptx: resolveArtifactPath(entry.artifacts.outputPptx, "outputPptx", { file: true, required: options.requireArtifacts }),
+    outputPptx,
     componentCandidateReport: entry.artifacts.componentCandidateReport
       ? resolveArtifactPath(entry.artifacts.componentCandidateReport, "componentCandidateReport", { file: true, required: options.requireArtifacts })
       : ""
@@ -178,9 +194,126 @@ function resolveArtifactPath(value, label, options = {}) {
     const stat = fs.lstatSync(resolved, { throwIfNoEntry: false });
     if (options.directory && !stat?.isDirectory()) throw new Error(`${label} is missing`);
     if (options.file && !stat?.isFile()) throw new Error(`${label} is missing`);
+    if (options.file && stat?.size <= 0) throw new Error(`${label} is empty`);
     if (stat?.isSymbolicLink()) throw new Error(`${label} must not be a symbolic link`);
   }
   return path.relative(process.cwd(), resolved).replace(/\\/gu, "/");
+}
+
+function validatePptxOpenXml(file, caseId) {
+  const buffer = safeReadFile(path.resolve(file));
+  const entries = buffer ? readZipEntries(buffer) : null;
+  const requiredEntries = ["[Content_Types].xml", "ppt/presentation.xml"];
+  const missingEntries = entries === null ? requiredEntries : requiredEntries.filter((entry) => !entries.has(entry));
+  if (missingEntries.length > 0) {
+    throw new Error(`corpus case ${caseId} outputPptx is missing OpenXML entries: ${missingEntries.join(", ")}`);
+  }
+  const contentTypes = extractZipEntry(buffer, entries.get("[Content_Types].xml")).toString("utf8");
+  const presentation = extractZipEntry(buffer, entries.get("ppt/presentation.xml")).toString("utf8");
+  if (!/<Types(?:[\s>/])/u.test(contentTypes) || !/<p:presentation(?:[\s>/])/u.test(presentation)) {
+    throw new Error(`corpus case ${caseId} outputPptx is missing required presentation XML`);
+  }
+}
+
+function listZipEntries(file) {
+  const buffer = safeReadFile(file);
+  const entries = buffer ? readZipEntries(buffer) : null;
+  return entries ? new Set(entries.keys()) : null;
+}
+
+function safeReadFile(file) {
+  let buffer;
+  try {
+    buffer = fs.readFileSync(file);
+  } catch {
+    return null;
+  }
+  return buffer;
+}
+
+function readZipEntries(buffer) {
+  if (buffer.length < 22 || buffer.readUInt32LE(0) !== 0x04034b50) return null;
+  const eocdOffset = findEndOfCentralDirectory(buffer);
+  if (eocdOffset < 0 || eocdOffset + 22 > buffer.length) return null;
+  const entryCount = buffer.readUInt16LE(eocdOffset + 10);
+  const centralDirectorySize = buffer.readUInt32LE(eocdOffset + 12);
+  const centralDirectoryOffset = buffer.readUInt32LE(eocdOffset + 16);
+  if (entryCount < 1 || entryCount > MAX_ZIP_ENTRIES || centralDirectorySize <= 0 || centralDirectoryOffset < 0 || centralDirectoryOffset + centralDirectorySize > buffer.length) return null;
+  const entries = new Map();
+  let offset = centralDirectoryOffset;
+  const end = centralDirectoryOffset + centralDirectorySize;
+  while (offset + 46 <= end) {
+    if (buffer.readUInt32LE(offset) !== 0x02014b50) return null;
+    const flags = buffer.readUInt16LE(offset + 8);
+    const compression = buffer.readUInt16LE(offset + 10);
+    const crc32 = buffer.readUInt32LE(offset + 16);
+    const compressedBytes = buffer.readUInt32LE(offset + 20);
+    const uncompressedBytes = buffer.readUInt32LE(offset + 24);
+    const nameLength = buffer.readUInt16LE(offset + 28);
+    const extraLength = buffer.readUInt16LE(offset + 30);
+    const commentLength = buffer.readUInt16LE(offset + 32);
+    const localOffset = buffer.readUInt32LE(offset + 42);
+    const nameStart = offset + 46;
+    const nameEnd = nameStart + nameLength;
+    if (nameEnd > buffer.length || ![0, 8].includes(compression) || (flags & 0x0001) !== 0) return null;
+    const name = buffer.toString("utf8", nameStart, nameEnd).replace(/\\/gu, "/");
+    if (!isSafeZipEntryName(name) || entries.has(name)) return null;
+    entries.set(name, { name, flags, compression, crc32, compressedBytes, uncompressedBytes, localOffset });
+    offset = nameEnd + extraLength + commentLength;
+  }
+  return offset === end ? entries : null;
+}
+
+function extractZipEntry(buffer, entry) {
+  if (!entry || entry.uncompressedBytes > MAX_XML_BYTES || entry.localOffset + 30 > buffer.length) throw new Error("PPTX ZIP entry is invalid");
+  if (buffer.readUInt32LE(entry.localOffset) !== 0x04034b50) throw new Error("PPTX ZIP local entry is invalid");
+  const flags = buffer.readUInt16LE(entry.localOffset + 6);
+  const compression = buffer.readUInt16LE(entry.localOffset + 8);
+  const crc32Value = buffer.readUInt32LE(entry.localOffset + 14);
+  const compressedBytes = buffer.readUInt32LE(entry.localOffset + 18);
+  const uncompressedBytes = buffer.readUInt32LE(entry.localOffset + 22);
+  const nameLength = buffer.readUInt16LE(entry.localOffset + 26);
+  const extraLength = buffer.readUInt16LE(entry.localOffset + 28);
+  const nameStart = entry.localOffset + 30;
+  const nameEnd = nameStart + nameLength;
+  const dataStart = nameEnd + extraLength;
+  const dataEnd = dataStart + entry.compressedBytes;
+  if (flags !== entry.flags || compression !== entry.compression || crc32Value !== entry.crc32 || compressedBytes !== entry.compressedBytes || uncompressedBytes !== entry.uncompressedBytes || dataEnd > buffer.length) throw new Error("PPTX ZIP local entry does not match its directory");
+  if (buffer.toString("utf8", nameStart, nameEnd).replace(/\\/gu, "/") !== entry.name) throw new Error("PPTX ZIP local entry name is invalid");
+  let content;
+  try {
+    content = entry.compression === 0
+      ? Buffer.from(buffer.subarray(dataStart, dataEnd))
+      : zlib.inflateRawSync(buffer.subarray(dataStart, dataEnd), { maxOutputLength: MAX_XML_BYTES });
+  } catch {
+    throw new Error("PPTX ZIP entry cannot be decompressed");
+  }
+  if (content.length !== entry.uncompressedBytes || crc32(content) !== entry.crc32) throw new Error("PPTX ZIP entry checksum is invalid");
+  return content;
+}
+
+function crc32(content) {
+  let value = 0xffffffff;
+  for (const byte of content) value = CRC32_TABLE[(value ^ byte) & 0xff] ^ (value >>> 8);
+  return (value ^ 0xffffffff) >>> 0;
+}
+
+function isSafeZipEntryName(name) {
+  return Boolean(name)
+    && name.length <= 512
+    && !name.includes("\\")
+    && !name.startsWith("/")
+    && !name.includes("\u0000")
+    && !name.split("/").includes("..")
+    && !name.includes("//");
+}
+
+function findEndOfCentralDirectory(buffer) {
+  const minOffset = Math.max(0, buffer.length - 22 - 0xffff);
+  for (let offset = buffer.length - 22; offset >= minOffset; offset -= 1) {
+    if (buffer.readUInt32LE(offset) === 0x06054b50) return offset;
+  }
+  return -1;
 }
 
 function observedComponentFamiliesFromIr(file, caseId) {
@@ -282,6 +415,8 @@ module.exports = {
   validateCorpusManifest,
   _private: {
     componentFamilies,
+    crc32,
+    listZipEntries,
     normalizeSource,
     observedComponentFamiliesFromIr,
     safeRelativePath

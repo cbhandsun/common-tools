@@ -74,10 +74,17 @@ test("image-to-editable recall corpus can require existing artifacts for accepta
   const manifestFile = path.join(tmp, "manifest.json");
   const caseRoot = path.join(tmp, "case-a");
   fs.mkdirSync(path.join(caseRoot, "ir"), { recursive: true });
+  fs.writeFileSync(path.join(tmp, "case-a.png"), "source image", "utf8");
   writeJson(path.join(caseRoot, "ir", "deck.json"), deckWithComponentAnalysis(["process-flow"]));
-  fs.writeFileSync(path.join(caseRoot, "deck.pptx"), "pptx", "utf8");
+  fs.writeFileSync(path.join(caseRoot, "deck.pptx"), storedZip([
+    ["[Content_Types].xml", "<Types/>"],
+    ["ppt/presentation.xml", "<p:presentation/>"]
+  ]));
   writeJson(path.join(caseRoot, "deck.component-candidates.json"), { layers: [] });
   writeJson(manifestFile, manifestWithCases([corpusCase("case-a", ["process-flow"], {
+    source: {
+      path: repoRelative(path.join(tmp, "case-a.png"))
+    },
     artifacts: {
       inputWorkDir: repoRelative(caseRoot),
       outputIr: repoRelative(path.join(caseRoot, "ir", "deck.json")),
@@ -106,10 +113,17 @@ test("image-to-editable recall corpus compares acceptance IR evidence with expec
   const manifestFile = path.join(tmp, "manifest.json");
   const caseRoot = path.join(tmp, "case-a");
   fs.mkdirSync(path.join(caseRoot, "ir"), { recursive: true });
+  fs.writeFileSync(path.join(tmp, "case-a.png"), "source image", "utf8");
   writeJson(path.join(caseRoot, "ir", "deck.json"), deckWithComponentAnalysis(["matrix-table"]));
-  fs.writeFileSync(path.join(caseRoot, "deck.pptx"), "pptx", "utf8");
+  fs.writeFileSync(path.join(caseRoot, "deck.pptx"), storedZip([
+    ["[Content_Types].xml", "<Types/>"],
+    ["ppt/presentation.xml", "<p:presentation/>"]
+  ]));
   writeJson(path.join(caseRoot, "deck.component-candidates.json"), { layers: [] });
   writeJson(manifestFile, manifestWithCases([corpusCase("case-a", ["process-flow"], {
+    source: {
+      path: repoRelative(path.join(tmp, "case-a.png"))
+    },
     artifacts: {
       inputWorkDir: repoRelative(caseRoot),
       outputIr: repoRelative(path.join(caseRoot, "ir", "deck.json")),
@@ -121,6 +135,55 @@ test("image-to-editable recall corpus compares acceptance IR evidence with expec
   assert.throws(
     () => buildImageToEditableComponentRecallCorpusPlan({ manifest: manifestFile, requireArtifacts: true }),
     /outputIr is missing expected component families: process-flow/u
+  );
+});
+
+test("image-to-editable recall corpus requires source and OpenXML PPTX artifacts", (t) => {
+  const tmpRoot = path.join(process.cwd(), "runs", "test-image-recall-corpus");
+  fs.mkdirSync(tmpRoot, { recursive: true });
+  const tmp = fs.mkdtempSync(path.join(tmpRoot, "strict-artifacts-"));
+  t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const manifestFile = path.join(tmp, "manifest.json");
+  const caseRoot = path.join(tmp, "case-a");
+  fs.mkdirSync(path.join(caseRoot, "ir"), { recursive: true });
+  const sourceFile = path.join(tmp, "case-a.png");
+  const pptxFile = path.join(caseRoot, "deck.pptx");
+  fs.writeFileSync(sourceFile, "source image", "utf8");
+  writeJson(path.join(caseRoot, "ir", "deck.json"), deckWithComponentAnalysis(["process-flow"]));
+  fs.writeFileSync(pptxFile, "not-a-pptx", "utf8");
+  writeJson(path.join(caseRoot, "deck.component-candidates.json"), { layers: [] });
+  writeJson(manifestFile, manifestWithCases([corpusCase("case-a", ["process-flow"], {
+    source: {
+      path: repoRelative(sourceFile)
+    },
+    artifacts: {
+      inputWorkDir: repoRelative(caseRoot),
+      outputIr: repoRelative(path.join(caseRoot, "ir", "deck.json")),
+      outputPptx: repoRelative(pptxFile),
+      componentCandidateReport: repoRelative(path.join(caseRoot, "deck.component-candidates.json"))
+    }
+  })], ["process-flow"]));
+
+  assert.throws(
+    () => buildImageToEditableComponentRecallCorpusPlan({ manifest: manifestFile, requireArtifacts: true }),
+    /outputPptx is missing OpenXML entries/u
+  );
+  fs.writeFileSync(pptxFile, storedZip([
+    ["[Content_Types].xml", "<Types/>"],
+    ["ppt/presentation.xml", "<p:presentation/>"]
+  ], { corruptCrc: true }));
+  assert.throws(
+    () => buildImageToEditableComponentRecallCorpusPlan({ manifest: manifestFile, requireArtifacts: true }),
+    /PPTX ZIP entry checksum is invalid/u
+  );
+  fs.rmSync(sourceFile);
+  fs.writeFileSync(pptxFile, storedZip([
+    ["[Content_Types].xml", "<Types/>"],
+    ["ppt/presentation.xml", "<p:presentation/>"]
+  ]));
+  assert.throws(
+    () => buildImageToEditableComponentRecallCorpusPlan({ manifest: manifestFile, requireArtifacts: true }),
+    /source path is missing/u
   );
 });
 
@@ -193,4 +256,65 @@ function deckWithComponentAnalysis(families) {
       }
     }]
   };
+}
+
+function storedZip(entries, options = {}) {
+  const files = entries.map(([name, value]) => ({ name: Buffer.from(name), data: Buffer.from(value) }));
+  let offset = 0;
+  const locals = [];
+  const centrals = [];
+  for (const file of files) {
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0, 6);
+    local.writeUInt16LE(0, 8);
+    local.writeUInt32LE(0, 10);
+    local.writeUInt32LE(options.corruptCrc ? 0 : crc32(file.data), 14);
+    local.writeUInt32LE(file.data.length, 18);
+    local.writeUInt32LE(file.data.length, 22);
+    local.writeUInt16LE(file.name.length, 26);
+    local.writeUInt16LE(0, 28);
+    locals.push(local, file.name, file.data);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0, 8);
+    central.writeUInt16LE(0, 10);
+    central.writeUInt32LE(0, 12);
+    central.writeUInt32LE(options.corruptCrc ? 0 : crc32(file.data), 16);
+    central.writeUInt32LE(file.data.length, 20);
+    central.writeUInt32LE(file.data.length, 24);
+    central.writeUInt16LE(file.name.length, 28);
+    central.writeUInt16LE(0, 30);
+    central.writeUInt16LE(0, 32);
+    central.writeUInt16LE(0, 34);
+    central.writeUInt16LE(0, 36);
+    central.writeUInt32LE(0, 38);
+    central.writeUInt32LE(offset, 42);
+    centrals.push(central, file.name);
+    offset += local.length + file.name.length + file.data.length;
+  }
+  const centralOffset = offset;
+  const central = Buffer.concat(centrals);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(files.length, 8);
+  eocd.writeUInt16LE(files.length, 10);
+  eocd.writeUInt32LE(central.length, 12);
+  eocd.writeUInt32LE(centralOffset, 16);
+  eocd.writeUInt16LE(0, 20);
+  return Buffer.concat([...locals, central, eocd]);
+}
+
+function crc32(content) {
+  let value = 0xffffffff;
+  for (const byte of content) {
+    value ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ ((value & 1) ? 0xedb88320 : 0);
+  }
+  return (value ^ 0xffffffff) >>> 0;
 }
