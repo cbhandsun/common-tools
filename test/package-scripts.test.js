@@ -303,8 +303,12 @@ test("package scripts expose OfficePLUS/iSlide component asset coverage gate", (
 
 test("package scripts expose image-to-editable component recall gate", () => {
   const scripts = readPackageScripts();
+  const report = scripts["slideclone:image-to-editable-component-recall-report"];
   const command = scripts["slideclone:image-to-editable-component-recall-gate"];
 
+  assert.match(report, /image-to-editable-component-recall-report\.js/);
+  assert.match(report, /--root runs\/image-to-editable-component-recall/);
+  assert.match(report, /--out runs\/image-to-editable-component-recall\/component-strategy-rebuild-report\.json/);
   assert.match(command, /component-coverage-matrix\.js/);
   assert.match(command, /--coverage-manifest skills\/pd-hifi-slideclone\/examples\/image-to-editable-component-recall\.manifest\.json/);
   assert.match(command, /--root runs\/image-to-editable-component-recall/);
@@ -319,6 +323,7 @@ test("package scripts expose image-to-editable component recall gate", () => {
   assert.equal(manifest.gates.minImageComponentMatchedFamilyTypes, 3);
   assert.equal(manifest.gates.minImageComponentStrategyFamilyTypes, 2);
   assert.equal(manifest.gates.maxImageComponentMissingFamilyTypes, 2);
+  assert.equal(manifest.gates.requireNoExpressionPolicyViolations, undefined);
 });
 
 test("package scripts expose expression policy repair queue entrypoints", () => {
