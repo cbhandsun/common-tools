@@ -16,6 +16,7 @@ const {
   readComparisonManifest,
   resolveReportFiles,
   normalizeMotifTargetMinimums,
+  normalizeRequiredComponentFamilies,
   normalizeComponentFamilyGapExamples,
   summarizeReport,
   summarizeComponentFamilyActions,
@@ -1056,6 +1057,40 @@ test("quality matrix can require component family applied type diversity explici
   assert.equal(strict.totals.componentFamilyAppliedTypesMet, false);
 });
 
+test("quality matrix can require named component families, not just type count", () => {
+  const rows = [{
+    deck: "Component family required deck",
+    passed: true,
+    pages: 1,
+    accepted: 1,
+    needsReview: 0,
+    rejected: 0,
+    nonEditableImages: 0,
+    fullPageImages: 0,
+    disallowedFullPageImages: 0,
+    componentFamilyAppliedCounts: {
+      "process-flow": 4,
+      "specialty-chart": 2
+    }
+  }];
+
+  const loose = aggregateMatrix(rows, {
+    requiredComponentFamilies: ["process-flow", "unknown-family"]
+  });
+  assert.equal(loose.passed, true);
+  assert.deepEqual(loose.gates.requiredComponentFamilies, ["process-flow"]);
+  assert.equal(loose.totals.requiredComponentFamiliesMet, true);
+
+  const strict = aggregateMatrix(rows, {
+    requiredComponentFamilies: "matrix-table,process-flow"
+  });
+  assert.equal(strict.passed, false);
+  assert.deepEqual(strict.gates.requiredComponentFamilies, ["matrix-table", "process-flow"]);
+  assert.equal(strict.totals.requiredComponentFamiliesMet, false);
+  assert.deepEqual(strict.totals.missingRequiredComponentFamilies, ["matrix-table"]);
+  assert.deepEqual(normalizeRequiredComponentFamilies("matrix-table;process-flow;invalid"), ["matrix-table", "process-flow"]);
+});
+
 test("quality matrix normalizes component family gap examples and action priorities", () => {
   const examples = normalizeComponentFamilyGapExamples([{
     deck: "Raw deck",
@@ -1746,6 +1781,7 @@ test("quality matrix reads component asset comparison manifests", () => {
         "whole-process-template": 1
       },
       minComponentFamilyAppliedTypes: 3,
+      requiredComponentFamilies: ["process-flow", "matrix-table", "unknown-family"],
       maxComponentTemplateStructureFitShapeRatioDrop: 0.02,
       maxComponentTemplateEligibilityRejectionIncrease: 1,
       requireNoClassificationNeededVisualUnits: true,
@@ -1764,6 +1800,10 @@ test("quality matrix reads component asset comparison manifests", () => {
     "whole-process-template": 1
   });
   assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 3);
+  assert.deepEqual(
+    normalizeRequiredComponentFamilies(manifest.gates.requiredComponentFamilies),
+    ["matrix-table", "process-flow"]
+  );
   assert.equal(manifest.gates.maxComponentTemplateStructureFitShapeRatioDrop, 0.02);
   assert.equal(manifest.gates.maxComponentTemplateEligibilityRejectionIncrease, 1);
   assert.equal(manifest.gates.requireNoClassificationNeededVisualUnits, true);

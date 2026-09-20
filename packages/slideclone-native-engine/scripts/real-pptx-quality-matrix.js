@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { componentFamilyForMotif } = require("./lib/component-motifs");
+const { COMPONENT_FAMILY_IDS, componentFamilyForMotif } = require("./lib/component-motifs");
 
 function parseArgs(argv) {
   const args = { reports: [] };
@@ -883,6 +883,9 @@ function aggregateMatrix(rows, options = {}) {
   const minComponentFamilyAppliedTypes = optionalPositiveInteger(options.minComponentFamilyAppliedTypes);
   const componentFamilyAppliedTypesMet = minComponentFamilyAppliedTypes === null
     || totals.componentFamilyAppliedTypes >= minComponentFamilyAppliedTypes;
+  const requiredComponentFamilies = normalizeRequiredComponentFamilies(options.requiredComponentFamilies);
+  const missingRequiredComponentFamilies = requiredComponentFamilies.filter((family) => Number(totals.componentFamilyAppliedCounts?.[family] || 0) <= 0);
+  const requiredComponentFamiliesMet = missingRequiredComponentFamilies.length === 0;
   const minComponentTemplateStructureFitShapeRatio = optionalNonNegativeNumber(options.minComponentTemplateStructureFitShapeRatio);
   const componentTemplateStructureFitShapeRatioMet = minComponentTemplateStructureFitShapeRatio === null
     || Number(totals.componentTemplateStructureFitShapeRatio || 0) >= minComponentTemplateStructureFitShapeRatio;
@@ -928,6 +931,7 @@ function aggregateMatrix(rows, options = {}) {
       && componentTemplateMotifReadyShapesMet
       && componentTemplateMotifReadyTargetCountsMet
       && componentFamilyAppliedTypesMet
+      && requiredComponentFamiliesMet
       && componentTemplateStructureFitShapeRatioMet
       && visualAtomTopologyConnectorsMet
       && visualAtomContainerNodesMet
@@ -948,6 +952,7 @@ function aggregateMatrix(rows, options = {}) {
       minComponentTemplateMotifReadyShapes,
       minComponentTemplateMotifReadyTargetCounts,
       minComponentFamilyAppliedTypes,
+      requiredComponentFamilies,
       minComponentTemplateStructureFitShapeRatio,
       minVisualAtomTopologyConnectors,
       minVisualAtomContainerNodes,
@@ -966,6 +971,8 @@ function aggregateMatrix(rows, options = {}) {
       componentTemplateMotifReadyShapesMet,
       componentTemplateMotifReadyTargetCountsMet,
       componentFamilyAppliedTypesMet,
+      requiredComponentFamiliesMet,
+      missingRequiredComponentFamilies,
       componentTemplateStructureFitShapeRatioMet,
       visualAtomTopologyConnectorsMet,
       visualAtomContainerNodesMet,
@@ -1272,6 +1279,15 @@ function normalizeMotifTargetMinimums(value) {
   return out;
 }
 
+function normalizeRequiredComponentFamilies(value) {
+  if (value === undefined || value === null || value === "") return [];
+  const items = Array.isArray(value) ? value : String(value).split(/[;,]/);
+  return [...new Set(items
+    .map((item) => String(item || "").trim())
+    .filter((item) => COMPONENT_FAMILY_IDS.includes(item))
+  )].sort((a, b) => a.localeCompare(b));
+}
+
 function missingMotifTargetMinimums(actual = {}, minimums = {}) {
   const missing = {};
   for (const [motif, minimum] of Object.entries(minimums || {})) {
@@ -1359,6 +1375,7 @@ function main() {
     minComponentTemplateMotifReadyShapes: args["min-component-template-motif-ready-shapes"] ?? comparisonManifest?.gates?.minComponentTemplateMotifReadyShapes,
     minComponentTemplateMotifReadyTargetCounts: args["min-component-template-motif-ready-target-counts"] ?? comparisonManifest?.gates?.minComponentTemplateMotifReadyTargetCounts,
     minComponentFamilyAppliedTypes: args["min-component-family-applied-types"] ?? comparisonManifest?.gates?.minComponentFamilyAppliedTypes,
+    requiredComponentFamilies: args["required-component-families"] ?? comparisonManifest?.gates?.requiredComponentFamilies,
     minComponentTemplateStructureFitShapeRatio: args["min-component-template-structure-fit-shape-ratio"] ?? comparisonManifest?.gates?.minComponentTemplateStructureFitShapeRatio,
     minVisualAtomTopologyConnectors: args["min-visual-atom-topology-connectors"] ?? comparisonManifest?.gates?.minVisualAtomTopologyConnectors,
     minVisualAtomContainerNodes: args["min-visual-atom-container-nodes"] ?? comparisonManifest?.gates?.minVisualAtomContainerNodes,
@@ -1429,6 +1446,7 @@ module.exports = {
   readComparisonManifest,
   resolveReportFiles,
   normalizeMotifTargetMinimums,
+  normalizeRequiredComponentFamilies,
   normalizeComponentFamilyGapExamples,
   summarizeReport,
   summarizeComponentFamilyActions,

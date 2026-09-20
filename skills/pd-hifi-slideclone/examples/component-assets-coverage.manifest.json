@@ -33,6 +33,12 @@
     },
     "minComponentTemplateMotifReadyTargetTypes": 4,
     "minComponentFamilyAppliedTypes": 4,
+    "requiredComponentFamilies": [
+      "matrix-table",
+      "process-flow",
+      "relationship-network",
+      "timeline-roadmap"
+    ],
     "requireOutputPptxExists": true,
     "requireOutputPptxZip": true,
     "requireOutputPptxOpenXml": true

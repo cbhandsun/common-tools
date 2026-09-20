@@ -11,6 +11,12 @@
       "whole-process-template": 1
     },
     "minComponentFamilyAppliedTypes": 4,
+    "requiredComponentFamilies": [
+      "matrix-table",
+      "process-flow",
+      "relationship-network",
+      "timeline-roadmap"
+    ],
     "expectedComparedDecks": 6,
     "expectedDeckNames": [
       "AI_Powered_Product_Workflow_Transformation",

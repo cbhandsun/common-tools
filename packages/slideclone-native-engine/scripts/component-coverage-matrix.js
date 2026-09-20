@@ -6,7 +6,10 @@ const {
   buildComponentCoverageMatrix,
   resolveLatestReports
 } = require("./lib/component-coverage-matrix");
-const { normalizeTargetMotif: normalizeKnownTargetMotif } = require("./lib/component-motifs");
+const {
+  COMPONENT_FAMILY_IDS,
+  normalizeTargetMotif: normalizeKnownTargetMotif
+} = require("./lib/component-motifs");
 
 function parseArgs(argv) {
   const args = {
@@ -86,6 +89,9 @@ function parseArgs(argv) {
     } else if (arg === "--min-component-family-applied-types" && next) {
       args.minComponentFamilyAppliedTypes = next;
       index += 1;
+    } else if (arg === "--required-component-families" && next) {
+      args.requiredComponentFamilies = next;
+      index += 1;
     } else if (arg === "--min-visual-atom-topology-connectors" && next) {
       args.minVisualAtomTopologyConnectors = next;
       index += 1;
@@ -159,6 +165,8 @@ function main() {
       ?? manifest?.gates?.minComponentTemplateMotifReadyTargetTypes,
     minComponentFamilyAppliedTypes: args.minComponentFamilyAppliedTypes
       ?? manifest?.gates?.minComponentFamilyAppliedTypes,
+    requiredComponentFamilies: args.requiredComponentFamilies
+      ?? manifest?.gates?.requiredComponentFamilies,
     minVisualAtomTopologyConnectors: args.minVisualAtomTopologyConnectors
       ?? manifest?.gates?.minVisualAtomTopologyConnectors,
     minVisualAtomContainerNodes: args.minVisualAtomContainerNodes
@@ -244,6 +252,9 @@ function applyCoverageGates(matrix, options = {}) {
   const componentFamilyAppliedTypes = Number(matrix?.totals?.componentFamilyAppliedTypes || 0);
   const componentFamilyAppliedTypesMet = minComponentFamilyAppliedTypes === null
     || componentFamilyAppliedTypes >= minComponentFamilyAppliedTypes;
+  const requiredComponentFamilies = normalizeRequiredComponentFamilies(options.requiredComponentFamilies);
+  const missingRequiredComponentFamilies = requiredComponentFamilies.filter((family) => Number(matrix?.totals?.componentFamilyAppliedCounts?.[family] || 0) <= 0);
+  const requiredComponentFamiliesMet = missingRequiredComponentFamilies.length === 0;
   const visualAtomTopologyConnectorsMet = minVisualAtomTopologyConnectors === null
     || Number(matrix?.totals?.visualAtomTopologyConnectors || 0) >= minVisualAtomTopologyConnectors;
   const visualAtomContainerNodesMet = minVisualAtomContainerNodes === null
@@ -288,6 +299,7 @@ function applyCoverageGates(matrix, options = {}) {
     minComponentTemplateMotifReadyTargetCounts,
     minComponentTemplateMotifReadyTargetTypes,
     minComponentFamilyAppliedTypes,
+    requiredComponentFamilies,
     minVisualAtomTopologyConnectors,
     minVisualAtomContainerNodes,
     minVisualAtomContainedNodes
@@ -317,6 +329,7 @@ function applyCoverageGates(matrix, options = {}) {
     && componentTemplateMotifReadyTargetCountsMet
     && componentTemplateMotifReadyTargetTypesMet
     && componentFamilyAppliedTypesMet
+    && requiredComponentFamiliesMet
     && visualAtomTopologyConnectorsMet
     && visualAtomContainerNodesMet
     && visualAtomContainedNodesMet
@@ -351,6 +364,8 @@ function applyCoverageGates(matrix, options = {}) {
   matrix.totals.componentTemplateMotifReadyTargetTypesMet = componentTemplateMotifReadyTargetTypesMet;
   matrix.totals.componentFamilyAppliedTypes = componentFamilyAppliedTypes;
   matrix.totals.componentFamilyAppliedTypesMet = componentFamilyAppliedTypesMet;
+  matrix.totals.requiredComponentFamiliesMet = requiredComponentFamiliesMet;
+  matrix.totals.missingRequiredComponentFamilies = missingRequiredComponentFamilies;
   matrix.totals.visualAtomTopologyConnectorsMet = visualAtomTopologyConnectorsMet;
   matrix.totals.visualAtomContainerNodesMet = visualAtomContainerNodesMet;
   matrix.totals.visualAtomContainedNodesMet = visualAtomContainedNodesMet;
@@ -477,6 +492,15 @@ function normalizeTargetMotif(value) {
   return normalizeKnownTargetMotif(value);
 }
 
+function normalizeRequiredComponentFamilies(value) {
+  if (value === undefined || value === null || value === "") return [];
+  const items = Array.isArray(value) ? value : String(value).split(/[;,]/);
+  return [...new Set(items
+    .map((item) => String(item || "").trim())
+    .filter((item) => COMPONENT_FAMILY_IDS.includes(item))
+  )].sort((a, b) => a.localeCompare(b));
+}
+
 if (require.main === module) {
   try {
     main();
@@ -490,6 +514,7 @@ module.exports = {
   applyCoverageGates,
   main,
   normalizeMotifTargetMinimums,
+  normalizeRequiredComponentFamilies,
   parseArgs,
   readCoverageManifest
 };
