@@ -104,6 +104,9 @@ function parseArgs(argv) {
     } else if (arg === "--required-component-families" && next) {
       args.requiredComponentFamilies = next;
       index += 1;
+    } else if (arg === "--max-critical-component-family-backlog-items" && next) {
+      args.maxCriticalComponentFamilyBacklogItems = next;
+      index += 1;
     } else if (arg === "--min-visual-atom-topology-connectors" && next) {
       args.minVisualAtomTopologyConnectors = next;
       index += 1;
@@ -183,6 +186,8 @@ function main() {
       ?? manifest?.gates?.maxImageComponentMissingFamilyTypes,
     requiredComponentFamilies: args.requiredComponentFamilies
       ?? manifest?.gates?.requiredComponentFamilies,
+    maxCriticalComponentFamilyBacklogItems: args.maxCriticalComponentFamilyBacklogItems
+      ?? manifest?.gates?.maxCriticalComponentFamilyBacklogItems,
     minVisualAtomTopologyConnectors: args.minVisualAtomTopologyConnectors
       ?? manifest?.gates?.minVisualAtomTopologyConnectors,
     minVisualAtomContainerNodes: args.minVisualAtomContainerNodes
@@ -287,6 +292,10 @@ function applyCoverageGates(matrix, options = {}) {
   const requiredComponentFamilies = normalizeRequiredComponentFamilies(options.requiredComponentFamilies);
   const missingRequiredComponentFamilies = requiredComponentFamilies.filter((family) => Number(matrix?.totals?.componentFamilyAppliedCounts?.[family] || 0) <= 0);
   const requiredComponentFamiliesMet = missingRequiredComponentFamilies.length === 0;
+  const maxCriticalComponentFamilyBacklogItems = optionalNonNegativeInteger(options.maxCriticalComponentFamilyBacklogItems);
+  const criticalComponentFamilyBacklogItems = countCriticalComponentFamilyBacklogItems(matrix?.totals?.componentFamilyBacklog);
+  const criticalComponentFamilyBacklogItemsMet = maxCriticalComponentFamilyBacklogItems === null
+    || criticalComponentFamilyBacklogItems <= maxCriticalComponentFamilyBacklogItems;
   const visualAtomTopologyConnectorsMet = minVisualAtomTopologyConnectors === null
     || Number(matrix?.totals?.visualAtomTopologyConnectors || 0) >= minVisualAtomTopologyConnectors;
   const visualAtomContainerNodesMet = minVisualAtomContainerNodes === null
@@ -336,6 +345,7 @@ function applyCoverageGates(matrix, options = {}) {
     minImageComponentStrategyFamilyTypes,
     maxImageComponentMissingFamilyTypes,
     requiredComponentFamilies,
+    maxCriticalComponentFamilyBacklogItems,
     minVisualAtomTopologyConnectors,
     minVisualAtomContainerNodes,
     minVisualAtomContainedNodes
@@ -370,6 +380,7 @@ function applyCoverageGates(matrix, options = {}) {
     && imageComponentStrategyFamilyTypesMet
     && imageComponentMissingFamilyTypesMet
     && requiredComponentFamiliesMet
+    && criticalComponentFamilyBacklogItemsMet
     && visualAtomTopologyConnectorsMet
     && visualAtomContainerNodesMet
     && visualAtomContainedNodesMet
@@ -414,6 +425,8 @@ function applyCoverageGates(matrix, options = {}) {
   matrix.totals.imageComponentMissingFamilyTypesMet = imageComponentMissingFamilyTypesMet;
   matrix.totals.requiredComponentFamiliesMet = requiredComponentFamiliesMet;
   matrix.totals.missingRequiredComponentFamilies = missingRequiredComponentFamilies;
+  matrix.totals.criticalComponentFamilyBacklogItems = criticalComponentFamilyBacklogItems;
+  matrix.totals.criticalComponentFamilyBacklogItemsMet = criticalComponentFamilyBacklogItemsMet;
   matrix.totals.visualAtomTopologyConnectorsMet = visualAtomTopologyConnectorsMet;
   matrix.totals.visualAtomContainerNodesMet = visualAtomContainerNodesMet;
   matrix.totals.visualAtomContainedNodesMet = visualAtomContainedNodesMet;
@@ -523,6 +536,12 @@ function optionalNonNegativeNumber(value) {
   if (value === undefined || value === null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function countCriticalComponentFamilyBacklogItems(backlog = []) {
+  return (Array.isArray(backlog) ? backlog : [])
+    .filter((item) => String(item?.priority || "") === "critical")
+    .length;
 }
 
 function normalizeMotifTargetMinimums(value) {

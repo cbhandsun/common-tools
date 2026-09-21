@@ -891,6 +891,10 @@ function aggregateMatrix(rows, options = {}) {
   const requiredComponentFamilies = normalizeRequiredComponentFamilies(options.requiredComponentFamilies);
   const missingRequiredComponentFamilies = requiredComponentFamilies.filter((family) => Number(totals.componentFamilyAppliedCounts?.[family] || 0) <= 0);
   const requiredComponentFamiliesMet = missingRequiredComponentFamilies.length === 0;
+  const maxCriticalComponentFamilyBacklogItems = optionalNonNegativeInteger(options.maxCriticalComponentFamilyBacklogItems);
+  const criticalComponentFamilyBacklogItems = countCriticalComponentFamilyBacklogItems(totals.componentFamilyBacklog);
+  const criticalComponentFamilyBacklogItemsMet = maxCriticalComponentFamilyBacklogItems === null
+    || criticalComponentFamilyBacklogItems <= maxCriticalComponentFamilyBacklogItems;
   const minComponentTemplateStructureFitShapeRatio = optionalNonNegativeNumber(options.minComponentTemplateStructureFitShapeRatio);
   const componentTemplateStructureFitShapeRatioMet = minComponentTemplateStructureFitShapeRatio === null
     || Number(totals.componentTemplateStructureFitShapeRatio || 0) >= minComponentTemplateStructureFitShapeRatio;
@@ -937,6 +941,7 @@ function aggregateMatrix(rows, options = {}) {
       && componentTemplateMotifReadyTargetCountsMet
       && componentFamilyAppliedTypesMet
       && requiredComponentFamiliesMet
+      && criticalComponentFamilyBacklogItemsMet
       && componentTemplateStructureFitShapeRatioMet
       && visualAtomTopologyConnectorsMet
       && visualAtomContainerNodesMet
@@ -958,6 +963,7 @@ function aggregateMatrix(rows, options = {}) {
       minComponentTemplateMotifReadyTargetCounts,
       minComponentFamilyAppliedTypes,
       requiredComponentFamilies,
+      maxCriticalComponentFamilyBacklogItems,
       minComponentTemplateStructureFitShapeRatio,
       minVisualAtomTopologyConnectors,
       minVisualAtomContainerNodes,
@@ -978,6 +984,8 @@ function aggregateMatrix(rows, options = {}) {
       componentFamilyAppliedTypesMet,
       requiredComponentFamiliesMet,
       missingRequiredComponentFamilies,
+      criticalComponentFamilyBacklogItems,
+      criticalComponentFamilyBacklogItemsMet,
       componentTemplateStructureFitShapeRatioMet,
       visualAtomTopologyConnectorsMet,
       visualAtomContainerNodesMet,
@@ -1260,10 +1268,22 @@ function optionalPositiveInteger(value) {
   return Number.isInteger(number) && number > 0 ? number : null;
 }
 
+function optionalNonNegativeInteger(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
+}
+
 function optionalNonNegativeNumber(value) {
   if (value === undefined || value === null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 && number <= 1 ? number : null;
+}
+
+function countCriticalComponentFamilyBacklogItems(backlog = []) {
+  return (Array.isArray(backlog) ? backlog : [])
+    .filter((item) => String(item?.priority || "") === "critical")
+    .length;
 }
 
 function normalizeMotifTargetMinimums(value) {
@@ -1381,6 +1401,7 @@ function main() {
     minComponentTemplateMotifReadyTargetCounts: args["min-component-template-motif-ready-target-counts"] ?? comparisonManifest?.gates?.minComponentTemplateMotifReadyTargetCounts,
     minComponentFamilyAppliedTypes: args["min-component-family-applied-types"] ?? comparisonManifest?.gates?.minComponentFamilyAppliedTypes,
     requiredComponentFamilies: args["required-component-families"] ?? comparisonManifest?.gates?.requiredComponentFamilies,
+    maxCriticalComponentFamilyBacklogItems: args["max-critical-component-family-backlog-items"] ?? comparisonManifest?.gates?.maxCriticalComponentFamilyBacklogItems,
     minComponentTemplateStructureFitShapeRatio: args["min-component-template-structure-fit-shape-ratio"] ?? comparisonManifest?.gates?.minComponentTemplateStructureFitShapeRatio,
     minVisualAtomTopologyConnectors: args["min-visual-atom-topology-connectors"] ?? comparisonManifest?.gates?.minVisualAtomTopologyConnectors,
     minVisualAtomContainerNodes: args["min-visual-atom-container-nodes"] ?? comparisonManifest?.gates?.minVisualAtomContainerNodes,
