@@ -98,6 +98,124 @@ function summarizeComponentFamilyActions(totals = {}) {
     ));
 }
 
+function summarizeComponentFamilyBacklog(totals = {}) {
+  const families = uniqueComponentFamilies([
+    ...Object.keys(totals.componentFamilyAppliedCounts || {}),
+    ...Object.keys(totals.componentFamilyGapCounts || {}),
+    ...Object.keys(totals.imageComponentDetectedFamilyCounts || {}),
+    ...Object.keys(totals.imageComponentMatchedFamilyCounts || {}),
+    ...Object.keys(totals.imageComponentStrategyFamilyCounts || {}),
+    ...Object.keys(totals.imageComponentMissingFamilyCounts || {})
+  ]);
+  const examples = Array.isArray(totals.componentFamilyGapExamples) ? totals.componentFamilyGapExamples : [];
+  return families
+    .map((family) => componentFamilyBacklogRow(family, totals, examples))
+    .filter((row) => row.stage !== "covered")
+    .sort((a, b) => (
+      componentFamilyPriorityRank(a.priority) - componentFamilyPriorityRank(b.priority)
+      || componentFamilyStageRank(a.stage) - componentFamilyStageRank(b.stage)
+      || b.gapLayers - a.gapLayers
+      || b.missingLayers - a.missingLayers
+      || b.detectedLayers - a.detectedLayers
+      || a.family.localeCompare(b.family)
+    ));
+}
+
+function componentFamilyBacklogRow(family, totals = {}, examples = []) {
+  const appliedObjects = safeNumber(totals.componentFamilyAppliedCounts?.[family]);
+  const gapLayers = safeNumber(totals.componentFamilyGapCounts?.[family]);
+  const detectedLayers = safeNumber(totals.imageComponentDetectedFamilyCounts?.[family]);
+  const matchedLayers = safeNumber(totals.imageComponentMatchedFamilyCounts?.[family]);
+  const strategyLayers = safeNumber(totals.imageComponentStrategyFamilyCounts?.[family]);
+  const missingLayers = safeNumber(totals.imageComponentMissingFamilyCounts?.[family]);
+  const hasImageEvidence = detectedLayers > 0 || matchedLayers > 0 || strategyLayers > 0 || missingLayers > 0;
+  const stage = componentFamilyBacklogStage({
+    appliedObjects,
+    gapLayers,
+    detectedLayers,
+    matchedLayers,
+    strategyLayers,
+    missingLayers,
+    hasImageEvidence
+  });
+  return {
+    family,
+    priority: componentFamilyBacklogPriority({ stage, appliedObjects, gapLayers, missingLayers }),
+    stage,
+    recommendedAction: componentFamilyBacklogAction(stage),
+    detectedLayers,
+    matchedLayers,
+    strategyLayers,
+    appliedObjects,
+    gapLayers,
+    missingLayers,
+    examples: examples
+      .filter((example) => Array.isArray(example.families) && example.families.includes(family))
+      .slice(0, 5)
+      .map((example) => ({
+        deck: safeString(example.deck || "unknown-deck"),
+        page: safeNumber(example.page),
+        image: safeNumber(example.image),
+        source: safeString(example.source || ""),
+        mode: safeString(example.mode || ""),
+        layerType: safeString(example.layerType || "unknown-layer"),
+        detector: safeString(example.detector || "unknown-detector"),
+        disposition: safeString(example.disposition || ""),
+        reason: safeString(example.reason || ""),
+        priority: safeString(example.priority || "")
+      }))
+  };
+}
+
+function componentFamilyBacklogStage({
+  appliedObjects = 0,
+  gapLayers = 0,
+  detectedLayers = 0,
+  matchedLayers = 0,
+  strategyLayers = 0,
+  missingLayers = 0,
+  hasImageEvidence = false
+} = {}) {
+  if (appliedObjects > 0 && gapLayers === 0 && missingLayers === 0) return "covered";
+  if (appliedObjects > 0 && (gapLayers > 0 || missingLayers > 0)) return "expand-native-coverage";
+  if (strategyLayers > 0) return "native-application-gap";
+  if (matchedLayers > 0) return "strategy-routing-gap";
+  if (missingLayers > 0 || (detectedLayers > 0 && matchedLayers === 0)) return "asset-match-gap";
+  if (gapLayers > 0) return "native-coverage-gap";
+  if (hasImageEvidence) return "recall-evidence-review";
+  return "covered";
+}
+
+function componentFamilyBacklogPriority({ stage = "", appliedObjects = 0, gapLayers = 0, missingLayers = 0 } = {}) {
+  if (stage === "covered") return "low";
+  if (stage === "native-coverage-gap" && appliedObjects === 0 && gapLayers >= 3) return "critical";
+  if (stage === "native-application-gap" && appliedObjects === 0) return "critical";
+  if (stage === "asset-match-gap" && missingLayers >= 3) return "critical";
+  if (stage === "expand-native-coverage") return "medium";
+  if (stage === "recall-evidence-review") return "review";
+  return "high";
+}
+
+function componentFamilyBacklogAction(stage = "") {
+  if (stage === "asset-match-gap") return "promote-or-admit-component-assets";
+  if (stage === "strategy-routing-gap") return "route-matched-assets-into-component-strategy";
+  if (stage === "native-application-gap") return "wire-strategy-to-native-editable-output";
+  if (stage === "expand-native-coverage") return "expand-existing-native-family-coverage";
+  if (stage === "native-coverage-gap") return "add-first-native-family-coverage";
+  if (stage === "recall-evidence-review") return "review-image-component-recall-evidence";
+  return "no-action";
+}
+
+function componentFamilyStageRank(stage = "") {
+  if (stage === "native-application-gap") return 0;
+  if (stage === "native-coverage-gap") return 1;
+  if (stage === "asset-match-gap") return 2;
+  if (stage === "strategy-routing-gap") return 3;
+  if (stage === "expand-native-coverage") return 4;
+  if (stage === "recall-evidence-review") return 5;
+  return 6;
+}
+
 function componentFamilyAppliedCountsFromResult(result = {}) {
   const counts = {};
   mergeCounts(counts, result.componentFamilyAppliedCounts);
@@ -276,6 +394,7 @@ module.exports = {
   isMotifReadyComponentTemplateSource,
   isWholeProcessTemplateSource,
   summarizeComponentFamilyActions,
+  summarizeComponentFamilyBacklog,
   summarizeComponentFamilyCoverage,
   summarizeComponentFamilyGaps,
   COMPONENT_FAMILY_BY_MOTIF,

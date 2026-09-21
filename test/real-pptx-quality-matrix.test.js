@@ -20,6 +20,7 @@ const {
   normalizeComponentFamilyGapExamples,
   summarizeReport,
   summarizeComponentFamilyActions,
+  summarizeComponentFamilyBacklog,
   topDetectorCounts,
   truthyArg
 } = require("../packages/slideclone-native-engine/scripts/real-pptx-quality-matrix");
@@ -570,6 +571,34 @@ test("quality matrix aggregates pass state and editability metrics", () => {
         detector: "gauge-underlay",
         reason: "component-reference-only"
       }]
+    }
+  ]);
+  assert.deepEqual(matrix.totals.componentFamilyBacklog.map((item) => ({
+    family: item.family,
+    priority: item.priority,
+    stage: item.stage,
+    recommendedAction: item.recommendedAction,
+    appliedObjects: item.appliedObjects,
+    gapLayers: item.gapLayers,
+    missingLayers: item.missingLayers
+  })), [
+    {
+      family: "relationship-network",
+      priority: "high",
+      stage: "native-coverage-gap",
+      recommendedAction: "add-first-native-family-coverage",
+      appliedObjects: 0,
+      gapLayers: 1,
+      missingLayers: 0
+    },
+    {
+      family: "specialty-chart",
+      priority: "medium",
+      stage: "expand-native-coverage",
+      recommendedAction: "expand-existing-native-family-coverage",
+      appliedObjects: 2,
+      gapLayers: 1,
+      missingLayers: 0
     }
   ]);
   assert.deepEqual(matrix.totals.componentStrategyModeCounts, {
@@ -1149,6 +1178,40 @@ test("quality matrix normalizes component family gap examples and action priorit
     appliedObjects: 2,
     status: "partial",
     examples: []
+  }]);
+  assert.deepEqual(summarizeComponentFamilyBacklog({
+    componentFamilyAppliedCounts: { "specialty-chart": 2 },
+    componentFamilyGapCounts: { "relationship-network": 4, "specialty-chart": 1 },
+    imageComponentDetectedFamilyCounts: { "process-flow": 2 },
+    imageComponentMatchedFamilyCounts: { "process-flow": 2 },
+    imageComponentStrategyFamilyCounts: { "process-flow": 2 },
+    imageComponentMissingFamilyCounts: { "matrix-table": 3 },
+    componentFamilyGapExamples: examples
+  }).map((item) => ({
+    family: item.family,
+    priority: item.priority,
+    stage: item.stage,
+    recommendedAction: item.recommendedAction
+  })), [{
+    family: "process-flow",
+    priority: "critical",
+    stage: "native-application-gap",
+    recommendedAction: "wire-strategy-to-native-editable-output"
+  }, {
+    family: "relationship-network",
+    priority: "critical",
+    stage: "native-coverage-gap",
+    recommendedAction: "add-first-native-family-coverage"
+  }, {
+    family: "matrix-table",
+    priority: "critical",
+    stage: "asset-match-gap",
+    recommendedAction: "promote-or-admit-component-assets"
+  }, {
+    family: "specialty-chart",
+    priority: "medium",
+    stage: "expand-native-coverage",
+    recommendedAction: "expand-existing-native-family-coverage"
   }]);
 });
 

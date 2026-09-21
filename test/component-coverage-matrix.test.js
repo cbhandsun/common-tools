@@ -243,6 +243,12 @@ test("component coverage matrix aggregates image component analysis family evide
     strategyLayers: 0,
     missingLayers: 1
   }]);
+  assert.deepEqual(matrix.totals.componentFamilyBacklog.map(({ family, priority, stage, recommendedAction }) => ({
+    family, priority, stage, recommendedAction
+  })), [
+    { family: "process-flow", priority: "critical", stage: "native-application-gap", recommendedAction: "wire-strategy-to-native-editable-output" },
+    { family: "relationship-network", priority: "high", stage: "asset-match-gap", recommendedAction: "promote-or-admit-component-assets" }
+  ]);
 });
 
 test("component family inference uses bounded English tokens for short motif aliases", () => {
@@ -1908,6 +1914,12 @@ test("component coverage matrix summarizes image-to-editable component families"
       gapLayers: 1,
       appliedObjects: 1
     }
+  ]);
+  assert.deepEqual(matrix.totals.componentFamilyBacklog.map(({ family, priority, stage, recommendedAction }) => ({
+    family, priority, stage, recommendedAction
+  })), [
+    { family: "relationship-network", priority: "high", stage: "native-coverage-gap", recommendedAction: "add-first-native-family-coverage" },
+    { family: "specialty-chart", priority: "medium", stage: "expand-native-coverage", recommendedAction: "expand-existing-native-family-coverage" }
   ]);
 
   applyCoverageGates(matrix, {

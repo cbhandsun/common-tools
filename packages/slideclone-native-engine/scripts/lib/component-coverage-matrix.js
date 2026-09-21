@@ -16,6 +16,7 @@ const {
   isMotifReadyComponentTemplateSource,
   isWholeProcessTemplateSource,
   summarizeComponentFamilyActions,
+  summarizeComponentFamilyBacklog,
   summarizeComponentFamilyCoverage,
   summarizeComponentFamilyGaps
 } = require("./component-coverage-family");
@@ -828,6 +829,7 @@ function aggregateRows(rows = []) {
     componentFamilyGapExamples: [],
     componentFamilyCoverage: [],
     componentFamilyActions: [],
+    componentFamilyBacklog: [],
     imageComponentAnalysisPages: 0,
     imageComponentAnalysisPreImages: 0,
     imageComponentAnalysisLayers: 0,
@@ -1049,6 +1051,7 @@ function aggregateRows(rows = []) {
     totals.componentFamilyGapCounts
   );
   totals.componentFamilyActions = summarizeComponentFamilyActions(totals);
+  totals.componentFamilyBacklog = summarizeComponentFamilyBacklog(totals);
   totals.componentAssetLocalCoverageRatio = totals.componentAssetLayers
     ? round(totals.componentAssetLayersWithLocalAssets / totals.componentAssetLayers)
     : null;
