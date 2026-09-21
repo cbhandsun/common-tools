@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const zlib = require("node:zlib");
 
 const {
   buildImageToEditableComponentRecallCorpusPlan,
@@ -74,7 +75,7 @@ test("image-to-editable recall corpus can require existing artifacts for accepta
   const manifestFile = path.join(tmp, "manifest.json");
   const caseRoot = path.join(tmp, "case-a");
   fs.mkdirSync(path.join(caseRoot, "ir"), { recursive: true });
-  fs.writeFileSync(path.join(tmp, "case-a.png"), "source image", "utf8");
+  fs.writeFileSync(path.join(tmp, "case-a.png"), tinyPng());
   writeJson(path.join(caseRoot, "ir", "deck.json"), deckWithComponentAnalysis(["process-flow"]));
   fs.writeFileSync(path.join(caseRoot, "deck.pptx"), storedZip([
     ["[Content_Types].xml", "<Types/>"],
@@ -113,7 +114,7 @@ test("image-to-editable recall corpus compares acceptance IR evidence with expec
   const manifestFile = path.join(tmp, "manifest.json");
   const caseRoot = path.join(tmp, "case-a");
   fs.mkdirSync(path.join(caseRoot, "ir"), { recursive: true });
-  fs.writeFileSync(path.join(tmp, "case-a.png"), "source image", "utf8");
+  fs.writeFileSync(path.join(tmp, "case-a.png"), tinyPng());
   writeJson(path.join(caseRoot, "ir", "deck.json"), deckWithComponentAnalysis(["matrix-table"]));
   fs.writeFileSync(path.join(caseRoot, "deck.pptx"), storedZip([
     ["[Content_Types].xml", "<Types/>"],
@@ -148,7 +149,7 @@ test("image-to-editable recall corpus requires source and OpenXML PPTX artifacts
   fs.mkdirSync(path.join(caseRoot, "ir"), { recursive: true });
   const sourceFile = path.join(tmp, "case-a.png");
   const pptxFile = path.join(caseRoot, "deck.pptx");
-  fs.writeFileSync(sourceFile, "source image", "utf8");
+  fs.writeFileSync(sourceFile, tinyPng());
   writeJson(path.join(caseRoot, "ir", "deck.json"), deckWithComponentAnalysis(["process-flow"]));
   fs.writeFileSync(pptxFile, "not-a-pptx", "utf8");
   writeJson(path.join(caseRoot, "deck.component-candidates.json"), { layers: [] });
@@ -184,6 +185,46 @@ test("image-to-editable recall corpus requires source and OpenXML PPTX artifacts
   assert.throws(
     () => buildImageToEditableComponentRecallCorpusPlan({ manifest: manifestFile, requireArtifacts: true }),
     /source path is missing/u
+  );
+});
+
+test("image-to-editable recall corpus rejects placeholder source artifacts", (t) => {
+  const tmpRoot = path.join(process.cwd(), "runs", "test-image-recall-corpus");
+  fs.mkdirSync(tmpRoot, { recursive: true });
+  const tmp = fs.mkdtempSync(path.join(tmpRoot, "source-signature-"));
+  t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const manifestFile = path.join(tmp, "manifest.json");
+  const caseRoot = path.join(tmp, "case-a");
+  fs.mkdirSync(path.join(caseRoot, "ir"), { recursive: true });
+  const sourceFile = path.join(tmp, "case-a.png");
+  const pptxFile = path.join(caseRoot, "deck.pptx");
+  fs.writeFileSync(sourceFile, "source image", "utf8");
+  writeJson(path.join(caseRoot, "ir", "deck.json"), deckWithComponentAnalysis(["process-flow"]));
+  fs.writeFileSync(pptxFile, storedZip([
+    ["[Content_Types].xml", "<Types/>"],
+    ["ppt/presentation.xml", "<p:presentation/>"]
+  ]));
+  writeJson(path.join(caseRoot, "deck.component-candidates.json"), { layers: [] });
+  writeJson(manifestFile, manifestWithCases([corpusCase("case-a", ["process-flow"], {
+    source: {
+      path: repoRelative(sourceFile)
+    },
+    artifacts: {
+      inputWorkDir: repoRelative(caseRoot),
+      outputIr: repoRelative(path.join(caseRoot, "ir", "deck.json")),
+      outputPptx: repoRelative(pptxFile),
+      componentCandidateReport: repoRelative(path.join(caseRoot, "deck.component-candidates.json"))
+    }
+  })], ["process-flow"]));
+
+  assert.throws(
+    () => buildImageToEditableComponentRecallCorpusPlan({ manifest: manifestFile, requireArtifacts: true }),
+    /source artifact is not a supported image/u
+  );
+  fs.writeFileSync(sourceFile, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  assert.throws(
+    () => buildImageToEditableComponentRecallCorpusPlan({ manifest: manifestFile, requireArtifacts: true }),
+    /source artifact is not a supported image/u
   );
 });
 
@@ -236,6 +277,27 @@ function corpusCase(id, expectedComponentFamilies, overrides = {}) {
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+function tinyPng() {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(1, 0);
+  ihdr.writeUInt32BE(1, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const idat = zlib.deflateSync(Buffer.from([0, 0, 0, 0, 0]));
+  return Buffer.concat([signature, pngChunk("IHDR", ihdr), pngChunk("IDAT", idat), pngChunk("IEND", Buffer.alloc(0))]);
+}
+
+function pngChunk(type, data) {
+  const typeBytes = Buffer.from(type, "ascii");
+  const chunk = Buffer.alloc(12 + data.length);
+  chunk.writeUInt32BE(data.length, 0);
+  typeBytes.copy(chunk, 4);
+  data.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])), 8 + data.length);
+  return chunk;
 }
 
 function repoRelative(file) {

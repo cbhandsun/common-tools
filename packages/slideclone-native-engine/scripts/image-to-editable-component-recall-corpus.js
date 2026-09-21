@@ -121,6 +121,7 @@ function validateAcceptanceProfiles(value) {
 
 function normalizeCaseArtifacts(entry, options = {}) {
   const sourcePath = resolveArtifactPath(entry.source.path, "source path", { file: true, required: options.requireArtifacts });
+  if (options.requireArtifacts) validateSourceArtifact(sourcePath, entry.source.kind, entry.id);
   const outputIr = resolveArtifactPath(entry.artifacts.outputIr, "outputIr", { file: true, required: options.requireArtifacts });
   const outputPptx = resolveArtifactPath(entry.artifacts.outputPptx, "outputPptx", { file: true, required: options.requireArtifacts });
   if (options.requireArtifacts) validatePptxOpenXml(outputPptx, entry.id);
@@ -213,6 +214,76 @@ function validatePptxOpenXml(file, caseId) {
   if (!/<Types(?:[\s>/])/u.test(contentTypes) || !/<p:presentation(?:[\s>/])/u.test(presentation)) {
     throw new Error(`corpus case ${caseId} outputPptx is missing required presentation XML`);
   }
+}
+
+function validateSourceArtifact(file, kind, caseId) {
+  const buffer = safeReadFile(path.resolve(file));
+  if (!buffer || buffer.length === 0) throw new Error(`corpus case ${caseId} source artifact is missing`);
+  if (kind === "pdf") {
+    if (buffer.length < 5 || buffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
+      throw new Error(`corpus case ${caseId} source artifact is not a PDF`);
+    }
+    return;
+  }
+  if (kind === "image-pptx") {
+    validatePptxOpenXml(file, caseId);
+    return;
+  }
+  if (kind === "image") {
+    if (!isPng(buffer) && !isJpeg(buffer)) throw new Error(`corpus case ${caseId} source artifact is not a supported image`);
+    return;
+  }
+  throw new Error(`corpus case ${caseId} source kind is unsupported`);
+}
+
+function isPng(buffer) {
+  if (buffer.length < 45
+    || buffer[0] !== 0x89
+    || buffer[1] !== 0x50
+    || buffer[2] !== 0x4e
+    || buffer[3] !== 0x47
+    || buffer[4] !== 0x0d
+    || buffer[5] !== 0x0a
+    || buffer[6] !== 0x1a
+    || buffer[7] !== 0x0a) return false;
+  let offset = 8;
+  let sawHeader = false;
+  let sawData = false;
+  while (offset < buffer.length) {
+    if (offset + 12 > buffer.length) return false;
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + length;
+    const chunkEnd = dataEnd + 4;
+    if (chunkEnd > buffer.length || !/^[A-Za-z]{4}$/u.test(type)) return false;
+    const expectedCrc = buffer.readUInt32BE(dataEnd);
+    const actualCrc = crc32(buffer.subarray(offset + 4, dataEnd));
+    if (actualCrc !== expectedCrc) return false;
+    if (!sawHeader) {
+      if (type !== "IHDR" || length !== 13) return false;
+      const data = buffer.subarray(dataStart, dataEnd);
+      if (data.readUInt32BE(0) < 1 || data.readUInt32BE(4) < 1 || data[10] !== 0 || data[11] !== 0 || data[12] !== 0) return false;
+      sawHeader = true;
+    } else if (type === "IHDR") {
+      return false;
+    } else if (type === "IDAT") {
+      if (length < 1) return false;
+      sawData = true;
+    } else if (type === "IEND") {
+      return length === 0 && sawData && chunkEnd === buffer.length;
+    }
+    offset = chunkEnd;
+  }
+  return false;
+}
+
+function isJpeg(buffer) {
+  return buffer.length >= 4
+    && buffer[0] === 0xff
+    && buffer[1] === 0xd8
+    && buffer[buffer.length - 2] === 0xff
+    && buffer[buffer.length - 1] === 0xd9;
 }
 
 function listZipEntries(file) {
