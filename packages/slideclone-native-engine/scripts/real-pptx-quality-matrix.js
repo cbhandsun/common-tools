@@ -3,6 +3,9 @@
 const fs = require("fs");
 const path = require("path");
 const { COMPONENT_FAMILY_IDS, componentFamilyForMotif } = require("./lib/component-motifs");
+const {
+  summarizeComponentFamilyBacklog
+} = require("./lib/component-coverage-family");
 
 function parseArgs(argv) {
   const args = { reports: [] };
@@ -778,6 +781,7 @@ function aggregateMatrix(rows, options = {}) {
     componentFamilyGapExamples: [],
     componentFamilyCoverage: [],
     componentFamilyActions: [],
+    componentFamilyBacklog: [],
     componentTemplateNativeRoleCounts: {},
     componentTemplateStructureRoleCounts: {},
     componentTemplateCropPreservedReasonCounts: {},
@@ -836,6 +840,7 @@ function aggregateMatrix(rows, options = {}) {
   totals.topComponentFamiliesApplied = topDetectorCounts(totals.componentFamilyAppliedCounts);
   totals.topComponentFamilyGaps = topDetectorCounts(totals.componentFamilyGapCounts);
   totals.componentFamilyActions = summarizeComponentFamilyActions(totals);
+  totals.componentFamilyBacklog = summarizeComponentFamilyBacklog(totals);
   totals.topComponentTemplateNativeRoles = topDetectorCounts(totals.componentTemplateNativeRoleCounts);
   totals.topComponentTemplateStructureRoles = topDetectorCounts(totals.componentTemplateStructureRoleCounts);
   totals.topComponentTemplateCropPreservedReasons = topDetectorCounts(totals.componentTemplateCropPreservedReasonCounts);
@@ -1450,6 +1455,7 @@ module.exports = {
   normalizeComponentFamilyGapExamples,
   summarizeReport,
   summarizeComponentFamilyActions,
+  summarizeComponentFamilyBacklog,
   topDetectorCounts,
   truthyArg
 };
