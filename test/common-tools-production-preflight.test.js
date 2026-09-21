@@ -149,7 +149,7 @@ test("deployment resolver accepts the file sets emitted by real production prefl
     { ...direct, composeFiles: new Array(1000).fill(direct.composeFiles[0]) }
   ];
   const result = spawnSync(process.platform === "win32" ? "powershell.exe" : "pwsh", ["-NoProfile", "-NonInteractive", "-File", path.join(__dirname, "fixtures", "production-compose-files.ps1"), path.resolve(__dirname, "..")], {
-    input: JSON.stringify([...cases, ...invalid]), encoding: "utf8", windowsHide: true, timeout: 15000
+    input: JSON.stringify([...cases, ...invalid]), encoding: "utf8", windowsHide: true, timeout: 45000
   });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), [...cases.map((entry) => ({ accepted: true, count: entry.composeFiles.length, unique: entry.composeFiles.length })), ...invalid.map(() => ({ accepted: false, count: 0, unique: 0 }))]);

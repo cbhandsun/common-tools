@@ -51,4 +51,13 @@ test("real pptx quality matrix can cap critical component family backlog items",
   assert.equal(matrix.gates.maxCriticalComponentFamilyBacklogItems, 0);
   assert.equal(matrix.totals.criticalComponentFamilyBacklogItems, 1);
   assert.equal(matrix.totals.criticalComponentFamilyBacklogItemsMet, false);
+  assert.deepEqual(matrix.totals.componentFamilyActionPlan.map(({ family, ownerSurface, acceptanceGate }) => ({
+    family,
+    ownerSurface,
+    acceptanceGate
+  })), [{
+    family: "relationship-network",
+    ownerSurface: "native-family-implementation",
+    acceptanceGate: "requiredComponentFamilies"
+  }]);
 });

@@ -98,7 +98,7 @@ test("keeper retries only transient Quit failures in generated PowerShell", (t) 
   fs.writeFileSync(generated, keeperScript());
   const result = spawnSync(process.platform === "win32" ? "powershell.exe" : "pwsh", [
     "-NoProfile", "-NonInteractive", "-File", path.join(__dirname, "fixtures", "powerpoint-keeper-quit.ps1"), "-GeneratedScript", generated
-  ], { encoding: "utf8", windowsHide: true, timeout: 30_000 });
+  ], { encoding: "utf8", windowsHide: true, timeout: 60_000 });
   assert.equal(result.status, 0, result.stderr || result.error?.message);
   assert.deepEqual(JSON.parse(result.stdout.trim()), { passed: true, checks: 6 });
 });

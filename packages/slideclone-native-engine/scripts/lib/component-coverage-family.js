@@ -121,6 +121,103 @@ function summarizeComponentFamilyBacklog(totals = {}) {
     ));
 }
 
+function summarizeComponentFamilyActionPlan(totals = {}) {
+  const backlog = Array.isArray(totals.componentFamilyBacklog)
+    ? totals.componentFamilyBacklog
+    : summarizeComponentFamilyBacklog(totals);
+  return backlog
+    .filter((item) => safeString(item.recommendedAction) !== "no-action")
+    .map((item, index) => componentFamilyActionPlanItem(item, index));
+}
+
+function componentFamilyActionPlanItem(item = {}, index = 0) {
+  const family = safeString(item.family || "unknown-family");
+  const stage = safeString(item.stage || "unknown-stage");
+  const priority = safeString(item.priority || "high");
+  const recommendedAction = safeString(item.recommendedAction || componentFamilyBacklogAction(stage));
+  return {
+    rank: index + 1,
+    id: `component-family-${stage}-${family}`,
+    family,
+    priority,
+    stage,
+    ownerSurface: componentFamilyActionOwnerSurface(stage),
+    recommendedAction,
+    blockingMetric: componentFamilyBlockingMetric(stage),
+    deficitLayers: componentFamilyActionDeficitLayers(item),
+    strictAcceptanceBlocks: priority === "critical",
+    acceptanceGate: componentFamilyActionAcceptanceGate(stage),
+    evidenceMetrics: componentFamilyActionEvidenceMetrics(stage),
+    coverage: {
+      detectedLayers: safeNumber(item.detectedLayers),
+      matchedLayers: safeNumber(item.matchedLayers),
+      strategyLayers: safeNumber(item.strategyLayers),
+      appliedObjects: safeNumber(item.appliedObjects),
+      gapLayers: safeNumber(item.gapLayers),
+      missingLayers: safeNumber(item.missingLayers)
+    },
+    examples: Array.isArray(item.examples) ? item.examples.slice(0, 3) : []
+  };
+}
+
+function componentFamilyActionOwnerSurface(stage = "") {
+  if (stage === "asset-match-gap") return "component-asset-promotion";
+  if (stage === "strategy-routing-gap") return "component-strategy-routing";
+  if (stage === "native-application-gap") return "native-editable-application";
+  if (stage === "native-coverage-gap") return "native-family-implementation";
+  if (stage === "expand-native-coverage") return "native-family-expansion";
+  if (stage === "recall-evidence-review") return "image-component-recall-review";
+  return "component-coverage-review";
+}
+
+function componentFamilyBlockingMetric(stage = "") {
+  if (stage === "asset-match-gap") return "assetMatchDeficitLayers";
+  if (stage === "strategy-routing-gap") return "strategyRoutingDeficitLayers";
+  if (stage === "native-application-gap") return "nativeApplicationDeficitLayers";
+  if (stage === "native-coverage-gap") return "gapLayers";
+  if (stage === "expand-native-coverage") return "gapLayers";
+  if (stage === "recall-evidence-review") return "imageComponentEvidence";
+  return "componentFamilyBacklog";
+}
+
+function componentFamilyActionDeficitLayers(item = {}) {
+  const metric = componentFamilyBlockingMetric(item.stage);
+  if (metric === "assetMatchDeficitLayers") return safeNumber(item.assetMatchDeficitLayers);
+  if (metric === "strategyRoutingDeficitLayers") return safeNumber(item.strategyRoutingDeficitLayers);
+  if (metric === "nativeApplicationDeficitLayers") return safeNumber(item.nativeApplicationDeficitLayers);
+  if (metric === "imageComponentEvidence") return 0;
+  return safeNumber(item.gapLayers);
+}
+
+function componentFamilyActionAcceptanceGate(stage = "") {
+  if (stage === "asset-match-gap") return "componentFamilyBacklog";
+  if (stage === "strategy-routing-gap") return "componentFamilyBacklog";
+  if (stage === "native-application-gap") return "maxCriticalComponentFamilyBacklogItems";
+  if (stage === "native-coverage-gap") return "requiredComponentFamilies";
+  if (stage === "expand-native-coverage") return "requiredComponentFamilies";
+  if (stage === "recall-evidence-review") return "minImageComponentDetectedFamilyTypes";
+  return "componentFamilyBacklog";
+}
+
+function componentFamilyActionEvidenceMetrics(stage = "") {
+  if (stage === "asset-match-gap") {
+    return ["imageComponentDetectedFamilyCounts", "imageComponentMatchedFamilyCounts", "imageComponentMissingFamilyCounts"];
+  }
+  if (stage === "strategy-routing-gap") {
+    return ["imageComponentMatchedFamilyCounts", "imageComponentStrategyFamilyCounts"];
+  }
+  if (stage === "native-application-gap") {
+    return ["imageComponentStrategyFamilyCounts", "componentFamilyAppliedCounts"];
+  }
+  if (stage === "native-coverage-gap" || stage === "expand-native-coverage") {
+    return ["componentFamilyGapCounts", "componentFamilyAppliedCounts"];
+  }
+  if (stage === "recall-evidence-review") {
+    return ["imageComponentDetectedFamilyCounts", "imageComponentMatchedFamilyCounts", "imageComponentStrategyFamilyCounts"];
+  }
+  return ["componentFamilyBacklog"];
+}
+
 function componentFamilyBacklogRow(family, totals = {}, examples = []) {
   const appliedObjects = safeNumber(totals.componentFamilyAppliedCounts?.[family]);
   const gapLayers = safeNumber(totals.componentFamilyGapCounts?.[family]);
@@ -433,6 +530,7 @@ module.exports = {
   isMotifReadyComponentTemplateSource,
   isWholeProcessTemplateSource,
   summarizeComponentFamilyActions,
+  summarizeComponentFamilyActionPlan,
   summarizeComponentFamilyBacklog,
   summarizeComponentFamilyCoverage,
   summarizeComponentFamilyGaps,
