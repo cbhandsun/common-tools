@@ -129,26 +129,39 @@ function componentFamilyBacklogRow(family, totals = {}, examples = []) {
   const strategyLayers = safeNumber(totals.imageComponentStrategyFamilyCounts?.[family]);
   const missingLayers = safeNumber(totals.imageComponentMissingFamilyCounts?.[family]);
   const hasImageEvidence = detectedLayers > 0 || matchedLayers > 0 || strategyLayers > 0 || missingLayers > 0;
+  const deficits = componentFamilyBacklogDeficits({
+    appliedObjects,
+    detectedLayers,
+    matchedLayers,
+    strategyLayers,
+    missingLayers
+  });
   const stage = componentFamilyBacklogStage({
     appliedObjects,
     gapLayers,
-    detectedLayers,
-    matchedLayers,
-    strategyLayers,
-    missingLayers,
-    hasImageEvidence
+    hasImageEvidence,
+    ...deficits
   });
+  const priority = componentFamilyBacklogPriority({
+    stage,
+    appliedObjects,
+    gapLayers,
+    missingLayers,
+    ...deficits
+  });
+  const recommendedAction = componentFamilyBacklogAction(stage);
   return {
     family,
-    priority: componentFamilyBacklogPriority({ stage, appliedObjects, gapLayers, missingLayers }),
+    priority,
     stage,
-    recommendedAction: componentFamilyBacklogAction(stage),
+    recommendedAction,
     detectedLayers,
     matchedLayers,
     strategyLayers,
     appliedObjects,
     gapLayers,
     missingLayers,
+    ...deficits,
     examples: examples
       .filter((example) => Array.isArray(example.families) && example.families.includes(family))
       .slice(0, 5)
@@ -167,30 +180,56 @@ function componentFamilyBacklogRow(family, totals = {}, examples = []) {
   };
 }
 
-function componentFamilyBacklogStage({
+function componentFamilyBacklogDeficits({
   appliedObjects = 0,
-  gapLayers = 0,
   detectedLayers = 0,
   matchedLayers = 0,
   strategyLayers = 0,
-  missingLayers = 0,
-  hasImageEvidence = false
+  missingLayers = 0
 } = {}) {
-  if (appliedObjects > 0 && gapLayers === 0 && missingLayers === 0) return "covered";
-  if (appliedObjects > 0 && (gapLayers > 0 || missingLayers > 0)) return "expand-native-coverage";
-  if (strategyLayers > 0) return "native-application-gap";
-  if (matchedLayers > 0) return "strategy-routing-gap";
-  if (missingLayers > 0 || (detectedLayers > 0 && matchedLayers === 0)) return "asset-match-gap";
-  if (gapLayers > 0) return "native-coverage-gap";
-  if (hasImageEvidence) return "recall-evidence-review";
-  return "covered";
+  return {
+    assetMatchDeficitLayers: Math.max(missingLayers, detectedLayers - matchedLayers, 0),
+    strategyRoutingDeficitLayers: Math.max(matchedLayers - strategyLayers, 0),
+    nativeApplicationDeficitLayers: appliedObjects > 0 ? 0 : Math.max(strategyLayers, 0)
+  };
 }
 
-function componentFamilyBacklogPriority({ stage = "", appliedObjects = 0, gapLayers = 0, missingLayers = 0 } = {}) {
+function componentFamilyBacklogStage({
+  appliedObjects = 0,
+  gapLayers = 0,
+  assetMatchDeficitLayers = 0,
+  strategyRoutingDeficitLayers = 0,
+  nativeApplicationDeficitLayers = 0,
+  hasImageEvidence = false
+} = {}) {
+  const dominantDeficit = Math.max(
+    assetMatchDeficitLayers,
+    strategyRoutingDeficitLayers,
+    nativeApplicationDeficitLayers,
+    gapLayers
+  );
+  if (dominantDeficit <= 0) return hasImageEvidence ? "recall-evidence-review" : "covered";
+  if (assetMatchDeficitLayers === dominantDeficit) return "asset-match-gap";
+  if (strategyRoutingDeficitLayers === dominantDeficit) return "strategy-routing-gap";
+  if (nativeApplicationDeficitLayers === dominantDeficit) return "native-application-gap";
+  if (appliedObjects > 0) return "expand-native-coverage";
+  return "native-coverage-gap";
+}
+
+function componentFamilyBacklogPriority({
+  stage = "",
+  appliedObjects = 0,
+  gapLayers = 0,
+  missingLayers = 0,
+  assetMatchDeficitLayers = 0,
+  strategyRoutingDeficitLayers = 0,
+  nativeApplicationDeficitLayers = 0
+} = {}) {
   if (stage === "covered") return "low";
   if (stage === "native-coverage-gap" && appliedObjects === 0 && gapLayers >= 3) return "critical";
-  if (stage === "native-application-gap" && appliedObjects === 0) return "critical";
-  if (stage === "asset-match-gap" && missingLayers >= 3) return "critical";
+  if (stage === "native-application-gap" && nativeApplicationDeficitLayers >= 1) return "critical";
+  if (stage === "asset-match-gap" && Math.max(missingLayers, assetMatchDeficitLayers) >= 3) return "critical";
+  if (stage === "strategy-routing-gap" && strategyRoutingDeficitLayers >= 3) return "critical";
   if (stage === "expand-native-coverage") return "medium";
   if (stage === "recall-evidence-review") return "review";
   return "high";

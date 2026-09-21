@@ -1180,12 +1180,12 @@ test("quality matrix normalizes component family gap examples and action priorit
     examples: []
   }]);
   assert.deepEqual(summarizeComponentFamilyBacklog({
-    componentFamilyAppliedCounts: { "specialty-chart": 2 },
+    componentFamilyAppliedCounts: { "cycle-loop": 1, "specialty-chart": 2 },
     componentFamilyGapCounts: { "relationship-network": 4, "specialty-chart": 1 },
-    imageComponentDetectedFamilyCounts: { "process-flow": 2 },
-    imageComponentMatchedFamilyCounts: { "process-flow": 2 },
-    imageComponentStrategyFamilyCounts: { "process-flow": 2 },
-    imageComponentMissingFamilyCounts: { "matrix-table": 3 },
+    imageComponentDetectedFamilyCounts: { "cycle-loop": 10, "process-flow": 2 },
+    imageComponentMatchedFamilyCounts: { "cycle-loop": 2, "process-flow": 2 },
+    imageComponentStrategyFamilyCounts: { "cycle-loop": 2, "process-flow": 2 },
+    imageComponentMissingFamilyCounts: { "cycle-loop": 8, "matrix-table": 3 },
     componentFamilyGapExamples: examples
   }).map((item) => ({
     family: item.family,
@@ -1202,6 +1202,11 @@ test("quality matrix normalizes component family gap examples and action priorit
     priority: "critical",
     stage: "native-coverage-gap",
     recommendedAction: "add-first-native-family-coverage"
+  }, {
+    family: "cycle-loop",
+    priority: "critical",
+    stage: "asset-match-gap",
+    recommendedAction: "promote-or-admit-component-assets"
   }, {
     family: "matrix-table",
     priority: "critical",
