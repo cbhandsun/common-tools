@@ -304,12 +304,17 @@ test("package scripts expose OfficePLUS/iSlide component asset coverage gate", (
 test("package scripts expose image-to-editable component recall gate", () => {
   const scripts = readPackageScripts();
   const report = scripts["slideclone:image-to-editable-component-recall-report"];
+  const fixtures = scripts["slideclone:image-to-editable-component-recall-fixtures"];
   const corpus = scripts["slideclone:image-to-editable-component-recall-corpus"];
   const command = scripts["slideclone:image-to-editable-component-recall-gate"];
 
   assert.match(report, /image-to-editable-component-recall-report\.js/);
   assert.match(report, /--root runs\/image-to-editable-component-recall/);
   assert.match(report, /--out runs\/image-to-editable-component-recall\/component-strategy-rebuild-report\.json/);
+  assert.match(fixtures, /image-to-editable-component-recall-fixtures\.js/);
+  assert.match(fixtures, /--manifest skills\/pd-hifi-slideclone\/examples\/image-to-editable-component-recall-corpus\.manifest\.json/);
+  assert.match(fixtures, /--out runs\/image-to-editable-component-recall\/fixture-materialization-report\.json/);
+  assert.match(fixtures, /--force/);
   assert.match(corpus, /image-to-editable-component-recall-corpus\.js/);
   assert.match(corpus, /--manifest skills\/pd-hifi-slideclone\/examples\/image-to-editable-component-recall-corpus\.manifest\.json/);
   assert.match(corpus, /--out runs\/image-to-editable-component-recall\/corpus-plan\.json/);
