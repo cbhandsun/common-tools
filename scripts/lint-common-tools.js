@@ -52,6 +52,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/graphic-reconstruction-decision-gate.js",
   "packages/slideclone-native-engine/scripts/graphic-reconstruction-decision-audit.js",
   "packages/slideclone-native-engine/scripts/harvest-active-powerpoint-component.js",
+  "packages/slideclone-native-engine/scripts/image-to-editable-component-recall-fixtures.js",
   "packages/slideclone-native-engine/scripts/image-to-editable-component-recall-report.js",
   "packages/slideclone-native-engine/scripts/ir-delivery-smoke.js",
   "packages/slideclone-native-engine/scripts/islide-component-search.js",

@@ -122,6 +122,19 @@
         "runs/image-to-editable-component-recall/component-strategy-rebuild-report.json"
       ]
     },
+    "image-to-editable-component-recall-fixtures": {
+      "description": "Versioned command profile for slideclone:image-to-editable-component-recall-fixtures.",
+      "script": "packages/slideclone-native-engine/scripts/image-to-editable-component-recall-fixtures.js",
+      "args": [
+        "--manifest",
+        "skills/pd-hifi-slideclone/examples/image-to-editable-component-recall-corpus.manifest.json",
+        "--root",
+        "runs/image-to-editable-component-recall",
+        "--out",
+        "runs/image-to-editable-component-recall/fixture-materialization-report.json",
+        "--force"
+      ]
+    },
     "image-to-editable-component-recall-corpus": {
       "description": "Versioned command profile for slideclone:image-to-editable-component-recall-corpus.",
       "script": "packages/slideclone-native-engine/scripts/image-to-editable-component-recall-corpus.js",

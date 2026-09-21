@@ -72,6 +72,23 @@ function writeJson(file, data) {
   fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`, "utf8");
 }
 
+function copyDirectoryFiles(source, destination) {
+  if (!fs.existsSync(source)) return;
+  ensureDir(destination);
+  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+    const sourceFile = path.join(source, entry.name);
+    const destinationFile = path.join(destination, entry.name);
+    if (entry.isDirectory()) {
+      copyDirectoryFiles(sourceFile, destinationFile);
+    } else if (entry.isFile()) {
+      ensureDir(path.dirname(destinationFile));
+      fs.copyFileSync(sourceFile, destinationFile);
+    } else {
+      throw new Error("component analysis work directory contains an unsupported asset entry");
+    }
+  }
+}
+
 function ensureRunDirs(outputDir) {
   ["normalized", "ir", "pptx", "render", "diff", "compare", "polish", "compress", "reports"].forEach((dir) => {
     ensureDir(path.join(outputDir, dir));
@@ -152,6 +169,70 @@ function prepareReconstructionIrForBuild(ir, options = {}) {
     }),
     inventory: buildReconstructionInventory(preparedIr)
   };
+}
+
+async function attachLocalComponentAnalysis(ir, options = {}) {
+  const componentCatalogRoot = options.componentCatalogRoot === undefined
+    ? process.env.COMMON_TOOLS_IMAGE_COMPONENT_ASSET_ROOT
+    : options.componentCatalogRoot;
+  if (typeof componentCatalogRoot !== "string" || componentCatalogRoot.trim() === "") {
+    return { ir, attached: false, reason: "component-assets-not-configured" };
+  }
+  const pages = Array.isArray(ir?.pages) ? ir.pages : [];
+  const inputFiles = Array.isArray(options.inputFiles) ? options.inputFiles : [];
+  if (pages.length !== 1 || inputFiles.length !== 1) {
+    return { ir, attached: false, reason: "component-analysis-requires-single-page-input" };
+  }
+  const outputDir = path.resolve(options.outputDir || ".");
+  const irFile = path.resolve(options.irFile || path.join(outputDir, "ir", "deck.json"));
+  const createResolver = typeof options.createResolver === "function" ? options.createResolver : createLocalComponentResolver;
+  const analysisRoot = path.join(outputDir, ".component-analysis-local");
+  const analysisWorkDir = path.join(analysisRoot, "work");
+  fs.rmSync(analysisRoot, { recursive: true, force: true });
+  ensureDir(path.join(analysisWorkDir, "ir"));
+  writeJson(path.join(analysisWorkDir, "ir", "deck.json"), ir);
+  copyDirectoryFiles(path.join(outputDir, "assets"), path.join(analysisWorkDir, "assets"));
+  const resolveComponentIndexes = createResolver({ componentCatalogRoot: path.resolve(componentCatalogRoot) });
+  if (typeof resolveComponentIndexes !== "function") {
+    return { ir, attached: false, reason: "component-resolver-unavailable" };
+  }
+  const components = await resolveComponentIndexes({
+    workDir: analysisWorkDir,
+    root: analysisRoot,
+    metadata: { inputFile: path.resolve(inputFiles[0]) },
+    isCancellationRequested: async () => false
+  });
+  if (!components?.evidence || typeof components.evidence !== "object" || Array.isArray(components.evidence)) {
+    return { ir, attached: false, reason: "component-analysis-empty" };
+  }
+  const nextIr = { ...ir, pages: [...pages] };
+  nextIr.pages[0] = { ...pages[0], source: { ...(pages[0].source || {}), componentAnalysis: components.evidence } };
+  writeJson(irFile, nextIr);
+  return { ir: nextIr, attached: true, reason: "component-analysis-attached", evidence: components.evidence };
+}
+
+function createLocalComponentResolver({ componentCatalogRoot } = {}) {
+  const implementation = require("./rebuild-real-pptx-native");
+  if (typeof implementation?.rebuildDeckFromWorkDir !== "function" || typeof implementation?.getComponentAnalysisServices !== "function") {
+    throw new Error("local component analysis implementation is unavailable");
+  }
+  const { loadTeamComponentCatalog } = require("../../../packages/slideclone-core/team-component-catalog");
+  const { createTeamComponentAnalysis } = require("../../../packages/slideclone-core/team-component-analysis");
+  const { buildComponentStrategyIndex, buildComponentAssetIndex } = require("../../../packages/slideclone-core/component-strategy-annotator");
+  const services = implementation.getComponentAnalysisServices();
+  const { inventory } = loadTeamComponentCatalog({
+    root: componentCatalogRoot,
+    readRegistry: services.readComponentAssetRegistry,
+    registryCandidates: services.registryCandidates
+  });
+  return createTeamComponentAnalysis({
+    inventory,
+    rebuildDeckFromWorkDir: implementation.rebuildDeckFromWorkDir,
+    searchIrComponentCandidates: services.searchIrComponentCandidates,
+    buildComponentAssetManifest: services.buildComponentAssetManifest,
+    buildComponentStrategyIndex,
+    buildComponentAssetIndex
+  }).resolve;
 }
 
 function isBox(box) {
@@ -326,9 +407,15 @@ async function runCommand(args) {
   ir.pages = pagePipeline.pages;
 
   const irFile = path.join(outputDir, "ir", "deck.json");
-  const prepared = prepareReconstructionIrForBuild(ir, { irFile, checkFiles: true });
-  const enrichedIr = prepared.ir;
+  let prepared = prepareReconstructionIrForBuild(ir, { irFile, checkFiles: true });
+  let enrichedIr = prepared.ir;
   writeJson(irFile, enrichedIr);
+  const componentAnalysis = await attachLocalComponentAnalysis(enrichedIr, { outputDir, irFile, inputFiles });
+  if (componentAnalysis.attached) {
+    prepared = prepareReconstructionIrForBuild(componentAnalysis.ir, { irFile, checkFiles: true });
+    enrichedIr = prepared.ir;
+    writeJson(irFile, enrichedIr);
+  }
   writeJson(
     path.join(outputDir, "reports", "reconstruction-inventory.json"),
     prepared.inventory
@@ -1389,6 +1476,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  attachLocalComponentAnalysis,
   createConfig,
   loadAdapter,
   main,
