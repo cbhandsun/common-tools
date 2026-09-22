@@ -16,6 +16,7 @@ const {
   summarizeComponentFamilyCoverage,
   summarizeComponentFamilyRegressionCases
 } = require("./lib/component-family-regression");
+const { summarizeFinalIrMetrics } = require("./lib/component-strategy-profile");
 
 function parseArgs(argv) {
   const args = { reports: [] };
@@ -63,18 +64,17 @@ function deckNameFromReport(file, report) {
   return normalizeDeckName(path.basename(path.dirname(file)).replace(/-(?:baseline|kpi-crop|entropy-crop|wms-route-label).*$/i, ""));
 }
 
-function normalizeDeckName(name) {
-  return String(name || "").replace(/\.(?:native-editable|editable)$/i, "");
-}
+function normalizeDeckName(name) { return String(name || "").replace(/\.(?:native-editable|editable)$/i, ""); }
 
+function sidecarFinalIrMetrics(file) { const sidecar = path.join(path.dirname(file), "quality-input.ir.json"); return fs.existsSync(sidecar) ? summarizeFinalIrMetrics(readJson(sidecar)) : {}; }
 function summarizeReport(file) {
   const report = readJson(file);
   const summary = report.summary || {};
   const metrics = report.deckMetrics || {};
   const profile = report.editabilityProfile || {};
   const componentStrategyProfile = report.componentStrategyProfile || {};
-  const finalProductMetrics = report.finalIrMetrics || report.finalDeckMetrics || report.finalMetrics || {};
-  const hasFinalMetric = (key) => Object.prototype.hasOwnProperty.call(finalProductMetrics, key);
+  const finalMetrics = report.finalIrMetrics || report.finalDeckMetrics || report.finalMetrics || sidecarFinalIrMetrics(file);
+  const hasFinalMetric = (key) => Object.prototype.hasOwnProperty.call(finalMetrics, key);
   const componentTemplateCropStatus = report.componentTemplateCropStatus || {};
   const visualUnitDecisionProfile = report.visualUnitDecisionProfile || {};
   const qualityGate = report.gate || {};
@@ -82,7 +82,7 @@ function summarizeReport(file) {
   const protectedNonSemanticSkips = protectedNonSemanticSkipCount(report);
   const layerTotals = report.layerProfile?.totals || {};
   const pages = report.pages || [];
-  const componentFamilyAppliedCounts = hasFinalMetric("componentFamilyAppliedCounts") ? finalProductMetrics.componentFamilyAppliedCounts || {} : componentFamilyAppliedCountsFromProfile(componentStrategyProfile);
+  const componentFamilyAppliedCounts = hasFinalMetric("componentFamilyAppliedCounts") ? finalMetrics.componentFamilyAppliedCounts || {} : componentFamilyAppliedCountsFromProfile(componentStrategyProfile);
   const componentFamilyGapCounts = componentStrategyProfile.componentFamilyGapCounts || {};
   const componentFamilyGapExamples = normalizeComponentFamilyGapExamples(componentStrategyProfile.componentFamilyGapExamples, {
     deck: deckNameFromReport(file, report),
@@ -230,9 +230,9 @@ function summarizeReport(file) {
     componentRecommendedGroupMatches: Number(componentStrategyProfile.componentRecommendedGroupMatches || 0),
     componentHighReusableGroupMatches: Number(componentStrategyProfile.componentHighReusableGroupMatches || 0),
     componentTemplateAppliedImages: Number(componentStrategyProfile.componentTemplateAppliedImages || 0),
-    componentTemplateAppliedShapes: Number((hasFinalMetric("componentTemplateAppliedShapes") ? finalProductMetrics : componentStrategyProfile).componentTemplateAppliedShapes || 0),
-    componentTemplateAppliedTextBoxes: Number((hasFinalMetric("componentTemplateAppliedTextBoxes") ? finalProductMetrics : componentStrategyProfile).componentTemplateAppliedTextBoxes || 0),
-    componentTemplateAppliedPictures: Number((hasFinalMetric("componentTemplateAppliedPictures") ? finalProductMetrics : componentStrategyProfile).componentTemplateAppliedPictures || 0),
+    componentTemplateAppliedShapes: Number((hasFinalMetric("componentTemplateAppliedShapes") ? finalMetrics : componentStrategyProfile).componentTemplateAppliedShapes || 0),
+    componentTemplateAppliedTextBoxes: Number((hasFinalMetric("componentTemplateAppliedTextBoxes") ? finalMetrics : componentStrategyProfile).componentTemplateAppliedTextBoxes || 0),
+    componentTemplateAppliedPictures: Number((hasFinalMetric("componentTemplateAppliedPictures") ? finalMetrics : componentStrategyProfile).componentTemplateAppliedPictures || 0),
     componentTemplateMotifReadyImages: Number(componentStrategyProfile.componentTemplateMotifReadyImages || 0),
     componentTemplateMotifReadyShapes: Number(componentStrategyProfile.componentTemplateMotifReadyShapes || 0),
     componentTemplateMotifReadyTextBoxes: Number(componentStrategyProfile.componentTemplateMotifReadyTextBoxes || 0),
@@ -264,9 +264,9 @@ function summarizeReport(file) {
       deck,
       reportFile: file
     }),
-    visualAtomTopologyConnectors: maxNumber(componentStrategyProfile.visualAtomTopologyConnectors, finalProductMetrics.visualAtomTopologyConnectors),
-    visualAtomContainerNodes: maxNumber(componentStrategyProfile.visualAtomContainerNodes, finalProductMetrics.visualAtomContainerNodes),
-    visualAtomContainedNodes: maxNumber(componentStrategyProfile.visualAtomContainedNodes, finalProductMetrics.visualAtomContainedNodes),
+    visualAtomTopologyConnectors: maxNumber(componentStrategyProfile.visualAtomTopologyConnectors, finalMetrics.visualAtomTopologyConnectors),
+    visualAtomContainerNodes: maxNumber(componentStrategyProfile.visualAtomContainerNodes, finalMetrics.visualAtomContainerNodes),
+    visualAtomContainedNodes: maxNumber(componentStrategyProfile.visualAtomContainedNodes, finalMetrics.visualAtomContainedNodes),
     componentStrategyModeCounts: componentStrategyProfile.modeCounts || {},
     componentStrategyImplementationModeCounts: componentStrategyProfile.implementationModeCounts || {},
     componentStrategySourceProviderCounts: componentStrategyProfile.sourceProviderCounts || {},
@@ -280,12 +280,12 @@ function summarizeReport(file) {
     componentTemplateGroupCounts: componentStrategyProfile.componentTemplateGroupCounts || {},
     componentTemplateMotifReadyFamilyCounts: componentStrategyProfile.componentTemplateMotifReadyFamilyCounts || {},
     componentTemplateMotifReadyGroupCounts: componentStrategyProfile.componentTemplateMotifReadyGroupCounts || {},
-    componentTemplateMotifReadyTargetCounts: hasFinalMetric("componentTemplateMotifReadyTargetCounts") ? finalProductMetrics.componentTemplateMotifReadyTargetCounts || {} : componentStrategyProfile.componentTemplateMotifReadyTargetCounts || {},
+    componentTemplateMotifReadyTargetCounts: hasFinalMetric("componentTemplateMotifReadyTargetCounts") ? finalMetrics.componentTemplateMotifReadyTargetCounts || {} : componentStrategyProfile.componentTemplateMotifReadyTargetCounts || {},
     componentTemplateShapePartCounts: componentStrategyProfile.componentTemplateShapePartCounts || {},
-    componentTemplateStructureFitShapes: Number((hasFinalMetric("componentTemplateStructureFitShapes") ? finalProductMetrics : componentStrategyProfile).componentTemplateStructureFitShapes || 0),
-    componentTemplateStructureFitTextBoxes: Number((hasFinalMetric("componentTemplateStructureFitTextBoxes") ? finalProductMetrics : componentStrategyProfile).componentTemplateStructureFitTextBoxes || 0),
-    componentTemplateStructureFitPictures: Number((hasFinalMetric("componentTemplateStructureFitPictures") ? finalProductMetrics : componentStrategyProfile).componentTemplateStructureFitPictures || 0),
-    componentTemplateStructureFitReasonCounts: hasFinalMetric("componentTemplateStructureFitReasonCounts") ? finalProductMetrics.componentTemplateStructureFitReasonCounts || {} : componentStrategyProfile.componentTemplateStructureFitReasonCounts || {},
+    componentTemplateStructureFitShapes: Number((hasFinalMetric("componentTemplateStructureFitShapes") ? finalMetrics : componentStrategyProfile).componentTemplateStructureFitShapes || 0),
+    componentTemplateStructureFitTextBoxes: Number((hasFinalMetric("componentTemplateStructureFitTextBoxes") ? finalMetrics : componentStrategyProfile).componentTemplateStructureFitTextBoxes || 0),
+    componentTemplateStructureFitPictures: Number((hasFinalMetric("componentTemplateStructureFitPictures") ? finalMetrics : componentStrategyProfile).componentTemplateStructureFitPictures || 0),
+    componentTemplateStructureFitReasonCounts: hasFinalMetric("componentTemplateStructureFitReasonCounts") ? finalMetrics.componentTemplateStructureFitReasonCounts || {} : componentStrategyProfile.componentTemplateStructureFitReasonCounts || {},
     componentFamilyAppliedCounts,
     componentFamilyGapCounts,
     componentFamilyGapExamples,
@@ -293,7 +293,7 @@ function summarizeReport(file) {
     imageComponentMatchedFamilyCounts,
     imageComponentStrategyFamilyCounts,
     imageComponentMissingFamilyCounts,
-    componentFamilyAppliedTypes: Math.max(Number(componentStrategyProfile.componentFamilyAppliedTypes || 0), Number(finalProductMetrics.componentFamilyAppliedTypes || 0), countPositiveCounts(componentFamilyAppliedCounts)),
+    componentFamilyAppliedTypes: Math.max(Number(componentStrategyProfile.componentFamilyAppliedTypes || 0), Number(finalMetrics.componentFamilyAppliedTypes || 0), countPositiveCounts(componentFamilyAppliedCounts)),
     componentFamilyGapTypes: Number(componentStrategyProfile.componentFamilyGapTypes || countPositiveCounts(componentFamilyGapCounts)),
     componentTemplateNativeRoleCounts: componentStrategyProfile.componentTemplateNativeRoleCounts || {},
     componentTemplateStructureRoleCounts: componentStrategyProfile.componentTemplateStructureRoleCounts || {},

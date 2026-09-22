@@ -1150,21 +1150,27 @@ test("quality matrix can require named component families, not just type count",
   assert.deepEqual(normalizeRequiredComponentFamilies("matrix-table;process-flow;invalid"), ["matrix-table", "process-flow"]);
 });
 
-test("quality matrix uses final product metrics for required component family evidence", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "quality-matrix-final-family-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+test("quality matrix uses final IR sidecar metrics for required component family evidence", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "quality-matrix-final-family-")); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const file = writeReport(root, "Timeline_deck-quality", {
     summary: { pages: 1, accepted: 1, needsReview: 0, rejected: 0 },
-    componentStrategyProfile: { componentFamilyAppliedCounts: { "process-flow": 2 }, componentFamilyAppliedTypes: 1, componentTemplateAppliedShapes: 1, componentTemplateMotifReadyTargetCounts: { "milestone-roadmap": 99 }, componentTemplateStructureFitShapes: 1 },
-    finalIrMetrics: { componentFamilyAppliedCounts: { "process-flow": 2, "timeline-roadmap": 4 }, componentFamilyAppliedTypes: 2, componentTemplateAppliedShapes: 4, componentTemplateMotifReadyTargetCounts: { "milestone-roadmap": 4 }, componentTemplateStructureFitShapes: 4, componentTemplateStructureFitReasonCounts: { "native-group-kind-compatible-timeline": 4 }, visualAtomTopologyConnectors: 3 }
+    componentStrategyProfile: { componentFamilyAppliedCounts: { "process-flow": 2 }, componentFamilyAppliedTypes: 1, componentTemplateAppliedShapes: 1, componentTemplateMotifReadyTargetCounts: { "milestone-roadmap": 99 }, componentTemplateStructureFitShapes: 1 }
   });
+  const templateShape = (motif, reasons = []) => ({ source: { componentTemplateGroupApplied: true, matchedComponentAssetMotifReady: true, matchedComponentTargetMotifs: [motif], matchedComponentStructureFitScore: 1, matchedComponentStructureFitReasons: reasons } });
+  const shapes = [
+    ...Array.from({ length: 2 }, () => templateShape("linear-arrow-chain")),
+    ...Array.from({ length: 4 }, () => templateShape("milestone-roadmap", ["native-group-kind-compatible-timeline"])),
+    ...Array.from({ length: 3 }, (_, index) => ({ source: { detector: "visual-atom-native-connector", fromAtomId: `a${index}`, toAtomId: `b${index}` } }))
+  ];
+  fs.writeFileSync(path.join(path.dirname(file), "quality-input.ir.json"), JSON.stringify({ pages: [{ shapes }] }), "utf8");
 
   const row = summarizeReport(file);
   assert.deepEqual(row.componentFamilyAppliedCounts, { "process-flow": 2, "timeline-roadmap": 4 });
   assert.equal(row.componentFamilyAppliedTypes, 2);
-  assert.equal(row.componentTemplateMotifReadyTargetCounts["milestone-roadmap"], 4);
-  assert.equal(row.componentTemplateAppliedShapes, 4);
-  assert.equal(row.componentTemplateStructureFitShapes, 4);
+  assert.deepEqual(row.componentTemplateMotifReadyTargetCounts, { "linear-arrow-chain": 2, "milestone-roadmap": 4 });
+  assert.equal(row.componentTemplateAppliedShapes, 6);
+  assert.equal(row.componentTemplateStructureFitShapes, 6);
+  assert.equal(row.componentTemplateStructureFitReasonCounts["native-group-kind-compatible-timeline"], 4);
   assert.equal(row.visualAtomTopologyConnectors, 3);
 
   const matrix = aggregateMatrix([row], { requiredComponentFamilies: ["process-flow", "timeline-roadmap"], minComponentTemplateMotifReadyTargetCounts: { "milestone-roadmap": 1 } });
