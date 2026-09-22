@@ -89,6 +89,21 @@ test("component asset admission gate admits hash-bound native component assets",
   assert.equal(report.summary.admitted, 1);
   assert.equal(report.summary.rejected, 0);
   assert.deepEqual(report.summary.componentFamilyCounts, { "process-flow": 1 });
+  assert.deepEqual(report.componentFamilyAdmissionPlan, [{
+    rank: 1,
+    family: "process-flow",
+    status: "admitted",
+    required: true,
+    admittedAssets: 1,
+    rejectedCandidates: 0,
+    rejectionReasons: {},
+    nextAction: "reuse-admitted-component-asset",
+    evidenceMetrics: [
+      "componentAssetAdmission.summary.componentFamilyCounts",
+      "componentAssetAdmission.admittedAssets",
+      "componentAssetAdmission.rejectedAssets"
+    ]
+  }]);
   assert.deepEqual(report.gateReasons, []);
   assert.equal(report.admittedAssets[0].sha256, fixture.sha256);
 });
@@ -165,6 +180,23 @@ test("component asset admission gate fails thresholds and fail-on-reject when ca
   assert.ok(report.gateReasons.includes("min-component-family-types-not-met"));
   assert.ok(report.gateReasons.includes("required-component-families-missing"));
   assert.ok(report.gateReasons.includes("candidate-assets-rejected"));
+  assert.deepEqual(report.componentFamilyAdmissionPlan, [{
+    rank: 1,
+    family: "process-flow",
+    status: "rejected-candidates",
+    required: true,
+    admittedAssets: 0,
+    rejectedCandidates: 1,
+    rejectionReasons: {
+      "missing-native-editable-object-evidence": 1
+    },
+    nextAction: "repair-or-replace-rejected-component-asset",
+    evidenceMetrics: [
+      "componentAssetAdmission.summary.componentFamilyCounts",
+      "componentAssetAdmission.admittedAssets",
+      "componentAssetAdmission.rejectedAssets"
+    ]
+  }]);
 });
 
 test("component asset admission gate includes failed batch results in reject accounting", (t) => {
@@ -205,6 +237,37 @@ test("component asset admission gate includes failed batch results in reject acc
   assert.equal(gate.summary.rejected, 1);
   assert.ok(gate.rejectedAssets[0].reasons.includes("self-fidelity-not-passed"));
   assert.ok(gate.gateReasons.includes("candidate-assets-rejected"));
+});
+
+test("component asset admission plan marks required families with no candidates as missing", (t) => {
+  const fixture = createFixture(t);
+  const candidate = validCandidate(fixture);
+  const reportFile = path.join(fixture.dir, "self-fidelity-batch.json");
+  writeBatchReport(reportFile, candidate);
+
+  const report = buildComponentAssetAdmissionGate({
+    selfFidelityReport: reportFile,
+    out: path.join(fixture.dir, "admission.json"),
+    requiredComponentFamilies: ["timeline-roadmap"]
+  });
+
+  assert.equal(report.passed, false);
+  assert.deepEqual(report.summary.missingRequiredComponentFamilies, ["timeline-roadmap"]);
+  assert.deepEqual(report.componentFamilyAdmissionPlan.find((item) => item.family === "timeline-roadmap"), {
+    rank: 2,
+    family: "timeline-roadmap",
+    status: "missing",
+    required: true,
+    admittedAssets: 0,
+    rejectedCandidates: 0,
+    rejectionReasons: {},
+    nextAction: "collect-and-run-component-self-fidelity",
+    evidenceMetrics: [
+      "componentAssetAdmission.summary.componentFamilyCounts",
+      "componentAssetAdmission.admittedAssets",
+      "componentAssetAdmission.rejectedAssets"
+    ]
+  });
 });
 
 test("component asset admission gate collects promoted assets when results are absent", (t) => {
