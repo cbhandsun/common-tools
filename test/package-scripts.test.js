@@ -501,6 +501,7 @@ test("package scripts expose a native component promotion gate", () => {
   const batch = scripts["slideclone:component-native-promotion-batch"];
   const materialize = scripts["slideclone:component-native-promotion-materialize"];
   const admission = scripts["slideclone:component-asset-admission-gate"];
+  const richness = scripts["slideclone:component-richness-acceptance-report"];
 
   assert.match(command, /component-native-promotion-gate\.js/);
   assert.match(strict, /component-native-promotion-gate\.js/);
@@ -514,6 +515,13 @@ test("package scripts expose a native component promotion gate", () => {
   assert.match(admission, /--self-fidelity-report runs\/component-asset-self-fidelity-batch\/component-self-fidelity-batch\.report\.json/);
   assert.match(admission, /--out runs\/component-asset-admission-gate\.json/);
   assert.match(admission, /--fail-on-reject/);
+  assert.match(richness, /component-richness-acceptance-report\.js/);
+  assert.match(richness, /--coverage-matrix runs\/component-assets-coverage-matrix\.json/);
+  assert.match(richness, /--real-pptx-matrix runs\/component-assets-regression-matrix\.json/);
+  assert.match(richness, /--image-recall-matrix runs\/image-to-editable-component-recall-matrix\.json/);
+  assert.match(richness, /--image-recall-corpus runs\/image-to-editable-component-recall\/corpus-plan\.json/);
+  assert.match(richness, /--admission-report runs\/component-asset-admission-gate\.json/);
+  assert.match(richness, /--out runs\/component-richness-acceptance-report\.json/);
 });
 
 test("package scripts expose a parallel component strategy rebuild entrypoint", () => {
