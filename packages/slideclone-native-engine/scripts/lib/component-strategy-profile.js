@@ -6,9 +6,14 @@ const {
   sanitizeMotifs,
   uniqueComponentFamilies
 } = require("./component-motifs");
+const {
+  emptyImageComponentAnalysisMetrics,
+  mergeImageComponentAnalysisMetrics
+} = require("./image-component-analysis-metrics");
 
 function summarizeComponentStrategyProfile(ir = {}) {
   const profile = emptyProfile();
+  const imageComponentAnalysis = emptyImageComponentAnalysisMetrics();
   const appliedImageKeys = new Set();
   const motifReadyImageKeys = new Set();
   const wholeProcessImageKeys = new Set();
@@ -16,6 +21,7 @@ function summarizeComponentStrategyProfile(ir = {}) {
   const splitImageKeys = new Set();
   for (const [pageOffset, page] of (Array.isArray(ir.pages) ? ir.pages : []).entries()) {
     const pageIndex = Number.isFinite(Number(page?.pageIndex)) ? Number(page.pageIndex) : pageOffset;
+    mergeImageComponentAnalysisMetrics(imageComponentAnalysis, page?.source?.componentAnalysis);
     for (const [imageOffset, image] of (Array.isArray(page.images) ? page.images : []).entries()) {
       const strategy = readStrategy(image);
       if (strategy) {
@@ -150,6 +156,16 @@ function summarizeComponentStrategyProfile(ir = {}) {
     + profile.nativeRebuildWithComponentStyleGuideImages;
   profile.componentFamilyAppliedTypes = countPositiveCounts(profile.componentFamilyAppliedCounts);
   profile.componentFamilyGapTypes = countPositiveCounts(profile.componentFamilyGapCounts);
+  profile.imageComponentAnalysisPages = imageComponentAnalysis.pages;
+  profile.imageComponentAnalysisPreImages = imageComponentAnalysis.preImages;
+  profile.imageComponentAnalysisLayers = imageComponentAnalysis.analysisLayers;
+  profile.imageComponentAnalysisAssetMatches = imageComponentAnalysis.assetMatches;
+  profile.imageComponentAnalysisStrategyLayers = imageComponentAnalysis.strategyLayers;
+  profile.imageComponentAnalysisAssetLayers = imageComponentAnalysis.assetLayers;
+  profile.imageComponentDetectedFamilyCounts = imageComponentAnalysis.detectedComponentFamilyCounts;
+  profile.imageComponentMatchedFamilyCounts = imageComponentAnalysis.matchedComponentFamilyCounts;
+  profile.imageComponentStrategyFamilyCounts = imageComponentAnalysis.strategyComponentFamilyCounts;
+  profile.imageComponentMissingFamilyCounts = imageComponentAnalysis.missingComponentFamilyCounts;
   return profile;
 }
 
@@ -192,6 +208,16 @@ function emptyProfile() {
     componentFamilyGapCounts: {},
     componentFamilyGapTypes: 0,
     componentFamilyGapExamples: [],
+    imageComponentAnalysisPages: 0,
+    imageComponentAnalysisPreImages: 0,
+    imageComponentAnalysisLayers: 0,
+    imageComponentAnalysisAssetMatches: 0,
+    imageComponentAnalysisStrategyLayers: 0,
+    imageComponentAnalysisAssetLayers: 0,
+    imageComponentDetectedFamilyCounts: {},
+    imageComponentMatchedFamilyCounts: {},
+    imageComponentStrategyFamilyCounts: {},
+    imageComponentMissingFamilyCounts: {},
     visualAtomTopologyConnectors: 0,
     visualAtomContainerNodes: 0,
     visualAtomContainedNodes: 0,
