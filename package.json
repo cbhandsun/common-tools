@@ -220,6 +220,7 @@
     "slideclone:component-native-promotion-materialize": "node scripts/slideclone-profile.js component-native-promotion-materialize",
     "slideclone:component-coverage-matrix": "node scripts/slideclone-profile.js component-coverage-matrix",
     "slideclone:component-richness-acceptance-report": "node scripts/slideclone-profile.js component-richness-acceptance-report",
+    "slideclone:component-richness-acceptance-report-strict": "node scripts/slideclone-profile.js component-richness-acceptance-report-strict",
     "slideclone:image-to-editable-component-recall-report": "node scripts/slideclone-profile.js image-to-editable-component-recall-report",
     "slideclone:image-to-editable-component-recall-fixtures": "node scripts/slideclone-profile.js image-to-editable-component-recall-fixtures",
     "slideclone:image-to-editable-component-recall-corpus": "node scripts/slideclone-profile.js image-to-editable-component-recall-corpus",

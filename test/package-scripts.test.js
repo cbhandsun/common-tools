@@ -502,6 +502,7 @@ test("package scripts expose a native component promotion gate", () => {
   const materialize = scripts["slideclone:component-native-promotion-materialize"];
   const admission = scripts["slideclone:component-asset-admission-gate"];
   const richness = scripts["slideclone:component-richness-acceptance-report"];
+  const strictRichness = scripts["slideclone:component-richness-acceptance-report-strict"];
 
   assert.match(command, /component-native-promotion-gate\.js/);
   assert.match(strict, /component-native-promotion-gate\.js/);
@@ -522,6 +523,13 @@ test("package scripts expose a native component promotion gate", () => {
   assert.match(richness, /--image-recall-corpus runs\/image-to-editable-component-recall\/corpus-plan\.json/);
   assert.match(richness, /--admission-report runs\/component-asset-admission-gate\.json/);
   assert.match(richness, /--out runs\/component-richness-acceptance-report\.json/);
+  assert.match(strictRichness, /component-richness-acceptance-report\.js/);
+  assert.match(strictRichness, /--require-coverage-matrix/);
+  assert.match(strictRichness, /--require-image-recall/);
+  assert.match(strictRichness, /--require-image-recall-corpus/);
+  assert.match(strictRichness, /--require-real-pptx-regression/);
+  assert.match(strictRichness, /--require-asset-admission/);
+  assert.match(strictRichness, /--max-critical-component-family-backlog-items 0/);
 });
 
 test("package scripts expose a parallel component strategy rebuild entrypoint", () => {
