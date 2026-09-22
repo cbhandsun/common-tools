@@ -568,6 +568,7 @@ test("component asset matcher marks applied templates with matching target motif
 
   assert.equal(manifest.layers[0].readiness.status, "applied-plugin-motif-ready");
   assert.equal(manifest.layers[0].readiness.nextStep, "reuse-openxml-groups-from-applied-plugin-template-for-target-motif");
+  assert.deepEqual(manifest.layers[0].targetMotifs, ["arc-arrow"]);
   assert.deepEqual(manifest.layers[0].readiness.targetMotifs, ["arc-arrow"]);
   assert.equal(manifest.layers[0].readiness.appliedMotifReadyAssets, 1);
   assert.equal(manifest.layers[0].localAssets[0].structureSignature.primaryMotif, "arc-arrow");

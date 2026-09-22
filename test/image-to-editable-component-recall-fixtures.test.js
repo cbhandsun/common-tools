@@ -164,6 +164,43 @@ test("image-to-editable recall fixture CLI parses refresh arguments", () => {
   });
 });
 
+test("image-to-editable recall fixture runner forwards the default component asset root", (t) => {
+  const root = fs.mkdtempSync(path.join(process.cwd(), "runs", "test-image-recall-runner-assets-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const assetRoot = path.join(root, "runs", "plugin-component-inventory");
+  fs.mkdirSync(path.join(assetRoot, "assets", "sha256"), { recursive: true });
+  fs.writeFileSync(path.join(assetRoot, "asset-registry.json"), JSON.stringify({ assets: [] }));
+  const config = path.join(root, "config.json");
+  const input = path.join(root, "source.png");
+  fs.writeFileSync(config, "{}");
+  fs.writeFileSync(input, "png");
+  let captured;
+  const cwd = process.cwd();
+  process.chdir(root);
+  try {
+    const runner = _private.createLocalSlidecloneRunner({
+      spawn: (command, args, options) => {
+        captured = { command, args, options };
+        return { status: 0 };
+      }
+    });
+    runner({ configPath: config, inputPath: input });
+  } finally {
+    process.chdir(cwd);
+  }
+  assert.equal(captured.options.env.COMMON_TOOLS_IMAGE_COMPONENT_ASSET_ROOT, assetRoot);
+});
+
+test("image-to-editable recall fixture default component asset root is bounded to local registry", (t) => {
+  const root = fs.mkdtempSync(path.join(process.cwd(), "runs", "test-image-recall-asset-root-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.equal(_private.resolveDefaultComponentAssetRoot({ cwd: root }), "");
+  const assetRoot = path.join(root, "runs", "plugin-component-inventory");
+  fs.mkdirSync(path.join(assetRoot, "assets", "sha256"), { recursive: true });
+  fs.writeFileSync(path.join(assetRoot, "asset-registry.json"), JSON.stringify({ assets: [] }));
+  assert.equal(_private.resolveDefaultComponentAssetRoot({ cwd: root }), assetRoot);
+});
+
 function fakeSlidecloneRunner({ configPath }) {
   const config = readJson(configPath);
   assert.equal(config.pagePattern, "case-a.png");

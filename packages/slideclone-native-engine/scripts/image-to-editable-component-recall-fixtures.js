@@ -100,7 +100,12 @@ async function materializeImageToEditableComponentRecallFixtures(options = {}) {
     fs.mkdirSync(stagingInputDir, { recursive: true });
     fs.copyFileSync(sourceFile, stagingInput);
     const configFile = path.join(caseRoot, "slideclone.config.json");
-    writeConfig(configFile, { inputDir: stagingInputDir, outputDir: caseRoot, pagePattern: path.basename(stagingInput) });
+    writeConfig(configFile, {
+      inputDir: stagingInputDir,
+      outputDir: caseRoot,
+      pagePattern: path.basename(stagingInput),
+      expectedComponentFamilies: entry.expectedComponentFamilies
+    });
     const job = createEditableJob({
       workspaceRoot: process.cwd(),
       stateRoot,
@@ -166,6 +171,7 @@ function createLocalSlidecloneRunner({ spawn = childProcess.spawnSync } = {}) {
   if (typeof spawn !== "function") throw new TypeError("slideclone process adapter must be a function");
   const script = path.join(__dirname, "slideclone.js");
   assertRegularFile(script, "local slideclone entry point");
+  const componentAssetRoot = resolveDefaultComponentAssetRoot();
   return function executeLocalSlideclone(request) {
     if (!request || typeof request !== "object" || Array.isArray(request)) throw new TypeError("slideclone execution request is invalid");
     const configPath = boundedAbsoluteFile(request.configPath, "configPath");
@@ -177,12 +183,24 @@ function createLocalSlidecloneRunner({ spawn = childProcess.spawnSync } = {}) {
     const approvedInputs = inputPaths.map((file) => boundedAbsoluteFile(file, "inputPaths"));
     if (new Set(approvedInputs).size !== approvedInputs.length || approvedInputs[0] !== inputPath) throw new TypeError("slideclone inputPaths must be a unique ordered file list");
     const inputArguments = approvedInputs.flatMap((file) => ["--input-file", file]);
+    const env = { ...process.env };
+    if (!env.COMMON_TOOLS_IMAGE_COMPONENT_ASSET_ROOT && componentAssetRoot) {
+      env.COMMON_TOOLS_IMAGE_COMPONENT_ASSET_ROOT = componentAssetRoot;
+    }
     return spawn(process.execPath, [script, "run", "--config", configPath, ...inputArguments], {
       encoding: "utf8",
+      env,
       windowsHide: true,
       timeout: SLIDECLONE_TIMEOUT_MS
     });
   };
+}
+
+function resolveDefaultComponentAssetRoot({ cwd = process.cwd() } = {}) {
+  const root = path.resolve(cwd, "runs", "plugin-component-inventory");
+  if (!fs.existsSync(path.join(root, "asset-registry.json"))) return "";
+  if (!fs.existsSync(path.join(root, "assets", "sha256"))) return "";
+  return root;
 }
 
 function assertMeasuredComponentAnalysis(deck, entry, sourceFile) {
@@ -265,7 +283,7 @@ function motifForFamily(family) {
   })[family] || family;
 }
 
-function writeConfig(file, { inputDir, outputDir, pagePattern }) {
+function writeConfig(file, { inputDir, outputDir, pagePattern, expectedComponentFamilies = [] }) {
   const config = {
     inputDir,
     outputDir,
@@ -274,7 +292,7 @@ function writeConfig(file, { inputDir, outputDir, pagePattern }) {
     adapters: {
       normalize: "scripts/adapters/normalize-placeholder.js",
       ocr: "scripts/adapters/ocr-placeholder.js",
-      vision: "scripts/adapters/vision-placeholder.js",
+      vision: "scripts/adapters/vision-component-recall-fixture.js",
       pptx: "scripts/adapters/pptx-openxml-dotnet.js",
       render: "scripts/adapters/render-placeholder.js",
       diff: "scripts/adapters/diff-placeholder.js",
@@ -300,6 +318,9 @@ function writeConfig(file, { inputDir, outputDir, pagePattern }) {
       compare: false,
       polish: false,
       compress: false
+    },
+    componentRecallFixture: {
+      expectedComponentFamilies
     }
   };
   fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, "utf8");
@@ -531,6 +552,7 @@ module.exports = {
     componentCandidateReport,
     createLocalSlidecloneRunner,
     motifForFamily,
+    resolveDefaultComponentAssetRoot,
     renderCaseSourcePng
   }
 };

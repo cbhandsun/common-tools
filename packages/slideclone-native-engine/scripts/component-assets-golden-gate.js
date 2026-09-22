@@ -15,27 +15,107 @@ const DEFAULT_TASKS = [
   }
 ];
 
+const STRICT_EVIDENCE_TASKS = [
+  ...DEFAULT_TASKS,
+  {
+    id: "image-recall",
+    script: "slideclone:image-to-editable-component-recall-gate"
+  },
+  {
+    id: "image-recall-corpus",
+    script: "slideclone:image-to-editable-component-recall-corpus"
+  }
+];
+
+const STRICT_ADMISSION_TASKS = [
+  {
+    id: "self-fidelity",
+    script: "slideclone:component-self-fidelity-batch"
+  },
+  {
+    id: "asset-admission",
+    script: "slideclone:component-asset-admission-gate"
+  }
+];
+
+const STRICT_ACCEPTANCE_TASK = {
+  id: "strict-acceptance",
+  script: "slideclone:component-richness-acceptance-report-strict"
+};
+
 function main() {
-  const startedAt = new Date();
-  const tasks = DEFAULT_TASKS.map((task) => runNpmScript(task));
-  Promise.all(tasks).then((results) => {
-    const finishedAt = new Date();
-    const summary = {
-      id: "component-assets-golden-gate-fast",
-      mode: "parallel",
-      startedAt: startedAt.toISOString(),
-      finishedAt: finishedAt.toISOString(),
-      durationMs: finishedAt.getTime() - startedAt.getTime(),
-      passed: results.every((result) => result.exitCode === 0),
-      tasks: results
-    };
-    writeSummary(summary);
+  const options = parseArgs(process.argv.slice(2));
+  runGoldenGate(options).then((summary) => {
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
     if (summary.passed !== true) process.exitCode = 1;
   }).catch((error) => {
     process.stderr.write(`[golden-gate] ${sanitizeMessage(error?.message || error)}\n`);
     process.exitCode = 1;
   });
+}
+
+async function runGoldenGate(options = {}) {
+  const startedAt = new Date();
+  const strict = options.strict === true;
+  const runner = options.runTask || runNpmScript;
+  const evidenceTasks = strict ? STRICT_EVIDENCE_TASKS : DEFAULT_TASKS;
+  const evidenceResults = await Promise.all(evidenceTasks.map((task) => runner(task, options)));
+  const tasks = [...evidenceResults];
+  if (strict && resultsPassed(tasks)) {
+    for (const task of STRICT_ADMISSION_TASKS) {
+      const result = await runner(task, options);
+      tasks.push(result);
+      if (result.exitCode !== 0) break;
+    }
+  }
+  if (strict && resultsPassed(tasks)) {
+    tasks.push(await runner(STRICT_ACCEPTANCE_TASK, options));
+  } else if (strict) {
+    tasks.push({
+      id: STRICT_ACCEPTANCE_TASK.id,
+      script: STRICT_ACCEPTANCE_TASK.script,
+      exitCode: null,
+      skipped: true,
+      reason: "strict prerequisite tasks failed"
+    });
+  }
+  const finishedAt = new Date();
+  const summary = {
+    id: strict ? "component-assets-golden-gate-strict" : "component-assets-golden-gate-fast",
+    mode: strict ? "parallel-evidence-then-admission-and-strict-acceptance" : "parallel",
+    startedAt: startedAt.toISOString(),
+    finishedAt: finishedAt.toISOString(),
+    durationMs: finishedAt.getTime() - startedAt.getTime(),
+    passed: tasks.every((result) => result.exitCode === 0),
+    tasks
+  };
+  writeSummary(summary, options);
+  return summary;
+}
+
+function resultsPassed(results) {
+  return results.every((result) => result.exitCode === 0);
+}
+
+function parseArgs(argv = []) {
+  const options = {
+    strict: false,
+    out: null
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--strict") {
+      options.strict = true;
+    } else if (arg === "--out") {
+      const value = argv[index + 1];
+      if (!value) throw new Error("--out requires a value");
+      options.out = value;
+      index += 1;
+    } else {
+      throw new Error(`Unknown component-assets-golden-gate argument: ${arg}`);
+    }
+  }
+  return options;
 }
 
 function runNpmScript(task, options = {}) {
@@ -105,8 +185,8 @@ function resolveNpmCli() {
   return path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
 }
 
-function writeSummary(summary) {
-  const out = path.join(process.cwd(), "runs", "component-assets-golden-gate-fast.json");
+function writeSummary(summary, options = {}) {
+  const out = options.out || path.join(process.cwd(), "runs", `${summary.id}.json`);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
 }
@@ -137,8 +217,11 @@ if (require.main === module) main();
 module.exports = {
   appendOutputTail,
   buildNpmRunCommand,
+  parseArgs,
   main,
   prefixLines,
   resolveNpmCli,
+  resultsPassed,
+  runGoldenGate,
   sanitizeMessage
 };

@@ -23,6 +23,7 @@ const {
   rankRoleFontOptions
 } = require("./lib/font-fast-rank");
 const { assertValidConfig } = require("./lib/config-validation");
+const { createLocalComponentNativeRebuild, normalizeLocalComponentNativeRebuild } = require("./lib/local-component-native-rebuild");
 const { processPages } = require("./lib/page-pipeline");
 const { loadTrustedAdapter } = require("./lib/trusted-adapter");
 const { createConfig, defaultAdapters } = require("./lib/slideclone-default-config");
@@ -191,22 +192,31 @@ async function attachLocalComponentAnalysis(ir, options = {}) {
   fs.rmSync(analysisRoot, { recursive: true, force: true });
   ensureDir(path.join(analysisWorkDir, "ir"));
   writeJson(path.join(analysisWorkDir, "ir", "deck.json"), ir);
+  copyDirectoryFiles(path.join(outputDir, "normalized"), path.join(analysisWorkDir, "normalized"));
   copyDirectoryFiles(path.join(outputDir, "assets"), path.join(analysisWorkDir, "assets"));
   const resolveComponentIndexes = createResolver({ componentCatalogRoot: path.resolve(componentCatalogRoot) });
-  if (typeof resolveComponentIndexes !== "function") {
-    return { ir, attached: false, reason: "component-resolver-unavailable" };
-  }
+  if (typeof resolveComponentIndexes !== "function") return { ir, attached: false, reason: "component-resolver-unavailable" };
   const components = await resolveComponentIndexes({
     workDir: analysisWorkDir,
     root: analysisRoot,
     metadata: { inputFile: path.resolve(inputFiles[0]) },
     isCancellationRequested: async () => false
   });
-  if (!components?.evidence || typeof components.evidence !== "object" || Array.isArray(components.evidence)) {
-    return { ir, attached: false, reason: "component-analysis-empty" };
-  }
-  const nextIr = { ...ir, pages: [...pages] };
+  if (!components?.evidence || typeof components.evidence !== "object" || Array.isArray(components.evidence)) return { ir, attached: false, reason: "component-analysis-empty" };
+  let nextIr = { ...ir, pages: [...pages] };
   nextIr.pages[0] = { ...pages[0], source: { ...(pages[0].source || {}), componentAnalysis: components.evidence } };
+  const nativeRebuild = typeof options.nativeRebuild === "function" ? options.nativeRebuild : createLocalComponentNativeRebuild;
+  if (components.componentStrategyIndex || components.componentAssetIndex) {
+    const rebuilt = normalizeLocalComponentNativeRebuild(
+      nativeRebuild({ workDir: analysisWorkDir, outputDir, componentStrategyIndex: components.componentStrategyIndex, componentAssetIndex: components.componentAssetIndex }),
+      { finalIrDir: path.dirname(irFile), nativeIrDir: path.join(outputDir, ".component-analysis-local", "native") }
+    );
+    if (rebuilt && typeof rebuilt === "object" && !Array.isArray(rebuilt) && Array.isArray(rebuilt.pages) && rebuilt.pages.length === pages.length) {
+      const rebuiltPage = rebuilt.pages[0];
+      nextIr = { ...rebuilt, pages: [...rebuilt.pages] };
+      nextIr.pages[0] = { ...rebuiltPage, source: { ...(rebuiltPage.source || {}), componentAnalysis: components.evidence } };
+    }
+  }
   writeJson(irFile, nextIr);
   return { ir: nextIr, attached: true, reason: "component-analysis-attached", evidence: components.evidence };
 }

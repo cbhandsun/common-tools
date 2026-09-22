@@ -42,6 +42,7 @@ function buildLayerAssetEntry(layer = {}, inventoryCandidates = [], options = {}
   });
   if (!strategy.mode && matches.length === 0) return null;
   const readiness = summarizeReadiness({ layer: normalizedLayer, strategy, matches });
+  const targetMotifs = inferTargetMotifs({ layer: normalizedLayer, strategy, remoteCandidate: bestCandidate });
   const acquisitionTasks = buildComponentAcquisitionTasks({
     layer: normalizedLayer,
     strategy,
@@ -57,6 +58,7 @@ function buildLayerAssetEntry(layer = {}, inventoryCandidates = [], options = {}
     layerType: safeString(normalizedLayer.layerType || "unknown"),
     detector: safeString(layer.detector || "unknown"),
     templateFamily: safeString(normalizedLayer.templateFamily || "unknown"),
+    targetMotifs,
     strategyMode: safeString(strategy.mode || "unknown"),
     applicationStep: safeString(strategy.applicationPlan?.currentStep || ""),
     targetStep: safeString(strategy.applicationPlan?.targetStep || ""),

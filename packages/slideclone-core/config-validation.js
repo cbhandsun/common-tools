@@ -40,7 +40,8 @@ const ALLOWED_TOP_LEVEL_KEYS = new Set([
   "python",
   "render",
   "searchTextOcr",
-  "pageConcurrency"
+  "pageConcurrency",
+  "componentRecallFixture"
 ]);
 
 /** @param {unknown} config */
@@ -104,10 +105,12 @@ function validateConfig(config) {
     "openXmlBuilder",
     "python",
     "render",
-    "searchTextOcr"
+    "searchTextOcr",
+    "componentRecallFixture"
   ]) {
     if (config[key] !== undefined && !isRecord(config[key])) errors.push(`config.${key} must be an object`);
   }
+  validateComponentRecallFixture(config.componentRecallFixture, errors);
 
   if (isRecord(config.tesseract)) validateInteger(config.tesseract.timeoutMs, "config.tesseract.timeoutMs", errors, { min: 1000, max: 600000 });
   if (isRecord(config.umiOcr)) {
@@ -172,6 +175,21 @@ function validateOpenXmlBuilder(value, errors) {
   }
   for (const key of ["powerPointSafe", "retainBuildArtifacts"]) {
     if (value[key] !== undefined && typeof value[key] !== "boolean") errors.push(`config.openXmlBuilder.${key} must be a boolean`);
+  }
+}
+
+/** @param {unknown} value @param {string[]} errors */
+function validateComponentRecallFixture(value, errors) {
+  if (value === undefined || !isRecord(value)) return;
+  if (Object.keys(value).some((key) => key !== "expectedComponentFamilies")) errors.push("config.componentRecallFixture contains an unsupported field");
+  const families = value.expectedComponentFamilies;
+  if (families === undefined) return;
+  if (!Array.isArray(families) || families.length > 24) {
+    errors.push("config.componentRecallFixture.expectedComponentFamilies must be a bounded array");
+    return;
+  }
+  for (const family of families) {
+    if (typeof family !== "string" || !/^[a-z0-9-]{1,80}$/u.test(family)) errors.push("config.componentRecallFixture.expectedComponentFamilies contains an invalid family");
   }
 }
 

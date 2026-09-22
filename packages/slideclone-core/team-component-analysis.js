@@ -79,14 +79,17 @@ function createTeamComponentAnalysis(dependencies = {}) {
           deckName: "component-pre"
         });
         validatePreDeck(preDeck);
+        const inputDeck = readOptionalWorkDeck(paths.workDir);
+        const analysisDeck = hasComponentReadyImageLayers(inputDeck) ? inputDeck : preDeck;
+        validatePreDeck(analysisDeck);
         const preFile = path.join(analysisDir, "component-pre.ir.json");
-        writeBoundedJson(preFile, preDeck, MAX_REPORT_BYTES);
+        writeBoundedJson(preFile, analysisDeck, MAX_REPORT_BYTES);
         if (typeof isCancellationRequested === "function" && await isCancellationRequested()) throw new Error("cancelled");
         const report = await dependencies.searchIrComponentCandidates({ ir: preFile, dryRun: true, size: 3 });
-        validateReport(report, preDeck.pages[0].images.length);
+        validateReport(report, analysisDeck.pages[0].images.length);
         assertBoundedObject(report, MAX_REPORT_BYTES);
         const manifest = dependencies.buildComponentAssetManifest({ candidateReport: report, inventory: dependencies.inventory, maxAssetsPerLayer: 4 });
-        validateManifest(manifest, preDeck.pages[0].images.length, dependencies.inventory);
+        validateManifest(manifest, analysisDeck.pages[0].images.length, dependencies.inventory);
         assertBoundedObject(manifest, MAX_REPORT_BYTES);
         assertSameSource(source, metadata);
         // Unmatched offline preservation recommendations must not disable the
@@ -104,7 +107,7 @@ function createTeamComponentAnalysis(dependencies = {}) {
           evidence: Object.freeze({
             provider: "team-component-analysis-v1",
             sourceSha256: source.sha256,
-            preImages: preDeck.pages[0].images.length,
+            preImages: analysisDeck.pages[0].images.length,
             analysisLayers: report.layers.length,
             assetMatches,
             strategyLayers,
@@ -149,6 +152,22 @@ function assertSameSource(before, metadata) {
 
 function validatePreDeck(deck) {
   if (!isPlainObject(deck) || !Array.isArray(deck.pages) || deck.pages.length !== 1 || !isPlainObject(deck.pages[0]) || !Array.isArray(deck.pages[0].images) || deck.pages[0].images.length > MAX_IMAGES) throw new Error("invalid pre-analysis deck");
+}
+
+function readOptionalWorkDeck(workDir) {
+  const file = path.join(workDir, "ir", "deck.json");
+  try {
+    const stat = fs.lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size <= 0 || stat.size > MAX_REPORT_BYTES) return null;
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function hasComponentReadyImageLayers(deck) {
+  const images = Array.isArray(deck?.pages?.[0]?.images) ? deck.pages[0].images : [];
+  return images.some((image) => isPlainObject(image?.source?.layer?.diagramUnderstanding?.componentStrategy));
 }
 
 function validateReport(report, imageCount) {

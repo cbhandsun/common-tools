@@ -234,6 +234,7 @@
     "slideclone:component-assets-coverage-gate": "node scripts/slideclone-profile.js component-assets-coverage-gate",
     "slideclone:component-assets-golden-gate": "npm run slideclone:quality-matrix-component-assets-regression && npm run slideclone:component-assets-coverage-gate",
     "slideclone:component-assets-golden-gate-fast": "node scripts/slideclone-profile.js component-assets-golden-gate-fast",
+    "slideclone:component-assets-golden-gate-strict": "node scripts/slideclone-profile.js component-assets-golden-gate-strict",
     "slideclone:component-adoption-ab-gate": "node scripts/slideclone-profile.js component-adoption-ab-gate",
     "slideclone:benchmark-libreoffice": "node scripts/slideclone-profile.js benchmark-libreoffice",
     "slideclone:benchmark-pptx-build-engines": "node scripts/slideclone-profile.js benchmark-pptx-build-engines",
