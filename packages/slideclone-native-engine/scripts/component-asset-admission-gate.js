@@ -98,6 +98,11 @@ function buildComponentAssetAdmissionGate(options = {}) {
   const componentFamilyTypes = Object.keys(componentFamilyCounts).length;
   const missingRequiredComponentFamilies = requiredComponentFamilies
     .filter((family) => !componentFamilyCounts[family]);
+  const componentFamilyAdmissionPlan = summarizeComponentFamilyAdmissionPlan({
+    requiredComponentFamilies,
+    admittedAssets,
+    rejectedAssets
+  });
   const gateReasons = [];
   if (admittedAssets.length < minAdmitted) gateReasons.push("min-admitted-not-met");
   if (componentFamilyTypes < minComponentFamilyTypes) gateReasons.push("min-component-family-types-not-met");
@@ -125,6 +130,7 @@ function buildComponentAssetAdmissionGate(options = {}) {
       componentFamilyCounts,
       missingRequiredComponentFamilies
     },
+    componentFamilyAdmissionPlan,
     admittedAssets,
     rejectedAssets
   };
@@ -222,6 +228,54 @@ function countFamilies(assets = []) {
   for (const asset of assets) {
     for (const family of Array.isArray(asset.families) ? asset.families : []) {
       counts[family] = (counts[family] || 0) + 1;
+    }
+  }
+  return Object.fromEntries(Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0])));
+}
+
+function summarizeComponentFamilyAdmissionPlan({
+  requiredComponentFamilies = [],
+  admittedAssets = [],
+  rejectedAssets = []
+} = {}) {
+  const families = uniqueComponentFamilies([
+    ...requiredComponentFamilies,
+    ...admittedAssets.flatMap((asset) => asset.families || []),
+    ...rejectedAssets.flatMap((asset) => asset.families || [])
+  ]);
+  return families.map((family, index) => {
+    const admitted = admittedAssets.filter((asset) => Array.isArray(asset.families) && asset.families.includes(family));
+    const rejected = rejectedAssets.filter((asset) => Array.isArray(asset.families) && asset.families.includes(family));
+    const status = admitted.length > 0 ? "admitted" : rejected.length > 0 ? "rejected-candidates" : "missing";
+    return {
+      rank: index + 1,
+      family,
+      status,
+      required: requiredComponentFamilies.includes(family),
+      admittedAssets: admitted.length,
+      rejectedCandidates: rejected.length,
+      rejectionReasons: countRejectionReasons(rejected),
+      nextAction: componentFamilyAdmissionNextAction(status),
+      evidenceMetrics: [
+        "componentAssetAdmission.summary.componentFamilyCounts",
+        "componentAssetAdmission.admittedAssets",
+        "componentAssetAdmission.rejectedAssets"
+      ]
+    };
+  });
+}
+
+function componentFamilyAdmissionNextAction(status = "") {
+  if (status === "admitted") return "reuse-admitted-component-asset";
+  if (status === "rejected-candidates") return "repair-or-replace-rejected-component-asset";
+  return "collect-and-run-component-self-fidelity";
+}
+
+function countRejectionReasons(assets = []) {
+  const counts = {};
+  for (const asset of assets) {
+    for (const reason of Array.isArray(asset.reasons) ? asset.reasons : []) {
+      counts[reason] = (counts[reason] || 0) + 1;
     }
   }
   return Object.fromEntries(Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0])));
@@ -342,5 +396,6 @@ module.exports = {
   collectCandidates,
   inferFamilies,
   main,
+  summarizeComponentFamilyAdmissionPlan,
   parseArgs
 };
