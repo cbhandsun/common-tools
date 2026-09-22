@@ -254,6 +254,23 @@ test("component richness acceptance report accepts passing image recall matrix",
   assert.deepEqual(report.gateReasons, []);
 });
 
+test("component richness acceptance report can require the image recall corpus", (t) => {
+  const dir = createFixture(t);
+  const image = path.join(dir, "image.json");
+  writeJson(image, { passed: true });
+
+  const report = buildComponentRichnessAcceptanceReport({
+    imageRecallMatrix: image,
+    imageRecallCorpus: path.join(dir, "missing-corpus.json"),
+    out: path.join(dir, "acceptance.json"),
+    requireImageRecall: true,
+    requireImageRecallCorpus: true
+  });
+
+  assert.equal(report.passed, false);
+  assert.ok(report.gateReasons.includes("image-recall-corpus-not-provided"));
+});
+
 test("component richness acceptance report fails failed sources and backlog caps", (t) => {
   const dir = createFixture(t);
   const coverage = path.join(dir, "coverage.json");
@@ -293,6 +310,7 @@ test("component richness acceptance report parses CLI arguments", () => {
     "--out", "runs/out.json",
     "--require-coverage-matrix",
     "--require-image-recall",
+    "--require-image-recall-corpus",
     "--require-real-pptx-regression",
     "--require-asset-admission",
     "--max-critical-component-family-backlog-items", "0"
@@ -307,6 +325,7 @@ test("component richness acceptance report parses CLI arguments", () => {
     out: "runs/out.json",
     requireCoverageMatrix: true,
     requireImageRecall: true,
+    requireImageRecallCorpus: true,
     requireRealPptxRegression: true,
     requireAssetAdmission: true,
     maxCriticalComponentFamilyBacklogItems: 0

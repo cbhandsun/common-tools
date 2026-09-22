@@ -37,6 +37,7 @@ function parseArgs(argv = []) {
     out: DEFAULT_OUT,
     requireCoverageMatrix: false,
     requireImageRecall: false,
+    requireImageRecallCorpus: false,
     requireRealPptxRegression: false,
     requireAssetAdmission: false,
     maxCriticalComponentFamilyBacklogItems: null
@@ -66,6 +67,8 @@ function parseArgs(argv = []) {
       args.requireCoverageMatrix = true;
     } else if (arg === "--require-image-recall") {
       args.requireImageRecall = true;
+    } else if (arg === "--require-image-recall-corpus") {
+      args.requireImageRecallCorpus = true;
     } else if (arg === "--require-real-pptx-regression") {
       args.requireRealPptxRegression = true;
     } else if (arg === "--require-asset-admission") {
@@ -114,6 +117,9 @@ function buildComponentRichnessAcceptanceReport(options = {}) {
   if (options.requireImageRecall === true && !hasPassingImageRecallEvidence(evidenceSources)) {
     gateReasons.push(evidenceSources.imageRecallMatrix.status === "provided" ? "image-recall-matrix-not-passing" : "image-recall-evidence-not-provided");
   }
+  if (options.requireImageRecallCorpus === true && evidenceSources.imageRecallCorpus.status !== "provided") {
+    gateReasons.push("image-recall-corpus-not-provided");
+  }
   if (options.requireRealPptxRegression === true && evidenceSources.realPptxMatrix.componentFamilyRegressionCases.length === 0) {
     gateReasons.push("real-pptx-regression-cases-missing");
   }
@@ -130,6 +136,7 @@ function buildComponentRichnessAcceptanceReport(options = {}) {
     thresholds: {
       requireCoverageMatrix: options.requireCoverageMatrix === true,
       requireImageRecall: options.requireImageRecall === true,
+      requireImageRecallCorpus: options.requireImageRecallCorpus === true,
       requireRealPptxRegression: options.requireRealPptxRegression === true,
       requireAssetAdmission: options.requireAssetAdmission === true,
       maxCriticalComponentFamilyBacklogItems

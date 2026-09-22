@@ -130,6 +130,31 @@
         "runs/component-richness-acceptance-report.json"
       ]
     },
+    "component-richness-acceptance-report-strict": {
+      "description": "Strict component-richness acceptance gate requiring all evidence sources and zero critical family backlog.",
+      "script": "packages/slideclone-native-engine/scripts/component-richness-acceptance-report.js",
+      "args": [
+        "--coverage-matrix",
+        "runs/component-assets-coverage-matrix.json",
+        "--real-pptx-matrix",
+        "runs/component-assets-regression-matrix.json",
+        "--image-recall-matrix",
+        "runs/image-to-editable-component-recall-matrix.json",
+        "--image-recall-corpus",
+        "runs/image-to-editable-component-recall/corpus-plan.json",
+        "--admission-report",
+        "runs/component-asset-admission-gate.json",
+        "--out",
+        "runs/component-richness-acceptance-report-strict.json",
+        "--require-coverage-matrix",
+        "--require-image-recall",
+        "--require-image-recall-corpus",
+        "--require-real-pptx-regression",
+        "--require-asset-admission",
+        "--max-critical-component-family-backlog-items",
+        "0"
+      ]
+    },
     "image-to-editable-component-recall-report": {
       "description": "Versioned command profile for slideclone:image-to-editable-component-recall-report.",
       "script": "packages/slideclone-native-engine/scripts/image-to-editable-component-recall-report.js",
