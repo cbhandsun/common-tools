@@ -326,6 +326,54 @@ test("component strategy profile summarizes plugin and fidelity strategy coverag
   });
 });
 
+test("component strategy profile carries image component analysis family evidence", () => {
+  const profile = summarizeComponentStrategyProfile({
+    pages: [{
+      source: {
+        componentAnalysis: {
+          provider: "team-component-analysis-v1",
+          preImages: 2,
+          analysisLayers: 3,
+          assetMatches: 2,
+          strategyLayers: 1,
+          assetLayers: 2,
+          detectedComponentFamilyCounts: { "process-flow": 2, "matrix-table": 1 },
+          matchedComponentFamilyCounts: { "process-flow": 2 },
+          strategyComponentFamilyCounts: { "process-flow": 1 },
+          missingComponentFamilyCounts: { "matrix-table": 1 }
+        }
+      },
+      images: [],
+      shapes: [],
+      textBoxes: []
+    }, {
+      source: {
+        componentAnalysis: {
+          provider: "untrusted-provider",
+          detectedComponentFamilyCounts: { "cycle-loop": 99 }
+        }
+      },
+      images: [],
+      shapes: [],
+      textBoxes: []
+    }]
+  });
+
+  assert.equal(profile.imageComponentAnalysisPages, 1);
+  assert.equal(profile.imageComponentAnalysisPreImages, 2);
+  assert.equal(profile.imageComponentAnalysisLayers, 3);
+  assert.equal(profile.imageComponentAnalysisAssetMatches, 2);
+  assert.equal(profile.imageComponentAnalysisStrategyLayers, 1);
+  assert.equal(profile.imageComponentAnalysisAssetLayers, 2);
+  assert.deepEqual(profile.imageComponentDetectedFamilyCounts, {
+    "matrix-table": 1,
+    "process-flow": 2
+  });
+  assert.deepEqual(profile.imageComponentMatchedFamilyCounts, { "process-flow": 2 });
+  assert.deepEqual(profile.imageComponentStrategyFamilyCounts, { "process-flow": 1 });
+  assert.deepEqual(profile.imageComponentMissingFamilyCounts, { "matrix-table": 1 });
+});
+
 test("component strategy profile tolerates empty and malformed image input", () => {
   const profile = summarizeComponentStrategyProfile({
     pages: [
