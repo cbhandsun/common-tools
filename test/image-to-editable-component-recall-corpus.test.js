@@ -99,6 +99,13 @@ test("image-to-editable recall corpus can require existing artifacts for accepta
   assert.equal(plan.summary.caseCount, 1);
   assert.match(plan.cases[0].artifacts.outputPptx, /case-a\/deck\.pptx/u);
   assert.deepEqual(plan.cases[0].observedComponentFamilies, ["process-flow"]);
+  assert.deepEqual(plan.cases[0].observedComponentFamilyEvidence, [{
+    family: "process-flow",
+    detectedLayers: 1,
+    matchedLayers: 0,
+    strategyLayers: 0,
+    missingLayers: 0
+  }]);
   fs.rmSync(path.join(caseRoot, "deck.pptx"));
   assert.throws(
     () => buildImageToEditableComponentRecallCorpusPlan({ manifest: manifestFile, requireArtifacts: true }),
@@ -137,6 +144,66 @@ test("image-to-editable recall corpus compares acceptance IR evidence with expec
     () => buildImageToEditableComponentRecallCorpusPlan({ manifest: manifestFile, requireArtifacts: true }),
     /outputIr is missing expected component families: process-flow/u
   );
+});
+
+test("image-to-editable recall corpus reports family recall stage evidence without double counting", (t) => {
+  const tmpRoot = path.join(process.cwd(), "runs", "test-image-recall-corpus");
+  fs.mkdirSync(tmpRoot, { recursive: true });
+  const tmp = fs.mkdtempSync(path.join(tmpRoot, "stage-evidence-"));
+  t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const manifestFile = path.join(tmp, "manifest.json");
+  const caseRoot = path.join(tmp, "case-a");
+  fs.mkdirSync(path.join(caseRoot, "ir"), { recursive: true });
+  fs.writeFileSync(path.join(tmp, "case-a.png"), tinyPng());
+  writeJson(path.join(caseRoot, "ir", "deck.json"), {
+    pages: [{
+      source: {
+        componentAnalysis: {
+          provider: "team-component-analysis-v1",
+          detectedComponentFamilyCounts: { "process-flow": 2 },
+          matchedComponentFamilyCounts: { "process-flow": 1 },
+          strategyComponentFamilyCounts: { "process-flow": 1 },
+          missingComponentFamilyCounts: { "matrix-table": 1 },
+          componentFamilies: [
+            { family: "process-flow", detectedLayers: 2, matchedLayers: 1, strategyLayers: 1, missingLayers: 0 },
+            { family: "matrix-table", detectedLayers: 1, matchedLayers: 0, strategyLayers: 0, missingLayers: 1 }
+          ]
+        }
+      }
+    }]
+  });
+  fs.writeFileSync(path.join(caseRoot, "deck.pptx"), storedZip([
+    ["[Content_Types].xml", "<Types/>"],
+    ["ppt/presentation.xml", "<p:presentation/>"]
+  ]));
+  writeJson(path.join(caseRoot, "deck.component-candidates.json"), { layers: [] });
+  writeJson(manifestFile, manifestWithCases([corpusCase("case-a", ["matrix-table", "process-flow"], {
+    source: {
+      path: repoRelative(path.join(tmp, "case-a.png"))
+    },
+    artifacts: {
+      inputWorkDir: repoRelative(caseRoot),
+      outputIr: repoRelative(path.join(caseRoot, "ir", "deck.json")),
+      outputPptx: repoRelative(path.join(caseRoot, "deck.pptx")),
+      componentCandidateReport: repoRelative(path.join(caseRoot, "deck.component-candidates.json"))
+    }
+  })], ["matrix-table", "process-flow"]));
+
+  const plan = buildImageToEditableComponentRecallCorpusPlan({ manifest: manifestFile, requireArtifacts: true });
+
+  assert.deepEqual(plan.cases[0].observedComponentFamilyEvidence, [{
+    family: "matrix-table",
+    detectedLayers: 1,
+    matchedLayers: 0,
+    strategyLayers: 0,
+    missingLayers: 1
+  }, {
+    family: "process-flow",
+    detectedLayers: 2,
+    matchedLayers: 1,
+    strategyLayers: 1,
+    missingLayers: 0
+  }]);
 });
 
 test("image-to-editable recall corpus requires source and OpenXML PPTX artifacts", (t) => {

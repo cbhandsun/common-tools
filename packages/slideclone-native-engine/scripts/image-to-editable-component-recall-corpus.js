@@ -134,7 +134,8 @@ function normalizeCaseArtifacts(entry, options = {}) {
       ? resolveArtifactPath(entry.artifacts.componentCandidateReport, "componentCandidateReport", { file: true, required: options.requireArtifacts })
       : ""
   };
-  const observedComponentFamilies = options.requireArtifacts ? observedComponentFamiliesFromIr(outputIr, entry.id) : [];
+  const observedComponentFamilyEvidence = options.requireArtifacts ? observedComponentFamilyEvidenceFromIr(outputIr, entry.id) : [];
+  const observedComponentFamilies = Object.freeze(observedComponentFamilyEvidence.map((row) => row.family));
   const missingExpectedComponentFamilies = entry.expectedComponentFamilies.filter((family) => !observedComponentFamilies.includes(family));
   if (options.requireArtifacts && missingExpectedComponentFamilies.length > 0) {
     throw new Error(`corpus case ${entry.id} outputIr is missing expected component families: ${missingExpectedComponentFamilies.join(", ")}`);
@@ -142,6 +143,7 @@ function normalizeCaseArtifacts(entry, options = {}) {
   return Object.freeze({
     ...entry,
     artifacts,
+    observedComponentFamilyEvidence,
     observedComponentFamilies,
     missingExpectedComponentFamilies
   });
@@ -388,33 +390,75 @@ function findEndOfCentralDirectory(buffer) {
 }
 
 function observedComponentFamiliesFromIr(file, caseId) {
+  return Object.freeze(observedComponentFamilyEvidenceFromIr(file, caseId).map((row) => row.family));
+}
+
+function observedComponentFamilyEvidenceFromIr(file, caseId) {
   const deck = readJson(path.resolve(file));
   if (!deck || typeof deck !== "object" || Array.isArray(deck) || !Array.isArray(deck.pages)) {
     throw new Error(`corpus case ${caseId} outputIr must contain pages`);
   }
-  const families = new Set();
+  const families = new Map();
   for (const page of deck.pages) {
     const evidence = page?.source?.componentAnalysis;
     if (!evidence || typeof evidence !== "object" || Array.isArray(evidence) || evidence.provider !== "team-component-analysis-v1") continue;
-    addFamiliesFromCounts(families, evidence.detectedComponentFamilyCounts);
-    addFamiliesFromCounts(families, evidence.matchedComponentFamilyCounts);
-    addFamiliesFromCounts(families, evidence.strategyComponentFamilyCounts);
+    const pageFamilies = new Map();
+    addFamilyEvidenceCounts(pageFamilies, evidence.detectedComponentFamilyCounts, "detectedLayers");
+    addFamilyEvidenceCounts(pageFamilies, evidence.matchedComponentFamilyCounts, "matchedLayers");
+    addFamilyEvidenceCounts(pageFamilies, evidence.strategyComponentFamilyCounts, "strategyLayers");
+    addFamilyEvidenceCounts(pageFamilies, evidence.missingComponentFamilyCounts, "missingLayers");
     if (Array.isArray(evidence.componentFamilies)) {
       for (const row of evidence.componentFamilies) {
         const family = String(row?.family || "");
-        const evidenceCount = Number(row?.detectedLayers || 0) + Number(row?.matchedLayers || 0) + Number(row?.strategyLayers || 0);
-        if (COMPONENT_FAMILY_IDS.includes(family) && evidenceCount > 0) families.add(family);
+        if (!COMPONENT_FAMILY_IDS.includes(family)) continue;
+        const target = ensureFamilyEvidence(pageFamilies, family);
+        target.detectedLayers = Math.max(target.detectedLayers, safeCount(row?.detectedLayers));
+        target.matchedLayers = Math.max(target.matchedLayers, safeCount(row?.matchedLayers));
+        target.strategyLayers = Math.max(target.strategyLayers, safeCount(row?.strategyLayers));
+        target.missingLayers = Math.max(target.missingLayers, safeCount(row?.missingLayers));
       }
     }
+    for (const row of pageFamilies.values()) addFamilyEvidenceRow(families, row);
   }
-  return Object.freeze([...families].sort((a, b) => a.localeCompare(b)));
+  return Object.freeze([...families.values()]
+    .filter((row) => row.detectedLayers + row.matchedLayers + row.strategyLayers + row.missingLayers > 0)
+    .sort((a, b) => a.family.localeCompare(b.family))
+    .map((row) => Object.freeze({ ...row })));
 }
 
-function addFamiliesFromCounts(target, counts) {
+function addFamilyEvidenceCounts(target, counts, key) {
   if (!counts || typeof counts !== "object" || Array.isArray(counts)) return;
   for (const [family, count] of Object.entries(counts)) {
-    if (COMPONENT_FAMILY_IDS.includes(family) && Number(count) > 0) target.add(family);
+    if (COMPONENT_FAMILY_IDS.includes(family)) ensureFamilyEvidence(target, family)[key] += safeCount(count);
   }
+}
+
+function ensureFamilyEvidence(target, family) {
+  if (!target.has(family)) {
+    target.set(family, {
+      family,
+      detectedLayers: 0,
+      matchedLayers: 0,
+      strategyLayers: 0,
+      missingLayers: 0
+    });
+  }
+  return target.get(family);
+}
+
+function addFamilyEvidenceRow(target, row) {
+  const family = String(row?.family || "");
+  if (!COMPONENT_FAMILY_IDS.includes(family)) return;
+  const out = ensureFamilyEvidence(target, family);
+  out.detectedLayers += safeCount(row.detectedLayers);
+  out.matchedLayers += safeCount(row.matchedLayers);
+  out.strategyLayers += safeCount(row.strategyLayers);
+  out.missingLayers += safeCount(row.missingLayers);
+}
+
+function safeCount(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
 }
 
 function componentFamilies(value, label) {
@@ -489,6 +533,7 @@ module.exports = {
     crc32,
     listZipEntries,
     normalizeSource,
+    observedComponentFamilyEvidenceFromIr,
     observedComponentFamiliesFromIr,
     safeRelativePath
   }
