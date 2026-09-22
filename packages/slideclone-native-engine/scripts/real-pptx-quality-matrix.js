@@ -2,11 +2,20 @@
 
 const fs = require("fs");
 const path = require("path");
-const { COMPONENT_FAMILY_IDS, componentFamilyForMotif } = require("./lib/component-motifs");
+const { COMPONENT_FAMILY_IDS } = require("./lib/component-motifs");
 const {
   summarizeComponentFamilyActionPlan,
   summarizeComponentFamilyBacklog
 } = require("./lib/component-coverage-family");
+const {
+  componentFamilyAppliedCountsFromProfile,
+  componentFamilyCountsFromProfile,
+  missingComponentFamilyRegressionCases,
+  normalizeComponentFamilyGapExamples,
+  normalizeRequiredComponentFamilyRegressionCases,
+  summarizeComponentFamilyCoverage,
+  summarizeComponentFamilyRegressionCases
+} = require("./lib/component-family-regression");
 
 function parseArgs(argv) {
   const args = { reports: [] };
@@ -77,6 +86,22 @@ function summarizeReport(file) {
     deck: deckNameFromReport(file, report),
     reportFile: file
   });
+  const imageComponentDetectedFamilyCounts = componentFamilyCountsFromProfile(componentStrategyProfile, [
+    "imageComponentDetectedFamilyCounts",
+    "detectedComponentFamilyCounts"
+  ]);
+  const imageComponentMatchedFamilyCounts = componentFamilyCountsFromProfile(componentStrategyProfile, [
+    "imageComponentMatchedFamilyCounts",
+    "matchedComponentFamilyCounts"
+  ]);
+  const imageComponentStrategyFamilyCounts = componentFamilyCountsFromProfile(componentStrategyProfile, [
+    "imageComponentStrategyFamilyCounts",
+    "strategyComponentFamilyCounts"
+  ]);
+  const imageComponentMissingFamilyCounts = componentFamilyCountsFromProfile(componentStrategyProfile, [
+    "imageComponentMissingFamilyCounts",
+    "missingComponentFamilyCounts"
+  ]);
   const rejected = Number(summary.rejected || 0);
   const disallowedFullPageImages = Number(profile.disallowedFullPageImages || 0);
   const rejectedPages = pages.filter((page) => page.status === "rejected").map((page) => page.pageIndex + 1);
@@ -262,6 +287,10 @@ function summarizeReport(file) {
     componentFamilyAppliedCounts,
     componentFamilyGapCounts,
     componentFamilyGapExamples,
+    imageComponentDetectedFamilyCounts,
+    imageComponentMatchedFamilyCounts,
+    imageComponentStrategyFamilyCounts,
+    imageComponentMissingFamilyCounts,
     componentFamilyAppliedTypes: Number(componentStrategyProfile.componentFamilyAppliedTypes || countPositiveCounts(componentFamilyAppliedCounts)),
     componentFamilyGapTypes: Number(componentStrategyProfile.componentFamilyGapTypes || countPositiveCounts(componentFamilyGapCounts)),
     componentTemplateNativeRoleCounts: componentStrategyProfile.componentTemplateNativeRoleCounts || {},
@@ -336,38 +365,6 @@ function normalizeVisualUnitRepairCandidates(candidates = [], context = {}) {
       };
     })
     .filter((candidate) => candidate.priority > 0 || candidate.areaRatio !== null);
-}
-
-function componentFamilyAppliedCountsFromProfile(componentStrategyProfile = {}) {
-  const direct = componentStrategyProfile.componentFamilyAppliedCounts || {};
-  if (Object.keys(direct).length > 0) return direct;
-  const counts = {};
-  for (const [motif, rawCount] of Object.entries(componentStrategyProfile.componentTemplateMotifReadyTargetCounts || {})) {
-    const family = componentFamilyForMotif(motif);
-    if (!family) continue;
-    addDetectorCounts(counts, { [family]: rawCount });
-  }
-  return counts;
-}
-
-function normalizeComponentFamilyGapExamples(examples = [], context = {}) {
-  return (Array.isArray(examples) ? examples : [])
-    .map((example) => ({
-      deck: safeMatrixText(context.deck || example?.deck || "unknown-deck"),
-      reportFile: safeMatrixText(context.reportFile || example?.reportFile || ""),
-      page: normalizeNonNegativeNumber(example?.page),
-      image: normalizeNonNegativeNumber(example?.image),
-      families: (Array.isArray(example?.families) ? example.families : [])
-        .map((family) => safeMatrixText(family))
-        .filter(Boolean)
-        .slice(0, 8),
-      mode: safeMatrixText(example?.mode || "unknown-mode"),
-      detector: safeMatrixText(example?.detector || "unknown-detector"),
-      layerType: safeMatrixText(example?.layerType || "unknown-layer"),
-      family: safeMatrixText(example?.family || "unknown-family"),
-      reason: safeMatrixText(example?.reason || "unknown-reason")
-    }))
-    .filter((example) => example.families.length > 0);
 }
 
 function summarizeComponentFamilyActions(totals = {}) {
@@ -638,6 +635,10 @@ function aggregateMatrix(rows, options = {}) {
     addDetectorCounts(acc.componentTemplateStructureFitReasonCounts, row.componentTemplateStructureFitReasonCounts);
     addDetectorCounts(acc.componentFamilyAppliedCounts, row.componentFamilyAppliedCounts);
     addDetectorCounts(acc.componentFamilyGapCounts, row.componentFamilyGapCounts);
+    addDetectorCounts(acc.imageComponentDetectedFamilyCounts, row.imageComponentDetectedFamilyCounts);
+    addDetectorCounts(acc.imageComponentMatchedFamilyCounts, row.imageComponentMatchedFamilyCounts);
+    addDetectorCounts(acc.imageComponentStrategyFamilyCounts, row.imageComponentStrategyFamilyCounts);
+    addDetectorCounts(acc.imageComponentMissingFamilyCounts, row.imageComponentMissingFamilyCounts);
     if (Array.isArray(row.componentFamilyGapExamples)) {
       for (const example of row.componentFamilyGapExamples) {
         if (acc.componentFamilyGapExamples.length >= 30) break;
@@ -779,11 +780,16 @@ function aggregateMatrix(rows, options = {}) {
     componentTemplateStructureFitReasonCounts: {},
     componentFamilyAppliedCounts: {},
     componentFamilyGapCounts: {},
+    imageComponentDetectedFamilyCounts: {},
+    imageComponentMatchedFamilyCounts: {},
+    imageComponentStrategyFamilyCounts: {},
+    imageComponentMissingFamilyCounts: {},
     componentFamilyGapExamples: [],
     componentFamilyCoverage: [],
     componentFamilyActions: [],
     componentFamilyBacklog: [],
     componentFamilyActionPlan: [],
+    componentFamilyRegressionCases: [],
     componentTemplateNativeRoleCounts: {},
     componentTemplateStructureRoleCounts: {},
     componentTemplateCropPreservedReasonCounts: {},
@@ -805,10 +811,15 @@ function aggregateMatrix(rows, options = {}) {
     : null;
   totals.componentFamilyAppliedTypes = countPositiveCounts(totals.componentFamilyAppliedCounts);
   totals.componentFamilyGapTypes = countPositiveCounts(totals.componentFamilyGapCounts);
+  totals.imageComponentDetectedFamilyTypes = countPositiveCounts(totals.imageComponentDetectedFamilyCounts);
+  totals.imageComponentMatchedFamilyTypes = countPositiveCounts(totals.imageComponentMatchedFamilyCounts);
+  totals.imageComponentStrategyFamilyTypes = countPositiveCounts(totals.imageComponentStrategyFamilyCounts);
+  totals.imageComponentMissingFamilyTypes = countPositiveCounts(totals.imageComponentMissingFamilyCounts);
   totals.componentFamilyCoverage = summarizeComponentFamilyCoverage(
     totals.componentFamilyAppliedCounts,
     totals.componentFamilyGapCounts
   );
+  totals.componentFamilyRegressionCases = summarizeComponentFamilyRegressionCases(rows);
   totals.largestUnexplainedCropAreaRatio = round(totals.largestUnexplainedCropAreaRatio);
   totals.topDetectors = topDetectorCounts(totals.detectorCounts);
   totals.topImageExpressions = topDetectorCounts(totals.imageExpressionCounts);
@@ -894,6 +905,12 @@ function aggregateMatrix(rows, options = {}) {
   const requiredComponentFamilies = normalizeRequiredComponentFamilies(options.requiredComponentFamilies);
   const missingRequiredComponentFamilies = requiredComponentFamilies.filter((family) => Number(totals.componentFamilyAppliedCounts?.[family] || 0) <= 0);
   const requiredComponentFamiliesMet = missingRequiredComponentFamilies.length === 0;
+  const requiredComponentFamilyRegressionCases = normalizeRequiredComponentFamilyRegressionCases(options.requiredComponentFamilyRegressionCases);
+  const missingRequiredComponentFamilyRegressionCases = missingComponentFamilyRegressionCases(
+    totals.componentFamilyRegressionCases,
+    requiredComponentFamilyRegressionCases
+  );
+  const requiredComponentFamilyRegressionCasesMet = missingRequiredComponentFamilyRegressionCases.length === 0;
   const maxCriticalComponentFamilyBacklogItems = optionalNonNegativeInteger(options.maxCriticalComponentFamilyBacklogItems);
   const criticalComponentFamilyBacklogItems = countCriticalComponentFamilyBacklogItems(totals.componentFamilyBacklog);
   const criticalComponentFamilyBacklogItemsMet = maxCriticalComponentFamilyBacklogItems === null
@@ -944,6 +961,7 @@ function aggregateMatrix(rows, options = {}) {
       && componentTemplateMotifReadyTargetCountsMet
       && componentFamilyAppliedTypesMet
       && requiredComponentFamiliesMet
+      && requiredComponentFamilyRegressionCasesMet
       && criticalComponentFamilyBacklogItemsMet
       && componentTemplateStructureFitShapeRatioMet
       && visualAtomTopologyConnectorsMet
@@ -966,6 +984,7 @@ function aggregateMatrix(rows, options = {}) {
       minComponentTemplateMotifReadyTargetCounts,
       minComponentFamilyAppliedTypes,
       requiredComponentFamilies,
+      requiredComponentFamilyRegressionCases,
       maxCriticalComponentFamilyBacklogItems,
       minComponentTemplateStructureFitShapeRatio,
       minVisualAtomTopologyConnectors,
@@ -987,6 +1006,8 @@ function aggregateMatrix(rows, options = {}) {
       componentFamilyAppliedTypesMet,
       requiredComponentFamiliesMet,
       missingRequiredComponentFamilies,
+      requiredComponentFamilyRegressionCasesMet,
+      missingRequiredComponentFamilyRegressionCases,
       criticalComponentFamilyBacklogItems,
       criticalComponentFamilyBacklogItemsMet,
       componentTemplateStructureFitShapeRatioMet,
@@ -1238,6 +1259,10 @@ function compactQualityRow(row) {
     componentFamilyGapTypes: row.componentFamilyGapTypes,
     componentFamilyAppliedCounts: row.componentFamilyAppliedCounts || {},
     componentFamilyGapCounts: row.componentFamilyGapCounts || {},
+    imageComponentDetectedFamilyCounts: row.imageComponentDetectedFamilyCounts || {},
+    imageComponentMatchedFamilyCounts: row.imageComponentMatchedFamilyCounts || {},
+    imageComponentStrategyFamilyCounts: row.imageComponentStrategyFamilyCounts || {},
+    imageComponentMissingFamilyCounts: row.imageComponentMissingFamilyCounts || {},
     componentTemplateStructureFitShapeRatio: row.componentTemplateStructureFitShapeRatio,
     componentTemplateRejectedByLayerEligibilityImages: row.componentTemplateRejectedByLayerEligibilityImages,
     residualLayerCandidates: row.residualLayerCandidates,
@@ -1353,23 +1378,6 @@ function countPositiveCounts(counts = {}) {
     .length;
 }
 
-function summarizeComponentFamilyCoverage(appliedCounts = {}, gapCounts = {}) {
-  const families = [...new Set([
-    ...Object.keys(appliedCounts || {}),
-    ...Object.keys(gapCounts || {})
-  ])].sort((a, b) => a.localeCompare(b));
-  return families.map((family) => {
-    const appliedObjects = normalizeNonNegativeNumber(appliedCounts[family]);
-    const gapLayers = normalizeNonNegativeNumber(gapCounts[family]);
-    return {
-      family,
-      appliedObjects,
-      gapLayers,
-      status: appliedObjects > 0 && gapLayers > 0 ? "partial" : appliedObjects > 0 ? "covered" : "gap"
-    };
-  });
-}
-
 function average(values) {
   const finite = values.filter((value) => Number.isFinite(value));
   if (finite.length === 0) return null;
@@ -1404,6 +1412,7 @@ function main() {
     minComponentTemplateMotifReadyTargetCounts: args["min-component-template-motif-ready-target-counts"] ?? comparisonManifest?.gates?.minComponentTemplateMotifReadyTargetCounts,
     minComponentFamilyAppliedTypes: args["min-component-family-applied-types"] ?? comparisonManifest?.gates?.minComponentFamilyAppliedTypes,
     requiredComponentFamilies: args["required-component-families"] ?? comparisonManifest?.gates?.requiredComponentFamilies,
+    requiredComponentFamilyRegressionCases: args["required-component-family-regression-cases"] ?? comparisonManifest?.gates?.requiredComponentFamilyRegressionCases,
     maxCriticalComponentFamilyBacklogItems: args["max-critical-component-family-backlog-items"] ?? comparisonManifest?.gates?.maxCriticalComponentFamilyBacklogItems,
     minComponentTemplateStructureFitShapeRatio: args["min-component-template-structure-fit-shape-ratio"] ?? comparisonManifest?.gates?.minComponentTemplateStructureFitShapeRatio,
     minVisualAtomTopologyConnectors: args["min-visual-atom-topology-connectors"] ?? comparisonManifest?.gates?.minVisualAtomTopologyConnectors,
@@ -1476,10 +1485,12 @@ module.exports = {
   resolveReportFiles,
   normalizeMotifTargetMinimums,
   normalizeRequiredComponentFamilies,
+  normalizeRequiredComponentFamilyRegressionCases,
   normalizeComponentFamilyGapExamples,
   summarizeReport,
   summarizeComponentFamilyActions,
   summarizeComponentFamilyBacklog,
+  summarizeComponentFamilyRegressionCases,
   topDetectorCounts,
   truthyArg
 };

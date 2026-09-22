@@ -183,6 +183,10 @@ test("quality matrix aggregates pass state and editability metrics", () => {
       componentTemplateMotifReadyTargetCounts: { "arc-arrow": 4, "whole-process-template": 4 },
       componentFamilyAppliedCounts: { "process-flow": 4, "specialty-chart": 2 },
       componentFamilyGapCounts: { "relationship-network": 1, "specialty-chart": 1 },
+      imageComponentDetectedFamilyCounts: { "process-flow": 5, "matrix-table": 2 },
+      imageComponentMatchedFamilyCounts: { "process-flow": 4 },
+      imageComponentStrategyFamilyCounts: { "process-flow": 3 },
+      imageComponentMissingFamilyCounts: { "matrix-table": 2 },
       componentFamilyAppliedTypes: 2,
       componentFamilyGapTypes: 2,
       componentFamilyGapExamples: [{
@@ -521,8 +525,16 @@ test("quality matrix aggregates pass state and editability metrics", () => {
   assert.equal(row.componentFamilyAppliedTypes, 2);
   assert.deepEqual(matrix.totals.componentFamilyAppliedCounts, { "process-flow": 4, "specialty-chart": 2 });
   assert.deepEqual(matrix.totals.componentFamilyGapCounts, { "relationship-network": 1, "specialty-chart": 1 });
+  assert.deepEqual(matrix.totals.imageComponentDetectedFamilyCounts, { "process-flow": 5, "matrix-table": 2 });
+  assert.deepEqual(matrix.totals.imageComponentMatchedFamilyCounts, { "process-flow": 4 });
+  assert.deepEqual(matrix.totals.imageComponentStrategyFamilyCounts, { "process-flow": 3 });
+  assert.deepEqual(matrix.totals.imageComponentMissingFamilyCounts, { "matrix-table": 2 });
   assert.equal(matrix.totals.componentFamilyAppliedTypes, 2);
   assert.equal(matrix.totals.componentFamilyGapTypes, 2);
+  assert.equal(matrix.totals.imageComponentDetectedFamilyTypes, 2);
+  assert.equal(matrix.totals.imageComponentMatchedFamilyTypes, 1);
+  assert.equal(matrix.totals.imageComponentStrategyFamilyTypes, 1);
+  assert.equal(matrix.totals.imageComponentMissingFamilyTypes, 1);
   assert.deepEqual(matrix.totals.componentFamilyCoverage, [
     { family: "process-flow", appliedObjects: 4, gapLayers: 0, status: "covered" },
     { family: "relationship-network", appliedObjects: 0, gapLayers: 1, status: "gap" },
@@ -589,6 +601,24 @@ test("quality matrix aggregates pass state and editability metrics", () => {
       recommendedAction: "add-first-native-family-coverage",
       appliedObjects: 0,
       gapLayers: 1,
+      missingLayers: 0
+    },
+    {
+      family: "matrix-table",
+      priority: "high",
+      stage: "asset-match-gap",
+      recommendedAction: "promote-or-admit-component-assets",
+      appliedObjects: 0,
+      gapLayers: 0,
+      missingLayers: 2
+    },
+    {
+      family: "process-flow",
+      priority: "high",
+      stage: "asset-match-gap",
+      recommendedAction: "promote-or-admit-component-assets",
+      appliedObjects: 4,
+      gapLayers: 0,
       missingLayers: 0
     },
     {
