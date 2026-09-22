@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const { COMPONENT_FAMILY_IDS, componentFamilyForMotif } = require("./lib/component-motifs");
 const {
+  summarizeComponentFamilyActionPlan,
   summarizeComponentFamilyBacklog
 } = require("./lib/component-coverage-family");
 
@@ -782,6 +783,7 @@ function aggregateMatrix(rows, options = {}) {
     componentFamilyCoverage: [],
     componentFamilyActions: [],
     componentFamilyBacklog: [],
+    componentFamilyActionPlan: [],
     componentTemplateNativeRoleCounts: {},
     componentTemplateStructureRoleCounts: {},
     componentTemplateCropPreservedReasonCounts: {},
@@ -841,6 +843,7 @@ function aggregateMatrix(rows, options = {}) {
   totals.topComponentFamilyGaps = topDetectorCounts(totals.componentFamilyGapCounts);
   totals.componentFamilyActions = summarizeComponentFamilyActions(totals);
   totals.componentFamilyBacklog = summarizeComponentFamilyBacklog(totals);
+  totals.componentFamilyActionPlan = summarizeComponentFamilyActionPlan(totals);
   totals.topComponentTemplateNativeRoles = topDetectorCounts(totals.componentTemplateNativeRoleCounts);
   totals.topComponentTemplateStructureRoles = topDetectorCounts(totals.componentTemplateStructureRoleCounts);
   totals.topComponentTemplateCropPreservedReasons = topDetectorCounts(totals.componentTemplateCropPreservedReasonCounts);

@@ -16,6 +16,7 @@ const {
   isMotifReadyComponentTemplateSource,
   isWholeProcessTemplateSource,
   summarizeComponentFamilyActions,
+  summarizeComponentFamilyActionPlan,
   summarizeComponentFamilyBacklog,
   summarizeComponentFamilyCoverage,
   summarizeComponentFamilyGaps
@@ -830,6 +831,7 @@ function aggregateRows(rows = []) {
     componentFamilyCoverage: [],
     componentFamilyActions: [],
     componentFamilyBacklog: [],
+    componentFamilyActionPlan: [],
     imageComponentAnalysisPages: 0,
     imageComponentAnalysisPreImages: 0,
     imageComponentAnalysisLayers: 0,
@@ -1052,6 +1054,7 @@ function aggregateRows(rows = []) {
   );
   totals.componentFamilyActions = summarizeComponentFamilyActions(totals);
   totals.componentFamilyBacklog = summarizeComponentFamilyBacklog(totals);
+  totals.componentFamilyActionPlan = summarizeComponentFamilyActionPlan(totals);
   totals.componentAssetLocalCoverageRatio = totals.componentAssetLayers
     ? round(totals.componentAssetLayersWithLocalAssets / totals.componentAssetLayers)
     : null;
