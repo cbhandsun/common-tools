@@ -67,6 +67,7 @@ function buildFullOutput(report) {
     componentTemplateCropStatus: report.componentTemplateCropStatus || {},
     layerProfile: report.layerProfile || {},
     componentStrategyProfile: report.componentStrategyProfile || {},
+    finalIrMetrics: report.finalIrMetrics || {},
     visualUnitDecisionProfile: report.visualUnitDecisionProfile || {},
     nativeObjectConflictProfile: report.nativeObjectConflictProfile || {},
     pptxTextLayerAudit: report.pptxTextLayerAudit || {},

@@ -10,6 +10,7 @@ const {
   emptyImageComponentAnalysisMetrics,
   mergeImageComponentAnalysisMetrics
 } = require("./image-component-analysis-metrics");
+const coverageFamily = require("./component-coverage-family");
 
 function summarizeComponentStrategyProfile(ir = {}) {
   const profile = emptyProfile();
@@ -167,6 +168,52 @@ function summarizeComponentStrategyProfile(ir = {}) {
   profile.imageComponentStrategyFamilyCounts = imageComponentAnalysis.strategyComponentFamilyCounts;
   profile.imageComponentMissingFamilyCounts = imageComponentAnalysis.missingComponentFamilyCounts;
   return profile;
+}
+
+function summarizeFinalIrMetrics(ir = {}) {
+  const metrics = {
+    componentFamilyAppliedCounts: {},
+    componentFamilyAppliedTypes: 0,
+    componentTemplateAppliedShapes: 0,
+    componentTemplateAppliedTextBoxes: 0,
+    componentTemplateAppliedPictures: 0,
+    componentTemplateMotifReadyTargetCounts: {},
+    componentTemplateStructureFitShapes: 0,
+    componentTemplateStructureFitTextBoxes: 0,
+    componentTemplateStructureFitPictures: 0,
+    componentTemplateStructureFitReasonCounts: {},
+    visualAtomTopologyConnectors: 0,
+    visualAtomContainerNodes: 0,
+    visualAtomContainedNodes: 0
+  };
+  for (const page of Array.isArray(ir.pages) ? ir.pages : []) {
+    for (const image of Array.isArray(page.images) ? page.images : []) {
+      const source = image?.source || {};
+      coverageFamily.addComponentFamilyAppliedCounts(metrics.componentFamilyAppliedCounts, source, {
+        nativeEvidence: source.nativeRebuild === true || isComponentTemplateNativePicture(image)
+      });
+      collectFinalTemplateMetrics(metrics, source, isComponentTemplateNativePicture(image) ? "picture" : "");
+    }
+    for (const shape of Array.isArray(page.shapes) ? page.shapes : []) {
+      const source = shape?.source || {};
+      coverageFamily.addComponentFamilyAppliedCounts(metrics.componentFamilyAppliedCounts, source, {
+        nativeEvidence: source.nativeRebuild === true || source.componentTemplateGroupApplied === true
+      });
+      collectFinalTemplateMetrics(metrics, source, source.componentTemplateGroupApplied === true || source.nativeRebuild === true ? "shape" : "");
+      if (isVisualAtomTopologyConnectorSource(source)) metrics.visualAtomTopologyConnectors += 1;
+      if (isVisualAtomContainerNodeSource(source)) metrics.visualAtomContainerNodes += 1;
+      if (isVisualAtomContainedNodeSource(source)) metrics.visualAtomContainedNodes += 1;
+    }
+    for (const textBox of Array.isArray(page.textBoxes) ? page.textBoxes : []) {
+      const source = textBox?.source || {};
+      coverageFamily.addComponentFamilyAppliedCounts(metrics.componentFamilyAppliedCounts, source, {
+        nativeEvidence: source.nativeRebuild === true || source.componentTemplateGroupApplied === true
+      });
+      collectFinalTemplateMetrics(metrics, source, source.componentTemplateGroupApplied === true || source.nativeRebuild === true ? "textbox" : "");
+    }
+  }
+  metrics.componentFamilyAppliedTypes = countPositiveCounts(metrics.componentFamilyAppliedCounts);
+  return metrics;
 }
 
 function emptyProfile() {
@@ -342,6 +389,25 @@ function addMotifReadyTemplateCounts(profile, source = {}) {
   }
 }
 
+function collectFinalTemplateMetrics(metrics, source = {}, kind = "") {
+  if (isMotifReadyComponentTemplateSource(source)) {
+    const motifs = componentTemplateTargetMotifs(source);
+    for (const motif of motifs.length ? motifs : ["unknown"]) addCount(metrics.componentTemplateMotifReadyTargetCounts, motif);
+  }
+  const fitScore = Number(source?.matchedComponentStructureFitScore);
+  if (!kind) return;
+  if (kind === "shape") metrics.componentTemplateAppliedShapes += 1;
+  else if (kind === "textbox") metrics.componentTemplateAppliedTextBoxes += 1;
+  else if (kind === "picture") metrics.componentTemplateAppliedPictures += 1;
+  if (!Number.isFinite(fitScore) || fitScore <= 0) return;
+  if (kind === "shape") metrics.componentTemplateStructureFitShapes += 1;
+  else if (kind === "textbox") metrics.componentTemplateStructureFitTextBoxes += 1;
+  else if (kind === "picture") metrics.componentTemplateStructureFitPictures += 1;
+  for (const reason of Array.isArray(source.matchedComponentStructureFitReasons) ? source.matchedComponentStructureFitReasons : []) {
+    addCount(metrics.componentTemplateStructureFitReasonCounts, reason || "unknown");
+  }
+}
+
 function componentTemplateTargetMotifs(source = {}) {
   const values = [
     ...(Array.isArray(source.matchedComponentTargetMotifs) ? source.matchedComponentTargetMotifs : []),
@@ -475,8 +541,10 @@ module.exports = {
   addCount,
   collectLocalAssetMatches,
   summarizeComponentStrategyProfile,
+  summarizeFinalIrMetrics,
   _private: {
     emptyProfile,
+    collectFinalTemplateMetrics,
     componentFamilyGapReason,
     inferComponentFamiliesFromSource,
     isComponentFamilyGapImage,

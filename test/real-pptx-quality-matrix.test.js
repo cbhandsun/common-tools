@@ -1150,6 +1150,30 @@ test("quality matrix can require named component families, not just type count",
   assert.deepEqual(normalizeRequiredComponentFamilies("matrix-table;process-flow;invalid"), ["matrix-table", "process-flow"]);
 });
 
+test("quality matrix uses final product metrics for required component family evidence", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "quality-matrix-final-family-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const file = writeReport(root, "Timeline_deck-quality", {
+    summary: { pages: 1, accepted: 1, needsReview: 0, rejected: 0 },
+    componentStrategyProfile: { componentFamilyAppliedCounts: { "process-flow": 2 }, componentFamilyAppliedTypes: 1, componentTemplateAppliedShapes: 1, componentTemplateMotifReadyTargetCounts: { "milestone-roadmap": 99 }, componentTemplateStructureFitShapes: 1 },
+    finalIrMetrics: { componentFamilyAppliedCounts: { "process-flow": 2, "timeline-roadmap": 4 }, componentFamilyAppliedTypes: 2, componentTemplateAppliedShapes: 4, componentTemplateMotifReadyTargetCounts: { "milestone-roadmap": 4 }, componentTemplateStructureFitShapes: 4, componentTemplateStructureFitReasonCounts: { "native-group-kind-compatible-timeline": 4 }, visualAtomTopologyConnectors: 3 }
+  });
+
+  const row = summarizeReport(file);
+  assert.deepEqual(row.componentFamilyAppliedCounts, { "process-flow": 2, "timeline-roadmap": 4 });
+  assert.equal(row.componentFamilyAppliedTypes, 2);
+  assert.equal(row.componentTemplateMotifReadyTargetCounts["milestone-roadmap"], 4);
+  assert.equal(row.componentTemplateAppliedShapes, 4);
+  assert.equal(row.componentTemplateStructureFitShapes, 4);
+  assert.equal(row.visualAtomTopologyConnectors, 3);
+
+  const matrix = aggregateMatrix([row], { requiredComponentFamilies: ["process-flow", "timeline-roadmap"], minComponentTemplateMotifReadyTargetCounts: { "milestone-roadmap": 1 } });
+  assert.equal(matrix.passed, true);
+  assert.equal(matrix.totals.requiredComponentFamiliesMet, true);
+  assert.equal(matrix.totals.componentFamilyAppliedCounts["timeline-roadmap"], 4);
+  assert.deepEqual(matrix.totals.missingRequiredComponentFamilies, []);
+});
+
 test("quality matrix normalizes component family gap examples and action priorities", () => {
   const examples = normalizeComponentFamilyGapExamples([{
     deck: "Raw deck",

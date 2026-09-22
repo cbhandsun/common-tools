@@ -6,7 +6,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { readPng, writePng } = require("./lib/png");
 const { summarizeLayerProfile } = require("./lib/layer-classifier");
-const { summarizeComponentStrategyProfile } = require("./lib/component-strategy-profile");
+const { summarizeComponentStrategyProfile, summarizeFinalIrMetrics } = require("./lib/component-strategy-profile");
 const { summarizeNativeObjectConflicts } = require("./lib/native-object-conflict-audit");
 const { createRenderCacheIdentity, normalizeRenderer, readRenderCacheMetadata, writeRenderCacheMetadata } = require("./lib/render-cache-metadata");
 const { auditPptxTextLayers } = require("./lib/ooxml-text-layer-audit");
@@ -169,6 +169,7 @@ async function main() {
   const componentTemplateCropStatus = summarizeComponentTemplateCropStatus(ir);
   const layerProfile = summarizeLayerProfile(ir);
   const componentStrategyProfile = summarizeComponentStrategyProfile(ir);
+  const finalIrMetrics = summarizeFinalIrMetrics(ir);
   const visualUnitDecisionProfile = summarizeVisualUnitDecisionProfile(ir);
   const nativeObjectConflictProfile = summarizeNativeObjectConflicts(ir);
   const pptxTextLayerAudit = auditPptxTextLayers(pptxFile, ir);
@@ -254,6 +255,7 @@ async function main() {
     componentTemplateCropStatus,
     layerProfile,
     componentStrategyProfile,
+    finalIrMetrics,
     visualUnitDecisionProfile,
     nativeObjectConflictProfile,
     pptxTextLayerAudit,

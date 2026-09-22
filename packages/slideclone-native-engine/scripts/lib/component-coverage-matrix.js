@@ -1407,6 +1407,7 @@ module.exports = {
   summarizeCandidateReport,
   summarizeComponentRebuildReport,
   summarizeExpressionPolicyReport,
+  summarizeFinalIrMetrics,
   summarizeFinalIrNativeOpportunities,
   COMPONENT_FAMILY_BY_MOTIF,
   COMPONENT_FAMILY_IDS,

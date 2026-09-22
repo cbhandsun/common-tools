@@ -9,6 +9,7 @@ const {
   buildQualityGateOutput,
   readQualityGateOutputFormat
 } = require("../packages/slideclone-native-engine/scripts/lib/quality-gate-output");
+const { summarizeFinalIrMetrics } = require("../packages/slideclone-native-engine/scripts/lib/component-strategy-profile");
 
 function report() {
   return {
@@ -28,7 +29,8 @@ function report() {
     sourceMediaExclusion: { passed: true, disallowedMatches: 0 },
     reportFile: "quality-gate-report.json",
     contactSheet: null,
-    layerProfile: { large: "full-only" }
+    layerProfile: { large: "full-only" },
+    finalIrMetrics: { componentFamilyAppliedCounts: { "timeline-roadmap": 2 } }
   };
 }
 
@@ -50,6 +52,21 @@ test("quality gate full output remains explicitly available", () => {
   const output = buildQualityGateOutput(report(), { format: "full" });
   assert.deepEqual(output.reconstructionBudget.pages, [{ large: "intentionally omitted from compact output" }]);
   assert.deepEqual(output.layerProfile, { large: "full-only" });
+  assert.deepEqual(output.finalIrMetrics.componentFamilyAppliedCounts, { "timeline-roadmap": 2 });
+});
+
+test("quality gate final IR metrics expose native timeline family evidence", () => {
+  const metrics = summarizeFinalIrMetrics({ pages: [{ shapes: [{ source: {
+    nativeRebuild: true,
+    detector: "visual-relationship-native-timeline-axis",
+    matchedComponentAssetMotifReady: true,
+    matchedComponentTargetMotifs: ["milestone-roadmap"],
+    matchedComponentStructureFitScore: 0.9,
+    matchedComponentStructureFitReasons: ["native-group-kind-compatible-timeline"]
+  } }] }] });
+  assert.equal(metrics.componentFamilyAppliedCounts["timeline-roadmap"], 1);
+  assert.equal(metrics.componentTemplateMotifReadyTargetCounts["milestone-roadmap"], 1);
+  assert.equal(metrics.componentTemplateStructureFitShapes, 1);
 });
 
 test("quality gate output rejects invalid, empty, and extreme boundary data safely", () => {
