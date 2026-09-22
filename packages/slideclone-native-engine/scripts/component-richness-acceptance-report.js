@@ -107,11 +107,13 @@ function buildComponentRichnessAcceptanceReport(options = {}) {
   const maxCriticalComponentFamilyBacklogItems = optionalNonNegativeInteger(options.maxCriticalComponentFamilyBacklogItems);
   const gateReasons = [];
   collectSourceGateReasons(gateReasons, "coverage-matrix", evidenceSources.coverageMatrix, options.requireCoverageMatrix === true);
-  collectSourceGateReasons(gateReasons, "real-pptx-matrix", evidenceSources.realPptxMatrix, false);
+  collectSourceGateReasons(gateReasons, "real-pptx-matrix", evidenceSources.realPptxMatrix, options.requireRealPptxRegression === true);
   collectSourceGateReasons(gateReasons, "image-recall-matrix", evidenceSources.imageRecallMatrix, false);
   collectSourceGateReasons(gateReasons, "image-recall-corpus", evidenceSources.imageRecallCorpus, false);
   collectSourceGateReasons(gateReasons, "asset-admission", evidenceSources.assetAdmission, options.requireAssetAdmission === true);
-  if (options.requireImageRecall === true && !hasImageRecallEvidence(evidenceSources)) gateReasons.push("image-recall-evidence-not-provided");
+  if (options.requireImageRecall === true && !hasPassingImageRecallEvidence(evidenceSources)) {
+    gateReasons.push(evidenceSources.imageRecallMatrix.status === "provided" ? "image-recall-matrix-not-passing" : "image-recall-evidence-not-provided");
+  }
   if (options.requireRealPptxRegression === true && evidenceSources.realPptxMatrix.componentFamilyRegressionCases.length === 0) {
     gateReasons.push("real-pptx-regression-cases-missing");
   }
@@ -240,11 +242,12 @@ function summarizeAssetAdmissionSource(input) {
 
 function collectSourceGateReasons(reasons, label, source, required) {
   if (required && source.status !== "provided") reasons.push(`${label}-not-provided`);
-  if (source.status === "provided" && source.passed === false) reasons.push(`${label}-failed`);
+  if (required && source.status === "provided" && source.passed !== true) reasons.push(`${label}-not-passing`);
+  if (!required && source.status === "provided" && source.passed === false) reasons.push(`${label}-failed`);
 }
 
-function hasImageRecallEvidence(sources) {
-  return sources.imageRecallMatrix.status === "provided" || sources.imageRecallCorpus.status === "provided";
+function hasPassingImageRecallEvidence(sources) {
+  return sources.imageRecallMatrix.status === "provided" && sources.imageRecallMatrix.passed === true;
 }
 
 function sourceRows(rows = [], source) {

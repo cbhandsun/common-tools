@@ -171,6 +171,89 @@ test("component richness acceptance report fails required missing evidence", (t)
   assert.ok(report.gateReasons.includes("asset-admission-not-provided"));
 });
 
+test("component richness acceptance report requires explicit passing mandatory reports", (t) => {
+  const dir = createFixture(t);
+  const coverage = path.join(dir, "coverage.json");
+  const real = path.join(dir, "real.json");
+  const admission = path.join(dir, "admission.json");
+  writeJson(coverage, {});
+  writeJson(real, {
+    totals: {
+      componentFamilyRegressionCases: [{ deck: "Deck_A", family: "process-flow" }]
+    }
+  });
+  writeJson(admission, {});
+
+  const report = buildComponentRichnessAcceptanceReport({
+    coverageMatrix: coverage,
+    realPptxMatrix: real,
+    imageRecallMatrix: path.join(dir, "missing-image.json"),
+    imageRecallCorpus: path.join(dir, "missing-corpus.json"),
+    admissionReport: admission,
+    out: path.join(dir, "acceptance.json"),
+    requireCoverageMatrix: true,
+    requireRealPptxRegression: true,
+    requireAssetAdmission: true
+  });
+
+  assert.equal(report.passed, false);
+  assert.ok(report.gateReasons.includes("coverage-matrix-not-passing"));
+  assert.ok(report.gateReasons.includes("real-pptx-matrix-not-passing"));
+  assert.ok(report.gateReasons.includes("asset-admission-not-passing"));
+});
+
+test("component richness acceptance report requires passing image recall matrix", (t) => {
+  const dir = createFixture(t);
+  const corpus = path.join(dir, "corpus.json");
+  writeJson(corpus, {
+    cases: [{
+      id: "image-plan-only",
+      expectedComponentFamilies: ["process-flow"],
+      observedComponentFamilyEvidence: [{ family: "process-flow" }]
+    }]
+  });
+
+  const report = buildComponentRichnessAcceptanceReport({
+    coverageMatrix: path.join(dir, "missing-coverage.json"),
+    realPptxMatrix: path.join(dir, "missing-real.json"),
+    imageRecallMatrix: path.join(dir, "missing-image.json"),
+    imageRecallCorpus: corpus,
+    admissionReport: path.join(dir, "missing-admission.json"),
+    out: path.join(dir, "acceptance.json"),
+    requireImageRecall: true
+  });
+
+  assert.equal(report.passed, false);
+  assert.ok(report.gateReasons.includes("image-recall-evidence-not-provided"));
+});
+
+test("component richness acceptance report accepts passing image recall matrix", (t) => {
+  const dir = createFixture(t);
+  const image = path.join(dir, "image.json");
+  writeJson(image, {
+    passed: true,
+    totals: {
+      imageComponentDetectedFamilyTypes: 1,
+      imageComponentMatchedFamilyTypes: 1,
+      imageComponentMissingFamilyTypes: 0,
+      imageComponentFamilies: [{ family: "process-flow" }]
+    }
+  });
+
+  const report = buildComponentRichnessAcceptanceReport({
+    coverageMatrix: path.join(dir, "missing-coverage.json"),
+    realPptxMatrix: path.join(dir, "missing-real.json"),
+    imageRecallMatrix: image,
+    imageRecallCorpus: path.join(dir, "missing-corpus.json"),
+    admissionReport: path.join(dir, "missing-admission.json"),
+    out: path.join(dir, "acceptance.json"),
+    requireImageRecall: true
+  });
+
+  assert.equal(report.passed, true);
+  assert.deepEqual(report.gateReasons, []);
+});
+
 test("component richness acceptance report fails failed sources and backlog caps", (t) => {
   const dir = createFixture(t);
   const coverage = path.join(dir, "coverage.json");
