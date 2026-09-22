@@ -85,6 +85,7 @@ const eslintTargets = [
   "packages/slideclone-native-engine/scripts/component-replacement-harvest-refresh.js",
   "packages/slideclone-native-engine/scripts/component-replacement-plan-report.js",
   "packages/slideclone-native-engine/scripts/component-replacement-sample-gap-report.js",
+  "packages/slideclone-native-engine/scripts/component-richness-acceptance-report.js",
   "packages/slideclone-native-engine/scripts/real-pptx-quality-matrix.js",
   "packages/slideclone-native-engine/scripts/real-pptx-corpus-runner.js",
   "packages/slideclone-native-engine/scripts/real-pptx-editable-batch.js",

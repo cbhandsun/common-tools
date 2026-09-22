@@ -112,6 +112,24 @@
       "script": "packages/slideclone-native-engine/scripts/component-coverage-matrix.js",
       "args": []
     },
+    "component-richness-acceptance-report": {
+      "description": "Unify component-richness coverage, recall, regression and admission evidence.",
+      "script": "packages/slideclone-native-engine/scripts/component-richness-acceptance-report.js",
+      "args": [
+        "--coverage-matrix",
+        "runs/component-assets-coverage-matrix.json",
+        "--real-pptx-matrix",
+        "runs/component-assets-regression-matrix.json",
+        "--image-recall-matrix",
+        "runs/image-to-editable-component-recall-matrix.json",
+        "--image-recall-corpus",
+        "runs/image-to-editable-component-recall/corpus-plan.json",
+        "--admission-report",
+        "runs/component-asset-admission-gate.json",
+        "--out",
+        "runs/component-richness-acceptance-report.json"
+      ]
+    },
     "image-to-editable-component-recall-report": {
       "description": "Versioned command profile for slideclone:image-to-editable-component-recall-report.",
       "script": "packages/slideclone-native-engine/scripts/image-to-editable-component-recall-report.js",
