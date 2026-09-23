@@ -117,8 +117,9 @@ function inferComponentFamiliesFromText(value = "") {
   const families = [];
   if (/swimlane|lane|process|flow|step|chain|branch|workflow|route|路径|流程|步骤|链路/.test(text)) families.push("process-flow");
   if (/timeline|milestone|roadmap|gantt|时间轴|里程碑|路线图/.test(text)) families.push("timeline-roadmap");
-  if (/dashboard|kpi|metric|scorecard|indicator|数据看板|指标看板|仪表盘|指标卡/.test(text)) families.push("metric-card-grid");
-  if (/matrix|grid|table|quadrant|cell|comparison|paradigm|表格|矩阵|象限|对比/.test(text)) families.push("matrix-table");
+  const metricCardGrid = isMetricCardGridText(text);
+  if (metricCardGrid) families.push("metric-card-grid");
+  if (!metricCardGrid && /matrix|grid|table|quadrant|cell|comparison|paradigm|表格|矩阵|象限|对比/.test(text)) families.push("matrix-table");
   if (/hub|spoke|radial|network|topology|relationship|system-map|关系|网络|拓扑/.test(text)) families.push("relationship-network");
   if (/(^|[^a-z])tree(?!map)|org|hierarchy|层级|组织/.test(text)) families.push("hierarchy-tree");
   if (/funnel|lens|漏斗/.test(text)) families.push("funnel-flow");
@@ -129,6 +130,10 @@ function inferComponentFamiliesFromText(value = "") {
   if (/fishbone|cause|鱼骨|因果/.test(text)) families.push("fishbone-cause");
   if (containsAnyTextTerm(text, ["chart", "donut", "pie", "treemap", "treemap-chart", "bubble", "scatter", "bubble-scatter-chart", "sankey", "sankey-flow-chart", "map chart", "map-chart", "geo-map", "word-cloud", "word-cloud-chart", "waterfall", "waterfall-chart", "gauge", "gauge-chart", "radar", "radar-chart", "pie-share-chart", "donut-segment-chart", "图表", "词云", "地图", "仪表", "雷达"])) families.push("specialty-chart");
   return uniqueComponentFamilies(families);
+}
+
+function isMetricCardGridText(text = "") {
+  return /dashboard|kpi|metric|scorecard|indicator|dashboard-card-grid|metric-card-grid|数据看板|指标看板|仪表盘|指标卡/.test(text);
 }
 
 function containsAnyTextTerm(text, terms = []) {

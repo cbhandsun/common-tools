@@ -340,7 +340,8 @@ function inferComponentFamiliesFromText(text = "") {
   const value = safeString(text).toLowerCase();
   const families = [];
   if (containsAnyTextTerm(value, ["cycle", "loop", "arc", "ring", "concentric", "arc-arrow", "ring-node", "cycle-loop", "concentric-circles", "循环", "圆环", "同心"])) families.push("cycle-loop");
-  if (containsAnyTextTerm(value, ["matrix", "grid", "quadrant", "table", "cell", "comparison", "matrix-table", "表格", "矩阵", "象限", "对比"])) families.push("matrix-table");
+  const metricCardGrid = isMetricCardGridText(value);
+  if (!metricCardGrid && containsAnyTextTerm(value, ["matrix", "grid", "quadrant", "table", "cell", "comparison", "matrix-table", "表格", "矩阵", "象限", "对比"])) families.push("matrix-table");
   if (containsAnyTextTerm(value, ["tree", "org", "hierarchy", "hierarchy-tree", "org-hierarchy", "层级", "组织"])) families.push("hierarchy-tree");
   if (containsAnyTextTerm(value, ["fishbone", "cause", "fishbone-cause", "鱼骨", "因果"])) families.push("fishbone-cause");
   if (containsAnyTextTerm(value, ["hub", "spoke", "radial", "relationship", "topology", "network", "relationship-network", "topology-network", "关系", "网络", "拓扑"])) families.push("relationship-network");
@@ -350,9 +351,13 @@ function inferComponentFamiliesFromText(text = "") {
   if (containsAnyTextTerm(value, ["pyramid", "pyramid-stack", "金字塔"])) families.push("pyramid-stack");
   if (containsAnyTextTerm(value, ["venn", "overlap", "intersection", "overlap-diagram", "venn-overlap", "intersection-overlap", "交集", "重叠"])) families.push("overlap-diagram");
   if (containsAnyTextTerm(value, ["timeline", "milestone", "roadmap", "gantt", "timeline-roadmap", "milestone-roadmap", "gantt-roadmap", "时间轴", "里程碑", "路线图"])) families.push("timeline-roadmap");
-  if (containsAnyTextTerm(value, ["dashboard", "kpi", "metric", "scorecard", "indicator", "dashboard-card-grid", "metric-card-grid", "数据看板", "指标看板", "仪表盘", "指标卡"])) families.push("metric-card-grid");
+  if (metricCardGrid) families.push("metric-card-grid");
   if (containsAnyTextTerm(value, ["chart", "donut", "doughnut", "pie", "treemap", "bubble", "scatter", "sankey", "map-chart", "geo-map", "word-cloud", "waterfall", "gauge", "radar", "specialty-chart", "sankey-flow-chart", "图表", "词云", "地图", "仪表", "雷达"])) families.push("specialty-chart");
   return [...new Set(families)].filter((family) => COMPONENT_FAMILIES.has(family));
+}
+
+function isMetricCardGridText(text = "") {
+  return containsAnyTextTerm(text, ["dashboard", "kpi", "metric", "scorecard", "indicator", "dashboard-card-grid", "metric-card-grid", "数据看板", "指标看板", "仪表盘", "指标卡"]);
 }
 
 function containsAnyTextTerm(text, terms = []) {
