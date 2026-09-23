@@ -262,7 +262,8 @@ function buildQualityArgs({ ir, pptx, qualityDir, minimumTextCoverage = null, re
       "--text-ocr", "true",
       "--text-ocr-adapter", "packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local.js",
       "--text-ocr-mode", "fullPage",
-      "--min-text-coverage", String(minimumTextCoverage)
+      "--min-text-coverage", String(minimumTextCoverage),
+      "--no-evidence-cache", "true"
     );
   }
   return args;

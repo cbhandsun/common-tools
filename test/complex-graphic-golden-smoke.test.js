@@ -178,9 +178,11 @@ test("quality args enable real local OCR only when a coverage threshold is reque
     minimumTextCoverage: 0.8
   });
   assert.equal(visualArgs.includes("--text-ocr"), false);
+  assert.equal(visualArgs.includes("--no-evidence-cache"), false);
   assert.equal(ocrArgs[ocrArgs.indexOf("--text-ocr") + 1], "true");
   assert.equal(ocrArgs[ocrArgs.indexOf("--text-ocr-adapter") + 1], "packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local.js");
   assert.equal(ocrArgs[ocrArgs.indexOf("--min-text-coverage") + 1], "0.8");
+  assert.equal(ocrArgs[ocrArgs.indexOf("--no-evidence-cache") + 1], "true");
 });
 
 test("quality report success is derived from explicit strict invariants", () => {

@@ -5,6 +5,15 @@ const assert = require("node:assert/strict");
 
 const compareThresholds = require("../packages/slideclone-native-engine/scripts/adapters/compare-placeholder");
 
+test("OCR adapter resolution accepts repository-relative package paths from CLI callers", () => {
+  const resolved = compareThresholds._private.resolveMaybeRelative(
+    { skillRoot: "packages/slideclone-native-engine" },
+    "packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local.js"
+  );
+
+  assert.equal(resolved, require.resolve("../packages/slideclone-native-engine/scripts/adapters/ocr-paddleocr-local"));
+});
+
 test("anchored OCR batches a page in bounded chunks and preserves request ownership", async () => {
   const calls = [];
   const adapter = async () => { throw new Error("unexpected sequential fallback"); };

@@ -3,9 +3,20 @@ const { hasUnverifiedNativeGeometry } = require("./screenshot-texture-evidence")
 
 // Keep the native generation order and shared object references from the page pipeline.
 function buildPageNativeGraphicsStage(context, dependencies) {
-  const { image, options, pageDraft, nativeTextBoxes, slideSize, decorativeBackground, rawTextBoxes, textBoxes, pageIndex, specializedNativeEligiblePageDraft, specializedNativeEligibleImages, autoObjectifySystemMap, unreadableSystemMapFidelityProtected } = context;
+  const { image, options, pageDraft, nativeTextBoxes, slideSize, decorativeBackground, rawTextBoxes, textBoxes, pageIndex, specializedNativeEligiblePageDraft, specializedNativeEligibleImages, autoObjectifySystemMap, autoObjectifyTriangleTopology, unreadableSystemMapFidelityProtected } = context;
   let { nativeRebuildCandidateImages } = context;
+  const unverifiedTriangleTopologyCandidates = autoObjectifyTriangleTopology === true
+    ? nativeRebuildCandidateImages.filter((item) => hasUnverifiedNativeGeometry(item))
+    : [];
   nativeRebuildCandidateImages = nativeRebuildCandidateImages.filter(item => !hasUnverifiedNativeGeometry(item));
+  const triangleTopologyCandidateImages = unverifiedTriangleTopologyCandidates.length > 0
+    ? [
+      ...nativeRebuildCandidateImages,
+      ...unverifiedTriangleTopologyCandidates.filter((candidate) => !nativeRebuildCandidateImages.some((item) =>
+        String(item?.id || "") === String(candidate?.id || "")
+      ))
+    ]
+    : nativeRebuildCandidateImages;
   const { createValueBannerBackgroundShapes, createTextBackplateShapes, createLayerContainerShapes, createMatrixColorBlockShapes, createLayerColorBlockShapes, createStickyNoteClusterShapes, createLayerConnectorShapes, createTableZoneGridShapes, createTableZoneBackgroundShapes, createTableZoneSemanticTextBoxes, createQuadrantDividerShapes, createNetworkDiagramShapes, syncObjectifiedCandidateSources, createHierarchyDiagramShapes, createTriangleTopologyDiagramShapes, createCoverEngineCoreShapes, createSkillChainOverviewShapes, createPageLevelSkillChainOverviewObjects, createLinearProcessDiagramShapes, createPrdGenerationFlowShapes, syncPrdGenerationMinimumUnitBoxes, createPrototypeValidationFlowShapes, applyPrototypeValidationScreenshotPolicy, syncPrototypeValidationCandidateSources, createDemandUnderstandingFlowShapes, hasSpecializedComparisonSkeletonCandidate, createComparisonMatrixShapes, createSaturatedDiagramTextShapes, createSemanticCycleDiagramShapes, createProductManagerFrictionNetworkObjects, createDenseComplexDiagramScaffoldObjects, createTwoPanelDiagramTextShapes, createTopComplexDiagramTextShapes, createShiftLeftDebuggerDiagramObjects, createToolIslandTransitionMatrixObjects, createKpiEvidenceTextShapes, createValueQuadrantShapes, createReviewRiskGateFlowShapes, createFunnelHubDiagramShapes, createHorizontalStepChainShapes, createGenericNodeDiagramSkeletonShapes, createVisualClusterStackShapes, createWmsRouteChainShapes, createCollaborationFlowShapes, createStackedArchitectureDiagramObjects, createToolGapPlatformDiagramObjects, createProcessWithScreenshotsFlowObjects, createTextAnchoredProcessNetworkObjects, createDocumentVersionGovernanceObjects, createDocumentVersionFolderFlowObjects, createAssetOsFlowObjects, createPrototypeGenerationLoopModel, createPortalPlatformDiagramObjects, createSystemMapDiagramObjects, createSystemMapFidelityChromeObjects, shouldAutoObjectifyEntropyIsland, createEntropyChallengeFragmentShapes, createEntropyChallengeIslandShapes, createEntropyChallengeAnnotationObjects, createEntropyChallengeFooterBulletShapes, createVisualAtomNativeShapes, filterTextBoxesForGraphicUnderlays, createSpecializedNativeHybridResidualCrops, uniqueImagesById, createSpecializedNativeHybridResidualCropsFromNativeShapes, createPrototypeGenerationLoopPictorialCrops, shouldDeferNativeRebuildForComponentStrategy, shouldAllowVisualAtomOverlayForDeferredComponent, isWorkflowDemandUnderstandingAssistantLeftIllustrationCrop, isWorkflowPrdAutoGenerationLeftIllustrationCrop } = dependencies;
 const valueBannerBackgroundShapes = image && options.objectifyValueBanners === true
       ? createValueBannerBackgroundShapes(pageDraft.images, nativeTextBoxes, image, slideSize, options.irDir)
@@ -57,10 +68,10 @@ const valueBannerBackgroundShapes = image && options.objectifyValueBanners === t
     const hierarchyDiagramShapes = image && options.objectifyLayerConnectors === true
       ? createHierarchyDiagramShapes(nativeRebuildCandidateImages, nativeTextBoxes, image, slideSize)
       : [];
-    const triangleTopologyShapes = image && options.objectifyLayerConnectors === true
-      ? createTriangleTopologyDiagramShapes(nativeRebuildCandidateImages, rawTextBoxes, image, slideSize)
+    const triangleTopologyShapes = image && (options.objectifyLayerConnectors === true || autoObjectifyTriangleTopology === true)
+      ? createTriangleTopologyDiagramShapes(triangleTopologyCandidateImages, rawTextBoxes, image, slideSize)
       : [];
-    syncObjectifiedCandidateSources(pageDraft.images, nativeRebuildCandidateImages, {
+    syncObjectifiedCandidateSources(pageDraft.images, triangleTopologyCandidateImages, {
       objectifiedFlags: ["triangleTopologyObjectified"],
       dropResidual: triangleTopologyShapes.length > 0
     });
