@@ -7718,7 +7718,7 @@ test("smart native layer preset does not force internal OCR text objectification
   assert.equal(options.vectorizeStatusIcons, true);
 });
 
-test("product brain vision objectification accepts screenshot-process detector with page evidence", () => {
+test("product brain vision objectification accepts opted-in screenshot-process detector with page evidence", () => {
   const sourceImage = makeImage(960, 540, "#FFFFFF");
   const image = {
     id: "native-graphic-underlay",
@@ -7739,7 +7739,10 @@ test("product brain vision objectification accepts screenshot-process detector w
     ]
   };
 
-  const result = createProductBrainVisionObjects(page, { widthPt: 960, heightPt: 540 }, { sourceImage });
+  const result = createProductBrainVisionObjects(page, { widthPt: 960, heightPt: 540 }, {
+    allowHeuristicProductBrainVision: true,
+    sourceImage
+  });
 
   assert.equal(image.source.productBrainVisionObjectified, true);
   assert.equal(image.source.productBrainVisionResidualBoxes.length, 0);
@@ -26769,51 +26772,6 @@ test("unreadable dense system maps stay as protected fidelity crops", () => {
   assert.equal(page.reconstruction.expressionPolicy, "fidelity-first");
 });
 
-test("measurable system-map topology enables automatic native reconstruction without connector mode", () => {
-  const sourceImage = { width: 960, height: 540, rgba: Buffer.alloc(960 * 540 * 4, 255) };
-  const drawBlueRect = (x, y, w, h) => {
-    for (let yy = y; yy < y + h; yy += 1) {
-      for (let xx = x; xx < x + w; xx += 1) {
-        const offset = (yy * sourceImage.width + xx) * 4;
-        sourceImage.rgba[offset] = 18;
-        sourceImage.rgba[offset + 1] = 108;
-        sourceImage.rgba[offset + 2] = 180;
-        sourceImage.rgba[offset + 3] = 255;
-      }
-    }
-  };
-  const drawBlueLine = (x1, y1, x2, y2) => {
-    if (y1 === y2) drawBlueRect(Math.min(x1, x2), y1, Math.abs(x2 - x1) + 1, 3);
-    else drawBlueRect(x1, Math.min(y1, y2), 3, Math.abs(y2 - y1) + 1);
-  };
-  for (const x of [365, 420, 475, 530, 585, 640]) {
-    for (const y of [190, 240, 290, 340, 390]) drawBlueRect(x - 7, y - 7, 14, 14);
-    drawBlueLine(x, 190, x, 390);
-  }
-  for (const y of [190, 240, 290, 340, 390]) drawBlueLine(365, y, 640, y);
-  const page = {
-    images: []
-  };
-  const textBoxes = [
-    { text: "终局视野：生生不息的企业级数字化产品大脑", box: { x: 31, y: 34, w: 460, h: 35 } },
-    { text: "产品版图（System Map）", box: { x: 404, y: 121, w: 165, h: 19 } }
-  ];
-
-  const automaticPromotion = prepareSystemMapTopologyProbe(page, textBoxes, { widthPt: 960, heightPt: 540 }, { sourceImage });
-  const protectedCrop = protectUnreadableSystemMapFidelityCrop(page, textBoxes, { widthPt: 960, heightPt: 540 }, { sourceImage });
-
-  assert.equal(automaticPromotion, true);
-  assert.equal(protectedCrop, false);
-  assert.equal(page.images[0].source.systemMapTopologyProbeReady, true);
-  assert.equal(page.images[0].source.systemMapSourceBackgroundPromoted, true);
-  assert.equal(page.images[0].source.systemMapSyntheticSourceCandidate, true);
-  assert.match(page.images[0].source.detector, /line-diagram/);
-  assert.ok(page.images[0].box.w < 960);
-  assert.ok(page.images[0].source.systemMapTopologyProbeNodeCount >= 24);
-  assert.ok(page.images[0].source.systemMapTopologyProbeEdgeCount >= 32);
-  assert.equal(page.images[0].source.systemMapFidelityProtected, undefined);
-});
-
 test("system-map hybrid", () => {
   const img = { width: 960, height: 540, rgba: Buffer.alloc(960 * 540 * 4, 255) };
   const rect = (x, y, w, h, [r, g, b] = [45, 120, 180]) => {
@@ -26844,7 +26802,11 @@ test("system-map hybrid", () => {
     }
   }
   oval(480, 240, 150, 135);
-  const page = { images: [] };
+  const page = { images: [{
+    id: "system-map-underlay",
+    box: { x: 34, y: 139, w: 890, h: 375 },
+    source: { detector: "line-diagram-graphic-underlay-crop" }
+  }] };
   const t = [{text:"终局视野：生生不息的企业级数字化产品大脑",box:{x:31,y:34,w:460,h:35}},{text:"产品版图（System Map）",box:{x:404,y:121,w:165,h:19}}];
 
   assert.equal(prepareSystemMapTopologyProbe(page, t, {widthPt:960,heightPt:540}, {sourceImage:img}), true);

@@ -32,6 +32,7 @@ const {normalizeTextKey, normalizeStructuredCaseMatrixText, distanceBetweenBoxCe
 const {createWmsRouteChainShapes, annotateWmsRouteComponentShapes, wmsRouteComponentRoleForShape, nearestWmsGateIndex, nearestWmsValueCardIndex, wmsRouteNativeComponentMetadata, createWmsRouteMinimumUnitCrops, wmsRouteChainSemanticTextBoxes, inferWmsRouteChainShapes, inferWmsRouteChainSkeletonShapes, inferWmsTopRouteSkeletonShapes, wmsRouteDocumentShapes, wmsRouteShapeSource, wmsRouteRoadShapes, inferWmsValueCardSkeletonShapes, inferWmsTopRouteShapes, wmsRouteAiShieldClusterShapes, wmsRouteCalloutTailShapes, inferWmsValueCardShapes, isWmsTopRouteCrop, isWmsValuePanelCrop, maybeEraseWmsRouteChainText, shouldAutoPreserveWmsRouteWholeFidelityCrop, shouldDropWmsRouteChainResidual, shouldObjectifyWmsRouteChain, shouldPreserveWmsRouteCrop, wmsRouteChainNativeTextBoxes, isWmsRouteInternalLabel, wmsRouteAiShieldTextBoxes, wmsRouteChainTextBox, wmsRouteChainTextColor, wmsRouteComponentRoleForText, wmsRouteTextMinimumFontSize} = require("@common-tools/slideclone-core/wms-route-reconstruction");
 const {normalizeMatrixLabel, sameDiagramLabel, nearestNumericIndex} = require("@common-tools/slideclone-core/diagram-label-matching");
 const {markProtectedComplexDiagramMinimumUnit} = require("@common-tools/slideclone-core/image-layer-metadata");
+const {applySystemMapNativeHybridProbeSource:applyMapProbe,removeDuplicateSystemMapFidelityUnderlays:dedupeMapFidelity} = require("@common-tools/slideclone-core/system-map-fidelity-protection");
 const {createToolGapPlatformDiagramObjects, inferToolGapPlatformDiagramLayout, toolGapAiStatusIconCluster, toolGapDocumentIconCluster, toolGapPlatformIconCluster, toolGapPlatformNativeTextBoxes, shouldObjectifyToolGapPlatformDiagram} = require("@common-tools/slideclone-core/tool-platform-reconstruction");
 const {createReviewRiskGateFlowShapes, inferReviewRiskGateFlow, inferReviewRiskRoleBoxes, findReviewRiskRoleItem, normalizeReviewRiskLabel, reviewRiskGatePrdLayout, inferSegmentedReviewRiskGateFlow, inferSmartReviewPartialFlow, smartReviewDocumentIconBox, isReviewRiskGateCandidateImage, reviewRiskGateFlowPrimitiveShapes, reviewRiskGateNativeComponentMetadata, reviewRiskGatePrdShapes, reviewRiskGateScannerGemShapes, shouldObjectifyReviewRiskGateFlow, findReviewRiskRoleBox, shouldPreserveReviewRiskGateFlowAsMinimumUnit, smartReviewPartialPrimitiveShapes} = require("@common-tools/slideclone-core/review-risk-reconstruction");
 const {createProcessWithScreenshotsFlowObjects, createProductWorkflowStageMinimumUnitCrops, inferProcessWithScreenshotsFlowLayout, cardLabelBox, inferProcessWithScreenshotsLeftIllustrationLayout, processFlowTextBox, inferProductWorkflowIconProcessLayout, isProductWorkflowIconProcess, isProcessWithScreenshotsFlowFullyObjectified, processWithScreenshotsIconShapes, shouldObjectifyProcessWithScreenshotsFlow} = require("@common-tools/slideclone-core/screenshot-flow-reconstruction");
@@ -1576,6 +1577,8 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
     pageDraft.images = annotateImagesWithComponentStrategies(pageDraft.images, strategyIndexPage, options.componentStrategyIndex);
     pageDraft.images = annotateImagesWithComponentAssets(pageDraft.images, componentIndexPage, options.componentAssetIndex);
     pageDraft.images = pageDraft.images.map((item) => normalizeImageLayerMetadata(item));
+    const pageSemanticText = buildPageSemanticText(rawTextBoxes.length > 0 ? rawTextBoxes : textBoxes);
+    pageDraft.images = enrichImagesWithPageSemanticText(pageDraft.images, pageSemanticText);
     let nativeRebuildCandidateImages = pageDraft.images.filter((item) =>
       !shouldDeferNativeRebuildForComponentStrategy(item)
       || shouldAllowSpecializedNativeRebuildForDeferredComponent(item, textBoxes)
@@ -1601,16 +1604,12 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
     const nativeTextBoxes = filterTextBoxesForGraphicUnderlays(textBoxes, pageDraft.images, {
       keepInternalTextForLayerCandidates: options.objectifyLayerText === true
     });
-    const pageSemanticText = buildPageSemanticText(rawTextBoxes.length > 0 ? rawTextBoxes : textBoxes);
-    pageDraft.images = enrichImagesWithPageSemanticText(pageDraft.images, pageSemanticText);
     nativeRebuildCandidateImages = enrichImagesWithPageSemanticText(nativeRebuildCandidateImages, pageSemanticText);
-    // Dense system maps can opt into native rebuilding without the broad
-    // connector mode only after source pixels prove a rich node-and-edge graph.
     const systemMapTopologyProbeReady = image
       ? prepareSystemMapTopologyProbe(pageDraft, rawTextBoxes, slideSize, { sourceImage: image, pageIndex })
       : false;
     const autoObjectifySystemMap = options.objectifyLayerConnectors === true || systemMapTopologyProbeReady;
-    // Protect dense perspective illustrations before generic diagram detectors can mistake their callouts for a flow.
+    const autoObjectifyTriangleTopology = nativeRebuildCandidateImages.some((item)=>shouldDeferNativeRebuildForComponentStrategy(item)&&shouldObjectifyDeferredTriangleTopology(item, rawTextBoxes.length?rawTextBoxes:textBoxes));
     const assetHubSuperBrainPortalProtected = image && options.objectifyLayerConnectors === true
       ? protectAssetHubSuperBrainPortalIllustration(pageDraft, rawTextBoxes, slideSize, {
         sourceImage: image,
@@ -1667,9 +1666,7 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
     const { skillsCapabilityMatrix, demandIntakeFunnel, smartReviewBranchGate, skillChainOrchestration, assetLandingTriad } = semanticClaims;
     nativeRebuildCandidateImages = semanticClaims.candidateImages;
     const specializedNativeEligibleImages = () => pageDraft.images.filter((item) => !isFidelityFirstMinimumVisualUnit(item));
-    // A fidelity-first layer may still be a fully recognizable semantic
-    // structure. Let only this strict challenge signature reach its dedicated
-    // rebuilder; all other standalone illustrations remain protected.
+    // Let strict semantic fidelity-first layers reach only their dedicated rebuilder.
     const productCollaborationCandidates = () => pageDraft.images.filter((item) =>
       !isFidelityFirstMinimumVisualUnit(item)
       || shouldObjectifyProductCollaborationChallenge(item, rawTextBoxes, slideSize)
@@ -1694,7 +1691,7 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
       nativeRebuildCandidateImages = nativeRebuildCandidateImages.filter((item) => item?.source?.productCollaborationChallengeObjectified !== true);
     }
     const nativeGraphicsStageResult = buildPageNativeGraphicsStage({
-      image, options, pageDraft, nativeTextBoxes, slideSize, decorativeBackground, nativeRebuildCandidateImages, rawTextBoxes, textBoxes, pageIndex, specializedNativeEligiblePageDraft, specializedNativeEligibleImages, autoObjectifySystemMap, unreadableSystemMapFidelityProtected
+      image, options, pageDraft, nativeTextBoxes, slideSize, decorativeBackground, nativeRebuildCandidateImages, rawTextBoxes, textBoxes, pageIndex, specializedNativeEligiblePageDraft, specializedNativeEligibleImages, autoObjectifySystemMap, autoObjectifyTriangleTopology, unreadableSystemMapFidelityProtected
     }, {
       createValueBannerBackgroundShapes, createTextBackplateShapes, createLayerContainerShapes, createMatrixColorBlockShapes, createLayerColorBlockShapes, createStickyNoteClusterShapes, createLayerConnectorShapes, createTableZoneGridShapes, createTableZoneBackgroundShapes, createTableZoneSemanticTextBoxes, createQuadrantDividerShapes, createNetworkDiagramShapes, syncObjectifiedCandidateSources, createHierarchyDiagramShapes, createTriangleTopologyDiagramShapes, createCoverEngineCoreShapes, createSkillChainOverviewShapes, createPageLevelSkillChainOverviewObjects, createLinearProcessDiagramShapes, createPrdGenerationFlowShapes, syncPrdGenerationMinimumUnitBoxes, createPrototypeValidationFlowShapes, applyPrototypeValidationScreenshotPolicy, syncPrototypeValidationCandidateSources, createDemandUnderstandingFlowShapes, hasSpecializedComparisonSkeletonCandidate, createComparisonMatrixShapes, createSaturatedDiagramTextShapes, createSemanticCycleDiagramShapes, createProductManagerFrictionNetworkObjects, createDenseComplexDiagramScaffoldObjects, createTwoPanelDiagramTextShapes, createTopComplexDiagramTextShapes, createShiftLeftDebuggerDiagramObjects, createToolIslandTransitionMatrixObjects, createKpiEvidenceTextShapes, createValueQuadrantShapes, createReviewRiskGateFlowShapes, createFunnelHubDiagramShapes, createHorizontalStepChainShapes, createGenericNodeDiagramSkeletonShapes, createVisualClusterStackShapes, createWmsRouteChainShapes, createCollaborationFlowShapes, createStackedArchitectureDiagramObjects, createToolGapPlatformDiagramObjects, createProcessWithScreenshotsFlowObjects, createTextAnchoredProcessNetworkObjects, createDocumentVersionGovernanceObjects, createDocumentVersionFolderFlowObjects, createAssetOsFlowObjects, createPrototypeGenerationLoopModel, createPortalPlatformDiagramObjects, createSystemMapDiagramObjects, createSystemMapFidelityChromeObjects, shouldAutoObjectifyEntropyIsland, createEntropyChallengeFragmentShapes, createEntropyChallengeIslandShapes, createEntropyChallengeAnnotationObjects, createEntropyChallengeFooterBulletShapes, createVisualAtomNativeShapes, filterTextBoxesForGraphicUnderlays, createSpecializedNativeHybridResidualCrops, uniqueImagesById, createSpecializedNativeHybridResidualCropsFromNativeShapes, createPrototypeGenerationLoopPictorialCrops, shouldDeferNativeRebuildForComponentStrategy, shouldAllowVisualAtomOverlayForDeferredComponent, isWorkflowDemandUnderstandingAssistantLeftIllustrationCrop, isWorkflowPrdAutoGenerationLeftIllustrationCrop
     });
@@ -2372,12 +2369,12 @@ function shouldAllowSpecializedNativeRebuildForDeferredComponent(image = {}, tex
     return true;
   }
   if (isTerminalVisionDenseRadialCandidate(image, textBoxes)) return true;
+  if (shouldObjectifyDeferredTriangleTopology(image, textBoxes)) return true;
   if (isFidelityFirstMinimumVisualUnit(image)) return false;
   return shouldObjectifySemanticCycleDiagram(image, textBoxes)
     || shouldObjectifyDeferredSkillChainOverview(image, textBoxes)
     || shouldObjectifyDeferredNetworkDiagram(image)
     || shouldObjectifyDeferredSparseFlowCardChain(image, textBoxes)
-    || shouldObjectifyDeferredTriangleTopology(image, textBoxes)
     || shouldObjectifyVisualClusterStack(image)
     || shouldObjectifyWmsRouteChain(image, textBoxes);
 }
@@ -3106,16 +3103,7 @@ function protectUnreadableSystemMapFidelityCrop(page = {}, rawTextBoxes = [], sl
     innerLabelCount
   });
   if (target && reconstructionMode.mode === "native-hybrid") {
-    target.source = {
-      ...(target.source || {}),
-      systemMapTopologyProbeReady: true,
-      systemMapTopologyProbeNodeCount: topologyProbe.nodeCount,
-      systemMapTopologyProbeEdgeCount: topologyProbe.edgeCount,
-      systemMapDecorativeGridTextureDetected: decorativeGridTexture,
-      systemMapHybridEligible: true,
-      systemMapReconstructionReasonCode: reconstructionMode.reasonCode
-    };
-    return false;
+    if (!applyMapProbe({target,reconstructionMode,topologyProbe,decorativeGridTexture,pictorialEnclosure,targetAreaRatio})) return false;
   }
   if (reconstructionMode.mode === "structured-hybrid") {
     target.source = {
@@ -3188,6 +3176,7 @@ function protectUnreadableSystemMapFidelityCrop(page = {}, rawTextBoxes = [], sl
     expressionPolicy: "fidelity-first",
     expressionPolicyReason: "approved dense system-map minimum unit with insufficient semantic evidence for lossless decomposition"
   };
+  dedupeMapFidelity(page, target);
   return true;
 }
 

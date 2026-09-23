@@ -684,6 +684,8 @@ function resolveMaybeRelative(context, value) {
   if (path.isAbsolute(value)) return value;
   const fromConfig = context.configFile ? path.resolve(path.dirname(context.configFile), value) : null;
   if (fromConfig && fs.existsSync(fromConfig)) return fromConfig;
+  const fromCwd = path.resolve(process.cwd(), value);
+  if (fs.existsSync(fromCwd)) return fromCwd;
   return path.resolve(context.skillRoot, value);
 }
 
@@ -1138,6 +1140,7 @@ module.exports._private = {
   layoutExpectedBox,
   longestCommonSubsequenceLength,
   normalizeText,
+  resolveMaybeRelative,
   rotatedBoundingBox,
   roundedBox,
   runOcrRequestEntries,

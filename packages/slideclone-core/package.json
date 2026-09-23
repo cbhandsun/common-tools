@@ -196,6 +196,7 @@
     "./smart-review-hybrid": "./smart-review-hybrid.js",
     "./stacked-layer-color-sampling": "./stacked-layer-color-sampling.js",
     "./system-map-pixel-evidence": "./system-map-pixel-evidence.js",
+    "./system-map-fidelity-protection": "./system-map-fidelity-protection.js",
     "./system-map-reconstruction": "./system-map-reconstruction.js",
     "./system-map-semantics": "./system-map-semantics.js",
     "./text-anchored-process-network": "./text-anchored-process-network.js",

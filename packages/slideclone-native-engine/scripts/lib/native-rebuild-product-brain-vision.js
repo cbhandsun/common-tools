@@ -53,9 +53,12 @@ function createProductBrainVisionFactory(dependencies = {}) {
 
   function shouldObjectifyProductBrainVision(image, page = {}, slideSize = DEFAULT_SLIDE, options = {}) {
     const explicitCandidate = image?.source?.productBrainVisionCandidate === true
-      || image?.source?.detector === "product-brain-vision-underlay-crop"
-      || isHeuristicProductBrainVisionCandidate(image, page);
-    if (!explicitCandidate && options.allowHeuristicProductBrainVision !== true) return false;
+      || image?.source?.detector === "product-brain-vision-underlay-crop";
+    const heuristicCandidate = options.allowHeuristicProductBrainVision === true
+      && (isHeuristicProductBrainVisionCandidate(image, page)
+        || String(image?.source?.detector || "") === "screenshot-process-underlay-crop");
+    if (!explicitCandidate && !heuristicCandidate) return false;
+    if (hasSystemMapOwnership(page)) return false;
     const box = image.box || {};
     const w = Number(box.w || 0);
     const h = Number(box.h || 0);
@@ -75,6 +78,21 @@ function createProductBrainVisionFactory(dependencies = {}) {
     if (!/数字化产品大脑|物流资产|产品地图|多域聚合/i.test(pageText)) return false;
     const reason = `${source.reason || ""} ${source.nonEditableReason || ""}`.toLowerCase();
     return /screenshot|process|illustration|local-crop/.test(reason);
+  }
+
+  function hasSystemMapOwnership(page = {}) {
+    const images = Array.isArray(page.images) ? page.images : [];
+    if (images.some((item) =>
+      item?.source?.systemMapFidelityProtected === true
+      || item?.source?.systemMapTopologyProbeReady === true
+      || item?.source?.systemMapSourceBackgroundPromoted === true
+      || item?.source?.systemMapSyntheticSourceCandidate === true
+      || /^system-map-/u.test(String(item?.source?.detector || "")))) {
+      return true;
+    }
+    const pageText = (page.textBoxes || []).map((item) => String(item.text || "")).join(" ");
+    return /System\s*Map|SystemMap|产品版图[（(]\s*System/u.test(pageText)
+      && /系统血缘|产品大脑|数字化产品大脑/u.test(pageText);
   }
 
   function productBrainVisionObjectsForImage(image, slideSize = DEFAULT_SLIDE, options = {}) {
