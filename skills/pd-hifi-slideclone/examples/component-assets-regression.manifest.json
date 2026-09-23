@@ -10,11 +10,29 @@
     "minComponentTemplateMotifReadyTargetCounts": {
       "whole-process-template": 1
     },
-    "minComponentFamilyAppliedTypes": 4,
+    "minComponentFamilyAppliedTypes": 10,
+    "minComponentFamilyAppliedCounts": {
+      "cycle-loop": 100,
+      "funnel-flow": 75,
+      "hierarchy-tree": 20,
+      "layered-architecture": 20,
+      "matrix-table": 150,
+      "metric-card-grid": 20,
+      "process-flow": 300,
+      "relationship-network": 150,
+      "specialty-chart": 2,
+      "timeline-roadmap": 30
+    },
     "requiredComponentFamilies": [
+      "cycle-loop",
+      "funnel-flow",
+      "hierarchy-tree",
+      "layered-architecture",
       "matrix-table",
+      "metric-card-grid",
       "process-flow",
       "relationship-network",
+      "specialty-chart",
       "timeline-roadmap"
     ],
     "expectedComparedDecks": 6,

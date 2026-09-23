@@ -10,6 +10,10 @@ const {
   COMPONENT_FAMILY_IDS,
   normalizeTargetMotif: normalizeKnownTargetMotif
 } = require("./lib/component-motifs");
+const {
+  missingComponentFamilyMinimums,
+  normalizeComponentFamilyMinimums
+} = require("./lib/component-family-minimums");
 
 function parseArgs(argv) {
   const args = {
@@ -88,6 +92,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--min-component-family-applied-types" && next) {
       args.minComponentFamilyAppliedTypes = next;
+      index += 1;
+    } else if (arg === "--min-component-family-applied-counts" && next) {
+      args.minComponentFamilyAppliedCounts = next;
       index += 1;
     } else if (arg === "--min-image-component-detected-family-types" && next) {
       args.minImageComponentDetectedFamilyTypes = next;
@@ -176,6 +183,8 @@ function main() {
       ?? manifest?.gates?.minComponentTemplateMotifReadyTargetTypes,
     minComponentFamilyAppliedTypes: args.minComponentFamilyAppliedTypes
       ?? manifest?.gates?.minComponentFamilyAppliedTypes,
+    minComponentFamilyAppliedCounts: args.minComponentFamilyAppliedCounts
+      ?? manifest?.gates?.minComponentFamilyAppliedCounts,
     minImageComponentDetectedFamilyTypes: args.minImageComponentDetectedFamilyTypes
       ?? manifest?.gates?.minImageComponentDetectedFamilyTypes,
     minImageComponentMatchedFamilyTypes: args.minImageComponentMatchedFamilyTypes
@@ -277,6 +286,11 @@ function applyCoverageGates(matrix, options = {}) {
   const componentFamilyAppliedTypes = Number(matrix?.totals?.componentFamilyAppliedTypes || 0);
   const componentFamilyAppliedTypesMet = minComponentFamilyAppliedTypes === null
     || componentFamilyAppliedTypes >= minComponentFamilyAppliedTypes;
+  const minComponentFamilyAppliedCounts = normalizeComponentFamilyMinimums(options.minComponentFamilyAppliedCounts);
+  const componentFamilyAppliedCountsMet = Object.keys(missingComponentFamilyMinimums(
+    matrix?.totals?.componentFamilyAppliedCounts,
+    minComponentFamilyAppliedCounts
+  )).length === 0;
   const imageComponentDetectedFamilyTypes = Number(matrix?.totals?.imageComponentDetectedFamilyTypes || 0);
   const imageComponentDetectedFamilyTypesMet = minImageComponentDetectedFamilyTypes === null
     || imageComponentDetectedFamilyTypes >= minImageComponentDetectedFamilyTypes;
@@ -340,6 +354,7 @@ function applyCoverageGates(matrix, options = {}) {
     minComponentTemplateMotifReadyTargetCounts,
     minComponentTemplateMotifReadyTargetTypes,
     minComponentFamilyAppliedTypes,
+    minComponentFamilyAppliedCounts,
     minImageComponentDetectedFamilyTypes,
     minImageComponentMatchedFamilyTypes,
     minImageComponentStrategyFamilyTypes,
@@ -375,6 +390,7 @@ function applyCoverageGates(matrix, options = {}) {
     && componentTemplateMotifReadyTargetCountsMet
     && componentTemplateMotifReadyTargetTypesMet
     && componentFamilyAppliedTypesMet
+    && componentFamilyAppliedCountsMet
     && imageComponentDetectedFamilyTypesMet
     && imageComponentMatchedFamilyTypesMet
     && imageComponentStrategyFamilyTypesMet
@@ -415,6 +431,7 @@ function applyCoverageGates(matrix, options = {}) {
   matrix.totals.componentTemplateMotifReadyTargetTypesMet = componentTemplateMotifReadyTargetTypesMet;
   matrix.totals.componentFamilyAppliedTypes = componentFamilyAppliedTypes;
   matrix.totals.componentFamilyAppliedTypesMet = componentFamilyAppliedTypesMet;
+  matrix.totals.componentFamilyAppliedCountsMet = componentFamilyAppliedCountsMet;
   matrix.totals.imageComponentDetectedFamilyTypes = imageComponentDetectedFamilyTypes;
   matrix.totals.imageComponentDetectedFamilyTypesMet = imageComponentDetectedFamilyTypesMet;
   matrix.totals.imageComponentMatchedFamilyTypes = imageComponentMatchedFamilyTypes;
@@ -433,6 +450,10 @@ function applyCoverageGates(matrix, options = {}) {
   matrix.totals.missingComponentTemplateMotifReadyTargetCounts = missingMotifTargetMinimums(
     matrix?.totals?.componentTemplateMotifReadyTargetCounts,
     minComponentTemplateMotifReadyTargetCounts
+  );
+  matrix.totals.missingComponentFamilyAppliedCounts = missingComponentFamilyMinimums(
+    matrix?.totals?.componentFamilyAppliedCounts,
+    minComponentFamilyAppliedCounts
   );
   matrix.totals.outputPptxExistsMet = outputPptxExistsMet;
   matrix.totals.outputPptxZipMet = outputPptxZipMet;
@@ -598,6 +619,7 @@ if (require.main === module) {
 module.exports = {
   applyCoverageGates,
   main,
+  normalizeComponentFamilyMinimums,
   normalizeMotifTargetMinimums,
   normalizeRequiredComponentFamilies,
   parseArgs,
