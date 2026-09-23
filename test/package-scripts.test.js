@@ -98,7 +98,31 @@ test("package scripts expose OfficePLUS/iSlide component asset regression gate",
     path.join(process.cwd(), "skills/pd-hifi-slideclone/examples/component-assets-regression.manifest.json"),
     "utf8"
   ));
-  assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 4);
+  assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 10);
+  assert.deepEqual(manifest.gates.minComponentFamilyAppliedCounts, {
+    "cycle-loop": 100,
+    "funnel-flow": 75,
+    "hierarchy-tree": 20,
+    "layered-architecture": 20,
+    "matrix-table": 150,
+    "metric-card-grid": 20,
+    "process-flow": 300,
+    "relationship-network": 150,
+    "specialty-chart": 2,
+    "timeline-roadmap": 30
+  });
+  assert.deepEqual(manifest.gates.requiredComponentFamilies, [
+    "cycle-loop",
+    "funnel-flow",
+    "hierarchy-tree",
+    "layered-architecture",
+    "matrix-table",
+    "metric-card-grid",
+    "process-flow",
+    "relationship-network",
+    "specialty-chart",
+    "timeline-roadmap"
+  ]);
 });
 
 test("package scripts expose batch native audit and golden-set gate entrypoints", () => {
@@ -298,7 +322,31 @@ test("package scripts expose OfficePLUS/iSlide component asset coverage gate", (
     path.join(process.cwd(), "skills/pd-hifi-slideclone/examples/component-assets-coverage.manifest.json"),
     "utf8"
   ));
-  assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 4);
+  assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 10);
+  assert.deepEqual(manifest.gates.minComponentFamilyAppliedCounts, {
+    "cycle-loop": 100,
+    "funnel-flow": 75,
+    "hierarchy-tree": 20,
+    "layered-architecture": 20,
+    "matrix-table": 150,
+    "metric-card-grid": 20,
+    "process-flow": 300,
+    "relationship-network": 250,
+    "specialty-chart": 150,
+    "timeline-roadmap": 30
+  });
+  assert.deepEqual(manifest.gates.requiredComponentFamilies, [
+    "cycle-loop",
+    "funnel-flow",
+    "hierarchy-tree",
+    "layered-architecture",
+    "matrix-table",
+    "metric-card-grid",
+    "process-flow",
+    "relationship-network",
+    "specialty-chart",
+    "timeline-roadmap"
+  ]);
 });
 
 test("package scripts expose image-to-editable component recall gate", () => {

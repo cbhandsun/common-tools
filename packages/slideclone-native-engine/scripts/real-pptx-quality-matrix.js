@@ -2,11 +2,15 @@
 
 const fs = require("fs");
 const path = require("path");
-const { COMPONENT_FAMILY_IDS } = require("./lib/component-motifs");
 const {
   summarizeComponentFamilyActionPlan,
   summarizeComponentFamilyBacklog
 } = require("./lib/component-coverage-family");
+const {
+  missingComponentFamilyMinimums,
+  normalizeComponentFamilyMinimums,
+  normalizeRequiredComponentFamilies
+} = require("./lib/component-family-minimums");
 const {
   componentFamilyAppliedCountsFromProfile,
   componentFamilyCountsFromProfile,
@@ -904,6 +908,11 @@ function aggregateMatrix(rows, options = {}) {
   const minComponentFamilyAppliedTypes = optionalPositiveInteger(options.minComponentFamilyAppliedTypes);
   const componentFamilyAppliedTypesMet = minComponentFamilyAppliedTypes === null
     || totals.componentFamilyAppliedTypes >= minComponentFamilyAppliedTypes;
+  const minComponentFamilyAppliedCounts = normalizeComponentFamilyMinimums(options.minComponentFamilyAppliedCounts);
+  const componentFamilyAppliedCountsMet = Object.keys(missingComponentFamilyMinimums(
+    totals.componentFamilyAppliedCounts,
+    minComponentFamilyAppliedCounts
+  )).length === 0;
   const requiredComponentFamilies = normalizeRequiredComponentFamilies(options.requiredComponentFamilies);
   const missingRequiredComponentFamilies = requiredComponentFamilies.filter((family) => Number(totals.componentFamilyAppliedCounts?.[family] || 0) <= 0);
   const requiredComponentFamiliesMet = missingRequiredComponentFamilies.length === 0;
@@ -962,6 +971,7 @@ function aggregateMatrix(rows, options = {}) {
       && componentTemplateMotifReadyShapesMet
       && componentTemplateMotifReadyTargetCountsMet
       && componentFamilyAppliedTypesMet
+      && componentFamilyAppliedCountsMet
       && requiredComponentFamiliesMet
       && requiredComponentFamilyRegressionCasesMet
       && criticalComponentFamilyBacklogItemsMet
@@ -985,6 +995,7 @@ function aggregateMatrix(rows, options = {}) {
       minComponentTemplateMotifReadyShapes,
       minComponentTemplateMotifReadyTargetCounts,
       minComponentFamilyAppliedTypes,
+      minComponentFamilyAppliedCounts,
       requiredComponentFamilies,
       requiredComponentFamilyRegressionCases,
       maxCriticalComponentFamilyBacklogItems,
@@ -1006,6 +1017,11 @@ function aggregateMatrix(rows, options = {}) {
       componentTemplateMotifReadyShapesMet,
       componentTemplateMotifReadyTargetCountsMet,
       componentFamilyAppliedTypesMet,
+      componentFamilyAppliedCountsMet,
+      missingComponentFamilyAppliedCounts: missingComponentFamilyMinimums(
+        totals.componentFamilyAppliedCounts,
+        minComponentFamilyAppliedCounts
+      ),
       requiredComponentFamiliesMet,
       missingRequiredComponentFamilies,
       requiredComponentFamilyRegressionCasesMet,
@@ -1334,15 +1350,6 @@ function normalizeMotifTargetMinimums(value) {
   return out;
 }
 
-function normalizeRequiredComponentFamilies(value) {
-  if (value === undefined || value === null || value === "") return [];
-  const items = Array.isArray(value) ? value : String(value).split(/[;,]/);
-  return [...new Set(items
-    .map((item) => String(item || "").trim())
-    .filter((item) => COMPONENT_FAMILY_IDS.includes(item))
-  )].sort((a, b) => a.localeCompare(b));
-}
-
 function missingMotifTargetMinimums(actual = {}, minimums = {}) {
   const missing = {};
   for (const [motif, minimum] of Object.entries(minimums || {})) {
@@ -1414,6 +1421,7 @@ function main() {
     minComponentTemplateMotifReadyShapes: args["min-component-template-motif-ready-shapes"] ?? comparisonManifest?.gates?.minComponentTemplateMotifReadyShapes,
     minComponentTemplateMotifReadyTargetCounts: args["min-component-template-motif-ready-target-counts"] ?? comparisonManifest?.gates?.minComponentTemplateMotifReadyTargetCounts,
     minComponentFamilyAppliedTypes: args["min-component-family-applied-types"] ?? comparisonManifest?.gates?.minComponentFamilyAppliedTypes,
+    minComponentFamilyAppliedCounts: args["min-component-family-applied-counts"] ?? comparisonManifest?.gates?.minComponentFamilyAppliedCounts,
     requiredComponentFamilies: args["required-component-families"] ?? comparisonManifest?.gates?.requiredComponentFamilies,
     requiredComponentFamilyRegressionCases: args["required-component-family-regression-cases"] ?? comparisonManifest?.gates?.requiredComponentFamilyRegressionCases,
     maxCriticalComponentFamilyBacklogItems: args["max-critical-component-family-backlog-items"] ?? comparisonManifest?.gates?.maxCriticalComponentFamilyBacklogItems,
@@ -1478,22 +1486,9 @@ if (require.main === module) {
 }
 
 module.exports = {
-  addDetectorCounts,
-  aggregateMatrix,
-  compareQualityRows,
-  main,
-  parseArgs,
-  parseReportList,
-  readComparisonManifest,
-  resolveReportFiles,
-  normalizeMotifTargetMinimums,
-  normalizeRequiredComponentFamilies,
-  normalizeRequiredComponentFamilyRegressionCases,
-  normalizeComponentFamilyGapExamples,
-  summarizeReport,
-  summarizeComponentFamilyActions,
-  summarizeComponentFamilyBacklog,
-  summarizeComponentFamilyRegressionCases,
-  topDetectorCounts,
-  truthyArg
+  addDetectorCounts, aggregateMatrix, compareQualityRows, main, parseArgs, parseReportList,
+  readComparisonManifest, resolveReportFiles, normalizeComponentFamilyMinimums, normalizeMotifTargetMinimums,
+  normalizeRequiredComponentFamilies, normalizeRequiredComponentFamilyRegressionCases, normalizeComponentFamilyGapExamples,
+  summarizeReport, summarizeComponentFamilyActions, summarizeComponentFamilyBacklog, summarizeComponentFamilyRegressionCases,
+  topDetectorCounts, truthyArg
 };
