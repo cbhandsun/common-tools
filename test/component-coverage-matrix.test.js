@@ -264,6 +264,10 @@ test("component family inference uses bounded English tokens for short motif ali
     inferComponentFamiliesFromText("架构 圆环 地图"),
     ["cycle-loop", "layered-architecture", "specialty-chart"]
   );
+  assert.deepEqual(
+    inferComponentFamiliesFromText("metric-card-grid dashboard-card-grid"),
+    ["metric-card-grid"]
+  );
 });
 
 test("component coverage matrix fails gate when referenced output pptx is missing", () => {
@@ -1869,8 +1873,13 @@ test("component coverage matrix summarizes image-to-editable component families"
   const matrix = buildComponentCoverageMatrix({ reports: [reportFile] });
 
   assert.equal(COMPONENT_FAMILY_BY_MOTIF["treemap-chart"], "specialty-chart");
+  assert.equal(COMPONENT_FAMILY_BY_MOTIF["dashboard-card-grid"], "metric-card-grid");
   assert.ok(COMPONENT_FAMILY_IDS.includes("process-flow"));
+  assert.ok(COMPONENT_FAMILY_IDS.includes("metric-card-grid"));
   assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "treemap-chart" }), ["specialty-chart"]);
+  assert.deepEqual(_private.inferComponentFamiliesFromLayer({ targetMotifs: ["dashboard-card-grid"] }), ["metric-card-grid"]);
+  assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "metric-card-grid" }), ["metric-card-grid"]);
+  assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "dashboard-card-grid" }), ["metric-card-grid"]);
   assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "funnel-stack" }), ["funnel-flow"]);
   assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "layered-stack" }), ["layered-architecture"]);
   assert.deepEqual(row.componentFamilyAppliedCounts, {

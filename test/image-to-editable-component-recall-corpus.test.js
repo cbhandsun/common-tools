@@ -19,8 +19,8 @@ test("image-to-editable recall corpus manifest covers required component familie
 
   assert.equal(plan.provider, "image-to-editable-component-recall-corpus-v1");
   assert.equal(plan.summary.caseCount, 7);
-  assert.equal(plan.summary.requiredComponentFamilyTypes, 12);
-  assert.equal(plan.summary.coveredComponentFamilyTypes, 12);
+  assert.equal(plan.summary.requiredComponentFamilyTypes, 13);
+  assert.equal(plan.summary.coveredComponentFamilyTypes, 13);
   assert.deepEqual(plan.summary.missingRequiredComponentFamilies, []);
   assert.deepEqual(plan.summary.acceptanceProfiles, {
     recallReport: "image-to-editable-component-recall-report",

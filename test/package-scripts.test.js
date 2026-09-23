@@ -340,6 +340,7 @@ test("package scripts expose image-to-editable component recall gate", () => {
   ));
   assert.ok(corpusManifest.requiredComponentFamilies.includes("cycle-loop"));
   assert.ok(corpusManifest.requiredComponentFamilies.includes("hierarchy-tree"));
+  assert.ok(corpusManifest.requiredComponentFamilies.includes("metric-card-grid"));
   assert.ok(corpusManifest.requiredComponentFamilies.includes("specialty-chart"));
   assert.equal(corpusManifest.acceptanceProfiles.recallReport, "image-to-editable-component-recall-report");
   assert.equal(corpusManifest.acceptanceProfiles.coverageGate, "image-to-editable-component-recall-gate");

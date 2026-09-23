@@ -7,6 +7,7 @@ const FAMILY_MOTIFS = Object.freeze({
   "hierarchy-tree": ["tree-link"],
   "layered-architecture": ["layered-stack"],
   "matrix-table": ["comparison-matrix"],
+  "metric-card-grid": ["dashboard-card-grid"],
   "overlap-diagram": ["venn-overlap"],
   "process-flow": ["linear-arrow-chain"],
   "pyramid-stack": ["pyramid-stack"],

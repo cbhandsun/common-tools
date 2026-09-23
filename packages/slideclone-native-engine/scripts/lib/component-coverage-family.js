@@ -433,9 +433,11 @@ function addMotifReadyTargetCounts(target, source = {}) {
 
 function componentTemplateTargetMotifs(source = {}) {
   const values = [
+    ...(Array.isArray(source.targetMotifs) ? source.targetMotifs : []),
     ...(Array.isArray(source.matchedComponentTargetMotifs) ? source.matchedComponentTargetMotifs : []),
     ...(Array.isArray(source.componentTemplateTargetMotifs) ? source.componentTemplateTargetMotifs : []),
     ...(Array.isArray(source.componentRenderStrategy?.targetMotifs) ? source.componentRenderStrategy.targetMotifs : []),
+    ...(Array.isArray(source.layer?.targetMotifs) ? source.layer.targetMotifs : []),
     ...(Array.isArray(source.layer?.componentRenderStrategy?.targetMotifs) ? source.layer.componentRenderStrategy.targetMotifs : []),
     ...(Array.isArray(source.layer?.diagramUnderstanding?.componentStrategy?.targetMotifs) ? source.layer.diagramUnderstanding.componentStrategy.targetMotifs : []),
     ...inferredComponentTemplateTargetMotifs(source)
@@ -468,7 +470,9 @@ function inferredComponentTemplateTargetMotifs(source = {}) {
   if (/topology|network/.test(text)) specialtyMotifs.push("topology-network");
   if (specialtyMotifs.length > 0) return specialtyMotifs;
   const motifs = [];
-  if (/matrix|grid|cell|quadrant/.test(text)) motifs.push("card-grid");
+  const metricCardGrid = /dashboard|kpi|metric|scorecard|indicator|dashboard-card-grid|metric-card-grid|数据看板|指标看板|仪表盘|指标卡/.test(text);
+  if (metricCardGrid) motifs.push("dashboard-card-grid");
+  if (!metricCardGrid && /matrix|grid|cell|quadrant/.test(text)) motifs.push("card-grid");
   if (/quadrant|axis/.test(text)) motifs.push("quadrant-axis");
   if (/process|step|swimlane|flow|chain/.test(text)) motifs.push("linear-arrow-chain");
   if (/whole-process/.test(text)) motifs.push("whole-process-template");
