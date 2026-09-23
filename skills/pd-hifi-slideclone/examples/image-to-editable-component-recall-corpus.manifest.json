@@ -27,7 +27,11 @@
       "source": {
         "kind": "image",
         "path": "runs/image-to-editable-component-recall/sources/hierarchy-tree-org-chart.png",
-        "provenance": "Real or approved user-owned image fixture."
+        "provenance": "Real or approved user-owned image fixture.",
+        "components": [
+          { "family": "hierarchy-tree" },
+          { "family": "relationship-network" }
+        ]
       },
       "expectedComponentFamilies": ["hierarchy-tree", "relationship-network"],
       "artifacts": {
@@ -43,7 +47,11 @@
       "source": {
         "kind": "image",
         "path": "runs/image-to-editable-component-recall/sources/cause-analysis-fishbone.png",
-        "provenance": "Real or approved user-owned image fixture."
+        "provenance": "Real or approved user-owned image fixture.",
+        "components": [
+          { "family": "fishbone-cause" },
+          { "family": "process-flow" }
+        ]
       },
       "expectedComponentFamilies": ["fishbone-cause", "process-flow"],
       "artifacts": {
@@ -59,7 +67,11 @@
       "source": {
         "kind": "image",
         "path": "runs/image-to-editable-component-recall/sources/layered-architecture-stack.png",
-        "provenance": "Real or approved user-owned image fixture."
+        "provenance": "Real or approved user-owned image fixture.",
+        "components": [
+          { "family": "layered-architecture" },
+          { "family": "pyramid-stack" }
+        ]
       },
       "expectedComponentFamilies": ["layered-architecture", "pyramid-stack"],
       "artifacts": {
@@ -75,7 +87,11 @@
       "source": {
         "kind": "image",
         "path": "runs/image-to-editable-component-recall/sources/funnel-roadmap-flow.png",
-        "provenance": "Real or approved user-owned image fixture."
+        "provenance": "Real or approved user-owned image fixture.",
+        "components": [
+          { "family": "funnel-flow" },
+          { "family": "timeline-roadmap" }
+        ]
       },
       "expectedComponentFamilies": ["funnel-flow", "timeline-roadmap"],
       "artifacts": {
@@ -91,7 +107,11 @@
       "source": {
         "kind": "image",
         "path": "runs/image-to-editable-component-recall/sources/overlap-specialty-chart.png",
-        "provenance": "Real or approved user-owned image fixture."
+        "provenance": "Real or approved user-owned image fixture.",
+        "components": [
+          { "family": "overlap-diagram" },
+          { "family": "specialty-chart" }
+        ]
       },
       "expectedComponentFamilies": ["overlap-diagram", "specialty-chart"],
       "artifacts": {
@@ -107,7 +127,11 @@
       "source": {
         "kind": "image",
         "path": "runs/image-to-editable-component-recall/sources/matrix-process-dashboard.png",
-        "provenance": "Real or approved user-owned image fixture."
+        "provenance": "Real or approved user-owned image fixture.",
+        "components": [
+          { "family": "matrix-table" },
+          { "family": "process-flow" }
+        ]
       },
       "expectedComponentFamilies": ["matrix-table", "process-flow"],
       "artifacts": {
@@ -123,7 +147,11 @@
       "source": {
         "kind": "image",
         "path": "runs/image-to-editable-component-recall/sources/cycle-loop-process.png",
-        "provenance": "Real or approved user-owned image fixture."
+        "provenance": "Real or approved user-owned image fixture.",
+        "components": [
+          { "family": "cycle-loop" },
+          { "family": "process-flow" }
+        ]
       },
       "expectedComponentFamilies": ["cycle-loop", "process-flow"],
       "artifacts": {

@@ -79,8 +79,10 @@ test("strict component assets golden gate runs all evidence before strict accept
   assert.deepEqual(seen, [
     "regression",
     "coverage",
-    "image-recall",
     "image-recall-corpus",
+    "image-recall-fixtures",
+    "image-recall-report",
+    "image-recall",
     "self-fidelity",
     "asset-admission",
     "strict-acceptance"
@@ -99,13 +101,14 @@ test("strict component assets golden gate skips strict acceptance when evidence 
       return {
         id: task.id,
         script: task.script,
-        exitCode: task.id === "image-recall" ? 1 : 0,
+        exitCode: task.id === "image-recall-report" ? 1 : 0,
         durationMs: 1
       };
     }
   });
 
   assert.equal(summary.passed, false);
+  assert.equal(seen.includes("image-recall"), false);
   assert.equal(seen.includes("strict-acceptance"), false);
   assert.equal(seen.includes("self-fidelity"), false);
   assert.equal(seen.includes("asset-admission"), false);

@@ -104,7 +104,7 @@ async function materializeImageToEditableComponentRecallFixtures(options = {}) {
       inputDir: stagingInputDir,
       outputDir: caseRoot,
       pagePattern: path.basename(stagingInput),
-      expectedComponentFamilies: entry.expectedComponentFamilies
+      sourceComponents: entry.source.components
     });
     const job = createEditableJob({
       workspaceRoot: process.cwd(),
@@ -244,22 +244,22 @@ function componentCandidateReport(entry) {
   return {
     provider: "image-to-editable-component-recall-fixture-candidates-v1",
     caseId: entry.id,
-    layers: entry.expectedComponentFamilies.map((family, index) => ({
+    layers: entry.source.components.map((component, index) => ({
       pageIndex: 0,
       imageIndex: 0,
       layerType: "diagram",
       detector: "image-to-editable-recall-fixture",
-      templateFamily: family,
-      targetMotifs: [motifForFamily(family)],
+      templateFamily: component.family,
+      targetMotifs: [motifForFamily(component.family)],
       componentRenderStrategy: {
         mode: "native-rebuild-with-component-style-guide",
         applicationPlan: {
-          componentKind: FAMILY_LABELS[family] || family,
-          targetMotifs: [motifForFamily(family)]
+          componentKind: FAMILY_LABELS[component.family] || component.family,
+          targetMotifs: [motifForFamily(component.family)]
         }
       },
       componentFamilyEvidence: {
-        family,
+        family: component.family,
         ordinal: index + 1
       }
     }))
@@ -283,7 +283,7 @@ function motifForFamily(family) {
   })[family] || family;
 }
 
-function writeConfig(file, { inputDir, outputDir, pagePattern, expectedComponentFamilies = [] }) {
+function writeConfig(file, { inputDir, outputDir, pagePattern, sourceComponents = [] }) {
   const config = {
     inputDir,
     outputDir,
@@ -320,7 +320,7 @@ function writeConfig(file, { inputDir, outputDir, pagePattern, expectedComponent
       compress: false
     },
     componentRecallFixture: {
-      expectedComponentFamilies
+      sourceComponents
     }
   };
   fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, "utf8");
@@ -337,12 +337,12 @@ function renderCaseSourcePng(entry) {
   ];
   drawRect(image, 48, 42, 864, 456, [255, 255, 255, 255]);
   drawBorder(image, 48, 42, 864, 456, [71, 85, 105, 255]);
-  entry.expectedComponentFamilies.forEach((family, index) => {
+  entry.source.components.forEach((component, index) => {
     const color = palette[index % palette.length];
     const x = 110 + index * 330;
-    drawFamilyGlyph(image, family, x, 120 + index * 95, color);
+    drawFamilyGlyph(image, component.family, x, 120 + index * 95, color);
   });
-  drawFooterBars(image, entry.expectedComponentFamilies.length);
+  drawFooterBars(image, entry.source.components.length);
   return pngBuffer(image);
 }
 

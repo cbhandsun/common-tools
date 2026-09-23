@@ -15,15 +15,26 @@ const DEFAULT_TASKS = [
   }
 ];
 
-const STRICT_EVIDENCE_TASKS = [
+const STRICT_PARALLEL_EVIDENCE_TASKS = [
   ...DEFAULT_TASKS,
-  {
-    id: "image-recall",
-    script: "slideclone:image-to-editable-component-recall-gate"
-  },
   {
     id: "image-recall-corpus",
     script: "slideclone:image-to-editable-component-recall-corpus"
+  }
+];
+
+const STRICT_RECALL_ARTIFACT_TASKS = [
+  {
+    id: "image-recall-fixtures",
+    script: "slideclone:image-to-editable-component-recall-fixtures"
+  },
+  {
+    id: "image-recall-report",
+    script: "slideclone:image-to-editable-component-recall-report"
+  },
+  {
+    id: "image-recall",
+    script: "slideclone:image-to-editable-component-recall-gate"
   }
 ];
 
@@ -58,9 +69,16 @@ async function runGoldenGate(options = {}) {
   const startedAt = new Date();
   const strict = options.strict === true;
   const runner = options.runTask || runNpmScript;
-  const evidenceTasks = strict ? STRICT_EVIDENCE_TASKS : DEFAULT_TASKS;
+  const evidenceTasks = strict ? STRICT_PARALLEL_EVIDENCE_TASKS : DEFAULT_TASKS;
   const evidenceResults = await Promise.all(evidenceTasks.map((task) => runner(task, options)));
   const tasks = [...evidenceResults];
+  if (strict && resultsPassed(tasks)) {
+    for (const task of STRICT_RECALL_ARTIFACT_TASKS) {
+      const result = await runner(task, options);
+      tasks.push(result);
+      if (result.exitCode !== 0) break;
+    }
+  }
   if (strict && resultsPassed(tasks)) {
     for (const task of STRICT_ADMISSION_TASKS) {
       const result = await runner(task, options);
@@ -82,7 +100,7 @@ async function runGoldenGate(options = {}) {
   const finishedAt = new Date();
   const summary = {
     id: strict ? "component-assets-golden-gate-strict" : "component-assets-golden-gate-fast",
-    mode: strict ? "parallel-evidence-then-admission-and-strict-acceptance" : "parallel",
+    mode: strict ? "parallel-evidence-then-fresh-recall-artifacts-admission-and-strict-acceptance" : "parallel",
     startedAt: startedAt.toISOString(),
     finishedAt: finishedAt.toISOString(),
     durationMs: finishedAt.getTime() - startedAt.getTime(),

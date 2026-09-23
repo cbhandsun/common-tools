@@ -16,12 +16,10 @@ const FAMILY_MOTIFS = Object.freeze({
 });
 
 module.exports = async function visionComponentRecallFixture(input, context = {}) {
-  const families = Array.isArray(context.config?.componentRecallFixture?.expectedComponentFamilies)
-    ? context.config.componentRecallFixture.expectedComponentFamilies.map((family) => String(family || "").trim()).filter(Boolean)
-    : [];
+  const components = sourceComponents(context.config?.componentRecallFixture?.sourceComponents);
   const slideWidth = input.slideSize?.widthPt || 960;
   const slideHeight = input.slideSize?.heightPt || 540;
-  const boxes = componentBoxes(families.length, slideWidth, slideHeight);
+  const boxes = componentBoxes(components.length, slideWidth, slideHeight);
   return {
     ok: true,
     provider: "vision-component-recall-fixture",
@@ -29,7 +27,7 @@ module.exports = async function visionComponentRecallFixture(input, context = {}
       background: { fill: "#FFFFFF" },
       textBoxes: [],
       shapes: [],
-      images: families.map((family, index) => componentImage(input, family, boxes[index], index)),
+      images: components.map((component, index) => componentImage(input, component, boxes[index], index)),
       tables: [],
       charts: [],
       icons: []
@@ -37,7 +35,18 @@ module.exports = async function visionComponentRecallFixture(input, context = {}
   };
 };
 
-function componentImage(input, family, box, index) {
+function sourceComponents(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      const family = String(entry?.family || "").trim();
+      return family ? { family } : null;
+    })
+    .filter(Boolean);
+}
+
+function componentImage(input, component, box, index) {
+  const family = component.family;
   const motifs = FAMILY_MOTIFS[family] || [family];
   return {
     id: `p${input.pageIndex}-component-fixture-${index + 1}`,

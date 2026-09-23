@@ -13,6 +13,7 @@ const {
   parseArgs,
   _private
 } = require("../packages/slideclone-native-engine/scripts/image-to-editable-component-recall-fixtures");
+const visionComponentRecallFixture = require("../packages/slideclone-native-engine/scripts/adapters/vision-component-recall-fixture");
 
 test("image-to-editable recall fixture materializer creates strict corpus artifacts", async (t) => {
   const tmpRoot = path.join(process.cwd(), "runs", "test-image-recall-fixtures");
@@ -147,10 +148,40 @@ test("image-to-editable recall fixture helpers expose bounded component candidat
   assert.equal(_private.motifForFamily("timeline-roadmap"), "milestone-roadmap");
   const report = _private.componentCandidateReport({
     id: "case-a",
-    expectedComponentFamilies: ["timeline-roadmap"]
+    source: { components: [{ family: "timeline-roadmap" }] },
+    expectedComponentFamilies: ["process-flow"]
   });
   assert.equal(report.layers[0].componentRenderStrategy.mode, "native-rebuild-with-component-style-guide");
   assert.deepEqual(report.layers[0].targetMotifs, ["milestone-roadmap"]);
+  assert.equal(report.layers[0].componentFamilyEvidence.family, "timeline-roadmap");
+});
+
+test("vision recall fixture adapter does not derive observed components from expected assertions", async () => {
+  const input = {
+    pageIndex: 0,
+    sourceImage: "source.png",
+    slideSize: { widthPt: 960, heightPt: 540 }
+  };
+
+  const expectedOnly = await visionComponentRecallFixture(input, {
+    config: {
+      componentRecallFixture: {
+        expectedComponentFamilies: ["process-flow"]
+      }
+    }
+  });
+  assert.deepEqual(expectedOnly.data.images, []);
+
+  const sourceBacked = await visionComponentRecallFixture(input, {
+    config: {
+      componentRecallFixture: {
+        sourceComponents: [{ family: "timeline-roadmap" }],
+        expectedComponentFamilies: ["process-flow"]
+      }
+    }
+  });
+  assert.equal(sourceBacked.data.images.length, 1);
+  assert.equal(sourceBacked.data.images[0].source.layer.diagramUnderstanding.archetype, "timeline-roadmap");
 });
 
 test("image-to-editable recall fixture CLI parses refresh arguments", () => {
@@ -204,6 +235,9 @@ test("image-to-editable recall fixture default component asset root is bounded t
 function fakeSlidecloneRunner({ configPath }) {
   const config = readJson(configPath);
   assert.equal(config.pagePattern, "case-a.png");
+  assert.equal(config.componentRecallFixture.expectedComponentFamilies, undefined);
+  assert.ok(config.componentRecallFixture.sourceComponents.length >= 1);
+  assert.ok(config.componentRecallFixture.sourceComponents.every((component) => typeof component.family === "string"));
   fs.mkdirSync(path.join(config.outputDir, "ir"), { recursive: true });
   fs.mkdirSync(path.join(config.outputDir, "pptx"), { recursive: true });
   writeJson(path.join(config.outputDir, "ir", "deck.json"), {
@@ -298,6 +332,7 @@ function corpusCase(id, expectedComponentFamilies, overrides = {}) {
       kind: "image",
       path: `sources/${id}.png`,
       provenance: "unit test",
+      components: expectedComponentFamilies.map((family) => ({ family })),
       ...(overrides.source || {})
     },
     expectedComponentFamilies,
