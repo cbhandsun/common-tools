@@ -197,6 +197,17 @@
         "runs/image-to-editable-component-recall/corpus-plan.json"
       ]
     },
+    "image-to-editable-component-recall-corpus-artifacts": {
+      "description": "Validate the image-to-editable recall corpus against materialized source, IR, PPTX and component evidence artifacts.",
+      "script": "packages/slideclone-native-engine/scripts/image-to-editable-component-recall-corpus.js",
+      "args": [
+        "--manifest",
+        "skills/pd-hifi-slideclone/examples/image-to-editable-component-recall-corpus.manifest.json",
+        "--out",
+        "runs/image-to-editable-component-recall/corpus-plan.json",
+        "--require-artifacts"
+      ]
+    },
     "image-to-editable-component-recall-gate": {
       "description": "Versioned command profile for slideclone:image-to-editable-component-recall-gate.",
       "script": "packages/slideclone-native-engine/scripts/component-coverage-matrix.js",

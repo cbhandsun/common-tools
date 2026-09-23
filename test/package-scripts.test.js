@@ -23,6 +23,11 @@ function readRawPackageScripts() {
   return packageJson.scripts || {};
 }
 
+test("portable test script includes page native graphics stage regression", () => {
+  const scripts = readRawPackageScripts();
+  assert.match(scripts["test:portable"], /test\/page-native-graphics-stage\.test\.js/);
+});
+
 test("package scripts expose OfficePLUS/iSlide component asset rebuild entrypoints", () => {
   const scripts = readPackageScripts();
   const rebuild = scripts["slideclone:component-strategy-rebuild-assets"];
@@ -354,6 +359,7 @@ test("package scripts expose image-to-editable component recall gate", () => {
   const report = scripts["slideclone:image-to-editable-component-recall-report"];
   const fixtures = scripts["slideclone:image-to-editable-component-recall-fixtures"];
   const corpus = scripts["slideclone:image-to-editable-component-recall-corpus"];
+  const corpusArtifacts = scripts["slideclone:image-to-editable-component-recall-corpus-artifacts"];
   const command = scripts["slideclone:image-to-editable-component-recall-gate"];
 
   assert.match(report, /image-to-editable-component-recall-report\.js/);
@@ -366,6 +372,10 @@ test("package scripts expose image-to-editable component recall gate", () => {
   assert.match(corpus, /image-to-editable-component-recall-corpus\.js/);
   assert.match(corpus, /--manifest skills\/pd-hifi-slideclone\/examples\/image-to-editable-component-recall-corpus\.manifest\.json/);
   assert.match(corpus, /--out runs\/image-to-editable-component-recall\/corpus-plan\.json/);
+  assert.match(corpusArtifacts, /image-to-editable-component-recall-corpus\.js/);
+  assert.match(corpusArtifacts, /--manifest skills\/pd-hifi-slideclone\/examples\/image-to-editable-component-recall-corpus\.manifest\.json/);
+  assert.match(corpusArtifacts, /--out runs\/image-to-editable-component-recall\/corpus-plan\.json/);
+  assert.match(corpusArtifacts, /--require-artifacts/);
   assert.match(command, /component-coverage-matrix\.js/);
   assert.match(command, /--coverage-manifest skills\/pd-hifi-slideclone\/examples\/image-to-editable-component-recall\.manifest\.json/);
   assert.match(command, /--root runs\/image-to-editable-component-recall/);
@@ -376,10 +386,44 @@ test("package scripts expose image-to-editable component recall gate", () => {
     path.join(process.cwd(), "skills/pd-hifi-slideclone/examples/image-to-editable-component-recall.manifest.json"),
     "utf8"
   ));
-  assert.equal(manifest.gates.minImageComponentDetectedFamilyTypes, 4);
-  assert.equal(manifest.gates.minImageComponentMatchedFamilyTypes, 3);
-  assert.equal(manifest.gates.minImageComponentStrategyFamilyTypes, 2);
-  assert.equal(manifest.gates.maxImageComponentMissingFamilyTypes, 2);
+  assert.equal(manifest.gates.minImageComponentDetectedFamilyTypes, 13);
+  assert.equal(manifest.gates.minImageComponentMatchedFamilyTypes, 13);
+  assert.equal(manifest.gates.minImageComponentStrategyFamilyTypes, 13);
+  assert.equal(manifest.gates.maxImageComponentMissingFamilyTypes, 0);
+  assert.equal(manifest.gates.minComponentFamilyAppliedTypes, 13);
+  assert.deepEqual(manifest.gates.minComponentFamilyAppliedCounts, {
+    "cycle-loop": 1,
+    "fishbone-cause": 1,
+    "funnel-flow": 1,
+    "hierarchy-tree": 1,
+    "layered-architecture": 1,
+    "matrix-table": 1,
+    "metric-card-grid": 1,
+    "overlap-diagram": 1,
+    "process-flow": 1,
+    "pyramid-stack": 1,
+    "relationship-network": 1,
+    "specialty-chart": 1,
+    "timeline-roadmap": 1
+  });
+  assert.deepEqual(manifest.gates.requiredComponentFamilies, [
+    "cycle-loop",
+    "fishbone-cause",
+    "funnel-flow",
+    "hierarchy-tree",
+    "layered-architecture",
+    "matrix-table",
+    "metric-card-grid",
+    "overlap-diagram",
+    "process-flow",
+    "pyramid-stack",
+    "relationship-network",
+    "specialty-chart",
+    "timeline-roadmap"
+  ]);
+  assert.equal(manifest.gates.requireOutputPptxExists, true);
+  assert.equal(manifest.gates.requireOutputPptxZip, true);
+  assert.equal(manifest.gates.requireOutputPptxOpenXml, true);
   assert.equal(manifest.gates.requireNoExpressionPolicyViolations, undefined);
 
   const corpusManifest = JSON.parse(fs.readFileSync(
