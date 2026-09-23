@@ -24,6 +24,7 @@ const FAMILY_LABELS = Object.freeze({
   "hierarchy-tree": "hierarchy",
   "layered-architecture": "layers",
   "matrix-table": "matrix",
+  "metric-card-grid": "metric",
   "overlap-diagram": "overlap",
   "process-flow": "process",
   "pyramid-stack": "pyramid",
@@ -274,6 +275,7 @@ function motifForFamily(family) {
     "hierarchy-tree": "tree-link",
     "layered-architecture": "layered-stack",
     "matrix-table": "comparison-matrix",
+    "metric-card-grid": "dashboard-card-grid",
     "overlap-diagram": "venn-overlap",
     "process-flow": "linear-arrow-chain",
     "pyramid-stack": "pyramid-stack",
@@ -371,6 +373,14 @@ function drawFamilyGlyph(image, family, x, y, color) {
     for (let i = 0; i < 4; i += 1) drawRect(image, x + i * 18, y + i * 28, 150, 24, color);
   } else if (family === "matrix-table") {
     for (let row = 0; row < 3; row += 1) for (let col = 0; col < 4; col += 1) drawBorder(image, x + col * 42, y + row * 34, 40, 32, color);
+  } else if (family === "metric-card-grid") {
+    for (let row = 0; row < 2; row += 1) {
+      for (let col = 0; col < 2; col += 1) {
+        drawRect(image, x + col * 95, y + row * 64, 78, 48, [255, 255, 255, 255]);
+        drawBorder(image, x + col * 95, y + row * 64, 78, 48, color);
+        drawRect(image, x + col * 95 + 12, y + row * 64 + 30, 48, 8, color);
+      }
+    }
   } else if (family === "overlap-diagram") {
     drawCircle(image, x + 65, y + 62, 56, [...color.slice(0, 3), 180]);
     drawCircle(image, x + 120, y + 62, 56, [14, 165, 233, 180]);

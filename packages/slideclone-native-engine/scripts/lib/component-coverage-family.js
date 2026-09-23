@@ -433,9 +433,11 @@ function addMotifReadyTargetCounts(target, source = {}) {
 
 function componentTemplateTargetMotifs(source = {}) {
   const values = [
+    ...(Array.isArray(source.targetMotifs) ? source.targetMotifs : []),
     ...(Array.isArray(source.matchedComponentTargetMotifs) ? source.matchedComponentTargetMotifs : []),
     ...(Array.isArray(source.componentTemplateTargetMotifs) ? source.componentTemplateTargetMotifs : []),
     ...(Array.isArray(source.componentRenderStrategy?.targetMotifs) ? source.componentRenderStrategy.targetMotifs : []),
+    ...(Array.isArray(source.layer?.targetMotifs) ? source.layer.targetMotifs : []),
     ...(Array.isArray(source.layer?.componentRenderStrategy?.targetMotifs) ? source.layer.componentRenderStrategy.targetMotifs : []),
     ...(Array.isArray(source.layer?.diagramUnderstanding?.componentStrategy?.targetMotifs) ? source.layer.diagramUnderstanding.componentStrategy.targetMotifs : []),
     ...inferredComponentTemplateTargetMotifs(source)

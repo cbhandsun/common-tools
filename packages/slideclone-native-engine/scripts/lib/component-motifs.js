@@ -4,6 +4,7 @@ const KNOWN_TARGET_MOTIFS = Object.freeze([
   "arc-arrow",
   "ring-node",
   "card-grid",
+  "dashboard-card-grid",
   "tree-link",
   "fishbone-cause",
   "radial-link",
@@ -40,6 +41,7 @@ const COMPONENT_FAMILY_BY_MOTIF = Object.freeze({
   "arc-arrow": "cycle-loop",
   "ring-node": "cycle-loop",
   "card-grid": "matrix-table",
+  "dashboard-card-grid": "metric-card-grid",
   "tree-link": "hierarchy-tree",
   "fishbone-cause": "fishbone-cause",
   "radial-link": "relationship-network",
@@ -115,6 +117,7 @@ function inferComponentFamiliesFromText(value = "") {
   const families = [];
   if (/swimlane|lane|process|flow|step|chain|branch|workflow|route|路径|流程|步骤|链路/.test(text)) families.push("process-flow");
   if (/timeline|milestone|roadmap|gantt|时间轴|里程碑|路线图/.test(text)) families.push("timeline-roadmap");
+  if (/dashboard|kpi|metric|scorecard|indicator|数据看板|指标看板|仪表盘|指标卡/.test(text)) families.push("metric-card-grid");
   if (/matrix|grid|table|quadrant|cell|comparison|paradigm|表格|矩阵|象限|对比/.test(text)) families.push("matrix-table");
   if (/hub|spoke|radial|network|topology|relationship|system-map|关系|网络|拓扑/.test(text)) families.push("relationship-network");
   if (/(^|[^a-z])tree(?!map)|org|hierarchy|层级|组织/.test(text)) families.push("hierarchy-tree");
@@ -152,6 +155,7 @@ function motifTokens(motifs = []) {
     if (motif === "radial-link") tokens.push("中心", "辐射", "径向", "关系", "hub", "spoke", "radial");
     if (motif === "arc-arrow") tokens.push("圆弧", "环形", "循环", "箭头", "arc", "cycle", "loop");
     if (motif === "ring-node") tokens.push("圆环", "环形", "节点", "ring", "loop");
+    if (motif === "dashboard-card-grid") tokens.push("数据看板", "KPI", "指标卡", "dashboard", "metric", "card");
     if (motif === "tree-link") tokens.push("树状", "层级", "组织", "tree", "hierarchy");
     if (motif === "org-hierarchy") tokens.push("组织架构", "层级", "组织", "org", "hierarchy");
     if (motif === "card-grid") tokens.push("矩阵", "卡片", "宫格", "matrix", "grid");

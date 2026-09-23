@@ -20,12 +20,14 @@ const COMPONENT_FAMILIES = new Set([
   "pyramid-stack",
   "overlap-diagram",
   "timeline-roadmap",
+  "metric-card-grid",
   "specialty-chart"
 ]);
 const COMPONENT_FAMILY_BY_MOTIF = Object.freeze({
   "arc-arrow": "cycle-loop",
   "cycle-loop": "cycle-loop",
   "card-grid": "matrix-table",
+  "dashboard-card-grid": "metric-card-grid",
   "quadrant-axis": "matrix-table",
   "comparison-matrix": "matrix-table",
   "heatmap-matrix": "matrix-table",
@@ -348,6 +350,7 @@ function inferComponentFamiliesFromText(text = "") {
   if (containsAnyTextTerm(value, ["pyramid", "pyramid-stack", "金字塔"])) families.push("pyramid-stack");
   if (containsAnyTextTerm(value, ["venn", "overlap", "intersection", "overlap-diagram", "venn-overlap", "intersection-overlap", "交集", "重叠"])) families.push("overlap-diagram");
   if (containsAnyTextTerm(value, ["timeline", "milestone", "roadmap", "gantt", "timeline-roadmap", "milestone-roadmap", "gantt-roadmap", "时间轴", "里程碑", "路线图"])) families.push("timeline-roadmap");
+  if (containsAnyTextTerm(value, ["dashboard", "kpi", "metric", "scorecard", "indicator", "dashboard-card-grid", "metric-card-grid", "数据看板", "指标看板", "仪表盘", "指标卡"])) families.push("metric-card-grid");
   if (containsAnyTextTerm(value, ["chart", "donut", "doughnut", "pie", "treemap", "bubble", "scatter", "sankey", "map-chart", "geo-map", "word-cloud", "waterfall", "gauge", "radar", "specialty-chart", "sankey-flow-chart", "图表", "词云", "地图", "仪表", "雷达"])) families.push("specialty-chart");
   return [...new Set(families)].filter((family) => COMPONENT_FAMILIES.has(family));
 }

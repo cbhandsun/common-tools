@@ -157,6 +157,7 @@ test("component analysis searches component-ready input IR before pre-rebuild cr
 
 test("component analysis family inference follows canonical motif boundaries", () => {
   assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "layered-architecture" }), ["layered-architecture"]);
+  assert.deepEqual(_private.inferComponentFamiliesFromLayer({ targetMotifs: ["dashboard-card-grid"] }), ["metric-card-grid"]);
   assert.deepEqual(_private.inferComponentFamiliesFromLayer({ targetMotifs: ["sankey-flow-chart"] }), ["specialty-chart"]);
 });
 

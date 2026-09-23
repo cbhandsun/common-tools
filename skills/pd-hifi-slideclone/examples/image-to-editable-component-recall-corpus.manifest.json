@@ -9,6 +9,7 @@
     "hierarchy-tree",
     "layered-architecture",
     "matrix-table",
+    "metric-card-grid",
     "overlap-diagram",
     "process-flow",
     "pyramid-stack",
@@ -123,17 +124,18 @@
     },
     {
       "id": "matrix-process-dashboard",
-      "title": "Matrix and process dashboard image converted through image-to-editable recall",
+      "title": "Matrix, process, and KPI dashboard image converted through image-to-editable recall",
       "source": {
         "kind": "image",
         "path": "runs/image-to-editable-component-recall/sources/matrix-process-dashboard.png",
         "provenance": "Real or approved user-owned image fixture.",
         "components": [
           { "family": "matrix-table" },
+          { "family": "metric-card-grid" },
           { "family": "process-flow" }
         ]
       },
-      "expectedComponentFamilies": ["matrix-table", "process-flow"],
+      "expectedComponentFamilies": ["matrix-table", "metric-card-grid", "process-flow"],
       "artifacts": {
         "inputWorkDir": "runs/image-to-editable-component-recall/matrix-process-dashboard",
         "outputIr": "runs/image-to-editable-component-recall/matrix-process-dashboard/ir/deck.json",
