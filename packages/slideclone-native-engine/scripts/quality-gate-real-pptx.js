@@ -457,12 +457,12 @@ function alignRenderedPageIndexesToIr(render = {}, ir = {}) {
   };
 }
 
-async function renderWithLibreOffice({ pptxFile, outputDir, maxPages, progress, heartbeatMs }) {
+async function renderWithLibreOffice({ pptxFile, outputDir, maxPages, progress, heartbeatMs, runRenderer = runJsonRenderer, retryDelayMs = 5_000 }) {
   if (!pptxFile) {
     throw new Error("--pptx is required when --render-dir is not provided");
   }
   const script = path.join(__dirname, "libreoffice-benchmark.js");
-  const result = await runJsonRenderer(process.execPath, [
+  const args = [
     script,
     "--pptx",
     pptxFile,
@@ -470,11 +470,23 @@ async function renderWithLibreOffice({ pptxFile, outputDir, maxPages, progress, 
     outputDir,
     "--max-pages",
     String(maxPages)
-  ], {
+  ];
+  const rendererOptions = {
     cwd: path.resolve(__dirname, "..", "..", ".."),
     progress,
     heartbeatMs
-  });
+  };
+  let result;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      result = await runRenderer(process.execPath, args, rendererOptions);
+      break;
+    } catch (error) {
+      if (attempt >= 2) throw error;
+      progress?.({ phase: "render", status: "retry", renderer: "libreoffice", attempt: attempt + 1 });
+      await delay(retryDelayMs);
+    }
+  }
   const report = parseRendererReport(result.stdout, "LibreOffice");
   return {
     provider: "libreoffice-benchmark",
@@ -483,6 +495,12 @@ async function renderWithLibreOffice({ pptxFile, outputDir, maxPages, progress, 
     reportFile: report.reportFile,
     totalElapsedMs: report.totalElapsedMs
   };
+}
+
+function delay(ms) {
+  const duration = Number(ms);
+  if (!Number.isFinite(duration) || duration <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, Math.min(duration, 30_000)));
 }
 
 async function renderWithPowerPoint({ pptxFile, outputDir, maxPages, progress, heartbeatMs }) {
@@ -1398,6 +1416,7 @@ module.exports = {
   parsePageIndexes,
   parseRendererReport,
   realWorkspaceCwd,
+  renderWithLibreOffice,
   resolveFreshRenderOutputDir,
   resolveRenderOutputDir,
   resolveReusableRenderDir,

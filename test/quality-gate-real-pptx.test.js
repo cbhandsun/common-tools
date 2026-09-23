@@ -29,6 +29,7 @@ const {
   readTextOcrConfig,
   resolveFreshRenderOutputDir,
   resolveRenderOutputDir,
+  renderWithLibreOffice,
   readThresholds,
   readUmiOcrConfig,
   resolveReusableRenderDir,
@@ -131,6 +132,36 @@ test("renderer heartbeat and output boundaries reject malformed external values"
   const sanitized = sanitizeRendererError("Bearer abc token=xyz password=hunter2\nfailed");
   assert.doesNotMatch(sanitized, /abc|xyz|hunter2/);
   assert.match(sanitized, /redacted/);
+});
+
+test("LibreOffice renderer gets one fresh child-process retry before failing closed", async () => {
+  const calls = [];
+  const progress = [];
+  const report = await renderWithLibreOffice({
+    pptxFile: "deck.pptx",
+    outputDir: "out",
+    maxPages: 1,
+    retryDelayMs: 0,
+    progress: (event) => progress.push(event),
+    runRenderer: async (command, args, options) => {
+      calls.push({ command, args, options });
+      if (calls.length === 1) throw new Error("renderer process failed");
+      return {
+        stdout: JSON.stringify({
+          reportFile: "out/libreoffice-benchmark.report.json",
+          renderedPages: [{ pageIndex: 0, image: "out/render/lo-page-1.png" }]
+        }),
+        stderr: ""
+      };
+    }
+  });
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].command, process.execPath);
+  assert.ok(calls[0].args.includes("--pptx"));
+  assert.equal(calls[0].options.cwd, path.join(__dirname, ".."));
+  assert.deepEqual(progress, [{ phase: "render", status: "retry", renderer: "libreoffice", attempt: 2 }]);
+  assert.deepEqual(report.renderedPages, [{ pageIndex: 0, image: "out/render/lo-page-1.png" }]);
 });
 
 test("renderer routing preserves the explicitly selected supported engine", () => {
