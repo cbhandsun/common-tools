@@ -79,13 +79,15 @@ test("trend comparison isolates environment cohorts and reports incompatible his
   assert.equal(result.environmentFingerprint, environmentA);
 });
 
-test("trend gate detects same-environment elapsed-time regression", () => {
+test("trend gate reports same-environment elapsed-time regression without blocking quality", () => {
   const baseline = { ...snapshot("v1", { ...healthy, elapsedMs: 100000 }), environmentFingerprint: environmentA };
   const current = { ...snapshot("v2", { ...healthy, elapsedMs: 170001 }), environmentFingerprint: environmentA };
   const result = evaluateQualityTrend(current, { version: 1, snapshots: [baseline] });
-  assert.equal(result.passed, false);
+  assert.equal(result.passed, true);
   const elapsed = result.targets[0].checks.find((item) => item.metric === "elapsedMs");
   assert.equal(elapsed.reason, "window-regression");
+  assert.equal(elapsed.observational, true);
+  assert.equal(elapsed.passed, false);
   assert.equal(elapsed.threshold, 60000);
 });
 

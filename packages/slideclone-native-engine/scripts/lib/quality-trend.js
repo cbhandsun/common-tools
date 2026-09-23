@@ -5,7 +5,7 @@ const METRICS = Object.freeze({
   foregroundMissingRatio: Object.freeze({ direction: "lower", maximumDelta: 0.03, maximumValue: 1 }),
   editableObjectRatio: Object.freeze({ direction: "higher", maximumDelta: 0.02, maximumValue: 1 }),
   largestResidualAreaRatio: Object.freeze({ direction: "lower", maximumDelta: 0.03, maximumValue: 1 }),
-  elapsedMs: Object.freeze({ direction: "lower", maximumDelta: 60000, maximumValue: 10000000, optional: true })
+  elapsedMs: Object.freeze({ direction: "lower", maximumDelta: 60000, maximumValue: 10000000, optional: true, observational: true })
 });
 
 function extractQualitySnapshot(report, metadata = {}) {
@@ -81,11 +81,12 @@ function evaluateQualityTrend(current, history = {}, options = {}) {
         || Number.isFinite(target.metrics[metric])
         || baselines.some((item) => Number.isFinite(item.target.metrics[metric])))
       .map(([metric, policy]) => evaluateMetric(metric, policy, target.metrics[metric], baselines, thresholds[metric]));
+    const blockingChecks = checks.filter((check) => check.observational !== true);
     targetResults.push({
       targetId,
       category: target.category,
       status: "compared",
-      passed: target.passed !== false && checks.every((check) => check.passed),
+      passed: target.passed !== false && blockingChecks.every((check) => check.passed),
       historyCount: baselines.length,
       checks
     });
@@ -137,6 +138,7 @@ function evaluateMetric(metric, policy, currentValue, baselines, configuredThres
     direction: policy.direction,
     passed: windowPassed && cumulativePassed,
     reason: !windowPassed ? "window-regression" : (!cumulativePassed ? "cumulative-regression" : "within-budget"),
+    observational: policy.observational === true,
     current: round(currentValue),
     baseline: round(baseline),
     earliest: round(earliest),
