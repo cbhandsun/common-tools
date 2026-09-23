@@ -16,17 +16,17 @@ const DEFAULT_TASKS = [
 ];
 
 const STRICT_PARALLEL_EVIDENCE_TASKS = [
-  ...DEFAULT_TASKS,
-  {
-    id: "image-recall-corpus",
-    script: "slideclone:image-to-editable-component-recall-corpus"
-  }
+  ...DEFAULT_TASKS
 ];
 
 const STRICT_RECALL_ARTIFACT_TASKS = [
   {
     id: "image-recall-fixtures",
     script: "slideclone:image-to-editable-component-recall-fixtures"
+  },
+  {
+    id: "image-recall-corpus-artifacts",
+    script: "slideclone:image-to-editable-component-recall-corpus-artifacts"
   },
   {
     id: "image-recall-report",

@@ -5,9 +5,21 @@ const { hasUnverifiedNativeGeometry } = require("./screenshot-texture-evidence")
 function buildPageNativeGraphicsStage(context, dependencies) {
   const { image, options, pageDraft, nativeTextBoxes, slideSize, decorativeBackground, rawTextBoxes, textBoxes, pageIndex, specializedNativeEligiblePageDraft, specializedNativeEligibleImages, autoObjectifySystemMap, autoObjectifyTriangleTopology, unreadableSystemMapFidelityProtected } = context;
   let { nativeRebuildCandidateImages } = context;
-  const unverifiedTriangleTopologyCandidates = autoObjectifyTriangleTopology === true
-    ? nativeRebuildCandidateImages.filter((item) => hasUnverifiedNativeGeometry(item))
+  const hasUnverifiedTriangleTopologyRecoveryCandidate = (Array.isArray(pageDraft?.images) ? pageDraft.images : [])
+    .some((item) => hasUnverifiedNativeGeometry(item));
+  const shouldAttemptTriangleTopology = autoObjectifyTriangleTopology === true
+    || hasUnverifiedTriangleTopologyRecoveryCandidate;
+  const triangleTopologyRecoverySource = shouldAttemptTriangleTopology
+    ? [
+      ...nativeRebuildCandidateImages,
+      ...(Array.isArray(pageDraft?.images) ? pageDraft.images : [])
+    ]
     : [];
+  const unverifiedTriangleTopologyCandidates = triangleTopologyRecoverySource
+    .filter((item) => hasUnverifiedNativeGeometry(item))
+    .filter((candidate, index, list) => list.findIndex((item) =>
+      String(item?.id || "") === String(candidate?.id || "")
+    ) === index);
   nativeRebuildCandidateImages = nativeRebuildCandidateImages.filter(item => !hasUnverifiedNativeGeometry(item));
   const triangleTopologyCandidateImages = unverifiedTriangleTopologyCandidates.length > 0
     ? [
@@ -68,7 +80,7 @@ const valueBannerBackgroundShapes = image && options.objectifyValueBanners === t
     const hierarchyDiagramShapes = image && options.objectifyLayerConnectors === true
       ? createHierarchyDiagramShapes(nativeRebuildCandidateImages, nativeTextBoxes, image, slideSize)
       : [];
-    const triangleTopologyShapes = image && (options.objectifyLayerConnectors === true || autoObjectifyTriangleTopology === true)
+    const triangleTopologyShapes = image && (options.objectifyLayerConnectors === true || shouldAttemptTriangleTopology)
       ? createTriangleTopologyDiagramShapes(triangleTopologyCandidateImages, rawTextBoxes, image, slideSize)
       : [];
     syncObjectifiedCandidateSources(pageDraft.images, triangleTopologyCandidateImages, {

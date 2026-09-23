@@ -79,8 +79,8 @@ test("strict component assets golden gate runs all evidence before strict accept
   assert.deepEqual(seen, [
     "regression",
     "coverage",
-    "image-recall-corpus",
     "image-recall-fixtures",
+    "image-recall-corpus-artifacts",
     "image-recall-report",
     "image-recall",
     "self-fidelity",

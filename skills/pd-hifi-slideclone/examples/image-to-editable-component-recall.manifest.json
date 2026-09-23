@@ -3,9 +3,43 @@
   "id": "image-to-editable-component-recall-v1",
   "description": "Gate image-to-PPT component-family recall from source.componentAnalysis evidence before final native reconstruction is assessed.",
   "gates": {
-    "minImageComponentDetectedFamilyTypes": 4,
-    "minImageComponentMatchedFamilyTypes": 3,
-    "minImageComponentStrategyFamilyTypes": 2,
-    "maxImageComponentMissingFamilyTypes": 2
+    "minImageComponentDetectedFamilyTypes": 13,
+    "minImageComponentMatchedFamilyTypes": 13,
+    "minImageComponentStrategyFamilyTypes": 13,
+    "maxImageComponentMissingFamilyTypes": 0,
+    "minComponentFamilyAppliedTypes": 13,
+    "minComponentFamilyAppliedCounts": {
+      "cycle-loop": 1,
+      "fishbone-cause": 1,
+      "funnel-flow": 1,
+      "hierarchy-tree": 1,
+      "layered-architecture": 1,
+      "matrix-table": 1,
+      "metric-card-grid": 1,
+      "overlap-diagram": 1,
+      "process-flow": 1,
+      "pyramid-stack": 1,
+      "relationship-network": 1,
+      "specialty-chart": 1,
+      "timeline-roadmap": 1
+    },
+    "requiredComponentFamilies": [
+      "cycle-loop",
+      "fishbone-cause",
+      "funnel-flow",
+      "hierarchy-tree",
+      "layered-architecture",
+      "matrix-table",
+      "metric-card-grid",
+      "overlap-diagram",
+      "process-flow",
+      "pyramid-stack",
+      "relationship-network",
+      "specialty-chart",
+      "timeline-roadmap"
+    ],
+    "requireOutputPptxExists": true,
+    "requireOutputPptxZip": true,
+    "requireOutputPptxOpenXml": true
   }
 }
