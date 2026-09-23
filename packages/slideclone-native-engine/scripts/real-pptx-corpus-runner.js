@@ -36,6 +36,7 @@ async function main() {
     sharedOcr: args["paddle-ocr-broker"],
     sharedPowerPoint: args["powerpoint-session"],
     timeoutMs: positiveInteger(args["case-timeout-ms"], 180000),
+    overrideCaseTimeout: args["case-timeout-ms"] !== undefined,
     concurrency: resolveCorpusConcurrency(args.concurrency, args["allow-parallel-office"]),
     onStart: ({ index, total, entry }) => process.stderr.write(`[real-pptx-corpus] ${index + 1}/${total} start ${entry.id}\n`),
     onDone: ({ index, total, entry, result }) => process.stderr.write(`[real-pptx-corpus] ${index + 1}/${total} ${result.passed === true ? "passed" : "failed"} ${entry.id}\n`)

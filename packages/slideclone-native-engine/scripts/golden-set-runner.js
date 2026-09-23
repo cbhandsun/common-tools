@@ -71,6 +71,7 @@ async function runCases(cases = [], options = {}) {
       try {
         result = await run(entry, {
           timeoutMs: options.timeoutMs,
+          overrideCaseTimeout: options.overrideCaseTimeout,
           ...(options.environmentForCase ? { env: options.environmentForCase(entry) } : {})
         });
       } catch (error) {
@@ -94,7 +95,7 @@ function runCase(entry, options = {}) {
   const command = Array.isArray(entry.command) ? [...entry.command] : [];
   if (command.length === 0) throw new Error(`golden-set case "${entry.id}" has no command.`);
   const executable = normalizeExecutable(command.shift());
-  const timeoutMs = caseTimeoutMs(entry, options.timeoutMs);
+  const timeoutMs = caseTimeoutMs(entry, options.timeoutMs, options.overrideCaseTimeout);
   const run = spawnSync(executable, command, {
     cwd: process.cwd(),
     windowsHide: true,
@@ -128,7 +129,7 @@ function runCaseAsync(entry, options = {}) {
   const command = Array.isArray(entry.command) ? [...entry.command] : [];
   if (command.length === 0) return Promise.reject(new Error(`golden-set case "${entry.id}" has no command.`));
   const executable = normalizeExecutable(command.shift());
-  const timeoutMs = caseTimeoutMs(entry, options.timeoutMs);
+  const timeoutMs = caseTimeoutMs(entry, options.timeoutMs, options.overrideCaseTimeout);
   return new Promise((resolve) => {
     let stdout = "";
     let stderr = "";
@@ -542,8 +543,10 @@ function parsePositiveInt(value, fallback) {
   return Number.isFinite(number) && number > 0 ? number : fallback;
 }
 
-function caseTimeoutMs(entry, fallback) {
-  return parsePositiveInt(entry?.timeoutMs, parsePositiveInt(fallback, 180_000));
+function caseTimeoutMs(entry, fallback, overrideCaseTimeout = false) {
+  const fallbackTimeout = parsePositiveInt(fallback, 180_000);
+  if (overrideCaseTimeout === true) return fallbackTimeout;
+  return parsePositiveInt(entry?.timeoutMs, fallbackTimeout);
 }
 
 function appendBounded(current, chunk, limit) {
