@@ -327,6 +327,7 @@ function corpusCase(id, expectedComponentFamilies, overrides = {}) {
       kind: "image",
       path: `sources/${id}.png`,
       provenance: "unit test",
+      components: expectedComponentFamilies.map((family) => ({ family })),
       ...(overrides.source || {})
     },
     expectedComponentFamilies,

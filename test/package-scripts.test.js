@@ -404,6 +404,16 @@ test("package scripts expose a parallel OfficePLUS/iSlide component asset golden
   );
 });
 
+test("package scripts expose a strict component asset golden gate", () => {
+  const scripts = readPackageScripts();
+  const command = scripts["slideclone:component-assets-golden-gate-strict"];
+
+  assert.equal(
+    command,
+    "node packages/slideclone-native-engine/scripts/component-assets-golden-gate.js --strict --out runs/component-assets-golden-gate-strict.json"
+  );
+});
+
 test("package scripts expose a parallel OCR quality gate for enhanced component decks", () => {
   const scripts = readPackageScripts();
   const command = scripts["slideclone:quality-gate-ocr-batch-enhanced-turbo"];
@@ -500,6 +510,7 @@ test("package scripts expose a native component promotion gate", () => {
   const strict = scripts["slideclone:component-native-promotion-gate-strict"];
   const batch = scripts["slideclone:component-native-promotion-batch"];
   const materialize = scripts["slideclone:component-native-promotion-materialize"];
+  const selfFidelityBatch = scripts["slideclone:component-self-fidelity-batch"];
   const admission = scripts["slideclone:component-asset-admission-gate"];
   const richness = scripts["slideclone:component-richness-acceptance-report"];
   const strictRichness = scripts["slideclone:component-richness-acceptance-report-strict"];
@@ -512,6 +523,13 @@ test("package scripts expose a native component promotion gate", () => {
   assert.match(materialize, /component-native-promotion-batch\.js/);
   assert.match(materialize, /--require-actionable-retained-reduction/);
   assert.match(materialize, /--min-actionable-retained-reduction 1/);
+  assert.match(selfFidelityBatch, /component-asset-self-fidelity-batch\.js/);
+  assert.match(selfFidelityBatch, /--file runs\/plugin-component-inventory\/isolated-collection\/verified\/islide\/islide-applied-04-islide-linear-process-605f3f1b83d8\.pptx/);
+  assert.match(selfFidelityBatch, /--file runs\/plugin-component-inventory\/isolated-collection\/verified\/islide\/islide-applied-08-islide-card-grid-ef46586cd2bf\.pptx/);
+  assert.match(selfFidelityBatch, /--file runs\/plugin-component-inventory\/isolated-collection\/verified\/officeplus\/officeplus-applied-24-officeplus-whole-process-flow-candidate-93e04adae015\.pptx/);
+  assert.match(selfFidelityBatch, /--out runs\/component-asset-self-fidelity-batch/);
+  assert.match(selfFidelityBatch, /--concurrency 1/);
+  assert.match(selfFidelityBatch, /--fail-on-reject/);
   assert.match(admission, /component-asset-admission-gate\.js/);
   assert.match(admission, /--self-fidelity-report runs\/component-asset-self-fidelity-batch\/component-self-fidelity-batch\.report\.json/);
   assert.match(admission, /--out runs\/component-asset-admission-gate\.json/);

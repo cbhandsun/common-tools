@@ -111,6 +111,50 @@ test("component analysis records bounded component family recall evidence", asyn
   ]);
 });
 
+test("component analysis searches component-ready input IR before pre-rebuild crops", async t => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.workDir, "ir", "deck.json"), JSON.stringify({
+    pages: [{
+      images: [
+        {
+          id: "ready",
+          box: { x: 10, y: 10, w: 300, h: 220 },
+          source: {
+            layer: {
+              layerType: "diagram-zone",
+              diagramUnderstanding: {
+                componentStrategy: {
+                  templateFamily: "hierarchy-tree",
+                  targetMotifs: ["tree-link"]
+                }
+              }
+            }
+          }
+        }
+      ]
+    }]
+  }));
+  f.dependencies.rebuildDeckFromWorkDir = (work, options) => {
+    f.calls.push(["rebuild", work, options]);
+    return { pages: [{ images: [{ id: "crop-without-layer" }] }] };
+  };
+  f.dependencies.searchIrComponentCandidates = async (options) => {
+    const deck = JSON.parse(fs.readFileSync(options.ir, "utf8"));
+    assert.equal(deck.pages[0].images[0].id, "ready");
+    return {
+      layers: [{
+        pageIndex: 0,
+        imageIndex: 0,
+        templateFamily: "hierarchy-tree",
+        componentRenderStrategy: { mode: "native-rebuild-with-component-style-guide" }
+      }]
+    };
+  };
+  const result = await createTeamComponentAnalysis(f.dependencies).resolve({ workDir: f.workDir, root: f.root, metadata: { inputFile: f.inputFile } });
+  assert.equal(result.evidence.preImages, 1);
+  assert.deepEqual(result.evidence.detectedComponentFamilyCounts, { "hierarchy-tree": 1 });
+});
+
 test("component analysis family inference follows canonical motif boundaries", () => {
   assert.deepEqual(_private.inferComponentFamiliesFromLayer({ templateFamily: "layered-architecture" }), ["layered-architecture"]);
   assert.deepEqual(_private.inferComponentFamiliesFromLayer({ targetMotifs: ["sankey-flow-chart"] }), ["specialty-chart"]);

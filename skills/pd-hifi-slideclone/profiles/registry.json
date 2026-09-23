@@ -102,6 +102,15 @@
       "script": "packages/slideclone-native-engine/scripts/component-assets-golden-gate.js",
       "args": []
     },
+    "component-assets-golden-gate-strict": {
+      "description": "Strict component-assets golden gate requiring coverage, image recall, image recall corpus, real PPTX regression, asset admission and strict richness acceptance.",
+      "script": "packages/slideclone-native-engine/scripts/component-assets-golden-gate.js",
+      "args": [
+        "--strict",
+        "--out",
+        "runs/component-assets-golden-gate-strict.json"
+      ]
+    },
     "component-candidate-search": {
       "description": "Versioned command profile for slideclone:component-candidate-search.",
       "script": "packages/slideclone-native-engine/scripts/component-candidate-search.js",
@@ -621,7 +630,19 @@
     "component-self-fidelity-batch": {
       "description": "Versioned command profile for slideclone:component-self-fidelity-batch.",
       "script": "packages/slideclone-native-engine/scripts/component-asset-self-fidelity-batch.js",
-      "args": []
+      "args": [
+        "--file",
+        "runs/plugin-component-inventory/isolated-collection/verified/islide/islide-applied-04-islide-linear-process-605f3f1b83d8.pptx",
+        "--file",
+        "runs/plugin-component-inventory/isolated-collection/verified/islide/islide-applied-08-islide-card-grid-ef46586cd2bf.pptx",
+        "--file",
+        "runs/plugin-component-inventory/isolated-collection/verified/officeplus/officeplus-applied-24-officeplus-whole-process-flow-candidate-93e04adae015.pptx",
+        "--out",
+        "runs/component-asset-self-fidelity-batch",
+        "--concurrency",
+        "1",
+        "--fail-on-reject"
+      ]
     },
     "component-strategy-rebuild": {
       "description": "Versioned command profile for slideclone:component-strategy-rebuild.",

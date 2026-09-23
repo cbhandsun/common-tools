@@ -57,6 +57,22 @@ test("golden-set runner supports per-case timeout budgets", () => {
   assert.equal(caseTimeoutMs({ timeoutMs: 360000 }, 180000), 360000);
   assert.equal(caseTimeoutMs({ timeoutMs: "450000" }, 180000), 450000);
   assert.equal(caseTimeoutMs({ timeoutMs: 0 }, 180000), 180000);
+  assert.equal(caseTimeoutMs({ timeoutMs: 180000 }, 600000, true), 600000);
+});
+
+test("golden-set runner lets explicit corpus timeout override manifest defaults", async () => {
+  const [result] = await runCases([{ id: "one", timeoutMs: 180000 }], {
+    concurrency: 1,
+    timeoutMs: 600000,
+    overrideCaseTimeout: true,
+    runCase: async (entry, options) => ({
+      id: entry.id,
+      ok: true,
+      timeoutMs: caseTimeoutMs(entry, options.timeoutMs, options.overrideCaseTimeout)
+    })
+  });
+
+  assert.equal(result.timeoutMs, 600000);
 });
 
 test("golden-set runner parses positive integers with fallback", () => {

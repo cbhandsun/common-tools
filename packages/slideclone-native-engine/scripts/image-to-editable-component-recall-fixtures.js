@@ -100,7 +100,12 @@ async function materializeImageToEditableComponentRecallFixtures(options = {}) {
     fs.mkdirSync(stagingInputDir, { recursive: true });
     fs.copyFileSync(sourceFile, stagingInput);
     const configFile = path.join(caseRoot, "slideclone.config.json");
-    writeConfig(configFile, { inputDir: stagingInputDir, outputDir: caseRoot, pagePattern: path.basename(stagingInput) });
+    writeConfig(configFile, {
+      inputDir: stagingInputDir,
+      outputDir: caseRoot,
+      pagePattern: path.basename(stagingInput),
+      sourceComponents: entry.source.components
+    });
     const job = createEditableJob({
       workspaceRoot: process.cwd(),
       stateRoot,
@@ -166,6 +171,7 @@ function createLocalSlidecloneRunner({ spawn = childProcess.spawnSync } = {}) {
   if (typeof spawn !== "function") throw new TypeError("slideclone process adapter must be a function");
   const script = path.join(__dirname, "slideclone.js");
   assertRegularFile(script, "local slideclone entry point");
+  const componentAssetRoot = resolveDefaultComponentAssetRoot();
   return function executeLocalSlideclone(request) {
     if (!request || typeof request !== "object" || Array.isArray(request)) throw new TypeError("slideclone execution request is invalid");
     const configPath = boundedAbsoluteFile(request.configPath, "configPath");
@@ -177,12 +183,24 @@ function createLocalSlidecloneRunner({ spawn = childProcess.spawnSync } = {}) {
     const approvedInputs = inputPaths.map((file) => boundedAbsoluteFile(file, "inputPaths"));
     if (new Set(approvedInputs).size !== approvedInputs.length || approvedInputs[0] !== inputPath) throw new TypeError("slideclone inputPaths must be a unique ordered file list");
     const inputArguments = approvedInputs.flatMap((file) => ["--input-file", file]);
+    const env = { ...process.env };
+    if (!env.COMMON_TOOLS_IMAGE_COMPONENT_ASSET_ROOT && componentAssetRoot) {
+      env.COMMON_TOOLS_IMAGE_COMPONENT_ASSET_ROOT = componentAssetRoot;
+    }
     return spawn(process.execPath, [script, "run", "--config", configPath, ...inputArguments], {
       encoding: "utf8",
+      env,
       windowsHide: true,
       timeout: SLIDECLONE_TIMEOUT_MS
     });
   };
+}
+
+function resolveDefaultComponentAssetRoot({ cwd = process.cwd() } = {}) {
+  const root = path.resolve(cwd, "runs", "plugin-component-inventory");
+  if (!fs.existsSync(path.join(root, "asset-registry.json"))) return "";
+  if (!fs.existsSync(path.join(root, "assets", "sha256"))) return "";
+  return root;
 }
 
 function assertMeasuredComponentAnalysis(deck, entry, sourceFile) {
@@ -226,22 +244,22 @@ function componentCandidateReport(entry) {
   return {
     provider: "image-to-editable-component-recall-fixture-candidates-v1",
     caseId: entry.id,
-    layers: entry.expectedComponentFamilies.map((family, index) => ({
+    layers: entry.source.components.map((component, index) => ({
       pageIndex: 0,
       imageIndex: 0,
       layerType: "diagram",
       detector: "image-to-editable-recall-fixture",
-      templateFamily: family,
-      targetMotifs: [motifForFamily(family)],
+      templateFamily: component.family,
+      targetMotifs: [motifForFamily(component.family)],
       componentRenderStrategy: {
         mode: "native-rebuild-with-component-style-guide",
         applicationPlan: {
-          componentKind: FAMILY_LABELS[family] || family,
-          targetMotifs: [motifForFamily(family)]
+          componentKind: FAMILY_LABELS[component.family] || component.family,
+          targetMotifs: [motifForFamily(component.family)]
         }
       },
       componentFamilyEvidence: {
-        family,
+        family: component.family,
         ordinal: index + 1
       }
     }))
@@ -265,7 +283,7 @@ function motifForFamily(family) {
   })[family] || family;
 }
 
-function writeConfig(file, { inputDir, outputDir, pagePattern }) {
+function writeConfig(file, { inputDir, outputDir, pagePattern, sourceComponents = [] }) {
   const config = {
     inputDir,
     outputDir,
@@ -274,7 +292,7 @@ function writeConfig(file, { inputDir, outputDir, pagePattern }) {
     adapters: {
       normalize: "scripts/adapters/normalize-placeholder.js",
       ocr: "scripts/adapters/ocr-placeholder.js",
-      vision: "scripts/adapters/vision-placeholder.js",
+      vision: "scripts/adapters/vision-component-recall-fixture.js",
       pptx: "scripts/adapters/pptx-openxml-dotnet.js",
       render: "scripts/adapters/render-placeholder.js",
       diff: "scripts/adapters/diff-placeholder.js",
@@ -300,6 +318,9 @@ function writeConfig(file, { inputDir, outputDir, pagePattern }) {
       compare: false,
       polish: false,
       compress: false
+    },
+    componentRecallFixture: {
+      sourceComponents
     }
   };
   fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, "utf8");
@@ -316,12 +337,12 @@ function renderCaseSourcePng(entry) {
   ];
   drawRect(image, 48, 42, 864, 456, [255, 255, 255, 255]);
   drawBorder(image, 48, 42, 864, 456, [71, 85, 105, 255]);
-  entry.expectedComponentFamilies.forEach((family, index) => {
+  entry.source.components.forEach((component, index) => {
     const color = palette[index % palette.length];
     const x = 110 + index * 330;
-    drawFamilyGlyph(image, family, x, 120 + index * 95, color);
+    drawFamilyGlyph(image, component.family, x, 120 + index * 95, color);
   });
-  drawFooterBars(image, entry.expectedComponentFamilies.length);
+  drawFooterBars(image, entry.source.components.length);
   return pngBuffer(image);
 }
 
@@ -531,6 +552,7 @@ module.exports = {
     componentCandidateReport,
     createLocalSlidecloneRunner,
     motifForFamily,
+    resolveDefaultComponentAssetRoot,
     renderCaseSourcePng
   }
 };

@@ -163,12 +163,26 @@ function normalizeSource(value, caseId) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError(`corpus case ${caseId} source must be an object`);
   const kind = safeId(value.kind || "image", `corpus case ${caseId} source kind`);
   if (!["image", "pdf", "image-pptx"].includes(kind)) throw new Error(`corpus case ${caseId} source kind is unsupported`);
+  const components = normalizeSourceComponents(value.components || [], caseId);
   return Object.freeze({
     kind,
     path: safeRelativePath(value.path, `corpus case ${caseId} source path`),
     page: value.page == null ? null : boundedInteger(value.page, `corpus case ${caseId} source page`, 1, 10000),
-    provenance: safeText(value.provenance || "", `corpus case ${caseId} source provenance`, MAX_TEXT)
+    provenance: safeText(value.provenance || "", `corpus case ${caseId} source provenance`, MAX_TEXT),
+    components
   });
+}
+
+function normalizeSourceComponents(value, caseId) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > MAX_FAMILIES) throw new TypeError(`corpus case ${caseId} source.components must be a non-empty bounded array`);
+  const components = value.map((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new TypeError(`corpus case ${caseId} source.components[${index}] must be an object`);
+    if (Object.keys(entry).some((key) => key !== "family")) throw new Error(`corpus case ${caseId} source.components[${index}] contains an unsupported field`);
+    const family = safeId(entry.family, `corpus case ${caseId} source.components[${index}].family`);
+    if (!COMPONENT_FAMILY_IDS.includes(family)) throw new Error(`corpus case ${caseId} source.components contains unknown component family: ${family}`);
+    return Object.freeze({ family });
+  });
+  return Object.freeze(components);
 }
 
 function normalizeAcceptance(value, caseId, profiles) {
@@ -532,6 +546,7 @@ module.exports = {
     componentFamilies,
     crc32,
     listZipEntries,
+    normalizeSourceComponents,
     normalizeSource,
     observedComponentFamilyEvidenceFromIr,
     observedComponentFamiliesFromIr,
