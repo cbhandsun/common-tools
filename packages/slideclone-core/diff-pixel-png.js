@@ -6,6 +6,8 @@ const path = require("path");
 const { Worker } = require("worker_threads");
 const { readPng, writePng } = require("./png");
 const { buildComponentRegions, compareComponentRegions } = require("./component-region-quality");
+const { detectMissingNativeComponentRegions } = require("./missing-native-component-quality");
+const { measureTextWeightEvidence } = require("./text-weight-evidence");
 
 module.exports = async function diffPixelPng(input, context) {
   const threshold = Number(process.env.SLIDECLONE_PIXEL_THRESHOLD || "24");
@@ -97,7 +99,10 @@ module.exports = async function diffPixelPng(input, context) {
 function comparePageFiles(job) {
   const source = readPng(job.sourceImage);
   const generated = readPng(job.renderedImage);
-  return compareImages(job.pageIndex, source, generated, job.options, job.renderedImage, job.diffImage);
+  const result = compareImages(job.pageIndex, source, generated, job.options, job.renderedImage, job.diffImage);
+  if (job.options?.textBoxes?.length) result.textWeightEvidence = measureTextWeightEvidence({
+    textBoxes: job.options.textBoxes, slideSize: job.options.slideSize, sourceImage: source, renderedImage: generated });
+  return result;
 }
 
 function comparePageInWorker(job) {
@@ -171,8 +176,11 @@ function compareImages(pageIndex, source, generated, options, renderedImage, dif
   }
   fs.mkdirSync(path.dirname(diffImage), { recursive: true });
   writePng(diffImage, diff);
-  const componentQuality = options.slideSize && Array.isArray(options.componentRegions)
-    ? compareComponentRegions(source, generated, options.componentRegions, options.slideSize, options)
+  const componentRegions = options.slideSize && Array.isArray(options.componentRegions)
+    ? withMissingNativeComponentRegions(source, generated, options.componentRegions, options.slideSize, options)
+    : null;
+  const componentQuality = componentRegions
+    ? compareComponentRegions(source, generated, componentRegions, options.slideSize, options)
     : null;
   return {
     pageIndex,
@@ -190,6 +198,11 @@ function compareImages(pageIndex, source, generated, options, renderedImage, dif
     foregroundToleranceDelta: options.foregroundToleranceDelta,
     ...(componentQuality ? { componentQuality } : {})
   };
+}
+
+function withMissingNativeComponentRegions(source, generated, regions, slideSize, options) {
+  const missing = detectMissingNativeComponentRegions(source, generated, regions, slideSize, options);
+  return missing.length ? [...regions, ...missing] : regions;
 }
 
 function hasNearbyForegroundMatch(source, srcOffset, generated, gx, gy, options) {
@@ -239,3 +252,4 @@ function writeDiffPixel(out, offset, source, srcOffset, generated, genOffset, is
 module.exports.compareImages = compareImages;
 module.exports.comparePageFiles = comparePageFiles;
 module.exports.resolveDiffConcurrency = resolveDiffConcurrency;
+module.exports.withMissingNativeComponentRegions = withMissingNativeComponentRegions;

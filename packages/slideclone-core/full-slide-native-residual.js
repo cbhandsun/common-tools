@@ -3,6 +3,11 @@
 const path = require("node:path");
 const { publishResidual } = require("./residual-publication");
 const { createArcResidualMasks } = require("./arc-residual-masks");
+const { auditResidualPixelOwnership } = require("./residual-pixel-ownership");
+const {freeformResidualMasks,freeformBackgroundResidualMasks}=require("./residual-freeform-mask");
+const { sourceTextEraseMask } = require("./residual-source-text-evidence");
+const { residualOwnershipRejection } = require("./residual-branch-result");
+const { nativeOpaqueRectangleMasks } = require('./native-opaque-rectangle-mask');
 
 const MAX_PIXELS = 40000000;
 const MAX_ERASE_OBJECTS = 30000;
@@ -37,8 +42,22 @@ function eraseObjectMask(item, image, slideSize) {
     && endX <= slideSize.w && endY <= slideSize.h;
   const valid = validLine || validBox;
   if (!valid) throw new Error("full-slide residual object geometry is invalid");
+  if (typeof item?.text === "string") {
+    const size = { widthPt: slideSize.w, heightPt: slideSize.h };
+    return sourceTextEraseMask(item, image, size);
+  }
   // A fidelity crop replaces only its own footprint. Text-style padding would
   // erase adjacent content that the replacement image cannot restore.
+  if (item?.source?.residualBackgroundFill === true) {
+    const fill = item?.style?.fill;
+    if (!["rect", "freeform"].includes(item.type) || typeof fill !== "string" || !/^#[a-f0-9]{6}$/iu.test(fill)) throw new TypeError("full-slide residual background is invalid");
+    if (item.type === "freeform") return freeformBackgroundResidualMasks(item, image, slideSize);
+    return { ...pixelMask(box, image, { widthPt: slideSize.w, heightPt: slideSize.h }, false),
+      sourceFill: [1,3,5].map(index => Number.parseInt(fill.slice(index,index+2),16)) };
+  }
+  if(item.type==="freeform"&&item.style?.stroke==="none")return freeformResidualMasks(item,image,slideSize);
+  const opaqueMasks=nativeOpaqueRectangleMasks(item,image,slideSize);
+  if(opaqueMasks)return opaqueMasks;
   if (!line && !arc) return pixelMask(box, image, { widthPt: slideSize.w, heightPt: slideSize.h }, item.type !== "fidelity-crop");
   const scaleX = image.width / slideSize.w;
   const scaleY = image.height / slideSize.h;
@@ -72,9 +91,13 @@ function createFullSlideResidualBuilder({ eraseMasks, readPng, writePng } = {}) 
       if (masks.length + entries.length > MAX_ERASE_MASKS) throw new RangeError("full-slide residual mask count exceeds the safety limit");
       masks.push(...entries);
     }
-    const residual = masks.length > 0 ? eraseMasks(source, masks) : source;
+    // Native and crop owners restore their visible ink. Transparent holes
+    // cannot repaint another object's foreground through overlapping masks.
+    const residual = masks.length > 0 ? eraseMasks(source, masks, { transparent: true }) : source;
+    const pixelOwnership = auditResidualPixelOwnership({ source, residual, masks });
+    if (!pixelOwnership.passed) throw residualOwnershipRejection(pixelOwnership);
     await publishResidual({ sourceFile, outputFile, write: (file) => writePng(file, residual), isCancellationRequested });
-    return Object.freeze({ erasedObjects: eraseObjects.length, erasedTextBoxes: objects === undefined ? eraseObjects.length : 0, widthPx: source.width, heightPx: source.height });
+    return Object.freeze({ erasedObjects: eraseObjects.length, erasedTextBoxes: objects === undefined ? eraseObjects.length : 0, widthPx: source.width, heightPx: source.height, pixelOwnership });
   };
 }
 

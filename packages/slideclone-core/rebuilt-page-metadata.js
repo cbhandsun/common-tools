@@ -45,9 +45,16 @@ function admitRebuiltPageMetadata(result, context) {
     if (typeof passed !== "boolean") throw new TypeError("raw image rebuild quality status is invalid");
     const metrics = field(quality, "metrics");
     const metric = (/** @type {string} */ name) => metrics == null ? 0 : count(field(metrics, name));
-    nativeComponentQuality = Object.freeze({ passed, metrics: Object.freeze({ connectors: metric("connectors"), minimumUnitCrops: metric("minimumUnitCrops"), evidencedMinimumUnitCrops: metric("evidencedMinimumUnitCrops"), unverifiedMinimumUnitCrops: metric("unverifiedMinimumUnitCrops") }) });
+    nativeComponentQuality = Object.freeze({ passed, metrics: Object.freeze({ connectors: metric("connectors"), minimumUnitCrops: metric("minimumUnitCrops"), evidencedMinimumUnitCrops: metric("evidencedMinimumUnitCrops"), unverifiedMinimumUnitCrops: metric("unverifiedMinimumUnitCrops"), ignoredPixelPrimitives: metric("ignoredPixelPrimitives") }) });
   }
-  return Object.freeze({ sourceImage: resolved, residual, reconstructionProfile: profile || null, nativeComponentQuality });
+  const recoveryInput = field(result, "ocrCropRecovery");
+  const ocrCropRecovery = recoveryInput == null ? null : Object.freeze({
+    sourceLines: count(field(recoveryInput, "sourceLines")),
+    recovered: count(field(recoveryInput, "recovered")),
+    cropsErased: count(field(recoveryInput, "cropsErased"))
+  });
+  if (ocrCropRecovery && ocrCropRecovery.recovered > ocrCropRecovery.sourceLines) throw new TypeError("raw image OCR recovery counts are inconsistent");
+  return Object.freeze({ sourceImage: resolved, residual, reconstructionProfile: profile || null, nativeComponentQuality, ocrCropRecovery });
 }
 
 module.exports = { admitRebuiltPageMetadata };

@@ -1,4 +1,7 @@
 "use strict";
+const { parseResidualFill, sourcePixelMatchesResidualFill } = require("./residual-background-mask");
+const { residualTextPlans, eraseResidualTextPlans } = require("./residual-text-erasure");
+const { admitTransparentResidualMasks } = require("./residual-mask-alpha-policy");
 const fs = require("node:fs");
 const path = require("node:path");
 const { classifyObviousMinimumVisualAssetCrop } = require("./image-layer-metadata");
@@ -109,7 +112,7 @@ function shouldKeepStructuredVisualAtomLayerText(image) {
     && textNodeCount >= 3;
 }
 
-function eraseObjectifiedLayerPrimitives({ page, sourceImage, textBoxes = [], primitiveShapes = [], slideSize, irDir }) {
+function eraseObjectifiedLayerPrimitives({ page, sourceImage, textBoxes = [], primitiveShapes = [], slideSize, irDir, onTextErased = undefined }) {
   if (!sourceImage || !page || !Array.isArray(page.images) || !Array.isArray(primitiveShapes) || primitiveShapes.length === 0) return;
   for (const image of page.images) {
     if (shouldPreserveProtectedMinimumUnitCrop(image) && image?.source?.assetHubCycleObjectified !== true) continue;
@@ -268,26 +271,36 @@ function eraseObjectifiedLayerPrimitives({ page, sourceImage, textBoxes = [], pr
         || shape.source.detector === "visual-atom-native-cycle-arrow"
         || shape.source.detector === "visual-atom-native-right-arrow"
         || shape.source.detector === "visual-atom-native-connector"
+        || isVisualRelationshipNativeDetector(shape.source.detector)
         || isVisualChartNativeDetector(shape.source.detector)
         || shape.source.detector === "structured-illustration-card-native-accent"
         || shape.source.detector === "structured-illustration-card-native-border"
       )
     );
-    if (shapes.length === 0) continue;
+    const genericShapes = shouldEraseGenericForegroundResidualContent(image)
+      ? primitiveShapes.filter((shape) => shouldEraseGenericForegroundResidualShape(shape, image))
+      : [];
+    const eraseShapes = [...shapes, ...genericShapes.filter((shape) => !shapes.includes(shape))];
+    if (eraseShapes.length === 0 && !shouldEraseGenericForegroundResidualContent(image)) continue;
     const assetFile = resolveAssetPathForIr(image.assetPath, irDir);
     if (!assetFile) continue;
     const masks = [];
-    if (image?.source?.textObjectified === true || image?.source?.textErasedFromCrop === true) {
+    const erasedTextBoxes = [];
+    if (image?.source?.textObjectified === true || image?.source?.textErasedFromCrop === true || shouldEraseGenericForegroundResidualContent(image)) {
       for (const textBox of textBoxes || []) {
-        if (boxCenterInside(textBox.box, image.box)) masks.push(ptToPxBox(textBox.box, sourceImage, slideSize, 9));
+        if (boxCenterInside(textBox.box, image.box)) {
+          masks.push(ptToPxBox(textBox.box, sourceImage, slideSize, 9));
+          erasedTextBoxes.push(textBox);
+        }
       }
     }
-    for (const shape of shapes) {
+    const textMaskCount = masks.length;
+    for (const shape of eraseShapes) {
       const mask = primitiveShapeEraseMask(shape, sourceImage, slideSize);
       if (mask) masks.push(mask);
     }
     if (masks.length === 0) continue;
-    const erased = eraseMasks(sourceImage, masks);
+    const erased = eraseMasks(sourceImage, masks, { transparentMasks: masks.slice(textMaskCount) });
     const crop = cropPng(erased, ptToPxBox(image.box, sourceImage, slideSize, 0));
     ensureDir(path.dirname(assetFile));
     writePng(assetFile, crop);
@@ -295,12 +308,52 @@ function eraseObjectifiedLayerPrimitives({ page, sourceImage, textBoxes = [], pr
       ...(image.source || {}),
       residualCrop: true,
       primitiveErased: true,
-      erasedPrimitiveCount: shapes.length,
+      erasedPrimitiveCount: eraseShapes.length,
       erasedMaskCount: masks.length,
-      dropErasedResidualAfterNativeRebuild: shouldDropStructuredVisualAtomResidualAfterErase(image) || image.source?.dropErasedResidualAfterNativeRebuild,
+      // The later text filter must retain the native counterpart after this
+      // successful asset write removed it from the fidelity crop. Shape-only
+      // erasure cannot acquire this text preservation contract.
+      ...(textMaskCount > 0 ? { textErasedFromCrop: true } : {}),
+      ...(shouldDropStructuredVisualAtomResidualAfterErase(image) || image.source?.dropErasedResidualAfterNativeRebuild
+        ? { dropErasedResidualAfterNativeRebuild: true }
+        : {}),
       nonEditableReason: `${image.source?.nonEditableReason || image.source?.reason || "local fidelity crop"}; objectified primitives erased from residual crop`
     };
+    if (erasedTextBoxes.length > 0 && typeof onTextErased === "function") onTextErased(image, erasedTextBoxes);
   }
+}
+
+function shouldEraseGenericForegroundResidualContent(image = {}) {
+  const source = image.source || {};
+  if (shouldPreserveProtectedMinimumUnitCrop(image)) return false;
+  if (!/^(?:foreground-graphic-crop|foreground-aggregate-crop)$/u.test(String(source.detector || ""))) return false;
+  const box = image.box || {};
+  return Number(box.w || 0) >= DEFAULT_SLIDE.widthPt * 0.08
+    && Number(box.h || 0) >= DEFAULT_SLIDE.heightPt * 0.08;
+}
+
+function shouldEraseGenericForegroundResidualShape(shape = {}, image = {}) {
+  if (!shape?.box || !image?.box) return false;
+  if (shape?.source?.editable === false) return false;
+  if (!isGenericErasableNativeShape(shape)) return false;
+  const overlap = boxOverlapArea(shape.box, image.box);
+  const shapeArea = Math.max(1, Math.abs(Number(shape.box.w || 0) * Number(shape.box.h || 0)));
+  return overlap / shapeArea >= 0.45 || boxCenterInside(shape.box, image.box);
+}
+
+function isGenericErasableNativeShape(shape = {}) {
+  const detector = String(shape?.source?.detector || "");
+  if (/^(?:line-text-native-|ocr-status-native-|long-axis-line|visual-atom-native-|visual-relationship-native-)/u.test(detector)) return true;
+  return shape.type === "line" || shape.type === "connector" || shape?.source?.connector === true
+    || /^(?:rect|roundRect|ellipse|diamond|triangle)$/u.test(String(shape.type || ""));
+}
+
+function boxOverlapArea(a = {}, b = {}) {
+  const left = Math.max(Number(a.x || 0), Number(b.x || 0));
+  const top = Math.max(Number(a.y || 0), Number(b.y || 0));
+  const right = Math.min(Number(a.x || 0) + Number(a.w || 0), Number(b.x || 0) + Number(b.w || 0));
+  const bottom = Math.min(Number(a.y || 0) + Number(a.h || 0), Number(b.y || 0) + Number(b.h || 0));
+  return Math.max(0, right - left) * Math.max(0, bottom - top);
 }
 
 function shouldEraseOverlayOnlyStructuredCasePrimitives(image = {}) {
@@ -379,6 +432,10 @@ function primitiveShapeEraseMask(shape, sourceImage, slideSize) {
   if (detector === "visual-atom-native-cycle-arrow") return ptToPxBox(expandPtBox(box, slideSize, 5, 5), sourceImage, slideSize, 0);
   if (detector === "visual-atom-native-right-arrow") return ptToPxBox(expandPtBox(box, slideSize, 6, 6), sourceImage, slideSize, 0);
   if (detector === "visual-atom-native-connector") return ptLineToPxMask(box, sourceImage, slideSize, 7);
+  if (isVisualRelationshipNativeDetector(detector)) {
+    if (/(?:connector|spine|axis|grid-line|branch-card-connector)$/u.test(detector)) return ptLineToPxMask(box, sourceImage, slideSize, 9);
+    return ptToPxBox(expandPtBox(box, slideSize, 4, 4), sourceImage, slideSize, 0);
+  }
   if (detector === "visual-chart-native-axis") return ptLineToPxMask(box, sourceImage, slideSize, 6);
   if (detector === "visual-chart-native-line-segment") return ptLineToPxMask(box, sourceImage, slideSize, 8);
   if (detector === "visual-chart-native-bar") return ptToPxBox(expandPtBox(box, slideSize, 3, 3), sourceImage, slideSize, 0);
@@ -509,11 +566,21 @@ function primitiveShapeEraseMask(shape, sourceImage, slideSize) {
   if (detector === "product-brain-vision-native-search-icon") return ptLineToPxMask(box, sourceImage, slideSize, 5);
   if (detector === "product-brain-vision-native-search-icon-circle") return ptToPxBox(expandPtBox(box, slideSize, 3, 3), sourceImage, slideSize, 0);
   if (detector === "product-brain-vision-native-cursor") return ptToPxBox(expandPtBox(box, slideSize, 2, 2), sourceImage, slideSize, 0);
+  if (/^(?:line-text-native-|ocr-status-native-|long-axis-line|visual-atom-native-|visual-relationship-native-)/u.test(detector)) {
+    if (shape?.type === "line" || shape?.type === "connector" || shape?.source?.connector === true) return ptLineToPxMask(box, sourceImage, slideSize, 7);
+    return ptToPxBox(expandPtBox(box, slideSize, 3, 3), sourceImage, slideSize, 0);
+  }
+  if (shape?.type === "line" || shape?.type === "connector" || shape?.source?.connector === true) return ptLineToPxMask(box, sourceImage, slideSize, 7);
+  if (/^(?:rect|roundRect|ellipse|diamond|triangle)$/u.test(String(shape?.type || ""))) return ptToPxBox(expandPtBox(box, slideSize, 3, 3), sourceImage, slideSize, 0);
   return null;
 }
 
 function isVisualChartNativeDetector(detector) {
   return /^visual-chart-native-(?:axis|bar|line-segment|line-point|scatter-point|donut|donut-segment|pie-segment)$/.test(String(detector || ""));
+}
+
+function isVisualRelationshipNativeDetector(detector) {
+  return /^visual-relationship-native-/u.test(String(detector || ""));
 }
 
 function shouldPreserveProtectedMinimumUnitCrop(image = {}) {
@@ -573,23 +640,37 @@ function resolveAssetPathForIr(assetPath, irDir) {
   return path.isAbsolute(assetPath) ? assetPath : path.resolve(irDir, assetPath);
 }
 
-function eraseMasks(image, masks) {
+function eraseMasks(image, masks, options = {}) {
+  if (!options || typeof options !== "object" || Array.isArray(options)
+    || (options.sampleErasedBackground !== undefined && typeof options.sampleErasedBackground !== "boolean")
+    || (options.transparent !== undefined && typeof options.transparent !== "boolean")) throw new TypeError("residual erasure options are invalid");
   const next = { width: image.width, height: image.height, rgba: Buffer.from(image.rgba) };
+  const transparentMasks = admitTransparentResidualMasks(options.transparentMasks, masks);
+  const textPlans = residualTextPlans(image, masks);
   for (const mask of masks) {
-    const fill = sampleMaskBackgroundColor(image, mask);
+    if (mask.textInk !== undefined) continue;
+    const sourceFill = parseResidualFill(mask.sourceFill);
+    const transparent = options.transparent === true || transparentMasks.has(mask);
+    const fill = transparent ? {r:255,g:255,b:255}
+      : sampleMaskBackgroundColor(options.sampleErasedBackground === true ? next : image, mask);
     const bounds = maskBounds(mask, image);
     for (let y = bounds.y; y < bounds.y + bounds.h; y += 1) {
       for (let x = bounds.x; x < bounds.x + bounds.w; x += 1) {
         if (!pointInMask(x, y, mask)) continue;
         const offset = (y * image.width + x) * 4;
+        if (!sourcePixelMatchesResidualFill(image.rgba, offset, sourceFill)) continue;
         next.rgba[offset] = fill.r;
         next.rgba[offset + 1] = fill.g;
         next.rgba[offset + 2] = fill.b;
-        next.rgba[offset + 3] = 255;
+        next.rgba[offset + 3] = transparent ? 0 : 255;
       }
     }
   }
+  // Text ink is stronger evidence than a similar panel fill color. Restore
+  // its measured background after primitive masks, or leave a hole only when
+  // an independent owner matches that background, not the antialias color.
+  eraseResidualTextPlans(image, next, textPlans, options.transparent === true);
   return next;
 }
 
-module.exports = { eraseObjectifiedLayerPrimitives, shouldPreserveProtectedMinimumUnitCrop, shouldSplitMixedDiagramSemanticCrops, isFidelityFirstMinimumVisualUnit, isStructuredWmsRouteChainNativeCandidate, shouldSplitProcessWithScreenshotsLayer, shouldEraseOverlayOnlyStructuredCasePrimitives, shouldPreserveImageCropUnderNativeAssistants, isVisualChartNativeDetector, resolveAssetPathForIr, primitiveShapeEraseMask, eraseMasks, ensureDir, shouldDropStructuredVisualAtomResidualAfterErase, shouldKeepStructuredVisualAtomLayerText };
+module.exports = { eraseObjectifiedLayerPrimitives, shouldPreserveProtectedMinimumUnitCrop, shouldSplitMixedDiagramSemanticCrops, isFidelityFirstMinimumVisualUnit, isStructuredWmsRouteChainNativeCandidate, shouldSplitProcessWithScreenshotsLayer, shouldEraseOverlayOnlyStructuredCasePrimitives, shouldPreserveImageCropUnderNativeAssistants, isVisualChartNativeDetector, isVisualRelationshipNativeDetector, resolveAssetPathForIr, primitiveShapeEraseMask, eraseMasks, ensureDir, shouldDropStructuredVisualAtomResidualAfterErase, shouldKeepStructuredVisualAtomLayerText };

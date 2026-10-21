@@ -24,7 +24,7 @@ function parseReporter(env = process.env) {
 }
 
 function parseListMode(argv = process.argv.slice(2)) {
-  return argv.includes("--list");
+  return argv.includes("--list") || argv.includes("--list-files");
 }
 
 function parseListFilesMode(argv = process.argv.slice(2)) {

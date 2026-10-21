@@ -23,7 +23,8 @@ param(
   [string]$RawImageOcrProvider = 'PaddleOCR',
   [ValidatePattern('^$|^[a-z0-9][a-z0-9._/-]{0,127}:[a-z0-9][a-z0-9._-]{0,63}$')]
   [string]$RawImageOcrImage = '',
-  [switch]$SkipRawImageOcrBuild
+  [switch]$SkipRawImageOcrBuild,
+  [string]$ExistingSecretFile = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,6 +34,9 @@ $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $promptedEnvironmentNames = [System.Collections.Generic.List[string]]::new()
 $originalCapabilities = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_TEAM_CAPABILITIES', 'Process')
 $restoreCapabilities = $false
+$importedEnvironment = @{}
+$originalPaddleImage = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE', 'Process')
+$originalTesseractImage = [Environment]::GetEnvironmentVariable('COMMON_TOOLS_IMAGE_OCR_IMAGE', 'Process')
 $resolvedRawImageOcrImage = if (-not [string]::IsNullOrWhiteSpace($RawImageOcrImage)) {
   $RawImageOcrImage
 } elseif ($RawImageOcrProvider -eq 'PaddleOCR') {
@@ -61,6 +65,33 @@ function Set-MissingPromptedEnvironment([string]$Name, [string]$Prompt, [switch]
   if ([string]::IsNullOrWhiteSpace($value)) { throw "$Name is required" }
   [Environment]::SetEnvironmentVariable($Name, $value, 'Process')
   $script:promptedEnvironmentNames.Add($Name)
+}
+
+function Import-ExistingLocalSecrets([string]$Path) {
+  if ([string]::IsNullOrWhiteSpace($Path)) { return }
+  if (-not [System.IO.Path]::IsPathRooted($Path) -or $Path.IndexOf([char]0) -ge 0) { throw 'Existing secret file path must be absolute' }
+  try { $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop }
+  catch { throw 'Existing secret file is unavailable' }
+  if ($item.PSIsContainer -or ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.Length -gt 65536) {
+    throw 'Existing secret file is invalid'
+  }
+  $repoPrefix = $repositoryRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+  if ($item.FullName.StartsWith($repoPrefix, [System.StringComparison]::OrdinalIgnoreCase)) { throw 'Existing secret file must be outside the repository' }
+  $values = @{}
+  foreach ($line in Get-Content -LiteralPath $item.FullName -ErrorAction Stop) {
+    $trimmed = $line.Trim()
+    if (-not $trimmed -or $trimmed.StartsWith('#')) { continue }
+    $separator = $trimmed.IndexOf('=')
+    if ($separator -le 0) { throw 'Existing secret file contains an invalid assignment' }
+    $name = $trimmed.Substring(0, $separator)
+    if ($name -cnotmatch '^COMMON_TOOLS_[A-Z0-9_]{1,120}$' -or $values.ContainsKey($name)) { throw 'Existing secret file contains an invalid variable name' }
+    $values[$name] = $trimmed.Substring($separator + 1)
+  }
+  if ($values['COMMON_TOOLS_PROJECT'] -cne $Project) { throw 'Existing secret file belongs to another project' }
+  foreach ($name in $values.Keys) {
+    $script:importedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+    [Environment]::SetEnvironmentVariable($name, $values[$name], 'Process')
+  }
 }
 
 function Set-MissingSharedLocalPassword {
@@ -140,6 +171,8 @@ function Set-MissingSiyuanConfigurationFromPrompt {
 
 $operationLock = Enter-CommonToolsTeamRuntimeOperationLock -Project $Project
 try {
+if ($SkipRawImageOcrBuild -and -not $EnableRawImageOcr) { throw 'Skipping the OCR build requires EnableRawImageOcr' }
+Import-ExistingLocalSecrets $ExistingSecretFile
 $composeFiles = @(
   (Join-Path $repositoryRoot 'deploy/compose.team-infra.yaml'),
   (Join-Path $repositoryRoot 'deploy/compose.team-api.yaml'),
@@ -493,6 +526,8 @@ if ($EnableRawImageOcr) {
   if ($Mode -eq 'Apply' -and -not $SkipRawImageOcrBuild) { Invoke-RawImageOcrImageBuild }
   $rawImageOcrProfile = Resolve-RawImageOcrProfile
   $ocrComposeFile = if ($RawImageOcrProvider -eq 'PaddleOCR') { 'deploy/compose.team-image-paddleocr.yaml' } else { 'deploy/compose.team-image-ocr.yaml' }
+  if ($RawImageOcrProvider -eq 'PaddleOCR') { [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE', $resolvedRawImageOcrImage, 'Process') }
+  else { [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_OCR_IMAGE', $resolvedRawImageOcrImage, 'Process') }
   $composeFiles += (Join-Path $repositoryRoot $ocrComposeFile)
 }
 Invoke-Compose @('config', '--quiet')
@@ -523,7 +558,8 @@ if ($Mode -eq 'Plan') {
 # Workers. A root-password mismatch must not trigger a costly partial rollout.
 Remove-LocalStatelessComposeContainers @(Resolve-LocalStatelessDeploymentServices $deploymentPlan)
 Invoke-Compose @('up', '--detach', '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, 'minio')
-Invoke-Compose @('up', '--detach', '--build', '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, '--scale', "remote-mcp=$ApiReplicas")
+$buildMode = if ($SkipRawImageOcrBuild) { '--no-build' } else { '--build' }
+Invoke-Compose @('up', '--detach', $buildMode, '--remove-orphans', '--wait', '--wait-timeout', $WaitTimeoutSeconds, '--scale', "remote-mcp=$ApiReplicas")
 Assert-LocalRuntime @($deploymentPlan.capabilities)
 Synchronize-SingleIngressMcpOAuthClient
 Assert-SingleIngressRuntime @($deploymentPlan.capabilities)
@@ -531,5 +567,8 @@ Invoke-Compose @('ps', '--format', 'json')
 } finally {
   foreach ($name in $promptedEnvironmentNames) { [Environment]::SetEnvironmentVariable($name, $null, 'Process') }
   if ($restoreCapabilities) { [Environment]::SetEnvironmentVariable('COMMON_TOOLS_TEAM_CAPABILITIES', $originalCapabilities, 'Process') }
+  [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE', $originalPaddleImage, 'Process')
+  [Environment]::SetEnvironmentVariable('COMMON_TOOLS_IMAGE_OCR_IMAGE', $originalTesseractImage, 'Process')
+  foreach ($name in $importedEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name, $importedEnvironment[$name], 'Process') }
   Exit-CommonToolsTeamRuntimeOperationLock -Lock $operationLock
 }

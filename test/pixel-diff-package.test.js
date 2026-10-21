@@ -5,18 +5,25 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { createRequire } = require("node:module");
-const { IMAGE_EDITABLE_RELEASE_FILES } = require("../scripts/verify-runtime-package");
+const { REQUIRED_FILES } = require("../scripts/verify-runtime-package");
 
 test("isolated core runs real parallel pixel workers with serial-equivalent results", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pixel-diff-package-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const installed = path.join(root, "node_modules/@common-tools/slideclone-core");
   fs.mkdirSync(installed, { recursive: true });
-  const modules = ["png", "component-region-quality", "diff-pixel-png", "pixel-diff-page-worker"];
+  const modules = ["png", "component-region-quality", "native-freeform-path", "missing-native-component-quality", "diff-pixel-png", "pixel-diff-page-worker", "text-weight-evidence", "text-ink-geometry", "source-text-separator", "measured-text-fit",
+    "positioned-text-reframe", "positioned-text-layout", "source-word-layout-projection", "positioned-text-font-override",
+    "text-ink-joint-evidence", "typography-contract", "source-word-joint-observation", "source-row-component-ownership", "source-row-whitespace-corridor"];
   for (const file of ["package.json", ...modules.map((name) => `${name}.js`)]) fs.copyFileSync(path.join(__dirname, "../packages/slideclone-core", file), path.join(installed, file));
-  for (const name of ["diff-pixel-png", "pixel-diff-page-worker"]) assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/slideclone-core/${name}.js`));
+  for (const name of modules) assert.ok(REQUIRED_FILES.includes(`packages/slideclone-core/${name}.js`), name);
   const load = createRequire(path.join(root, "consumer.cjs"));
   const compare = load("@common-tools/slideclone-core/diff-pixel-png");
+  const {buildComponentRegions}=load(path.join(installed,"component-region-quality.js"));
+  const [surface]=buildComponentRegions({shapes:[{type:"freeform",box:{x:10,y:10,w:80,h:80},
+    style:{fill:"#123456",stroke:"none",freeformPath:"[[0,0,0],[1,1,0],[1,1,1],[1,0,1],[4]]"}}]},
+    {widthPt:100,heightPt:100});
+  assert.equal(surface.role,"shape");assert.equal(surface.geometry,undefined);
   const { writePng } = load("@common-tools/slideclone-core/png");
   const sourceImage = path.join(root, "source.png"), renderedImage = path.join(root, "rendered.png");
   writePng(sourceImage, { width: 2, height: 2, rgba: Buffer.from([0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255]) });

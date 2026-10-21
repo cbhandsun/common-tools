@@ -42,7 +42,7 @@ class JsonLineProtocol:
             raise
 
     def emit(self, payload: dict[str, object]) -> None:
-        self._stream.write(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n")
+        self._stream.write(json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n")
         self._stream.flush()
 
     def close(self) -> None:

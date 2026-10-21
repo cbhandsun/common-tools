@@ -1,6 +1,6 @@
 "use strict";
 const { ensureDir } = require("./residual-primitive-erasure");
-const { foregroundComponents, isUsefulGraphicComponent, mergeGraphicComponents, expandPxBox, inAnyMask, isGraphicForeground } = require("./residual-component-analysis");
+const { foregroundComponents, isUsefulGraphicComponent, mergeGraphicComponents, expandPxBox, inAnyMask, isGraphicForeground, splitSparseLargeGraphicComponents } = require("./residual-component-analysis");
 const { materializeGraphicCrops } = require("./graphic-crop-materializer");
 const { ptToPxBox, pxToPtBox, pixel, boxCenterInside, expandPtBox } = require("./raster-native-detection");
 const { DEFAULT_SLIDE } = require("./page-text-rule-helpers");
@@ -9,7 +9,8 @@ function createGraphicCrops(image, textBoxes, slideSize, options) {
   return materializeGraphicCrops(image, textBoxes, slideSize, options, {
     shouldFullyObjectifyEntropyChallenge, ensureDir, ptToPxBox, foregroundComponents,
     mergeCloseComponent, isUsefulGraphicComponent, mergeGraphicComponents, aggregateForegroundComponent,
-    shouldAddAggregateComponent, pxToPtBox, classifyGraphicCropExpression
+    shouldAddAggregateComponent, pxToPtBox, classifyGraphicCropExpression,
+    splitSparseLargeGraphicComponents
   });
 }
 

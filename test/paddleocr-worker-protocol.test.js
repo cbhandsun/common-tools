@@ -33,6 +33,7 @@ test("PaddleOCR worker isolates Python, native, Win32, child and exit-time outpu
   assert.equal(result.messages[0].protocolVersion, 2);
   assert.equal(result.messages[1].itemsByImage.length, 2);
   assert.equal(result.messages[1].itemsByImage[0][0].text, "中文 🌍");
+  assert.deepEqual(result.messages[1].itemsByImage[0][0].wordPositionHints.map(hint => hint.text), ["中", "文", " 🌍"]);
 });
 
 test("PaddleOCR worker preserves empty results, clean EOF and bounded batch size", () => {
@@ -40,6 +41,53 @@ test("PaddleOCR worker preserves empty results, clean EOF and bounded batch size
   assert.deepEqual(run("noisy", "").messages.map((message) => message.type), ["ready"]);
   assert.equal(run("noisy", request(16)).messages[1].itemsByImage.length, 16);
   assert.equal(run("noisy", request(17)).messages[1].type, "error");
+});
+
+test("PaddleOCR worker discards invalid optional word hints while preserving the admitted line", () => {
+  for (const mode of ["word-sequence-mismatch", "word-invalid-coordinate", "word-outside-line", "word-invalid-count"]) {
+    const result = run(mode);
+    assert.equal(result.status, 0);
+    assert.equal(result.messages[1].itemsByImage[0][0].text, "中文 🌍");
+    assert.equal(result.messages[1].itemsByImage[0][0].wordPositionHints, undefined);
+  }
+});
+
+test("PaddleOCR worker projects validated horizontal CTC cells through a slanted source quadrilateral", () => {
+  const result = run("word-quad-valid");
+  assert.equal(result.status, 0);
+  const line = result.messages[1].itemsByImage[0][0];
+  assert.deepEqual(line.polygon, [[10, 10], [30, 12], [32, 22], [12, 20]]);
+  assert.deepEqual(line.wordPositionHints, [
+    { text: "中", box: { x: 10, y: 10, w: 8, h: 10.600000000000001 } },
+    { text: "文", box: { x: 16, y: 10.6, w: 8, h: 10.6 } },
+    { text: " 🌍", box: { x: 22, y: 11.2, w: 10, h: 10.8 } }
+  ]);
+});
+
+test("PaddleOCR quadrilateral bridge refuses ambiguous mappings without dropping recognized text", () => {
+  for (const suffix of ["partial", "crossed", "vertical", "rotated", "boolean", "overflow", "reversed", "empty", "invalid-region", "count-limit"]) {
+    const result = run(`word-quad-${suffix}`);
+    assert.equal(result.status, 0);
+    const line = result.messages[1].itemsByImage[0][0];
+    assert.equal(line.text, "中文 🌍");
+    assert.equal(line.wordPositionHints, undefined);
+  }
+});
+
+test("PaddleOCR protocol rejects nonfinite source coordinates before writing a partial JSON line", () => {
+  const result = run("word-quad-nonfinite");
+  assert.equal(result.status, 0);
+  assert.deepEqual(result.messages.map(message => message.type), ["ready", "error"]);
+  assert.deepEqual(result.messages[1], { type: "error", id: "request-1", code: "inference-failed", errorType: "ValueError" });
+});
+
+test("PaddleOCR quadrilateral projection retains descending source geometry", () => {
+  const line = run("word-quad-descending").messages[1].itemsByImage[0][0];
+  assert.deepEqual(line.wordPositionHints.map(hint => hint.text), ["中", "文", " 🌍"]);
+  const expected = [[10, 11.4, 8, 10.6], [16, 10.8, 8, 10.6], [22, 10, 10, 10.8]];
+  line.wordPositionHints.forEach((hint, index) => {
+    ["x", "y", "w", "h"].forEach((key, field) => assert.ok(Math.abs(hint.box[key] - expected[index][field]) < 1e-12));
+  });
 });
 
 test("PaddleOCR worker keeps malformed and oversized requests as structured failures", () => {

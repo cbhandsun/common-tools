@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const MAX_REPORT_BYTES = 256 * 1024;
-const MODES = new Set(["auto", "shape-text", "smartart-text", "geometry"]);
+const MODES = new Set(["auto", "shape-text", "smartart-text", "geometry", "connector"]);
 const STAGES = new Set(["lock", "manifest", "application", "copy", "open", "find-target", "edit", "save", "close", "reopen", "verify", "complete"]);
 const PROCESS_STATUSES = new Set(["succeeded", "failed", "terminated"]);
 const FLAGS = ["opened", "saved", "reopened", "verified"];

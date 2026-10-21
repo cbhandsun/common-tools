@@ -18,10 +18,7 @@ module.exports = async function renderPowerPointCom(input, context) {
   fs.mkdirSync(renderDir, { recursive: true });
   const renderPptxFile = path.join(renderDir, "render-input.pptx");
   fs.copyFileSync(pptxFile, renderPptxFile);
-  const firstPage = (input.ir?.pages || [])[0];
-  const sourceSize = firstPage?.sourceImage && fs.existsSync(firstPage.sourceImage)
-    ? readImageSize(firstPage.sourceImage)
-    : { widthPx: 1920, heightPx: 1080 };
+  const sourceSize = resolveSourceSize(input, context);
   const scriptFile = path.join(renderDir, "export-pptx.ps1");
   fs.writeFileSync(scriptFile, powerPointExportScript(), "utf8");
 
@@ -114,6 +111,42 @@ function clearRenderedPages(renderDir) {
   }
 }
 
+function resolveSourceSize(input, context) {
+  const sourceImage = firstSourceImage(input);
+  const sourceFile = sourceImage ? resolveSourceImageFile(sourceImage, context) : "";
+  if (sourceFile) {
+    const size = readImageSize(sourceFile);
+    if (positiveInt(size.widthPx, 0) && positiveInt(size.heightPx, 0)) return size;
+  }
+  return { widthPx: 1920, heightPx: 1080 };
+}
+
+function firstSourceImage(input) {
+  if (typeof input?.sourceImage === "string" && input.sourceImage) return input.sourceImage;
+  if (Array.isArray(input?.sourceImages) && typeof input.sourceImages[0] === "string" && input.sourceImages[0]) return input.sourceImages[0];
+  const firstPage = Array.isArray(input?.ir?.pages) ? input.ir.pages[0] : null;
+  return typeof firstPage?.sourceImage === "string" && firstPage.sourceImage ? firstPage.sourceImage : "";
+}
+
+function resolveSourceImageFile(sourceImage, context) {
+  const candidates = [];
+  if (path.isAbsolute(sourceImage)) candidates.push(sourceImage);
+  else {
+    candidates.push(path.resolve(sourceImage));
+    if (typeof context?.sourceRoot === "string") candidates.push(path.resolve(context.sourceRoot, sourceImage));
+    if (typeof context?.root === "string") candidates.push(path.resolve(context.root, sourceImage));
+    if (typeof context?.outputDir === "string") candidates.push(path.resolve(context.outputDir, "..", sourceImage));
+  }
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate) && fs.lstatSync(candidate).isFile()) return candidate;
+    } catch {
+      // Ignore inaccessible candidates and continue to the next bounded location.
+    }
+  }
+  return "";
+}
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -135,8 +168,10 @@ function Wait-PowerPointReady {
   param([Parameter(Mandatory=$true)]$Application)
   if ($Application -eq $null) { return $false }
   try {
-    $null = $Application.Presentations.Count
-    return $true
+    $presentations = $Application.Presentations
+    if ($null -eq $presentations) { return $false }
+    $count = $presentations.Count
+    return ($count -is [int] -and $count -ge 0)
   }
   catch {
     return $false
@@ -222,7 +257,13 @@ finally {
     try { $presentation.Close() | Out-Null } catch { Write-Verbose $_.Exception.Message }
   }
   if ($app -ne $null) {
-    try { $app.Quit() | Out-Null } catch { Write-Verbose $_.Exception.Message }
+    try {
+      $remainingPresentations = $app.Presentations
+      if ($null -ne $remainingPresentations) {
+        $remaining = $remainingPresentations.Count
+        if ($remaining -is [int] -and $remaining -eq 0) { $app.Quit() | Out-Null }
+      }
+    } catch { Write-Verbose "PowerPoint cleanup could not confirm an empty session." }
   }
 }
 `;
@@ -230,3 +271,4 @@ finally {
 
 module.exports.powerPointExportScript = powerPointExportScript;
 module.exports.isRetryableComError = isRetryableComError;
+module.exports._private = { resolveSourceSize };

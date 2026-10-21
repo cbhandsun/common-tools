@@ -434,16 +434,23 @@ test("OpenXmlDeckBuilder keeps production residual layers below foreground nativ
   }
 });
 
-test("OpenXmlDeckBuilder writes textbox typeface and vertical alignment", () => {
-  const source = fs.readFileSync(programFile, "utf8");
-
-  assert.match(source, /AppendTypeface\(properties, runFont\?\.Family \?\? effectiveFont\?\.Family\)/);
-  assert.match(source, /Anchor = TextAnchor\(effectiveFont\?\.Valign\)/);
-  assert.match(source, /new A\.LatinFont \{ Typeface = family \}/);
-  assert.match(source, /new A\.EastAsianFont \{ Typeface = family \}/);
-  assert.match(source, /new A\.ComplexScriptFont \{ Typeface = family \}/);
-  assert.match(source, /LeftInset = TextInset\(textBox\.Style, "marginLeftPt"\)/);
-  assert.match(source, /RightInset = TextInset\(textBox\.Style, "marginRightPt"\)/);
+test("OpenXmlDeckBuilder writes textbox typeface and vertical alignment", { timeout: 60000 }, t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "native-text-face-contract-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const deck = createMinimalDeckIr("字体 native"), text = deck.pages[0].textBoxes[0];
+  Object.assign(text.font, { family: "Microsoft YaHei", latinFamily: "Arial", eastAsianFamily: "KaiTi", complexScriptFamily: "Tahoma", valign: "middle" });
+  text.runs = [{ text: text.text, font: { eastAsianFamily: "YouYuan" } }];
+  text.style = { marginLeftPt: 3, marginRightPt: 4, marginTopPt: 2, marginBottomPt: 5 };
+  const input = path.join(root, "deck.json"), out = path.join(root, "deck.pptx");
+  fs.writeFileSync(input, JSON.stringify(deck)); runBuilder(["--ir", input, "--out", out]);
+  const xml = readZipEntry(out, "ppt/slides/slide1.xml").toString("utf8");
+  assert.match(xml, /<a:latin typeface="Arial"/u);
+  assert.match(xml, new RegExp(`<a:ea typeface="${process.platform === "win32" ? "幼圆" : "YouYuan"}"`, "u"));
+  assert.match(xml, /<a:cs typeface="Tahoma"/u);
+  assert.match(xml, /<a:rPr\b[^>]*lang="zh-CN"/u);
+  for (const value of ['anchor="ctr"', 'lIns="38100"', 'rIns="50800"', 'tIns="25400"', 'bIns="63500"']) assert.ok(xml.includes(value), value);
+  assert.match(xml, /<a:t>字体 native<\/a:t>/u);
+  assert.doesNotMatch(xml, /<p:pic\b|<a:custGeom\b/u);
 });
 
 test("OpenXmlDeckBuilder supports bounded editable rich text runs", () => {
@@ -452,7 +459,7 @@ test("OpenXmlDeckBuilder supports bounded editable rich text runs", () => {
 
   assert.match(models, /List<TextRunIr>\? Runs = null/);
   assert.match(source, /\.Take\(128\)/);
-  assert.match(source, /CreateRunProperties\(run\.Font\)/);
+  assert.match(source, /CreateRunProperties\(run\.Font, run\.Text\)/);
   assert.match(source, /new A\.Text\(run\.Text\)/);
 });
 
@@ -461,6 +468,17 @@ test("OpenXmlDeckBuilder honors legacy style.wrap without a typed wrap field", (
 
   assert.match(source, /var wrap = textBox\.Wrap \?\? GetBoolean\(textBox\.Style, "wrap"\);/);
   assert.match(source, /Wrap = wrap == false \? A\.TextWrappingValues\.None : A\.TextWrappingValues\.Square/);
+});
+
+test("OpenXmlDeckBuilder maps shrink-fit text boxes to DrawingML auto-fit", () => {
+  const source = fs.readFileSync(programFile, "utf8");
+
+  assert.match(source, /TextAutoFitRequested\(textBox\)/);
+  assert.match(source, /string\.Equals\(GetString\(textBox\.Style, "fit"\), "shrink", StringComparison\.OrdinalIgnoreCase\)/);
+  assert.match(source, /GetObject\(textBox\.Source, "ocrEvidenceFit"\)/);
+  assert.match(source, /GetObject\(textBox\.Source, "finalWorstTextInkBoxFit"\)/);
+  assert.doesNotMatch(source, /GetObject\(textBox\.Source, "finalWorstRichOcrTextLayoutFit"\)/);
+  assert.match(source, /bodyProperties\.Append\(new A\.NormalAutoFit\(\)\)/);
 });
 
 test("OpenXmlDeckBuilder hydrates legacy style font fields at the IR boundary", () => {
@@ -615,17 +633,23 @@ test("OpenXmlDeckBuilder writes learned text gradient reflection and line spacin
   assert.match(textXml, /<a:lnSpc><a:spcPct\b[^>]*\bval="150000"/);
 });
 
-test("OpenXmlDeckBuilder preserves hidden OCR text as transparent editable text", () => {
-  const source = fs.readFileSync(programFile, "utf8");
-  const models = fs.readFileSync(modelsFile, "utf8");
-
-  assert.match(source, /var opacity = TextOpacity\(textBox\)/);
-  assert.match(source, /GetString\(textBox\.Style, "visibility"\)/);
-  assert.match(source, /GetNumber\(textBox\.Style, "opacity"\)/);
-  assert.match(source, /textBox\.Font\?\.Opacity \?\? 1/);
-  assert.match(source, /rgb\.Append\(new A\.Alpha \{ Val = ToAlpha\(runOpacity\) \}\)/);
-  assert.match(models, /public sealed record TextBoxIr\([\s\S]*double\? Rotation = null,[\s\S]*JsonElement\? Source = null[\s\S]*\);/);
-  assert.match(models, /public sealed record FontIr\(string\? Family, double\? SizePt, string\? Weight, string\? Color, string\? Align, string\? Valign, double\? LineHeightMultiple, double\? Opacity = null\)/);
+test("OpenXmlDeckBuilder preserves hidden OCR text as transparent editable text", { timeout: 60000 }, t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "native-hidden-text-contract-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const mode of ["visibility", "style-opacity", "font-opacity"]) {
+    const deck = createMinimalDeckIr("隐藏 OCR native"), text = deck.pages[0].textBoxes[0];
+    Object.assign(text.font, { latinFamily: "Arial", eastAsianFamily: "KaiTi" });
+    if (mode === "font-opacity") text.font.opacity = 0;
+    else text.style = mode === "visibility" ? { visibility: "hidden" } : { opacity: 0 };
+    const input = path.join(root, mode + ".json"), out = path.join(root, mode + ".pptx");
+    fs.writeFileSync(input, JSON.stringify(deck)); runBuilder(["--ir", input, "--out", out]);
+    const xml = readZipEntry(out, "ppt/slides/slide1.xml").toString("utf8");
+    assert.match(xml, /<a:alpha val="0"/u, mode);
+    assert.match(xml, /<a:t>隐藏 OCR native<\/a:t>/u, mode);
+    assert.match(xml, /<a:latin typeface="Arial"/u, mode);
+    assert.match(xml, new RegExp(`<a:ea typeface="${process.platform === "win32" ? "楷体" : "KaiTi"}"`, "u"), mode);
+    assert.doesNotMatch(xml, /<p:pic\b|<a:custGeom\b/u, mode);
+  }
 });
 
 test("OpenXmlDeckBuilder preserves component replacement metadata in drawing descriptions", () => {
@@ -886,6 +910,32 @@ test("OpenXmlDeckBuilder emits editable custom geometry for freeform IR", { time
   assert.doesNotMatch(stylePointsShapeXml, /<a:prstGeom[^>]+prst="rect"/);
 });
 
+test("OpenXmlDeckBuilder preserves native contour holes without raster media", { timeout: 60_000 }, (t) => {
+  const { traceNativeMaskContours } = require("../packages/slideclone-core/native-mask-contours");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-native-contour-"));
+  t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const points = [];
+  for (let y = 0; y < 10; y += 1) for (let x = 0; x < 10; x += 1) {
+    if (x < 2 || x >= 8 || y < 2 || y >= 8) points.push({ x, y });
+  }
+  const segments = traceNativeMaskContours(points, { x: 0, y: 0, w: 10, h: 10 });
+  const irFile = path.join(tmp, "deck.json");
+  const pptxFile = path.join(tmp, "deck.pptx");
+  fs.writeFileSync(irFile, JSON.stringify({ version: "1.0", slideSize: { widthPt: 100, heightPt: 100 }, pages: [{
+    pageIndex: 0, background: { fill: "#FFFFFF" }, textBoxes: [], images: [], shapes: [{
+      id: "compound-contour", type: "freeform", box: { x: 10, y: 10, w: 80, h: 80 },
+      style: { fill: "#1473E6", stroke: "none", freeformSegments: segments }
+    }]
+  }] }));
+  runBuilder(["--ir", irFile, "--out", pptxFile]);
+  const xml = readZipEntry(pptxFile, "ppt/slides/slide1.xml").toString("utf8");
+  assert.equal(countMatches(xml, /<a:moveTo>/g), 2);
+  assert.equal(countMatches(xml, /<a:close\b/g), 2);
+  assert.match(xml, /<a:custGeom\b/);
+  assert.doesNotMatch(xml, /<p:pic\b|<a:blip\b/);
+  assert.equal(listZipEntries(pptxFile).some((entry) => entry.name.startsWith("ppt/media/")), false);
+});
+
 test("OpenXmlDeckBuilder writes a native gradient outline without fragmenting the shape", { timeout: 60_000 }, () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-gradient-outline-"));
   const irFile = path.join(tmp, "deck.ir.json");
@@ -1018,7 +1068,10 @@ test("OpenXmlDeckBuilder maps editable primitive shape variants", () => {
   assert.match(source, /"triangle" => A\.ShapeTypeValues\.Triangle/);
   assert.match(source, /"right-triangle" or "righttriangle" => A\.ShapeTypeValues\.RightTriangle/);
   assert.match(source, /"wedgerectcallout" or "wedge-rect-callout" => A\.ShapeTypeValues\.WedgeRectangleCallout/);
-  assert.match(source, /"largedashdot" => A\.PresetLineDashValues\.LargeDashDot/);
+  const nativeDash = fs.readFileSync(path.join(openXmlBuilderRoot, "NativeLineDash.cs"), "utf8");
+  assert.match(source, /NativeLineDash\.Resolve\(dash\)/);
+  assert.match(nativeDash, /"largedashdot" => A\.PresetLineDashValues\.LargeDashDot/);
+  assert.match(nativeDash, /"solid" => A\.PresetLineDashValues\.Solid/);
   assert.match(source, /"diamond" => A\.ShapeTypeValues\.Diamond/);
   assert.match(source, /"funnel" or "filter-funnel" => A\.ShapeTypeValues\.Funnel/);
   assert.match(source, /"donut" or "ring" => A\.ShapeTypeValues\.Donut/);
@@ -1060,7 +1113,9 @@ test("OpenXmlDeckBuilder emits native visual atoms as grouped PPT components", (
   assert.match(source, /new P\.GroupShapeProperties\(new A\.TransformGroup\(/);
   assert.match(source, /new A\.ChildOffset/);
   assert.match(source, /new A\.ChildExtents/);
-  assert.match(source, /group\.Append\(CreateTextBox\(textBox, shapeId\+\+, allowRolePlaceholder: !usesTemplateBindings\)\)/);
+  // Component children use absolute local geometry; role placeholders would
+  // make their placement dependent on the slide layout or master.
+  assert.match(source, /group\.Append\(CreateTextBox\(textBox, shapeId\+\+, allowRolePlaceholder: false\)\)/);
   assert.match(source, /group\.Append\(picture\)/);
 });
 
@@ -1086,6 +1141,7 @@ test("OpenXmlDeckBuilder writes component text boxes inside the native PPT group
       }],
       textBoxes: [{
         id: "component-card-label",
+        role: "title",
         text: "Native Group Label",
         box: { x: 124, y: 108, w: 172, h: 32 },
         font: { family: "Arial", sizePt: 16, weight: "bold", color: "#123456", align: "center", valign: "mid", lineHeightMultiple: 1 },
@@ -1109,6 +1165,9 @@ test("OpenXmlDeckBuilder writes component text boxes inside the native PPT group
 
   assert.match(groupXml, /name="native-card-group"/);
   assert.match(groupXml, /Native Group Label/);
+  assert.doesNotMatch(groupXml, /<p:ph\b/, "absolute component text must not inherit title placeholder geometry");
+  assert.match(groupXml, /<a:off x="1574800" y="1371600"\s*\/>/);
+  assert.match(groupXml, /<a:ext cx="2184400" cy="406400"\s*\/>/);
   assert.equal(countMatches(groupXml, /<p:sp>/g), 2, "expected one component shape plus one grouped text box");
   assert.equal(countMatches(slideXml.slice(groupEnd), /Native Group Label/g), 0, "grouped text must not be duplicated outside the group");
 });

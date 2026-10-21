@@ -1,4 +1,8 @@
 "use strict";
+
+const { createOcrStatusNativeComponents } = require("./ocr-status-native-components");
+const { axisStrokeEvidenceMask } = require("./axis-stroke-evidence");
+const { enclosedLightInkColor } = require("./enclosed-light-ink");
 // @ts-check
 
 /** @typedef {{x:number,y:number,w:number,h:number}} Box */
@@ -15,6 +19,7 @@
 /** @typedef {AxisRun & {aValues:number[],colors:string[]}} AxisGroup */
 /** @typedef {{axis:"h",x1:number,x2:number,y:number,thicknessPt:number,color:string} | {axis:"v",x:number,y1:number,y2:number,thicknessPt:number,color:string}} AxisLine */
 /** @typedef {{region?:Box,predicate?:(color:RGBA)=>boolean,textBoxes?:TextBox[],minAreaPx?:number,maxAreaPx?:number,maxWPt?:number,maxHPt?:number,padPt?:number,maxCount?:number}} EntropyOptions */
+/** @typedef {{name:string,shape:string,mark?:string}} StatusIconKind */
 
 
 /** @param {Box} box @param {Box} bounds */
@@ -126,14 +131,20 @@ function sampleInkColor(image, ptBox, slideSize, fallback = "#111111") {
   const box = ptToPxBox(ptBox, image, slideSize, 2);
   const samples = [];
   const sampleStep = Math.max(1, Math.ceil(Math.sqrt((box.w * box.h) / 9000)));
+  const width = Math.ceil(box.w / sampleStep), height = Math.ceil(box.h / sampleStep);
+  const rgba = new Uint8Array(width * height * 4);
   for (let y = box.y; y < box.y + box.h; y += sampleStep) {
     for (let x = box.x; x < box.x + box.w; x += sampleStep) {
       const color = pixel(image, x, y);
+      const cell = (Math.floor((y - box.y) / sampleStep) * width + Math.floor((x - box.x) / sampleStep)) * 4;
+      rgba.set([color.r, color.g, color.b, color.a], cell);
       if (color.a < 64) continue;
       samples.push(color);
     }
   }
   if (samples.length < 8) return normalizeHex(fallback, "#111111");
+  const enclosedInk = enclosedLightInkColor({ width, height, rgba });
+  if (enclosedInk) return enclosedInk;
   const background = sampleMaskBackgroundColor(image, box);
   const contrastSorted = samples
     .map((color) => ({ color, distance: colorDistance(color, background) }))
@@ -197,6 +208,8 @@ function keepStructuralLines(lines, textBoxes) {
 
 /** @param {Raster} image @param {Slide} slideSize @param {"h"|"v"} axis */
 function detectAxisLines(image, slideSize, axis) {
+  const strokeMask = axisStrokeEvidenceMask({ image, axis });
+  if (!strokeMask) return [];
   const raw = [];
   const outer = axis === "h" ? image.height : image.width;
   const inner = axis === "h" ? image.width : image.height;
@@ -207,7 +220,7 @@ function detectAxisLines(image, slideSize, axis) {
     let colors = [];
     for (let b = 0; b <= inner; b += 1) {
       const color = b < inner ? (axis === "h" ? pixel(image, b, a) : pixel(image, a, b)) : null;
-      const on = color && isLinePixel(color);
+      const on = color && isLinePixel(color) && strokeMask[axis === "h" ? a * image.width + b : b * image.width + a] === 1;
       if (on && start === null) {
         start = b;
         colors = [color];
@@ -292,7 +305,10 @@ function detectSimpleStatusIcons(image, slideSize, existingTextBoxes = []) {
       style: { fill: component.color, stroke: component.color, strokeWidthPt: 0 },
       source: { editable: true, nativeRebuild: true, detector: "simple-status-icon", component: kind.name }
     });
-    if (kind.mark) {
+    const markShapes = createSimpleStatusIconMarkShapes(id, kind, box);
+    if (markShapes.length > 0) {
+      shapes.push(...markShapes);
+    } else if (kind.mark) {
       iconTextBoxes.push({
         id: `${id}-mark`,
         text: kind.mark,
@@ -311,6 +327,53 @@ function detectSimpleStatusIcons(image, slideSize, existingTextBoxes = []) {
     }
   }
   return { shapes, textBoxes: iconTextBoxes };
+}
+
+/** @param {string} id @param {StatusIconKind} kind @param {Box} box */
+function createSimpleStatusIconMarkShapes(id, kind, box) {
+  const mark = String(kind?.mark || "");
+  const strokeWidthPt = Math.max(2.2, Math.min(5.2, Number(box.h || 0) * 0.105));
+  const source = {
+    editable: true,
+    nativeRebuild: true,
+    detector: mark === "✓" ? "simple-status-icon-checkmark" : "simple-status-icon-cross",
+    component: kind.name,
+    semanticNativeStructure: true,
+    nativeComponentArchetype: "status-icon",
+    nativeComponentRole: kind.name === "negative" ? "negative-status" : "positive-status"
+  };
+  /** @param {string} suffix @param {number} x @param {number} y @param {number} w @param {number} h */
+  const line = (suffix, x, y, w, h) => ({
+    id: `${id}-${suffix}`,
+    type: "line",
+    box: {
+      x: round(Number(box.x || 0) + Number(box.w || 0) * x),
+      y: round(Number(box.y || 0) + Number(box.h || 0) * y),
+      w: round(Number(box.w || 0) * w),
+      h: round(Number(box.h || 0) * h)
+    },
+    style: {
+      stroke: "#FFFFFF",
+      strokeWidthPt,
+      connectorType: "straight",
+      lineCap: "round",
+      lineJoin: "round"
+    },
+    source
+  });
+  if (mark === "✓") {
+    return [
+      line("check-a", 0.25, 0.56, 0.16, 0.17),
+      line("check-b", 0.39, 0.73, 0.36, -0.43)
+    ];
+  }
+  if (mark === "×") {
+    return [
+      line("cross-a", 0.32, 0.32, 0.36, 0.36),
+      line("cross-b", 0.32, 0.68, 0.36, -0.36)
+    ];
+  }
+  return [];
 }
 
 /** @param {Box} box @param {TextBox[]} textBoxes */
@@ -474,7 +537,7 @@ function connectedColorComponents(image) {
   return components;
 }
 
-/** @param {Component} component */
+/** @param {Component} component @returns {StatusIconKind|null} */
 function classifyIconComponent(component) {
   const color = parseHex(component.color);
   const hsl = rgbToHsl(color);
@@ -482,13 +545,13 @@ function classifyIconComponent(component) {
   if (ratio < 0.55 || ratio > 1.65) return null;
   if (component.density < 0.28) return null;
   if (hsl.h >= 18 && hsl.h <= 48 && hsl.s > 0.55) {
-    return { name: "warning", shape: "triangle", mark: "!" };
+    return { name: "warning", shape: "triangle" };
   }
   if (hsl.s < 0.16 && hsl.l < 0.65) {
-    return { name: "negative", shape: "ellipse", mark: "×" };
+    return { name: "negative", shape: "ellipse" };
   }
   if ((hsl.h >= 95 && hsl.h <= 170 && hsl.s > 0.35) || (hsl.h >= 190 && hsl.h <= 220 && hsl.s > 0.35)) {
-    return { name: "positive", shape: "ellipse", mark: "✓" };
+    return { name: "positive", shape: "ellipse" };
   }
   return null;
 }
@@ -757,6 +820,8 @@ module.exports = {
   detectAxisLines,
   mergeAxisRuns,
   detectSimpleStatusIcons,
+  createSimpleStatusIconMarkShapes,
+  createOcrStatusNativeComponents,
   overlapsAnyTextBox,
   boxOverlapRatio,
   detectEntropyMicroComponents,

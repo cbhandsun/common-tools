@@ -1,0 +1,11 @@
+ARG BASE_IMAGE=common-tools-image-to-editable-paddleocr:local
+FROM ${BASE_IMAGE}
+
+COPY --chown=worker:worker packages ./packages
+USER root
+RUN mkdir -p /opt/openxml \
+    && printf '%s\n' '#!/bin/sh' 'exec /usr/share/dotnet/dotnet /app/packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/bin/Debug/net8.0/OpenXmlDeckBuilder.dll "$@"' > /opt/openxml/OpenXmlDeckBuilder \
+    && chmod 755 /opt/openxml/OpenXmlDeckBuilder \
+    && chown -R worker:worker /opt/openxml
+USER worker
+ENV OPENXML_BUILDER_EXE=/opt/openxml/OpenXmlDeckBuilder

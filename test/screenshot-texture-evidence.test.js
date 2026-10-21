@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { hasRepeatedAlignedDensityRows, hasScatteredTextureEvidence, hasUnverifiedNativeGeometry, assertUnverifiedRegionTextPreserved } = require("../packages/slideclone-core/screenshot-texture-evidence");
+const { hasRepeatedAlignedDensityRows, hasScatteredTextureEvidence, hasUnverifiedNativeGeometry, shouldPreserveCropFromSpeculativeAtoms, assertUnverifiedRegionTextPreserved } = require("../packages/slideclone-core/screenshot-texture-evidence");
 const { understandDiagramLayer } = require("../packages/slideclone-core/diagram-understanding-entry");
 
 function peak(x, y, size = 13.5) {
@@ -47,6 +47,25 @@ test("scattered texture admission requires all geometric evidence and rejects in
   assert.equal(hasScatteredTextureEvidence(sparseAtoms(), { ...box, w: 100, h: 100 }), false);
   assert.equal(hasScatteredTextureEvidence([...sparseAtoms(), ...Array.from({ length: 3 }, () => ({ kind: "connector-arrow-candidate" }))], box), false);
   for (const value of [null, [], new Array(257).fill({})]) assert.equal(hasScatteredTextureEvidence(value, box), false);
+});
+
+test("dense document-like crops and implausibly narrow gantt crops retain their source pixels", () => {
+  const slide = { widthPt: 960, heightPt: 1280 };
+  const candidate = (box, archetype, textBoxCount, count = 20) => ({
+    box,
+    source: { detector: "foreground-graphic-crop", layer: { diagramUnderstanding: {
+      archetype, evidence: { textBoxCount }, visualAtoms: Array.from({ length: count }, () => ({ kind: "connector-line-candidate" }))
+    } } }
+  });
+  assert.equal(shouldPreserveCropFromSpeculativeAtoms(candidate({ x: 10, y: 445, w: 778, h: 453 }, "fishbone-cause-effect", 80), slide), true);
+  assert.equal(shouldPreserveCropFromSpeculativeAtoms(candidate({ x: 865, y: 435, w: 84, h: 463 }, "gantt-roadmap", 0), slide), true);
+  assert.equal(shouldPreserveCropFromSpeculativeAtoms(candidate({ x: 50, y: 50, w: 450, h: 300 }, "fishbone-cause-effect", 12), slide), false);
+  assert.equal(shouldPreserveCropFromSpeculativeAtoms(candidate({ x: 50, y: 50, w: 500, h: 220 }, "gantt-roadmap", 8), slide), false);
+  assert.equal(shouldPreserveCropFromSpeculativeAtoms(candidate({ x: 10, y: 445, w: 778, h: 453 }, "fishbone-cause-effect", 80, 11), slide), false);
+  assert.equal(shouldPreserveCropFromSpeculativeAtoms(candidate({ x: 10, y: 445, w: 778, h: 453 }, "fishbone-cause-effect", 80, 257), slide), false);
+  assert.equal(shouldPreserveCropFromSpeculativeAtoms(candidate({ x: 10, y: 445, w: 778, h: 453 }, "fishbone-cause-effect", 80), { widthPt: Infinity, heightPt: 1280 }), false);
+  assert.equal(shouldPreserveCropFromSpeculativeAtoms({ ...candidate({ x: 10, y: 445, w: 778, h: 453 }, "fishbone-cause-effect", 80), source: { detector: "manual-crop" } }, slide), false);
+  assert.equal(shouldPreserveCropFromSpeculativeAtoms(null, slide), false);
 });
 
 test("screenshot texture evidence accepts repeated aligned density rows", () => {

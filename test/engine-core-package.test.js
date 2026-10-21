@@ -4,9 +4,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { createRequire } = require("node:module");
+const { createRequire, isBuiltin } = require("node:module");
 const test = require("node:test");
 const { IMAGE_EDITABLE_RELEASE_FILES } = require("../scripts/verify-runtime-package");
+const { collectImports } = require("../scripts/verify-workspace-boundaries");
 
 const root = path.resolve(__dirname, "..");
 const modules = ["page-hybrid-graphics-stage", "page-native-graphics-stage", "demand-understanding-shapes", "workflow-shape-primitives", "prd-generation-shapes", "prototype-validation-shapes", "prd-auto-generation-narrative", "color-component-bounds", "diagram-residual-crops", "residual-splitting", "structured-residual-splitting", "residual-component-analysis", "residual-primitive-erasure", "image-layer-metadata", "graphic-expression-policy", "raster-native-detection", "page-semantic-claims", "skills-capability-matrix", "demand-intake-funnel", "smart-review-branch-gate", "skill-chain-orchestration", "asset-landing-triad", "edge-background-alpha", "icon-crop-refiner", "knowledge-graph-icon-crops", "residual-publication", "png", "arc-residual-masks", "full-slide-native-residual", "diagram-text-candidates", "page-reuse", "page-selection", "progress-reporter", "native-rebuild-deck-pipeline", "ocr-source-deck", "graphic-crop-policy", "page-image-finalizer", "page-progress-lifecycle", "page-graphics-stage", "slide-size"];
@@ -14,7 +15,7 @@ const ooxmlModules = ["pptx-inventory", "pptx-zip"];
 
 modules.push("native-output-sanitizer");
 modules.push("source-horizontal-connector-fit");
-modules.push("source-border-fit", "knowledge-graph-gray-node-fit", "gray-border-pixels", "gray-border-residual");
+modules.push("semantic-rebuild-transaction", "source-border-fit", "source-native-edge-refinement", "source-node-connectors", "knowledge-graph-gray-node-fit", "gray-border-pixels", "gray-border-residual");
 modules.push("text-ink-geometry", "measured-text-fit");
 modules.push("text-refinement-coordinator");
 modules.push("deck-ir-tree");
@@ -38,14 +39,17 @@ modules.push("page-output-rules");
 modules.push("semantic-matrix-grid", "detection-result");
 modules.push("asset-closure-funnel", "cli-scaffold-generator", "component-rebuild-precedence", "component-template-group-matcher", "component-template-style", "connector-component-library", "dense-radial-network-policy", "dense-topology-line-compactor", "embedded-expert-screenshot", "fidelity-crop-materializer", "fragmented-asset-chain", "network-rebuild-orchestrator", "ocr-grid-table", "orthogonal-connector-promotion", "paradigm-shift-matrix", "pptx-inventory", "prd-segmented-flow-components", "product-collaboration-protection", "product-manager-friction-network", "prototype-generation-loop", "prototype-loop-measurement", "prototype-validation-screenshot-policy", "radial-network-detector", "residual-overlap-policy", "residual-ownership", "runtime-engine-hybrid", "smart-review-hybrid", "stacked-layer-color-sampling", "system-map-pixel-evidence", "system-map-reconstruction", "system-map-semantics", "text-anchored-process-network", "text-box-micro-adjust", "triangle-topology-measurement", "value-transformation-table", "visual-feature-context", "visual-operation-sync", "workflow-collaboration-multiplier-scope");
 modules.push("registry-graphic-rules", "cover-graphic-rules", "cover-engine-core");
-modules.push("decorative-cover-graphics", "graphic-crop-analysis", "graphic-crop-generation", "entropy-challenge-crops", "graphic-underlay-crops", "kpi-title-graphics", "graphic-crop-materializer", "workflow-cover-text");
+modules.push("decorative-cover-graphics", "graphic-crop-analysis", "graphic-crop-generation", "entropy-challenge-crops", "graphic-underlay-crops", "kpi-title-graphics", "line-text-native-components", "ocr-status-native-components", "graphic-crop-materializer", "workflow-cover-text");
 
 test("rebuild planning, pixel IO and residual generation run from package exports without Skill sources", async (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "engine-core-package-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const installed = path.join(directory, "node_modules", "@common-tools", "slideclone-core");
   fs.mkdirSync(installed, { recursive: true });
-  for (const name of ["package.json", "screenshot-texture-evidence.js", ...modules.map((module) => `${module}.js`)]) fs.copyFileSync(path.join(root, "packages", "slideclone-core", name), path.join(installed, name));
+  // Reproduce the package's flat JavaScript surface, including private relative dependencies.
+  const coreDirectory = path.join(root, "packages", "slideclone-core");
+  for (const name of ["package.json", ...fs.readdirSync(coreDirectory).filter(name => name.endsWith(".js"))])
+    fs.copyFileSync(path.join(coreDirectory, name), path.join(installed, name));
   const installedOoxml = path.join(directory, "node_modules", "@common-tools", "ooxml-core");
   fs.mkdirSync(installedOoxml, { recursive: true });
   for (const name of ["package.json", ...ooxmlModules.map((module) => `${module}.js`)]) fs.copyFileSync(path.join(root, "packages", "ooxml-core", name), path.join(installedOoxml, name));
@@ -491,8 +495,23 @@ test("pixel compatibility entries load from the bundled Runtime without workspac
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pixel-runtime-layout-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   fs.mkdirSync(path.join(directory, "packages/slideclone-core"), { recursive: true });
-  fs.copyFileSync(path.join(root, "packages/slideclone-core/residual-publication.js"), path.join(directory, "packages/slideclone-core/residual-publication.js"));
-  fs.copyFileSync(path.join(root, "packages/slideclone-core/arc-residual-masks.js"), path.join(directory, "packages/slideclone-core/arc-residual-masks.js"));
+  const core = path.join(root, "packages/slideclone-core");
+  const pending = ["png", "full-slide-native-residual"].map(name => path.join(core, `${name}.js`));
+  const copied = new Set();
+  while (pending.length) {
+    const file = pending.pop();
+    if (copied.has(file)) continue;
+    assert.equal(path.dirname(file), core, "pixel dependencies must stay in core");
+    const name = path.basename(file), source = fs.readFileSync(file, "utf8");
+    assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/slideclone-core/${name}`), name);
+    copied.add(file);
+    fs.writeFileSync(path.join(directory, "packages/slideclone-core", name), source);
+    for (const dependency of collectImports(source, name)) {
+      if (isBuiltin(dependency.specifier)) continue;
+      assert.ok(dependency.specifier.startsWith("./"), "pixel dependencies must not require external services");
+      pending.push(require.resolve(path.resolve(core, dependency.specifier)));
+    }
+  }
   for (const name of ["png", "full-slide-native-residual"]) {
     for (const folder of ["packages/slideclone-core", "skills/pd-hifi-slideclone/scripts/lib"]) {
       const target = path.join(directory, folder, `${name}.js`);

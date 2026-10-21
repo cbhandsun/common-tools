@@ -47,7 +47,11 @@ function understandDiagramLayer(item = {}, page = {}, slideSize = DEFAULT_SLIDE,
   const visualConnectors = inferVisualAtomConnectors(visualAtoms, visualNodes);
   const nodes = inferNodes(textBoxes, box);
   const archetype = inferArchetype({ item, nodes, textBoxes, visualAtoms, visualNodes, visualConnectors, visualGrid, box, slideSize });
-  const connectors = inferConnectors(archetype, nodes, visualAtoms);
+  // Reading order, proximity and an archetype can propose relationships, but
+  // cannot witness an edge in the source image. Keep these proposals outside
+  // the evidence consumed by reconstruction, erasure and readiness decisions.
+  const connectorHypotheses = inferConnectors(archetype, nodes, visualAtoms);
+  const connectors = [];
   const residuals = inferResiduals({ item, archetype, nodes, visualAtoms, visualNodes, visualConnectors, box });
   const confidence = scoreUnderstanding({ archetype, nodes, connectors, residuals, item, visualAtoms, visualNodes, visualConnectors, visualGrid });
   const nativeReadiness = readinessFor({ archetype, confidence, nodes, connectors, residuals, visualAtoms, visualNodes, visualConnectors, visualGrid });
@@ -88,6 +92,7 @@ function understandDiagramLayer(item = {}, page = {}, slideSize = DEFAULT_SLIDE,
     diagnostics: {
       "node-count": nodes.length + visualNodes.length,
       "connector-count": connectors.length + visualConnectors.length,
+      "connector-hypothesis-count": connectorHypotheses.length,
       "residual-count": residuals.length,
       readiness: String(nativeReadiness || "unknown").toLowerCase()
     }
@@ -106,6 +111,7 @@ function understandDiagramLayer(item = {}, page = {}, slideSize = DEFAULT_SLIDE,
     ...(structureSignature ? { structureSignature: { expressionFamily, ...structureSignature } } : {}),
     nodeCount: nodes.length,
     connectorCount: connectors.length,
+    connectorHypothesisCount: connectorHypotheses.length,
     residualCount: residuals.length,
     visualAtomCount: visualAtoms.length,
     visualAtomKindCounts: countBy(visualAtoms, "kind"),
@@ -114,6 +120,7 @@ function understandDiagramLayer(item = {}, page = {}, slideSize = DEFAULT_SLIDE,
     visualGrid,
     nodes,
     connectors,
+    connectorHypotheses,
     residuals,
     visualNodes,
     visualConnectors,

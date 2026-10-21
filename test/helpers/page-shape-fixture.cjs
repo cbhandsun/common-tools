@@ -57,6 +57,7 @@ const kinds={
     "retainedVisualAtomNativeShapes",
     "structuredIllustrationCardChromeShapes",
     "retainedComponentTemplateNativeShapes",
+    "lineTextComponentShapes",
     "lines"
   ],
   "flags": [

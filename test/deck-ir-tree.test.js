@@ -2,6 +2,143 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {validateDeckIrTree} = require("../packages/slideclone-core/deck-ir-tree");
+
+test('deferred scene review audit pixels retain their original shared 4M bound at exact metadata paths',()=>{
+ const paths=[['cropPixels'],['deferredRegionalReview','spentBefore'],['deferredRegionalReview','spentAfter'],
+  ['deferredRegionalReview','allocation','sheetPixels'],['deferredRegionalReview','allocation','reservedPixels']];
+ const make=(parts,value)=>parts.reduceRight((child,key)=>({[key]:child}),value);
+ for(const parts of paths){
+  const envelope=value=>({meta:{sourceSceneReview:make(parts,value)}});
+  for(const value of [0,100001,114242,3613912,3728154,4000000])assert.doesNotThrow(()=>validateDeckIrTree(envelope(value)));
+  for(const value of [-1,.5,4000001,NaN,Infinity,null,undefined,'3728154'])assert.throws(()=>validateDeckIrTree(envelope(value)),/invalid number/u);
+  for(const other of [make(parts,100001),{sourceSceneReview:make(parts,100001)},
+   {pages:[{meta:{sourceSceneReview:make(parts,100001)}}]},
+   {meta:{sourceSceneReview:{other:make(parts,100001)}}},
+   {meta:{sourceSceneReview:make([...parts,'x'],100001)}}])assert.throws(()=>validateDeckIrTree(other),/invalid number/u);
+ }
+ let calls=0;const hostile={meta:{sourceSceneReview:{deferredRegionalReview:{allocation:{get sheetPixels(){calls++;throw Error('private');}}}}}};
+ assert.throws(()=>validateDeckIrTree(hostile),/data properties/u);assert.equal(calls,0);
+ const {includesSuite}=require('../scripts/test-suites');for(const suite of ['unit','all'])assert.equal(includesSuite(__filename,suite),true);
+});
+test('transparent owner inventory counters use exact audit paths and the unchanged 4M source cap',()=>{
+ const roots=[audit=>({source:{sourceScene:{openOwners:audit}}}),audit=>({pages:[{source:{sourceScene:{openOwners:audit}}}]}),
+  audit=>({meta:{sourceSceneCompilation:{openOwners:audit}}})];
+ const keys=['context','units','perimeter','paint','relations','labels','glyphs','background','literal','unaccounted'];
+ for(const root of roots)for(const key of ['sourcePixels',...keys]){
+  const make=n=>root(key==='sourcePixels'?{sourcePixels:n}:{counts:[{[key]:n}]});
+  for(const n of [0,100001,274498,4000000])assert.doesNotThrow(()=>validateDeckIrTree(make(n)));
+  for(const n of [-1,.5,4000001,NaN,Infinity,null,undefined,'274498'])assert.throws(()=>validateDeckIrTree(make(n)),/invalid number/u);
+ }
+ for(const tree of [
+  {box:{units:274498}},{openOwners:{counts:[{units:274498}]}},
+  {meta:{sourceSceneCompilation:{openOwners:{counts:[{x:274498}]}}}},
+  {pages:{0:{source:{sourceScene:{openOwners:{sourcePixels:274498}}}}}},
+  {source:{sourceScene:{openOwners:{counts:{0:{units:274498}}}}}},
+  {source:{sourceScene:{openOwners:{counts:Array.from({length:25},(_,i)=>({units:i===24?274498:0}))}}}},
+ ])assert.throws(()=>validateDeckIrTree(tree),/invalid number/u);
+ let reads=0;
+ const hostile={meta:{sourceSceneCompilation:{openOwners:{get sourcePixels(){reads++;throw Error('private');}}}}};
+ assert.throws(()=>validateDeckIrTree(hostile),/data properties/u);assert.equal(reads,0);
+});
+test("rejected residual audit counters retain their pixel bounds without granting geometry authority", () => {
+  const keys = ["scannedPixels", "ownedPixels", "ownedForegroundPixels", "remainingOwnedForegroundPixels",
+    "remainingOwnedBackgroundPixels", "unownedChangedPixels", "remainingTextCorePixels",
+    "incorrectTextBackgroundPixels", "unresolvedTextMasks"];
+  const make = (key, value) => ({meta:{residualBranchRejected:{code:"RESIDUAL_PIXEL_OWNERSHIP_REJECTED",
+    pixelOwnership:{passed:false,[key]:value}}}});
+  for (const key of keys) {
+    for (const value of [0,100001,4283415,40000000]) {
+      const deck = make(key, value);
+      assert.doesNotThrow(() => validateDeckIrTree(deck));
+      assert.equal(deck.meta.residualBranchRejected.pixelOwnership.passed, false);
+    }
+    for (const value of [-1,0.5,40000001,NaN,Infinity,"4283415",null,undefined])
+      assert.throws(() => validateDeckIrTree(make(key, value)), /invalid number/u);
+    for (const deck of [{[key]:100001},{meta:{pixelOwnership:{[key]:100001}}},
+      {meta:{residualBranchRejected:{other:{[key]:100001}}}},
+      {pages:[{meta:make(key,100001).meta}]},make("x",100001),
+      {"meta.residualBranchRejected.pixelOwnership.scannedPixels":100001}])
+      assert.throws(() => validateDeckIrTree(deck), /invalid number/u);
+  }
+  let calls = 0;
+  const hostile = make("scannedPixels", 0);
+  Object.defineProperty(hostile.meta.residualBranchRejected.pixelOwnership, "scannedPixels", {
+    enumerable:true,get(){calls++;return 40000000;}
+  });
+  assert.throws(() => validateDeckIrTree(hostile), /data properties/u);
+  assert.equal(calls, 0);
+  const {includesSuite} = require("../scripts/test-suites");
+  assert.equal(includesSuite(__filename,"all"),true);
+});
+test("admitting residual rejection evidence keeps the native quality gate failed", () => {
+  const {auditNativeComponentQuality} = require("../packages/slideclone-core/native-component-quality");
+  const {residualOwnershipRejection,readResidualOwnershipRejection} = require("../packages/slideclone-core/residual-branch-result");
+  const report = {passed:false,scannedPixels:4283415,ownedPixels:964500,ownedForegroundPixels:721774,
+    remainingOwnedForegroundPixels:0,remainingOwnedBackgroundPixels:0,unownedChangedPixels:0,
+    remainingTextCorePixels:186,incorrectTextBackgroundPixels:0,unresolvedTextMasks:0};
+  const evidence = readResidualOwnershipRejection(residualOwnershipRejection(report));
+  const deck = {pages:[{shapes:[],images:[]}],meta:{residualBranchRejected:{
+    code:"RESIDUAL_PIXEL_OWNERSHIP_REJECTED",pixelOwnership:evidence}}};
+  assert.doesNotThrow(() => validateDeckIrTree(deck));
+  const quality = auditNativeComponentQuality(deck);
+  assert.equal(quality.passed,false);
+  assert.equal(quality.metrics.residualViolations,1);
+  assert(quality.findings.some(item => item.code === "source-residual-ownership-rejected"));
+});
+test('physical group work counters keep their existing 4M budget without acquiring coordinate authority',()=>{
+ const factories=[n=>({source:{sourceScene:{physicalGroupGeometryChecks:n}}}),
+  n=>({pages:[{source:{sourceScene:{physicalGroupGeometryChecks:n}}}]}),
+  n=>({meta:{sourceSceneCompilation:{physicalGroupGeometryChecks:n}}})];
+ for(const make of factories){
+  for(const n of [0,100001,106866,4000000])assert.doesNotThrow(()=>validateDeckIrTree(make(n)));
+  for(const n of [-1,.5,4000001,NaN,Infinity,'106866',null,undefined])assert.throws(()=>validateDeckIrTree(make(n)),/invalid number/u);
+ }
+ for(const value of [{physicalGroupGeometryChecks:106866},{source:{other:{physicalGroupGeometryChecks:106866}}},
+  {pages:{0:{source:{sourceScene:{physicalGroupGeometryChecks:106866}}}}},
+  {source:{sourceScene:{x:106866}}},{source:{sourceScene:{physicalGroupGeometryChecksOther:106866}}}])
+  assert.throws(()=>validateDeckIrTree(value),/invalid number/u);
+ let calls=0;const input={source:{sourceScene:{get physicalGroupGeometryChecks(){calls++;throw new Error('private');}}}};
+ assert.throws(()=>validateDeckIrTree(input),/data properties/u);assert.equal(calls,0);
+ const {includesSuite}=require('../scripts/test-suites');for(const suite of ['unit','all'])assert.equal(includesSuite(__filename,suite),true);
+});
+test("Deck IR admits bounded icon scan counters only at their provenance paths", () => {
+  const make = (key, value) => ({ pages: [{ images: [{ source: { sourceIconEvidence: { [key]: value } } }] }] });
+  for (const [key, maximum] of [["scannedPixels", 4000000], ["foregroundPixels", 262144]]) {
+    for (const value of [0, 100001, maximum]) assert.doesNotThrow(() => validateDeckIrTree(make(key, value)));
+    for (const value of [-1, 0.5, NaN, Infinity, maximum + 1, "100001", null]) {
+      assert.throws(() => validateDeckIrTree(make(key, value)), /invalid number/);
+    }
+    assert.throws(() => validateDeckIrTree({ pages: [{ images: [{ source: { other: { [key]: 100001 } } }] }] }), /invalid number/);
+    assert.throws(() => validateDeckIrTree({ sourceIconEvidence: { [key]: 100001 } }), /invalid number/);
+  }
+  assert.throws(() => validateDeckIrTree(make("x", 100001)), /invalid number/);
+  let executed = false;
+  const request = make("scannedPixels", 0);
+  Object.defineProperty(request.pages[0].images[0].source.sourceIconEvidence, "scannedPixels", {
+    enumerable: true, get() { executed = true; throw new Error("private"); }
+  });
+  assert.throws(() => validateDeckIrTree(request), /data properties/);
+  assert.equal(executed, false);
+});
+test("Deck IR bounds semantic curve sample work without relaxing coordinate or foreign metadata limits", () => {
+  const make = value => ({meta:{semanticNative:{shapeAdmission:{sourceCurveFit:{sampledPixels:value}}}}});
+  const page = value => ({pages:[{source:{semanticNativeStructure:{shapeAdmission:{sourceCurveFit:{sampledPixels:value}}}}}]});
+  for (const factory of [make, page]) {
+    for (const value of [0,100000,546679,4000000]) assert.doesNotThrow(() => validateDeckIrTree(factory(value)));
+    for (const value of [-1,0.5,4000001,NaN,Infinity,null,undefined,"546679"])
+      assert.throws(() => validateDeckIrTree(factory(value)), /invalid number/u);
+  }
+  for (const value of [{sampledPixels:546679}, {meta:{sourceCurveFit:{sampledPixels:546679}}},
+    {pages:[{box:{x:546679}}]}, {pages:{0:page(546679).pages[0]}},
+    {meta:{semanticNative:{shapeAdmission:{otherFit:{sampledPixels:546679}}}}}])
+    assert.throws(() => validateDeckIrTree(value), /invalid number/u);
+  const getter = make(0); let calls = 0;
+  Object.defineProperty(getter.meta.semanticNative.shapeAdmission.sourceCurveFit, "sampledPixels", {
+    enumerable:true, get(){calls++;return 546679;}
+  });
+  assert.throws(() => validateDeckIrTree(getter), /data properties/u);
+  assert.equal(calls, 0);
+});
 test("Deck IR bounds residual split coverage counts as pixels at the exact source path", () => {
   for (const key of ["foregroundPixelCount","coveredForegroundPixelCount"]) {
     const make=value=>({pages:[{images:[{source:{residualSplitRejected:{[key]:value}}}]}]});
@@ -131,6 +268,14 @@ test("Deck IR page-area exception is limited to the exact numeric-index path", (
   assert.throws(() => validateDeckIrTree({"pages.0.reconstruction.qualityBudget.metrics.slideAreaPt2":518400}, 518400), /invalid number/u);
   assert.throws(() => validateDeckIrTree({pages:{0:ir.pages[0]}}, 518400), /invalid number/u);
   for (const limit of [NaN, Infinity, -1, 16000001, "518400"]) assert.throws(() => validateDeckIrTree(null, limit), /area bound/u);
+});
+
+test("scene scan evidence retains the original 4M work cap without changing coordinate admission",()=>{
+ for(const value of [0,4000000])for(const tree of [{source:{sourceScene:{sourceScanPixels:value}}},
+  {pages:[{source:{sourceScene:{sourceScanPixels:value}}}]},{meta:{sourceSceneCompilation:{sourceScanPixels:value}}}])assert.doesNotThrow(()=>validateDeckIrTree(tree));
+ for(const value of [-1,4000001,Infinity,.5,"4000000"])assert.throws(()=>validateDeckIrTree({source:{sourceScene:{sourceScanPixels:value}}}),/invalid number/u);
+ for(const tree of [{box:{x:4000000}},{"source.sourceScene.sourceScanPixels":4000000},
+  {source:{sourceScanPixels:4000000}},{pages:{0:{source:{sourceScene:{sourceScanPixels:4000000}}}}}])assert.throws(()=>validateDeckIrTree(tree),/invalid number/u);
 });
 
 test("Worker rejects unsafe XML strings in consumed fields before building", () => {

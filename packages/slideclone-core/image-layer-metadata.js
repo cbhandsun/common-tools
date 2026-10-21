@@ -18,6 +18,39 @@ function applyMinimumUnitCropRenderStrategy(source = {}) {
   return source;
 }
 
+function positiveBox(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    && [value.x, value.y, value.w, value.h].every((item) => Number.isFinite(item))
+    && value.x >= 0 && value.y >= 0 && value.w > 0 && value.h > 0;
+}
+
+function roundedPixelBox(box) {
+  const x = Math.max(0, Math.round(box.x));
+  const y = Math.max(0, Math.round(box.y));
+  const w = Math.max(1, Math.round(box.w));
+  const h = Math.max(1, Math.round(box.h));
+  return { x, y, w, h };
+}
+
+function ensureMinimumUnitCropEvidence(source = {}, image = {}) {
+  if (source.protectedMinimumUnit !== true || source.cropEvidenceRequired === true) return source;
+  if (!positiveBox(image.box)) return source;
+  const pixelBox = roundedPixelBox(image.box);
+  return {
+    ...source,
+    cropEvidenceRequired: true,
+    originalPixelBox: source.originalPixelBox || pixelBox,
+    coordinateReferenceSizePx: source.coordinateReferenceSizePx || {
+      width: Math.max(1, pixelBox.x + pixelBox.w),
+      height: Math.max(1, pixelBox.y + pixelBox.h)
+    },
+    mappedPixelBox: source.mappedPixelBox || pixelBox,
+    tightenedPixelBox: source.tightenedPixelBox || pixelBox,
+    removedNeighborPixels: Number.isSafeInteger(source.removedNeighborPixels) && source.removedNeighborPixels >= 0 ? source.removedNeighborPixels : 0,
+    retainedDetailComponents: Number.isSafeInteger(source.retainedDetailComponents) && source.retainedDetailComponents >= 0 ? source.retainedDetailComponents : 1
+  };
+}
+
 function classifyObviousMinimumVisualAssetCrop(image = {}) {
   const source = image?.source || {};
   if (source.specializedNativeHybridResidual === true) return null;
@@ -144,7 +177,7 @@ function promoteMinimumVisualAssetCropMetadata(image = {}, classification = null
           ? "authoritative-complete-diagram-minimum-unit"
           : "authoritative-pictorial-minimum-unit"]
   };
-  const source = {
+  const source = ensureMinimumUnitCropEvidence({
     ...(image.source || {}),
     expressionForm: policy.form,
     expressionSubtype: policy.subtype,
@@ -159,7 +192,7 @@ function promoteMinimumVisualAssetCropMetadata(image = {}, classification = null
       minimumUnitPolicy: authoritativeExpressionPolicy.minimumUnitPolicy,
       reasons: authoritativeExpressionPolicy.reasons
     }
-  };
+  }, image);
   applyMinimumUnitCropRenderStrategy(source);
   source.componentRenderStrategy = {
     ...(source.componentRenderStrategy || {}),
@@ -193,7 +226,7 @@ function promoteMinimumVisualAssetCropMetadata(image = {}, classification = null
 function normalizeImageLayerMetadata(image) {
   if (!image || typeof image !== "object") return image;
   if (image.source?.wmsRouteChainWholeFidelityCrop === true) {
-    const source = {
+    const source = ensureMinimumUnitCropEvidence({
       ...(image.source || {}),
       expressionForm: "complex-diagram",
       expressionSubtype: "wms-route-chain-illustration",
@@ -201,7 +234,7 @@ function normalizeImageLayerMetadata(image) {
       recommendedAction: "keep-local-crop",
       intentionalMinimumUnitCrop: true,
       protectedMinimumUnit: true
-    };
+    }, image);
     if (source.layer && typeof source.layer === "object") {
       source.layer = {
         ...source.layer,
@@ -221,14 +254,14 @@ function normalizeImageLayerMetadata(image) {
     };
   }
   if (image.source?.specializedNativeHybridResidual === true) {
-    const source = {
+    const source = ensureMinimumUnitCropEvidence({
       ...(image.source || {}),
       expressionForm: "complex-diagram",
       expressionSubtype: String(image.source?.specializedNativeHybridResidualKind || "specialized-structural-hybrid-residual"),
       layerType: "diagram-zone",
       recommendedAction: image.source?.recommendedAction || "keep-local-crop-as-visual-fidelity-residual-over-specialized-native-structure",
       protectedMinimumUnit: true
-    };
+    }, image);
     if (source.layer && typeof source.layer === "object") {
       source.layer = {
         ...source.layer,
@@ -356,7 +389,7 @@ function normalizeImageLayerMetadata(image) {
   }
   const source = image.source || {};
   if (source.intentionalMinimumUnitCrop === true) {
-    const nextSource = { ...source };
+    const nextSource = ensureMinimumUnitCropEvidence({ ...source }, image);
     applyMinimumUnitCropRenderStrategy(nextSource);
     return { ...image, source: nextSource };
   }
@@ -586,7 +619,7 @@ function markProtectedComplexDiagramMinimumUnit(images = [], { detector, express
       protectedMinimumUnit: true,
       nonEditableReason: reason || "complex diagram/icon composition preserved as a protected visual unit"
     };
-    image.source = applyMinimumUnitCropRenderStrategy(source);
+    image.source = applyMinimumUnitCropRenderStrategy(ensureMinimumUnitCropEvidence(source, image));
   }
 }
 

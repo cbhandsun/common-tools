@@ -58,20 +58,20 @@ function suggestTextBoxMicroAdjustments(options = {}) {
       ? clamp(round(currentSizePt * clamp(heightScale, 0.94, 1.06)), currentSizePt - 1.5, currentSizePt + 1.5)
       : null;
     const fontSizePt = Number.isFinite(suggestedFontSizePt) && Number.isFinite(currentSizePt)
-      ? Math.max(currentSizePt, suggestedFontSizePt)
+      ? suggestedFontSizePt
       : suggestedFontSizePt;
     const suggestedBoxHeightPt = clamp(
       round(textBox.box.h + (sourceHeightRatio - renderedHeightRatio) * cropHeightPt * 0.65),
       textBox.box.h - maxHeightAdjustPt,
       textBox.box.h + maxHeightAdjustPt
     );
-    const boxHeightPt = Math.max(textBox.box.h, suggestedBoxHeightPt);
+    const boxHeightPt = suggestedBoxHeightPt;
     const suggestedBoxWidthPt = clamp(
       round(textBox.box.w + (sourceWidthRatio - renderedWidthRatio) * cropWidthPt * 0.65),
       textBox.box.w - maxWidthAdjustPt,
       textBox.box.w + maxWidthAdjustPt
     );
-    const boxWidthPt = Math.max(textBox.box.w, suggestedBoxWidthPt);
+    const boxWidthPt = suggestedBoxWidthPt;
     const lineHeightMultiple = shouldAdjustLineHeight(textBox, sourceHeightRatio, renderedHeightRatio)
       ? suggestedLineHeightMultiple(textBox, heightScale)
       : null;
@@ -238,17 +238,26 @@ function applyTextBoxEvidenceFit(ir, compareTextCoverage, options = {}) {
 function fitHighConfidenceSingleLineOcrToEvidence(textBoxes = [], options = {}) {
   const minConfidence = Number(options.minConfidence ?? 0.9);
   const paddingPt = Number(options.paddingPt ?? 0);
+  const maxRecoveredCropPositionFitPt = Number(options.maxRecoveredCropPositionFitPt ?? 6);
   return (Array.isArray(textBoxes) ? textBoxes : []).map((textBox) => {
+    // Axis-aligned evidence must not overwrite an explicitly rotated native box.
+    if (Number.isFinite(textBox?.rotation) && Math.abs(textBox.rotation) >= 0.001) return textBox;
     const evidence = textBox?.source?.evidenceBox;
     const confidence = Number(textBox?.source?.confidence);
     const currentSizePt = Number(textBox?.font?.sizePt);
     const hasCurrentSize = Number.isFinite(currentSizePt) && currentSizePt >= 6 && currentSizePt <= 60;
     const family = String(textBox?.font?.family || "");
     const text = String(textBox?.text || "");
-    if (!isEvidenceFitCandidate(textBox, evidence)
+    const recoveredCropPositionCandidate = isRecoveredCropPositionEvidenceFitCandidate(
+      textBox,
+      evidence,
+      maxRecoveredCropPositionFitPt
+    );
+    const ocrDetectorEvidenceCandidate = isOcrDetectorEvidenceFitCandidate(textBox, evidence);
+    if (!(isEvidenceFitCandidate(textBox, evidence) || recoveredCropPositionCandidate || ocrDetectorEvidenceCandidate)
       || !textBox?.source?.ocrProvider
-      || textBox?.source?.overlayVisibility !== "visible"
-      || textBox?.source?.detector
+      || textBox?.source?.overlayVisibility === "hidden"
+      || (textBox?.source?.detector && !ocrDetectorEvidenceCandidate)
       || !Number.isFinite(confidence) || confidence < minConfidence
       || (family && !/Microsoft YaHei|SimHei|DengXian/i.test(family))) return textBox;
 
@@ -273,7 +282,8 @@ function fitHighConfidenceSingleLineOcrToEvidence(textBoxes = [], options = {}) 
     const fittedSizePt = hasCurrentSize
       ? clamp(round(evidenceSizePt), currentSizePt * 0.75, currentSizePt)
       : round(evidenceSizePt);
-    const geometryNeedsFit = widthRatio <= 0.97;
+    const positionNeedsFit = Math.abs(evidence.x - textBox.box.x) >= 0.5 || Math.abs(evidence.y - textBox.box.y) >= 0.5;
+    const geometryNeedsFit = widthRatio <= 0.97 || widthRatio >= 1.03 || (textBox.source?.ocrRecoveredFromCrop === true && positionNeedsFit) || (ocrDetectorEvidenceCandidate && positionNeedsFit);
     const fontNeedsFit = !hasCurrentSize || fittedSizePt < currentSizePt * 0.98;
     if (!geometryNeedsFit && !fontNeedsFit) return textBox;
     return {
@@ -489,6 +499,33 @@ function isEvidenceFitCandidate(textBox, evidence) {
     && evidence.y >= textBox.box.y - 3
     && evidence.x + evidence.w <= textBox.box.x + textBox.box.w + 3
     && evidence.y + evidence.h <= textBox.box.y + textBox.box.h + 3;
+}
+
+function isRecoveredCropPositionEvidenceFitCandidate(textBox, evidence, maxPositionFitPt) {
+  if (textBox?.source?.ocrRecoveredFromCrop !== true) return false;
+  if (!isBox(textBox?.box) || !isBox(evidence)) return false;
+  if (String(textBox.text || "").includes("\n") || textBox.style?.wrap === true) return false;
+  const maxMove = Number.isFinite(maxPositionFitPt) ? Math.max(0, maxPositionFitPt) : 6;
+  const dx = Math.abs(evidence.x - textBox.box.x);
+  const dy = Math.abs(evidence.y - textBox.box.y);
+  if (dx > maxMove || dy > maxMove) return false;
+  const widthRatio = evidence.w / Math.max(1, textBox.box.w);
+  const heightRatio = evidence.h / Math.max(1, textBox.box.h);
+  return widthRatio >= 0.9 && widthRatio <= 1.1 && heightRatio >= 0.9 && heightRatio <= 1.1;
+}
+
+function isOcrDetectorEvidenceFitCandidate(textBox, evidence) {
+  if (!isBox(textBox?.box) || !isBox(evidence)) return false;
+  if (String(textBox.text || "").includes("\n") || textBox.style?.wrap === true) return false;
+  const detector = String(textBox?.source?.detector || "");
+  if (!/^ocr-/u.test(detector)) return false;
+  const widthRatio = evidence.w / Math.max(1, textBox.box.w);
+  const heightRatio = evidence.h / Math.max(1, textBox.box.h);
+  if (widthRatio < 0.65 || widthRatio > 1.35 || heightRatio < 0.75 || heightRatio > 1.35) return false;
+  const maxMoveX = Math.max(4, textBox.box.w * 0.35);
+  const maxMoveY = Math.max(3, textBox.box.h * 0.5);
+  return Math.abs(evidence.x - textBox.box.x) <= maxMoveX
+    && Math.abs(evidence.y - textBox.box.y) <= maxMoveY;
 }
 
 function boxChanged(before, after, minDeltaPt) {

@@ -99,6 +99,103 @@ test("complex graphic gate rejects raster-only and oversized residual delivery",
   assert.throws(() => createPreservationPlan(sampleIr(), { maxResidualAreaRatio: 2 }), /ratio/u);
 });
 
+test("complex graphic gate rejects erased full-slide residuals as non-editable media", () => {
+  const ir = sampleIr();
+  ir.pages[0].images.unshift({
+    id: "full-slide-residual",
+    type: "fidelity-crop",
+    assetPath: "../assets/full-residual.png",
+    box: { x: 0, y: 0, w: 960, h: 540 },
+    source: { residualCrop: true, nativeObjectsErased: true }
+  });
+  const page = createPreservationPlan(ir).pages[0];
+  assert.equal(page.metrics.residualImages, 2);
+  assert.equal(page.metrics.residualAreaRatio, 1);
+  assert.equal(page.metrics.largestResidualAreaRatio, 1);
+  assert.equal(page.metrics.semantic.passed, false);
+  assert.equal(page.metrics.semantic.metrics.largeRasterLineageCount, 1);
+  assert.equal(page.decision.passed, false);
+  assert.equal(page.decision.deliveryStatus, "not-editable-enough");
+  assert.ok(page.decision.reasons.includes("large-raster-lineage"));
+});
+
+test("complex graphic gate rejects raster-derived native primitive mosaics", () => {
+  const ir = sampleIr();
+  ir.pages[0].images = [];
+  ir.pages[0].shapes.push(...Array.from({ length: 36 }, (_, index) => ({
+    id: `native-residual-pixel-${index}`,
+    type: "rect",
+    box: { x: 40 + (index % 12), y: 160 + Math.floor(index / 12), w: 1, h: 1 },
+    style: { fill: "#336699", stroke: "none", strokeWidthPt: 0 },
+    source: { componentQualityIgnore: true, detector: "native-residual-primitive-rect" }
+  })));
+  const page = createPreservationPlan(ir).pages[0];
+  assert.equal(page.metrics.semantic.passed, false);
+  assert.equal(page.metrics.semantic.metrics.rasterDerivedPrimitiveCount, 36);
+  assert.equal(page.decision.passed, false);
+  assert.equal(page.decision.deliveryStatus, "not-editable-enough");
+  assert.ok(page.decision.reasons.includes("raster-derived-primitives"));
+});
+
+test("complex graphic gate rejects compacted quality-ignored pixel rectangles", () => {
+  const ir = sampleIr();
+  ir.pages[0].images = [];
+  ir.pages[0].shapes.push({
+    id: "compacted-pixel",
+    type: "rect",
+    box: { x: 40, y: 160, w: 1, h: 1 },
+    style: { fill: "#336699", stroke: "none", strokeWidthPt: 0 },
+    source: { componentQualityIgnore: true }
+  });
+  const page = createPreservationPlan(ir).pages[0];
+  assert.equal(page.metrics.semantic.passed, false);
+  assert.equal(page.metrics.semantic.metrics.rasterDerivedPrimitiveCount, 1);
+  assert.equal(page.decision.passed, false);
+  assert.equal(page.decision.deliveryStatus, "not-editable-enough");
+  assert.ok(page.decision.reasons.includes("raster-derived-primitives"));
+});
+
+test("complex graphic gate rejects visual fallback tiles without erased native text evidence", () => {
+  const ir = sampleIr();
+  ir.meta = { visualFallback: { strategy: "tiled-source-with-retained-native-visible-text-overlays", pages: 1 } };
+  ir.pages[0].intent = { visualFallbackVerified: true, visualFallbackStrategy: "tiled-source-with-retained-native-visible-text-overlays" };
+  ir.pages[0].images = Array.from({ length: 16 }, (_, index) => ({
+    id: `fallback-tile-${index}`,
+    type: "fidelity-crop",
+    assetPath: "../assets/pixel.png",
+    box: { x: (index % 4) * 240, y: Math.floor(index / 4) * 135, w: 240, h: 135 },
+    source: { tiledLargeRaster: true, visualFallbackSource: true }
+  }));
+  const page = createPreservationPlan(ir).pages[0];
+  assert.equal(page.decision.passed, false);
+  assert.equal(page.decision.deliveryStatus, "not-editable-enough");
+  assert.equal(page.decision.visualFallbackException, false);
+  assert.deepEqual(page.decision.reasons, ["excessive-raster-residual-area", "large-raster-lineage"]);
+  assert.equal(page.metrics.residualAreaRatio, 1);
+  assert.equal(page.metrics.largestResidualAreaRatio < 0.08, true);
+});
+
+test("complex graphic gate records verified visual fallback evidence without passing native delivery", () => {
+  const ir = sampleIr();
+  ir.meta = { visualFallback: { strategy: "tiled-source-with-retained-native-visible-text-overlays", pages: 1 } };
+  ir.pages[0].intent = { visualFallbackVerified: true, visualFallbackStrategy: "tiled-source-with-retained-native-visible-text-overlays" };
+  ir.pages[0].images = Array.from({ length: 16 }, (_, index) => ({
+    id: `fallback-tile-${index}`,
+    type: "fidelity-crop",
+    assetPath: "../assets/pixel.png",
+    box: { x: (index % 4) * 240, y: Math.floor(index / 4) * 135, w: 240, h: 135 },
+    source: { tiledLargeRaster: true, visualFallbackSource: true, erasedNativeTextBoxes: 2 }
+  }));
+  const page = createPreservationPlan(ir).pages[0];
+  assert.equal(page.decision.passed, false);
+  assert.equal(page.decision.deliveryStatus, "not-editable-enough");
+  assert.equal(page.decision.visualFallbackException, false);
+  assert.equal(page.decision.visualFallbackEvidence, true);
+  assert.deepEqual(page.decision.reasons, ["excessive-raster-residual-area", "large-raster-lineage"]);
+  assert.equal(page.metrics.residualAreaRatio, 1);
+  assert.equal(page.metrics.largestResidualAreaRatio < 0.08, true);
+});
+
 test("IR editor applies revision-bound text and geometry changes and rejects stale or unsafe patches", () => {
   const ir = sampleIr(); const revision = deckIrFingerprint(ir);
   const patch = { version: "1.0", expectedRevision: revision, operations: [

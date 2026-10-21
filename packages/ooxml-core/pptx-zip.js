@@ -4,6 +4,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const zlib = require("node:zlib");
 
+/** @typedef {{name:string, compressionMethod:number, compressedSize:number, uncompressedSize:number, localHeaderOffset:number}} ZipEntry */
+/** @typedef {{name:string, data:Buffer|string|Uint8Array}} OutputEntry */
+
 const EOCD_SIGNATURE = 0x06054b50;
 const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
 const LOCAL_FILE_SIGNATURE = 0x04034b50;
@@ -13,6 +16,7 @@ const DEFAULT_LIMITS = Object.freeze({
   maxEntryBytes: 16 * 1024 * 1024
 });
 
+/** @param {string} zipPath @param {string} entryName @param {unknown} [options] */
 function readZipEntryText(zipPath, entryName, options = {}) {
   assertArchiveSize(zipPath, options);
   const buffer = fs.readFileSync(zipPath);
@@ -20,6 +24,7 @@ function readZipEntryText(zipPath, entryName, options = {}) {
   return entry ? entry.toString("utf8") : null;
 }
 
+/** @param {Buffer} buffer @param {string} entryName @param {unknown} [options] */
 function readZipEntry(buffer, entryName, options = {}) {
   const entries = readZipEntries(buffer, options);
   const entry = entries.find((candidate) => candidate.name === entryName);
@@ -27,6 +32,7 @@ function readZipEntry(buffer, entryName, options = {}) {
   return readZipEntryData(buffer, entry, options);
 }
 
+/** @param {Buffer} buffer @param {unknown} [options] @returns {ZipEntry[]} */
 function readZipEntries(buffer, options = {}) {
   const limits = normalizeLimits(options);
   if (!Buffer.isBuffer(buffer) || buffer.length < 22 || buffer.length > limits.maxArchiveBytes) {
@@ -77,6 +83,7 @@ function readZipEntries(buffer, options = {}) {
   return entries;
 }
 
+/** @param {Buffer} buffer @param {ZipEntry} entry @param {unknown} [options] */
 function readZipEntryData(buffer, entry, options = {}) {
   const rawOptions = optionalRecord(options, "ZIP read options");
   const limits = normalizeLimits(rawOptions);
@@ -103,7 +110,8 @@ function readZipEntryData(buffer, entry, options = {}) {
     try {
       data = zlib.inflateRawSync(compressed, { maxOutputLength: maxEntryBytes });
     } catch (error) {
-      if (error?.code === "ERR_BUFFER_TOO_LARGE" || /maxOutputLength|larger than/i.test(String(error?.message))) {
+      if (error instanceof Error && (("code" in error && error.code === "ERR_BUFFER_TOO_LARGE")
+        || /maxOutputLength|larger than/i.test(error.message))) {
         throw new Error(`ZIP entry ${entry.name} exceeds the processing boundary.`, { cause: error });
       }
       throw error;
@@ -117,6 +125,7 @@ function readZipEntryData(buffer, entry, options = {}) {
   return data;
 }
 
+/** @param {string} sourcePath @param {string} outputPath @param {Record<string, Buffer|string|Uint8Array>} [replacements] @param {unknown} [options] */
 function rewriteZipEntries(sourcePath, outputPath, replacements = {}, options = {}) {
   const rawOptions = optionalRecord(options, "ZIP rewrite options");
   const maxArchiveBytes = boundedInteger(rawOptions.maxArchiveBytes, 1024, 256 * 1024 * 1024, 64 * 1024 * 1024, "maxArchiveBytes");
@@ -130,16 +139,16 @@ function rewriteZipEntries(sourcePath, outputPath, replacements = {}, options = 
     maxEntryBytes: maxExpandedBytes
   });
   if (entries.length === 0 || entries.length > 20000) throw new Error("ZIP entry count exceeds the rewrite boundary");
-  const replacementMap = new Map(Object.entries(replacements || {}).map(([name, value]) => [safeEntryName(name), Buffer.from(value)]));
+  const replacementMap = new Map(Object.entries(replacements || {}).map(([name, value]) =>
+    [safeEntryName(name), typeof value === "string" ? Buffer.from(value) : Buffer.from(value)]));
   if ([...replacementMap.keys()].some((name) => !name)) throw new Error("ZIP replacement contains an invalid entry name");
   const outputEntries = [];
   let expandedBytes = 0;
   for (const entry of entries) {
     const name = safeEntryName(entry.name);
     if (!name) throw new Error("ZIP contains an unsafe entry name");
-    const data = replacementMap.has(name)
-      ? replacementMap.get(name)
-      : readZipEntryData(buffer, entry, { maxArchiveBytes, maxEntryBytes: maxExpandedBytes });
+    const data = replacementMap.get(name)
+      ?? readZipEntryData(buffer, entry, { maxArchiveBytes, maxEntryBytes: maxExpandedBytes });
     replacementMap.delete(name);
     expandedBytes += data.length;
     if (expandedBytes > maxExpandedBytes) throw new Error("ZIP expanded data exceeds the rewrite boundary");
@@ -150,6 +159,7 @@ function rewriteZipEntries(sourcePath, outputPath, replacements = {}, options = 
   return { entries: outputEntries.length, expandedBytes };
 }
 
+/** @param {string} outputPath @param {OutputEntry[]} entries */
 function writeStoredZipAtomic(outputPath, entries) {
   const resolved = path.resolve(outputPath);
   fs.mkdirSync(path.dirname(resolved), { recursive: true });
@@ -161,7 +171,7 @@ function writeStoredZipAtomic(outputPath, entries) {
     const name = safeEntryName(entry.name);
     if (!name) throw new Error("ZIP output contains an unsafe entry name");
     const nameBuffer = Buffer.from(name, "utf8");
-    const data = Buffer.from(entry.data);
+    const data = typeof entry.data === "string" ? Buffer.from(entry.data) : Buffer.from(entry.data);
     const crc = crc32(data);
     const flags = 0x0800;
     const local = Buffer.alloc(30);
@@ -208,12 +218,14 @@ function writeStoredZipAtomic(outputPath, entries) {
   }
 }
 
+/** @param {unknown} value */
 function safeEntryName(value) {
   const name = String(value || "").replace(/\\/g, "/").replace(/^\/+/, "");
   if (!name || name.includes("\0") || name.split("/").includes("..") || /^[A-Za-z]:/.test(name)) return "";
   return name;
 }
 
+/** @param {Buffer} buffer */
 function crc32(buffer) {
   let crc = 0xffffffff;
   for (const byte of buffer) {
@@ -223,6 +235,7 @@ function crc32(buffer) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
+/** @param {unknown} value @param {number} min @param {number} max @param {number} fallback @param {string} label */
 function boundedInteger(value, min, max, fallback, label) {
   if (value === undefined || value === null) return fallback;
   const number = typeof value === "number" ? value : Number.NaN;
@@ -232,6 +245,7 @@ function boundedInteger(value, min, max, fallback, label) {
   return number;
 }
 
+/** @param {unknown} [options] */
 function normalizeLimits(options = {}) {
   const rawOptions = optionalRecord(options, "ZIP read options");
   const entryLimit = selectEntryByteLimit(rawOptions);
@@ -254,6 +268,7 @@ function normalizeLimits(options = {}) {
   };
 }
 
+/** @param {string} file @param {unknown} [options] */
 function assertArchiveSize(file, options = {}) {
   const limits = normalizeLimits(options);
   const stats = fs.statSync(file);
@@ -262,12 +277,14 @@ function assertArchiveSize(file, options = {}) {
   }
 }
 
+/** @param {unknown} value @param {string} label @returns {Record<string, unknown>} */
 function optionalRecord(value, label) {
   if (value === undefined || value === null) return {};
   if (typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
-  return value;
+  return /** @type {Record<string, unknown>} */ (value);
 }
 
+/** @param {Record<string, unknown>} options */
 function selectEntryByteLimit(options) {
   if (options.maxEntryBytes !== undefined && options.maxEntryBytes !== null) {
     return { value: options.maxEntryBytes, label: "maxEntryBytes" };
@@ -275,6 +292,7 @@ function selectEntryByteLimit(options) {
   return { value: options.maxBytes, label: "maxBytes" };
 }
 
+/** @param {Buffer} buffer */
 function findEndOfCentralDirectory(buffer) {
   const minOffset = Math.max(0, buffer.length - 0xffff - 22);
   for (let offset = buffer.length - 22; offset >= minOffset; offset -= 1) {

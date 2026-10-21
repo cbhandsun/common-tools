@@ -5,7 +5,7 @@ services:
       dockerfile: deploy/docker/Dockerfile.image-to-editable-paddleocr
       args:
         BASE_IMAGE: ${COMMON_TOOLS_IMAGE_PADDLEOCR_BASE_IMAGE:-common-tools-image-to-editable:local}
-    image: common-tools-image-to-editable-paddleocr:local
+    image: ${COMMON_TOOLS_IMAGE_PADDLEOCR_IMAGE:-common-tools-image-to-editable-paddleocr:local}
     environment:
       COMMON_TOOLS_IMAGE_OCR_CHECKPOINT_REVISION: ${COMMON_TOOLS_IMAGE_OCR_CHECKPOINT_REVISION:-}
       COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE: paddleocr-ppocrv6-v1

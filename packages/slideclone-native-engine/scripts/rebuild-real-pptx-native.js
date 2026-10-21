@@ -7,7 +7,7 @@ const { createGraphicCrops, aggregateForegroundComponent, classifyGraphicCropExp
 const { createEntropyChallengeCrops } = require("@common-tools/slideclone-core/entropy-challenge-crops");
 const { createGraphicUnderlayCrop, classifyGraphicUnderlayExpression, colorBlockRectStats, looksLikeDocumentGenerationFlowUnderlay, looksLikeProductWorkflowUnderlay, createCollaborationFlowUnderlayCrop, bottomBannerBounds, collaborationFlowBounds, fitPanelBox, shouldUseCollaborationFlowUnderlay, isAcceptableDiagramCandidate, createComparisonMatrixCrop, comparisonMatrixBounds, segmentComparisonMatrix, shouldUseComparisonMatrixCrop, createContentGraphicUnderlayCrop, contentTextBounds, shouldUseContentGraphicUnderlay, createIllustrationCardUnderlayCrop, illustrationCardBounds, shouldUseIllustrationCardUnderlay, createLeftIllustrationPanelCrops, leftIllustrationGraphicBounds, shouldUseLeftIllustrationPanelUnderlay, createLineDiagramUnderlayCrop, lineDiagramPxBounds, shouldUseLineDiagramUnderlay, createMixedDiagramUnderlayCrop, shouldUseMixedDiagramUnderlay, createProductIllustrationSegmentCrops, productIllustrationSegmentBoxes, expandProductSegmentPxBox, mergeNearbySegmentBoxes, productIllustrationBandBoxes, significantVerticalInkRunsWithoutHeader, detectWideHeaderBottom, shouldUseProductIllustrationSegmentCrops, coarseHueBucket, looksLikeDenseTextMatrix, clusterCenters, sampleComponentCenterColor, createSaturatedDiagramUnderlayCrop, saturatedGraphicBounds, shouldUseSaturatedDiagramUnderlay, createSegmentedGraphicUnderlayCrops, segmentTextBoxesForUnderlay, groupBoxesByAxis, mergeOverlappingPtBoxes, shouldUseSegmentedGraphicUnderlay, createSparseDiagramUnderlayCrop, shouldUseSparseDiagramUnderlay, createStructuredCaseUnderlayCrop, shouldUseStructuredCaseUnderlay, createTopComplexDiagramCrop, refineBottomValueBannerBoxFromText, shouldUseTopComplexDiagramCrop, topComplexDiagramBounds, createTwoPanelDiagramCrops, shouldUseTwoPanelDiagramCrops, twoPanelDiagramBounds, createVisualClusterUnderlayCrops, shouldUseVisualClusterUnderlay, visualClusterPxBounds, createWmsChainUnderlayCrops, shouldUseWmsChainUnderlay, wmsChainBounds, fitSingleUnderlayAggregate, shouldUseGraphicUnderlay } = require("@common-tools/slideclone-core/graphic-underlay-crops");
 const { createKpiEvidenceShapes, createKpiEvidenceCrops, createTitleChromeShapes, hasTitleAccentEvidence } = require("@common-tools/slideclone-core/kpi-title-graphics");
-const { markTwoPanelChaosIllustrationPreserved, filterShapesClaimedByToolIslandTransitionMatrix, dropDecorativeCoverDuplicateForegroundCrops, dropTableMatrixResidualObjectifiedCrops, dropResidualsCoveredByNativeTableText, shouldDropResidualCoveredByNativeTablePeers, renderableShapeBox, shouldDropResidualCoveredByNativeTableText, dropMostlyBlankCoveredResidualCrops, shouldDropMostlyBlankCoveredResidualCrop, dropPluginTemplateCoveredStructuralUnderlays, shouldDropPluginTemplateCoveredStructuralUnderlay, hasProtectedMinimumUnitToken, dropPluginTemplateCoveredSmallResidualCrops, shouldDropPluginTemplateCoveredSmallResidualCrop, dropWmsObjectifiedValuePanelResidualCrops, shouldDropWmsObjectifiedValuePanelResidualCrop, dropWmsObjectifiedTopRouteUnderlay, shouldDropWmsObjectifiedTopRouteUnderlay, suppressSmallVisualAtomsCoveredByAnchoredSemanticLabels, isSuppressibleSemanticLabelFragment, suppressRedundantTableGridScaffoldCoveredByVisualAtoms, shouldSuppressTableGridScaffoldForLayer, materializePrototypeValidationResidualCrops, dropPrototypeValidationResidualCropsWhenNativeCoverage, dropDemandUnderstandingResidualCropsWhenNativeCoverage, shouldDropDemandUnderstandingResidualCrop, dropEntropyChallengeCropsWhenNativeCoverage, hasEntropyChallengeFinalPageEvidence } = require("@common-tools/slideclone-core/page-output-rules");
+const { markTwoPanelChaosIllustrationPreserved, filterShapesClaimedByToolIslandTransitionMatrix, dropDecorativeCoverDuplicateForegroundCrops, dropTableMatrixResidualObjectifiedCrops, dropResidualsCoveredByNativeTableText, shouldDropResidualCoveredByNativeTablePeers, renderableShapeBox, shouldDropResidualCoveredByNativeTableText, dropMostlyBlankCoveredResidualCrops, shouldDropMostlyBlankCoveredResidualCrop, dropLineTextCoveredForegroundCrops, shouldDropLineTextCoveredForegroundCrop, dropPluginTemplateCoveredStructuralUnderlays, shouldDropPluginTemplateCoveredStructuralUnderlay, hasProtectedMinimumUnitToken, dropPluginTemplateCoveredSmallResidualCrops, shouldDropPluginTemplateCoveredSmallResidualCrop, dropWmsObjectifiedValuePanelResidualCrops, shouldDropWmsObjectifiedValuePanelResidualCrop, dropWmsObjectifiedTopRouteUnderlay, shouldDropWmsObjectifiedTopRouteUnderlay, suppressSmallVisualAtomsCoveredByAnchoredSemanticLabels, isSuppressibleSemanticLabelFragment, suppressRedundantTableGridScaffoldCoveredByVisualAtoms, shouldSuppressTableGridScaffoldForLayer, materializePrototypeValidationResidualCrops, dropPrototypeValidationResidualCropsWhenNativeCoverage, dropDemandUnderstandingResidualCropsWhenNativeCoverage, shouldDropDemandUnderstandingResidualCrop, dropEntropyChallengeCropsWhenNativeCoverage, hasEntropyChallengeFinalPageEvidence } = require("@common-tools/slideclone-core/page-output-rules");
 const { boxesOverlapRatio, isTriangleTopologyInternalPreservedCropLabel, normalizeTriangleTopologyDuplicateLabel, normalizeTriangleTopologyTopText, isPrdPreservedSegmentText, isPrdDocumentSegmentText, mergeShiftLeftAbilityTextBoxes, unionPtBoxes, normalizeWmsRouteChainTitle, assetOsKpiBenefitRefinedFontSize, assetOsKpiBenefitTextColor, assetOsKpiBenefitTextRole, isAssetOsKpiBenefitDiagramText, normalizedChromeEvidenceBox, isCollaborationFlowInternalLabel, isSaturatedDiagramInternalLabel, keepsInternalLayerText, shouldKeepFunnelHubDiagramText, removesInternalEditableText, shouldKeepAssetHubCycleEndpointLabel, shouldKeepFunnelHubTextInResidualCrop, shouldRemoveHighRiskInternalOverlayText, boxArea, intersectionArea, fitTriangleTopologyEvidenceFontSize, normalizeGenericNodeDiagramText, anchorSemanticTextBoxToNativeNodeShape, canNativeShapeHostSemanticLabel, isContainerSemanticLabelHost, pointInsideBox, shouldCenterTableZoneSemanticLabelInHost, tableZoneSemanticContainerSafeLabelBox, tableZoneSemanticContrastTextColor, tableZoneSemanticHostLabelBox, isSemanticLabelHostNativeShape, isAssetOsHighValueAssetMatrixTextEcho, normalizeAssetOsKpiBenefitTextKey, DEFAULT_SLIDE, ASSET_OS_KPI_FONT_SIZES } = require("@common-tools/slideclone-core/page-text-rule-helpers");
 const { suppressGenericStructuredIllustrationObjectsForSpecialist, filterTextBoxesClaimedByTriangleTopology, filterTextBoxesClaimedByPrdSegmentCrops, normalizePrdSegmentCropTextBoxes, arbitrateSparseFlowCardChainNativeOwnership, normalizeCommonOcrTextBoxLabels, normalizeSystemMapChromeTextBoxes, normalizeAssetOsKpiBenefitTextBoxes, filterTextBoxesOutsideSpecializedNativeObjects, filterTextBoxesConsumedByComponentTemplateBackfill, dedupeTextBoxesByStableId, normalizeStackedArchitectureChromeTextBoxes, filterTextBoxesForGraphicUnderlays, filterTextBoxesClaimedByAssetOsClosedLoop, filterTextBoxesClaimedByInputOutputSplit, filterTextBoxesClaimedByCoverEngineCore, dropFalseTableLayersClaimedByPortalPlatform, filterTextBoxesClaimedByDocumentVersionGovernance, filterPrdAutoGenerationDuplicateTextBoxes, filterObjectsClaimedByTemporaryAnswerWorkflowTable, filterTextBoxesClaimedBySystemMapFidelityCrop, filterTextBoxesClaimedByAssetHubSuperBrainPortal, filterTextBoxesClaimedByTraditionalCollaborationBreakdown, filterTextBoxesClaimedByProductBrainAssetClosureFunnel, filterTextBoxesClaimedByProductBrainWmsQualityGate, filterTextBoxesClaimedByProductBrainPuzzleValueLoop, filterTextBoxesClaimedByProductBrainCoreValueHybrid, normalizeTemporaryAnswerWorkflowChromeText, filterTextBoxesClaimedByToolIslandTransitionMatrix, annotateReviewRiskGateTextComponents, annotateTriangleTopologyTextComponents, normalizeTriangleTopologyFinalTypography, filterTextBoxesClaimedByPortalFourLayer, annotateTextBoxesWithNativeComponentGroups, normalizeEntropyChallengeFooterTextBoxes, normalizeAssetOsHighValueAssetMatrixTextBoxes } = require("@common-tools/slideclone-core/page-text-rules");
 const { comparisonMatrixSegmentNativeTextBoxes, comparisonMatrixInternalTextBoxes, comparisonMatrixSegmentTextBox, comparisonMatrixTextKey, maybeEraseSegmentedComparisonMatrixText, visibleSegmentedComparisonMatrixTextBoxes, isLowRiskLeftComparisonMatrixTextBox, isTextBoxOnSafeComparisonMatrixBackground, pointInsidePtBox, visibleComparisonMatrixTextBox, comparisonMatrixTextBox, comparisonMatrixNativeTextBoxId } = require("@common-tools/slideclone-core/comparison-matrix-text");
@@ -111,6 +111,7 @@ const {
   detectAxisLines,
   mergeAxisRuns,
   detectSimpleStatusIcons,
+  createOcrStatusNativeComponents,
   overlapsAnyTextBox,
   boxOverlapRatio,
   connectedColorComponents,
@@ -228,7 +229,7 @@ const { spawnSync } = require("child_process");
 const { cropPng, readPng, writePng, withPngReadCache } = require("./lib/png");
 const { detectColorComponents, detectHorizontalColorBands } = require("./lib/color-component-bounds");
 const { makeEdgeConnectedBackgroundTransparent } = require("./lib/edge-background-alpha");
-const { materializeGraphicCrops, refineGraphicCrop, shouldProtectSmallForegroundGraphicCrop } = require("./lib/graphic-crop-materializer");
+const { createLeadingIconCrops, materializeGraphicCrops, refineGraphicCrop, shouldProtectSmallForegroundGraphicCrop } = require("./lib/graphic-crop-materializer");
 const { measureBranchCurvesFromAnchors } = require("./lib/pixel-branch-curve-detector");
 const { annotateLayerSource, summarizeLayerProfile } = require("./lib/layer-classifier");
 const {
@@ -307,7 +308,7 @@ const {
 const { preparePageGraphics } = createPageGraphicsStage({
   detectLongLines, createKpiEvidenceCrops, createKpiEvidenceShapes, shouldFullyObjectifyEntropyChallenge,
   createTitleChromeShapes, keepStructuralLines, createGraphicUnderlayCrop, decorativeBackgroundMode,
-  normalizeDecorativeCoverTextBoxes, createDecorativeCoverBackground, createGraphicCrops
+  normalizeDecorativeCoverTextBoxes, createDecorativeCoverBackground, createGraphicCrops, createLeadingIconCrops
 });
 const { normalizePageImageMetadata } = createPageImageFinalizer({
   normalizeImageLayerMetadata,
@@ -1504,7 +1505,7 @@ const finalizePageShapes = createPageShapeFinalizer({
 
 const finalizePageOutput = createPageOutputFinalizer({
   sanitizeNativeShapes, dropResidualsCoveredByNativeTableText, dropTableMatrixResidualObjectifiedCrops,
-  dropMostlyBlankCoveredResidualCrops, dropPluginTemplateCoveredStructuralUnderlays, dropPluginTemplateCoveredSmallResidualCrops,
+  dropMostlyBlankCoveredResidualCrops, dropLineTextCoveredForegroundCrops, dropPluginTemplateCoveredStructuralUnderlays, dropPluginTemplateCoveredSmallResidualCrops,
   dropWmsObjectifiedValuePanelResidualCrops, dropWmsObjectifiedTopRouteUnderlay, suppressRedundantTableGridScaffoldCoveredByVisualAtoms,
   suppressSmallVisualAtomsCoveredByAnchoredSemanticLabels, applyPrototypeValidationScreenshotPolicy, materializePrototypeValidationResidualCrops,
   dropPrototypeValidationResidualCropsWhenNativeCoverage, dropDemandUnderstandingResidualCropsWhenNativeCoverage, dropEntropyChallengeCropsWhenNativeCoverage,
@@ -1551,7 +1552,7 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
     const visualFeatureContext = image ? createVisualFeatureContext({ sourceImage: image, slideSize, extractVisualAtoms }) : null;
     const rawTextBoxes = page.textBoxes || [];
     const textBoxes = visibleTextBoxes(page.textBoxes || [], image, slideSize);
-    const { kpiEvidenceShapes, titleChromeShapes, lines, useUnderlay, decorativeBackground, images } = preparePageGraphics({
+    const{kpiEvidenceShapes,titleChromeShapes,lineTextComponentShapes,lineTextComponentTextBoxes,lines,useUnderlay,decorativeBackground,images}=preparePageGraphics({
       image, textBoxes, slideSize, pageIndex, options
     });
     const pageDraft = {
@@ -1601,9 +1602,10 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
         structuredVisualAtomTextOnly: true
       });
     }
-    const nativeTextBoxes = filterTextBoxesForGraphicUnderlays(textBoxes, pageDraft.images, {
+    const ocrStatusComponents = createOcrStatusNativeComponents(filterTextBoxesForGraphicUnderlays(textBoxes, pageDraft.images, {
       keepInternalTextForLayerCandidates: options.objectifyLayerText === true
-    });
+    }), slideSize);
+    const nativeTextBoxes = ocrStatusComponents.textBoxes;
     nativeRebuildCandidateImages = enrichImagesWithPageSemanticText(nativeRebuildCandidateImages, pageSemanticText);
     const systemMapTopologyProbeReady = image
       ? prepareSystemMapTopologyProbe(pageDraft, rawTextBoxes, slideSize, { sourceImage: image, pageIndex })
@@ -1636,8 +1638,6 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
       nativeRebuildCandidateImages = nativeRebuildCandidateImages
         .filter((item) => !protectedSystemMapIds.has(String(item?.id || "")));
     }
-    // High-confidence page semantics must claim the source layer before generic
-    // table/grid and plugin-template paths can reinterpret the architecture.
     const assetOsTwoDimensionalFoundation = image && options.objectifyLayerConnectors === true
       ? createAssetOsTwoDimensionalFoundationObjects(pageDraft, rawTextBoxes, slideSize)
       : { shapes: [], textBoxes: [] };
@@ -1699,7 +1699,7 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
     let { pageLevelNetworkDiagramShapes } = nativeGraphicsStageResult;
     nativeRebuildCandidateImages = nativeGraphicsStageResult.nativeRebuildCandidateImages;
     const hybridGraphicsStageResult = buildPageHybridGraphicsStage({
-      options, pageDraft, slideSize, image, pageIndex, rawTextBoxes, imageFile, componentIndexPage, nativeRebuildCandidateImages, textBoxes, productCollaborationChallenge
+      options, pageDraft, slideSize, image, pageIndex, rawTextBoxes, imageFile, componentIndexPage, nativeRebuildCandidateImages, textBoxes, ocrStatusComponents, productCollaborationChallenge
     }, nativeGraphicsStageResult, {
       createStructuredIllustrationCardShellShapes, createAssetHubCycleIllustrationObjects, shouldObjectifyProductBrainWmsQualityGate, createInputOutputSplitDiagramObjects, createCliScaffoldGeneratorObjects, createVisualOperationSyncModel, materializeVisualOperationSyncImages, createEmbeddedExpertScreenshotModel, materializeEmbeddedExpertScreenshot, createRuntimeEngineHybridModel, materializeRuntimeEngineHybridImages, createParadigmShiftMatrixModel, materializeParadigmShiftGem, createValueTransformationTableModel, materializeValueTransformationIcon, createOcrGridTableModel, materializeOcrGridIcon, createProductBrainVisionObjects, createAssetOsHighValueAssetMatrixObjects, componentAssetLayerPseudoImages, shouldPreferAppliedPluginComponent, createFragmentedAssetChainModel, filterComponentTemplateShapeLayerInputs, mergeDiagramTextBoxes, collectObjectifiedDiagramTextBoxes, collectComponentTemplateFallbackDiagramTextBoxes, filterComponentTemplateNativeInputs, createComponentTemplateNativeObjects, createWorkflowSupplyChainTwoPanelObjects, materializeAssetOsFragmentedAssetChainCrops, replaceComponentTemplateCropsWhenFullyNative, createSpecializedNativeHybridResidualCropsFromNativeShapes, eraseObjectifiedLayerPrimitives, restorePrdGenerationSegmentCropsAfterPrimitiveErasure, migrateLegacyResidualOwnership, splitErasedResidualCrops
     });
@@ -2002,8 +2002,6 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
       pageDraft.images = pageDraft.images.filter((item) => item?.source?.centerBadgeQuadrantCycleObjectified !== true);
       nativeRebuildCandidateImages = nativeRebuildCandidateImages.filter((item) => item?.source?.centerBadgeQuadrantCycleObjectified !== true);
     }
-    // The complete semantic signature is intentionally strict enough to make this
-    // specialized rebuild safe without a manual approximation opt-in.
     const autoObjectifyAssetOsDemandUnderstanding = image && options.objectifyLayerConnectors === true
       && shouldAutoObjectifyAssetOsDemandUnderstandingAssistant(pageDraft, rawTextBoxes, slideSize, options);
     const assetOsDemandUnderstandingAssistant = image && options.objectifyLayerConnectors === true
@@ -2073,9 +2071,10 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
     const structuredIllustrationProcessingWarningShapes = image && options.objectifyLayerConnectors === true
       ? createStructuredIllustrationProcessingWarningShapes(nativeTextBoxes, structuredIllustrationCardShellShapes, slideSize)
       : [];
-    const icons = image && shouldVectorizeStatusIcons(options)
+    const rasterStatusIcons = image && shouldVectorizeStatusIcons(options)
       ? detectSimpleStatusIcons(image, slideSize, textBoxes)
       : { shapes: [], textBoxes: [] };
+    const icons = { shapes: [...ocrStatusComponents.shapes, ...rasterStatusIcons.shapes], textBoxes: rasterStatusIcons.textBoxes };
     const visibleVisualAtomNativeShapes = suppressStructuredIllustrationInputCycleArrows(
       suppressVisualAtomShapesCoveredByStructuredIcons(
         visualAtomNativeShapes,
@@ -2155,6 +2154,8 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
                     : processWithScreenshotsFlowActive
                       ? []
                       : nativeTextBoxes;
+    const retainedLineTextComponentTextBoxes = useUnderlay ? [] : (Array.isArray(lineTextComponentTextBoxes) ? lineTextComponentTextBoxes : []);
+    const retainedNativeAndLineTextBoxes = [...retainedLineTextComponentTextBoxes, ...retainedNativeTextBoxes];
     const retainedDiagramTextBoxes = productBrainAssetClosureFunnelActive
       ? []
       : skillChainOverviewActive
@@ -2255,7 +2256,7 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
       componentTemplateNativeImages
     );
     const retainedComponentBackfillFilteredNativeTextBoxes =
-      filterTextBoxesConsumedByComponentTemplateBackfill(retainedNativeTextBoxes, retainedComponentTemplateNativeTextBoxes);
+      filterTextBoxesConsumedByComponentTemplateBackfill(retainedNativeAndLineTextBoxes, retainedComponentTemplateNativeTextBoxes);
     const retainedComponentBackfillFilteredDiagramTextBoxes =
       filterTextBoxesConsumedByComponentTemplateBackfill(retainedDiagramTextBoxes, retainedComponentTemplateNativeTextBoxes);
     const workflowPrdAutoGenerationFlow = workflowPrdAutoGeneration;
@@ -2279,25 +2280,25 @@ function rebuildDeckFromWorkDir(workDir, options = {}) {
       workflowAssetCycleQuadrant, assetOsDemandUnderstandingAssistant, assetOsEntropyChallenge,
       assetOsHighValueAssetMatrix, assetOsTwoDimensionalFoundation, saturatedDiagramTextShapes,
       semanticCycleDiagramShapes, assetOsFlowActive, denseComplexDiagramScaffoldShapes,
-      twoPanelDiagramTextShapes, topComplexDiagramTextShapes, shiftLeftDebuggerDiagram,
-      toolIslandTransitionMatrix, retainedKpiEvidenceTextShapes, valueQuadrantShapes,
-      reviewRiskGateFlowShapes, funnelHubDiagramShapes, horizontalStepChainShapes,
-      genericNodeDiagramSkeletonShapes, visualClusterStackShapes, wmsRouteChainShapes,
-      retainedCollaborationFlowShapes, stackedArchitectureDiagram, toolGapPlatformDiagram,
-      processWithScreenshotsFlow, textAnchoredProcessNetwork, documentVersionGovernance,
-      documentVersionFolderFlow, assetOsFlow, prototypeGenerationLoop,
-      assetOsKpiBenefit, scaleLandingEvidence, fourStepLandingPath,
-      valueQuadrantGems, portalPlatformDiagram, systemMapDiagram,
-      systemMapFidelityChrome, stickySketchResidualNativeShapes, funnelHubResidualNativeShapes,
-      structuredIllustrationResidualLineShapes, structuredIllustrationResidualIconShapes, tableMatrixResidualObjects,
-      structuredIllustrationCardTitleWarningShapes, structuredIllustrationProcessingWarningShapes, structuredIllustrationResidualSketchLineShapes,
-      structuredIllustrationGearPersonShapes, structuredIllustrationCardVisualAtomShapes, structuredIllustrationOutputDocumentShapes,
-      structuredIllustrationInputDocumentShapes, structuredIllustrationInputChaosGlyphObjects, entropyFragmentShapes,
-      entropyIslandShapes, entropyChallengeAnnotations, entropyChallengeFooterShapes,
-      retainedVisualAtomNativeShapes, structuredIllustrationCardChromeShapes, retainedComponentTemplateNativeShapes,
-      assetHubCycleIllustration, inputOutputSplitDiagram, cliScaffoldGenerator,
-      runtimeEngineHybrid, productBrainVision, useUnderlay,
-      lines, icons, slideSize,
+      twoPanelDiagramTextShapes,topComplexDiagramTextShapes,shiftLeftDebuggerDiagram,
+      toolIslandTransitionMatrix,retainedKpiEvidenceTextShapes,valueQuadrantShapes,
+      reviewRiskGateFlowShapes,funnelHubDiagramShapes,horizontalStepChainShapes,
+      genericNodeDiagramSkeletonShapes,visualClusterStackShapes,wmsRouteChainShapes,
+      retainedCollaborationFlowShapes,stackedArchitectureDiagram,toolGapPlatformDiagram,
+      processWithScreenshotsFlow,textAnchoredProcessNetwork,documentVersionGovernance,
+      documentVersionFolderFlow,assetOsFlow,prototypeGenerationLoop,
+      assetOsKpiBenefit,scaleLandingEvidence,fourStepLandingPath,
+      valueQuadrantGems,portalPlatformDiagram,systemMapDiagram,
+      systemMapFidelityChrome,stickySketchResidualNativeShapes,funnelHubResidualNativeShapes,
+      structuredIllustrationResidualLineShapes,structuredIllustrationResidualIconShapes,tableMatrixResidualObjects,
+      structuredIllustrationCardTitleWarningShapes,structuredIllustrationProcessingWarningShapes,structuredIllustrationResidualSketchLineShapes,
+      structuredIllustrationGearPersonShapes,structuredIllustrationCardVisualAtomShapes,structuredIllustrationOutputDocumentShapes,
+      structuredIllustrationInputDocumentShapes,structuredIllustrationInputChaosGlyphObjects,entropyFragmentShapes,
+      entropyIslandShapes,entropyChallengeAnnotations,entropyChallengeFooterShapes,
+      retainedVisualAtomNativeShapes,structuredIllustrationCardChromeShapes,retainedComponentTemplateNativeShapes,
+      assetHubCycleIllustration,inputOutputSplitDiagram,cliScaffoldGenerator,
+      runtimeEngineHybrid,productBrainVision,useUnderlay,
+      lineTextComponentShapes,lines,icons,slideSize,
       skillsCapabilityMatrix, demandIntakeFunnel, smartReviewBranchGate,
       skillChainOrchestration, assetLandingTriad, portalPlatformDiagramActive,
       visualOperationSyncActive, visualOperationSync, embeddedExpertScreenshotActive,
@@ -2871,46 +2872,6 @@ function restorePrdGenerationSegmentCropsAfterPrimitiveErasure(page, sourceImage
 
 
 
-
-function prototypeValidationDecorations({ wand, wandCenter }) {
-  const star = {
-    x: wand.x + wand.w * 0.48,
-    y: wand.y + wand.h * 0.33
-  };
-  const spark = (name, dx1, dy1, dx2, dy2, stroke = "#F28A2E", width = 2.4) => ({
-    type: "line",
-    box: lineBox(
-      { x: star.x + wand.w * dx1, y: star.y + wand.h * dy1 },
-      { x: star.x + wand.w * dx2, y: star.y + wand.h * dy2 }
-    ),
-    style: { stroke, strokeWidthPt: width, connectorType: "straight" },
-    detector: "prototype-validation-flow-native-wand-spark",
-    role: name
-  });
-  return [
-    {
-      type: "line",
-      box: lineBox({ x: wand.x + 2, y: wandCenter.y }, { x: wand.x + wand.w - 2, y: wandCenter.y }),
-      style: { stroke: "#2B78A5", strokeWidthPt: 3.6, connectorType: "straight" },
-      detector: "prototype-validation-flow-native-wand-bridge",
-      role: "wand-bridge"
-    },
-    {
-      type: "line",
-      box: lineBox(
-        { x: wand.x + wand.w * 0.28, y: wand.y + wand.h * 0.80 },
-        { x: wand.x + wand.w * 0.62, y: wand.y + wand.h * 0.24 }
-      ),
-      style: { stroke: "#1F78C8", strokeWidthPt: 4.2, connectorType: "straight" },
-      detector: "prototype-validation-flow-native-wand-handle",
-      role: "wand-handle"
-    },
-    spark("spark-horizontal", -0.14, 0, 0.14, 0),
-    spark("spark-vertical", 0, -0.14, 0, 0.14),
-    spark("spark-diagonal-a", -0.10, -0.10, 0.10, 0.10, "#36B36F", 2.1),
-    spark("spark-diagonal-b", -0.10, 0.10, 0.10, -0.10, "#36B36F", 2.1)
-  ].filter((item) => Math.abs(item.box.w) + Math.abs(item.box.h) > 1);
-}
 
 
 

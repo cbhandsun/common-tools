@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {validateDeckIr} = require("./deck-ir-admission");
 const {validateSemanticFallback} = require("./semantic-fallback-adapter");
+const {admitJpegContainer} = require("./jpeg-container-admission");
 const MAX_DECK_BYTES = 1024 * 1024;
 const MAX_ASSET_BYTES = 20 * 1024 * 1024;
 const MAX_SEMANTIC_FALLBACK_BYTES = 64 * 1024;
@@ -140,25 +141,8 @@ function readRawImageDimensions(file, extension) {
     if (!widthPx || !heightPx) throw new Error("raw editable PNG dimensions are invalid");
     return { widthPx, heightPx };
   }
-  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer[buffer.length - 2] !== 0xff || buffer[buffer.length - 1] !== 0xd9) throw new Error("raw editable JPEG is incomplete");
-  let offset = 2;
-  while (offset + 9 < buffer.length) {
-    if (buffer[offset] !== 0xff) { offset += 1; continue; }
-    while (offset < buffer.length && buffer[offset] === 0xff) offset += 1;
-    const marker = buffer[offset++];
-    if (marker === undefined) break;
-    if (marker === 0xd9 || marker === 0xda) break;
-    if (offset + 1 >= buffer.length) break;
-    const length = buffer.readUInt16BE(offset);
-    if (length < 2 || offset + length > buffer.length) break;
-    if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker) && length >= 8) {
-      const heightPx = buffer.readUInt16BE(offset + 3); const widthPx = buffer.readUInt16BE(offset + 5);
-      if (!widthPx || !heightPx) throw new Error("raw editable JPEG dimensions are invalid");
-      return { widthPx, heightPx };
-    }
-    offset += length;
-  }
-  throw new Error("raw editable JPEG dimensions are invalid");
+  const {widthPx, heightPx} = admitJpegContainer(buffer);
+  return {widthPx, heightPx};
 }
 
 module.exports = { readRawImageDimensions, createArchiveAdmission, IMAGE_EXTENSIONS, MAX_DECK_BYTES, MAX_RAW_IMAGE_PAGES };

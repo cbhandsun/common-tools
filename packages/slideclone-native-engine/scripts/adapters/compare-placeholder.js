@@ -1110,14 +1110,10 @@ function summarizeEditability(ir) {
 }
 
 function isAllowedDecorativeBackgroundImage(item) {
-  if (item?.type === "fidelity-background") {
-    return /^(?:decorative-cover-background-underlay|decorative-page-chrome-underlay)$/.test(
+  return item?.type === "fidelity-background"
+    && /^(?:decorative-cover-background-underlay|decorative-page-chrome-underlay)$/.test(
       String(item?.source?.detector || "")
     );
-  }
-  return item?.type === "source-background"
-    && item?.style?.strategy === "full-slide-underlay"
-    && item?.source?.nonEditableReason === "Full-slide underlay preserves visual fidelity while OCR text is rebuilt as hidden editable overlay text.";
 }
 
 function nonEditableReason(item = {}) {

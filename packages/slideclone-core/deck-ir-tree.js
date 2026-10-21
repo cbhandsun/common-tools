@@ -44,16 +44,80 @@ function visit(value, depth, counter, fieldPath, slideArea) {
   counter.nodes += 1;
   if (counter.nodes > MAX_NODES || depth > MAX_DEPTH) throw new Error("editable deck structure exceeds safe limits");
   if (types.isProxy(value)) throw new TypeError("editable deck cannot contain proxies");
+  const reviewPath=fieldPath[0]==='meta'&&fieldPath[1]==='sourceSceneReview'?fieldPath.slice(2):[];
+  const isReviewPixelCount=reviewPath.length===1&&reviewPath[0]==='cropPixels'
+    ||reviewPath[0]==='deferredRegionalReview'&&(reviewPath.length===2&&['spentBefore','spentAfter'].includes(String(reviewPath[1]))
+      ||reviewPath.length===3&&reviewPath[1]==='allocation'&&['sheetPixels','reservedPixels'].includes(String(reviewPath[2])));
+  if(isReviewPixelCount){
+    // These audit values are actual debits of the existing shared 4M source
+    // pixel ledger. They are not geometry or a larger review allowance.
+    if(typeof value!=='number'||!Number.isSafeInteger(value)||value<0||value>4000000)throw invalidNumberError(fieldPath);
+    return;
+  }
+  // These exact audit paths contain pixel counts, never coordinates. Keep
+  // their original 4M SOURCE budget; similarly named geometry remains capped.
+  const scenePath=fieldPath[0]==='source'&&fieldPath[1]==='sourceScene'?fieldPath.slice(2)
+    :fieldPath[0]==='meta'&&fieldPath[1]==='sourceSceneCompilation'?fieldPath.slice(2)
+    :fieldPath[0]==='pages'&&typeof fieldPath[1]==='number'&&Number.isSafeInteger(fieldPath[1])&&fieldPath[1]>=0
+      &&fieldPath[2]==='source'&&fieldPath[3]==='sourceScene'?fieldPath.slice(4):[];
+  const isOpenInventoryCount=scenePath[0]==='openOwners'&&(scenePath.length===2&&scenePath[1]==='sourcePixels'
+    ||scenePath.length===4&&scenePath[1]==='counts'&&typeof scenePath[2]==='number'&&Number.isSafeInteger(scenePath[2])
+      &&scenePath[2]>=0&&scenePath[2]<24&&['context','units','perimeter','paint','relations','labels','glyphs','background','literal','unaccounted'].includes(String(scenePath[3])));
+  if(isOpenInventoryCount){
+    if(typeof value!=='number'||!Number.isSafeInteger(value)||value<0||value>4000000)throw invalidNumberError(fieldPath);
+    return;
+  }
+  const isSceneWorkField=fieldPath.at(-1)==='sourceScanPixels'||fieldPath.at(-1)==='physicalGroupGeometryChecks';
+  const isSceneWorkCount=isSceneWorkField&&((fieldPath.length===3&&fieldPath[0]==="source"&&fieldPath[1]==="sourceScene")
+    ||(fieldPath.length===5&&fieldPath[0]==="pages"&&typeof fieldPath[1]==="number"&&Number.isSafeInteger(fieldPath[1])&&fieldPath[1]>=0&&fieldPath[2]==="source"&&fieldPath[3]==="sourceScene")
+    ||(fieldPath.length===3&&fieldPath[0]==="meta"&&fieldPath[1]==="sourceSceneCompilation"));
+  if(isSceneWorkCount){
+    // Source scans and derived physical grouping checks each retain their
+    // existing 4M work allowance. Neither count is a point-coordinate or
+    // shape-size exception; every other field keeps the original number cap.
+    if(typeof value!=="number"||!Number.isSafeInteger(value)||value<0||value>4000000)throw invalidNumberError(fieldPath);
+    return;
+  }
+  const isDeckCurveSampleCount = fieldPath.length === 5 && fieldPath[0] === "meta"
+    && fieldPath[1] === "semanticNative" && fieldPath[2] === "shapeAdmission"
+    && fieldPath[3] === "sourceCurveFit" && fieldPath[4] === "sampledPixels";
+  const isPageCurveSampleCount = fieldPath.length === 7 && fieldPath[0] === "pages"
+    && typeof fieldPath[1] === "number" && fieldPath[2] === "source"
+    && fieldPath[3] === "semanticNativeStructure" && fieldPath[4] === "shapeAdmission"
+    && fieldPath[5] === "sourceCurveFit" && fieldPath[6] === "sampledPixels";
+  if (isDeckCurveSampleCount || isPageCurveSampleCount) {
+    // Work counts use the curve fitter's 4M-sample budget, never coordinate limits.
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 4_000_000) throw invalidNumberError(fieldPath);
+    return;
+  }
   const isImageSource = fieldPath[0] === "pages"
     && typeof fieldPath[1] === "number" && fieldPath[2] === "images"
     && typeof fieldPath[3] === "number" && fieldPath[4] === "source";
+  const isResidualRejectionCount = fieldPath.length === 4 && fieldPath[0] === "meta"
+    && fieldPath[1] === "residualBranchRejected" && fieldPath[2] === "pixelOwnership"
+    && ["scannedPixels", "ownedPixels", "ownedForegroundPixels", "remainingOwnedForegroundPixels",
+      "remainingOwnedBackgroundPixels", "unownedChangedPixels", "remainingTextCorePixels",
+      "incorrectTextBackgroundPixels", "unresolvedTextMasks"].includes(String(fieldPath[3]));
+  if (isResidualRejectionCount) {
+    // The residual audit already bounds these counters to 40M pixels. Keeping
+    // rejected-branch evidence does not make that branch or its raster usable.
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 40_000_000) throw invalidNumberError(fieldPath);
+    return;
+  }
+  const iconWorkLimit = isImageSource && fieldPath.length === 7 && fieldPath[5] === "sourceIconEvidence"
+    ? (fieldPath[6] === "scannedPixels" ? 4_000_000 : fieldPath[6] === "foregroundPixels" ? 262144 : 0) : 0;
+  if (iconWorkLimit > 0) {
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > iconWorkLimit) throw invalidNumberError(fieldPath);
+    return;
+  }
   const isResidualPixelCount = isImageSource && (
     (fieldPath.length === 6 && fieldPath[5] === "residualForegroundPixelCountAfterVisualAtomErase")
+    || (fieldPath.length === 6 && fieldPath[5] === "erasedNativeTextPixels")
     || (fieldPath.length === 7 && fieldPath[5] === "residualSplitRejected"
       && (fieldPath[6] === "foregroundPixelCount" || fieldPath[6] === "coveredForegroundPixelCount")));
   if (isResidualPixelCount) {
     // Pixel counts use the admitted source page's 40M-pixel ceiling, not point coordinates.
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 40_000_000) throw new Error("editable deck contains an invalid number");
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 40_000_000) throw invalidNumberError(fieldPath);
     return;
   }
   if (typeof value === "string") {
@@ -67,7 +131,7 @@ function visit(value, depth, counter, fieldPath, slideArea) {
     && fieldPath[4] === "metrics" && fieldPath[5] === "slideAreaPt2";
   const maximum = isPageArea ? slideArea : 100000;
   if (typeof value === "number") {
-    if (!Number.isFinite(value) || Math.abs(value) > maximum || (isPageArea && value < 0)) throw new Error("editable deck contains an invalid number");
+    if (!Number.isFinite(value) || Math.abs(value) > maximum || (isPageArea && value < 0)) throw invalidNumberError(fieldPath);
     return;
   }
   if (Array.isArray(value)) {
@@ -89,6 +153,12 @@ function visit(value, depth, counter, fieldPath, slideArea) {
     if (key.length > 128 || !isXmlText(key)) throw new Error("editable deck contains an invalid property");
     visit(dataProperty(value, key), depth + 1, counter, [...fieldPath, key], slideArea);
   }
+}
+
+/** @param {FieldPath} fieldPath */
+function invalidNumberError(fieldPath) {
+  const pathText = fieldPath.map((part) => typeof part === "number" ? `[${part}]` : (String(part).match(/^[A-Za-z0-9_-]+$/u) ? `.${part}` : ".*")).join("").replace(/^\./u, "");
+  return new Error(`editable deck contains an invalid number at ${pathText || "<root>"}`);
 }
 
 /** Validate serializable IR values without mutating or echoing user content.

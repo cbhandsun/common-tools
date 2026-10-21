@@ -380,6 +380,8 @@ function formatResult(items, input, metadata) {
       text: item.text,
       confidence: item.confidence,
       orientation: item.orientation,
+      ...(item.wordPositionHints ? { wordPositionHints: item.wordPositionHints.map(hint => ({ text: hint.text,
+        box: { x: hint.box.x * scale.x, y: hint.box.y * scale.y, w: hint.box.w * scale.x, h: hint.box.h * scale.y } })) } : {}),
       polygon,
       box: { x: pixelBox.x * scale.x, y: pixelBox.y * scale.y, w: pixelBox.w * scale.x, h: pixelBox.h * scale.y },
       sourceImage: input.sourceImage

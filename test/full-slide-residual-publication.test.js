@@ -7,6 +7,7 @@ const path = require("node:path");
 const { readPng, writePng } = require("../packages/slideclone-core/png");
 const { createFullSlideResidualBuilder } = require("../packages/slideclone-core/full-slide-native-residual");
 const { sameFileIdentity } = require("../packages/slideclone-core/residual-publication");
+const { eraseMasks } = require("../packages/slideclone-core/residual-primitive-erasure");
 
 function fixture(t, overrides = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "residual-publication-"));
@@ -50,6 +51,27 @@ test("successful publication replaces the output with a validated residual", asy
   assert.deepEqual(readPng(value.request.outputFile).rgba, readPng(value.request.sourceFile).rgba);
   assert.deepEqual(fs.readdirSync(value.root).sort(), ["output.png", "source.png"]);
 });
+test("unresolved source text never replaces an existing published residual", async (t) => {
+  let written=0;
+  const value=fixture(t,{eraseMasks,writePng(){written++;}});
+  const source={width:100,height:60,rgba:Buffer.alloc(100*60*4,255)};
+  for(let x=0;x<100;x++)for(let y=25;y<29;y++)source.rgba.set([20,20,20,255],(y*100+x)*4);
+  writePng(value.request.sourceFile,source);fs.writeFileSync(value.request.outputFile,"accepted baseline");
+  const text={text:"Editable",box:{x:30,y:20,w:40,h:15},font:{color:"#141414"},source:{evidenceBox:{x:30,y:20,w:40,h:15}}};
+  await assert.rejects(value.build({...value.request,objects:[text],slideSize:{x:0,y:0,w:100,h:60}}),/retains owned foreground/);
+  assert.equal(written,0);assert.equal(fs.readFileSync(value.request.outputFile,"utf8"),"accepted baseline");
+});
+test("declared OCR with no source glyph evidence cannot be published",async t=>{
+  const value=fixture(t,{eraseMasks});
+  writePng(value.request.sourceFile,{width:100,height:60,rgba:Buffer.alloc(100*60*4,255)});
+  const text={text:"Declared only",font:{color:"#111111"},box:{x:10,y:10,w:60,h:20}};
+  await assert.rejects(value.build({...value.request,objects:[text],slideSize:{x:0,y:0,w:100,h:60}}),error=>{
+    const evidence=require('../packages/slideclone-core/residual-branch-result').readResidualOwnershipRejection(error);
+    assert.equal(evidence?.passed,false);assert.equal(evidence?.unresolvedTextMasks,1);
+    assert.ok(Object.isFrozen(evidence));return /retains owned foreground/.test(error.message);
+  });
+  assert.equal(fs.existsSync(value.request.outputFile),false);
+});
 
 test("distinct output files are never refused because their contents match the source", async (t) => {
   const value = fixture(t);
@@ -71,7 +93,7 @@ test("residual publication treats zero and truncated file identities as distinct
 
 test("one native arc reports one erased object while expanding to path masks", async (t) => {
   let maskCount = 0;
-  const value = fixture(t, { eraseMasks(image, masks) { maskCount = masks.length; return image; } });
+  const value = fixture(t, { eraseMasks(image, masks, options) { maskCount = masks.length; return eraseMasks(image, masks, options); } });
   const result = await value.build({
     ...value.request,
     objects: [{ type: "arc", style: { fill: "none", adjustments: [270, 360] }, box: { x: 0, y: 0, w: 4, h: 4 } }]
@@ -79,6 +101,17 @@ test("one native arc reports one erased object while expanding to path masks", a
   assert.equal(result.erasedObjects, 1);
   assert.equal(result.erasedTextBoxes, 0);
   assert.ok(maskCount > 1);
+  assert.equal(result.pixelOwnership.passed, true);
+  assert.equal(result.pixelOwnership.unownedChangedPixels, 0);
+});
+
+test("native arc publication rejects an injected no-op eraser without publishing", async (t) => {
+  const value = fixture(t);
+  await assert.rejects(value.build({ ...value.request,
+    objects: [{ type: "arc", style: { fill: "none", adjustments: [270, 360] }, box: { x: 0, y: 0, w: 4, h: 4 } }]
+  }), /retains owned foreground/);
+  assert.equal(fs.existsSync(value.request.outputFile), false);
+  assert.deepEqual(fs.readFileSync(value.request.sourceFile), value.sourceBytes);
 });
 
 test("arc expansion is bounded before erasure or publication", async (t) => {

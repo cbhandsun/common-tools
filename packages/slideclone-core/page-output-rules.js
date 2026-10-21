@@ -197,6 +197,191 @@ function dropMostlyBlankCoveredResidualCrops(page = {}, irDir = null) {
   return page;
 }
 
+function shouldDropLineTextCoveredForegroundCrop(image = {}, page = {}) {
+  const source = image?.source || {};
+  if (String(source.detector || "") !== "foreground-graphic-crop") return false;
+  if (shouldDropSmallFooterBrandCrop(image, page)) return true;
+  const reasonText = `${source.reason || ""} ${source.nonEditableReason || ""} ${source.expressionForm || ""} ${source.expressionSubtype || ""}`.toLowerCase();
+  const box = image.box || {};
+  const imageArea = Number(box.w || 0) * Number(box.h || 0);
+  const slideArea = Math.max(1, ...[...(page.images || []), image].map((item) => Number(item?.box?.w || 0) * Number(item?.box?.h || 0)));
+  if (!Number.isFinite(imageArea) || imageArea <= 0 || imageArea / slideArea < 0.055) return false;
+  const lineTextShapes = (page.shapes || []).filter((shape) => {
+    const detector = String(shape?.source?.detector || "");
+    if (!detector.startsWith("line-text-native-")) return false;
+    if (detector === "line-text-native-timeline-step-badge") return false;
+    return ptBoxOverlapAreaValue(box, renderableShapeBox(shape)) / imageArea >= 0.006;
+  });
+  if (lineTextShapes.length < 4) return false;
+  const coveredArea = lineTextShapes.reduce((sum, shape) => sum + ptBoxOverlapAreaValue(box, renderableShapeBox(shape)), 0);
+  const coverRatio = Math.min(1, coveredArea / imageArea);
+  const textInsideCount = (page.textBoxes || []).filter((textBox) => boxCenterInside(textBox?.box, box)).length;
+  const sectionPanelCount = lineTextShapes.filter((shape) => shape?.source?.detector === "line-text-native-numbered-section-panel").length;
+  const cardLikeCount = lineTextShapes.filter((shape) => /(?:card|panel|cell|bar)/u.test(String(shape?.source?.detector || ""))).length;
+  const stackBarCount = lineTextShapes.filter((shape) => shape?.source?.detector === "line-text-native-stack-bar").length;
+  const textCoverRatio = (page.textBoxes || [])
+    .reduce((sum, textBox) => sum + ptBoxOverlapAreaValue(box, textBox?.box || {}), 0) / imageArea;
+  const crossingTextCount = (page.textBoxes || [])
+    .filter((textBox) => ptBoxOverlapAreaValue(box, textBox?.box || {}) > 0 && !boxCenterInside(textBox?.box, box))
+    .length;
+  const nativeStackBarReplacement = isObjectifiedStackBarLineTextRegion({
+    stackBarCount,
+    cardLikeCount,
+    textInsideCount,
+    crossingTextCount,
+    textCoverRatio,
+    coverRatio
+  });
+  const nativeNarrowLineTextColumn = isObjectifiedNarrowLineTextColumn(box, {
+    lineTextShapeCount: lineTextShapes.length,
+    textInsideCount,
+    cardLikeCount,
+    textCoverRatio,
+    coverRatio
+  });
+  const hasNativeContentEvidence = textInsideCount >= 6 || lineTextShapes.length >= 8;
+  if (hasProtectedMinimumUnitToken(reasonText) && !isObjectifiedDocumentLineTextRegion(source, {
+    lineTextShapeCount: lineTextShapes.length,
+    textInsideCount,
+    sectionPanelCount,
+    cardLikeCount,
+    stackBarCount,
+    crossingTextCount,
+    textCoverRatio,
+    coverRatio
+  }) && !nativeNarrowLineTextColumn) return false;
+  return hasNativeContentEvidence
+    && cardLikeCount >= 4
+    && (
+      coverRatio >= 0.72
+      || (sectionPanelCount >= 1 && coverRatio >= 0.52)
+      || (lineTextShapes.length >= 24 && coverRatio >= 0.52)
+    )
+    || nativeNarrowLineTextColumn
+    || nativeStackBarReplacement;
+}
+
+function shouldDropSmallFooterBrandCrop(image = {}, page = {}) {
+  const box = image?.box || {};
+  const imageArea = Number(box.w || 0) * Number(box.h || 0);
+  if (!Number.isFinite(imageArea) || imageArea <= 0 || imageArea > 3600) return false;
+  const source = image?.source || {};
+  const sourceText = `${source.reason || ""} ${source.nonEditableReason || ""} ${source.expressionForm || ""} ${source.expressionSubtype || ""}`.toLowerCase();
+  if (!/(?:crop|screenshot|document|brand|icon)/u.test(sourceText)) return false;
+  const pageBottom = Math.max(
+    Number(box.y || 0) + Number(box.h || 0),
+    ...(page.textBoxes || []).map((item) => Number(item?.box?.y || 0) + Number(item?.box?.h || 0)),
+    ...(page.shapes || []).map((item) => Number(item?.box?.y || 0) + Number(item?.box?.h || 0)),
+    ...(page.images || []).map((item) => Number(item?.box?.y || 0) + Number(item?.box?.h || 0))
+  );
+  if (!Number.isFinite(pageBottom) || pageBottom <= 0) return false;
+  const bottom = Number(box.y || 0) + Number(box.h || 0);
+  if (bottom < pageBottom - 72) return false;
+  const cropCenterY = Number(box.y || 0) + Number(box.h || 0) / 2;
+  const nearbyFooterTexts = (page.textBoxes || []).filter((textBox) => {
+    const text = String(textBox?.text || "").trim();
+    const textBoxBounds = textBox?.box || {};
+    if (text.length < 2 || !Number.isFinite(Number(textBoxBounds.x)) || !Number.isFinite(Number(textBoxBounds.y))) return false;
+    const textCenterY = Number(textBoxBounds.y || 0) + Number(textBoxBounds.h || 0) / 2;
+    if (Math.abs(textCenterY - cropCenterY) > 34) return false;
+    const textLeft = Number(textBoxBounds.x || 0);
+    const textRight = textLeft + Number(textBoxBounds.w || 0);
+    const cropLeft = Number(box.x || 0);
+    const cropRight = cropLeft + Number(box.w || 0);
+    return (textLeft >= cropRight - 8 && textLeft <= cropRight + 190)
+      || (textRight >= cropLeft - 190 && textRight <= cropLeft + 8);
+  });
+  return nearbyFooterTexts.length >= 2;
+}
+
+function isObjectifiedNarrowLineTextColumn(box = {}, evidence = {}) {
+  const width = Number(box.w || 0);
+  const height = Number(box.h || 0);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return false;
+  if (width > 96 || height / Math.max(1, width) < 4) return false;
+  const lineTextShapeCount = Number(evidence.lineTextShapeCount || 0);
+  const textInsideCount = Number(evidence.textInsideCount || 0);
+  const cardLikeCount = Number(evidence.cardLikeCount || 0);
+  const textCoverRatio = Number(evidence.textCoverRatio || 0);
+  const coverRatio = Number(evidence.coverRatio || 0);
+  const centeredTextEvidence = textInsideCount >= 6
+    && textCoverRatio >= 0.1
+    && coverRatio >= 0.78;
+  const slicedTextEvidence = textInsideCount === 0
+    && textCoverRatio >= 0.18
+    && coverRatio >= 0.58;
+  return lineTextShapeCount >= 7
+    && cardLikeCount >= 6
+    && (centeredTextEvidence || slicedTextEvidence);
+}
+
+function isObjectifiedStackBarLineTextRegion(evidence = {}) {
+  const stackBarCount = Number(evidence.stackBarCount || 0);
+  const cardLikeCount = Number(evidence.cardLikeCount || 0);
+  const textInsideCount = Number(evidence.textInsideCount || 0);
+  const crossingTextCount = Number(evidence.crossingTextCount || 0);
+  const textCoverRatio = Number(evidence.textCoverRatio || 0);
+  const coverRatio = Number(evidence.coverRatio || 0);
+  if (stackBarCount < 4 || cardLikeCount < stackBarCount || textCoverRatio < 0.04) return false;
+  const centeredStackEvidence = coverRatio >= 0.58;
+  const slicedStackEvidence = textInsideCount === 0
+    && crossingTextCount >= Math.min(4, stackBarCount)
+    && coverRatio >= 0.5
+    && textCoverRatio >= 0.05;
+  return centeredStackEvidence || slicedStackEvidence;
+}
+
+function isObjectifiedDocumentLineTextRegion(source = {}, evidence = {}) {
+  const expressionForm = String(source.expressionForm || source.layer?.expressionForm || "").toLowerCase();
+  const expressionSubtype = String(source.expressionSubtype || source.layer?.expressionSubtype || "").toLowerCase();
+  const layerType = String(source.layerType || source.layer?.layerType || "").toLowerCase();
+  const documentLike = expressionForm === "screenshot-or-document"
+    || expressionSubtype === "screenshot-or-document-region"
+    || layerType === "document-zone";
+  if (!documentLike) return false;
+  const lineTextShapeCount = Number(evidence.lineTextShapeCount || 0);
+  const textInsideCount = Number(evidence.textInsideCount || 0);
+  const sectionPanelCount = Number(evidence.sectionPanelCount || 0);
+  const cardLikeCount = Number(evidence.cardLikeCount || 0);
+  const stackBarCount = Number(evidence.stackBarCount || 0);
+  const crossingTextCount = Number(evidence.crossingTextCount || 0);
+  const textCoverRatio = Number(evidence.textCoverRatio || 0);
+  const coverRatio = Number(evidence.coverRatio || 0);
+  const strongNativeLineTextReplacement = lineTextShapeCount >= 10
+    && textInsideCount >= 12
+    && cardLikeCount >= 8
+    && sectionPanelCount >= 1
+    && coverRatio >= 0.85;
+  if (strongNativeLineTextReplacement) return true;
+  const nativeStackBarReplacement = isObjectifiedStackBarLineTextRegion({
+    stackBarCount,
+    cardLikeCount,
+    textInsideCount,
+    crossingTextCount,
+    textCoverRatio,
+    coverRatio
+  });
+  if (nativeStackBarReplacement) return true;
+  if (source.textErasedFromCrop !== true && Number(source.recoveredOcrLines || 0) < 1) return false;
+  return cardLikeCount >= 4
+    && (textInsideCount >= 6 || lineTextShapeCount >= 8)
+    && (coverRatio >= 0.72 || (sectionPanelCount >= 1 && coverRatio >= 0.52));
+}
+
+function dropLineTextCoveredForegroundCrops(page = {}) {
+  if (!Array.isArray(page.images) || page.images.length === 0) return page;
+  page.images = page.images.filter((image) => {
+    if (!shouldDropLineTextCoveredForegroundCrop(image, page)) return true;
+    if (image.source && typeof image.source === "object") {
+      image.source.lineTextResidualDropped = true;
+      image.source.residualSplitDropReason = "foreground-crop-covered-by-line-text-native-components";
+      image.source.dropErasedResidualAfterNativeRebuild = true;
+    }
+    return false;
+  });
+  return page;
+}
+
 function shouldDropPluginTemplateCoveredStructuralUnderlay(image = {}, page = {}) {
   const source = image?.source || {};
   const strategy = source.componentRenderStrategy || {};
@@ -678,4 +863,4 @@ function hasEntropyChallengeFinalPageEvidence(textBoxes = []) {
   return hasTitle && bottomSignals >= 3;
 }
 
-module.exports = { markTwoPanelChaosIllustrationPreserved, filterShapesClaimedByToolIslandTransitionMatrix, dropDecorativeCoverDuplicateForegroundCrops, dropTableMatrixResidualObjectifiedCrops, dropResidualsCoveredByNativeTableText, shouldDropResidualCoveredByNativeTablePeers, renderableShapeBox, shouldDropResidualCoveredByNativeTableText, dropMostlyBlankCoveredResidualCrops, shouldDropMostlyBlankCoveredResidualCrop, dropPluginTemplateCoveredStructuralUnderlays, shouldDropPluginTemplateCoveredStructuralUnderlay, hasProtectedMinimumUnitToken, dropPluginTemplateCoveredSmallResidualCrops, shouldDropPluginTemplateCoveredSmallResidualCrop, dropWmsObjectifiedValuePanelResidualCrops, shouldDropWmsObjectifiedValuePanelResidualCrop, dropWmsObjectifiedTopRouteUnderlay, shouldDropWmsObjectifiedTopRouteUnderlay, suppressSmallVisualAtomsCoveredByAnchoredSemanticLabels, isSuppressibleSemanticLabelFragment, suppressRedundantTableGridScaffoldCoveredByVisualAtoms, shouldSuppressTableGridScaffoldForLayer, materializePrototypeValidationResidualCrops, dropPrototypeValidationResidualCropsWhenNativeCoverage, dropDemandUnderstandingResidualCropsWhenNativeCoverage, shouldDropDemandUnderstandingResidualCrop, dropEntropyChallengeCropsWhenNativeCoverage, hasEntropyChallengeFinalPageEvidence };
+module.exports = { markTwoPanelChaosIllustrationPreserved, filterShapesClaimedByToolIslandTransitionMatrix, dropDecorativeCoverDuplicateForegroundCrops, dropTableMatrixResidualObjectifiedCrops, dropResidualsCoveredByNativeTableText, shouldDropResidualCoveredByNativeTablePeers, renderableShapeBox, shouldDropResidualCoveredByNativeTableText, dropMostlyBlankCoveredResidualCrops, shouldDropMostlyBlankCoveredResidualCrop, dropLineTextCoveredForegroundCrops, shouldDropLineTextCoveredForegroundCrop, dropPluginTemplateCoveredStructuralUnderlays, shouldDropPluginTemplateCoveredStructuralUnderlay, hasProtectedMinimumUnitToken, dropPluginTemplateCoveredSmallResidualCrops, shouldDropPluginTemplateCoveredSmallResidualCrop, dropWmsObjectifiedValuePanelResidualCrops, shouldDropWmsObjectifiedValuePanelResidualCrop, dropWmsObjectifiedTopRouteUnderlay, shouldDropWmsObjectifiedTopRouteUnderlay, suppressSmallVisualAtomsCoveredByAnchoredSemanticLabels, isSuppressibleSemanticLabelFragment, suppressRedundantTableGridScaffoldCoveredByVisualAtoms, shouldSuppressTableGridScaffoldForLayer, materializePrototypeValidationResidualCrops, dropPrototypeValidationResidualCropsWhenNativeCoverage, dropDemandUnderstandingResidualCropsWhenNativeCoverage, shouldDropDemandUnderstandingResidualCrop, dropEntropyChallengeCropsWhenNativeCoverage, hasEntropyChallengeFinalPageEvidence };

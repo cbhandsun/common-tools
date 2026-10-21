@@ -27,6 +27,7 @@ function classifyVisualLayer(item = {}, page = {}, slideSize = DEFAULT_SLIDE, op
   const areaRatio = areaRatioForBox(box, slideSize);
 
   let layerType = layerTypeFromExpression(source);
+  const structuredTextPanelEvidence = hasStructuredTextPanelEvidence(item, page, slideSize);
   // Expression classification is a higher-level semantic signal than detector names.
   if (layerType === LAYER_TYPES.UNKNOWN) {
     if (/bottom-banner|value-banner|banner-crop/.test(text)) {
@@ -48,8 +49,10 @@ function classifyVisualLayer(item = {}, page = {}, slideSize = DEFAULT_SLIDE, op
     }
   }
 
+  if (structuredTextPanelEvidence && layerType === LAYER_TYPES.SCREENSHOT) layerType = LAYER_TYPES.DIAGRAM;
+
   const chartProfile = classifyChartProfile({ layerType, detector, reason, item, page });
-  const standaloneVisualAsset = isStandaloneVisualAssetLayer({ layerType, detector, reason, source });
+  const standaloneVisualAsset = structuredTextPanelEvidence ? false : isStandaloneVisualAssetLayer({ layerType, detector, reason, source });
   const structuredVisualLayer = !standaloneVisualAsset
     && shouldAnalyzeVisualStructure({ layerType, detector, reason, source, areaRatio });
   const layerSemanticText = semanticTextForLayer(item, page);
@@ -81,6 +84,7 @@ function classifyVisualLayer(item = {}, page = {}, slideSize = DEFAULT_SLIDE, op
     detector: detector || "unknown",
     areaRatio: round(areaRatio),
     ...(standaloneVisualAsset ? { standaloneVisualAsset: true } : {}),
+    ...(structuredTextPanelEvidence ? { structuredTextPanelEvidence } : {}),
     ...(chartProfile ? { chartProfile } : {}),
     ...(visualAtoms.length ? { visualAtoms } : {}),
     ...(diagramUnderstanding ? { diagramUnderstanding } : {}),
@@ -118,6 +122,58 @@ function boxOverlapRatio(a = {}, b = {}) {
   const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
   const area = Math.max(1, Number(a.w || 0) * Number(a.h || 0));
   return intersection / area;
+}
+
+function hasStructuredTextPanelEvidence(item = {}, page = {}, slideSize = DEFAULT_SLIDE) {
+  const source = item.source || {};
+  const detector = String(source.detector || "").toLowerCase();
+  if (detector !== "foreground-graphic-crop") return null;
+  const subtype = String(source.expressionSubtype || "").toLowerCase();
+  const form = String(source.expressionForm || "").toLowerCase();
+  if (form && form !== "screenshot-or-document") return null;
+  if (subtype && subtype !== "screenshot-or-document-region") return null;
+  const crop = item.box || {};
+  const cropArea = Number(crop.w || 0) * Number(crop.h || 0);
+  const slideArea = Number(slideSize?.widthPt || 0) * Number(slideSize?.heightPt || 0);
+  if (![crop.x, crop.y, crop.w, crop.h, slideArea].every(Number.isFinite) || crop.w <= 0 || crop.h <= 0 || slideArea <= 0) return null;
+  if (cropArea / slideArea < 0.055) return null;
+  const boxes = (Array.isArray(page.textBoxes) ? page.textBoxes : [])
+    .filter((textBox) => textBox?.box && String(textBox.text || "").trim())
+    .filter((textBox) => boxOverlapRatio(textBox.box, crop) >= 0.55 || boxOverlapRatio(crop, textBox.box) >= 0.02)
+    .map((textBox) => textBox.box)
+    .filter((box) => [box.x, box.y, box.w, box.h].every(Number.isFinite) && box.w > 0 && box.h > 0)
+    .sort((a, b) => (a.y + a.h / 2) - (b.y + b.h / 2));
+  if (boxes.length < 8) return null;
+  const rows = [];
+  const threshold = Math.max(10, Math.min(34, crop.h * 0.08));
+  for (const box of boxes) {
+    const centerY = box.y + box.h / 2;
+    const row = rows.find((candidate) => Math.abs(candidate.centerY - centerY) <= threshold);
+    if (row) {
+      row.boxes.push(box);
+      row.centerY = row.boxes.reduce((sum, itemBox) => sum + itemBox.y + itemBox.h / 2, 0) / row.boxes.length;
+    } else {
+      rows.push({ centerY, boxes: [box] });
+    }
+  }
+  const structuredRows = rows
+    .map((row) => {
+      const sorted = row.boxes.slice().sort((a, b) => a.x - b.x);
+      const left = sorted[0].x;
+      const right = Math.max(...sorted.map((box) => box.x + box.w));
+      const span = right - left;
+      return { count: sorted.length, span, y: row.centerY };
+    })
+    .filter((row) => row.count >= 2 && row.span >= crop.w * 0.35);
+  if (structuredRows.length < 2) return null;
+  const rowSpan = Math.max(...structuredRows.map((row) => row.y)) - Math.min(...structuredRows.map((row) => row.y));
+  if (rowSpan < crop.h * 0.18) return null;
+  return {
+    provider: "ocr-layout",
+    rows: structuredRows.length,
+    textBoxes: boxes.length,
+    reason: "regular multi-row card or panel text layout inside screenshot-like crop"
+  };
 }
 
 function layerTypeFromExpression(source = {}) {
@@ -393,6 +449,12 @@ function recommendLayerAction({ layerType, detector, source, nativeConfidence, e
   if (layerType === LAYER_TYPES.DIAGRAM && diagramUnderstanding?.nativeReadiness === "native-rebuild") {
     return "attempt-native-reconstruction";
   }
+  if (layerType === LAYER_TYPES.DIAGRAM
+    && diagramUnderstanding?.connectorHypothesisCount > 0
+    && diagramUnderstanding?.visualConnectorCount === 0
+    && ["preserve-crop", "preserve-crop-with-structured-metadata"].includes(diagramUnderstanding.nativeReadiness)) {
+    return "preserve-local-crop";
+  }
   if (layerType === LAYER_TYPES.ILLUSTRATION && isStructuredIllustrationCandidate(diagramUnderstanding, areaRatio)) {
     return "split-native-with-residual-crop";
   }
@@ -580,6 +642,7 @@ function compactDiagramUnderstanding(diagramUnderstanding = {}) {
     ...(diagramUnderstanding.componentStrategy ? { componentStrategy: diagramUnderstanding.componentStrategy } : {}),
     nodeCount: diagramUnderstanding.nodeCount,
     connectorCount: diagramUnderstanding.connectorCount,
+    connectorHypothesisCount: diagramUnderstanding.connectorHypothesisCount,
     residualCount: diagramUnderstanding.residualCount,
     ...(Array.isArray(diagramUnderstanding.targetMotifs) && diagramUnderstanding.targetMotifs.length
       ? { targetMotifs: diagramUnderstanding.targetMotifs.slice(0, 8) }

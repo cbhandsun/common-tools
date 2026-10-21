@@ -47,6 +47,24 @@ test("rejects wrong color, solid blocks, text-like fragments, transparent lines,
   for (const draw of cases) { const im = image(); draw(im); const proposed = line(); assert.equal(run(im, [proposed]).shapes[0], proposed); }
 });
 
+test("normalizes near-zero horizontal connector heights before fitting", () => {
+  const im = image();
+  arrow(im, 250, 380, 584);
+  const proposed = line("team-knowledge-graph-layer-flow-2", { x: 215, y: 571.79, w: 195, h: 0.42 });
+  const out = run(im, [proposed]);
+  assert.deepEqual(out.shapes[0].box, { x: 250, y: 584, w: 130, h: 0 });
+  assert.equal(out.evidence.accepted, 1);
+});
+
+test("bounds public sample evidence for large source images", () => {
+  const width = 2000; const height = 720;
+  const im = image(width, height);
+  const proposed = line("team-knowledge-graph-layer-flow-1", { x: 600, y: 360, w: 800, h: 0 });
+  const out = run(im, [proposed], { widthPt: width, heightPt: height });
+  assert.equal(out.evidence.accepted, 0);
+  assert.equal(out.evidence.samples, 100000);
+});
+
 test("fails closed for malformed requests, extreme inputs, rotated or vertical boxes, and resource limits", () => {
   const im = image();
   assert.throws(() => fitSourceHorizontalConnectors(null), /request/);

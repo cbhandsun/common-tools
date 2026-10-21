@@ -7,6 +7,7 @@ const path = require("path");
 const { run: runTool } = require("../../../packages/slideclone-core/renderer-process");
 const { readImageSize } = require("./lib/image-size");
 const { countPptxSlides } = require("./lib/pptx-inventory");
+const { readPresentationRasterFrame } = require("../../slideclone-core/presentation-frame");
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -25,6 +26,7 @@ async function main() {
   const maxPages = parsePositiveInt(args["max-pages"], 2);
   const startedAt = Date.now();
   const stagedPptxFile = stageOfficeInput(pptxFile, renderDir);
+  const rasterFrame = readPresentationRasterFrame(stagedPptxFile, parsePositiveInt(args.dpi, 144));
   const pdf = await convertToPdf({
     soffice,
     pptxFile: stagedPptxFile,
@@ -35,7 +37,7 @@ async function main() {
   });
   const convertElapsedMs = Date.now() - startedAt;
   const renderStartedAt = Date.now();
-  const renderedPages = await renderPdf({ pdftoppm, pdf, renderDir, maxPages, dpi: parsePositiveInt(args.dpi, 144), timeoutMs: parsePositiveInt(args["render-timeout-ms"], 120000) });
+  const renderedPages = await renderPdf({ pdftoppm, pdf, renderDir, maxPages, rasterFrame, timeoutMs: parsePositiveInt(args["render-timeout-ms"], 120000) });
   const renderElapsedMs = Date.now() - renderStartedAt;
   const report = {
     provider: "libreoffice-benchmark",
@@ -111,16 +113,18 @@ function stageOfficeInput(file, renderDir) {
   return staged;
 }
 
-async function renderPdf({ pdftoppm, pdf, renderDir, maxPages, dpi, timeoutMs }) {
+async function renderPdf({ pdftoppm, pdf, renderDir, maxPages, rasterFrame, timeoutMs }) {
   const prefix = path.join(renderDir, "lo-page");
-  await runTool(pdftoppm, ["-png", "-r", String(dpi), "-f", "1", "-l", String(maxPages), pdf, prefix], { timeout: timeoutMs });
-  return fs.readdirSync(renderDir)
+  await runTool(pdftoppm, ["-png", "-scale-to-x", String(rasterFrame.widthPx), "-scale-to-y", String(rasterFrame.heightPx), "-f", "1", "-l", String(maxPages), pdf, prefix], { timeout: timeoutMs });
+  const pages = fs.readdirSync(renderDir)
     .filter((name) => /^lo-page-\d+\.png$/i.test(name))
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
     .map((name, index) => {
       const image = path.join(renderDir, name);
       return { pageIndex: index, image, ...readImageSize(image) };
     });
+  if (!pages.length || pages.some(page => page.widthPx !== rasterFrame.widthPx || page.heightPx !== rasterFrame.heightPx)) throw new Error("Rendered raster dimensions do not match the presentation frame");
+  return pages;
 }
 
 function parseArgs(argv) {

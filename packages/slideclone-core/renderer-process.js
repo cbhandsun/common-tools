@@ -9,7 +9,11 @@ function terminateProcessTree(child, platform = process.platform, runTaskkill = 
   if (platform === "linux") { process.kill(-child.pid, "SIGKILL"); return; }
   if (platform === "win32") {
     const result = runTaskkill("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], { windowsHide: true, stdio: "ignore" });
-    if (result.error || (result.status !== 0 && result.status !== 128)) throw result.error || Object.assign(new Error("Windows renderer process tree could not be terminated"), { code: "TASKKILL_FAILED" });
+    if (result.error || (result.status !== 0 && result.status !== 128)) {
+      // Keep the parent alive until taskkill has enumerated its descendants.
+      child.kill("SIGKILL");
+      throw result.error || Object.assign(new Error("Windows renderer process tree could not be terminated"), { code: "TASKKILL_FAILED" });
+    }
     return;
   }
   child.kill("SIGKILL");

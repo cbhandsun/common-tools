@@ -1,8 +1,16 @@
 "use strict";
+const {compactNativeOpacityDefaults}=require("./native-opacity-defaults");
+const {compactNativeTextInsetDefaults}=require("./native-text-inset-defaults");
+const {compactNativeFreeformPaths}=require("./native-freeform-path");
+const {compactNativeTextEvidenceDefaults}=require("./native-text-evidence-defaults");
 
 // Template geometry is consumed during reconstruction. Publish references, not
 // a second copy of the template tree inside every generated image's provenance.
 function compactTeamComponentEvidence(deck) {
+  compactNativeFreeformPaths(deck);
+  compactNativeOpacityDefaults(deck);
+  compactNativeTextInsetDefaults(deck);
+  compactNativeTextEvidenceDefaults(deck);
   for (const page of deck.pages) {
     for (const name of ["images", "shapes", "textBoxes", "tables", "charts", "icons"]) {
       for (const item of Array.isArray(page[name]) ? page[name] : []) {

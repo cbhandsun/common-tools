@@ -1,5 +1,5 @@
 "use strict";
-const { hasUnverifiedNativeGeometry } = require("./screenshot-texture-evidence");
+const { hasUnverifiedNativeGeometry, shouldPreserveCropFromSpeculativeAtoms } = require("./screenshot-texture-evidence");
 
 // Keep the native generation order and shared object references from the page pipeline.
 function buildPageNativeGraphicsStage(context, dependencies) {
@@ -450,7 +450,7 @@ const valueBannerBackgroundShapes = image && options.objectifyValueBanners === t
     const entropyChallengeAnnotations = createEntropyChallengeAnnotationObjects(rawTextBoxes, pageDraft.images, slideSize);
     const entropyChallengeFooterShapes = createEntropyChallengeFooterBulletShapes(textBoxes, slideSize);
     const visualAtomSourceImages = pageDraft.images.filter((item) =>
-      !hasUnverifiedNativeGeometry(item) && (!shouldDeferNativeRebuildForComponentStrategy(item)
+      !hasUnverifiedNativeGeometry(item) && !shouldPreserveCropFromSpeculativeAtoms(item, slideSize) && (!shouldDeferNativeRebuildForComponentStrategy(item)
       || shouldAllowVisualAtomOverlayForDeferredComponent(item))
     );
     const visualAtomNativeShapes = image && options.objectifyLayerConnectors === true
@@ -473,10 +473,10 @@ const valueBannerBackgroundShapes = image && options.objectifyValueBanners === t
         && item?.source?.toolIslandTransitionMatrixObjectified !== true
         && item?.source?.visualClusterStackObjectified !== true
         && item?.source?.skipVisualAtomRebuild !== true
-        && item?.source?.semanticSplitOwnsLayer !== true
+        && (item?.source?.semanticSplitOwnsLayer !== true || shouldAllowVisualAtomOverlayForDeferredComponent(item))
         && !isWorkflowDemandUnderstandingAssistantLeftIllustrationCrop(item, rawTextBoxes)
         && !isWorkflowPrdAutoGenerationLeftIllustrationCrop(item, rawTextBoxes)
-      ), image, slideSize)
+      ), image, slideSize, rawTextBoxes)
       : [];
   return { valueBannerBackgroundShapes, textBackplateShapes, layerContainerShapes, matrixColorBlockShapes, layerColorBlockShapes, stickyNoteClusterShapes, layerConnectorShapes, tableGridShapes, tableBackgroundShapes, tableZoneSemanticTextBoxes, quadrantDividerShapes, networkDiagramShapes, pageLevelNetworkDiagramShapes, hierarchyDiagramShapes, triangleTopologyShapes, coverEngineCoreShapes, skillChainOverviewShapes, pageLevelSkillChainOverview, linearProcessShapes, prdGenerationFlowShapes, prototypeValidationFlowShapes, demandUnderstandingFlowShapes, comparisonMatrixShapes, saturatedDiagramTextShapes, semanticCycleDiagramShapes, semanticCycleFidelityCrops, productManagerFrictionNetwork, denseComplexDiagramScaffold, denseComplexDiagramScaffoldShapes, twoPanelDiagramTextShapes, topComplexDiagramTextShapes, shiftLeftDebuggerDiagram, toolIslandTransitionMatrix, kpiEvidenceTextShapes, valueQuadrantShapes, reviewRiskGateFlowShapes, funnelHubDiagramShapes, horizontalStepChainShapes, genericNodeDiagramSkeletonShapes, visualClusterStackShapes, wmsRouteChainShapes, collaborationFlowShapes, stackedArchitectureDiagram, toolGapPlatformDiagram, processWithScreenshotsFlow, textAnchoredProcessNetwork, documentVersionGovernance, documentVersionFolderFlow, assetOsFlow, prototypeGenerationLoop, portalPlatformDiagram, systemMapDiagram, systemMapFidelityChrome, allowEntropyNativeApproximation, autoObjectifyEntropyIsland, entropyFragmentShapes, entropyIslandShapes, entropyChallengeAnnotations, entropyChallengeFooterShapes, visualAtomNativeShapes, nativeRebuildCandidateImages };
 }

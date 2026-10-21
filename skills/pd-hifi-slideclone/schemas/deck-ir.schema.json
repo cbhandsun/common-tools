@@ -85,10 +85,32 @@
         "role": { "type": "string" },
         "text": { "type": "string" },
         "box": { "$ref": "#/$defs/box" },
+        "positionedRuns": {
+          "type": "array", "minItems": 1, "maxItems": 512,
+          "items": {
+            "type": "object", "required": ["text", "box"],
+            "properties": {
+              "text": { "type": "string", "minLength": 1, "maxLength": 512 }, "box": { "$ref": "#/$defs/box" },
+              "fontOverride": {
+                "type": ["object", "null"], "properties": {
+                  "family": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "latinFamily": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "eastAsianFamily": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "complexScriptFamily": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "weight": { "enum": ["bold", "regular", "normal"] }
+                }, "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "font": {
           "type": "object",
           "properties": {
             "family": { "type": "string" },
+            "latinFamily": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "eastAsianFamily": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "complexScriptFamily": { "type": "string", "minLength": 1, "maxLength": 256 },
             "sizePt": { "type": "number" },
             "weight": { "type": "string" },
             "color": { "type": "string" },

@@ -4,6 +4,7 @@ const { boxContains, clamp, inAnyMask, intersectionArea, median, rgbToHex, union
 const { inferDiagonalLineEndpoints, looksLikeDiagonalLine, looksLikeLine, looksLikeSearchIcon } = require("./visual-atom-shape-recognition");
 const { isForegroundPixel } = require("./visual-atom-line-components");
 const { foregroundComponentsBySeedColor } = require("./visual-atom-components");
+const { hasSourceColumnBarBoundary } = require("./visual-column-bar-boundary");
 
 function detectSemanticConvergenceLineComponents(components = [], region = {}, searchComponents = [], semanticHint = "") {
   const semantic = /lens|magnifier|focus|converge|analysis|放大镜|聚焦|收敛|分析|需求/.test(String(semanticHint || "").toLowerCase());
@@ -386,6 +387,7 @@ function detectBaselineColumnBarComponents(image, region, bg, masks, axisLines =
     if (width < Math.max(8, region.w * 0.015) || width > region.w * 0.2) return null;
     const x = group[0].x;
     const y = baseline - height;
+    if (!hasSourceColumnBarBoundary(image, { x, y, w: width, h: height })) return null;
     const offset = (Math.max(region.y, y + Math.floor(height / 2)) * image.width + Math.min(image.width - 1, x + Math.floor(width / 2))) * 4;
     return {
       box: { x, y, w: width, h: height },

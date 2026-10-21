@@ -2,6 +2,7 @@
 "use strict";
 
 const { parseSlideSize } = require("./slide-size");
+const { createLineTextNativeComponentObjects } = require("./line-text-native-components");
 
 /** @typedef {Record<string, unknown>} Item */
 /** @param {unknown} value @returns {value is Item} */
@@ -41,6 +42,7 @@ function createPageGraphicsStage(operations) {
   const normalizeDecorativeCoverTextBoxes = operation("normalizeDecorativeCoverTextBoxes");
   const createDecorativeCoverBackground = operation("createDecorativeCoverBackground");
   const createGraphicCrops = operation("createGraphicCrops");
+  const createLeadingIconCrops = services.createLeadingIconCrops === undefined ? () => /** @type {Item[]} */ ([]) : operation("createLeadingIconCrops");
 
   /** @param {unknown} input */
   function preparePageGraphics(input) {
@@ -68,6 +70,11 @@ function createPageGraphicsStage(operations) {
     if (typeof entropy !== "boolean") throw new TypeError("page graphics entropy decision is invalid");
     const titleChromeShapes = useNativeKpiEvidence || entropy ? [] : items(createTitleChromeShapes(textBoxes, slideSize, image));
     const lines = useNativeKpiEvidence || kpiEvidenceCrops.length > 0 || entropy ? [] : items(keepStructuralLines(detectedLines, textBoxes));
+    const lineTextComponents = useNativeKpiEvidence || entropy
+      ? { shapes: [], textBoxes: [] }
+      : createLineTextNativeComponentObjects({ lines, textBoxes, slideSize, image });
+    const lineTextComponentShapes = items(lineTextComponents.shapes);
+    const lineTextComponentTextBoxes = items(lineTextComponents.textBoxes);
     const graphicUnderlay = preserve && !useNativeKpiEvidence && kpiEvidenceCrops.length === 0
       ? items(createGraphicUnderlayCrop(image, textBoxes, slideSize, { ...cropContext, structuralLines: lines, detectedLines, detectedLineCount: detectedLines.length })) : [];
     const useUnderlay = graphicUnderlay.length > 0 || kpiEvidenceCrops.length > 0;
@@ -78,9 +85,11 @@ function createPageGraphicsStage(operations) {
       ? items(createDecorativeCoverBackground(image, textBoxes, slideSize, { ...cropContext, detectedLineCount: detectedLines.length, mode })) : [];
     const graphicCrops = preserve && !useUnderlay && !useNativeKpiEvidence && decorativeBackground.length === 0
       ? items(createGraphicCrops(image, textBoxes, slideSize, { ...cropContext })) : [];
+    const leadingIconCrops = preserve && !useNativeKpiEvidence && !entropy && decorativeBackground.length === 0
+      ? items(createLeadingIconCrops(image, textBoxes, slideSize, { ...cropContext, existingShapes: lineTextComponentShapes })) : [];
     return {
-      kpiEvidenceShapes, titleChromeShapes, lines, useUnderlay, decorativeBackground,
-      images: [...decorativeBackground, ...kpiEvidenceCrops, ...graphicUnderlay, ...graphicCrops]
+      kpiEvidenceShapes, titleChromeShapes, lineTextComponentShapes, lineTextComponentTextBoxes, lines, useUnderlay, decorativeBackground,
+      images: [...decorativeBackground, ...kpiEvidenceCrops, ...graphicUnderlay, ...graphicCrops, ...leadingIconCrops]
     };
   }
   return Object.freeze({ preparePageGraphics });

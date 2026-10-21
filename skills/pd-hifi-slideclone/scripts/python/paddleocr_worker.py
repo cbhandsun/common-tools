@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from collections.abc import Callable
@@ -86,12 +87,15 @@ def plain_list(value: Any) -> list[Any]:
 
 def parse_results(results: Any) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    word_hint_count = 0
     for result in results:
         payload = result_mapping(result)
         texts = plain_list(payload.get("rec_texts"))
         scores = plain_list(payload.get("rec_scores"))
         polygons = plain_list(payload.get("rec_polys")) or plain_list(payload.get("dt_polys"))
         orientations = plain_list(payload.get("textline_orientation_angles"))
+        word_texts = plain_list(payload.get("text_word"))
+        word_boxes = plain_list(payload.get("text_word_boxes"))
         for index, text in enumerate(texts):
             if not isinstance(text, str) or not text.strip() or index >= len(polygons):
                 continue
@@ -102,10 +106,50 @@ def parse_results(results: Any) -> list[dict[str, Any]]:
                 "polygon": [plain_list(point) for point in polygon],
                 "orientation": orientations[index] if index < len(orientations) else None,
             }
+            hints = word_position_hints(text.strip(), polygon,
+                word_texts[index] if index < len(word_texts) else None,
+                word_boxes[index] if index < len(word_boxes) else None,
+                item["orientation"])
+            if hints:
+                word_hint_count += len(hints)
+                if word_hint_count > MAX_ITEMS:
+                    raise ValueError("item-limit")
+                item["wordPositionHints"] = hints
             items.append(item)
             if len(items) > MAX_ITEMS:
                 raise ValueError("item-limit")
     return items
+
+
+def word_position_hints(text: str, polygon: object, words: object, boxes: object, orientation: object) -> list[dict[str, object]]:
+    # Official word boxes are CTC estimates. Preserve only horizontal, ordered,
+    # exact-sequence hints; never promote these to physical glyph ownership.
+    points, content, regions = plain_list(polygon), plain_list(words), plain_list(boxes)
+    if orientation not in (None, -1, 0) or len(points) != 4 or not 1 <= len(content) <= 512 or len(content) != len(regions):
+        return []
+    if any(not isinstance(word, str) or not word or len(word) > 512 or any(ord(char) < 32 or ord(char) == 127 for char in word) for word in content):
+        return []
+    if "".join(content) != text:
+        return []
+    corners = [plain_list(point) for point in points]
+    if any(len(point) != 2 or any(isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) for value in point) for point in corners):
+        return []
+    if corners[0][1] != corners[1][1] or corners[2][1] != corners[3][1] or corners[0][0] != corners[3][0] or corners[1][0] != corners[2][0]:
+        return []
+    left, top, right, bottom = corners[0][0], corners[0][1], corners[2][0], corners[2][1]
+    hints: list[dict[str, object]] = []
+    previous = -math.inf
+    for word, region in zip(content, regions):
+        coordinates = plain_list(region)
+        if len(coordinates) != 4 or any(isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) for value in coordinates):
+            return []
+        x0, y0, x1, y1 = coordinates
+        center = (x0 + x1) / 2
+        if not (left <= x0 < x1 <= right and top <= y0 < y1 <= bottom and center > previous):
+            return []
+        previous = center
+        hints.append({"text": word, "box": {"x": x0, "y": y0, "w": x1-x0, "h": y1-y0}})
+    return hints
 
 
 def safe_version(package: str) -> str:
@@ -155,7 +199,7 @@ def serve(emit: Callable[[dict[str, object]], None]) -> int:
         try:
             value = json.loads(raw_line.decode("utf-8"))
             request_id, image_paths = valid_request(value)
-            predictions = pipeline.predict(image_paths)
+            predictions = pipeline.predict(image_paths, return_word_box=True)
             items_by_image = [parse_results([prediction]) for prediction in predictions]
             if len(items_by_image) != len(image_paths):
                 raise ValueError("result-count")

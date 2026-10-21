@@ -1,7 +1,7 @@
 "use strict";
 // @ts-check
 const {round, clamp} = require("./raster-native-detection");
-/** @typedef {{[key:string]: unknown, text?: string, role?: string, box?: {x?: number, y?: number, w?: number, h?: number}, font?: {[key:string]: unknown, sizePt?: number, weight?: string | number | null}}} TextBox */
+/** @typedef {{[key:string]: unknown, text?: string, role?: string, source?: {ocrQuadrilateralProjected?: boolean}, box?: {x?: number, y?: number, w?: number, h?: number}, font?: {[key:string]: unknown, sizePt?: number, weight?: string | number | null}}} TextBox */
 /** @param {TextBox} item */
 function shouldNativeTextBox(item) {
   const box = item?.box || {};
@@ -23,6 +23,8 @@ function shouldNativeTextBox(item) {
 
 /** @param {TextBox} item @param {unknown} [currentWeight] */
 function inferWeight(item, currentWeight = null) {
+  const explicit = explicitFontWeight(item.font?.weight);
+  if (explicit) return explicit;
   const role = String(item.role || "").toLowerCase();
   const size = Number(item.font?.sizePt || 0);
   const text = String(item.text || "").trim();
@@ -37,6 +39,16 @@ function inferWeight(item, currentWeight = null) {
   if (Number(box.y || 0) < 105 && size >= 15.5 && cjkCount >= 6) return "bold";
   if (Number(box.h || 0) >= 20 && size >= 14.5 && cjkCount >= 5 && text.length <= 24) return "bold";
   return "regular";
+}
+
+/** @param {unknown} value */
+function explicitFontWeight(value) {
+  if (typeof value !== "number" && typeof value !== "string") return "";
+  if (typeof value === "string" && value.length > 64) return "";
+  const numeric = typeof value === "number" || /^\d+(?:\.\d+)?$/.test(value.trim());
+  if (numeric && (!Number.isFinite(Number(value)) || Number(value) < 1 || Number(value) > 1000)) return "";
+  const weight = normalizeFontWeightForOpenXml(value, "");
+  return weight === "bold" || weight === "regular" ? weight : "";
 }
 
 /** @param {TextBox[]} [textBoxes] */
@@ -75,6 +87,7 @@ function refineFontSize(item) {
   const height = Number(box.h || 0);
   const text = String(item.text || "").trim();
   if (!size || !height) return font.sizePt;
+  if (item.source?.ocrQuadrilateralProjected === true) return fitSingleLineFontSize(item, size);
   let nextSize = size;
   if (looksLikeLargeMetric(text) && height >= 44) {
     nextSize = round(clamp(height * 1.08, size, 76));

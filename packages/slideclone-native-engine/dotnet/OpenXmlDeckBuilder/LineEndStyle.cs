@@ -5,20 +5,20 @@ internal static class LineEndStyle
 {
     internal static void Append(A.Outline outline, JsonElement? style)
     {
-        if (IsArrow(GetString(style, "startArrow")))
+        if (ResolveType(GetString(style, "startArrow")) is { } startType)
         {
             outline.Append(new A.HeadEnd
             {
-                Type = A.LineEndValues.Triangle,
+                Type = startType,
                 Width = ResolveWidth(GetString(style, "startArrowWidth")),
                 Length = ResolveLength(GetString(style, "startArrowLength"))
             });
         }
-        if (IsArrow(GetString(style, "endArrow")))
+        if (ResolveType(GetString(style, "endArrow")) is { } endType)
         {
             outline.Append(new A.TailEnd
             {
-                Type = A.LineEndValues.Triangle,
+                Type = endType,
                 Width = ResolveWidth(GetString(style, "endArrowWidth")),
                 Length = ResolveLength(GetString(style, "endArrowLength"))
             });
@@ -32,9 +32,15 @@ internal static class LineEndStyle
         return child.GetString();
     }
 
-    private static bool IsArrow(string? value) =>
-        string.Equals(value, "triangle", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(value, "arrow", StringComparison.OrdinalIgnoreCase);
+    private static A.LineEndValues? ResolveType(string? value)
+    {
+        // Keep the historical generic "arrow" alias unchanged. Open source
+        // chevrons need an explicit native type instead of a filled triangle.
+        if (string.Equals(value, "openArrow", StringComparison.OrdinalIgnoreCase)) return A.LineEndValues.Arrow;
+        if (string.Equals(value, "triangle", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(value, "arrow", StringComparison.OrdinalIgnoreCase)) return A.LineEndValues.Triangle;
+        return null;
+    }
 
     private static A.LineEndWidthValues ResolveWidth(string? value) => NormalizeSize(value) switch
     {

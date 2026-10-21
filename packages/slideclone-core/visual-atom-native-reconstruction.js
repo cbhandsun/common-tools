@@ -5,15 +5,17 @@ const { createChartZoneNativeShellShapes } = require("./native-chart-shell-shape
 const { createGanttRoadmapNativeShellShapes } = require("./gantt-native-shell");
 const { createRelationshipNativeShell } = require("./relationship-native-shell");
 const { inferFallbackVisualAtoms } = require("./visual-atom-fallback");
-const { isHandledBySpecializedDiagramRebuilder, mergeUnderstoodAndFallbackVisualAtoms, persistPromotedVisualAtoms, selectVisualAtomNativeCandidates, shouldDropHybridDiagramResidualAfterVisualAtoms, shouldDropSegmentedComparisonMatrixAfterVisualAtoms, shouldDropVisualAtomResidualAfterNativeRebuild, shouldKeepVisualAtomResidualAsOverlayBase, shouldObjectifyVisualAtom, shouldProtectComplexCropFromVisibleVisualAtoms, shouldSupplementWithFallbackVisualAtoms, suppressTrustedDonutDensityFragments, visualAtomNativeBudget } = require("./visual-atom-native-policy");
+const { excludeOcrGlyphAtoms, isHandledBySpecializedDiagramRebuilder, mergeUnderstoodAndFallbackVisualAtoms, persistPromotedVisualAtoms, selectVisualAtomNativeCandidates, shouldDropHybridDiagramResidualAfterVisualAtoms, shouldDropSegmentedComparisonMatrixAfterVisualAtoms, shouldDropVisualAtomResidualAfterNativeRebuild, shouldKeepVisualAtomResidualAsOverlayBase, shouldObjectifyVisualAtom, shouldProtectComplexCropFromVisibleVisualAtoms, shouldSupplementWithFallbackVisualAtoms, suppressTrustedDonutDensityFragments, visualAtomNativeBudget } = require("./visual-atom-native-policy");
 const { promoteHybridDiagramResidualAtomsToNative, promoteMatrixSolidArrowAtomsToNative } = require("./visual-atom-promotion");
 const { shouldDeferNativeRebuildForComponentStrategy } = require("./component-strategy-annotator");
 const { visualAtomNativeShape } = require("./visual-atom-native-shapes");
 const { hasUnverifiedNativeGeometry } = require("./screenshot-texture-evidence");
+const { createSolidAtomSourceFilter } = require("./visual-atom-source-contradiction");
 const DEFAULT_SLIDE = { widthPt: 960, heightPt: 540 };
 
-function createVisualAtomNativeShapes(images = [], sourceImage = null, slideSize = DEFAULT_SLIDE) {
+function createVisualAtomNativeShapes(images = [], sourceImage = null, slideSize = DEFAULT_SLIDE, sourceTextBoxes = []) {
   const shapes = [];
+  const sourceFilter = sourceImage ? createSolidAtomSourceFilter(sourceImage, slideSize) : null;
   for (const image of images || []) {
     if (hasUnverifiedNativeGeometry(image)) continue;
     if (shouldDeferNativeRebuildForComponentStrategy(image) && !shouldAllowVisualAtomOverlayForDeferredComponent(image)) continue;
@@ -34,7 +36,7 @@ function createVisualAtomNativeShapes(images = [], sourceImage = null, slideSize
       layer,
       understanding
     );
-    const atoms = suppressTrustedDonutDensityFragments(promotedAtoms, understanding);
+    const atoms = excludeOcrGlyphAtoms(suppressTrustedDonutDensityFragments(promotedAtoms, understanding), sourceTextBoxes, slideSize);
     persistPromotedVisualAtoms(image, atoms);
     const relationshipShell = image?.source?.triangleTopologyObjectified === true
       ? null
@@ -116,9 +118,17 @@ function createVisualAtomNativeShapes(images = [], sourceImage = null, slideSize
       ));
       continue;
     }
+    const sourceRejections = [];
     const nativeAtoms = atoms
       .filter((atom) => atom?.nativeCandidate === true)
-      .filter((atom) => shouldObjectifyVisualAtom(atom, layer, understanding, atoms));
+      .filter((atom) => shouldObjectifyVisualAtom(atom, layer, understanding, atoms))
+      .filter((atom) => {
+        const evidence = sourceFilter?.inspect(atom);
+        if (evidence?.retained === false) { sourceRejections.push({ atomId: atom.id, ...evidence }); return false; }
+        return true;
+      });
+    if (sourceRejections.length) image.source = { ...image.source, solidAtomSourceContradictions: sourceRejections,
+      visualAtomFullyObjectified: false, dropErasedResidualAfterNativeRebuild: false };
     const selectedNativeAtoms = selectVisualAtomNativeCandidates(nativeAtoms, image, layer, understanding, atomBudget);
     if (selectedNativeAtoms.length === 0) continue;
     const chartNativeShapes = createChartZoneNativeShellShapes(image, selectedNativeAtoms, layer, understanding);
@@ -134,8 +144,8 @@ function createVisualAtomNativeShapes(images = [], sourceImage = null, slideSize
         visualAtomSource: fallbackAtoms.length > 0 && understoodAtoms.length > 0
           ? "diagram-understanding-plus-fallback-pixel-segmentation"
           : understoodAtoms.length > 0 ? "diagram-understanding" : "fallback-pixel-segmentation",
-        visualAtomFullyObjectified: true,
-        dropErasedResidualAfterNativeRebuild: true
+        visualAtomFullyObjectified: sourceRejections.length === 0,
+        dropErasedResidualAfterNativeRebuild: sourceRejections.length === 0
       };
       shapes.push(...finalizeNativeComponentGroupMetadata(
         chartNativeShapes.map((shape) => annotateVisualAtomComponentShape(shape, image, { id: shape.source?.atomId || null }, understanding))
@@ -143,8 +153,8 @@ function createVisualAtomNativeShapes(images = [], sourceImage = null, slideSize
       continue;
     }
     const dropSegmentedComparisonMatrix = shouldDropSegmentedComparisonMatrixAfterVisualAtoms(image, atoms, selectedNativeAtoms);
-    const dropVisualAtomResidual = shouldDropVisualAtomResidualAfterNativeRebuild(image, layer, understanding, atoms, nativeAtoms)
-      || shouldDropHybridDiagramResidualAfterVisualAtoms(image, layer, understanding, atoms, selectedNativeAtoms);
+    const dropVisualAtomResidual = sourceRejections.length === 0 && (shouldDropVisualAtomResidualAfterNativeRebuild(image, layer, understanding, atoms, nativeAtoms)
+      || shouldDropHybridDiagramResidualAfterVisualAtoms(image, layer, understanding, atoms, selectedNativeAtoms));
     const overlayOnly = shouldKeepVisualAtomResidualAsOverlayBase(image, layer, understanding) && !dropVisualAtomResidual;
     const topologyNativeAtoms = annotateVisualAtomTopology(selectedNativeAtoms);
     const emittedNativeAtoms = overlayOnly ? [] : topologyNativeAtoms;
@@ -160,25 +170,37 @@ function createVisualAtomNativeShapes(images = [], sourceImage = null, slideSize
         ? "diagram-understanding-plus-fallback-pixel-segmentation"
         : understoodAtoms.length > 0 ? "diagram-understanding" : "fallback-pixel-segmentation",
       visualAtomFullyObjectified: overlayOnly ? false : dropVisualAtomResidual,
-      dropErasedResidualAfterNativeRebuild: image.source?.dropErasedResidualAfterNativeRebuild
+      dropErasedResidualAfterNativeRebuild: sourceRejections.length === 0 && (image.source?.dropErasedResidualAfterNativeRebuild
         || dropSegmentedComparisonMatrix
-        || (!overlayOnly && dropVisualAtomResidual)
+        || (!overlayOnly && dropVisualAtomResidual))
     };
     const emittedShapes = [];
+    let admittedAtoms=0;
     for (let index = 0; index < emittedNativeAtoms.length; index += 1) {
       const atom = emittedNativeAtoms[index];
       const shape = visualAtomNativeShape(image, atom, index, understanding);
+      const proposed=Array.isArray(shape)?shape.filter(Boolean):shape?[shape]:[];
+      const contradicted=proposed.map(item=>sourceFilter?.inspectShape(item)).filter(result=>result?.retained===false);
+      if(contradicted.length){
+        sourceRejections.push(...contradicted.map(result=>({atomId:atom.id,...result})));
+        image.source={...image.source,solidAtomSourceContradictions:sourceRejections,
+          visualAtomFullyObjectified:false,dropErasedResidualAfterNativeRebuild:false};
+        continue;
+      }
       const annotated = Array.isArray(shape)
         ? shape.filter(Boolean).map((item) => annotateVisualAtomComponentShape(item, image, atom, understanding))
         : shape ? [annotateVisualAtomComponentShape(shape, image, atom, understanding)] : [];
       emittedShapes.push(...annotated);
+      if(annotated.length)admittedAtoms++;
     }
+    image.source={...image.source,visualAtomObjectified:admittedAtoms>0,objectifiedVisualAtoms:admittedAtoms};
     shapes.push(...finalizeNativeComponentGroupMetadata(emittedShapes));
   }
   return shapes;
 }
 
 function shouldAllowVisualAtomOverlayForDeferredComponent(image = {}) {
+  if (shouldRebuildSemanticSplitVisualAtoms(image)) return true;
   const strategy = image?.source?.componentRenderStrategy || image?.source?.layer?.componentRenderStrategy || {};
   const mode = String(strategy.mode || "");
   if (mode === "preserve-crop-with-native-overlays") return true;
@@ -201,4 +223,20 @@ function shouldAllowVisualAtomOverlayForDeferredComponent(image = {}) {
     && atoms.every((atom) => atom?.residualCandidate !== true);
 }
 
-module.exports = { createVisualAtomNativeShapes, shouldAllowVisualAtomOverlayForDeferredComponent };
+function shouldRebuildSemanticSplitVisualAtoms(image = {}) {
+  const source = image?.source || {};
+  if (source.semanticSplitOwnsLayer !== true) return false;
+  if (source.componentTemplateGroupApplied === true || Number(source.componentTemplateNativeShapes || 0) > 0) return false;
+  const layer = source.layer || {};
+  const action = String(layer.recommendedAction || source.recommendedAction || "");
+  if (action !== "split-native-with-residual-crop" && action !== "attempt-native-reconstruction") return false;
+  const understanding = layer.diagramUnderstanding || source.diagramUnderstanding || {};
+  const atoms = Array.isArray(understanding.visualAtoms) ? understanding.visualAtoms : [];
+  const nativeAtoms = atoms.filter((atom) => atom?.nativeCandidate === true && atom?.box);
+  if (nativeAtoms.length < 2) return false;
+  const detector = String(source.detector || "").toLowerCase();
+  return /mixed-diagram|semantic-residual|graphic-underlay|diagram/.test(detector)
+    || String(layer.layerType || "") === "diagram-zone";
+}
+
+module.exports = { createVisualAtomNativeShapes, shouldAllowVisualAtomOverlayForDeferredComponent, shouldRebuildSemanticSplitVisualAtoms };

@@ -119,6 +119,20 @@ function hasUnverifiedNativeGeometry(image) {
   return image?.source?.layer?.diagramUnderstanding?.evidence?.nativeGeometryUnverified === true;
 }
 
+function shouldPreserveCropFromSpeculativeAtoms(image, slideSize) {
+  const source = image?.source;
+  const understanding = source?.layer?.diagramUnderstanding;
+  const box = readFinitePositiveBox({ box: image?.box });
+  const slide = readFinitePositiveBox({ box: { x: 0, y: 0, w: slideSize?.widthPt, h: slideSize?.heightPt } });
+  if (source?.detector !== "foreground-graphic-crop" || !box || !slide || !Array.isArray(understanding?.visualAtoms)) return false;
+  if (understanding.visualAtoms.length < 12 || understanding.visualAtoms.length > MAX_PEAKS) return false;
+  const textCount = understanding.evidence?.textBoxCount;
+  const denseContent = Number.isSafeInteger(textCount) && textCount >= 48
+    && box.w * box.h / (slide.w * slide.h) >= 0.18;
+  const impossibleGantt = understanding.archetype === "gantt-roadmap" && box.w / box.h <= 0.3;
+  return denseContent || impossibleGantt;
+}
+
 function assertUnverifiedRegionTextPreserved(page, sourceTextBoxes) {
   const regions = (page?.images || []).filter(image => hasUnverifiedNativeGeometry(image) && image.source?.textObjectified === true);
   for (const region of regions) {
@@ -137,4 +151,4 @@ function centerInside(box, region) {
   return x >= region.x && x <= region.x + region.w && y >= region.y && y <= region.y + region.h;
 }
 
-module.exports = { hasRepeatedAlignedDensityRows, hasScatteredTextureEvidence, hasUnverifiedNativeGeometry, assertUnverifiedRegionTextPreserved };
+module.exports = { hasRepeatedAlignedDensityRows, hasScatteredTextureEvidence, hasUnverifiedNativeGeometry, shouldPreserveCropFromSpeculativeAtoms, assertUnverifiedRegionTextPreserved };

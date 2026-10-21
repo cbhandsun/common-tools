@@ -2,7 +2,7 @@
 const { nativeSource, roundedBox, safeColor, safeId, round, lineBox, cycleDonutSegmentPoints, cyclePointOnBox } = require("./relationship-native-geometry");
 
 function flowNodeShape(image = {}, atom = {}, index = 0, understanding = {}) {
-  const color = safeColor(atom.color, "#60A5FA");
+  const color = safeColor(atom.interiorFill?.color || atom.color, "#60A5FA");
   return {
     id: `${safeId(image.id)}-relationship-flow-node-${index}`,
     type: "rect",
@@ -192,7 +192,7 @@ function hubSpokeConnectorShape(image = {}, atom = {}, index, understanding = {}
       stroke: safeColor(atom.color, "#94A3B8"),
       strokeWidthPt: round(Math.max(1, Math.min(6, horizontal ? atom.box.h : atom.box.w))),
       connectorType: "straight",
-      ...(atom.kind === "connector-arrow-candidate" ? { endArrow: "triangle" } : {})
+      ...(atom.kind === "connector-arrow-candidate" ? { endArrow: "triangle", endArrowWidth: "medium", endArrowLength: "medium" } : {})
     },
     source: nativeSource(image, atom, understanding, "visual-relationship-native-hub-spoke-connector", { connectorIndex: index })
   };
@@ -251,9 +251,11 @@ function topologyConnectorShape(image = {}, atom = {}, index, understanding = {}
 
 function connectorArrowStyle(atom = {}) {
   if (atom.kind !== "connector-arrow-candidate") return {};
+  // Record the same dimensions LineEndStyle emits for an omitted size, so
+  // native auditing and serialized output describe the actual editable arrow.
   return atom.arrowDirection === "left" || atom.arrowDirection === "up"
-    ? { startArrow: "triangle" }
-    : { endArrow: "triangle" };
+    ? { startArrow: "triangle", startArrowWidth: "medium", startArrowLength: "medium" }
+    : { endArrow: "triangle", endArrowWidth: "medium", endArrowLength: "medium" };
 }
 
 function measuredGenericNodeShape(image = {}, atom = {}, index, understanding = {}) {
@@ -323,7 +325,7 @@ function funnelLensConnectorShape(image = {}, atom = {}, index, understanding = 
       strokeWidthPt: round(thickness),
       connectorType: "straight",
       lineCap: "round",
-      ...(atom.kind === "connector-arrow-candidate" ? { endArrow: "triangle" } : {})
+      ...(atom.kind === "connector-arrow-candidate" ? { endArrow: "triangle", endArrowWidth: "medium", endArrowLength: "medium" } : {})
     },
     source: nativeSource(image, atom, understanding, "visual-relationship-native-funnel-lens-connector", {
       connectorIndex: index,
@@ -536,7 +538,7 @@ function swimlaneConnectorShape(image = {}, atom = {}, index, understanding = {}
       stroke: safeColor(atom.color, "#94A3B8"),
       strokeWidthPt: round(Math.max(1, Math.min(6, atom.box.h))),
       connectorType: "straight",
-      ...(atom.kind === "connector-arrow-candidate" ? { endArrow: "triangle" } : {})
+      ...(atom.kind === "connector-arrow-candidate" ? { endArrow: "triangle", endArrowWidth: "medium", endArrowLength: "medium" } : {})
     },
     source: nativeSource(image, atom, understanding, "visual-relationship-native-swimlane-connector", { connectorIndex: index })
   };
@@ -554,7 +556,7 @@ function flowConnectorShape(image = {}, fromAtom = {}, toAtom = {}, bridgeAtom =
     id: `${safeId(image.id)}-relationship-flow-connector-${index}`,
     type: "line",
     box: roundedBox({ x: from.x + from.w, y, w: to.x - (from.x + from.w), h: 0 }),
-    style: { stroke, strokeWidthPt: round(thickness), connectorType: "straight", endArrow: "triangle", lineCap: "round" },
+    style: { stroke, strokeWidthPt: round(thickness), connectorType: "straight", endArrow: "triangle", endArrowWidth: "medium", endArrowLength: "medium", lineCap: "round" },
     source: nativeSource(image, bridgeAtom || fromAtom, understanding, "visual-relationship-native-flow-connector", { connectorIndex: index })
   };
 }
@@ -612,6 +614,8 @@ function fishboneSpineShape(image = {}, atom = {}, understanding = {}) {
       strokeWidthPt: round(Math.max(1.5, Math.min(8, atom.box.h))),
       connectorType: "straight",
       endArrow: "triangle",
+      endArrowWidth: "medium",
+      endArrowLength: "medium",
       lineCap: "round"
     },
     source: nativeSource(image, atom, understanding, "visual-relationship-native-fishbone-spine")

@@ -2,6 +2,7 @@
 
 const { cropPng } = require("./png");
 const { dominantBorderColor, makeEdgeConnectedBackgroundTransparent } = require("./edge-background-alpha");
+const { selectDenseIconParts } = require("./dense-icon-part-policy");
 
 function refineStandaloneIconCrop(image, options = {}) {
   if (!validImage(image)) throw new Error("image must contain a valid RGBA buffer");
@@ -64,9 +65,10 @@ function refineDenseIconCrop(image, options = {}) {
   const primary = components.sort((left, right) => right.score - left.score)[0];
   if (primary.pixels < Math.max(12, image.width * image.height * 0.015)) return unchanged(alphaReady);
   const padding = positiveInteger(options.paddingPx, 3);
-  const box = expandBox(primary.box, image.width, image.height, padding);
+  const retained = selectDenseIconParts(components, components.indexOf(primary)).map(index => components[index]);
+  const box = expandBox(retained.map(component => component.box).reduce(unionBox), image.width, image.height, padding);
   const keep = new Uint8Array(image.width * image.height);
-  for (const pixel of primary.members) {
+  for (const pixel of retained.flatMap(component => component.members)) {
     const x = pixel % image.width; const y = Math.floor(pixel / image.width);
     for (let dy = -padding; dy <= padding; dy += 1) for (let dx = -padding; dx <= padding; dx += 1) {
       const nx = x + dx; const ny = y + dy;
@@ -88,7 +90,7 @@ function refineDenseIconCrop(image, options = {}) {
     refined: true,
     removedNeighborPixels,
     removedOverlapPixels: edgeTrim.removedOverlapPixels,
-    retainedDetailComponents: 0,
+    retainedDetailComponents: retained.length - 1,
     trimmedTopIntrusionPx: edgeTrim.top,
     trimmedEdgeIntrusionPx: Object.freeze({ top: edgeTrim.top, right: edgeTrim.right, bottom: edgeTrim.bottom, left: edgeTrim.left })
   };
@@ -314,16 +316,18 @@ function maskComponents(mask, width, height, rgba) {
   for (let seed = 0; seed < mask.length; seed += 1) {
     if (!mask[seed] || visited[seed]) continue;
     const queue = [seed]; const members = []; visited[seed] = 1; let pixels = 0; let saturation = 0;
+    let red = 0, green = 0, blue = 0;
     let minX = width; let minY = height; let maxX = 0; let maxY = 0;
     while (queue.length) {
       const pixel = queue.pop(); const x = pixel % width; const y = Math.floor(pixel / width); pixels += 1;
       members.push(pixel);
       const offset = pixel * 4; const maximum = Math.max(rgba[offset], rgba[offset + 1], rgba[offset + 2]); const minimum = Math.min(rgba[offset], rgba[offset + 1], rgba[offset + 2]);
+      red += rgba[offset]; green += rgba[offset + 1]; blue += rgba[offset + 2];
       saturation += maximum === 0 ? 0 : (maximum - minimum) / maximum;
       minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
       for (const neighbor of neighbors(x, y, width, height)) if (mask[neighbor] && !visited[neighbor]) { visited[neighbor] = 1; queue.push(neighbor); }
     }
-    result.push({ pixels, members, score: pixels * (1 + 2 * saturation / pixels), box: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } });
+    result.push({ pixels, members, color: { r: red / pixels, g: green / pixels, b: blue / pixels }, score: pixels * (1 + 2 * saturation / pixels), box: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } });
   }
   return result;
 }

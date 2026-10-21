@@ -137,3 +137,57 @@ test("synthesizeSemanticLayoutTree does not invent fallback geometry for invalid
 
   assert.deepEqual(tree, []);
 });
+
+test("nested layout ownership selects the smallest complete parent independently of detector order", () => {
+  for (const scale of [0.5, 1, 3]) for (const offset of [0, 41]) {
+    const transform = box => ({ x: box.x * scale + offset, y: box.y * scale + offset, w: box.w * scale, h: box.h * scale });
+    const regions = [
+      { id: "page", label: "diagram", confidence: 0.99, box: transform({ x: 0, y: 0, w: 400, h: 300 }) },
+      { id: "panel", label: "metric_card", confidence: 0.8, box: transform({ x: 30, y: 40, w: 160, h: 120 }) },
+      { id: "text", label: "paragraph", confidence: 0.7, box: transform({ x: 50, y: 60, w: 100, h: 40 }) }
+    ];
+    const item = { text: "Changed label", box: transform({ x: 60, y: 70, w: 80, h: 20 }) };
+    const before = structuredClone(regions);
+    for (const order of [regions, [...regions].reverse(), [regions[1], regions[2], regions[0]]]) {
+      const result = associateTextWithDlaRegions(order, [item]);
+      assert.deepEqual(result.assigned.get("text"), [item]);
+      assert.deepEqual(result.assigned.get("panel"), []);
+      assert.deepEqual(result.assigned.get("page"), []);
+      assert.deepEqual(result.unassigned, []);
+    }
+    assert.deepEqual(regions, before);
+  }
+});
+
+test("layout ownership ranks complete containment, measured overlap, confidence, then stable identity", () => {
+  const item = { text: "Short label", box: { x: 50, y: 50, w: 100, h: 20 } };
+  const smallCenter = { id: "small", label: "image", confidence: 1, box: { x: 95, y: 55, w: 10, h: 10 } };
+  const complete = { id: "complete", label: "paragraph", confidence: 0.5, box: { x: 40, y: 40, w: 120, h: 40 } };
+  const partial = { id: "partial", label: "paragraph", confidence: 0.7, box: { x: 50, y: 50, w: 45, h: 20 } };
+  const equal = [{ ...complete, id: "b", confidence: 0.9 }, { ...complete, id: "a", confidence: 0.9 }, complete];
+  for (const reversed of [false, true]) {
+    const select = (regions, id) => {
+      const result = associateTextWithDlaRegions(reversed ? [...regions].reverse() : regions, [item]);
+      assert.deepEqual(result.assigned.get(id), [item]);
+      assert.equal([...result.assigned.values()].flat().length, 1);
+    };
+    select([smallCenter, complete], "complete");
+    select([smallCenter, partial], "partial");
+    select(equal, "a");
+  }
+  assert.deepEqual(associateTextWithDlaRegions([], [item]).unassigned, [item]);
+  assert.deepEqual(associateTextWithDlaRegions([complete], []).assigned.get("complete"), []);
+});
+
+test("layout ranking remains finite for large admitted boxes and retains overlap boundaries", () => {
+  const item = { text: "large", box: { x: 0, y: 0, w: 1e200, h: 1e200 } };
+  const region = (id, w) => ({ id, label: "paragraph", confidence: 0.9, box: { x: 0, y: 0, w, h: 1e200 } });
+  for (const regions of [[region("a", 6e199), region("b", 9e199)], [region("b", 9e199), region("a", 6e199)]]) {
+    assert.deepEqual(associateTextWithDlaRegions(regions, [item]).assigned.get("b"), [item]);
+  }
+  assert.throws(() => assertDlaRegion({ ...region("overflow", 1e308), box: { x: 1e308, y: 0, w: 1e308, h: 1 } }), /finite/);
+  const small = { text: "edge", box: { x: 0, y: 0, w: 100, h: 20 } };
+  for (const w of [0.1, 40]) {
+    assert.deepEqual(associateTextWithDlaRegions([{ ...region("partial", w), box: { x: 0, y: 0, w, h: 20 } }], [small]).unassigned, [small]);
+  }
+});

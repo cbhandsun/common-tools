@@ -380,8 +380,11 @@ function looksLikeVisualTimelineRoadmap(visualAtoms = [], visualNodes = [], box 
       && (w >= regionWidth * 0.34 || /horizontal|axis|timeline/.test(hint))
       && w > h * 5;
   });
-  const hasTemporalText = /(?:20\d{2}|19\d{2}|q[1-4]|h[12]|阶段|里程碑|时间|路线|版本|规划|上线|发布|roadmap|milestone|timeline)/i.test(text);
-  return (spacing.regular || nodes.length >= 4) && (horizontalAxis || hasTemporalText);
+  const hasTemporalText = /(?:\b(?:20|19)\d{2}\b|\bq[1-4]\b|\bh[12]\b|\d{1,2}月|阶段\s*\d+|phase\s*\d+|时间轴|里程碑|路线图|roadmap|milestone|timeline)/i.test(text);
+  // A row of cards and inter-card arrows is also common in architecture and
+  // process diagrams. An arbitrary horizontal stroke is not a timeline axis.
+  // Without a measured timeline atom, require both temporal and axis evidence.
+  return (spacing.regular || nodes.length >= 4) && horizontalAxis && hasTemporalText;
 }
 
 function looksLikeVisualGanttRoadmap(visualNodes = [], visualAtoms = [], box = {}, text = "") {

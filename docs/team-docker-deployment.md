@@ -713,7 +713,7 @@ docker run --rm --network none --read-only --user 10001:10001 --entrypoint /bin/
 
 本机团队版可使用既有部署脚本的 OCR 开关。默认 provider 已切为 PaddleOCR `3.7.0` + PaddlePaddle `3.3.1`，固定使用 PP-OCRv6 中文检测/识别模型、CPU dynamic inference，并在镜像构建时预取模型。Worker 启动时会校验 Python、Node adapter、Python worker、健康检查图片的 SHA-256，并做一次真实 OCR 推理预热；校验或推理失败时 Worker 失败关闭，不会静默退回 Tesseract。
 
-脚本在 `Plan` 模式下只检查本地镜像、版本、文件 hash 与 Compose；`Apply` 才构建 OCR 镜像并滚动当前项目管理的服务。与普通本机部署相同，密码与 OIDC 配置只从当前 PowerShell 进程读取：
+脚本在 `Plan` 模式下只检查本地镜像、版本、文件 hash 与 Compose；`Apply` 才构建 OCR 镜像并滚动当前项目管理的服务。密码与 OIDC 配置可从当前 PowerShell 进程读取，也可用 `-ExistingSecretFile <absolute-path>` 读取仓库外的现有项目配置。文件必须是普通文件、与 `-Project` 匹配；脚本不会输出其值，并在退出时恢复进程环境：
 
 ```powershell
 .\scripts\team-runtime-local-deploy.ps1 -Mode Plan -Project deploy -EnableRawImageOcr
@@ -727,7 +727,14 @@ docker run --rm --network none --read-only --user 10001:10001 --entrypoint /bin/
 .\scripts\team-runtime-local-deploy.ps1 -Mode Apply -Project deploy -EnableRawImageOcr -RawImageOcrProvider Tesseract
 ```
 
-如已有经审核的本地镜像，可在 Apply 时加 `-SkipRawImageOcrBuild -RawImageOcrImage <local-tag>`；脚本仍会按所选 provider 核验镜像。生产环境不能使用这个本机构建路径，必须使用 registry digest、release evidence 和生产预检。
+如 Docker Hub 暂不可用，而本机已有经过验证、包含模型的 PaddleOCR 镜像，可离线装入当前 Worker 代码并复用其 OCR 运行层：
+
+```powershell
+docker build --pull=false --network=none --file deploy/docker/Dockerfile.image-to-editable-paddleocr-offline --build-arg BASE_IMAGE=<reviewed-local-image> --tag common-tools-image-to-editable-paddleocr:offline .
+.\scripts\team-runtime-local-deploy.ps1 -Mode Plan -Project <existing-project> -ExistingSecretFile <absolute-path-outside-repo> -EnableSingleIngress -SingleIngressPublicUrl <existing-https-origin> -EnableRawImageOcr -RawImageOcrImage common-tools-image-to-editable-paddleocr:offline -SkipRawImageOcrBuild
+```
+
+核对 Plan 的项目、能力、身份提供方及 Compose 后，再将 `-Mode Plan` 改为 `-Mode Apply`。`-SkipRawImageOcrBuild` 会对整个本机项目使用 `--no-build`，因此其他服务的现有镜像也必须齐备；脚本仍按 provider 核验 OCR 镜像。离线刷新只替换 Worker 的 `packages`，不能代替对原有 OCR 运行层来源及版本的审核。生产环境不能使用这个本机构建路径，必须使用 registry digest、release evidence 和生产预检。
 
 语言只允许 `eng`、`chi_sim`、`chi_tra`、`jpn`、`kor` 的无重复逗号列表。Worker 启动时执行固定的 `tesseract --list-langs` 自检；任何缺失语言包都会停止 Worker。生产预检还会将部署环境的 profile、二进制 hash 和语言列表与已验证 release evidence 中、同一 Worker image 的 profile 精确比对。每个 Job 只会以固定参数调用 `tesseract <image> stdout --psm 3 -l <locked-languages> tsv`，输出最多 1 MiB、运行最多 90 秒，并在取消、超时、非零退出、非法 TSV 或越界文字框时失败。OCR 结果进入固定 native-hybrid 重建器，置信度不足的视觉内容保留为 object-erased residual。
 

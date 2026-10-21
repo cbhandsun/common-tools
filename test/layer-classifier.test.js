@@ -29,7 +29,7 @@ test("classifyVisualLayer marks large diagram crops as split reconstruction cand
   assert.ok(layer.reconstructionPlan.primitives.includes("arrowheads"));
 });
 
-test("classifyVisualLayer treats text-erased mixed underlays as hybrid diagrams, not screenshots", () => {
+test("classifyVisualLayer preserves unresolved mixed diagram geometry despite a text-only reconstruction hint", () => {
   const layer = classifyVisualLayer({
     type: "fidelity-crop",
     box: { x: 52, y: 134, w: 845, h: 378 },
@@ -52,9 +52,10 @@ test("classifyVisualLayer treats text-erased mixed underlays as hybrid diagrams,
 
   assert.equal(layer.layerType, "diagram-zone");
   assert.equal(layer.standaloneVisualAsset, undefined);
-  assert.notEqual(layer.recommendedAction, "preserve-local-crop");
-  assert.equal(layer.reconstructionPlan.status, "candidate");
-  assert.equal(layer.reconstructionPlan.residualCrop, true);
+  assert.equal(layer.diagramUnderstanding.visualConnectorCount, 0);
+  assert.ok(layer.diagramUnderstanding.connectorHypothesisCount > 0);
+  assert.equal(layer.recommendedAction, "preserve-local-crop");
+  assert.equal(layer.reconstructionPlan.status, "deferred");
 });
 
 test("classifyVisualLayer preserves large diagrams when expression metadata asks for fidelity", () => {
@@ -98,11 +99,13 @@ test("classifyVisualLayer adds diagram understanding for flow card chains", () =
   assert.equal(layer.layerType, "diagram-zone");
   assert.equal(layer.diagramUnderstanding.archetype, "flow-card-chain");
   assert.equal(layer.diagramUnderstanding.nodeCount, 4);
-  assert.equal(layer.diagramUnderstanding.connectorCount, 3);
-  assert.equal(layer.diagramUnderstanding.nativeReadiness, "hybrid-native-plus-residual-crops");
-  assert.equal(layer.recommendedAction, "split-native-with-residual-crop");
+  assert.equal(layer.diagramUnderstanding.connectorCount, 0);
+  assert.equal(layer.diagramUnderstanding.connectorHypothesisCount, 3);
+  assert.equal(layer.diagramUnderstanding.nativeReadiness, "preserve-crop-with-structured-metadata");
+  assert.equal(layer.recommendedAction, "preserve-local-crop");
   assert.equal(layer.reconstructionPlan.diagramUnderstanding.archetype, "flow-card-chain");
-  assert.ok(layer.reconstructionPlan.primitives.includes("native-connectors"));
+  assert.equal(layer.reconstructionPlan.status, "deferred");
+  assert.equal(layer.reconstructionPlan.diagramUnderstanding.connectorHypothesisCount, 3);
 });
 
 test("classifyVisualLayer passes page semantics into demand-flow component motifs", () => {
@@ -207,6 +210,44 @@ test("classifyVisualLayer keeps screenshot zones as local crops", () => {
   assert.equal(layer.layerType, "screenshot-zone");
   assert.equal(layer.recommendedAction, "preserve-local-crop");
   assert.equal(layer.reconstructionPlan.status, "deferred");
+});
+
+test("classifyVisualLayer reclassifies screenshot-like multi-row card panels as diagrams", () => {
+  const image = blankImage(720, 260, "#ffffff");
+  for (const y of [24, 142]) {
+    for (const x of [24, 188, 352, 516]) fillRect(image, x, y, 142, 78, "#f8fafc");
+  }
+  const textBoxes = [];
+  for (let row = 0; row < 2; row += 1) {
+    for (let col = 0; col < 4; col += 1) {
+      textBoxes.push({
+        id: `card-${row}-${col}`,
+        text: `结构卡片 ${row}-${col}`,
+        box: { x: 34 + col * 164, y: 38 + row * 118, w: 96, h: 20 }
+      });
+      textBoxes.push({
+        id: `body-${row}-${col}`,
+        text: "说明文本",
+        box: { x: 34 + col * 164, y: 68 + row * 118, w: 108, h: 18 }
+      });
+    }
+  }
+
+  const layer = classifyVisualLayer({
+    type: "fidelity-crop",
+    box: { x: 0, y: 0, w: 720, h: 260 },
+    source: {
+      detector: "foreground-graphic-crop",
+      expressionForm: "screenshot-or-document",
+      expressionSubtype: "screenshot-or-document-region",
+      recommendedAction: "preserve-local-crop"
+    }
+  }, { textBoxes }, { widthPt: 720, heightPt: 260 }, { sourceImage: image });
+
+  assert.equal(layer.layerType, "diagram-zone");
+  assert.equal(layer.standaloneVisualAsset, undefined);
+  assert.equal(layer.structuredTextPanelEvidence.rows >= 2, true);
+  assert.notEqual(layer.reconstructionPlan.reason, "standalone icon, illustration, screenshot, or visual-example asset is preserved as a movable crop");
 });
 
 test("classifyVisualLayer does not mistake generic graphic crops for charts", () => {
@@ -468,7 +509,8 @@ test("summarizeLayerProfile aggregates diagram understanding archetypes", () => 
   });
 
   assert.equal(profile.totals.diagramArchetypeCounts["process-with-screenshots"], 1);
-  assert.equal(profile.totals.diagramReadinessCounts["hybrid-native-plus-residual-crops"], 1);
+  assert.equal(profile.totals.diagramReadinessCounts["preserve-crop-with-structured-metadata"], 1);
+  assert.equal(profile.totals.recommendedActionCounts["preserve-local-crop"], 1);
 });
 
 test("summarizeLayerProfile does not block on allowed icon and screenshot residual crops", () => {

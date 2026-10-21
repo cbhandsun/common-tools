@@ -1,7 +1,7 @@
 // @ts-check
 "use strict";
 
-const { ptBoxOverlapAreaValue, boxCenterInside } = require("./diagram-geometry");
+const { boxCenterInside } = require("./diagram-geometry");
 const { assertBox, computeEnvelope } = require("./layout-constraint-solver");
 
 /**
@@ -72,7 +72,7 @@ function assertDlaRegion(value, label = "DLA region") {
   const w = Number(rawBox.w);
   const h = Number(rawBox.h);
 
-  if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) {
+  if (![x, y, w, h, x + w, y + h].every(Number.isFinite) || w <= 0 || h <= 0) {
     throw new TypeError(`${label}.box coordinates and dimensions must be positive finite numbers`);
   }
 
@@ -114,6 +114,22 @@ function withDefaultRegionId(value, index) {
   return Object.freeze({ ...raw, id: `dla_region_${index + 1}` });
 }
 
+/** @typedef {{region:DlaRegion,complete:boolean,overlap:number}} RegionCandidate */
+/** Containment determines the closest complete parent. Partial regions compete
+ * by measured text coverage; confidence and identity only settle equal geometry.
+ * This association never grants ownership of the text's source pixels.
+ * @param {RegionCandidate} left @param {RegionCandidate} right */
+function compareRegionCandidates(left, right) {
+  if (left.complete !== right.complete) return left.complete ? -1 : 1;
+  if (!left.complete && left.overlap !== right.overlap) return right.overlap - left.overlap;
+  // Log area preserves ordering without overflowing on admitted finite extents.
+  const leftArea = Math.log(left.region.box.w) + Math.log(left.region.box.h);
+  const rightArea = Math.log(right.region.box.w) + Math.log(right.region.box.h);
+  if (leftArea !== rightArea) return leftArea - rightArea;
+  if (left.region.confidence !== right.region.confidence) return right.region.confidence - left.region.confidence;
+  return left.region.id < right.region.id ? -1 : left.region.id > right.region.id ? 1 : 0;
+}
+
 /**
  * Associate OCR text boxes with DLA regions using geometric overlap and center containment.
  * @param {readonly unknown[]} dlaRegions
@@ -140,31 +156,24 @@ function associateTextWithDlaRegions(dlaRegions, textBoxes) {
     const y = Number(box.y);
     const w = Number(box.w);
     const h = Number(box.h);
-    if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) continue;
+    if (![x, y, w, h, x + w, y + h].every(Number.isFinite) || w <= 0 || h <= 0) continue;
 
-    let bestRegionId = null;
-    let maxOverlap = 0;
+    /** @type {RegionCandidate | null} */
+    let best = null;
 
     for (const region of regions) {
-      // 1. Center inside check
-      if (boxCenterInside({ x, y, w, h }, region.box)) {
-        bestRegionId = region.id;
-        break;
-      }
-
-      // 2. Overlap area check
-      const overlap = ptBoxOverlapAreaValue({ x, y, w, h }, region.box);
-      const textArea = w * h;
-      const overlapRatio = overlap / Math.max(1, textArea);
-
-      if (overlapRatio > 0.4 && overlapRatio > maxOverlap) {
-        maxOverlap = overlapRatio;
-        bestRegionId = region.id;
-      }
+      const overlapWidth = Math.max(0, Math.min(x + w, region.box.x + region.box.w) - Math.max(x, region.box.x));
+      const overlapHeight = Math.max(0, Math.min(y + h, region.box.y + region.box.h) - Math.max(y, region.box.y));
+      const overlapRatio = (overlapWidth / w) * (overlapHeight / h) * Math.min(1, w * h);
+      if (!boxCenterInside({ x, y, w, h }, region.box) && !(overlapRatio > 0.4)) continue;
+      const complete = region.box.x <= x && region.box.y <= y
+        && region.box.x + region.box.w >= x + w && region.box.y + region.box.h >= y + h;
+      const candidate = { region, complete, overlap: overlapRatio };
+      if (!best || compareRegionCandidates(candidate, best) < 0) best = candidate;
     }
 
-    if (bestRegionId) {
-      const list = assigned.get(bestRegionId);
+    if (best) {
+      const list = assigned.get(best.region.id);
       if (list) list.push(tb);
     } else {
       unassigned.push(tb);

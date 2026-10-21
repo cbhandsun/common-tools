@@ -5,12 +5,20 @@ const path = require("node:path");
 const { cropPng, readPng, writePng } = require("./png");
 const { inferIntrusionEdges, inferPointFacingEdges, refineDenseIconCrop } = require("./icon-crop-refiner");
 const { buildMinimumUnitCropEvidence } = require("./graphic-crop-policy");
+const { buildFittedCentralPictorialNativeShapes } = require("./knowledge-graph-native");
+const { vectorizeDensePictorialIcon } = require("./pictorial-icon-native-vectorization");
 
-function refineKnowledgeGraphIconCrops({ page, slideSize, sourceFile, root } = {}) {
+function refineKnowledgeGraphIconCrops({ page, slideSize, sourceFile, root, enableDensePictorialIconVectorization = false } = {}) {
   validateInput(page, slideSize, sourceFile, root);
   if (page?.source?.semanticNativeStructure?.profile !== "knowledge-graph-three-panel-v1") return Object.freeze({ matched: false, replacedCrops: 0, createdCrops: 0 });
   const candidates = (Array.isArray(page.images) ? page.images : []).filter((item) => isCentralDiagramCrop(item, slideSize));
   if (candidates.length < 3 || candidates.length > 8) return Object.freeze({ matched: false, replacedCrops: 0, createdCrops: 0 });
+  if (hasCentralSemanticPictorialNative(page, slideSize)) {
+    const candidateIds = new Set(candidates.map((item) => item.id));
+    page.images = page.images.filter((item) => !candidateIds.has(item.id));
+    const added = replaceCentralSemanticPictorialNative(page, candidates, slideSize);
+    return Object.freeze({ matched: true, replacedCrops: candidates.length, createdCrops: 0, createdNativeShapes: added, nativePictorialPreserved: true });
+  }
   const source = readPng(sourceFile); const assetDir = path.join(root, "assets");
   fs.mkdirSync(assetDir, { recursive: true });
   const candidateIds = new Set(candidates.map((item) => item.id));
@@ -18,7 +26,13 @@ function refineKnowledgeGraphIconCrops({ page, slideSize, sourceFile, root } = {
   const semanticHub = candidateCentroid(candidates);
   const relationships = (Array.isArray(page.shapes) ? page.shapes : []).filter((shape) => shape?.type === "line" && /pictorial/u.test(shape.source?.detector || ""));
   const created = candidates.map((candidate, index) => createIconCrop({ candidate, index, source, assetDir, slideSize, semanticHub, relationships }));
-  page.images = [...retained, ...created];
+  const vectorized = enableDensePictorialIconVectorization === true && created.length === 3 ? created.flatMap((item) => item.nativeShapes) : [];
+  if (enableDensePictorialIconVectorization === true && created.length === 3 && vectorized.length >= created.length) {
+    page.images = retained;
+    page.shapes = [...(Array.isArray(page.shapes) ? page.shapes : []), ...vectorized];
+    return Object.freeze({ matched: true, replacedCrops: candidates.length, createdCrops: 0, createdNativeShapes: vectorized.length, nativeIconVectorized: true });
+  }
+  page.images = [...retained, ...created.map((item) => item.image)];
   return Object.freeze({ matched: true, replacedCrops: candidates.length, createdCrops: created.length });
 }
 
@@ -36,7 +50,7 @@ function createIconCrop({ candidate, index, source, assetDir, slideSize, semanti
   const refinedPtBox = pxToPtBox(refinedPxBox, source, slideSize);
   const cropEvidence = buildMinimumUnitCropEvidence({ sourceWidth: source.width, sourceHeight: source.height, originalPixelBox: pxBox, refinement });
   const connectorAnchorPoint = nearestOpaquePointToward(refinement.image, refinedPtBox, semanticHub);
-  return {
+  const imageItem = {
     id: `team-knowledge-graph-icon-${index + 1}`,
     type: "fidelity-crop",
     assetPath: `assets/${fileName}`,
@@ -53,6 +67,13 @@ function createIconCrop({ candidate, index, source, assetDir, slideSize, semanti
       nonEditableReason: "dense pictorial region retained as a tight local crop while cards and relationships remain native"
     }
   };
+  const nativeShapes = vectorizeDensePictorialIcon({
+    image: refinement.image,
+    box: refinedPtBox,
+    idPrefix: `team-knowledge-graph-icon-${index + 1}`,
+    sourceImageId: imageItem.id
+  });
+  return Object.freeze({ image: imageItem, nativeShapes });
 }
 
 function nearestOpaquePointToward(image, box, target, minimumAlpha = 32) {
@@ -97,6 +118,35 @@ function candidateCentroid(candidates) {
 
 function isCentralDiagramCrop(item, slideSize) {
   if (item?.source?.strategy !== "local-fidelity-crop" || !validBox(item.box)) return false;
+  const pointX = item.box.x + item.box.w / 2; const pointY = item.box.y + item.box.h / 2;
+  return pointX >= slideSize.widthPt / 3 && pointX <= slideSize.widthPt * 2 / 3 && pointY >= slideSize.heightPt * 0.18 && pointY <= slideSize.heightPt * 0.64;
+}
+
+function hasCentralSemanticPictorialNative(page, slideSize) {
+  const shapes = Array.isArray(page?.shapes) ? page.shapes : [];
+  const central = shapes.filter((item) => {
+    if (item?.source?.semanticPictorialNative !== true || !validBox(item.box)) return false;
+    const pointX = item.box.x + item.box.w / 2; const pointY = item.box.y + item.box.h / 2;
+    return pointX >= slideSize.widthPt / 3 && pointX <= slideSize.widthPt * 2 / 3 && pointY >= slideSize.heightPt * 0.18 && pointY <= slideSize.heightPt * 0.64;
+  });
+  return central.length >= 6;
+}
+
+function replaceCentralSemanticPictorialNative(page, candidates, slideSize) {
+  const hub = (Array.isArray(page.shapes) ? page.shapes : []).find((item) => item.id === "team-knowledge-graph-node-1" && validBox(item.box));
+  if (!hub) return 0;
+  const previous = Array.isArray(page.shapes) ? page.shapes : [];
+  page.shapes = previous.filter((item) => !isCentralSemanticPictorialShape(item, slideSize));
+  const fitted = buildFittedCentralPictorialNativeShapes({ candidates, hub, slideSize });
+  page.shapes.push(...fitted);
+  return fitted.length;
+}
+
+function isCentralSemanticPictorialShape(item, slideSize) {
+  if (!validBox(item?.box)) return false;
+  const detector = String(item?.source?.detector || "");
+  if (/team-knowledge-graph-pictorial-hub-native-\d+$/u.test(detector) || /team-knowledge-graph-pictorial-native-dynamic-/u.test(detector)) return true;
+  if (item?.source?.semanticPictorialNative !== true) return false;
   const pointX = item.box.x + item.box.w / 2; const pointY = item.box.y + item.box.h / 2;
   return pointX >= slideSize.widthPt / 3 && pointX <= slideSize.widthPt * 2 / 3 && pointY >= slideSize.heightPt * 0.18 && pointY <= slideSize.heightPt * 0.64;
 }

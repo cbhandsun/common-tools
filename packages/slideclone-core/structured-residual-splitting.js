@@ -119,6 +119,35 @@ function shouldDrawResidualAfterShapes(detector, mode) {
 }
 
 function splitMixedDiagramSemanticCrops(image, residual, assetFile, irDir) {
+  const atomComponents = mixedDiagramSemanticAtomResidualComponents(image, residual);
+  if (atomComponents.length >= 2) {
+    const atomDecision = residualForegroundCoverageDecision(residual, atomComponents, { minForegroundCoverage: 0.035 });
+    if (atomDecision.use) {
+      image.source = {
+        ...(image.source || {}),
+        mixedDiagramSemanticAtomSplit: true,
+        mixedDiagramSemanticAtomForegroundCoverage: roundRatio(atomDecision.foregroundCoverage)
+      };
+      return writeResidualSplitImages({
+        image,
+        residual,
+        assetFile,
+        irDir,
+        components: atomComponents,
+        detector: "mixed-diagram-semantic-atom-residual-crop",
+        nonEditableReason: "mixed screenshot-flow diagram residual atoms preserved as small local crops after native structure extraction",
+        mode: "mixed-diagram-semantic-atom-residual"
+      });
+    }
+    image.source = {
+      ...(image.source || {}),
+      mixedDiagramSemanticAtomSplitRejected: {
+        reason: atomDecision.reason,
+        componentCount: atomDecision.componentCount,
+        foregroundCoverage: roundRatio(atomDecision.foregroundCoverage || 0)
+      }
+    };
+  }
   const components = mixedDiagramSemanticComponents(residual);
   const decision = residualForegroundCoverageDecision(residual, components, { minForegroundCoverage: 0.45 });
   if (!decision.use) {
@@ -144,6 +173,53 @@ function splitMixedDiagramSemanticCrops(image, residual, assetFile, irDir) {
     nonEditableReason: "mixed screenshot-flow diagram split into semantic local crops before deeper native reconstruction",
     mode: "mixed-diagram-semantic-residual"
   });
+}
+
+function mixedDiagramSemanticAtomResidualComponents(image = {}, residual) {
+  const layer = image?.source?.layer || {};
+  const understanding = layer.diagramUnderstanding || {};
+  const atoms = [
+    ...(Array.isArray(layer.visualAtoms) ? layer.visualAtoms : []),
+    ...(Array.isArray(understanding.visualAtoms) ? understanding.visualAtoms : [])
+  ];
+  const seen = new Set();
+  const items = atoms
+    .filter((atom) => shouldKeepMixedDiagramAtomAsResidual(atom))
+    .filter((atom) => {
+      const key = atom.id ? String(atom.id) : JSON.stringify(atom.box);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((atom) => ({
+      atom,
+      box: slidePtBoxToLocalPxBox(expandPtBox(atom.box, DEFAULT_SLIDE, 10, 8), image.box, residual)
+    }))
+    .filter((item) => isUsableVisualAtomResidualBox(item.box, residual));
+  return denseResidualAtomComponents(items, residual)
+    .map((component) => ({
+      ...component,
+      splitMode: "mixed-diagram-semantic-atom-residual"
+    }))
+    .slice(0, 12);
+}
+
+function shouldKeepMixedDiagramAtomAsResidual(atom = {}) {
+  if (!atom?.box) return false;
+  if (atom.residualCandidate === true) return true;
+  const kind = String(atom.kind || "");
+  if (kind !== "native-scatter-point-candidate") return false;
+  const box = atom.box || {};
+  const width = Number(box.w || 0);
+  const height = Number(box.h || 0);
+  const density = Number(atom.density || 0);
+  const areaRatio = Number(atom.areaRatio || 0);
+  return width >= 24
+    && height >= 24
+    && width <= 90
+    && height <= 90
+    && density >= 0.55
+    && (areaRatio === 0 || (areaRatio >= 0.0015 && areaRatio <= 0.02));
 }
 
 function mixedDiagramSemanticComponents(residual) {
@@ -1052,4 +1128,4 @@ function unionPxBox(a, b) {
   return { x, y, w: x2 - x, h: y2 - y };
 }
 
-module.exports = { splitMixedDiagramSemanticCrops, mixedDiagramSemanticComponents, clampLocalBox, expandLocalBox, residualForegroundCoverageDecision, annotateResidualSplitRejection, writeResidualSplitImages, localPxBoxToSlidePt, classifyResidualSplitComponent, shouldDrawResidualAfterShapes, splitResidualLayerSource, splitDenseStructuredCaseResidualCrops, slidePtBoxToLocalPxBox, isUsableVisualAtomResidualBox, denseResidualAtomComponents, unionLocalBoxes, structuredCaseRowBandComponents, boxCenterY, splitStructuredIllustrationCardResidualCrops, structuredIllustrationCardIllustrationResidualComponents, structuredIllustrationCardColumnBands, structuredIllustrationCardShellBoxes, structuredIllustrationOuterCardShellBounds, clampPtBoxToSlide, structuredIllustrationCardAtomResidualComponents, shouldKeepStructuredIllustrationAtomAsResidual, isUsableStructuredIllustrationAtomResidualBox, mergeStructuredIllustrationAtomComponents, boxesNearPx, unionPxBox, splitSparseVisualAtomErasedResidualCrop, looksLikeScreenshotOrDocumentLayer, residualForegroundStats, shouldDropHighConfidenceGridVisualAtomResidual, splitStructuredIllustrationSparseResidualCrops, structuredIllustrationSparseResidualComponents, structuredIllustrationLooseResidualComponents, isStructuredIllustrationLooseResidualPixel, expandStructuredResidualPxBox, isUsefulStructuredIllustrationSparseComponent, structuredIllustrationCardBandSparseResidualComponents, structuredIllustrationCardResidualComponents };
+module.exports = { splitMixedDiagramSemanticCrops, mixedDiagramSemanticAtomResidualComponents, mixedDiagramSemanticComponents, clampLocalBox, expandLocalBox, residualForegroundCoverageDecision, annotateResidualSplitRejection, writeResidualSplitImages, localPxBoxToSlidePt, classifyResidualSplitComponent, shouldDrawResidualAfterShapes, splitResidualLayerSource, splitDenseStructuredCaseResidualCrops, slidePtBoxToLocalPxBox, isUsableVisualAtomResidualBox, denseResidualAtomComponents, unionLocalBoxes, structuredCaseRowBandComponents, boxCenterY, splitStructuredIllustrationCardResidualCrops, structuredIllustrationCardIllustrationResidualComponents, structuredIllustrationCardColumnBands, structuredIllustrationCardShellBoxes, structuredIllustrationOuterCardShellBounds, clampPtBoxToSlide, structuredIllustrationCardAtomResidualComponents, shouldKeepStructuredIllustrationAtomAsResidual, isUsableStructuredIllustrationAtomResidualBox, mergeStructuredIllustrationAtomComponents, boxesNearPx, unionPxBox, splitSparseVisualAtomErasedResidualCrop, looksLikeScreenshotOrDocumentLayer, residualForegroundStats, shouldDropHighConfidenceGridVisualAtomResidual, splitStructuredIllustrationSparseResidualCrops, structuredIllustrationSparseResidualComponents, structuredIllustrationLooseResidualComponents, isStructuredIllustrationLooseResidualPixel, expandStructuredResidualPxBox, isUsefulStructuredIllustrationSparseComponent, structuredIllustrationCardBandSparseResidualComponents, structuredIllustrationCardResidualComponents };

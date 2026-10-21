@@ -2,10 +2,10 @@
 
 const { centerOf, clamp, median, round } = require("./diagram-geometry");
 
-function scoreUnderstanding({ archetype, nodes, connectors, residuals, item, visualAtoms = [], visualNodes = [], visualConnectors = [], visualGrid = null }) {
+function scoreUnderstanding({ archetype, nodes, residuals, item, visualAtoms = [], visualNodes = [], visualConnectors = [], visualGrid = null }) {
   let score = 0.18;
   const structuralNodeCount = Math.max(nodes.length, visualNodes.length);
-  const structuralConnectorCount = Math.max(connectors.length, visualConnectors.length, connectorAtomCount(countBy(visualAtoms, "kind")));
+  const structuralConnectorCount = Math.max(visualConnectors.length, connectorAtomCount(countBy(visualAtoms, "kind")));
   const atomKinds = countBy(visualAtoms, "kind");
   if (structuralNodeCount >= 3) score += 0.22;
   if (structuralNodeCount >= 5) score += 0.08;
@@ -120,11 +120,13 @@ function estimateVisualNodeRows(visualNodes = []) {
   return rows.length;
 }
 
-function readinessFor({ archetype, confidence, nodes, connectors, residuals, visualAtoms = [], visualNodes = [], visualConnectors = [], visualGrid = null }) {
+function readinessFor({ archetype, confidence, nodes, residuals, visualAtoms = [], visualNodes = [], visualConnectors = [], visualGrid = null }) {
   const atomKinds = countBy(visualAtoms, "kind");
   const structuralNodeCount = Math.max(nodes.length, visualNodes.length);
-  const structuralConnectorCount = Math.max(connectors.length, visualConnectors.length, connectorAtomCount(atomKinds));
-  const measuredRelationConnectorCount = Math.max(connectors.length, visualConnectors.length, relationConnectorAtomCount(atomKinds));
+  const structuralConnectorCount = Math.max(visualConnectors.length, connectorAtomCount(atomKinds));
+  // Unattached line atoms and inferred text sequences are not node relations.
+  // Detailed source geometry remains the native shell's responsibility.
+  const measuredRelationConnectorCount = visualConnectors.length;
   if (archetype === "machine-readable-code") return "preserve-crop";
   if (archetype === "dense-radial-line-art") return "preserve-crop";
   if (archetype === "screenshot-card-grid" && confidence >= 0.46) return "hybrid-native-plus-residual-crops";
@@ -157,8 +159,8 @@ function readinessFor({ archetype, confidence, nodes, connectors, residuals, vis
   if (archetype === "flow-card-chain"
     && confidence >= 0.72
     && residuals.length === 0
-    && (nodes.length >= 3
-      || (visualNodes.length >= 3 && measuredRelationConnectorCount >= visualNodes.length - 1))) return "native-rebuild";
+    && visualNodes.length >= 3
+    && measuredRelationConnectorCount >= visualNodes.length - 1) return "native-rebuild";
   if ((archetype === "generic-node-diagram" || archetype === "multi-cluster-diagram")
     && confidence >= 0.72
     && structuralNodeCount >= 3

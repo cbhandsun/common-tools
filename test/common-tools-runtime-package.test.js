@@ -24,6 +24,9 @@ test("installed image probe follows extracted admission and detects a missing pa
   const bypass="const Module=require('node:module');const load=Module._load;Module._load=function(request,...args){if(request.endsWith('normalized-pages-admission.js'))return {admitNormalizedPages:()=>({})};return load.call(this,request,...args);};";
   const bad=spawnSync(process.execPath,["-e",bypass+imageEditableEnhancementProbe(),root],{encoding:"utf8"});
   assert.equal(bad.status,2);assert.equal(bad.stdout,"source-worker-contract");
+  const unwired="const fs0=require('node:fs');const read0=fs0.readFileSync;fs0.readFileSync=function(file,...args){const value=read0.call(this,file,...args);return String(file).endsWith('image-native-rebuilder.js')&&typeof value==='string'?value.replace('preserveLocalFidelityImages: true','preserveLocalFidelityImages: false'):value;};";
+  const missing=spawnSync(process.execPath,["-e",unwired+imageEditableEnhancementProbe(),root],{encoding:"utf8"});
+  assert.equal(missing.status,2);assert.equal(missing.stdout,"remote-worker-wiring");
 });
 
 test("runtime package verifier accepts a bounded release-only file manifest", () => {
@@ -31,6 +34,15 @@ test("runtime package verifier accepts a bounded release-only file manifest", ()
   assert.equal(result.filename, `common-tools-${packageManifest.version}.tgz`);
   assert.equal(result.size, 1024);
   assert.deepEqual(result.files, [...REQUIRED_FILES, "README.md"]);
+});
+
+test('runtime package requires every transparent owner source and transaction module',()=>{
+  const files=['source-scene-open-owner-transaction','source-scene-open-owner-inventory','source-scene-open-owner-members','source-scene-open-paint','source-scene-literal-paint','source-scene-inventory-codec','source-scene-inventory-artifact','source-scene-admission-history','source-scene-shared-route-inventory'];
+  for(const module of files){
+    const file=`packages/slideclone-core/${module}.js`;
+    assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(file));
+    assert.throws(()=>parsePackMetadata(metadata(REQUIRED_FILES.filter(entry=>entry!==file))));
+  }
 });
 
 test("installed runtime package surfaces must remain package-owned files", () => {

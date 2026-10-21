@@ -4,6 +4,8 @@ const crypto = require("node:crypto");
 const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const { admitOcrPolygon } = require("./ocr-text-quadrilateral");
+const { admitOcrWordPositionHints } = require("./ocr-word-position-hints");
 
 const PROFILE_NAME = "paddleocr-ppocrv6-v1";
 const EXPECTED_VERSIONS = Object.freeze({ paddlepaddle: "3.3.1", paddleocr: "3.7.0" });
@@ -91,7 +93,12 @@ function normalizeLines(items, dimensions) {
     if (!Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 1) throw new Error("PaddleOCR result confidence is invalid");
     const box = polygonBox(item.polygon);
     if (box.x < 0 || box.y < 0 || box.w <= 0 || box.h <= 0 || box.x + box.w > dimensions.widthPx || box.y + box.h > dimensions.heightPx) throw new Error("PaddleOCR result geometry is invalid");
-    return Object.freeze({ text: item.text.trim(), confidence: item.confidence, box: Object.freeze(box) });
+    const polygon = admitOcrPolygon(item.polygon, dimensions, box);
+    const hintsProperty=Object.getOwnPropertyDescriptor(item,"wordPositionHints");
+    if(hintsProperty&&!("value"in hintsProperty))throw new TypeError("OCR word position is invalid");
+    const wordPositionHints=admitOcrWordPositionHints(hintsProperty?.value,{text:item.text.trim(),box});
+    return Object.freeze({ text: item.text.trim(), confidence: item.confidence, box: Object.freeze(box), polygon,
+      ...(wordPositionHints?{wordPositionHints}:{}) });
   }).filter((item) => item.confidence >= MIN_TEXT_CONFIDENCE);
   return Object.freeze({ lines: Object.freeze(lines) });
 }

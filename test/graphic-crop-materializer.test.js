@@ -7,6 +7,7 @@ const path = require("node:path");
 const test = require("node:test");
 const { materializeGraphicCrops, refineGraphicCrop } = require("../packages/slideclone-core/graphic-crop-materializer");
 const { readPng } = require("../packages/slideclone-core/png");
+const { splitSparseLargeGraphicComponents } = require("../packages/slideclone-core/residual-component-analysis");
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "graphic-crop-module-"));
@@ -63,6 +64,30 @@ test("graphic crop stage preserves aggregate geometry without claiming minimum-u
   assert.equal(artifact.source.cropEvidenceRequired, undefined);
 });
 
+test("graphic crop stage does not claim isolated-icon protection for a crop containing text", (t) => {
+  const f = fixture(t);
+  const textBoxes = [{ text: "native body", box: { x: 16, y: 14, w: 8, h: 6 } }];
+  const [artifact] = materializeGraphicCrops(f.image, textBoxes, { widthPt: 960, heightPt: 540 }, f.options, f.operations);
+  assert.equal(artifact.source.protectedMinimumUnit, undefined);
+  assert.equal(artifact.source.cropEvidenceRequired, undefined);
+  assert.deepEqual(artifact.box, f.component.box);
+});
+
+test("graphic crop stage does not label an untightened multi-glyph strip as an icon", (t) => {
+  const f = fixture(t);
+  f.image.rgba.fill(255);
+  for (const x of [12, 18, 24, 30]) {
+    for (let y = 12; y < 22; y += 1) for (let column = x; column < x + 2; column += 1) {
+      const offset = (y * f.image.width + column) * 4;
+      f.image.rgba[offset] = 25; f.image.rgba[offset + 1] = 25; f.image.rgba[offset + 2] = 25;
+    }
+  }
+  const [artifact] = f.run();
+  assert.equal(artifact.source.protectedMinimumUnit, undefined);
+  assert.equal(artifact.source.tightCropAdmission, undefined);
+  assert.deepEqual(artifact.box, f.component.box);
+});
+
 test("graphic crop stage keeps explicit classification and a bounded twelve-artifact result", (t) => {
   const f = fixture(t);
   f.operations.foregroundComponents = () => Array.from({ length: 30 }, () => ({ ...f.component }));
@@ -98,3 +123,68 @@ test("graphic crop stage propagates detector and storage failures without invent
 test("graphic crop refinement rejects malformed image data", () => {
   assert.throws(() => refineGraphicCrop({ width: 1, height: 1, rgba: null }, { x: 0, y: 0, w: 1, h: 1 }));
 });
+
+test("sparse large line-container components split into bounded residual crops", () => {
+  const image = whiteImage(640, 420);
+  drawRectOutline(image, 60, 60, 220, 70);
+  drawRectOutline(image, 330, 60, 230, 70);
+  drawRectOutline(image, 70, 220, 500, 80);
+  drawLine(image, 170, 130, 170, 220);
+  drawLine(image, 445, 130, 445, 220);
+  const component = { box: { x: 50, y: 50, w: 540, h: 270 }, sampledCount: 420 };
+
+  const parts = splitSparseLargeGraphicComponents([component], image);
+
+  assert.ok(parts.length >= 2, "expected sparse structure to be split");
+  assert.ok(parts.every((part) => part.box.w * part.box.h < component.box.w * component.box.h * 0.45));
+  const totalArea = parts.reduce((sum, part) => sum + part.box.w * part.box.h, 0);
+  assert.ok(totalArea < component.box.w * component.box.h * 0.82);
+});
+
+test("sparse large splitting preserves dense pictorial components", () => {
+  const image = whiteImage(640, 420);
+  for (let y = 70; y < 310; y += 1) {
+    for (let x = 80; x < 560; x += 1) {
+      if ((x + y) % 5 !== 0) setPixel(image, x, y, 40, 80, 120, 255);
+    }
+  }
+  const component = { box: { x: 80, y: 70, w: 480, h: 240 }, sampledCount: 30000 };
+
+  const parts = splitSparseLargeGraphicComponents([component], image);
+
+  assert.equal(parts.length, 1);
+  assert.deepEqual(parts[0].box, component.box);
+});
+
+function whiteImage(width, height) {
+  return { width, height, rgba: Buffer.alloc(width * height * 4, 255) };
+}
+
+function drawRectOutline(image, x, y, w, h) {
+  drawLine(image, x, y, x + w, y);
+  drawLine(image, x, y + h, x + w, y + h);
+  drawLine(image, x, y, x, y + h);
+  drawLine(image, x + w, y, x + w, y + h);
+}
+
+function drawLine(image, x1, y1, x2, y2) {
+  const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+  for (let index = 0; index <= steps; index += 1) {
+    const x = Math.round(x1 + (x2 - x1) * index / Math.max(1, steps));
+    const y = Math.round(y1 + (y2 - y1) * index / Math.max(1, steps));
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        setPixel(image, x + dx, y + dy, 70, 90, 110, 255);
+      }
+    }
+  }
+}
+
+function setPixel(image, x, y, r, g, b, a) {
+  if (x < 0 || y < 0 || x >= image.width || y >= image.height) return;
+  const offset = (y * image.width + x) * 4;
+  image.rgba[offset] = r;
+  image.rgba[offset + 1] = g;
+  image.rgba[offset + 2] = b;
+  image.rgba[offset + 3] = a;
+}

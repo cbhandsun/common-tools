@@ -48,8 +48,21 @@ test("parseListMode enables a read-only suite inventory", () => {
   assert.equal(parseListMode([]), false);
   assert.equal(parseListMode(["--suite", "unit"]), false);
   assert.equal(parseListMode(["--suite", "unit", "--list"]), true);
+  assert.equal(parseListMode(["--suite", "unit", "--list-files"]), true);
   assert.equal(parseListFilesMode(["--suite", "unit", "--list"]), false);
   assert.equal(parseListFilesMode(["--suite", "unit", "--list", "--list-files"]), true);
+});
+
+test("--list-files alone inventories CI files without executing a test shard", () => {
+  const result = spawnSync(process.execPath, [path.join(__dirname, "..", "scripts", "test-sharded.js"), "--suite", "all", "--list-files"], {
+    encoding: "utf8", windowsHide: true, timeout: 30000, maxBuffer: 2 * 1024 * 1024
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  const inventory = JSON.parse(result.stdout);
+  assert.equal(inventory.files.length, inventory.fileCount);
+  assert.ok(inventory.files.includes(path.join("test", "openxml-native-line-dash-contract.test.js")));
+  assert.doesNotMatch(result.stdout, /test shard \d+:/u);
 });
 
 test("suite inventory summarizes scheduled waves without listing files by default", () => {
@@ -96,6 +109,12 @@ test("parseShardCount validates command and environment boundaries", () => {
 });
 
 test("test suites classify fast feedback, contracts, and integration checks", () => {
+  for (const name of ["openxml-template-placeholders.test.js", "pptx-package-admission.test.js"]) {
+    assert.equal(classifyTestResource(`test/${name}`), "external-process");
+    assert.equal(classifyTestFile(`test/${name}`), "integration");
+    assert.equal(includesSuite(`test/${name}`, "unit"), false);
+    assert.equal(includesSuite(`test/${name}`, "integration"), true);
+  }
   assert.equal(classifyTestFile("test/font-fit.test.js"), "unit");
   assert.equal(classifyTestFile("test/package-scripts.test.js"), "contract");
   assert.equal(classifyTestFile("test/workspace-package-boundaries.test.js"), "contract");
@@ -108,6 +127,10 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.equal(classifyTestFile("test/common-tools-team-ocr-profile.test.js"), "integration");
   assert.equal(classifyTestFile("test/openxml-native-chart-smoke.test.js"), "integration");
   assert.equal(classifyTestFile("test/openxml-dotnet-contract.test.js"), "contract");
+  assert.equal(classifyTestFile("test/native-text-spacing-contract.test.js"), "contract");
+  assert.equal(classifyTestResource("test/native-text-spacing-contract.test.js"), "external-process");
+  assert.equal(includesSuite("test/native-text-spacing-contract.test.js", "unit"), false);
+  assert.equal(includesSuite("test/native-text-spacing-contract.test.js", "contract"), true);
   assert.equal(includesSuite("test/font-fit.test.js", "unit"), true);
   assert.equal(includesSuite("test/font-fit.test.js", "integration"), false);
   assert.equal(includesSuite("test/workspace-package-boundaries.test.js", "unit"), false);
@@ -149,6 +172,13 @@ test("unit suite excludes external-process tests so fast feedback stays local", 
     .map(({ file }) => path.basename(file))
     .sort();
   assert.deepEqual(externalUnitTests, []);
+});
+test('compiler-session and feedback regressions are included in unit and unified CI discovery',()=>{
+ const root=path.resolve(__dirname,'..'),discover=require('../scripts/test-sharded').discoverTestFiles;
+ for(const suite of ['unit','all']){
+  const files=discover(root,suite).map(r=>path.basename(r.file));
+  for(const name of ['source-scene-compilation-session.test.js','source-scene-compile-feedback.test.js'])assert.ok(files.includes(name),`${suite}: ${name}`);
+ }
 });
 
 test("real shards serialize files even for standard resources and propagate failures", () => {

@@ -2,12 +2,15 @@
 // @ts-check
 
 /** @typedef {{ width: number, height: number, rgba: Uint8Array }} SourceImage */
+/** @typedef {{left:number,right:number,y:number,score:number,support:number}} StrokeCandidate */
+/** @typedef {StrokeCandidate & {count:number}} MergedStrokeCandidate */
 
 const MAX_PIXELS = 40_000_000;
 const MAX_DIMENSION = 16_384;
 const MAX_SHAPES = 10_000;
 const MAX_CONNECTORS = 16;
 const MAX_SAMPLES = 20_000_000;
+const MAX_PUBLIC_SAMPLE_COUNT = 100_000;
 const TARGET_DETECTORS = new Set(["team-knowledge-graph-layer-flow-1", "team-knowledge-graph-layer-flow-2"]);
 /** @type {[number, number, number]} */ const TARGET_STROKE = [79, 129, 224];
 
@@ -40,7 +43,7 @@ function fitSourceHorizontalConnectors(request) {
     accepted += 1;
     connectors.push({ index, accepted: true, sourceBox: result.sourceBox, support: result.support });
   }
-  return { shapes, evidence: { accepted, candidates, samples: state.samples, connectors } };
+  return { shapes, evidence: { accepted, candidates, samples: Math.min(MAX_PUBLIC_SAMPLE_COUNT, state.samples), connectors } };
 }
 
 /** @param {Record<string, unknown>} shape @param {SourceImage} image @param {{width:number,height:number}} slide @param {{samples:number}} state */
@@ -57,7 +60,7 @@ function fitOne(shape, image, slide, state) {
   const xMin = Math.max(0, Math.floor(expectedLeft - endWindow)); const xMax = Math.min(image.width - 1, Math.ceil(expectedRight + endWindow));
   const yMin = Math.max(0, Math.floor(expectedY - yWindow)); const yMax = Math.min(image.height - 1, Math.ceil(expectedY + yWindow));
   if (xMax - xMin + 1 > MAX_DIMENSION || yMax < yMin) return null;
-  /** @type {Array<{left:number,right:number,y:number,score:number,support:number}>} */ const runs = [];
+  /** @type {StrokeCandidate[]} */ const runs = [];
   for (let y = yMin; y <= yMax; y += 1) {
     const rowRuns = findRuns(image, y, xMin, xMax, state);
     for (const run of rowRuns) {
@@ -131,17 +134,20 @@ function hasTriangleEnd(image, run, y, direction, state) {
   return wideningColumns >= 2 && widest >= 5;
 }
 
-/** @param {Array<{left:number,right:number,y:number,score:number,support:number}>} runs */
+/** @param {StrokeCandidate[]} runs @returns {MergedStrokeCandidate[]} */
 function mergeSameStroke(runs) {
-  /** @type {Array<{left:number,right:number,y:number,score:number,support:number}>} */ const merged = [];
+  /** @type {MergedStrokeCandidate[]} */ const merged = [];
   for (const run of runs) {
     const prior = merged.find((candidate) => Math.abs(candidate.y - run.y) <= 3 && overlap(candidate.left, candidate.right, run.left, run.right) > 0.85);
-    if (!prior) { merged.push(run); continue; }
-    if (run.score > prior.score) { prior.left = run.left; prior.right = run.right; prior.y = run.y; prior.score = run.score; prior.support = run.support; }
+    if (!prior) { merged.push({ ...run, count: 1 }); continue; }
+    const count = Number.isSafeInteger(prior.count) && prior.count > 0 ? prior.count : 1;
+    prior.y = Math.round((prior.y * count + run.y) / (count + 1));
+    prior.count = count + 1;
+    if (run.score > prior.score) { prior.left = run.left; prior.right = run.right; prior.score = run.score; prior.support = run.support; }
   }
   return merged;
 }
-/** @param {Array<{left:number,right:number,y:number,score:number,support:number}>} candidates @param {{left:number,right:number,y:number,score:number,support:number}} best */
+/** @param {StrokeCandidate[]} candidates @param {StrokeCandidate} best */
 function hasParallelAmbiguity(candidates, best) { return candidates.some((candidate) => candidate !== best && Math.abs(candidate.y - best.y) > 4 && candidate.support >= 0.5 && overlap(candidate.left, candidate.right, best.left, best.right) > 0.75); }
 /** @param {number} a @param {number} b @param {number} c @param {number} d */
 function overlap(a, b, c, d) { return Math.max(0, Math.min(b, d) - Math.max(a, c) + 1) / Math.max(1, Math.min(b - a + 1, d - c + 1)); }
@@ -172,8 +178,8 @@ function parseSlideSize(value) {
 }
 /** @param {unknown} value @returns {{x:number,y:number,w:number,h:number}|null} */
 function parseHorizontalLineBox(value) {
-  if (!isRecord(value) || !finite(value.x) || !finite(value.y) || !finite(value.w) || !finite(value.h) || value.w === 0 || value.h !== 0) return null;
-  return { x: value.x, y: value.y, w: value.w, h: value.h };
+  if (!isRecord(value) || !finite(value.x) || !finite(value.y) || !finite(value.w) || !finite(value.h) || value.w === 0 || Math.abs(value.h) > 1) return null;
+  return { x: value.x, y: value.y + value.h / 2, w: value.w, h: 0 };
 }
 /** @param {unknown} value */
 function isTargetStyle(value) { return isRecord(value) && typeof value.stroke === "string" && value.stroke.toUpperCase() === "#4F81E0" && value.endArrow === "triangle" && isZeroRotation(value.rotationDeg) && isZeroRotation(value.rotation); }

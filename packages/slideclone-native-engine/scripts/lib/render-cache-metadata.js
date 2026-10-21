@@ -16,10 +16,11 @@ function sameRenderCacheIdentity(left, right) {
 }
 
 function createRenderCacheIdentity({ pptxFile, renderer, expectedPages, dpi = 144 }) {
+  const normalizedRenderer = normalizeRenderer(renderer);
   return {
-    provider: "slideclone-render-cache-v1",
+    provider: normalizedRenderer === "libreoffice" ? "slideclone-render-cache-frame-v2" : "slideclone-render-cache-v1",
     packageFingerprint: fingerprintOoxmlPackage(pptxFile),
-    renderer: normalizeRenderer(renderer),
+    renderer: normalizedRenderer,
     expectedPages: positiveSafeInteger(expectedPages, 1),
     dpi: positiveSafeInteger(dpi, 144)
   };

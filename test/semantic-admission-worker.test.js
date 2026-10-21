@@ -7,12 +7,12 @@ const test = require("node:test");
 const { createRawImageNativeRebuilder, shouldOmitFullSlideResidual } = require("../packages/slideclone-core/team-native-rebuild");
 const { writePng } = require("../packages/slideclone-core/png");
 const { createNativeRebuilder } = require("../packages/remote-mcp-server/bin/common-tools-team-image-worker");
+const {paintOcrFixtureInk}=require("./helpers/ocr-ink-fixture.cjs");
 
 function request(root) {
   const inputFile = path.join(root, "source.png");
-  writePng(inputFile, { width: 960, height: 720, rgba: Buffer.alloc(960 * 720 * 4, 255) });
   const line = (text, x, y, w = 100, h = 24) => ({ text, confidence: 0.99, box: { x, y, w, h } });
-  return { root, metadata: { inputFile, assetPath: "assets/source.png", dimensions: { widthPx: 960, heightPx: 720 } },
+  const value={ root, metadata: { inputFile, assetPath: "assets/source.png", dimensions: { widthPx: 960, heightPx: 720 } },
     ocr: { lines: [line("动态本体：知识图谱升级", 190, 20, 520, 42),
       line("传统知识图谱问题", 60, 105, 180, 28), line("动态本体思路", 385, 105, 160, 28), line("本体生长能力", 710, 105, 160, 28),
       line("系统A", 80, 260), line("系统B", 200, 290), line("系统C", 100, 380),
@@ -20,18 +20,28 @@ function request(root) {
       line("工单文本", 700, 285), line("视频数据", 700, 320), line("新型事件", 820, 285),
       line("数据接入层", 105, 560), line("本体生成层", 420, 560), line("应用服务层", 730, 560)] },
     isCancellationRequested: () => false };
+  writePng(inputFile,paintOcrFixtureInk({width:960,height:720,rgba:Buffer.alloc(960*720*4,255)},value.ocr.lines));
+  return value;
 }
 const rebuildDeckFromWorkDir = workDir => JSON.parse(fs.readFileSync(path.join(workDir, "ir", "deck.json"), "utf8"));
 
-test("semantic admission happens before residual erasure and retains raster fallback", async (t) => {
+test("semantic admission transaction rejection discards the draft before residual erasure", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "semantic-admission-worker-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const calls = [];
-  const rebuild = createRawImageNativeRebuilder({ rebuildDeckFromWorkDir,
+  const rebuildDeckWithSentinel = workDir => {
+    const deck = rebuildDeckFromWorkDir(workDir);
+    deck.pages[0].shapes.push({ id: "transaction-sentinel", type: "rect", box: { x: 1, y: 1, w: 2, h: 2 }, source: { nested: { retained: true } } });
+    deck.pages[0].source = { ...(deck.pages[0].source || {}), transactionSentinel: { nested: { retained: true } } };
+    return deck;
+  };
+  const rebuild = createRawImageNativeRebuilder({ rebuildDeckFromWorkDir: rebuildDeckWithSentinel,
     admitSemanticShapes: ({ page, sourceFile }) => {
       calls.push("admission"); assert.ok(fs.existsSync(sourceFile));
       const rejected = page.shapes.filter(shape => shape.type === "arc").length;
       assert.equal(rejected, 2);
+      page.shapes.push({ id: "rejected-draft-marker", type: "rect", box: { x: 5, y: 5, w: 5, h: 5 } });
+      page.source.transactionSentinel.nested.retained = false;
       return { shapes: page.shapes.filter(shape => shape.type !== "arc"), evidence: { candidates: 2, accepted: 0, rejected } };
     },
     createFullSlideResidual: ({ objects }) => {
@@ -42,7 +52,10 @@ test("semantic admission happens before residual erasure and retains raster fall
   const result = await rebuild(request(root));
   assert.deepEqual(calls, ["admission", "residual"]);
   assert.deepEqual(result.deck.meta.semanticNative.shapeAdmission, { candidates: 2, accepted: 0, rejected: 2 });
-  assert.equal(result.deck.pages[0].intent.primarySemanticStructureNative, false);
+  assert.deepEqual(result.deck.pages[0].source.transactionSentinel, { nested: { retained: true } });
+  assert.ok(result.deck.pages[0].shapes.some(shape => shape.id === "transaction-sentinel" && shape.source.nested.retained === true));
+  assert.equal(result.deck.pages[0].shapes.some(shape => shape.id === "rejected-draft-marker"), false);
+  assert.equal(result.deck.pages[0].shapes.some(shape => String(shape.id || "").startsWith("team-knowledge-graph-")), false);
   assert.ok(result.deck.pages[0].images.some(image => image.id === "full-slide-residual"));
   assert.equal(result.deck.pages[0].shapes.some(shape => shape.type === "arc"), false);
 });
@@ -58,7 +71,8 @@ test("production Worker checks actual source pixels before retaining semantic ar
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const rebuild = createNativeRebuilder({ rawImageOcrProfile: { kind: "umi" } }, { loadImplementation: () => ({ rebuildDeckFromWorkDir }) });
   const result = await rebuild(request(root));
-  const { horizontalConnectorFit, relationFit, ...arcAdmission } = result.deck.meta.semanticNative.shapeAdmission;
+  const { horizontalConnectorFit, relationFit, sourceCurveFit, ...arcAdmission } = result.deck.meta.semanticNative.shapeAdmission;
+  assert.equal(sourceCurveFit.accepted, 0);
   assert.deepEqual(arcAdmission, { candidates: 2, accepted: 0, rejected: 2 });
   assert.equal(horizontalConnectorFit.candidates, 2);
   assert.equal(horizontalConnectorFit.accepted, 0);

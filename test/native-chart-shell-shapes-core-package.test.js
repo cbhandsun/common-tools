@@ -31,6 +31,8 @@ test("native chart shell shapes execute their complete core closure and generate
     fs.writeFileSync(path.join(installed, name), source);
     for (const dependency of collectImports(source, name)) {
       assert.equal(typeof dependency.specifier, "string");
+      // Pure Node type inspection is not an external OCR/rendering service.
+      if (dependency.specifier === "node:util") continue;
       assert.ok(dependency.specifier.startsWith("./"), "chart module must not require external runtime services");
       pending.push(require.resolve(path.resolve(core, dependency.specifier)));
     }

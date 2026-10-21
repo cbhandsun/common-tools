@@ -27,6 +27,25 @@ function generatedDeck() {
   };
 }
 
+function knowledgeGraphOcrLines() {
+  const box = (text, x, y, w = 100, h = 24) => ({ text, confidence: 0.99, box: { x, y, w, h } });
+  return [
+    box("动态本体：知识图谱升级", 190, 20, 520, 42),
+    box("传统知识图谱问题", 60, 105, 180, 28), box("动态本体思路", 385, 105, 160, 28), box("本体生长能力", 710, 105, 160, 28),
+    box("系统A", 80, 260), box("系统B", 200, 290), box("系统C", 100, 380),
+    box("翻译层", 430, 190), box("人员", 445, 285), box("属性", 360, 355), box("事件", 540, 355),
+    box("✓", 360, 205, 28, 28), box("✓", 570, 205, 28, 28), box("✓", 360, 390, 28, 28),
+    box("高空事件", 700, 190), box("工单文本", 700, 285), box("视频数据", 700, 320), box("新型事件", 820, 285),
+    box("数据接入层", 105, 560), box("本体生成层", 420, 560), box("应用服务层", 730, 560)
+  ];
+}
+
+function paintBorder(rgba, width, { x, y, w, h }, color) {
+  const paint = (px, py) => rgba.set(color, (py * width + px) * 4);
+  for (let px = x; px <= x + w; px += 1) { paint(px, y); paint(px, y + h); }
+  for (let py = y; py <= y + h; py += 1) { paint(x, py); paint(x + w, py); }
+}
+
 test("raw native rebuilder passes resolver Map identities to the generator and stores page evidence", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "team-component-wiring-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -73,6 +92,31 @@ test("raw native rebuilder applies a validated semantic fallback through the dec
   assert.equal(page.source.declarativeRebuild.matchedPlugin, "builtin-step-chain");
   assert.ok(page.shapes.some((shape) => shape.source?.declarativeRebuilder === true));
   assert.ok(page.textBoxes.some((textBox) => textBox.source?.declarativeRebuilder === true && textBox.text === "识别"));
+});
+
+test("raw native rebuilder applies default source-backed knowledge graph border refinement", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "team-default-gray-border-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const inputFile = path.join(root, "source.png");
+  const rgba = Buffer.alloc(960 * 720 * 4, 255);
+  paintBorder(rgba, 960, { x: 790, y: 250, w: 160, h: 96 }, [20, 115, 230, 255]);
+  writePng(inputFile, { width: 960, height: 720, rgba });
+  const rebuild = createRawImageNativeRebuilder({
+    rebuildDeckFromWorkDir(workDir) {
+      return JSON.parse(fs.readFileSync(path.join(workDir, "ir", "deck.json"), "utf8"));
+    }
+  });
+
+  const result = await rebuild({
+    root,
+    metadata: { inputFile, assetPath: "assets/source.png", dimensions: { widthPx: 960, heightPx: 720 } },
+    ocr: { lines: knowledgeGraphOcrLines() },
+    isCancellationRequested: () => false
+  });
+  const fitted = result.deck.pages[0].shapes.find((shape) => shape.id === "team-knowledge-graph-node-5");
+
+  assert.equal(result.deck.meta.grayBorderRefinement.acceptedNodes, 1);
+  assert.deepEqual(fitted.box, { x: 790, y: 250, w: 160, h: 96 });
 });
 
 test("raw native rebuilder rejects unsafe semantic fallback geometry before final generation", async (t) => {

@@ -1,5 +1,9 @@
 "use strict";
 
+/** @typedef {{width:number, height:number, rgba:Buffer}} RgbaImage */
+/** @typedef {{r:number, g:number, b:number}} Color */
+
+/** @param {unknown} image @param {Record<string, unknown>} [options] */
 function makeEdgeConnectedBackgroundTransparent(image, options = {}) {
   if (!validImage(image)) throw new Error("image must contain positive width/height and an RGBA buffer");
   const transparentDistance = finiteNumber(options.transparentDistance, 20);
@@ -12,6 +16,7 @@ function makeEdgeConnectedBackgroundTransparent(image, options = {}) {
   let head = 0;
   let tail = 0;
 
+  /** @param {number} x @param {number} y */
   const enqueue = (x, y) => {
     const pixel = y * image.width + x;
     if (visited[pixel] || colorDistanceAt(rgba, pixel, background) > maximumDistance) return;
@@ -28,14 +33,14 @@ function makeEdgeConnectedBackgroundTransparent(image, options = {}) {
   }
 
   while (head < tail) {
-    const pixel = queue[head++];
+    const pixel = /** @type {number} */ (queue[head++]);
     const x = pixel % image.width;
     const y = Math.floor(pixel / image.width);
     const offset = pixel * 4;
     const distance = colorDistanceAt(rgba, pixel, background);
     const alphaRatio = Math.max(0, Math.min(1,
       (distance - transparentDistance) / (maximumDistance - transparentDistance)));
-    rgba[offset + 3] = Math.min(rgba[offset + 3], Math.round(255 * alphaRatio));
+    rgba[offset + 3] = Math.min(rgba.readUInt8(offset + 3), Math.round(255 * alphaRatio));
     if (x > 0) enqueue(x - 1, y);
     if (x + 1 < image.width) enqueue(x + 1, y);
     if (y > 0) enqueue(x, y - 1);
@@ -45,15 +50,17 @@ function makeEdgeConnectedBackgroundTransparent(image, options = {}) {
   return { ...image, rgba };
 }
 
+/** @param {RgbaImage} image @param {unknown} [quantizationStep] */
 function dominantBorderColor(image, quantizationStep = 16) {
   const step = Math.max(4, Math.min(64, Math.round(finiteNumber(quantizationStep, 16))));
   const buckets = new Map();
+  /** @param {number} x @param {number} y */
   const sample = (x, y) => {
     const offset = (y * image.width + x) * 4;
-    if (image.rgba[offset + 3] < 16) return;
-    const r = image.rgba[offset];
-    const g = image.rgba[offset + 1];
-    const b = image.rgba[offset + 2];
+    if (image.rgba.readUInt8(offset + 3) < 16) return;
+    const r = image.rgba.readUInt8(offset);
+    const g = image.rgba.readUInt8(offset + 1);
+    const b = image.rgba.readUInt8(offset + 2);
     const key = `${Math.floor(r / step)},${Math.floor(g / step)},${Math.floor(b / step)}`;
     const bucket = buckets.get(key) || { count: 0, r: 0, g: 0, b: 0 };
     bucket.count += 1;
@@ -79,23 +86,28 @@ function dominantBorderColor(image, quantizationStep = 16) {
   };
 }
 
+/** @param {Buffer} rgba @param {number} pixel @param {Color} color */
 function colorDistanceAt(rgba, pixel, color) {
   const offset = pixel * 4;
-  const dr = rgba[offset] - color.r;
-  const dg = rgba[offset + 1] - color.g;
-  const db = rgba[offset + 2] - color.b;
+  const dr = rgba.readUInt8(offset) - color.r;
+  const dg = rgba.readUInt8(offset + 1) - color.g;
+  const db = rgba.readUInt8(offset + 2) - color.b;
   return Math.sqrt(dr * dr + dg * dg + db * db);
 }
 
+/** @param {unknown} image @returns {image is RgbaImage} */
 function validImage(image) {
-  return Number.isInteger(image?.width)
-    && image.width > 0
-    && Number.isInteger(image?.height)
-    && image.height > 0
-    && Buffer.isBuffer(image?.rgba)
-    && image.rgba.length === image.width * image.height * 4;
+  if (!image || typeof image !== "object") return false;
+  const value = /** @type {Record<string, unknown>} */ (image);
+  return typeof value.width === "number" && Number.isInteger(value.width)
+    && value.width > 0
+    && typeof value.height === "number" && Number.isInteger(value.height)
+    && value.height > 0
+    && Buffer.isBuffer(value.rgba)
+    && value.rgba.length === value.width * value.height * 4;
 }
 
+/** @param {unknown} value @param {number} fallback */
 function finiteNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;

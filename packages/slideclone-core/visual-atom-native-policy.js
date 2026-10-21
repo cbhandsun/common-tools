@@ -3,6 +3,16 @@ const {boxOverlapRatio} = require("./raster-native-detection");
 const {normalizeVisualGridAtomAxis} = require("./native-chart-shell-shapes");
 const {looksLikeScreenshotOrDocumentLayer} = require("./structured-residual-splitting");
 const {hasPreserveCropWithNativeOverlaysStrategy} = require("./visual-atom-fallback");
+const {createOcrAtomConflictFilter}=require('./visual-atom-ocr-conflict');
+
+function excludeOcrGlyphAtoms(atoms, textBoxes, slideSize) {
+  if (!Array.isArray(atoms) || !Array.isArray(textBoxes) || !Number.isFinite(slideSize?.widthPt)
+    || !Number.isFinite(slideSize?.heightPt) || slideSize.widthPt <= 0 || slideSize.heightPt <= 0) return atoms;
+  const conflicts=createOcrAtomConflictFilter(textBoxes);
+  return atoms.filter((atom) => {
+    return !conflicts(atom);
+  });
+}
 
 function shouldEmitVisibleTopComplexDiagramNativeLayer(image = {}) {
   return image?.source?.allowVisibleTopComplexNativeRebuild === true;
@@ -312,4 +322,4 @@ function shouldObjectifyVisualAtomGridLine(layer = {}, understanding = {}, atoms
     && gridLineCount >= 2;
 }
 
-module.exports = { isHandledBySpecializedDiagramRebuilder, mergeUnderstoodAndFallbackVisualAtoms, persistPromotedVisualAtoms, selectVisualAtomNativeCandidates, isLineDiagramGridOverlayLayer, selectRepresentativeGridLineAtoms, visualGridAtomAxisPosition, visualGridAtomScore, shouldDropHybridDiagramResidualAfterVisualAtoms, hasObjectifiedVisualLayerText, shouldDropSegmentedComparisonMatrixAfterVisualAtoms, shouldDropVisualAtomResidualAfterNativeRebuild, shouldKeepVisualAtomResidualAsOverlayBase, shouldObjectifyVisualAtom, shouldObjectifyVisualAtomGridLine, shouldProtectComplexCropFromVisibleVisualAtoms, shouldEmitVisibleTopComplexDiagramNativeLayer, shouldSupplementWithFallbackVisualAtoms, suppressTrustedDonutDensityFragments, visualAtomNativeBudget };
+module.exports = { excludeOcrGlyphAtoms, isHandledBySpecializedDiagramRebuilder, mergeUnderstoodAndFallbackVisualAtoms, persistPromotedVisualAtoms, selectVisualAtomNativeCandidates, isLineDiagramGridOverlayLayer, selectRepresentativeGridLineAtoms, visualGridAtomAxisPosition, visualGridAtomScore, shouldDropHybridDiagramResidualAfterVisualAtoms, hasObjectifiedVisualLayerText, shouldDropSegmentedComparisonMatrixAfterVisualAtoms, shouldDropVisualAtomResidualAfterNativeRebuild, shouldKeepVisualAtomResidualAsOverlayBase, shouldObjectifyVisualAtom, shouldObjectifyVisualAtomGridLine, shouldProtectComplexCropFromVisibleVisualAtoms, shouldEmitVisibleTopComplexDiagramNativeLayer, shouldSupplementWithFallbackVisualAtoms, suppressTrustedDonutDensityFragments, visualAtomNativeBudget };

@@ -6,8 +6,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { run } = require("../lib/exec");
 const { recordRoundTripEvidence } = require("../lib/powerpoint-roundtrip-evidence");
+const { normalizeConnectorTarget, connectorRoundTripScript } = require("../lib/powerpoint-connector-roundtrip");
+const { shapeTargetScript } = require("../lib/powerpoint-shape-targets");
 
-const MODES = new Set(["auto", "shape-text", "smartart-text", "geometry"]);
+const MODES = new Set(["auto", "shape-text", "smartart-text", "geometry", "connector"]);
 
 async function validatePowerPointEditableRoundTrip(cases, options = {}) {
   const normalized = normalizeCases(cases);
@@ -40,7 +42,8 @@ function normalizeCases(value) {
     const stat = fs.statSync(file, { throwIfNoEntry: false });
     if (!stat?.isFile() || stat.size <= 0 || stat.size > 512 * 1024 * 1024 || path.extname(file).toLowerCase() !== ".pptx")
       throw new Error(`PowerPoint editable round-trip case ${index + 1} file is invalid.`);
-    return { file, mode };
+    if (mode !== "connector" && item.target !== undefined) throw new TypeError("A named connector target requires connector mode.");
+    return { file, mode, ...(mode === "connector" ? { target: normalizeConnectorTarget(item.target) } : {}) };
   });
 }
 
@@ -111,6 +114,7 @@ function Open-Deck([string]$File) {
   }
   throw "PowerPoint did not open the editable round-trip deck."
 }
+${shapeTargetScript()}
 function Find-Target($Deck, [string]$Mode) {
   if ($Mode -notin @("auto", "shape-text", "smartart-text", "geometry")) { throw "The requested edit mode is invalid." }
   $slides = $Deck.Slides
@@ -119,42 +123,18 @@ function Find-Target($Deck, [string]$Mode) {
   for ($slideIndex = 1; $slideIndex -le $slideCount; $slideIndex++) {
     $slide = $slides.Item($slideIndex)
     $shapes = $slide.Shapes
-    $shapeCount = [int]$shapes.Count
-    if ($null -eq $slide -or $null -eq $shapes -or $shapeCount -lt 0 -or $shapeCount -gt 100000) { throw "The slide shape collection is unavailable or out of bounds." }
-    for ($shapeIndex = 1; $shapeIndex -le $shapeCount; $shapeIndex++) {
-      $shape = $shapes.Item($shapeIndex)
-      $shapeId = $shape.Id
-      if ($shapeId -isnot [int] -or $shapeId -lt 1) { throw "The editable shape identity is unavailable." }
-      if ($Mode -eq "smartart-text" -or $Mode -eq "auto") {
-        try {
-          if ($shape.HasSmartArt -eq $msoTrue -and $shape.SmartArt.AllNodes.Count -gt 0) {
-            return [pscustomobject]@{ Kind="smartart-text"; Slide=$slideIndex; Shape=$shapeId }
-          }
-        } catch {}
-      }
-      if ($Mode -eq "shape-text" -or $Mode -eq "auto") {
-        try {
-          if ($shape.HasTextFrame -eq $msoTrue -and $shape.TextFrame2.HasText -eq $msoTrue) {
-            return [pscustomobject]@{ Kind="shape-text"; Slide=$slideIndex; Shape=$shapeId }
-          }
-        } catch {}
-      }
-      if ($Mode -eq "geometry" -or $Mode -eq "auto") {
-        $expectedLeft = [single]($shape.Left + 1.0)
-        return [pscustomobject]@{
-          Kind="geometry"
-          Slide=$slideIndex
-          Shape=$shapeId
-          ExpectedLeft=$expectedLeft
-        }
-      }
-    }
+    if ($null -eq $slide) { throw "The slide shape collection is unavailable or out of bounds." }
+    $found = Find-RoundTripShape $shapes $Mode $slideIndex
+    if ($null -ne $found) { return $found }
   }
   throw "No editable object matched the requested round-trip mode."
 }
-function Find-TargetWithRetry($Deck, [string]$Mode) {
+function Find-TargetWithRetry($Deck, [string]$Mode, $Spec = $null) {
   for ($attempt = 1; $attempt -le 12; $attempt++) {
-    try { return (Find-Target $Deck $Mode) }
+    try {
+      if ($Mode -eq "connector") { return (Find-ConnectorTarget $Deck $Spec) }
+      return (Find-Target $Deck $Mode)
+    }
     catch {
       if ($attempt -eq 12) { throw }
       Start-Sleep -Milliseconds (400 * $attempt)
@@ -172,12 +152,8 @@ function Get-ShapeById($Deck, $Target) {
   if ($Target.Slide -gt $slideCount) { throw "The editable object could not be resolved." }
   $slide = $slides.Item($Target.Slide)
   $shapes = $slide.Shapes
-  $shapeCount = [int]$shapes.Count
-  if ($null -eq $shapes -or $shapeCount -lt 0 -or $shapeCount -gt 100000) { throw "The slide shape collection is unavailable or out of bounds." }
-  for ($shapeIndex = 1; $shapeIndex -le $shapeCount; $shapeIndex++) {
-    $shape = $shapes.Item($shapeIndex)
-    if ($shape.Id -is [int] -and $shape.Id -eq $Target.Shape) { return $shape }
-  }
+  $found = Find-RoundTripShape $shapes "identity" $Target.Slide $Target.Shape
+  if ($null -ne $found) { return $found }
   throw "The editable object could not be resolved."
 }
 function Set-SmartArtMarker($Shape) {
@@ -216,6 +192,7 @@ function Test-SmartArtMarker($Shape) {
   return $false
 }
 function Apply-Edit($Deck, $Target) {
+  if ($Target.Kind -eq "connector") { Apply-ConnectorEdit $Deck $Target; return }
   $shape = Get-ShapeById $Deck $Target
   try {
     if ($Target.Kind -eq "smartart-text") {
@@ -230,7 +207,10 @@ function Apply-Edit($Deck, $Target) {
 }
 function Test-RetryableEditFailure($Exception) {
   if (Test-TransientComFailure $Exception) { return $true }
-  return $Exception.Message -eq "The editable object could not be resolved."
+  return $Exception.Message -in @("The editable object could not be resolved.",
+    "The editable shape identity is unavailable.",
+    "The deck slide collection is unavailable or out of bounds.",
+    "The slide shape collection is unavailable or out of bounds.")
 }
 function Apply-EditWithRetry($Deck, $Target) {
   for ($attempt = 1; $attempt -le 8; $attempt++) {
@@ -252,6 +232,7 @@ function Save-DeckCopyWithRetry($Deck, [string]$File) {
   }
 }
 function Verify-Edit($Deck, $Target) {
+  if ($Target.Kind -eq "connector") { return (Verify-ConnectorEdit $Deck $Target) }
   $shape = Get-ShapeById $Deck $Target
   try {
     if ($Target.Kind -eq "smartart-text") {
@@ -272,6 +253,7 @@ function Verify-EditWithRetry($Deck, $Target) {
   return $false
 }
 
+${connectorRoundTripScript()}
 try {
   $mutex = New-Object System.Threading.Mutex($false, "Local\SlideclonePowerPointOpenGate")
   $held = $mutex.WaitOne(210000)
@@ -292,7 +274,10 @@ try {
       $stage = "open"
       $deck = Open-Deck $staging
       $stage = "find-target"
-      $target = Find-TargetWithRetry $deck ([string]$case.mode)
+      $target = Find-TargetWithRetry $deck ([string]$case.mode) $case.target
+      if ($target.Kind -eq "connector") {
+        $dashPattern = Read-ConnectorDash $staging $target.Slide $target.Shape
+      }
       $stage = "edit"
       Apply-EditWithRetry $deck $target
       $stage = "save"
@@ -305,6 +290,9 @@ try {
       $reopened = Open-Deck $edited
       $stage = "verify"
       if (-not (Verify-EditWithRetry $reopened $target)) { throw "The edit did not survive PowerPoint save and reopen." }
+      if ($target.Kind -eq "connector" -and (Read-ConnectorDash $edited $target.Slide $target.Shape) -cne $dashPattern) {
+        throw "The exact connector dash pattern did not survive PowerPoint save and reopen."
+      }
       $results += [pscustomobject]@{ file=$source; mode=[string]$case.mode; editedKind=[string]$target.Kind; opened=$true; saved=$true; reopened=$true; verified=$true; stage="complete" }
     } catch {
       $results += [pscustomobject]@{ file=$source; mode=[string]$case.mode; opened=($null -ne $deck); saved=(Test-Path -LiteralPath $edited); reopened=($null -ne $reopened); verified=$false; stage=$stage; hresult=(Get-ErrorCode $_.Exception); error=$_.Exception.Message }

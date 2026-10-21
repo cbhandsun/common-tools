@@ -1,4 +1,5 @@
 "use strict";
+const { sourcePanelLayoutEvidence } = require("./source-panel-layout-evidence");
 const { DEFAULT_SLIDE } = require("./page-text-rule-helpers");
 const { boxCenterInside, round, luma, pixel, saturation, rgbToHsl, clamp } = require("./raster-native-detection");
 const { looksLikeLargeKpiValue, looksLikeTopTitle } = require("./native-text-style");
@@ -338,12 +339,12 @@ function shouldUseStructuredCaseUnderlay({ aggregate, image, structuralLines = [
 function shouldUseMixedDiagramUnderlay({ aggregate, image, structuralLines = [], textBoxes = [], contentBox, slideSize = DEFAULT_SLIDE } = {}) {
   if (!aggregate || !image || !contentBox) return false;
   if (textBoxes.length < 18 || textBoxes.length > 34) return false;
-  if (structuralLines.length < 3) return false;
   const aggregateArea = aggregate.box.w * aggregate.box.h / Math.max(1, image.width * image.height);
   if (aggregateArea < 0.81 || aggregateArea > 0.94) return false;
   const contentArea = contentBox.w * contentBox.h / Math.max(1, slideSize.widthPt * slideSize.heightPt);
   if (contentArea < 0.54 || contentArea > 0.66) return false;
-  return contentBox.w >= slideSize.widthPt * 0.82 && contentBox.h >= slideSize.heightPt * 0.62;
+  if (contentBox.w < slideSize.widthPt * 0.82 || contentBox.h < slideSize.heightPt * 0.62) return false;
+  return structuralLines.length >= 3 || sourcePanelLayoutEvidence({ image, textBoxes, slideSize }) !== null;
 }
 
 function shouldUseLeftIllustrationPanelUnderlay({ aggregate, image, leftBox, bannerBox, textBoxes = [], slideSize = DEFAULT_SLIDE } = {}) {

@@ -36,6 +36,22 @@ function shape(id, type, box, style, role) {
   const definedStyle = Object.fromEntries(Object.entries(style).filter(([, value]) => value !== undefined));
   return { id: `${PREFIX}${id}`, type, box: rounded(box), style: definedStyle, source: source(id, role, preserveResidualInterior ? { preserveResidualInterior: true } : {}) };
 }
+function pictorialShape(id, type, box, style, part, options = {}) {
+  const definedStyle = Object.fromEntries(Object.entries(style).filter(([, value]) => value !== undefined));
+  return {
+    id: `${PREFIX}${id}`,
+    type,
+    box: rounded(box),
+    ...(options.points ? { points: options.points } : {}),
+    ...(Number.isFinite(options.rotation) ? { rotation: options.rotation } : {}),
+    style: definedStyle,
+    source: source(`pictorial-native-${id}`, "pictorial", {
+      nativeComponentRole: "pictorial",
+      pictorialPart: part,
+      semanticPictorialNative: true
+    })
+  };
+}
 function connector(id, from, to, relationshipStyle, style = {}) {
   return shape(id, "line", lineBox(from, to), { ...relationshipStyle, connectorType: "straight", endArrow: "triangle", ...style }, "relationship");
 }
@@ -133,7 +149,7 @@ function buildShapes(model, relation) {
       : index === 2 ? { left: 11, top: 10, right: 11, bottom: 12 }
         : index === 3 ? { left: 11, top: 9, right: 11, bottom: 9 }
           : { left: 15, top: 21, right: 16, bottom: 22 }));
-  nodeBoxes.forEach((box, index) => shapes.push(shape(`node-${index + 1}`, "roundRect", box, { fill: "#FFFFFF", stroke: [1, 2, 3].includes(index) ? "#A7A7A7" : "#1473E6", strokeWidthPt: 1.25, radiusPt: 8 }, "node")));
+  const nodeShapes = nodeBoxes.map((box, index) => shape(`node-${index + 1}`, "roundRect", box, { fill: "#FFFFFF", stroke: [1, 2, 3].includes(index) ? "#A7A7A7" : "#1473E6", strokeWidthPt: 1.25, radiusPt: 8 }, "node"));
   const hubBox = nodeBoxes[0];
   const translatorTarget = center(nodeBoxes[1]);
   shapes.push(connector("translator-hub", pointOnBoxToward(nodeBoxes[1], center(hubBox)), pointOnBoxToward(hubBox, translatorTarget), relation));
@@ -165,7 +181,198 @@ function buildShapes(model, relation) {
     shapes.push(connector("feedback-right-horizontal", { x: rightInnerX, y: routeY }, { x: center(right).x, y: routeY }, relation, { endArrow: undefined }));
     shapes.push(connector("feedback-right-up", { x: center(right).x, y: routeY }, { x: center(right).x, y: right.y + right.h + 8 }, relation));
   }
+  shapes.push(...nodeShapes);
   return { shapes, nodeBoxes };
+}
+
+function buildPictorialNativeShapes(model, nodeBoxes) {
+  const shapes = [];
+  shapes.push(...buildLeftPanelPictorialNativeShapes(model.left));
+  shapes.push(...buildCentralPictorialNativeShapes(model, nodeBoxes));
+  return shapes;
+}
+
+function buildLeftPanelPictorialNativeShapes(leftItems = [], options = {}) {
+  const ordered = selectLeftPanelEntityLabels(leftItems);
+  if (ordered.length < 4) return [];
+  const [topLeft, topRight, bottomLeft, bottomRight] = ordered;
+  const includeServer = options.includeServer !== false;
+  const includeConnectors = options.includeConnectors !== false;
+  const shapes = [
+    ...personIconShapes("legacy-person", iconAbove(topLeft.box, 54, 9), "#101820"),
+    ...(includeServer ? serverIconShapes("legacy-server", iconAbove(topRight.box, 58, 9), "#101820") : []),
+    ...teamIconShapes("legacy-team", iconAbove(bottomLeft.box, 58, 12), "#101820"),
+    ...documentIconShapes("legacy-document", iconAbove(bottomRight.box, 58, 12), "#101820")
+  ];
+  if (includeConnectors) {
+    shapes.push(
+      connector("pictorial-legacy-top-dash", pointOnBoxToward(iconAbove(topLeft.box, 54, 9), center(iconAbove(topRight.box, 58, 9))), pointOnBoxToward(iconAbove(topRight.box, 58, 9), center(iconAbove(topLeft.box, 54, 9))), { stroke: "#101820", strokeWidthPt: 2, lineCap: "round" }, { dash: "dash", endArrow: undefined }),
+      connector("pictorial-legacy-cross-a-dash", pointOnBoxToward(iconAbove(topLeft.box, 54, 9), center(iconAbove(bottomRight.box, 58, 12))), pointOnBoxToward(iconAbove(bottomRight.box, 58, 12), center(iconAbove(topLeft.box, 54, 9))), { stroke: "#101820", strokeWidthPt: 2, lineCap: "round" }, { dash: "dash", endArrow: undefined }),
+      connector("pictorial-legacy-cross-b-dash", pointOnBoxToward(iconAbove(topRight.box, 58, 9), center(iconAbove(bottomLeft.box, 58, 12))), pointOnBoxToward(iconAbove(bottomLeft.box, 58, 12), center(iconAbove(topRight.box, 58, 9))), { stroke: "#101820", strokeWidthPt: 2, lineCap: "round" }, { dash: "dash", endArrow: undefined })
+    );
+  }
+  return shapes;
+}
+
+function selectLeftPanelEntityLabels(leftItems = []) {
+  const candidates = leftItems
+    .filter((item) => validBox(item?.box))
+    .filter((item) => isLeftPanelEntityLabel(item))
+    .sort((a, b) => center(a.box).y - center(b.box).y || center(a.box).x - center(b.box).x);
+  if (candidates.length < 4) {
+    return leftItems
+      .filter((item) => validBox(item?.box))
+      .sort((a, b) => center(a.box).y - center(b.box).y || center(a.box).x - center(b.box).x)
+      .slice(0, 4);
+  }
+  const rows = [];
+  for (const item of candidates) {
+    const y = center(item.box).y;
+    const row = rows.find((entry) => Math.abs(entry.y - y) <= Math.max(22, item.box.h * 1.35));
+    if (row) {
+      row.items.push(item);
+      row.y = row.items.reduce((sum, value) => sum + center(value.box).y, 0) / row.items.length;
+    } else {
+      rows.push({ y, items: [item] });
+    }
+  }
+  return rows
+    .sort((a, b) => a.y - b.y)
+    .flatMap((row) => row.items.sort((a, b) => center(a.box).x - center(b.box).x))
+    .slice(0, 4);
+}
+
+function isLeftPanelEntityLabel(item) {
+  const text = String(item?.text || "").trim();
+  if (!text) return false;
+  if (/^[（(].*[）)]$/u.test(text)) return false;
+  if (/[：:]/u.test(text)) return false;
+  if (/schema|静态网|预定义|manual|define/iu.test(text)) return false;
+  if (Array.from(text).length > 16) return false;
+  return true;
+}
+
+function buildCentralPictorialNativeShapes(model, nodeBoxes) {
+  if (!Array.isArray(nodeBoxes) || nodeBoxes.length < 2) return [];
+  const hub = nodeBoxes[0];
+  const size = Math.max(42, Math.min(58, hub.w * 0.58));
+  const hubCenter = center(hub);
+  const positions = [
+    { id: "dynamic-cube-top-left", kind: "cube-link", box: { x: hub.x - size * 1.75, y: hub.y - size * 1.45, w: size, h: size } },
+    { id: "dynamic-cube-top-right", kind: "cube", box: { x: hub.x + hub.w + size * 0.92, y: hub.y - size * 1.45, w: size, h: size } },
+    { id: "dynamic-cube-bottom-left", kind: "cube-link", box: { x: hub.x - size * 1.75, y: hub.y + hub.h + size * 0.7, w: size, h: size } },
+    { id: "dynamic-database-bottom-right", kind: "database", box: { x: hub.x + hub.w + size * 0.92, y: hub.y + hub.h + size * 0.7, w: size, h: size } }
+  ];
+  const blue = "#1473E6";
+  const shapes = positions.flatMap((item) => {
+    if (item.kind === "database") return databaseIconShapes(item.id, item.box, blue);
+    return cubeIconShapes(item.id, item.box, blue, item.kind === "cube-link");
+  });
+  const relation = { stroke: blue, strokeWidthPt: 2, lineCap: "round", endArrowWidth: "medium", endArrowLength: "medium" };
+  shapes.push(...positions.map((item, index) => connector(
+    `pictorial-hub-native-${index + 1}`,
+    pointOnBoxToward(hub, center(item.box)),
+    pointOnBoxToward(item.box, hubCenter),
+    relation
+  )));
+  return shapes;
+}
+
+function iconAbove(labelBox, size, gap) {
+  return {
+    x: labelBox.x + labelBox.w / 2 - size / 2,
+    y: labelBox.y - size - gap,
+    w: size,
+    h: size
+  };
+}
+
+function personIconShapes(id, box, color) {
+  return [
+    pictorialShape(`${id}-head`, "ellipse", { x: box.x + box.w * 0.29, y: box.y, w: box.w * 0.42, h: box.h * 0.42 }, { fill: "none", stroke: color, strokeWidthPt: 2.2 }, "person-head"),
+    pictorialShape(`${id}-body`, "arc", { x: box.x + box.w * 0.08, y: box.y + box.h * 0.34, w: box.w * 0.84, h: box.h * 0.76 }, { shapeType: "arc", fill: "none", stroke: color, strokeWidthPt: 2.2, adjustments: [180, 360] }, "person-body")
+  ];
+}
+
+function teamIconShapes(id, box, color) {
+  return [
+    ...personIconShapes(`${id}-primary`, { x: box.x, y: box.y, w: box.w * 0.72, h: box.h * 0.9 }, color),
+    pictorialShape(`${id}-secondary-head`, "ellipse", { x: box.x + box.w * 0.56, y: box.y + box.h * 0.38, w: box.w * 0.32, h: box.h * 0.32 }, { fill: "none", stroke: color, strokeWidthPt: 2.1 }, "team-secondary-head"),
+    pictorialShape(`${id}-secondary-body`, "arc", { x: box.x + box.w * 0.48, y: box.y + box.h * 0.58, w: box.w * 0.44, h: box.h * 0.42 }, { shapeType: "arc", fill: "none", stroke: color, strokeWidthPt: 2.1, adjustments: [180, 360] }, "team-secondary-body")
+  ];
+}
+
+function serverIconShapes(id, box, color) {
+  const shapes = [pictorialShape(`${id}-body`, "roundRect", box, { fill: "none", stroke: color, strokeWidthPt: 2.2, radiusRatio: 0.06 }, "server-body")];
+  for (const ratio of [0.32, 0.62]) {
+    shapes.push(pictorialShape(`${id}-divider-${ratio}`, "line", { x: box.x + box.w * 0.08, y: box.y + box.h * ratio, w: box.w * 0.84, h: 0 }, { stroke: color, strokeWidthPt: 1.8, lineCap: "round" }, "server-divider"));
+  }
+  for (const ratio of [0.2, 0.48, 0.76]) {
+    shapes.push(pictorialShape(`${id}-dot-${ratio}`, "ellipse", { x: box.x + box.w * 0.78, y: box.y + box.h * ratio, w: box.w * 0.07, h: box.w * 0.07 }, { fill: color, stroke: color, strokeWidthPt: 0 }, "server-dot"));
+  }
+  return shapes;
+}
+
+function documentIconShapes(id, box, color) {
+  const shapes = [
+    pictorialShape(`${id}-left`, "roundRect", { x: box.x, y: box.y + box.h * 0.05, w: box.w * 0.37, h: box.h * 0.9 }, { fill: "none", stroke: color, strokeWidthPt: 2.2, radiusRatio: 0.05 }, "document-left"),
+    pictorialShape(`${id}-right`, "roundRect", { x: box.x + box.w * 0.34, y: box.y + box.h * 0.16, w: box.w * 0.58, h: box.h * 0.72 }, { fill: "none", stroke: color, strokeWidthPt: 2.2, radiusRatio: 0.05 }, "document-right")
+  ];
+  for (const ratio of [0.34, 0.52, 0.70]) {
+    shapes.push(pictorialShape(`${id}-line-${ratio}`, "line", { x: box.x + box.w * 0.48, y: box.y + box.h * ratio, w: box.w * 0.3, h: 0 }, { stroke: color, strokeWidthPt: 1.8, lineCap: "round" }, "document-line"));
+  }
+  return shapes;
+}
+
+function cubeIconShapes(id, box, color, withLink) {
+  const front = { x: box.x + box.w * 0.2, y: box.y + box.h * 0.28, w: box.w * 0.62, h: box.h * 0.58 };
+  const shapes = [
+    pictorialShape(`${id}-front`, "freeform", front, { fill: color, stroke: color, strokeWidthPt: 0.7, opacity: 0.96 }, "cube-front", { points: [{ x: 0, y: 0.18 }, { x: 0.5, y: 0 }, { x: 1, y: 0.18 }, { x: 1, y: 0.82 }, { x: 0.5, y: 1 }, { x: 0, y: 0.82 }] }),
+    pictorialShape(`${id}-top-edge`, "line", { x: front.x + front.w * 0.5, y: front.y, w: 0, h: front.h * 0.78 }, { stroke: "#E8F1FF", strokeWidthPt: 1.8, lineCap: "round" }, "cube-edge"),
+    pictorialShape(`${id}-left-edge`, "line", { x: front.x + front.w * 0.12, y: front.y + front.h * 0.42, w: front.w * 0.26, h: front.h * 0.12 }, { stroke: "#E8F1FF", strokeWidthPt: 1.8, lineCap: "round" }, "cube-edge")
+  ];
+  if (withLink) {
+    shapes.push(pictorialShape(`${id}-link`, "arc", { x: box.x + box.w * 0.58, y: box.y + box.h * 0.55, w: box.w * 0.4, h: box.h * 0.4 }, { shapeType: "arc", fill: "none", stroke: "#E8F1FF", strokeWidthPt: 3, adjustments: [35, 315] }, "cube-link"));
+  }
+  return shapes;
+}
+
+function databaseIconShapes(id, box, color) {
+  return [
+    pictorialShape(`${id}-body`, "cylinder", { x: box.x + box.w * 0.16, y: box.y + box.h * 0.08, w: box.w * 0.68, h: box.h * 0.84 }, { fill: color, stroke: color, strokeWidthPt: 0.8, opacity: 0.96 }, "database-body"),
+    pictorialShape(`${id}-mid`, "arc", { x: box.x + box.w * 0.16, y: box.y + box.h * 0.34, w: box.w * 0.68, h: box.h * 0.24 }, { shapeType: "arc", fill: "none", stroke: "#E8F1FF", strokeWidthPt: 1.8, adjustments: [0, 180] }, "database-line")
+  ];
+}
+
+function buildFittedCentralPictorialNativeShapes({ candidates, hub, slideSize }) {
+  if (!Array.isArray(candidates) || candidates.length < 1 || !validBox(hub?.box) || !validBox(slideSize ? { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt } : null)) return [];
+  const hubCenter = center(hub.box);
+  const ordered = candidates
+    .filter((item) => validBox(item?.box))
+    .sort((a, b) => center(a.box).y - center(b.box).y || center(a.box).x - center(b.box).x);
+  const blue = "#1473E6";
+  const relation = { stroke: blue, strokeWidthPt: 2, lineCap: "round", endArrowWidth: "medium", endArrowLength: "medium" };
+  const shapes = [];
+  for (const [index, item] of ordered.entries()) {
+    const itemCenter = center(item.box);
+    const kind = itemCenter.x > hubCenter.x && itemCenter.y > hubCenter.y ? "database" : itemCenter.x < hubCenter.x ? "cube-link" : "cube";
+    const id = `dynamic-fitted-${index + 1}`;
+    const box = fittedIconBox(item.box);
+    shapes.push(...(kind === "database" ? databaseIconShapes(id, box, blue) : cubeIconShapes(id, box, blue, kind === "cube-link")));
+    const hubJunction = { x: hubCenter.x, y: itemCenter.y < hubCenter.y ? hub.box.y : hub.box.y + hub.box.h };
+    shapes.push(connector(`pictorial-hub-fitted-${index + 1}`, hubJunction, pointOnBoxToward(box, hubCenter), relation));
+  }
+  return shapes;
+}
+
+function fittedIconBox(box) {
+  const size = Math.max(22, Math.min(Math.max(box.w, box.h), 58));
+  return {
+    x: box.x + box.w / 2 - size / 2,
+    y: box.y + box.h / 2 - size / 2,
+    w: size,
+    h: size
+  };
 }
 
 function addKnowledgeGraphPictorialConnectors(page, slideSize) {
@@ -227,9 +434,16 @@ function applyKnowledgeGraphPanelNativeRebuild(page, slideSize, options = {}) {
   const semanticTextBoxes = Array.isArray(options.semanticTextBoxes) ? options.semanticTextBoxes : page.textBoxes;
   const model = findModel(semanticTextBoxes, slideSize);
   if (!model) return Object.freeze({ matched: false, addedShapes: 0, connectors: 0 });
-  const retained = (Array.isArray(page.shapes) ? page.shapes : []).filter((item) => !/simple-status-icon|long-axis-line/iu.test(String(item?.source?.detector || "")));
+  const retained = (Array.isArray(page.shapes) ? page.shapes : []).filter((item) => {
+    const detector = String(item?.source?.detector || "");
+    if (/simple-status-icon|long-axis-line/iu.test(detector)) return false;
+    return !detector.startsWith(PREFIX);
+  });
   const relation = relationshipStyle(slideSize, options.sourceImageWidthPx);
-  const built = buildShapes(model, relation.style); const added = built.shapes;
+  const built = buildShapes(model, relation.style);
+  const leftPictorial = options.enableLeftPictorialNative === true ? buildLeftPanelPictorialNativeShapes(model.left, { includeServer: false, includeConnectors: false }) : [];
+  const semanticPictorial = options.enableSemanticPictorialNative === true ? buildPictorialNativeShapes(model, built.nodeBoxes) : leftPictorial;
+  const added = [...built.shapes, ...semanticPictorial];
   const pictorialGlyphIds = new Set(model.middle.filter((item) => normalized(item.text) === "✓").map((item) => item.id));
   page.textBoxes = page.textBoxes.filter((item) => !pictorialGlyphIds.has(item.id));
   const nativeText = [model.translator, ...model.workItems];
@@ -239,7 +453,7 @@ function applyKnowledgeGraphPanelNativeRebuild(page, slideSize, options = {}) {
   const removedCrops = removeNativeOwnedCrops(page, built.nodeBoxes, slideSize);
   page.intent = { ...(page.intent || {}), rasterBackgroundAllowed: true, primarySemanticStructureNative: true, semanticStructureProfile: "knowledge-graph-three-panel-v1" };
   page.source = { ...(page.source || {}), semanticNativeStructure: { profile: "knowledge-graph-three-panel-v1", confidence: 0.94, removedImpreciseCropIds: removedCrops, connectorCalibration: { ...relation.calibration, sourceImageWidthPx: Number.isFinite(Number(options.sourceImageWidthPx)) ? Number(options.sourceImageWidthPx) : null } } };
-  return Object.freeze({ matched: true, addedShapes: added.length, connectors: added.filter((item) => item.type === "line" || item.type === "arc").length, restoredTextBoxes: nativeText.filter((item) => !existingLabels.has(normalized(item.text))).length, removedCrops: removedCrops.length });
+  return Object.freeze({ matched: true, addedShapes: added.length, connectors: added.filter((item) => item.type === "line" || item.type === "arc").length, restoredTextBoxes: nativeText.filter((item) => !existingLabels.has(normalized(item.text))).length, removedCrops: removedCrops.length, pictorialNativeShapes: semanticPictorial.length });
 }
 
-module.exports = { addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebuild, findKnowledgeGraphPanelModel: findModel };
+module.exports = { addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebuild, buildFittedCentralPictorialNativeShapes, findKnowledgeGraphPanelModel: findModel };

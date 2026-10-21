@@ -3,7 +3,8 @@
 const path = require("node:path");
 const { cropPng, writePng } = require("./png");
 const { refineStandaloneIconCrop } = require("./icon-crop-refiner");
-const { buildMinimumUnitCropEvidence, shouldProtectSmallForegroundGraphicCrop } = require("./graphic-crop-policy");
+const { admitTightGraphicCrop, buildMinimumUnitCropEvidence, shouldProtectSmallForegroundGraphicCrop } = require("./graphic-crop-policy");
+const { materializeLeadingIconCrops } = require("./leading-icon-crop-materializer");
 
 // Own crop refinement and its evidence together; detection remains an injected stage.
 function refineGraphicCrop(image, pixelBox) {
@@ -13,7 +14,8 @@ function refineGraphicCrop(image, pixelBox) {
 function materializeGraphicCrops(image, textBoxes, slideSize, options, operations) {
   const { shouldFullyObjectifyEntropyChallenge, ensureDir, ptToPxBox, foregroundComponents,
     mergeCloseComponent, isUsefulGraphicComponent, mergeGraphicComponents, aggregateForegroundComponent,
-    shouldAddAggregateComponent, pxToPtBox, classifyGraphicCropExpression } = operations;
+    shouldAddAggregateComponent, pxToPtBox, classifyGraphicCropExpression,
+    splitSparseLargeGraphicComponents } = operations;
   if (!options.assetDir) return [];
   if (shouldFullyObjectifyEntropyChallenge(textBoxes, slideSize)) return [];
   ensureDir(options.assetDir);
@@ -21,7 +23,9 @@ function materializeGraphicCrops(image, textBoxes, slideSize, options, operation
   const components = foregroundComponents(image, masks)
     .map((component) => mergeCloseComponent(component, image))
     .filter((component) => isUsefulGraphicComponent(component, image));
-  const merged = mergeGraphicComponents(components, image);
+  const merged = typeof splitSparseLargeGraphicComponents === "function"
+    ? splitSparseLargeGraphicComponents(mergeGraphicComponents(components, image), image)
+    : mergeGraphicComponents(components, image);
   const aggregate = aggregateForegroundComponent(image, masks);
   if (shouldAddAggregateComponent(aggregate, merged, image)) {
     merged.push({ ...aggregate, aggregate: true });
@@ -33,15 +37,19 @@ function materializeGraphicCrops(image, textBoxes, slideSize, options, operation
     const reason = expression?.reason || (component.aggregate
       ? "dispersed-thin-graphics-preserved-as-movable-crop"
       : "complex-graphic-preserved-as-movable-crop");
-    const protectedMinimumUnit = shouldProtectSmallForegroundGraphicCrop({ detector, box: slideBox, slideSize, component });
+    const minimumUnitCandidate = shouldProtectSmallForegroundGraphicCrop({ detector, box: slideBox, slideSize, component, textBoxes });
     const originalCrop = cropPng(image, component.box);
-    const refinement = protectedMinimumUnit ? refineStandaloneIconCrop(originalCrop) : null;
+    const candidateRefinement = minimumUnitCandidate ? refineStandaloneIconCrop(originalCrop) : null;
+    const cropAdmission = candidateRefinement ? admitTightGraphicCrop({ detector, box: slideBox, slideSize, component, textBoxes,
+      sourceWidth: image.width, sourceHeight: image.height, originalPixelBox: component.box, refinement: candidateRefinement }) : null;
+    const protectedMinimumUnit = cropAdmission !== null;
+    const refinement = protectedMinimumUnit ? candidateRefinement : null;
     const crop = refinement?.image || originalCrop;
     const finalPixelBox = refinement
       ? { x: component.box.x + refinement.box.x, y: component.box.y + refinement.box.y, w: refinement.box.w, h: refinement.box.h }
       : component.box;
     const finalSlideBox = pxToPtBox(finalPixelBox, image, slideSize, 0);
-    const cropEvidence = refinement ? buildMinimumUnitCropEvidence({ sourceWidth: image.width, sourceHeight: image.height, originalPixelBox: component.box, refinement }) : null;
+    const cropEvidence = protectedMinimumUnit ? buildMinimumUnitCropEvidence({ sourceWidth: image.width, sourceHeight: image.height, originalPixelBox: component.box, refinement }) : null;
     const file = path.join(options.assetDir, `${options.deckName || "deck"}-p${String(options.pageIndex + 1).padStart(2, "0")}-g${String(index + 1).padStart(2, "0")}.png`);
     writePng(file, crop);
     return {
@@ -59,6 +67,7 @@ function materializeGraphicCrops(image, textBoxes, slideSize, options, operation
           expressionSubtype: "protected-complex-visual-unit",
           recommendedAction: "preserve-local-crop",
           protectedMinimumUnit: true,
+          ...cropAdmission,
           ...cropEvidence,
           nonEditableReason: `${reason}; small icon-heavy visual unit preserved as a local crop`
         } : {})
@@ -67,4 +76,8 @@ function materializeGraphicCrops(image, textBoxes, slideSize, options, operation
   });
 }
 
-module.exports = { materializeGraphicCrops, refineGraphicCrop, shouldProtectSmallForegroundGraphicCrop };
+function createLeadingIconCrops(image, textBoxes, slideSize, options) {
+  return materializeLeadingIconCrops(image, textBoxes, slideSize, options, { refineGraphicCrop });
+}
+
+module.exports = { createLeadingIconCrops, materializeGraphicCrops, refineGraphicCrop, shouldProtectSmallForegroundGraphicCrop };

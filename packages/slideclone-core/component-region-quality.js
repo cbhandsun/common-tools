@@ -1,5 +1,7 @@
 "use strict";
 
+const { isClosedNativeFreeformSurface } = require("./native-freeform-path");
+
 const MAX_REGIONS = 5000;
 const MAX_DIMENSION = 16384;
 const MAX_EVALUATED_PIXELS = 100_000_000;
@@ -16,6 +18,7 @@ const COMPONENT_BASELINES = Object.freeze({
   table: Object.freeze({ maximumPixelDiffRatio: 0.34, maximumForegroundMissingRatio: 0.22, minimumForegroundPixels: 12 }),
   chart: Object.freeze({ maximumPixelDiffRatio: 0.4, maximumForegroundMissingRatio: 0.26, minimumForegroundPixels: 12 }),
   image: Object.freeze({ maximumPixelDiffRatio: 0.44, maximumForegroundMissingRatio: 0.26, minimumForegroundPixels: 12 }),
+  "missing-native-component": Object.freeze({ maximumPixelDiffRatio: 0.18, maximumForegroundMissingRatio: 0.1, minimumForegroundPixels: 24 }),
 });
 
 function isRecord(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
@@ -40,15 +43,18 @@ function buildComponentRegions(page, slideSize) {
     ...region,
     box: Object.freeze(region.box),
     ...(region.geometry ? { geometry: Object.freeze(region.geometry) } : {}),
+    ...(region.foregroundColor ? { foregroundColor: Object.freeze(region.foregroundColor) } : {}),
   })));
 }
 
 function buildRegion(item, kind, index, slideSize) {
   if (!isRecord(item) || !finiteBox(item.box)) return null;
+  if (isComponentQualityIgnored(item)) return null;
   const role = componentRole(item, kind);
   const isConnector = role === "connector-straight" || role === "connector-arc";
   if ((!isConnector && (item.box.w <= 0 || item.box.h <= 0)) || (isConnector && item.box.w === 0 && item.box.h === 0)) return null;
-  const normalized = normalizeBox(item.box);
+  const qualityBox = componentQualityBox(item, isConnector);
+  const normalized = normalizeBox(qualityBox);
   const strokeWidthPt = clamp(Number(item.style?.strokeWidthPt) || 1, 0.25, 24);
   const id = boundedId(item.id, `${kind}-${index + 1}`);
   if (role === "connector-straight") {
@@ -94,7 +100,30 @@ function buildRegion(item, kind, index, slideSize) {
       geometry: { type: "rectangle-border", x: normalized.x, y: normalized.y, w: normalized.w, h: normalized.h, corridorPt },
     };
   }
-  return { id, kind, role, box: clampBox(normalized, slideSize) };
+  return { id, kind, role, box: clampBox(normalized, slideSize), ...(kind === "text" ? { foregroundColor: parseHexColor(item.font?.color) } : {}) };
+}
+
+function isComponentQualityIgnored(item) {
+  if (item.source?.componentQualityIgnore === true) return true;
+  if (isPartialSourceEdgeCardBody(item)) return true;
+  const id = typeof item.id === "string" ? item.id : "";
+  return id.startsWith("component-fidelity-native-run-") || id.startsWith("text-fidelity-native-run-") || id.startsWith("native-residual-");
+}
+
+function isPartialSourceEdgeCardBody(item) {
+  if (!isRecord(item) || !isRecord(item.source)) return false;
+  const source = item.source;
+  const refinement = isRecord(source.sourceNativeEdgeRefinement) ? source.sourceNativeEdgeRefinement : null;
+  const stroke = String(item.style?.stroke || "").toLowerCase();
+  return source.detector === "line-text-native-card-row"
+    && refinement?.kind === "partial"
+    && (stroke === "none" || Number(item.style?.strokeWidthPt || 0) <= 0);
+}
+
+function componentQualityBox(item, isConnector) {
+  const requested = item.source?.componentQualityBox;
+  if (validBox(requested) || (isConnector && finiteBox(requested) && (requested.w !== 0 || requested.h !== 0))) return requested;
+  return item.box;
 }
 
 function componentRole(item, kind) {
@@ -104,7 +133,19 @@ function componentRole(item, kind) {
   if (kind === "image") return item.source?.protectedMinimumUnit === true || item.source?.cropEvidenceRequired === true ? "pictorial" : "image";
   const type = String(item.type || item.style?.shapeType || "").toLowerCase();
   if (type === "arc") return "connector-arc";
+  // A filled closed surface must be audited across its body. Treating its
+  // bounding-box diagonal as a shaft misses interior defects and expands
+  // thousands of tiny paint components into unrelated endpoint windows.
+  if (type === "freeform" && parseHexColor(item.style?.fill)
+    && String(item.style?.stroke || "").toLowerCase() === "none"
+    && !item.style?.connectorType && !item.style?.startAnchor && !item.style?.endAnchor
+    && !item.style?.startArrow && !item.style?.endArrow
+    && item.source?.nativeComponentRole !== "relationship" && item.source?.role !== "relationship"
+    && isClosedNativeFreeformSurface(item.style)) return "shape";
   if (["line", "polyline", "freeform"].includes(type) || item.style?.connectorType) return "connector-straight";
+  const sourceEdgeKind = String(item.source?.sourceNativeEdgeRefinement?.kind || "");
+  const stroke = String(item.style?.stroke || "").toLowerCase();
+  if ((sourceEdgeKind === "partial" || sourceEdgeKind === "panel") && (stroke === "none" || Number(item.style?.strokeWidthPt || 0) <= 0)) return "shape";
   const fill = String(item.style?.fill || "").toLowerCase();
   if (["rect", "roundrect", "rounded-rect", "roundedrectangle"].includes(type) && ["", "none", "#ffffff", "ffffff"].includes(fill)) return "container-border";
   return "shape";
@@ -117,25 +158,153 @@ function compareComponentRegions(source, generated, regions, slideSize, options 
   const tolerance = Number(options.foregroundTolerancePx ?? 2);
   const toleranceDelta = Number(options.foregroundToleranceDelta ?? 54);
   if (![threshold, tolerance, toleranceDelta].every(Number.isFinite) || threshold < 0 || threshold > 255 || tolerance < 0 || tolerance > 8 || toleranceDelta < 0 || toleranceDelta > 255) throw new RangeError("component region comparison options are invalid");
-  ensureEvaluationBound(regions, source, slideSize);
+  const evaluatedPixels = ensureEvaluationBound(regions, source, slideSize);
+  const textRegions = regions.filter((region) => region?.kind === "text" && validBox(region?.box));
   const metrics = regions.filter((region) => validBox(region?.box)).map((region) => {
     const baseline = baselineFor(region.role, options.componentBaselines);
     const metric = compareRegion(source, generated, region, slideSize, { threshold, tolerance: Math.floor(tolerance), toleranceDelta });
     const sufficientEvidence = metric.foregroundPixels >= baseline.minimumForegroundPixels;
     const severity = sufficientEvidence ? Math.max(metric.pixelDiffRatio / baseline.maximumPixelDiffRatio, metric.foregroundMissingRatio / baseline.maximumForegroundMissingRatio) : 0;
-    return Object.freeze({ ...metric, baseline, sufficientEvidence, attention: sufficientEvidence && severity > 1, severity });
+    const changedPixels = Math.round(metric.sampledPixels * metric.pixelDiffRatio);
+    const foregroundMissingPixels = Math.round(metric.foregroundPixels * metric.foregroundMissingRatio);
+    const contributionScore = foregroundMissingPixels * 2 + changedPixels;
+    const textAdjacency = region.textAdjacent === true || region.repairHint === "text"
+      ? { id: typeof region.nearestTextId === "string" ? region.nearestTextId : "", distancePt: Number.isFinite(region.nearestTextDistancePt) ? region.nearestTextDistancePt : 0 }
+      : missingNativeTextAdjacency(region, textRegions);
+    return Object.freeze({
+      ...metric,
+      baseline,
+      sufficientEvidence,
+      attention: sufficientEvidence && severity > 1,
+      severity,
+      changedPixels,
+      foregroundMissingPixels,
+      contributionScore,
+      ...(textAdjacency ? { textAdjacent: true, repairHint: "text", nearestTextId: textAdjacency.id, nearestTextDistancePt: textAdjacency.distancePt } : {}),
+      ...(region.kind === "missing" && region.role === "missing-native-component" && region.source && typeof region.source === "object" ? { source: region.source } : {})
+    });
   });
-  metrics.sort((left, right) => Number(right.attention) - Number(left.attention) || right.severity - left.severity || right.foregroundMissingRatio - left.foregroundMissingRatio || left.id.localeCompare(right.id));
+  metrics.sort((left, right) => Number(right.attention) - Number(left.attention)
+    || componentRepairPriority(right) - componentRepairPriority(left)
+    || right.contributionScore - left.contributionScore
+    || right.severity - left.severity
+    || right.foregroundMissingRatio - left.foregroundMissingRatio
+    || left.id.localeCompare(right.id));
   return Object.freeze({
     audited: metrics.length,
+    evaluatedPixels,
     evaluated: metrics.filter((item) => item.sufficientEvidence).length,
     attentionCount: metrics.filter((item) => item.attention).length,
     worstSeverity: metrics.length ? Math.max(...metrics.map((item) => item.severity)) : null,
     worstPixelDiffRatio: metrics.length ? Math.max(...metrics.map((item) => item.pixelDiffRatio)) : null,
     worstForegroundMissingRatio: metrics.length ? Math.max(...metrics.map((item) => item.foregroundMissingRatio)) : null,
     roles: Object.freeze(summarizeRoles(metrics)),
-    worst: Object.freeze(metrics.slice(0, 30)),
+    local: Object.freeze(metrics.map(componentLocalMetric)),
+    worst: Object.freeze(selectComponentWorstMetrics(metrics)),
   });
+}
+
+function componentRepairPriority(metric) {
+  if (metric?.textAdjacent === true || metric?.repairHint === "text") return 0;
+  if (metric?.kind === "missing" && metric?.role === "missing-native-component" && Number(metric.severity) >= 2) return 2;
+  return 0;
+}
+
+function selectComponentWorstMetrics(metrics = []) {
+  const selected = [];
+  const seen = new Set();
+  const add = (metric) => {
+    if (!metric?.id || seen.has(metric.id)) return;
+    seen.add(metric.id);
+    selected.push(metric);
+  };
+  for (const metric of metrics.slice(0, 30)) add(metric);
+  addRoleQuota(metrics, add, (item) => item.kind === "text" && item.role === "text", 12);
+  addRoleQuota(metrics, add, (item) => item.kind === "missing" && item.role === "missing-native-component", 12);
+  addRoleQuota([...metrics].sort((left, right) => right.contributionScore - left.contributionScore), add, (item) => item.kind === "missing" && item.role === "missing-native-component", 8);
+  addRoleQuota(metrics, add, (item) => item.kind === "shape" && item.role === "connector-straight", 8);
+  addRoleQuota(metrics, add, (item) => item.kind === "shape" && item.role === "shape", 12);
+  return selected.slice(0, 48);
+}
+
+function addRoleQuota(metrics, add, predicate, limit) {
+  let count = 0;
+  for (const metric of metrics) {
+    if (!predicate(metric)) continue;
+    add(metric);
+    count += 1;
+    if (count >= limit) break;
+  }
+}
+
+function componentLocalMetric(metric) {
+  return Object.freeze({
+    id: metric.id,
+    kind: metric.kind,
+    role: metric.role,
+    attention: metric.attention,
+    severity: metric.severity,
+    pixelDiffRatio: metric.pixelDiffRatio,
+    foregroundMissingRatio: metric.foregroundMissingRatio,
+    foregroundPixels: metric.foregroundPixels,
+    changedPixels: metric.changedPixels,
+    foregroundMissingPixels: metric.foregroundMissingPixels,
+    contributionScore: metric.contributionScore,
+    sufficientEvidence: metric.sufficientEvidence,
+    ...(metric.textAdjacent === true ? { textAdjacent: true, repairHint: "text", nearestTextId: metric.nearestTextId, nearestTextDistancePt: metric.nearestTextDistancePt } : {}),
+    ...(metric.kind === "missing" && metric.role === "missing-native-component" && metric.source && typeof metric.source === "object" ? { source: missingNativeSourceEvidence(metric.source) } : {}),
+  });
+}
+
+function missingNativeSourceEvidence(source) {
+  const result = {};
+  if (typeof source.detector === "string" && source.detector) result.detector = source.detector;
+  if (typeof source.dominantColor === "string" && /^#[0-9a-f]{6}$/iu.test(source.dominantColor)) result.dominantColor = source.dominantColor.toUpperCase();
+  if (Number.isFinite(source.missingForegroundPixels) && source.missingForegroundPixels >= 0) result.missingForegroundPixels = source.missingForegroundPixels;
+  if (Number.isFinite(source.missingPixelDensity) && source.missingPixelDensity >= 0) result.missingPixelDensity = source.missingPixelDensity;
+  if (typeof source.missingComponentFingerprint === "string" && source.missingComponentFingerprint) result.missingComponentFingerprint = source.missingComponentFingerprint.slice(0, 160);
+  if (typeof source.repairHint === "string" && source.repairHint) result.repairHint = source.repairHint.slice(0, 32);
+  if (typeof source.nearestTextId === "string" && source.nearestTextId) result.nearestTextId = source.nearestTextId.slice(0, 160);
+  if (Number.isFinite(source.nearestTextDistancePt) && source.nearestTextDistancePt >= 0) result.nearestTextDistancePt = source.nearestTextDistancePt;
+  return Object.freeze(result);
+}
+
+function missingNativeTextAdjacency(region, textRegions) {
+  if (region?.kind !== "missing" || region?.role !== "missing-native-component" || !validBox(region?.box)) return null;
+  const box = region.box;
+  let best = null;
+  for (const text of textRegions) {
+    const distancePt = boxDistance(box, text.box);
+    const overlapArea = intersectionArea(box, text.box);
+    const overlapRatio = overlapArea / Math.max(1e-6, box.w * box.h);
+    const xOverlapRatio = axisOverlap(box.x, box.x + box.w, text.box.x, text.box.x + text.box.w) / Math.max(1e-6, Math.min(box.w, text.box.w));
+    const yOverlapRatio = axisOverlap(box.y, box.y + box.h, text.box.y, text.box.y + text.box.h) / Math.max(1e-6, Math.min(box.h, text.box.h));
+    const nearPt = Math.max(1.5, Math.min(5, Math.min(text.box.h, Math.max(box.w, box.h)) * 0.45));
+    const textScaleCompatible = box.h <= text.box.h * 1.35 || box.w <= text.box.h * 1.8;
+    const edgeAdjacent = distancePt <= 0.75 && xOverlapRatio >= 0.35 && textScaleCompatible;
+    const adjacent = overlapRatio >= 0.08 || edgeAdjacent || (distancePt <= nearPt && yOverlapRatio >= 0.35 && textScaleCompatible);
+    if (!adjacent) continue;
+    if (!best || distancePt < best.distancePt) {
+      best = { id: text.id, distancePt: Math.round(distancePt * 100) / 100 };
+    }
+  }
+  return best;
+}
+
+function boxDistance(left, right) {
+  const dx = Math.max(0, Math.max(left.x, right.x) - Math.min(left.x + left.w, right.x + right.w));
+  const dy = Math.max(0, Math.max(left.y, right.y) - Math.min(left.y + left.h, right.y + right.h));
+  return Math.hypot(dx, dy);
+}
+
+function intersectionArea(left, right) {
+  const w = axisOverlap(left.x, left.x + left.w, right.x, right.x + right.w);
+  const h = axisOverlap(left.y, left.y + left.h, right.y, right.y + right.h);
+  return w * h;
+}
+
+function axisOverlap(leftStart, leftEnd, rightStart, rightEnd) {
+  return Math.max(0, Math.min(leftEnd, rightEnd) - Math.max(leftStart, rightStart));
 }
 
 function compareRegion(source, generated, region, slideSize, options) {
@@ -152,15 +321,15 @@ function compareRegion(source, generated, region, slideSize, options) {
     const gx = Math.min(generated.width - 1, Math.round(x * generated.width / source.width));
     const gy = Math.min(generated.height - 1, Math.round(y * generated.height / source.height));
     const delta = colorDelta(source.rgba, sourceOffset, generated.rgba, (gy * generated.width + gx) * 4);
-    const sourceForeground = isForeground(source.rgba, sourceOffset);
+    const sourceForeground = isRegionForeground(source.rgba, sourceOffset, region);
     pixels += 1;
     if (delta > options.threshold) changed += 1;
     if (sourceForeground) {
       foreground += 1;
-      if (delta > options.threshold && !nearbyMatch(source, sourceOffset, generated, gx, gy, options)) missing += 1;
+      if (delta > options.threshold && !nearbyMatch(source, sourceOffset, generated, gx, gy, region, options)) missing += 1;
     }
   }
-  return Object.freeze({ id: region.id, kind: region.kind, role: region.role || region.kind, pixelDiffRatio: pixels ? changed / pixels : 1, foregroundMissingRatio: foreground ? missing / foreground : 0, foregroundPixels: foreground, sampledPixels: pixels });
+  return Object.freeze({ id: region.id, kind: region.kind, role: region.role || region.kind, box: region.box, pixelDiffRatio: pixels ? changed / pixels : 1, foregroundMissingRatio: foreground ? missing / foreground : 0, foregroundPixels: foreground, sampledPixels: pixels });
 }
 
 function insideGeometry(x, y, geometry) {
@@ -252,6 +421,7 @@ function ensureEvaluationBound(regions, source, slideSize) {
     total += Math.ceil(region.box.w * source.width / slideSize.widthPt) * Math.ceil(region.box.h * source.height / slideSize.heightPt);
     if (total > MAX_EVALUATED_PIXELS) throw new RangeError("component region comparison exceeds the pixel safety limit");
   }
+  return total;
 }
 
 function colorDelta(left, leftOffset, right, rightOffset) {
@@ -261,14 +431,40 @@ function isForeground(rgba, offset) {
   const r = rgba[offset]; const g = rgba[offset + 1]; const b = rgba[offset + 2];
   return (r + g + b) / 3 < 245 || Math.max(r, g, b) - Math.min(r, g, b) > 18;
 }
-function nearbyMatch(source, sourceOffset, generated, gx, gy, options) {
+function isRegionForeground(rgba, offset, region) {
+  if (region?.role === "text" && region.foregroundColor && region.foregroundColor.brightness < 220) {
+    return rgbDistance(rgba, offset, region.foregroundColor) <= 112;
+  }
+  return isForeground(rgba, offset);
+}
+function nearbyMatch(source, sourceOffset, generated, gx, gy, region, options) {
   for (let dy = -options.tolerance; dy <= options.tolerance; dy += 1) for (let dx = -options.tolerance; dx <= options.tolerance; dx += 1) {
     const x = gx + dx; const y = gy + dy;
     if (x < 0 || y < 0 || x >= generated.width || y >= generated.height) continue;
     const generatedOffset = (y * generated.width + x) * 4;
-    if (isForeground(generated.rgba, generatedOffset) && colorDelta(source.rgba, sourceOffset, generated.rgba, generatedOffset) <= options.toleranceDelta) return true;
+    if (isRegionForeground(generated.rgba, generatedOffset, region) && colorDelta(source.rgba, sourceOffset, generated.rgba, generatedOffset) <= options.toleranceDelta) return true;
   }
   return false;
+}
+
+function parseHexColor(value) {
+  if (typeof value !== "string") return null;
+  const match = /^#?([0-9a-f]{6})$/iu.exec(value.trim());
+  if (!match) return null;
+  const raw = match[1];
+  const color = {
+    r: Number.parseInt(raw.slice(0, 2), 16),
+    g: Number.parseInt(raw.slice(2, 4), 16),
+    b: Number.parseInt(raw.slice(4, 6), 16),
+  };
+  return { ...color, brightness: (color.r + color.g + color.b) / 3 };
+}
+function rgbDistance(rgba, offset, color) {
+  return Math.sqrt(
+    (rgba[offset] - color.r) ** 2
+    + (rgba[offset + 1] - color.g) ** 2
+    + (rgba[offset + 2] - color.b) ** 2
+  );
 }
 
 module.exports = { COMPONENT_BASELINES, buildComponentRegions, compareComponentRegions };

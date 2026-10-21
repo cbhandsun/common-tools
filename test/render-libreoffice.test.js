@@ -7,6 +7,36 @@ const path = require("node:path");
 const test = require("node:test");
 
 const renderLibreOffice = require("../packages/slideclone-native-engine/scripts/adapters/render-libreoffice");
+const { writeStoredZipAtomic } = require("../packages/ooxml-core/pptx-zip");
+
+function writeFrameFixture(file, widthPt = 0.5, heightPt = 0.5) {
+  writeStoredZipAtomic(file, [{ name: "ppt/presentation.xml", data: `<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldSz cx="${Math.round(widthPt * 12700)}" cy="${Math.round(heightPt * 12700)}"/></p:presentation>` }]);
+  return fs.readFileSync(file);
+}
+
+test("renderer uses actual PPT dimensions and rejects unexpected raster output", async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lo-exact-frame-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const source = path.join(root, "deck.pptx");
+  writeFrameFixture(source, 613, 457);
+  let calls = 0;
+  const renderer = rendererWithProcess(t, async (_command, args) => {
+    calls++;
+    if (args.includes("--convert-to")) fs.writeFileSync(path.join(args[args.indexOf("--outdir") + 1], "input.pdf"), "%PDF-controlled");
+    else {
+      assert.equal(args[args.indexOf("-scale-to-x") + 1], "1226");
+      assert.equal(args[args.indexOf("-scale-to-y") + 1], "914");
+      fs.writeFileSync(`${args.at(-1)}-1.png`, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=", "base64"));
+    }
+    return { stdout: "", stderr: "" };
+  });
+  const context = { outputDir: root, config: { render: { pdfReadyPollMs: 20, pdfReadyTimeoutMs: 1000 } } };
+  await assert.rejects(renderer({ pptx: { pptxFile: source }, ir: { slideSize: { widthPt: 613, heightPt: 457 } } }, context), /raster dimensions/);
+  assert.equal(calls, 2);
+  calls = 0;
+  await assert.rejects(renderer({ pptx: { pptxFile: source }, ir: { slideSize: { widthPt: 600, heightPt: 457 } } }, context), /mismatch/);
+  assert.equal(calls, 0, "reject mismatched IR before starting external tools");
+});
 
 test("render LibreOffice recognizes retryable transient PDF read errors", () => {
   const { isRetryablePdfReadError } = renderLibreOffice._private;
@@ -56,7 +86,7 @@ test("render LibreOffice stages conversion input, output, and profile outside a 
   const renderDir = path.join(dir, "render", "iteration-0");
   fs.mkdirSync(renderDir, { recursive: true });
   const pptx = path.join(dir, "deck.pptx");
-  fs.writeFileSync(pptx, Buffer.alloc(16));
+  writeFrameFixture(pptx);
 
   const staged = renderLibreOffice._private.stageLibreOfficeConversion(pptx, renderDir);
 
@@ -76,7 +106,7 @@ test("each LibreOffice conversion owns a fresh profile and cannot reuse an earli
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const input = path.join(root, "deck.pptx");
   const output = path.join(root, "render");
-  fs.writeFileSync(input, "controlled fixture");
+  const original = writeFrameFixture(input);
   fs.mkdirSync(output);
   fs.writeFileSync(path.join(output, "deck.pdf"), "stale output");
   const first = renderLibreOffice._private.stageLibreOfficeConversion(input, output);
@@ -87,7 +117,7 @@ test("each LibreOffice conversion owns a fresh profile and cannot reuse an earli
   assert.notEqual(first.renderDir, second.renderDir);
   const expectedPdf = path.join(first.renderDir, `${path.basename(first.pptxFile, ".pptx")}.pdf`);
   assert.equal(fs.existsSync(expectedPdf), false, "no fresh output exists before conversion");
-  assert.equal(fs.readFileSync(first.pptxFile, "utf8"), "controlled fixture");
+  assert.deepEqual(fs.readFileSync(first.pptxFile), original);
   assert.equal(fs.readFileSync(path.join(output, "deck.pdf"), "utf8"), "stale output", "prior evidence is preserved");
 });
 
@@ -168,7 +198,7 @@ test("renderer releases owned conversion and PDF stages after retry exhaustion w
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const owned = trackOwnedStages(t);
   const source = path.join(root, "deck.pptx");
-  fs.writeFileSync(source, "controlled source");
+  const sourceBytes = writeFrameFixture(source);
   const sibling = path.join(root, "sibling.pdf");
   fs.writeFileSync(sibling, "another attempt");
   let outputDir = root;
@@ -197,7 +227,7 @@ test("renderer releases owned conversion and PDF stages after retry exhaustion w
   const iterationDir = path.join(outputDir, "render", "iteration-0");
   const attemptDir = path.join(iterationDir, fs.readdirSync(iterationDir)[0]);
   assert.equal(fs.readFileSync(path.join(attemptDir, "deck.pdf"), "utf8"), "%PDF-controlled");
-  assert.equal(fs.readFileSync(source, "utf8"), "controlled source");
+  assert.deepEqual(fs.readFileSync(source), sourceBytes);
   assert.equal(fs.readFileSync(sibling, "utf8"), "another attempt");
 });
 
@@ -208,7 +238,7 @@ for (const mode of ["success", "conversion failure", "cleanup failure", "convers
     t.after(() => originalRemove(root, { recursive: true, force: true }));
     const owned = trackOwnedStages(t);
     const source = path.join(root, "deck.pptx");
-    fs.writeFileSync(source, "controlled source");
+    const sourceBytes = writeFrameFixture(source);
     const operationFailure = new Error("controlled conversion failure");
     const cleanupFailure = new Error("controlled cleanup failure");
     let popplerCalls = 0;
@@ -250,6 +280,6 @@ for (const mode of ["success", "conversion failure", "cleanup failure", "convers
     }
     assert.equal(owned.length, 1);
     if (!mode.includes("cleanup failure")) assert.equal(fs.existsSync(owned[0]), false);
-    assert.equal(fs.readFileSync(source, "utf8"), "controlled source");
+    assert.deepEqual(fs.readFileSync(source), sourceBytes);
   });
 }

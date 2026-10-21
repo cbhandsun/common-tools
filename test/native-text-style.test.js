@@ -2,6 +2,28 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const style = require("../packages/slideclone-core/native-text-style");
+test("explicit native font weight wins over title and geometry heuristics", () => {
+  const title = {text:"Quarterly results", role:"title", box:{x:10,y:20,w:300,h:40},font:{sizePt:28}};
+  for (const weight of ["regular", "normal", "book", "light", 400, "400"]) {
+    const item = {...title,font:{...title.font,weight}};
+    assert.equal(style.inferWeight(item,weight),"regular");
+    assert.equal(style.inferWeight(item,"bold"),"regular");
+  }
+  for (const weight of ["bold","semibold",700,"700"]) {
+    assert.equal(style.inferWeight({...title,font:{sizePt:10,weight},role:"body"},"regular"),"bold");
+  }
+  for (const weight of [undefined,null,"", "unknown",NaN,Infinity,-1,1001,"1001",{},"x".repeat(65)]) {
+    assert.equal(style.inferWeight({...title,font:{...title.font,weight}}),"bold");
+  }
+  assert.equal(style.inferWeight(title,"regular"),"bold","legacy fallback is not explicit evidence");
+});
+test("visible native text preserves source-confirmed regular headings", () => {
+  const {visibleTextBoxes} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
+  const item = {id:"heading",text:"Quarterly results",role:"title",box:{x:10,y:20,w:300,h:40},font:{sizePt:28,weight:"regular"}};
+  const before = structuredClone(item);
+  assert.equal(visibleTextBoxes([item],null,{widthPt:960,heightPt:540})[0].font.weight,"regular");
+  assert.deepEqual(item,before);
+});
 test("visibleTextBoxes omits unset wrap while preserving explicit no-wrap output", () => {
   const {visibleTextBoxes} = require("../packages/slideclone-native-engine").loadNativeImageEngine();
   const box = { id: "body", text: "First line\nSecond line", box: {x:10,y:120,w:220,h:70}, font:{sizePt:18}, style:{wrap:true} };

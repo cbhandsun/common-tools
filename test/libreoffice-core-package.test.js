@@ -12,7 +12,10 @@ test("renderer loads from core alone and its process adapter runs without Skill 
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const installed = path.join(root, "node_modules/@common-tools/slideclone-core");
   fs.mkdirSync(installed, { recursive: true });
-  const modules = ["render-libreoffice", "renderer-process", "libreoffice-tools", "image-size"];
+  const modules = ["render-libreoffice", "renderer-process", "libreoffice-tools", "image-size", "presentation-frame", "slide-size"];
+  const ooxml = path.join(root, "node_modules/@common-tools/ooxml-core");
+  fs.mkdirSync(ooxml, { recursive: true });
+  for (const file of ["package.json", "pptx-zip.js"]) fs.copyFileSync(path.join(__dirname, "../packages/ooxml-core", file), path.join(ooxml, file));
   for (const file of ["package.json", ...modules.map((name) => `${name}.js`)]) fs.copyFileSync(path.join(__dirname, "../packages/slideclone-core", file), path.join(installed, file));
   const load = createRequire(path.join(root, "consumer.cjs"));
   const renderer = load("@common-tools/slideclone-core/render-libreoffice");
@@ -21,6 +24,8 @@ test("renderer loads from core alone and its process adapter runs without Skill 
   assert.deepEqual(await renderer({}, {}), { ok: false, error: "pptx.pptxFile is required for render-libreoffice" });
   assert.equal(tools.resolveLibreOffice("controlled-soffice"), "controlled-soffice");
   assert.equal(tools.resolvePdfToPpm("controlled-pdftoppm"), "controlled-pdftoppm");
+  assert.equal(tools.resolvePdfToText("controlled-pdftotext"), "controlled-pdftotext");
+  assert.equal(tools.resolvePdfToText(undefined,{environment:{PDFTOTEXT_BIN:"configured-pdftotext"},platform:"linux"}),"configured-pdftotext");
   assert.equal((await run(process.execPath, ["-e", "process.stdout.write('ready')"], { timeout: 10000 })).stdout, "ready");
   await assert.rejects(run(process.execPath, ["-e", "process.exit(3)"], { timeout: 10000 }));
   if (process.platform === "win32") {
@@ -36,6 +41,7 @@ test("renderer loads from core alone and its process adapter runs without Skill 
   finally { renderer._private.cleanupStagedConversion(staged); }
   assert.equal(fs.existsSync(path.join(root, "skills")), false);
   for (const name of modules.slice(0, 3)) assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/slideclone-core/${name}.js`));
+  assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes("packages/slideclone-core/presentation-frame.js"));
 });
 
 test("renderer command planning bounds batch syntax while preserving native argument arrays", () => {
@@ -51,9 +57,17 @@ test("renderer command planning bounds batch syntax while preserving native argu
 test("renderer termination uses taskkill to stop the complete Windows process tree", () => {
   const { _private } = require("../packages/slideclone-core/renderer-process");
   const calls = [];
-  _private.terminateProcessTree({ pid: 4321 }, "win32", (...args) => { calls.push(args); return { status: 0 }; });
+  const child = { pid: 4321, kill: () => assert.fail("successful tree termination must not kill the parent first") };
+  _private.terminateProcessTree(child, "win32", (...args) => { calls.push(args); return { status: 0 }; });
   assert.deepEqual(calls, [["taskkill.exe", ["/pid", "4321", "/t", "/f"], { windowsHide: true, stdio: "ignore" }]]);
-  assert.throws(() => _private.terminateProcessTree({ pid: 4321 }, "win32", () => ({ status: 1 })), /process tree/);
+  const order=[];
+  const failingChild={pid:4321,kill:signal=>{order.push(signal);return true;}};
+  assert.throws(() => _private.terminateProcessTree(failingChild, "win32", () => {order.push("tree");return { status: 1 };}), /process tree/);
+  assert.deepEqual(order,["tree","SIGKILL"]);
+  const spawnError=Object.assign(new Error("taskkill unavailable"),{code:"ENOENT"});
+  assert.throws(()=>_private.terminateProcessTree(failingChild,"win32",()=>({error:spawnError,status:null})),error=>error===spawnError);
+  _private.terminateProcessTree(child,"win32",()=>({status:128}));
+  _private.terminateProcessTree({pid:undefined,kill:()=>assert.fail("absent pid")},"win32",()=>assert.fail("absent pid"));
 });
 
 test("legacy rendering and benchmark entry points share the core implementation", () => {

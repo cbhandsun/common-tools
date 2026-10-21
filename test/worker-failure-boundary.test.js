@@ -73,7 +73,7 @@ test("failure projection safely handles unknown and forged failures without expo
 });
 
 test("registered worker failures have immutable codes and preserve their retry classification", () => {
-  for (const code of ["INPUT_NOT_READY", "IMAGE_ASSET_NAMESPACE_FAILED", "IMAGE_DELIVERY_FAILED"]) {
+  for (const code of ["INPUT_NOT_READY", "IMAGE_OCR_NOT_CONFIGURED", "IMAGE_ASSET_NAMESPACE_FAILED", "IMAGE_DELIVERY_FAILED"]) {
     const failure = new WorkerFailure(code);
     assert.throws(() => { failure.code = "INPUT_NOT_READY"; }, TypeError);
     const result = storedWorkerFailure(failure);
@@ -89,7 +89,7 @@ test("historic stored errors are projected from known codes without exposing pay
   const generic = storedWorkerFailure(new Error("private"));
   for (const input of [null, undefined, "null"]) assert.equal(readStoredWorkerFailure(input), null);
   for (const input of ["{private", "x".repeat(8193), [], 5, true, { code: "toString" }, Object.create({code:"IMAGE_OCR_FAILED"}), { get code() { throw new Error("private"); } }]) assert.deepEqual(readStoredWorkerFailure(input), generic);
-  for (const code of ["IMAGE_OCR_FAILED", "INPUT_NOT_READY", "QUALITY_GATE_FAILED", "NO_CAPABILITY_HANDLER", "WORKER_LEASE_EXPIRED"]) {
+  for (const code of ["IMAGE_OCR_FAILED", "IMAGE_OCR_NOT_CONFIGURED", "INPUT_NOT_READY", "QUALITY_GATE_FAILED", "NO_CAPABILITY_HANDLER", "WORKER_LEASE_EXPIRED"]) {
     const input = {code, message:"private content", retryable:"unsafe", cause:"private headers", get headers() { throw new Error("must not read"); }};
     const result = readStoredWorkerFailure(input);
     assert.equal(result.code, code);

@@ -11,6 +11,7 @@ const { detectSemanticConcentricCircles } = require("./visual-concentric-circles
 const { detectSemanticQuadrantPanels } = require("./visual-quadrant-panels");
 const { detectSemanticSankeyBands, detectSemanticSankeyNodes } = require("./visual-sankey-bands");
 const { DEFAULT_SLIDE } = require("./visual-atom-constants");
+const { sampleAtomInteriorFill } = require("./visual-atom-interior-fill");
 
 function extractVisualAtoms(image, regionBox = {}, slideSize = DEFAULT_SLIDE, options = {}) {
   if (!image?.rgba || !regionBox) return [];
@@ -124,6 +125,7 @@ function extractVisualAtoms(image, regionBox = {}, slideSize = DEFAULT_SLIDE, op
         areaRatio: round(component.box.w * component.box.h / Math.max(1, pxRegion.w * pxRegion.h)),
         density: round(component.pixelCount / Math.max(1, component.box.w * component.box.h)),
         color: component.color,
+        interiorFill: kind === "native-rect-candidate" ? sampleAtomInteriorFill(image, component.box, masks) : null,
         axis: component.axis || null,
         arrowDirection,
         lineEndpoints,

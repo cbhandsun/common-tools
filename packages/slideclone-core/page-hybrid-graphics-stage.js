@@ -1,8 +1,11 @@
 "use strict";
+const { createErasedCropTextRecovery } = require("./erased-crop-text-recovery");
+const { createOcrStatusNativeComponents } = require("./ocr-status-native-components");
 
 function buildPageHybridGraphicsStage(context, nativeGraphics, dependencies) {
   const { options, pageDraft, slideSize, image, pageIndex, rawTextBoxes, imageFile, textBoxes, productCollaborationChallenge } = context;
   let { nativeRebuildCandidateImages } = context;
+  const erasedCropTextRecovery = createErasedCropTextRecovery(pageDraft, textBoxes);
   const { tableBackgroundShapes, tableGridShapes, comparisonMatrixShapes, stackedArchitectureDiagram, semanticCycleDiagramShapes, visualAtomNativeShapes, layerContainerShapes, matrixColorBlockShapes, layerColorBlockShapes, stickyNoteClusterShapes, layerConnectorShapes, quadrantDividerShapes, networkDiagramShapes, pageLevelNetworkDiagramShapes, hierarchyDiagramShapes, triangleTopologyShapes, coverEngineCoreShapes, skillChainOverviewShapes, pageLevelSkillChainOverview, linearProcessShapes, prdGenerationFlowShapes, prototypeValidationFlowShapes, demandUnderstandingFlowShapes, saturatedDiagramTextShapes, denseComplexDiagramScaffoldShapes, twoPanelDiagramTextShapes, topComplexDiagramTextShapes, shiftLeftDebuggerDiagram, toolIslandTransitionMatrix, kpiEvidenceTextShapes, valueQuadrantShapes, reviewRiskGateFlowShapes, funnelHubDiagramShapes, horizontalStepChainShapes, genericNodeDiagramSkeletonShapes, visualClusterStackShapes, wmsRouteChainShapes, collaborationFlowShapes, toolGapPlatformDiagram, processWithScreenshotsFlow, textAnchoredProcessNetwork, documentVersionFolderFlow, assetOsFlow, portalPlatformDiagram, systemMapDiagram, entropyFragmentShapes, entropyIslandShapes } = nativeGraphics;
   const { createStructuredIllustrationCardShellShapes, createAssetHubCycleIllustrationObjects, shouldObjectifyProductBrainWmsQualityGate, createInputOutputSplitDiagramObjects, createCliScaffoldGeneratorObjects, createVisualOperationSyncModel, materializeVisualOperationSyncImages, createEmbeddedExpertScreenshotModel, materializeEmbeddedExpertScreenshot, createRuntimeEngineHybridModel, materializeRuntimeEngineHybridImages, createParadigmShiftMatrixModel, materializeParadigmShiftGem, createValueTransformationTableModel, materializeValueTransformationIcon, createOcrGridTableModel, materializeOcrGridIcon, createProductBrainVisionObjects, createAssetOsHighValueAssetMatrixObjects, componentAssetLayerPseudoImages, shouldPreferAppliedPluginComponent, createFragmentedAssetChainModel, filterComponentTemplateShapeLayerInputs, mergeDiagramTextBoxes, collectObjectifiedDiagramTextBoxes, collectComponentTemplateFallbackDiagramTextBoxes, filterComponentTemplateNativeInputs, createComponentTemplateNativeObjects, createWorkflowSupplyChainTwoPanelObjects, materializeAssetOsFragmentedAssetChainCrops, replaceComponentTemplateCropsWhenFullyNative, createSpecializedNativeHybridResidualCropsFromNativeShapes, eraseObjectifiedLayerPrimitives, restorePrdGenerationSegmentCropsAfterPrimitiveErasure, migrateLegacyResidualOwnership, splitErasedResidualCrops } = dependencies;
 const structuredIllustrationCardShellShapes = options.objectifyLayerConnectors === true
@@ -327,11 +330,18 @@ const structuredIllustrationCardShellShapes = options.objectifyLayerConnectors =
         textBoxes: [...textBoxes, ...(assetHubCycleIllustration.textBoxes || [])],
         primitiveShapes: [...productCollaborationChallenge.shapes, ...layerContainerShapes, ...matrixColorBlockShapes, ...layerColorBlockShapes, ...stickyNoteClusterShapes, ...layerConnectorShapes, ...tableBackgroundShapes, ...tableGridShapes, ...quadrantDividerShapes, ...networkDiagramShapes, ...pageLevelNetworkDiagramShapes, ...hierarchyDiagramShapes, ...triangleTopologyShapes, ...coverEngineCoreShapes, ...skillChainOverviewShapes, ...pageLevelSkillChainOverview.shapes, ...linearProcessShapes, ...prdGenerationFlowShapes, ...prototypeValidationFlowShapes, ...demandUnderstandingFlowShapes, ...comparisonMatrixShapes, ...saturatedDiagramTextShapes, ...semanticCycleDiagramShapes, ...denseComplexDiagramScaffoldShapes, ...twoPanelDiagramTextShapes, ...topComplexDiagramTextShapes, ...shiftLeftDebuggerDiagram.shapes, ...toolIslandTransitionMatrix.shapes, ...kpiEvidenceTextShapes, ...valueQuadrantShapes, ...reviewRiskGateFlowShapes, ...funnelHubDiagramShapes, ...horizontalStepChainShapes, ...genericNodeDiagramSkeletonShapes, ...visualClusterStackShapes, ...wmsRouteChainShapes, ...collaborationFlowShapes, ...stackedArchitectureDiagram.shapes, ...toolGapPlatformDiagram.shapes, ...processWithScreenshotsFlow.shapes, ...textAnchoredProcessNetwork.shapes, ...documentVersionFolderFlow.shapes, ...assetOsFlow.shapes, ...portalPlatformDiagram.shapes, ...systemMapDiagram.shapes, ...entropyFragmentShapes, ...entropyIslandShapes, ...visualAtomNativeShapes, ...structuredIllustrationCardShellShapes, ...componentTemplateNativeShapes, ...assetHubCycleIllustration.shapes, ...inputOutputSplitDiagram.shapes, ...productBrainVision.shapes],
         slideSize,
-        irDir: options.irDir
+        irDir: options.irDir,
+        onTextErased: erasedCropTextRecovery.record
       });
       restorePrdGenerationSegmentCropsAfterPrimitiveErasure(pageDraft, image, slideSize, textBoxes, {
         irDir: options.irDir
       });
+    }
+    const recoveredErasedCropTextBoxes = erasedCropTextRecovery.recover(context.ocrStatusComponents?.textBoxes || context.nativeTextBoxes || []);
+    if (context.ocrStatusComponents) {
+      const recovered = createOcrStatusNativeComponents(recoveredErasedCropTextBoxes, slideSize);
+      context.ocrStatusComponents.textBoxes.push(...recovered.textBoxes);
+      context.ocrStatusComponents.shapes.push(...recovered.shapes);
     }
     if (options.splitErasedResidualCrops === true) {
       migrateLegacyResidualOwnership(pageDraft.images);
@@ -362,7 +372,7 @@ const structuredIllustrationCardShellShapes = options.objectifyLayerConnectors =
       );
       if (postEraseHybridResiduals.length > 0) pageDraft.images.push(...postEraseHybridResiduals);
     }
-  return { structuredIllustrationCardShellShapes, assetHubCycleIllustration, inputOutputSplitDiagram, cliScaffoldGenerator, visualOperationSync, embeddedExpertScreenshot, runtimeEngineHybrid, paradigmShiftMatrix, valueTransformationTable, ocrGridTable, productBrainVision, assetOsHighValueAssetMatrix, assetOsFragmentedAssetChain, componentTemplateNativeShapes, componentTemplateNativeTextBoxes, componentTemplateNativeImages, diagramTextBoxes, workflowSupplyChainTwoPanel, nativeRebuildCandidateImages };
+  return { structuredIllustrationCardShellShapes, assetHubCycleIllustration, inputOutputSplitDiagram, cliScaffoldGenerator, visualOperationSync, embeddedExpertScreenshot, runtimeEngineHybrid, paradigmShiftMatrix, valueTransformationTable, ocrGridTable, productBrainVision, assetOsHighValueAssetMatrix, assetOsFragmentedAssetChain, componentTemplateNativeShapes, componentTemplateNativeTextBoxes, componentTemplateNativeImages, diagramTextBoxes, workflowSupplyChainTwoPanel, nativeRebuildCandidateImages, recoveredErasedCropTextBoxes };
 }
 
 module.exports = { buildPageHybridGraphicsStage };

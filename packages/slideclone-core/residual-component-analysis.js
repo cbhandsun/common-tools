@@ -431,6 +431,140 @@ function mergeGraphicComponents(components, image) {
     .sort((a, b) => (a.box.y - b.box.y) || (a.box.x - b.box.x));
 }
 
+function splitSparseLargeGraphicComponents(components = [], image) {
+  const out = [];
+  for (const component of components || []) {
+    const split = sparseLargeGraphicComponentParts(component, image);
+    if (split.length > 0) out.push(...split);
+    else out.push(component);
+  }
+  return out.sort((a, b) => (a.box.y - b.box.y) || (a.box.x - b.box.x));
+}
+
+function sparseLargeGraphicComponentParts(component = {}, image) {
+  const box = component.box || {};
+  const area = Number(box.w || 0) * Number(box.h || 0);
+  const imageArea = Math.max(1, Number(image?.width || 0) * Number(image?.height || 0));
+  const areaRatio = area / imageArea;
+  if (areaRatio < 0.08 || areaRatio > 0.58) return [];
+  if (Number(box.w || 0) < 160 || Number(box.h || 0) < 90) return [];
+  if (sparseComponentDensity(component) > 0.09) return [];
+  const candidates = [
+    sparseComponentAxisParts(component, image, "y"),
+    sparseComponentAxisParts(component, image, "x")
+  ]
+    .filter((parts) => sparseSplitDecision(component, parts, image).use)
+    .sort((left, right) => sparseSplitDecision(component, left, image).score - sparseSplitDecision(component, right, image).score);
+  return candidates[0] || [];
+}
+
+function sparseComponentDensity(component = {}) {
+  const box = component.box || {};
+  const sampleSlots = Math.ceil(Number(box.w || 0) / 3) * Math.ceil(Number(box.h || 0) / 3);
+  return Number(component.sampledCount || 0) / Math.max(1, sampleSlots);
+}
+
+function sparseComponentAxisParts(component, image, axis) {
+  const box = component.box;
+  const length = axis === "y" ? box.h : box.w;
+  const crossLength = axis === "y" ? box.w : box.h;
+  const counts = [];
+  for (let offset = 0; offset < length; offset += 3) {
+    let count = 0;
+    for (let cross = 0; cross < crossLength; cross += 3) {
+      const x = axis === "y" ? box.x + cross : box.x + offset;
+      const y = axis === "y" ? box.y + offset : box.y + cross;
+      if (x < 0 || y < 0 || x >= image.width || y >= image.height) continue;
+      if (isGraphicForeground(pixel(image, x, y))) count += 1;
+    }
+    counts.push({ offset, count });
+  }
+  const minActive = Math.max(4, Math.ceil((crossLength / 3) * 0.04));
+  const runs = sparseActiveRuns(counts, minActive, 6)
+    .map((run) => sparseRunToComponent(component, image, axis, run))
+    .filter(Boolean);
+  return runs.filter((part) => {
+    const partAreaRatio = part.box.w * part.box.h / Math.max(1, image.width * image.height);
+    return partAreaRatio >= 0.001 && partAreaRatio <= 0.28
+      && part.box.w >= (axis === "y" ? 40 : 8)
+      && part.box.h >= (axis === "y" ? 8 : 40);
+  });
+}
+
+function sparseActiveRuns(counts = [], minActive, mergeGapPx) {
+  const runs = [];
+  let start = null;
+  let end = null;
+  for (const item of counts) {
+    if (item.count >= minActive) {
+      if (start === null) start = item.offset;
+      end = item.offset;
+    } else if (start !== null) {
+      runs.push({ start, end });
+      start = null;
+      end = null;
+    }
+  }
+  if (start !== null) runs.push({ start, end });
+  const merged = [];
+  for (const run of runs) {
+    const last = merged[merged.length - 1];
+    if (last && run.start - last.end <= mergeGapPx) last.end = run.end;
+    else merged.push({ ...run });
+  }
+  return merged.filter((run) => run.end - run.start + 1 >= 1);
+}
+
+function sparseRunToComponent(component, image, axis, run) {
+  const source = component.box;
+  const band = axis === "y"
+    ? { x: source.x, y: source.y + run.start, w: source.w, h: run.end - run.start + 4 }
+    : { x: source.x + run.start, y: source.y, w: run.end - run.start + 4, h: source.h };
+  const trimmed = trimSparseComponentBox(image, band);
+  if (!trimmed) return null;
+  return {
+    box: expandPxBox(trimmed, image, 6),
+    sampledCount: Math.max(1, Math.round(Number(component.sampledCount || 0) * (trimmed.w * trimmed.h) / Math.max(1, source.w * source.h))),
+    splitMode: `sparse-large-${axis}-band`
+  };
+}
+
+function trimSparseComponentBox(image, band) {
+  let minX = image.width;
+  let minY = image.height;
+  let maxX = -1;
+  let maxY = -1;
+  const x2 = Math.min(image.width, band.x + band.w);
+  const y2 = Math.min(image.height, band.y + band.h);
+  for (let y = Math.max(0, band.y); y < y2; y += 2) {
+    for (let x = Math.max(0, band.x); x < x2; x += 2) {
+      if (!isGraphicForeground(pixel(image, x, y))) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  if (maxX < minX || maxY < minY) return null;
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+}
+
+function sparseSplitDecision(component, parts, image) {
+  if (!Array.isArray(parts) || parts.length < 2 || parts.length > 24) return { use: false, score: Number.POSITIVE_INFINITY };
+  const originalArea = Math.max(1, component.box.w * component.box.h);
+  const imageArea = Math.max(1, image.width * image.height);
+  const totalArea = parts.reduce((sum, part) => sum + part.box.w * part.box.h, 0);
+  const maxAreaRatio = Math.max(...parts.map((part) => part.box.w * part.box.h / imageArea));
+  const union = parts.map((part) => part.box).reduce((acc, box) => unionBox(acc, box));
+  const unionAreaRatio = union.w * union.h / imageArea;
+  if (totalArea >= originalArea * 0.82) return { use: false, score: Number.POSITIVE_INFINITY };
+  if (maxAreaRatio > 0.3) return { use: false, score: Number.POSITIVE_INFINITY };
+  return {
+    use: true,
+    score: (totalArea / originalArea) + maxAreaRatio + unionAreaRatio * 0.2 + parts.length * 0.01
+  };
+}
+
 function expandPxBox(box, image, padding) {
   const x = clamp(Math.floor(box.x - padding), 0, image.width - 1);
   const y = clamp(Math.floor(box.y - padding), 0, image.height - 1);
@@ -468,4 +602,4 @@ function unionBox(a, b) {
   return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
 }
 
-module.exports = { residualSplitComponents, mergeGraphicComponents, boxesNear, expandPxBox, unionBox, isUsefulGraphicComponent, foregroundComponents, inAnyMask, isGraphicForeground, paleStructureComponents, isPaleStructurePixel, isUsefulPaleStructureComponent, residualSplitDecision, uncoveredPaleStructureRatio, pointInsidePxBox, tableGridAwareResidualComponents, slideGridLinesToLocalPx, uniqueSortedLinePositions, lineIntervalIndex, filterTableGridResidualComponents, tableGridAxisGroupedResidualComponents, tableGridAwareResidualSplitDecision, tableGridResidualCandidateScore, wideResidualBandComponents, significantVerticalInkRuns, isBandSignificantPixel, mergeNearbyRuns, trimResidualBandBox, wideResidualBandSplitDecision, continuousWideResidualComponents };
+module.exports = { residualSplitComponents, mergeGraphicComponents, boxesNear, expandPxBox, unionBox, isUsefulGraphicComponent, foregroundComponents, inAnyMask, isGraphicForeground, paleStructureComponents, isPaleStructurePixel, isUsefulPaleStructureComponent, residualSplitDecision, uncoveredPaleStructureRatio, pointInsidePxBox, tableGridAwareResidualComponents, slideGridLinesToLocalPx, uniqueSortedLinePositions, lineIntervalIndex, filterTableGridResidualComponents, tableGridAxisGroupedResidualComponents, tableGridAwareResidualSplitDecision, tableGridResidualCandidateScore, wideResidualBandComponents, significantVerticalInkRuns, isBandSignificantPixel, mergeNearbyRuns, trimResidualBandBox, wideResidualBandSplitDecision, continuousWideResidualComponents, splitSparseLargeGraphicComponents, sparseLargeGraphicComponentParts, sparseComponentDensity };

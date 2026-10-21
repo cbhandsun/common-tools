@@ -2,6 +2,24 @@
 const { unresolvedCurvedBranchResult, hasUnresolvedCurvedBranchTopology, createBranchCardFlowShell, hasMeasuredGenericGraphEvidence, createMeasuredGenericGraphShell, createSankeyFlowShell, createVennOverlapShell, createConcentricCirclesShell, createQuadrantMatrixShell, createComparisonMatrixShell, createTimelineRoadmapShell, createHubSpokeShell, createTopologyDiagramShell, createFunnelLensFlowShell, topologyNodes, createSwimlaneFlowShell, createLayeredStackShell, createCycleLoopShell, cycleLoopSegments, layeredStackNodes, swimlaneNodes, hubSpokeNodes, createFishboneShell, createFlowCardChainShell, createTreeStructureShell, funnelLensNodes, isSafeTopologyLayout, cycleAngularCoverage, isSafeLayeredStack, clusterSwimlaneNodes, isSafeSwimlaneLanes, isSafeConcentricLayerSequence, isSafeFishbone, dominantFlowNodes, dominantRectNodes, isSafeTreeStructure, isSafeHorizontalFlow, matchFlowBridges, sankeyNodes, validSankeyBand, attachSankeyBand } = require("./relationship-native-layouts");
 const { validBox } = require("./relationship-native-geometry");
 
+function hasCompleteMeasuredFallbackEdges(atoms, understanding) {
+  const edges = understanding.visualConnectors;
+  if (!Array.isArray(edges) || edges.length < 2 || edges.length > 32) return false;
+  if (new Set(atoms.map(atom => atom?.id)).size !== atoms.length) return false;
+  return edges.every(edge => {
+    const atom = atoms.find(item => item?.id === edge?.atomId);
+    const from = atom?.lineEndpoints?.from, to = atom?.lineEndpoints?.to;
+    const fromNode = atoms.find(item => item?.id === edge?.fromAtomId);
+    const toNode = atoms.find(item => item?.id === edge?.toAtomId);
+    const attached = (point, node) => validBox(node?.box) && point
+      && point.x >= node.box.x - 3 && point.x <= node.box.x + node.box.w + 3
+      && point.y >= node.box.y - 3 && point.y <= node.box.y + node.box.h + 3;
+    return [from?.x, from?.y, to?.x, to?.y].every(value => typeof value === "number" && Number.isFinite(value))
+      && Math.hypot(to.x - from.x, to.y - from.y) >= 12
+      && attached(from, fromNode) && attached(to, toNode);
+  });
+}
+
 function createRelationshipNativeShell(image = {}, atoms = [], layer = {}, understanding = {}, context = {}) {
   const archetype = String(understanding.archetype || "");
   const layerType = String(layer.layerType || "");
@@ -34,7 +52,16 @@ function createRelationshipNativeShell(image = {}, atoms = [], layer = {}, under
     };
   }
   if (archetype === "timeline-roadmap") {
-    return createTimelineRoadmapShell(image, atoms, understanding) || {
+    const timeline = createTimelineRoadmapShell(image, atoms, understanding);
+    if (timeline) return timeline;
+    // A semantic timeline hint must not suppress complete measured geometry.
+    // These builders still reject missing endpoints, unexplained atoms and
+    // disconnected graphs; OCR order never supplies an edge.
+    const branch = createBranchCardFlowShell(image, atoms, understanding, context);
+    if (branch) return branch;
+    if (hasUnresolvedCurvedBranchTopology(image, atoms, understanding)) return unresolvedCurvedBranchResult();
+    return (hasCompleteMeasuredFallbackEdges(atoms, understanding)
+      ? createMeasuredGenericGraphShell(image, atoms, understanding) : null) || {
       shapes: [],
       preserveWhole: true,
       shellKind: "timeline-roadmap",

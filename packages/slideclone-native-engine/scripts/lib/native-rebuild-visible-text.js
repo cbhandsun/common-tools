@@ -20,6 +20,7 @@ const {
 } = require("@common-tools/slideclone-core/native-text-style");
 
 const DEFAULT_SLIDE = { widthPt: 960, heightPt: 540 };
+const { projectOcrTextBox } = require("@common-tools/slideclone-core/ocr-text-quadrilateral");
 
 function pageImageFile(workDir, page, pageIndex) {
   const candidates = [
@@ -40,7 +41,7 @@ function visibleTextBoxes(textBoxes, image, slideSize) {
     .filter((item) => item && item.box && typeof item.text === "string" && item.text.trim())
     .filter((item) => shouldNativeTextBox(item))
     .map((item) => {
-      const next = JSON.parse(JSON.stringify(item));
+      const next = projectOcrTextBox(JSON.parse(JSON.stringify(item)));
       next.font = next.font || {};
       next.font.opacity = 1;
       next.font.color = image ? sampleInkColor(image, next.box, slideSize, next.font.color) : normalizeHex(next.font.color, "#111111");

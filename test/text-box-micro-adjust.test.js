@@ -58,6 +58,48 @@ test("suggestTextBoxMicroAdjustments nudges box position and font size from crop
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
+test("suggestTextBoxMicroAdjustments can shrink oversized rendered text from ink evidence", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-text-adjust-"));
+  const sourceCropImage = path.join(tempDir, "source.png");
+  const renderedCropImage = path.join(tempDir, "rendered.png");
+  writePng(sourceCropImage, makeInkImage(120, 40, { x: 44, y: 14, w: 34, h: 9 }));
+  writePng(renderedCropImage, makeInkImage(120, 40, { x: 42, y: 12, w: 44, h: 13 }));
+
+  const suggestions = suggestTextBoxMicroAdjustments({
+    page: {
+      pageIndex: 0,
+      textBoxes: [{
+        id: "caption",
+        text: "System Connection",
+        box: { x: 100, y: 80, w: 90, h: 20 },
+        font: { sizePt: 12 },
+        source: { evidenceBox: { x: 100, y: 80, w: 90, h: 20 } }
+      }]
+    },
+    textCoveragePage: {
+      pageIndex: 0,
+      boxes: [{
+        elementId: "caption",
+        ok: true,
+        textCoverage: 0.9,
+        expectedCoverage: 0.92,
+        sourceCropImage,
+        renderedCropImage,
+        evidenceBox: { x: 100, y: 80, w: 90, h: 20 }
+      }]
+    },
+    paddingPt: 12
+  });
+
+  assert.equal(suggestions.length, 1);
+  assert.equal(suggestions[0].elementId, "caption");
+  assert.ok(suggestions[0].fontSizePt < 12);
+  assert.ok(suggestions[0].boxHeightPt < 20);
+  assert.ok(suggestions[0].boxWidthPt < 90);
+
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
 test("suggestTextBoxMicroAdjustments stays quiet for fully aligned crops", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-text-adjust-"));
   const sourceCropImage = path.join(tempDir, "source.png");
@@ -308,6 +350,29 @@ test("high-confidence OCR evidence fit tightens one-line title geometry and font
   assert.equal(result[1], lowConfidence);
 });
 
+test("high-confidence OCR evidence fit also tightens recovered crop OCR text", () => {
+  const recovered = {
+    id: "crop-ocr-title",
+    text: "文档与表格",
+    box: { x: 314.42, y: 118.22, w: 56.89, h: 15.11 },
+    font: { family: "Microsoft YaHei", sizePt: 10.32, weight: "regular", valign: "middle" },
+    style: { wrap: false, fit: "shrink" },
+    source: {
+      ocrProvider: "team-pinned-ocr",
+      overlayVisibility: "visible",
+      ocrRecoveredFromCrop: true,
+      confidence: 0.99,
+      evidenceBox: { x: 311.11, y: 117.33, w: 56.89, h: 15.11 }
+    }
+  };
+
+  const [result] = fitHighConfidenceSingleLineOcrToEvidence([recovered]);
+
+  assert.deepEqual(result.box, recovered.source.evidenceBox);
+  assert.equal(result.source.ocrEvidenceFit.provider, "single-line-ocr-evidence-fit-v1");
+  assert.ok(result.font.sizePt <= recovered.font.sizePt);
+});
+
 test("high-confidence OCR evidence fit prevents same-width title overflow", () => {
   const title = {
     id: "title",
@@ -329,6 +394,55 @@ test("high-confidence OCR evidence fit prevents same-width title overflow", () =
   assert.equal(result.style.wrap, false);
   assert.equal(result.style.fit, "shrink");
   assert.equal(result.source.ocrEvidenceFit.originalSizePt, 51.8);
+});
+
+test("high-confidence OCR evidence fit accepts visible OCR with omitted overlay marker", () => {
+  const caption = {
+    id: "ocr-caption",
+    text: "企业知识中枢+ AI员工=懂公司",
+    box: { x: 40, y: 30, w: 150, h: 18 },
+    font: { family: "Microsoft YaHei", sizePt: 12, weight: "regular" },
+    style: { wrap: false },
+    source: {
+      ocrProvider: "team-pinned-ocr",
+      confidence: 0.96,
+      evidenceBox: { x: 40, y: 30, w: 132, h: 14 }
+    }
+  };
+  const hidden = {
+    ...caption,
+    id: "hidden-ocr-caption",
+    source: { ...caption.source, overlayVisibility: "hidden" }
+  };
+
+  const [result, hiddenResult] = fitHighConfidenceSingleLineOcrToEvidence([caption, hidden]);
+
+  assert.deepEqual(result.box, caption.source.evidenceBox);
+  assert.ok(result.font.sizePt < caption.font.sizePt);
+  assert.equal(result.source.ocrEvidenceFit.provider, "single-line-ocr-evidence-fit-v1");
+  assert.equal(hiddenResult, hidden);
+});
+
+test("high-confidence OCR evidence fit expands bounded detector OCR labels", () => {
+  const label = {
+    id: "ocr-status-label",
+    text: "知识库",
+    box: { x: 88.1, y: 15.4, w: 41.3, h: 9.8 },
+    font: { family: "Microsoft YaHei", sizePt: 8.8, weight: "regular" },
+    style: { wrap: false },
+    source: {
+      ocrProvider: "team-pinned-ocr",
+      confidence: 0.96,
+      detector: "ocr-status-native-label",
+      evidenceBox: { x: 87.2, y: 15.3, w: 51.5, h: 9.8 }
+    }
+  };
+
+  const [result] = fitHighConfidenceSingleLineOcrToEvidence([label]);
+
+  assert.deepEqual(result.box, label.source.evidenceBox);
+  assert.equal(result.source.ocrEvidenceFit.provider, "single-line-ocr-evidence-fit-v1");
+  assert.equal(result.font.sizePt, label.font.sizePt);
 });
 
 test("high-confidence OCR evidence fit supplies bounded typography when OCR omitted font metadata", () => {
