@@ -1,4 +1,112 @@
-# 图片转可编辑 PPT 完整交接
+# 图片转可编辑 PPT 方案、架构与审计文档（2026-10-21 更新）
+
+> **2026-10-21 状态更新（分支 `codex/native-connectors-alignment`，提交 `699118b`）**：
+> 针对 1086×1448 原图（`source.png`）的 **100% 原生可编辑 DrawingML 重建**已全面打通并通过全部三项严苛像素与语义门禁：
+> - **`PDR = 7.885%`**（门槛 `≤ 8.0%`，**PASS**）
+> - **`Missing = 2.017%`**（门槛 `≤ 12.0%`，**PASS**）
+> - **`MAD = 10.780`**（门槛 `≤ 12.0`，**PASS**）
+> - **11/11 条逻辑连线 1:1 原生矢量化**：9 条正交拐角连线升级为带三次贝塞尔圆角（`<a:cubicBezTo>`，$r = 14\text{px} \approx 12.4\text{pt}$）、原生三角形箭头（`<a:tailEnd type="triangle"/>`）、水平总线亚像素共线对齐（上层 $y = 541.9\text{px}$、下层 $y = 748.3\text{px}$）及统一无旋转垂直渐变（`<a:gradFill angle="5400000"/>`）的单条开放式原生路径（`<p:sp>` + `<a:custGeom>`）；2 条垂直虚线连线为原生 `<p:cxnSp>`（`straightConnector1`）。
+> - **零背景底图 / 零区域截图残差**：全页仅保留 18 个高精透明小图标抠图（`pictorialMode: "source-crop"`），其余 147 个容器形状、70 个词级精确定位文本框（`positionedRuns`）与 11 条连线均为 100% 原生 OpenXML DrawingML 对象。
+
+---
+
+## 一、端到端方案与五阶段架构全景
+
+图片转可编辑 PPT（Image-to-Editable-PPT）采用**“视觉证据驱动 + 语义规划 + 源像素几何证明 + OpenXML 原生合成”**的五阶段混合流水线架构，兼顾 **Office 原生可编辑性** 与 **像素级视觉还原度（PDR ≤ 8%）**。
+
+```mermaid
+flowchart TD
+    A["输入源图 (PNG/JPG)"] --> B["Stage 1: OCR 与词级排版证据提取"]
+    A --> C["Stage 2: VLM 场景规划与所有权修订"]
+    B --> D["Stage 3: 源场景编译与连线/容器矢量化"]
+    C --> D
+    A --> D
+    D --> E["Stage 4: .NET 8 OpenXML 原生引擎合成"]
+    E --> F["Stage 5: Office COM 渲染与多维质量门禁"]
+    F -->|未达标: 局部回退/参数校准| D
+    F -->|PDR<=8%, Missing<=12%, MAD<=12| G["输出 100% 原生可编辑 PPTX"]
+```
+
+### 核心分层与代码模块映射
+
+| 阶段 / 层级 | 核心职责与算法机制 | 关键代码模块（未标前缀均位于 `packages/slideclone-core/`） |
+|---|---|---|
+| **0. 作业与服务编排层** | 接收转换任务、管理状态机与重试边界、装配运行时依赖 | `packages/slideclone-worker-adapter/team-worker.js`<br>`packages/remote-mcp-server/image-native-rebuilder.js`<br>`packages/remote-mcp-server/source-scene-runtime.js`<br>`team-native-rebuild.js` (`createRawImageNativeRebuilder`) |
+| **1. OCR 与词级排版层** | 1) 本地 PaddleOCR 识别行框与文本；<br>2) **字宽加权多色切分**（`characterAdvanceRanges`）解决中英混排标点挤压导致的颜色串色；<br>3) **核心墨迹中位数取色**（剔除 30% 边缘抗锯齿背景混合像素）+ 浅色发光字 92 分位高亮保真；<br>4) **词级/脚本级 `positionedRuns` 拆分**与句首未转录 bullet/图标自动过滤；<br>5) **同框渲染墨迹密度比对**自动判定粗体/常规字重，并为超粗标题挂载原生 `textOutline` 描边。 | `ocr-paddleocr-local.js`<br>`ocr-source-deck.js`<br>`ocr-color-clustering.js`<br>`ocr-light-ink-color.js`<br>`source-word-layout-registry.js`<br>`source-word-layout-evidence.js`<br>`text-weight-evidence.js` |
+| **2. 场景规划与所有权修订层** | 1) VLM 提出区域（Regions）、容器（Containers）、图标（Icons）与逻辑关系（Relations）；<br>2) 局部观察（Local Review）与延迟区域复核（Deferred Regional Review）；<br>3) **Owner 原子修订**（修复跨区域错位图标如 `object-n125`，确保容器与子成员所有权一致）。 | `source-scene-planner.js`<br>`source-scene-local-review.js`<br>`source-scene-deferred-regional-review.js`<br>`source-scene-owner-revision.js`<br>`source-scene-owner-revision-review.js`<br>`source-scene-regional-inventory.js` |
+| **3. 源场景编译与原生路由层** | 1) 容器闭合轮廓检测、圆角半径拟合并物化为 `roundRect` / `rect` / `freeform`；<br>2) 实心背景色块自动修补（`solid-region-evidence.js`）消除容器间隙漏白；<br>3) 图标高精去背透明抠图（`pictorialMode: "source-crop"`）；<br>4) **1:1 原生连线编译**：支持 `<p:cxnSp>` 直连/正交连接器，以及带 `<a:cubicBezTo>` 圆角拐点、`<a:tailEnd>` 原生箭头与 `<a:gradFill>` 渐变描边的单条开放 `<p:sp>` 自由曲线路径。 | `source-scene-compiler.js`<br>`source-scene-route.js`<br>`source-scene-route-compiler.js`<br>`source-scene-shared-route-stage.js`<br>`source-shared-route-measurement.js`<br>`source-shared-route-compiler.js`<br>`solid-region-evidence.js` |
+| **4. OpenXML 原生生成引擎** | 将 Deck IR (`deck.json`) 编译为符合 ECMA-376 规范的 `.pptx`：<br>1) 词级文本框 `<p:sp>` 绝对坐标写入；<br>2) 开放式多段圆角路径 `<a:custGeom>`（`MoveTo` / `LineTo` / `CubicBezierTo`）与 `<a:gradFill>` 渐变线；<br>3) 原生连接器 `<p:cxnSp>` 与 `<a:stCxn>` / `<a:endCxn>` 拓扑锚点绑定。 | `packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/Program.cs`<br>`NativePositionedText.cs`<br>`NativeFreeformPath.cs`<br>`NativeConnectorGeometry.cs`<br>`ConnectorAttachmentWriter.cs`<br>`NativeTextOutline.cs` |
+| **5. 渲染验证与质量门禁层** | 调用本机 PowerPoint COM / LibreOffice 导出渲染图，执行三项像素门禁（`PDR`、`Missing`、`MAD`）与两项结构门禁（`semantic-editability`、`native-component`）。 | `packages/slideclone-native-engine/scripts/diff-pixel-png.js`<br>`semantic-editability-quality.js`<br>`native-component-quality.js`<br>`source-native-render-comparison.js` |
+
+---
+
+## 二、关键技术突破总结（PDR 从 14.07% / 10.24% 降至 7.885%）
+
+在将整页 `PDR` 从 `14.067%`（无残差纯原生初版）推进至 **`7.885%`** 的过程中，验证并落地了以下五项核心工程突破：
+
+1. **攻克 Office `<p:cxnSp>` 自定义几何崩溃与直角限制，落地 1:1 圆角贝塞尔开放矢量连线**：
+   - **实验结论**：通过 PowerPoint 桌面端 COM 实测确认，Office 严禁在 `<p:cxnSp>` 中使用 `<a:custGeom>`（打开直接触发 `HRESULT E_FAIL`），且内置 `bentConnector3` 在 Office 渲染引擎中硬编码为 90° 尖角（`<a:gd name="adj1"/>` 仅控制横梁位置比例，无法控制转角圆弧半径）。此外，`bentConnector3` 通过 `rot="5400000" flipV="1"` 旋转实现垂直 Z 字走线时，会导致局部坐标系翻转，引发蓝绿渐变方向交替反相与底部分支 0.5px 阶梯错位。
+   - **原生方案**：使用 `NativeFreeformPath.cs` 生成 1:1 单条开放式 `<p:sp>` 矢量路径（`closed: false, fill: "none"`），在拐点处用圆弧拟合三次贝塞尔曲线（`<a:cubicBezTo>`，$r = 14\text{px} \approx 12.4\text{pt}$，$\kappa = 0.55228475$），直接挂载 `<a:tailEnd type="triangle" w="med" len="med"/>` 原生箭头与未旋转的全局垂直渐变 `<a:gradFill>`（`#30C793 -> #2088E2`），同时将上层总线统一对齐至 $y = 541.9\text{px}$、下层总线统一对齐至 $y = 748.3\text{px}$，彻底消除分叉处锯齿、渐变反相与拐角尖角差异。
+2. **中英混排字宽加权多色切分（`characterAdvanceRanges`）**：
+   - 修复等宽均分字符列导致的 `Claude Code:` 冒号挤占汉字宽度、使首字“通”被误判为蓝色的问题；按 ASCII（`0.52`）、窄标点（`0.28`）、CJK（`1.0`）字宽权重划分水平采样区间。
+3. **笔画核心墨迹取色（Core Ink Median）与句首未转录符号过滤**：
+   - 采样字符笔画像素时，按距背景色距离排序并剔除最浅的 30% 边缘抗锯齿像素，消除浅蓝/浅绿底色对深色文字的颜色污染；当 OCR 文本框左侧存在未转录的实心圆点或小图标墨迹团块时，自动收缩首词左边界（`leadingTrimPx`），防止句首文字左移覆盖符号。
+4. **同框渲染墨迹密度字重判定与超粗标题原生描边（`textOutline`）**：
+   - 弃用易受字号缩放干扰的二值化 skeleton 估算，改为在同一目标框内分别用 Regular 与 Bold 渲染并比对原图墨迹覆盖率；针对原图中超粗的主副标题，挂载 `0.55pt–0.60pt` 同色原生 `<a:ln>` 文本外描边（`NativeTextOutline.cs`）。
+5. **实心色块证据修补与底部装饰条矢量化（`solid-region-evidence.js`）**：
+   - 自动检测并修补原生容器圆角/边距与原图实心色块之间的微小漏白，还原底部浅色圆角装饰条，单步降低 `PDR` 逾 `1.2%`。
+
+---
+
+## 三、架构与代码库深度审计：亟待提升的五大痛点与改进路线
+
+在对 `packages/` 全量源码、质量门禁与构建脚本执行架构审计（含运行 `npm run verify:architecture-budgets`）后，识别出以下 **5 个核心待提升点**：
+
+### 1. 架构预算超限（`verify:architecture-budgets` 当前 4 文件 / 7 项违规）
+
+运行 `npm run verify:architecture-budgets` 暴露出以下模块存在严重的体积膨胀或耦合超限：
+
+| 违规文件 | 违规指标 | 当前值 | 架构上限 | 根因诊断与重构建议 |
+|---|---|---:|---:|---|
+| `packages/slideclone-worker-adapter/team-worker.js` | `lines`<br>`bytes`<br>`relativeImports` | `8,459`<br>`506,539`<br>`48` | `1,500`<br>`163,840`<br>`15` | **头号单体巨石文件**。混杂了作业队列轮询、OCR 降级重试、场景重建调用、残差审计、遥测上报与错误恢复。应按阶段拆分为 `worker-job-runner.js`、`worker-quality-gate.js`、`worker-ocr-coordinator.js` 等独立子模块。 |
+| `packages/slideclone-core/team-native-rebuild.js` | `relativeImports` | `31` | `15` | 顶层重建编排器直接平铺导入了 31 个底层细粒度 helper。应按五阶段封装门面（Facade）：`ocr-stage-facade.js`、`scene-plan-facade.js`、`scene-compile-facade.js`、`quality-gate-facade.js`，将顶层相对导入收敛至 10 个以内。 |
+| `packages/slideclone-core/source-scene-compiler.js` | `relativeImports` | `21` | `15` | 同时负责容器物化、文本合并、图标裁剪、单线路由与共享路由。应将容器/背景编译与连线路由编译拆分为两个二级聚合模块。 |
+| `test/common-tools-image-team-worker.test.js` | `lines`<br>`bytes` | `6,781`<br>`387,637` | `2,000`<br>`204,800` | 单一测试文件堆积了所有历史回归用例。应按功能域拆分为 `team-worker-lifecycle.test.js`、`team-worker-quality-gates.test.js`、`team-worker-recovery.test.js`。 |
+
+### 2. 共享路由源像素证明门禁过于脆弱（Pixel-Exact Proof Gate 误拒正例）
+
+- **现状痛点**：
+  1. `source-shared-route-measurement.js` 第 131–141 行在验证三臂 T 型接点（`shared-junction-paint`）时，强制要求接点处前 4 个原始像素与主干颜色逐通道差值 `≤ 18`。但在真实渐变线（上绿下蓝）或抗锯齿分叉处，接点像素天然存在亚像素混色，导致合法共享连线在进入编译器前即被拒绝（`source-scene-shared-route-stage.js:59`）。
+  2. `source-shared-gap-backdrop.js` 假设跨层间隙背景是单一纯色（`shared-gap-background`），一旦连线跨越浅色渐变横幅或虚线分隔带即判定失败；且 70,000 像素的搜索窗口共用 `4,000,000` 次几何预算（`shared-geometry-budget`），极易在复杂分支图上耗尽预算。
+- **提升方案**：
+  - 将**拓扑连通性证明**与**表面颜色/渐变采样**解耦：先用膨胀掩码（dilated ink mask）验证主干与分支的几何连通性，再沿已确认路径拟合固定色或线性渐变（`<a:gradFill>`），并直接编译为带 `<a:cubicBezTo>` 圆角的 1:1 开放矢量路径。
+
+### 3. 连线表示层的双模态策略缺失（“拐角圆弧视觉保真” vs “拖拽卡片自动重路由”）
+
+- **现状痛点**：
+  - OpenXML 规范与 PowerPoint 引擎存在固有限制：`<p:cxnSp>` 支持 `<a:stCxn>`/`<a:endCxn>` 锚点绑定（拖动卡片时连线自动跟随），但**不支持圆角拐点且不支持 `<a:custGeom>`**；而 `<p:sp>` + `<a:custGeom>`（`<a:cubicBezTo>`）能 100% 还原圆角拐点与统一渐变（使 PDR 降至 `7.885%`），但属于自由曲线形状，拖动卡片时不会自动重排正交折线。
+- **提升方案**：
+  - 在 `source-scene-route-compiler.js` 与 `OpenXmlDeckBuilder` 中引入可配置策略 `connectorCornerMode: "rounded-freeform" | "reroutable-elbow" | "auto"`：
+    - 当原图检测到显著圆角半径（$r \ge 4\text{px}$）且优先追求视觉还原时，输出 `<p:sp>` + `<a:cubicBezTo>` 圆角开放路径；
+    - 当原图为直角折线或用户显式指定拓扑拖拽优先时，输出 `<p:cxnSp>`（`bentConnector3`）并自动对齐 `adj1` 横梁比例。
+
+### 4. `packages/slideclone-core/` 模块碎片化（450+ 平铺文件）
+
+- **现状痛点**：
+  - `packages/slideclone-core/` 根目录下目前已堆积 **450+ 个 `.js` 文件**，其中包含大量针对特定图型或单次实验命名的微模块（如 `fishbone-*`、`wms-route-*`、`prd-generation-*`、`value-quadrant-*`）。这不仅导致模块寻址困难，也是引发 `team-native-rebuild.js` 和 `source-scene-compiler.js` 相对导入超限的直接原因。
+- **提升方案**：
+  - 在保持对外 `index.js` 导出兼容的前提下，将 `packages/slideclone-core/` 内部收敛至 6 个清晰的子域目录：`ocr/`、`typography/`、`scene-plan/`、`routing/`、`archetypes/`、`quality/`。
+
+### 5. 将圆角自由曲线连线与实心色块修补正式合入默认生产主链
+
+- **现状痛点**：
+  - 本轮验证成功的 **1:1 圆角贝塞尔连线生成器（`<a:cubicBezTo>` + 全局一致渐变 + 共线总线对齐）** 已在 `.NET OpenXmlDeckBuilder`（`NativeFreeformPath.cs`）中完整落地，并通过生成流水线脚本产出了达标产物 `output-latest/deck-native-connectors.pptx`（`PDR = 7.885%`），但尚未完全替换 `source-scene-shared-route-stage.js` 中的旧版 `bentConnector3` 候选生成器。
+- **提升方案**：
+  - 将圆角正交路径求解器直接下沉至 `source-shared-route-compiler.js` 与 `source-scene-route-compiler.js`，使 `createRawImageNativeRebuilder` 在默认无参调用时即可原生输出圆角渐变连线。
+
+---
+
+## 四、2026-10-20 历史交接基线存档（供溯源对照）
 
 交接日期：2026-10-20。工作区：`E:\DEV\WorkSpace\Efficiency\common-tools`。接收方：后续模型及维护者。
 
