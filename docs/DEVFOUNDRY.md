@@ -35,3 +35,6 @@ Node 固定 22.23.4，npm 遵循 packageManager 固定 10.9.2，Python 使用独
 通过正常 revert 撤回此次新增 CI 文件，不强推。Git 设置的旧值、独立 runner 的服务名和停用范围在 DevFoundry 接入记录中保存。只停用本项目 runner，不重启业务容器；没有业务 CD 或数据库迁移需要回退。
 
 为避免 npm ci 在 Linux 自动更改已跟踪入口文件的执行位，将五个已有 Node CLI bin 的 Git 模式规范为 100755；没有修改其代码内容，也没有关闭源码漂移检查。
+
+
+2026-10-27：只启用 Windows + Linux；runner 长期复用。运行时显式传入已核验的 DOTNET_ROOT，并使用独立 NuGet 缓存，保持 locked restore 与审计要求。GitHub origin 保留，默认推送 Gitea；业务检查未全部通过，不代表发布许可。

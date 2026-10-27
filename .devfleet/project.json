@@ -21,6 +21,14 @@
   ],
   "setup": [
     {
+      "name": "dotnet-sdk",
+      "argv": [
+        "{python}",
+        "-c",
+        "import os,pathlib,subprocess; root=pathlib.Path(os.environ.get('DOTNET_ROOT','')); exe=root/('dotnet.exe' if os.name=='nt' else 'dotnet'); version=subprocess.check_output([str(exe),'--version'],text=True).strip(); print('DEVFOUNDRY_DOTNET_VERSION='+version); raise SystemExit(0 if root.is_absolute() and version.startswith('8.') else 'Configured .NET 8 SDK is unavailable')"
+      ]
+    },
+    {
       "name": "dependencies",
       "argv": [
         "{node}",

@@ -110,7 +110,7 @@ def validate(config):
         raise ValueError('Each command timeout must be between 1 and 7200 seconds')
     if not isinstance(config['clear_env'], list) or any(not isinstance(v, str) or not re.fullmatch(r'[A-Z][A-Z0-9_]*', v) for v in config['clear_env']):
         raise ValueError('clear_env accepts variable names only')
-    if any(v.startswith(('NPM_CONFIG_', 'PIP_')) or v in {'PATH', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'SYSTEMROOT', 'COMSPEC', 'CI', 'PYTHONUTF8', 'PYTHONIOENCODING', 'PYTHONNOUSERSITE'} for v in config['clear_env']):
+    if any(v.startswith(('NPM_CONFIG_', 'PIP_')) or v in {'PATH', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'SYSTEMROOT', 'COMSPEC', 'CI', 'PYTHONUTF8', 'PYTHONIOENCODING', 'PYTHONNOUSERSITE', 'DOTNET_ROOT', 'DOTNET_CLI_TELEMETRY_OPTOUT', 'DOTNET_NOLOGO', 'DOTNET_CLI_HOME', 'NUGET_PACKAGES'} for v in config['clear_env']):
         raise ValueError('clear_env cannot override managed runtime configuration')
     return config
 
@@ -153,7 +153,9 @@ def resource_lock(path, timeout):
 def environment(state, clear):
     allowed = ['PATH', 'HOME', 'USERPROFILE', 'SYSTEMROOT', 'SystemRoot', 'COMSPEC',
                'ComSpec', 'PATHEXT', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR', 'APPDATA',
-               'LOCALAPPDATA', 'LANG', 'LC_ALL', 'NO_PROXY', 'no_proxy']
+               'LOCALAPPDATA', 'LANG', 'LC_ALL', 'NO_PROXY', 'no_proxy',
+               'DOTNET_ROOT', 'DOTNET_CLI_TELEMETRY_OPTOUT', 'DOTNET_NOLOGO',
+               'PROGRAMFILES', 'PROGRAMFILES(X86)', 'PROGRAMW6432', 'ALLUSERSPROFILE', 'SYSTEMDRIVE', 'PUBLIC']
     env = {key: os.environ[key] for key in allowed if key in os.environ}
     state.mkdir(parents=True, exist_ok=True)
     for filename in ['empty-npmrc', 'empty-global-npmrc']:
@@ -167,6 +169,8 @@ def environment(state, clear):
                 'NPM_CONFIG_USERCONFIG': str(state / 'empty-npmrc'),
                 'NPM_CONFIG_GLOBALCONFIG': str(state / 'empty-global-npmrc'),
                 'NPM_CONFIG_CACHE': str(state / 'npm-cache')})
+    if env.get('DOTNET_ROOT'):
+        env.update({'DOTNET_CLI_HOME': str(state / 'dotnet-home'), 'NUGET_PACKAGES': str(state / 'nuget-cache')})
     env.update({key: '' for key in clear})
     return env
 
