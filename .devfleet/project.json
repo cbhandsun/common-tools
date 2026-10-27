@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "id": "common-tools",
+  "repository": {
+    "owner": "juhon",
+    "name": "common-tools",
+    "branch": "codex/native-connectors-alignment"
+  },
+  "stack": "node",
+  "reviewed": true,
+  "automatic_ci": true,
+  "toolchain": {
+    "node": "22.23.4",
+    "npm": "10.9.2"
+  },
+  "inputs": [
+    ".devfleet/project.json",
+    "package.json",
+    "package-lock.json",
+    ".devfleet/platform_checks.py"
+  ],
+  "setup": [
+    {
+      "name": "dependencies",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "ci",
+        "--no-audit",
+        "--no-fund",
+        "--ignore-scripts"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "test-portable",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "test:portable"
+      ]
+    },
+    {
+      "name": "lint",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "lint"
+      ]
+    },
+    {
+      "name": "typecheck",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "typecheck"
+      ]
+    },
+    {
+      "name": "common-tools-verify-plugins",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "common-tools:verify-plugins"
+      ]
+    },
+    {
+      "name": "common-tools-verify-runtime-package",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "common-tools:verify-runtime-package"
+      ]
+    },
+    {
+      "name": "common-tools-verify-observability",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "common-tools:verify-observability"
+      ]
+    },
+    {
+      "name": "common-tools-verify-adrs",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "common-tools:verify-adrs"
+      ]
+    },
+    {
+      "name": "audit-dotnet",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "audit:dotnet"
+      ]
+    },
+    {
+      "name": "build-dotnet-locked",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "build:dotnet:locked"
+      ]
+    },
+    {
+      "name": "common-tools-test",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "common-tools:test"
+      ]
+    },
+    {
+      "name": "test-unit",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "test:unit",
+        "--",
+        "--shards",
+        "1"
+      ]
+    },
+    {
+      "name": "test-contract",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "test:contract",
+        "--",
+        "--shards",
+        "1"
+      ]
+    },
+    {
+      "name": "test-integration",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "test:integration",
+        "--",
+        "--shards",
+        "1"
+      ]
+    },
+    {
+      "name": "verify-python-lock",
+      "argv": [
+        "{node}",
+        "{npm_cli}",
+        "run",
+        "verify:python-lock"
+      ]
+    },
+    {
+      "name": "sbom",
+      "argv": [
+        "{python}",
+        ".devfleet/platform_checks.py",
+        "sbom",
+        "--node",
+        "{node}",
+        "--npm-cli",
+        "{npm_cli}"
+      ]
+    },
+    {
+      "name": "linux-recovery",
+      "argv": [
+        "{python}",
+        ".devfleet/platform_checks.py",
+        "linux-recovery",
+        "--node",
+        "{node}",
+        "--npm-cli",
+        "{npm_cli}"
+      ]
+    },
+    {
+      "name": "workflow-lint",
+      "argv": [
+        "{python}",
+        ".devfleet/platform_checks.py",
+        "workflow-lint",
+        "--node",
+        "{node}",
+        "--npm-cli",
+        "{npm_cli}"
+      ]
+    }
+  ],
+  "runners": {
+    "macos": "common-tools-macos",
+    "windows": "common-tools-windows",
+    "linux": "common-tools-linux"
+  },
+  "resource_group": "native",
+  "timeout_seconds": 1800,
+  "clear_env": [],
+  "deployment": {
+    "enabled": false
+  }
+}
