@@ -6,6 +6,8 @@ from pathlib import Path
 import platform
 import subprocess
 import sys
+import json
+import time
 
 
 def commands(mode, root, node, npm, system):
@@ -15,6 +17,14 @@ def commands(mode, root, node, npm, system):
         return [run + ['common-tools:sbom', '--', '--output', 'artifacts/common-tools.spdx.json'],
                 run + ['common-tools:release-evidence', '--', '--sbom', 'artifacts/common-tools.spdx.json', '--output', 'artifacts/common-tools.release.json', '--revision', revision],
                 run + ['common-tools:verify-release-evidence', '--', '--sbom', 'artifacts/common-tools.spdx.json', '--manifest', 'artifacts/common-tools.release.json', '--revision', revision]]
+    if mode == 'windows-full':
+        if system != 'Windows':
+            return []
+        names = ['lint', 'typecheck', 'common-tools:verify-plugins', 'common-tools:verify-runtime-package',
+                 'common-tools:verify-observability', 'common-tools:verify-adrs', 'audit:dotnet', 'build:dotnet:locked',
+                 'common-tools:test', 'test:unit', 'test:contract', 'test:integration', 'verify:python-lock']
+        checks = [run + [name] + (['--', '--shards', '1'] if name in ['test:unit', 'test:contract', 'test:integration'] else []) for name in names]
+        return checks + commands('sbom', root, node, npm, system)
     if mode == 'linux-recovery':
         if system != 'Linux':
             return []
@@ -30,19 +40,29 @@ def commands(mode, root, node, npm, system):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=['sbom', 'linux-recovery', 'workflow-lint'])
+    parser.add_argument('mode', choices=['sbom', 'windows-full', 'linux-recovery', 'workflow-lint'])
     parser.add_argument('--node', required=True)
     parser.add_argument('--npm-cli', required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     tasks = commands(args.mode, root, args.node, args.npm_cli, platform.system())
     if not tasks:
-        print('DEVFOUNDRY_NOT_APPLICABLE=' + args.mode + '; Linux-only gate')
+        print('DEVFOUNDRY_NOT_APPLICABLE=' + args.mode + '; ' + ('Windows-only gate' if args.mode == 'windows-full' else 'Linux-only gate'))
         return 0
     result = 0
+    report = {'mode': args.mode, 'platform': platform.system(), 'commands': [], 'status': 'running'}
+    target = root / '.ci-state' / ('devfoundry-' + args.mode + '.json')
+    target.parent.mkdir(parents=True, exist_ok=True)
     for command in tasks:
+        started = time.monotonic()
         code = subprocess.run(command, cwd=root, shell=False).returncode
+        report['commands'].append({'name': command[3] if len(command) > 3 and command[2] == 'run' else args.mode,
+                                   'exit_code': code, 'seconds': round(time.monotonic() - started, 2)})
         result = result or code
+        target.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+    report['status'] = 'failed' if result else 'passed'
+    target.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+    print('DEVFOUNDRY_PLATFORM_RESULT=' + json.dumps(report))
     return result
 
 

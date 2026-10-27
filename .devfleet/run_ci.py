@@ -19,6 +19,10 @@ SLUG = re.compile(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*\Z')
 VERSION = re.compile(r'\d+\.\d+\.\d+\Z')
 
 
+def selected_systems(config):
+    return {name: system for name, system in SYSTEMS.items() if name in config['runners']}
+
+
 def relative_path(value):
     if not isinstance(value, str) or not value or '\\' in value or any(ord(c) < 32 for c in value):
         raise ValueError('Input paths must be portable repository-relative paths')
@@ -98,8 +102,8 @@ def validate(config):
                 if re.fullmatch(r'\{[a-z_]+\}', value) and value not in ({'{node}', '{npm_cli}', '{python}'} if config['stack'] == 'node' else {'{python}'}):
                     raise ValueError('Unknown executable placeholder')
     runners = config['runners']
-    if not isinstance(runners, dict) or set(runners) != set(SYSTEMS) or any(not isinstance(v, str) or not SLUG.fullmatch(v) for v in runners.values()) or len(set(runners.values())) != 3:
-        raise ValueError('Three distinct native runner labels are required')
+    if not isinstance(runners, dict) or not runners or not set(runners).issubset(SYSTEMS) or any(not isinstance(v, str) or not SLUG.fullmatch(v) for v in runners.values()) or len(set(runners.values())) != len(runners):
+        raise ValueError('Select one or more supported platforms with distinct native runner labels')
     if not isinstance(config['resource_group'], str) or not SLUG.fullmatch(config['resource_group']):
         raise ValueError('Resource group must be a slug')
     if type(config['timeout_seconds']) is not int or not 1 <= config['timeout_seconds'] <= 7200:
@@ -246,6 +250,8 @@ def run(config, root, expected_os, state, lock, preflight=False):
     validate(config)
     if platform.system() != expected_os:
         raise RuntimeError('Native OS does not match requested OS')
+    if expected_os not in selected_systems(config).values():
+        raise RuntimeError('This OS is not selected for this project')
     if not config['reviewed']:
         raise RuntimeError('Project commands have not been reviewed')
     root = root.resolve()

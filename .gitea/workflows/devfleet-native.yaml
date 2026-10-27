@@ -7,18 +7,6 @@ on:
 permissions:
   contents: read
 jobs:
-  macos:
-    runs-on: common-tools-macos
-    timeout-minutes: 120
-    steps:
-      - uses: builtin:checkout
-        with:
-          persist-credentials: false
-      - name: Native checks
-        shell: python
-        run: |
-          import subprocess, sys
-          subprocess.run([sys.executable, ".devfleet/run_ci.py", "--expected-os", "Darwin"], check=True)
   windows:
     runs-on: common-tools-windows
     timeout-minutes: 120
@@ -45,13 +33,13 @@ jobs:
           subprocess.run([sys.executable, ".devfleet/run_ci.py", "--expected-os", "Linux"], check=True)
   ci-complete:
     if: always()
-    needs: [macos, windows, linux]
+    needs: [windows, linux]
     runs-on: common-tools-linux
     steps:
-      - name: Require all native checks
+      - name: Require all selected native checks
         shell: python
         run: |
-          results = ["${{ needs.macos.result }}", "${{ needs.windows.result }}", "${{ needs.linux.result }}"]
-          if results != ["success", "success", "success"]:
+          results = ["${{ needs.windows.result }}", "${{ needs.linux.result }}"]
+          if results != ["success", "success"]:
               raise SystemExit("Native CI gate failed: " + repr(results))
           print("Configured checks passed. Deployment and release approval are not provided by this workflow.")
