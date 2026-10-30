@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {selectRegionalInventoryTargets:select,regionalInventoryPrompt:prompt}=require('../packages/slideclone-core/source-scene-regional-inventory');
+const {selectRegionalInventoryTargets:select,regionalInventoryPrompt:prompt}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
 function fixture(){
  const plan={version:1,sourceHash:'a'.repeat(64),widthPx:100,heightPx:100,
   regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:100,h:100}},{id:'owner',parentId:'root',kind:'diagram',box:{x:10,y:10,w:80,h:80}}],

@@ -1,4 +1,4 @@
-import { fitKnowledgeGraphRelations } from "../../packages/slideclone-core/knowledge-graph-relation-fit";
+import { fitKnowledgeGraphRelations } from "../../packages/slideclone-core/archetypes/knowledge-graph-relation-fit";
 declare const input: unknown;
 const result = fitKnowledgeGraphRelations(input);
 const accepted: boolean = result.evidence.upperAccepted;

@@ -1,9 +1,9 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
-const { createLineTextNativeComponents } = require("../packages/slideclone-core/line-text-native-components");
-const { eraseObjectMask } = require("../packages/slideclone-core/full-slide-native-residual");
-const { eraseMasks } = require("../packages/slideclone-core/residual-primitive-erasure");
-const { auditResidualPixelOwnership } = require("../packages/slideclone-core/residual-pixel-ownership");
+const { createLineTextNativeComponents } = require("../packages/slideclone-core/typography/line-text-native-components");
+const { eraseObjectMask } = require("../packages/slideclone-core/archetypes/full-slide-native-residual");
+const { eraseMasks } = require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
+const { auditResidualPixelOwnership } = require("../packages/slideclone-core/scene-plan/residual-pixel-ownership");
 
 function fixture({ rows = 1, scale = 1, shift = 0, fill = [240, 246, 254] } = {}) {
   const image = { width: 400 * scale, height: 300 * scale, rgba: Buffer.alloc(400 * 300 * scale * scale * 4) };

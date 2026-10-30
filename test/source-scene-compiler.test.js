@@ -1,11 +1,11 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os"),crypto=require("node:crypto");
 const {writePng}=require("../packages/slideclone-core/png");
-const {parseSourceScenePlan}=require("../packages/slideclone-core/source-scene-plan");
-const {compileSourceScene}=require("../packages/slideclone-core/source-scene-compiler");
-const {measureSceneContainer}=require("../packages/slideclone-core/source-scene-container");
-const {materializeSceneIcon}=require("../packages/slideclone-core/source-scene-icon");
-const {measureSceneIcon,measureSceneIconDetailed,materializeSceneIconDetailed}=require('../packages/slideclone-core/source-scene-icon');
+const {parseSourceScenePlan}=require("../packages/slideclone-core/scene-plan/source-scene-plan");
+const {compileSourceScene}=require("../packages/slideclone-core/scene-plan/source-scene-compiler");
+const {measureSceneContainer}=require("../packages/slideclone-core/scene-plan/source-scene-container");
+const {materializeSceneIcon}=require("../packages/slideclone-core/scene-plan/source-scene-icon");
+const {measureSceneIcon,measureSceneIconDetailed,materializeSceneIconDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-icon');
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),"scene-compile-"));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)};
@@ -27,7 +27,7 @@ test('surface portfolio mode uses actual source receipts and does not alter a fu
  assert.deepEqual(chosen.page.shapes,legacy.page.shapes);assert.deepEqual(chosen.page.images,legacy.page.images);
  assert.deepEqual(chosen.page.textBoxes,legacy.page.textBoxes);assert.deepEqual(fs.readFileSync(f.sourceFile),original);
  assert.ok(chosen.evidence.glyphOwnedPixels<=100000);assert.ok(chosen.evidence.sourceScanPixels<=4000000);
- const preflight=require('../packages/slideclone-core/source-scene-compiler').preflightSourceScene({...f,surfaceSelection:true});
+ const preflight=require('../packages/slideclone-core/scene-plan/source-scene-compiler').preflightSourceScene({...f,surfaceSelection:true});
  assert.equal(preflight.evidence.surfaceSelection,undefined);assert.equal(preflight.evidence.glyphOwnedPixels,0);
 });
 
@@ -61,14 +61,14 @@ test('observed-inventory compilation counts source identities, excludes region s
  f.plan.observedInventory=[{regionId:'region-root',containers:0,icons:0,relations:0},{regionId:'region-card',containers:0,icons:1,relations:0}];
  const output=path.join(f.root,'observed');fs.mkdirSync(output);
  const compiled=compileSourceScene({...f,root:output}),inventory=compiled.evidence.observedInventory;
- const {auditSceneInventory}=require('../packages/slideclone-core/source-scene-observed-inventory');
+ const {auditSceneInventory}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
  assert.deepEqual(inventory.regions[1].materialized,{containers:0,icons:1,relations:0});
  assert.equal(inventory.units.length,1);assert.equal(inventory.units[0].id,'object-icon');
  assert.equal(auditSceneInventory(inventory,compiled.page.shapes,compiled.page.images,f.plan.sourceHash).length,0);
  assert.equal(auditSceneInventory(inventory,compiled.page.shapes,[],f.plan.sourceHash)[0].reason,'compile-missing');
  const drawings=p=>JSON.stringify({...p,source:undefined,shapes:p.shapes.map(s=>({...s,source:undefined})),images:p.images.map(s=>({...s,source:undefined})),textBoxes:p.textBoxes.map(s=>({...s,source:undefined}))});
  assert.equal(drawings(compiled.page),drawings(legacy.page));assert.equal(compiled.evidence.sourceScanPixels,legacy.evidence.sourceScanPixels);
- const preflight=require('../packages/slideclone-core/source-scene-compiler').preflightSourceScene(f);
+ const preflight=require('../packages/slideclone-core/scene-plan/source-scene-compiler').preflightSourceScene(f);
  assert.equal(preflight.physicalInventory.plan.observedInventory.length,2);
 });
 
@@ -90,7 +90,7 @@ test('preflight exposes only source-measured object aliases and final physical o
  const f=fixture(t);f.plan.regions=f.plan.regions.slice(0,1);f.plan.objects=[
   {id:'first',kind:'container',regionId:'region-root',box:{x:76,y:45,w:208,h:162}},
   {id:'repeat',kind:'container',regionId:'region-root',box:{x:76,y:45,w:208,h:162}}];
- const before=JSON.stringify(f.plan),preflight=require('../packages/slideclone-core/source-scene-compiler').preflightSourceScene(f);
+ const before=JSON.stringify(f.plan),preflight=require('../packages/slideclone-core/scene-plan/source-scene-compiler').preflightSourceScene(f);
  assert.equal(preflight.evidence.containerAliases,1);assert.equal(preflight.physicalInventory.evidence.releasedObjectSlots,1);
  assert.equal(preflight.physicalInventory.plan.objects.length,1);assert.equal(JSON.stringify(f.plan),before);
  const original=compileSourceScene(f),compacted=compileSourceScene({...f,plan:preflight.physicalInventory.plan});
@@ -99,7 +99,7 @@ test('preflight exposes only source-measured object aliases and final physical o
  assert.equal(fs.existsSync(path.join(f.root,'assets')),false);
 });
 test('preflight writes no assets and final changed text evidence cannot inherit icon ownership from a byte cache',t=>{
- const f=fixture(t),preflight=require('../packages/slideclone-core/source-scene-compiler').preflightSourceScene(f);
+ const f=fixture(t),preflight=require('../packages/slideclone-core/scene-plan/source-scene-compiler').preflightSourceScene(f);
  assert.equal(preflight.evidence.icons,1);assert.equal(preflight.evidence.glyphOwnedPixels,0);
  assert.equal(fs.existsSync(path.join(f.root,'assets')),false);assert.equal(JSON.stringify(preflight.compilationSession),'{}');
  const result=compileSourceScene({...f,compilationSession:preflight.compilationSession,
@@ -136,7 +136,7 @@ test("semantic tables recover their source-painted header cells without individu
  const blank=compileSourceScene(f);assert.equal(blank.evidence.tableHeaderBackgrounds,0);assert.equal(blank.page.shapes.length,0);
 });
 test("table header proposals stay in source coordinates, preserve controls and use only spare object slots",()=>{
- const {proposeSceneTableHeaders:propose}=require('../packages/slideclone-core/source-scene-table-headers');
+ const {proposeSceneTableHeaders:propose}=require('../packages/slideclone-core/scene-plan/source-scene-table-headers');
  const input={regions:[{id:'table',kind:'table',box:{x:40,y:40,w:300,h:150}}],widthPx:400,heightPx:300,
   slideSize:{widthPt:200,heightPt:150},capacity:64,textBoxes:[
    {text:'A',box:{x:40,y:30,w:40,h:10}},{text:'B',box:{x:110,y:30,w:40,h:10}},
@@ -154,7 +154,7 @@ test("table header proposals stay in source coordinates, preserve controls and u
  assert.ok(propose(narrow).every(h=>h.box.x>=70&&h.box.y>=50&&h.box.x+h.box.w<=320&&h.box.y+h.box.h<=95));
 });
 test("unsafe table controls fail before accessors, provider rectangles or source reads can acquire authority",()=>{
- const {proposeSceneTableHeaders:propose}=require('../packages/slideclone-core/source-scene-table-headers');
+ const {proposeSceneTableHeaders:propose}=require('../packages/slideclone-core/scene-plan/source-scene-table-headers');
  const input={regions:[],textBoxes:[],widthPx:400,heightPx:300,slideSize:{widthPt:400,heightPt:300},capacity:64};
  let calls=0;const hostile={};Object.defineProperty(hostile,'x',{get(){calls++;throw Error('private');}});
  for(const value of [null,new Proxy(input,{}),{...input,capacity:65},{...input,capacity:-1},{...input,widthPx:Infinity},
@@ -165,7 +165,7 @@ test("unsafe table controls fail before accessors, provider rectangles or source
  assert.equal(calls,0);
 });
 test("optional table source probes reserve the original scan budget and propagate genuine measurement failures",()=>{
- const {appendSceneTableHeaderBackgrounds:append}=require('../packages/slideclone-core/source-scene-table-headers');
+ const {appendSceneTableHeaderBackgrounds:append}=require('../packages/slideclone-core/scene-plan/source-scene-table-headers');
  const image={width:200,height:100,rgba:Buffer.alloc(200*100*4,255)},headers=[{id:'header',regionId:'table',box:{x:30,y:20,w:100,h:30}}];
  let calls=0;const input={headers,image,slideSize:{widthPt:200,heightPt:100},shapes:[],budget:{used:4000000},
   measure:()=>{calls++;throw Error('measurement-failure');},glyphReserve:()=>0};
@@ -173,7 +173,7 @@ test("optional table source probes reserve the original scan budget and propagat
  assert.deepEqual(append({...input,budget:{used:0},glyphReserve:()=>4000001}),{accepted:0,skippedBudget:1});assert.equal(calls,0);
  assert.throws(()=>append({...input,budget:{used:0}}),/measurement-failure/);assert.equal(calls,1);
  assert.deepEqual(append({...input,budget:{used:0},measure:()=>null}),{accepted:0,skippedBudget:0});
- const {sceneGlyphOcclusionScanReserve:reserve}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneGlyphOcclusionScanReserve:reserve}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  assert.equal(reserve({},headers[0].box),0);assert.throws(()=>reserve({},new Proxy(headers[0].box,{})),TypeError);
 });
 test("scene compilation emits source measured containers and isolated icons and assigns text to the smallest region",t=>{
@@ -230,14 +230,14 @@ test("a source-bound edge panel compiles as one editable background without borr
  assert.deepEqual(shape.box,{x:0,y:260,w:400,h:40});assert.equal(shape.style.fill,'#1E3C5A');
  assert.equal(shape.source.editable,true);assert.equal(shape.source.residualBackgroundFill,true);
  assert.ok(result.evidence.sourceScanPixels<=262144);assert.equal(result.page.images.length,0);
- assert.equal(require('../packages/slideclone-core/native-component-quality').auditNativeComponentQuality({pages:[result.page]}).passed,true);
+ assert.equal(require('../packages/slideclone-core/quality/native-component-quality').auditNativeComponentQuality({pages:[result.page]}).passed,true);
 });
 test("source mutation and dimensions are rejected before object emission",t=>{
  const f=fixture(t);fs.appendFileSync(f.sourceFile,"changed");assert.throws(()=>compileSourceScene(f),/binding/);
  const g=fixture(t);g.plan.widthPx=401;assert.throws(()=>compileSourceScene(g),/binding/);
 });
 test("rejected scene proposals and unresolved relations fail native completion independently of visual scores",t=>{
- const {auditNativeComponentQuality}=require("../packages/slideclone-core/native-component-quality");
+ const {auditNativeComponentQuality}=require("../packages/slideclone-core/quality/native-component-quality");
  const f=fixture(t);f.plan.admission={complete:false,rejections:[{collection:"object",index:3,reason:"object-contract"}]};
  const result=compileSourceScene(f),audit=auditNativeComponentQuality({pages:[result.page]});
  assert.equal(audit.passed,false);assert.equal(audit.metrics.unresolvedSceneComponents,1);
@@ -246,7 +246,7 @@ test("rejected scene proposals and unresolved relations fail native completion i
  assert.equal(auditNativeComponentQuality({pages:[{...clear.page,source:{sourceScene:{version:1,unresolved:null}}}]}).passed,false);
 });
 test("scene completion rejects sparse, proxy and accessor evidence without running getters",()=>{
- const {auditNativeComponentQuality}=require("../packages/slideclone-core/native-component-quality");
+ const {auditNativeComponentQuality}=require("../packages/slideclone-core/quality/native-component-quality");
  let calls=0;const hostile={version:1};Object.defineProperty(hostile,"unresolved",{get(){calls++;throw Error("private-token");}});
  for(const scene of [hostile,new Proxy({version:1,unresolved:[]},{}),{version:1,unresolved:new Array(1)},
   {version:1,unresolved:new Proxy([],{})},{version:1,unresolved:Array(113).fill({id:"x",reason:"unknown"})}]){
@@ -256,7 +256,7 @@ test("scene completion rejects sparse, proxy and accessor evidence without runni
  assert.equal(calls,0);
 });
 test("scene completion rejects hostile source records before accessing scene evidence",()=>{
- const {auditNativeComponentQuality}=require("../packages/slideclone-core/native-component-quality");
+ const {auditNativeComponentQuality}=require("../packages/slideclone-core/quality/native-component-quality");
  let calls=0;const hostile={};Object.defineProperty(hostile,"sourceScene",{get(){calls++;throw Error("private-token");}});
  const proxy=new Proxy({}, {get(){calls++;throw Error("private-token");},getOwnPropertyDescriptor(){calls++;throw Error("private-token");}});
  for(const source of [hostile,proxy,null,[],"invalid"]){
@@ -286,7 +286,7 @@ test("scene compiler emits an attached connector only between source measured co
  const edge=result.page.shapes.find(s=>s.source?.detector==="source-scene-relation");assert.ok(edge);
  assert.deepEqual(edge.style.startAnchor,{elementId:"scene-container-left",side:"right",position:.5});
  assert.deepEqual(edge.style.endAnchor,{elementId:"scene-container-right",side:"left",position:.5});
- assert.equal(require("../packages/slideclone-core/native-component-quality").auditNativeComponentQuality({pages:[result.page]}).passed,true);
+ assert.equal(require("../packages/slideclone-core/quality/native-component-quality").auditNativeComponentQuality({pages:[result.page]}).passed,true);
  f.plan.relations[0].shaftBox={x:280,y:115,w:20,h:20};
  const anchored=compileSourceScene(f);assert.equal(anchored.evidence.resolvedRelations,1);
  assert.deepEqual(anchored.page.shapes,result.page.shapes);
@@ -475,9 +475,18 @@ test("a measured hollow perimeter consumes duplicate axis fragments before resid
  {sourceHash:crypto.createHash("sha256").update(fs.readFileSync(sourceFile)).digest("hex"),widthPx:800,heightPx:800});
  const duplicate={id:"duplicate",type:"line",box:{x:81,y:110,w:0,h:500},style:{strokeWidthPt:2},source:{detector:"long-axis-line"}};
  const inside={...duplicate,id:"inside",box:{x:200,y:110,w:0,h:500}},crossing={...duplicate,id:"crossing",box:{x:10,y:81,w:700,h:0}};
- const page={shapes:[duplicate,inside,crossing],images:[],textBoxes:[]},before=JSON.stringify(page);
+ const visual={...duplicate,id:'visual-duplicate',style:{stroke:'#445566',strokeWidthPt:2,connectorType:'straight'},
+  source:{nativeRebuild:true,detector:'visual-atom-native-connector',nativeComponentPart:'connector'}};
+ const arrow={...visual,id:'visual-arrow',style:{...visual.style,endArrow:'triangle'}};
+ const attached={...visual,id:'visual-referenced'},reference={...visual,id:'reference',box:{x:200,y:110,w:0,h:500},
+  style:{...visual.style,startAnchor:{elementId:attached.id}}};
+ const page={shapes:[duplicate,inside,crossing,visual,arrow,attached,reference],images:[],textBoxes:[]},before=JSON.stringify(page);
  const result=compileSourceScene({page,plan,sourceFile,root,slideSize:{widthPt:800,heightPt:800}});
  assert.equal(result.evidence.containers,1);assert.equal(result.page.shapes.some(s=>s.id==="duplicate"),false);
+ assert.equal(result.page.shapes.some(s=>s.id===visual.id),false);
+ for(const item of [arrow,attached,reference])assert.deepEqual(result.page.shapes.find(s=>s.id===item.id),item);
+ assert.deepEqual(result.evidence.outlineAxisRetirements.removed,[visual.id]);
+ assert.ok(result.evidence.outlineAxisRetirements.geometryChecks>0);
  for(const id of ["inside","crossing"])assert.equal(result.page.shapes.some(s=>s.id===id),true);
  assert.equal(JSON.stringify(page),before);
  assert.ok(result.page.shapes.some(s=>s.type==="freeform"));

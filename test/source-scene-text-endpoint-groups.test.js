@@ -1,12 +1,12 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
-const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');
-const {parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {parseSceneTextEndpoint,bindSceneTextEndpoints,hasSceneTextEndpoint,survivingSceneTextEndpoint,sceneTextEndpointNativeIds,sceneTextEndpointHasMemberBox}=require('../packages/slideclone-core/source-scene-text-endpoints');
-const {selectTopologyReviewTargets,applyTopologyReview}=require('../packages/slideclone-core/source-scene-topology-review');
-const {hasMeasuredScenePortFrame}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');
+const {parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {parseSceneTextEndpoint,bindSceneTextEndpoints,hasSceneTextEndpoint,survivingSceneTextEndpoint,sceneTextEndpointNativeIds,sceneTextEndpointHasMemberBox}=require('../packages/slideclone-core/scene-plan/source-scene-text-endpoints');
+const {selectTopologyReviewTargets,applyTopologyReview}=require('../packages/slideclone-core/scene-plan/source-scene-topology-review');
+const {hasMeasuredScenePortFrame}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 const {writePng}=require('../packages/slideclone-core/png');
 const {diagonalGapFixture}=require('./helpers/scene-diagonal-gap.cjs');
 function fixture(){
@@ -37,7 +37,7 @@ test('physical compiler failure reopens legal icon references for paired OCR end
  const from=parsed.textEndpoints.find(e=>e.labelRef===f.source.labelRefs[1]),to=parsed.textEndpoints.find(e=>e.labelRef===f.source.labelRefs[2]);
  assert.ok(selectTopologyReviewTargets(parsed,32,{unresolved:[{id:parsed.relations[0].id,reason:'relation-source-evidence',detailCode:'missing-native-node'}]})[0].endpoints.some(e=>e.id===from.id));
  assert.ok(from&&to);let calls=0;
- const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+ const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
  const result=await createSourceScenePlanner({recognize:async request=>{
   if(++calls===1)return {scene:raw,reviews:[],missingText:[]};
   assert.equal(request.localTargets.relations.length,1);
@@ -61,7 +61,7 @@ test('packed production recognition carries a multiline nomination through both 
   relations:[[0,['labels',[0,1]],['label',2],coords(f.shaftBox),0]],programs:[[[[0,1,2]]]]};
  const ocr={lines:f.texts.map((row,i)=>({text:row.text,confidence:.99,box:f.source.labelBoxes[i]}))};
  const expected=parseSourceScenePlan(scene,f.source),edge=expected.relations[0];let calls=0;
- const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+ const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
  const result=await createSourceScenePlanner({recognize:async request=>{
   if(++calls===1){assert.match(request.prompt,/\["labels",\[originalOcrIndex/);return {scene,reviews:[],missingText:[]};}
   assert.equal(request.localTargets.relations.length,1);assert.match(request.prompt,/textMemberBoxes/);

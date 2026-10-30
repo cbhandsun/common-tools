@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {nativeFilledPathDisjoint:disjoint}=require('../packages/slideclone-core/native-filled-path-overlap');
-const {encodeNativeFreeformPath}=require('../packages/slideclone-core/native-freeform-path');
+const {nativeFilledPathDisjoint:disjoint}=require('../packages/slideclone-core/scene-plan/native-filled-path-overlap');
+const {encodeNativeFreeformPath}=require('../packages/slideclone-core/scene-plan/native-freeform-path');
 const loop=points=>[{type:'moveTo',points:[points[0]]},...points.slice(1).map(p=>({type:'lnTo',points:[p]})),{type:'close',points:[]}];
 const rect=(x,y,w,h)=>[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}];
 const work=()=>({used:0,exhausted:false});
@@ -9,6 +9,26 @@ function shape(segments=[...loop(rect(0,0,1,1)),...loop(rect(.1,.1,.8,.8).revers
  return {type:'freeform',box:{x:0,y:0,w:100,h:100},style:{fill:'#123ABC',stroke:'none',strokeWidthPt:0,freeformSegments:segments}};
 }
 const middle={x:30,y:30,w:20,h:20};
+test('explicit no-fill no-stroke native anchors paint nothing even across their path or interior',()=>{
+ const anchor=shape(loop(rect(0,0,1,1)));anchor.style.fill='none';const before=structuredClone(anchor);
+ for(const query of [middle,{x:0,y:0,w:100,h:100},{x:-5,y:-5,w:10,h:10}])assert.equal(disjoint(anchor,query,work()),true);
+ const compact=structuredClone(anchor);compact.style.freeformPath=encodeNativeFreeformPath(compact.style.freeformSegments);delete compact.style.freeformSegments;
+ const a=work(),b=work();assert.equal(disjoint(anchor,middle,a),true);assert.equal(disjoint(compact,middle,b),true);assert.deepEqual(a,b);
+ assert.deepEqual(anchor,before);
+});
+
+test('an invisible-anchor proof still validates paths, paint effects and the shared geometry allowance',()=>{
+ const anchor=shape(loop(rect(0,0,1,1)));anchor.style.fill='none';
+ for(const override of [{shadow:{}},{glow:{}},{gradient:{}},{stroke:'#123ABC'},{strokeWidthPt:1},{fill:'#123ABC'}]){
+  assert.equal(disjoint({...anchor,style:{...anchor.style,...override}},middle,work()),false);
+ }
+ for(const segments of [anchor.style.freeformSegments.slice(0,-1),[anchor.style.freeformSegments[0],anchor.style.freeformSegments.at(-1)]]){
+  assert.equal(disjoint({...anchor,style:{...anchor.style,freeformSegments:segments}},middle,work()),false);
+ }
+ const spent=work();assert.equal(disjoint(anchor,middle,spent),true);
+ const short={used:4000001-spent.used,exhausted:false};assert.equal(disjoint(anchor,middle,short),false);assert.equal(short.exhausted,true);
+ assert.equal(disjoint(anchor,middle,{used:0,exhausted:true}),false);
+});
 test('compound fill uses Office nonzero winding for opposite holes, filled nested loops and islands',()=>{
  assert.equal(disjoint(shape(),middle,work()),true);
  assert.equal(disjoint(shape([...loop(rect(0,0,1,1)),...loop(rect(.1,.1,.8,.8))]),middle,work()),false);
@@ -23,6 +43,32 @@ test('real border contact, subpixel uncertainty and enclosed paint cannot grant 
  for(const query of [{x:0,y:30,w:20,h:20},{x:10,y:30,w:20,h:20},{x:10+1e-9,y:30,w:20,h:20},
   {x:0,y:0,w:100,h:100},{x:5,y:5,w:90,h:90}])assert.equal(disjoint(shape(),query,work()),false);
  assert.equal(disjoint(shape(),{x:110,y:30,w:20,h:20},work()),true);
+});
+
+test('native path-grid and EMU rounding cannot turn a certified gap into painted contact',()=>{
+ for(const scale of [1,1000,100000])for(const axis of ['x','y']){
+  const points=axis==='x'?rect(.50001,0,.49999,1):rect(0,.50001,1,.49999);
+  const item=shape(loop(points));item.box={x:0,y:0,w:scale,h:scale};
+  const gap={x:.4*scale,y:.4*scale,w:.001*scale,h:.001*scale};
+  gap[axis]=.500001*scale;
+  assert.equal(disjoint(item,gap,work()),false,`${axis} ${scale}`);
+  gap[axis]=.49*scale;
+  assert.equal(disjoint(item,gap,work()),true,`${axis} safe ${scale}`);
+ }
+ // The path vertex is exact, but its frame offset rounds down to zero EMU.
+ const tiny=shape(loop(rect(0,0,1,1)));tiny.box={x:.49/12700,y:0,w:1,h:1};
+ assert.equal(disjoint(tiny,{x:.1/12700,y:.3,w:.1/12700,h:.1},work()),false);
+});
+
+test('quantization protection also applies to holes, Bezier controls and compact geometry',()=>{
+ const item=shape([...loop(rect(0,0,1,1)),...loop(rect(.1,.1,.40001,.8).reverse())]);
+ const gap={x:50.0001,y:40,w:.0001,h:1};
+ assert.equal(disjoint(item,gap,work()),false);
+ const curved=shape(loop(rect(.50001,0,.49999,1)));
+ curved.style.freeformSegments[3]={type:'cubicBezTo',points:[{x:.8,y:1},{x:.6,y:1},{x:.50001,y:1}]};
+ const compact=structuredClone(curved);compact.style.freeformPath=encodeNativeFreeformPath(compact.style.freeformSegments);delete compact.style.freeformSegments;
+ const a=work(),b=work();assert.equal(disjoint(curved,{x:50.0001,y:40,w:.0001,h:1},a),false);
+ assert.equal(disjoint(compact,{x:50.0001,y:40,w:.0001,h:1},b),false);assert.deepEqual(a,b);
 });
 test('Bezier hull separation preserves winding; endpoint chords alone never prove an empty curved region',()=>{
  const curve=[{type:'moveTo',points:[{x:0,y:0}]},
@@ -44,7 +90,7 @@ test('compact and expanded paths preserve inputs and charge the same shared allo
 test('unsupported effects, rotation, strokes, open paths and invalid or extreme boxes fail closed',()=>{
  for(const change of [{rotation:1},{type:'rect'},{shadow:{}},{box:{x:0,y:0,w:1e308,h:100}},
   {box:{x:0,y:0,w:0,h:100}}])assert.equal(disjoint({...shape(),...change},middle,work()),false);
- for(const change of [{stroke:'#000000'},{strokeWidthPt:1},{fill:'none'},{opacity:NaN},{opacity:2},{shadow:{}},
+ for(const change of [{stroke:'#000000'},{strokeWidthPt:1},{fill:'transparent'},{fill:undefined},{opacity:NaN},{opacity:2},{shadow:{}},
   {freeformSegments:undefined}])assert.equal(disjoint({...shape(),style:{...shape().style,...change}},middle,work()),false);
  const segments=shape().style.freeformSegments;
  for(const path of [segments.slice(0,-1),segments.slice(0,4),[segments[0],segments.at(-1)],
@@ -87,5 +133,5 @@ test('exhaustion fails closed, never exceeds 4M and cannot be reset by a caller'
 test('native paint regression is discovered by unified CI and ships in the runtime',()=>{
  const {discoverTestFiles}=require('../scripts/test-sharded'),{IMAGE_EDITABLE_RELEASE_FILES}=require('../scripts/verify-runtime-package');
  for(const suite of ['all','unit'])assert.ok(discoverTestFiles(require('node:path').resolve(__dirname,'..'),suite).some(p=>p.file.endsWith('native-filled-path-overlap.test.js')));
- assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/native-filled-path-overlap.js'));
+ assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/scene-plan/native-filled-path-overlap.js'));
 });

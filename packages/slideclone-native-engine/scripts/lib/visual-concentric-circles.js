@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/visual-concentric-circles.js");
+module.exports = require("../../../slideclone-core/archetypes/visual-concentric-circles.js");

@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createJointTextInkEvidence:create}=require('../packages/slideclone-core/text-ink-joint-evidence');
-const {measureTextInkGeometry:paired,measureSourceTextInkGeometry:source}=require('../packages/slideclone-core/text-ink-geometry');
+const {createJointTextInkEvidence:create}=require('../packages/slideclone-core/typography/text-ink-joint-evidence');
+const {measureTextInkGeometry:paired,measureSourceTextInkGeometry:source}=require('../packages/slideclone-core/typography/text-ink-geometry');
 function fixture(scale=1){
  const image={width:30*scale,height:30*scale,rgba:new Uint8Array(3600*scale*scale).fill(255)};
  for(const top of [6,16])for(let y=top*scale;y<(top+4)*scale;y++)for(let x=7*scale;x<19*scale;x++)image.rgba.set([17,17,17,255],(y*image.width+x)*4);

@@ -6,8 +6,9 @@ const path = require("path");
 const { run } = require("./renderer-process");
 const { readImageSize } = require("./image-size");
 const { resolveLibreOffice, resolvePdfToPpm, fileUrl } = require("./libreoffice-tools");
-const { readPresentationRasterFrame } = require("./presentation-frame");
+const { readPresentationRasterFrame } = require("./archetypes/presentation-frame");
 const { stageGroupedTextConnections } = require("./libreoffice-grouped-text-connections");
+const { renderNativeTracks } = require("./libreoffice-native-tracks");
 
 module.exports = async function renderLibreOffice(input, context) {
   const pptxFile = input.pptx?.pptxFile;
@@ -29,7 +30,17 @@ module.exports = async function renderLibreOffice(input, context) {
   let rasterFrame;
   await withStagedResource(conversion, async () => {
     rasterFrame = readPresentationRasterFrame(conversion.pptxFile, dpi, input.ir?.slideSize);
-    await run(soffice, [
+    const processOptions = { timeout: context.config?.render?.convertTimeoutMs || 120000, isCancellationRequested: context.isCancellationRequested };
+    const evidence = conversion.compatibility.nativeConnectorRoutingEvidence;
+    if (evidence.fiveLegPresets > 0) {
+      const restored = await renderNativeTracks(conversion, soffice, processOptions);
+      if (restored.restoredTracks + restored.skippedNativeConnectors !== evidence.nativeConnectors) {
+        throw new Error("LibreOffice native connector inventory changed during conversion");
+      }
+      conversion.compatibility.nativeConnectorRoutingEvidence = {
+        ...evidence, ...restored, status: "native-tracks-restored", importedGeometryRestored: true
+      };
+    } else await run(soffice, [
       "--headless",
       "--nologo",
       "--nodefault",
@@ -41,15 +52,15 @@ module.exports = async function renderLibreOffice(input, context) {
       "--outdir",
       conversion.renderDir,
       conversion.pptxFile
-    ], { timeout: context.config?.render?.convertTimeoutMs || 120000, isCancellationRequested: context.isCancellationRequested });
+    ], processOptions);
     const convertedPdf = path.join(conversion.renderDir, `${path.basename(conversion.pptxFile, path.extname(conversion.pptxFile))}.pdf`);
     if (!fs.existsSync(convertedPdf)) throw new Error(`LibreOffice did not create expected PDF: ${convertedPdf}`);
+    await waitForStableFile(convertedPdf, {
+      isCancellationRequested: context.isCancellationRequested,
+      timeoutMs: context.config?.render?.pdfReadyTimeoutMs || 10_000,
+      intervalMs: context.config?.render?.pdfReadyPollMs || 250
+    });
     if (path.resolve(convertedPdf) !== path.resolve(pdf)) fs.copyFileSync(convertedPdf, pdf);
-  });
-  await waitForStableFile(pdf, {
-    isCancellationRequested: context.isCancellationRequested,
-    timeoutMs: context.config?.render?.pdfReadyTimeoutMs || 10_000,
-    intervalMs: context.config?.render?.pdfReadyPollMs || 250
   });
 
   const prefix = path.join(renderDir, "page");

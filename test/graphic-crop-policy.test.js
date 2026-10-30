@@ -2,8 +2,8 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { shouldProtectSmallForegroundGraphicCrop } = require("../packages/slideclone-core/graphic-crop-materializer");
-const { admitTightGraphicCrop, buildMinimumUnitCropEvidence } = require("../packages/slideclone-core/graphic-crop-policy");
+const { shouldProtectSmallForegroundGraphicCrop } = require("../packages/slideclone-core/scene-plan/graphic-crop-materializer");
+const { admitTightGraphicCrop, buildMinimumUnitCropEvidence } = require("../packages/slideclone-core/quality/graphic-crop-policy");
 
 test("crop classification rejects non-finite geometry and never coerces caller objects", () => {
   let coerced = false;

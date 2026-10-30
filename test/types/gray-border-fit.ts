@@ -1,5 +1,5 @@
-import { fitKnowledgeGraphGrayNodes } from "../../packages/slideclone-core/knowledge-graph-gray-node-fit";
-import { cleanGrayBorderPixels } from "../../packages/slideclone-core/gray-border-pixels";
+import { fitKnowledgeGraphGrayNodes } from "../../packages/slideclone-core/archetypes/knowledge-graph-gray-node-fit";
+import { cleanGrayBorderPixels } from "../../packages/slideclone-core/archetypes/gray-border-pixels";
 const input: unknown = {};
 const fit = fitKnowledgeGraphGrayNodes(input);
 const accepted: number = fit.evidence.accepted;

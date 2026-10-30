@@ -1,11 +1,11 @@
 "use strict";
 const assert=require("node:assert/strict"),test=require("node:test"),fs=require("node:fs"),os=require("node:os"),path=require("node:path");
 const { readPng,writePng }=require("../packages/slideclone-core/png");
-const { eraseMasks }=require("../packages/slideclone-core/residual-primitive-erasure");
-const { auditResidualPixelOwnership }=require("../packages/slideclone-core/residual-pixel-ownership");
-const { createFullSlideResidualBuilder,eraseObjectMask }=require("../packages/slideclone-core/full-slide-native-residual");
+const { eraseMasks }=require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
+const { auditResidualPixelOwnership }=require("../packages/slideclone-core/scene-plan/residual-pixel-ownership");
+const { createFullSlideResidualBuilder,eraseObjectMask }=require("../packages/slideclone-core/archetypes/full-slide-native-residual");
 const { residualEraseObjects }=require("../packages/slideclone-core/team-native-rebuild");
-const { parseResidualFill }=require("../packages/slideclone-core/residual-background-mask");
+const { parseResidualFill }=require("../packages/slideclone-core/scene-plan/residual-background-mask");
 function fixture(){
   const source={width:40,height:30,rgba:Buffer.alloc(40*30*4,255)};
   for(let y=4;y<26;y++)for(let x=4;x<36;x++)source.rgba.set([210,220,230,255],(y*40+x)*4);

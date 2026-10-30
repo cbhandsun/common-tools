@@ -16,10 +16,11 @@ function Find-RoundTripShape($Shapes, [string]$Mode, [int]$Slide, [int]$ShapeId 
     $shape = $Shapes.Item($index)
     $id = $shape.Id
     if ($id -isnot [int] -or $id -lt 1) {
-      # An unreadable sibling is not the requested identity. Never synthesize
-      # its ID; absence of the exact target still fails and uses bounded retry.
-      if ($Mode -eq "identity") { continue }
-      throw "The editable shape identity is unavailable."
+      # A lazy sibling is not a target. Continue searching for a real identity;
+      # a group can still contain an available child before its own ID is ready.
+      # Never synthesize IDs: no valid match still fails the bounded caller retry.
+      if ($shape.Type -eq 6) { $groups += $shape }
+      continue
     }
     if ($Mode -eq "identity") {
       if ($id -eq $ShapeId) { return $shape }

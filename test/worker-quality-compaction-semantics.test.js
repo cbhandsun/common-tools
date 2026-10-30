@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { compactDeckFinalQualitySourceProvenance: compact } = require("../packages/slideclone-worker-adapter/team-worker");
-const { auditSemanticEditability: audit } = require("../packages/slideclone-core/semantic-editability-quality");
+const { auditSemanticEditability: audit } = require("../packages/slideclone-core/quality/semantic-editability-quality");
 
 function deck(images = [], shapes = []) {
   return { slideSize: { widthPt: 100, heightPt: 100 }, pages: [{ images, shapes }] };

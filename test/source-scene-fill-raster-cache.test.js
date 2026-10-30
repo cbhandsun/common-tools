@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {withSceneFillRasterCache:withCache,readSceneFillRaster:read,sceneFillRasterReadCost:cost}=require("../packages/slideclone-core/source-scene-fill-raster-cache");
+const {withSceneFillRasterCache:withCache,readSceneFillRaster:read,sceneFillRasterReadCost:cost}=require("../packages/slideclone-core/scene-plan/source-scene-fill-raster-cache");
 function fixture(){return {image:{width:40,height:30,rgba:Buffer.from(Array.from({length:4800},(_,i)=>i%256))},budget:{used:0},window:{x:3,y:4,w:10,h:12}};}
 
 test('read cost is observational and agrees with charged pixels across overlaps, tile seams and scope bindings',()=>{

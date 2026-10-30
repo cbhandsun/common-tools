@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("../../../../packages/slideclone-core/asset-landing-triad");
+module.exports = require("../../../slideclone-core/archetypes/asset-landing-triad");

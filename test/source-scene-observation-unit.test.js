@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parseSourceScenePlan:parse,admitSourceScenePlan:admit}=require('../packages/slideclone-core/source-scene-plan');
+const {parseSourceScenePlan:parse,admitSourceScenePlan:admit}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
 const source={sourceHash:'a'.repeat(64),widthPx:1000,heightPx:1000,labelRefs:[]};
 function proposals(){
  const normal={coordinateSpace:'source-pixels',regions:[{id:0,parentId:null,kind:'section',box:{x:0,y:0,w:1000,h:1000}}],

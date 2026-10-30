@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {measureOutlinedSceneContainer,outlineOwnsAxisLine}=require("../packages/slideclone-core/source-scene-outline");
-const {withSceneFillRasterCache:withCache,readSceneFillRaster:read,sceneFillRasterReadCost:cost}=require('../packages/slideclone-core/source-scene-fill-raster-cache');
+const {measureOutlinedSceneContainer,outlineOwnsAxisLine}=require("../packages/slideclone-core/scene-plan/source-scene-outline");
+const {withSceneFillRasterCache:withCache,readSceneFillRaster:read,sceneFillRasterReadCost:cost}=require('../packages/slideclone-core/scene-plan/source-scene-fill-raster-cache');
 function fixture(){const image={width:800,height:800,rgba:Buffer.alloc(800*800*4,255)},hint={x:80,y:80,w:600,h:600};
  const put=(x,y)=>image.rgba.set([30,70,90,255],(y*800+x)*4);
  for(let n=80;n<=680;n++)for(let d=0;d<4;d++){put(n,80+d);put(n,677+d);put(80+d,n);put(677+d,n);}
@@ -178,4 +178,18 @@ test("unobserved scan interiors cannot fabricate a hollow perimeter from a fille
  for(let y=85;y<165;y++)for(let x=120;x<240;x++)image.rgba.set(x%20<10?[10,10,10,255]:[240,80,80,255],(y*400+x)*4);
  const budget={used:0};assert.equal(measureOutlinedSceneContainer(image,hint,[],budget),null);
  assert.ok(budget.used>0&&budget.used<=262144);
+});
+test("glyph occlusion allows interior background seed exclusion when an OCR box covers a closed ring",()=>{
+ const {measureOutlinedSceneContainerSpatial}=require("../packages/slideclone-core/scene-plan/source-scene-outline");
+ const {createSceneGlyphOcclusion}=require("../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion");
+ const image={width:120,height:80,rgba:Buffer.alloc(120*80*4,255)},hint={x:20,y:20,w:30,h:30};
+ for(let y=20;y<50;y++)for(let x=20;x<50;x++){
+  const edge=x<23||x>=47||y<23||y>=47;
+  image.rgba.set(edge?[70,90,120,255]:[200,220,245,255],(y*120+x)*4);
+ }
+ for(let y=26;y<44;y++)for(let x=70;x<76;x++)image.rgba.set([15,15,15,255],(y*120+x)*4);
+ const text={text:"I",box:{x:18,y:18,w:70,h:34},font:{color:"#0F0F0F"}},budget={used:0};
+ const token=createSceneGlyphOcclusion(image,[text],{widthPt:120,heightPt:80},budget);
+ assert.equal(measureOutlinedSceneContainerSpatial(image,hint,[text.box],{used:0}).outline,null);
+ assert.ok(measureOutlinedSceneContainerSpatial(image,hint,[text.box],budget,token).outline);
 });

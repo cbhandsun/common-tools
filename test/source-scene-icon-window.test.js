@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sceneIconSearchWindow:window}=require('../packages/slideclone-core/source-scene-icon-window');
-const {measureSceneIcon}=require('../packages/slideclone-core/source-scene-icon');
+const {sceneIconSearchWindow:window}=require('../packages/slideclone-core/scene-plan/source-scene-icon-window');
+const {measureSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-icon');
 function fixture(){
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)};
  for(let y=25;y<50;y++)for(let x=30;x<80;x++)if(x<43||y>=46&&y<49)image.rgba.set([30,60,90,255],(y*400+x)*4);

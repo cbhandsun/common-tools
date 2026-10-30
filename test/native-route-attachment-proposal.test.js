@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {proposeNativeRouteAttachment:propose}=require('../packages/slideclone-core/native-route-attachment-proposal');
+const {proposeNativeRouteAttachment:propose}=require('../packages/slideclone-core/routing/native-route-attachment-proposal');
 const request=()=>({from:{id:'a',box:{x:10,y:10,w:30,h:40},side:'right'},to:{id:'b',box:{x:100,y:10,w:30,h:40},side:'left'},commands:[[0,43,27],[1,97,28]]});
 test('logical gap ports preserve actual route endpoints and independently measured positions',()=>{
  const input=request(),before=structuredClone(input),p=propose(input);assert.deepEqual(input,before);

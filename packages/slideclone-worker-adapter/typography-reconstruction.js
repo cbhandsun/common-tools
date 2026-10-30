@@ -1,14 +1,14 @@
 // @ts-check
 "use strict";
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
-const {record,parseTypographyDeck,jsonSnapshot}=require("../slideclone-core/typography-contract");
-const {proposeParagraphTypography,assertTypographyContent}=require("../slideclone-core/paragraph-typography");
-const {auditTypographyLayout}=require("../slideclone-core/typography-quality");
-const {proposeContainerParagraphLayout}=require("../slideclone-core/paragraph-container-layout");
-const {fitParagraphRenderFeedback}=require("../slideclone-core/paragraph-render-feedback");
-const {parseRenderedTypographyAudit}=require("../slideclone-core/rendered-typography-audit");
-const {createReconstructionSearchControl,dominates}=require("../slideclone-core/reconstruction-search-control");
-/** @typedef {import('../slideclone-core/typography-contract').Deck} Deck */
+const {record,parseTypographyDeck,jsonSnapshot}=require("../slideclone-core/typography/typography-contract");
+const {proposeParagraphTypography,assertTypographyContent}=require("../slideclone-core/typography/paragraph-typography");
+const {auditTypographyLayout}=require("../slideclone-core/quality/typography-quality");
+const {proposeContainerParagraphLayout}=require("../slideclone-core/typography/paragraph-container-layout");
+const {fitParagraphRenderFeedback}=require("../slideclone-core/typography/paragraph-render-feedback");
+const {parseRenderedTypographyAudit}=require("../slideclone-core/typography/rendered-typography-audit");
+const {createReconstructionSearchControl,dominates}=require("../slideclone-core/archetypes/reconstruction-search-control");
+/** @typedef {import('../slideclone-core/typography/typography-contract').Deck} Deck */
 /** @typedef {{passed:boolean,metrics:Record<string,number>,checks:{name:string,passed:boolean}[],typographyEvidence?:Record<string,unknown>}} Quality */
 /** @typedef {{deck:Deck,deckFile:string,pptxFile:string,quality:Quality}} Artifact */
 /** @typedef {{validateDeck:(deck:unknown,root:string)=>unknown,auditComponents:(deck:unknown)=>{passed:boolean},auditSemantic:(deck:unknown)=>{passed:boolean},recordSearch?:(report:unknown)=>void}} Dependencies */

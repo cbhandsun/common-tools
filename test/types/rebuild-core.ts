@@ -1,6 +1,6 @@
-import { parsePageSelection, planSelectedPages } from "../../packages/slideclone-core/page-selection.js";
-import { boundedOcrSourceDeck } from "../../packages/slideclone-core/ocr-source-deck.js";
-import { buildMinimumUnitCropEvidence } from "../../packages/slideclone-core/graphic-crop-policy.js";
+import { parsePageSelection, planSelectedPages } from "../../packages/slideclone-core/scene-plan/page-selection.js";
+import { boundedOcrSourceDeck } from "../../packages/slideclone-core/ocr/ocr-source-deck.js";
+import { buildMinimumUnitCropEvidence } from "../../packages/slideclone-core/quality/graphic-crop-policy.js";
 
 declare const external: unknown;
 const selection = parsePageSelection(external);

@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {selectStructuralReviewTargets:select,readStructuralObservations:read,applyStructuralReview:apply}=require('../packages/slideclone-core/source-scene-structural-review');
-const {parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
+const {selectStructuralReviewTargets:select,readStructuralObservations:read,applyStructuralReview:apply}=require('../packages/slideclone-core/scene-plan/source-scene-structural-review');
+const {parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
 function fixture(){return parseSourceScenePlan({coordinateSpace:'source-pixels',regions:[
  {id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:200,h:160}},
  {id:'left',parentId:'root',kind:'diagram',box:{x:0,y:0,w:90,h:150}},
@@ -104,7 +104,7 @@ test('sheet-frame structural geometry maps to exact source coordinates without g
 });
 test('malformed, missing, extreme, proxy and accessor observations fail safely without provider content',()=>{
  for(const bad of [null,[],{structures:[]},{structures:[raw,raw]},{structures:new Array(1)},{structures:new Proxy([raw],{})}])assert.throws(()=>read(bad,[targets()[0]],frame),TypeError);
- for(const change of [r=>r.index=99,r=>r.kind='delete',r=>r.confidence=Infinity,r=>r.regionId='private token',r=>r.box_2d=[400,200,200,400],
+ for(const change of [r=>r.index=99,r=>r.kind='delete',r=>r.confidence=Infinity,r=>r.regionId='private token',
  r=>r.box_2d=[200,200,400,1001],r=>r.box_2d=[200,200,400.5,400],r=>r.extra=true]){
   const r=structuredClone(raw);change(r);assert.throws(()=>read({structures:[r]},[targets()[0]],frame),TypeError);
  }
@@ -112,4 +112,20 @@ test('malformed, missing, extreme, proxy and accessor observations fail safely w
  assert.throws(()=>read(hostile,[targets()[0]],frame),e=>e instanceof TypeError&&!e.message.includes('private-token'));
  const row={...raw};Object.defineProperty(row,'kind',{get(){calls++;throw Error('private-token');}});
  assert.throws(()=>read({structures:[row]},[targets()[0]],frame),TypeError);assert.equal(calls,0);
+});
+
+test('reversed or empty rectangles reject only that target and never fall back to its seed',()=>{
+ const t=targets(),p=fixture(),before=structuredClone(p);
+ const f={...frame,sourceTargets:[...frame.sourceTargets,{index:11,cropBox:{x:140,y:20,w:40,h:40}}],
+  sheetTargets:[...frame.sheetTargets,{index:11,cropBox:{x:60,y:10,w:40,h:40}}]};
+ for(const box_2d of [[400,200,200,400],[200,400,400,200],[200,200,200,400],[200,200,400,200]]){
+  const bad={...raw,box_2d},good={...raw,index:11,box_2d:null};
+  const a=read({structures:[bad,good]},t,f),b=read({structures:[{...raw,box_2d:null},good]},t,f);
+  assert.equal(a[0].rejection,'geometry-contract');assert.equal(a[0].box,null);
+  const out=apply(p,t,[a,b]);
+  assert.deepEqual(out.plan.objects[0],p.objects[0]);
+  assert.equal(out.plan.objects[1].kind,'container');
+  assert.ok(out.evidence.rejected.some(r=>r.id==='object-a'&&r.reason==='geometry-contract'));
+  assert.deepEqual(p,before);
+ }
 });

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {fitCertifiedOpenPath:fit}=require('../packages/slideclone-core/native-contour-certified-curves');
+const {fitCertifiedOpenPath:fit}=require('../packages/slideclone-core/routing/native-contour-certified-curves');
 function source(){return Array.from({length:81},(_,i)=>({x:10+i,y:15+Math.round(40*(1-Math.cos(i/80*Math.PI/2)))}));}
 function dist(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,d=dx*dx+dy*dy,t=d?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/d)):0;return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);}
 function flattened(path){const points=[];let last;for(const s of path){if(s.type!=='cubicBezTo'){last=s.points[0];points.push(last);continue;}const [b,c,d]=s.points,a=last;for(let i=1;i<=256;i++){const t=i/256,u=1-t;points.push({x:a.x*u**3+3*b.x*u*u*t+3*c.x*u*t*t+d.x*t**3,y:a.y*u**3+3*b.y*u*u*t+3*c.y*u*t*t+d.y*t**3});}last=d;}return points;}

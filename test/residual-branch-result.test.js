@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {residualOwnershipRejection,readResidualOwnershipRejection,attemptSourceResidual}=require('../packages/slideclone-core/residual-branch-result');
+const {residualOwnershipRejection,readResidualOwnershipRejection,attemptSourceResidual}=require('../packages/slideclone-core/scene-plan/residual-branch-result');
 const report=()=>({passed:false,scannedPixels:100,ownedPixels:12,ownedForegroundPixels:12,
  remainingOwnedForegroundPixels:0,remainingOwnedBackgroundPixels:0,unownedChangedPixels:0,
  remainingTextCorePixels:2,incorrectTextBackgroundPixels:0,unresolvedTextMasks:0});
@@ -29,4 +29,11 @@ test('invalid, empty, extreme and hostile reports never create a recoverable err
   assert.throws(()=>residualOwnershipRejection(input),e=>e instanceof TypeError&&!e.message.includes('secret'));
  assert.equal(accessed,0);
  const maximum={...report(),scannedPixels:40000000};assert.equal(readResidualOwnershipRejection(residualOwnershipRejection(maximum)).scannedPixels,40000000);
+});
+test('route background failures retain their own bounded evidence and old reports remain compatible',async()=>{
+ const input={...report(),remainingTextCorePixels:0,incorrectRouteBackgroundPixels:3};
+ const error=residualOwnershipRejection(input),result=await attemptSourceResidual(async()=>{throw error;});
+ assert.equal(result.kind,'rejected');assert.equal(result.pixelOwnership.incorrectRouteBackgroundPixels,3);
+ for(const count of [0,-1,40000001,NaN,'3'])assert.throws(()=>residualOwnershipRejection({...input,incorrectRouteBackgroundPixels:count}),TypeError);
+ assert.equal(readResidualOwnershipRejection(residualOwnershipRejection(report())).remainingTextCorePixels,2);
 });

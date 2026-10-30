@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSceneFillWindow:measure}=require('../packages/slideclone-core/source-scene-fill-window');
+const {measureSceneFillWindow:measure}=require('../packages/slideclone-core/scene-plan/source-scene-fill-window');
 function fixture(){
  const image={width:140,height:100,rgba:Buffer.alloc(140*100*4,255)},hint={x:20,y:20,w:100,h:60};
  const paint=(box)=>{for(let y=box.y;y<box.y+box.h;y++)for(let x=box.x;x<box.x+box.w;x++)image.rgba.set([120,160,220,255],(y*140+x)*4);};
@@ -20,8 +20,8 @@ test('disconnected observed paint retains its open gap as native parts without i
 test('compiler emits disconnected paint without aliasing it or attaching a relation to the union box',t=>{
  const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
  const {writePng}=require('../packages/slideclone-core/png');
- const {parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
- const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+ const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const f=fixture();f.paint({x:20,y:20,w:45,h:60});f.paint({x:75,y:20,w:45,h:60});f.paint({x:125,y:20,w:12,h:40});
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'disconnected-scene-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,f.input.image);

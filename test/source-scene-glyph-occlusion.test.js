@@ -1,8 +1,8 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence,sceneGlyphOcclusionScanReserve}=require("../packages/slideclone-core/source-scene-glyph-occlusion");
-const {measureSceneFillWindow}=require("../packages/slideclone-core/source-scene-fill-window");
-const {withSceneFillRasterCache}=require("../packages/slideclone-core/source-scene-fill-raster-cache");
+const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence,sceneGlyphOcclusionScanReserve}=require("../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion");
+const {measureSceneFillWindow}=require("../packages/slideclone-core/scene-plan/source-scene-fill-window");
+const {withSceneFillRasterCache}=require("../packages/slideclone-core/scene-plan/source-scene-fill-raster-cache");
 function fixture(){
  const image={width:100,height:100,rgba:Buffer.alloc(40000,255)};
  const paint=(x,y,color)=>image.rgba.set([...color,255],(y*100+x)*4);
@@ -22,7 +22,7 @@ function splitPaintFixture(){
 }
 
 test('an overlapping OCR frame cannot acquire glyphs wholly outside the requested paint window',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const image={width:140,height:90,rgba:Buffer.alloc(140*90*4,255)},budget={used:0};
  for(let y=35;y<50;y++)for(let x=88;x<92;x++)image.rgba.set([0,0,0,255],(y*140+x)*4);
  const before=Buffer.from(image.rgba),text={text:'I',box:{x:20,y:30,w:90,h:25},font:{color:'#000000'}},
@@ -41,7 +41,7 @@ test('an overlapping OCR frame cannot acquire glyphs wholly outside the requeste
 });
 
 test('a paint-color proof debits only complete glyphs on that witnessed background',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const image={width:140,height:90,rgba:Buffer.alloc(140*90*4,255)},budget={used:0},fill=[0,130,70];
  for(let y=0;y<90;y++)for(let x=70;x<140;x++)image.rgba.set([...fill,255],(y*140+x)*4);
  for(const left of [28,88])for(let y=35;y<50;y++)for(let x=left;x<left+4;x++)image.rgba.set([0,0,0,255],(y*140+x)*4);
@@ -65,7 +65,7 @@ test('a different witnessed background remeasures color evidence without duplica
  for(let y=72;y<86;y++)for(let x=104;x<108;x++)paint(x,y,[0,0,0]);
  const text={text:'I',box:{x:100,y:70,w:12,h:18},source:{segmentedOcrLineId:'line',segmentedOcrLinePolygonPt:[[0,0],[220,0],[220,100],[0,100]]},font:{color:'#000000'}};
  const token=createSceneGlyphOcclusion(image,[text],{widthPt:220,heightPt:100},budget),box={x:0,y:0,w:220,h:100};
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const first=bridge(token,image,budget,box,[255,255,255]),scan=budget.used;
  assert.equal(first.size,56);
  const second=bridge(token,image,budget,box,fill);assert.equal(second.size,56);assert.equal(budget.used,scan);
@@ -94,7 +94,7 @@ test('source-owned thin glyphs reconnect paint components rejected before hole c
  assert.ok(fit.segments.length<=120);assert.ok(f.input.budget.used<=4000000);assert.deepEqual(f.input.image.rgba,before);
 });
 test('glyph bridging keeps private source and budget binding and independently witnessed paint color',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const f=splitPaintFixture(),token=createSceneGlyphOcclusion(f.input.image,[f.text],f.size,f.input.budget),box={x:15,y:25,w:70,h:50};
  const cells=withSceneFillRasterCache(f.input.image,f.input.budget,()=>bridge(token,f.input.image,f.input.budget,box,f.input.fill));assert.ok(cells.size>0);
  assert.equal(bridge(token,f.input.image,{used:0},box,f.input.fill).size,0);
@@ -104,14 +104,14 @@ test('glyph bridging keeps private source and budget binding and independently w
  assert.equal(bridge(structuredClone(token),f.input.image,f.input.budget,box,f.input.fill).size,0);
 });
 test('an optional bridge skips exhausted reserve without reading pixels or granting fallback geometry',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const f=splitPaintFixture(),token=createSceneGlyphOcclusion(f.input.image,[f.text],f.size,f.input.budget);
  f.input.budget.used=4000000;
  assert.equal(bridge(token,f.input.image,f.input.budget,{x:15,y:25,w:70,h:50},f.input.fill).size,0);
  assert.equal(f.input.budget.used,4000000);assert.deepEqual(sceneGlyphOcclusionEvidence(token),{glyphMeasurements:0,glyphOwnedPixels:0});
 });
 test('bridge controls reject unsafe source, budget, windows and color channels without invoking accessors',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const f=splitPaintFixture(),box={x:15,y:25,w:70,h:50};let calls=0;
  const hostile={get x(){calls++;throw Error('private-token');}},channels=[0,130,70];Object.defineProperty(channels,0,{get(){calls++;throw Error('private-token');}});
  for(const b of [hostile,new Proxy(box,{}),{...box,w:0},{...box,w:Infinity},{...box,w:300000}])assert.throws(()=>bridge({},f.input.image,f.input.budget,b,f.input.fill),TypeError);
@@ -121,17 +121,17 @@ test('bridge controls reject unsafe source, budget, windows and color channels w
  assert.equal(calls,0);assert.equal(f.input.budget.used,0);
 });
 test('large blank glyph windows are scanned within budget without acquiring any glyph population',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const image={width:600,height:300,rgba:Buffer.alloc(600*300*4,255)},budget={used:0};
  const text={text:'I',box:{x:10,y:10,w:500,h:250},font:{color:'#000000'}};
  const token=createSceneGlyphOcclusion(image,[text],{widthPt:600,heightPt:300},budget);
  assert.equal(bridge(token,image,budget,{x:0,y:0,w:600,h:300},[255,255,255]).size,0);
- const mask=require('../packages/slideclone-core/residual-source-text-evidence').sourceTextEraseMask(text,image,{widthPt:600,heightPt:300});
+ const mask=require('../packages/slideclone-core/typography/residual-source-text-evidence').sourceTextEraseMask(text,image,{widthPt:600,heightPt:300});
  assert.equal(budget.used,mask.w*mask.h);assert.deepEqual(sceneGlyphOcclusionEvidence(token),{glyphMeasurements:1,glyphOwnedPixels:0});
 });
 
 test('sparse large windows retain whole glyph proofs and cache rejected colors without losing counts',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const image={width:600,height:300,rgba:Buffer.alloc(600*300*4,255)},budget={used:0};
  for(let y=80;y<160;y++)for(let x=200;x<204;x++)image.rgba.set([0,0,0,255],(y*600+x)*4);
  const text={text:'I',box:{x:10,y:10,w:500,h:250},font:{color:'#000000'}},box={x:0,y:0,w:600,h:300};
@@ -147,7 +147,7 @@ test('sparse large windows retain whole glyph proofs and cache rejected colors w
 });
 
 test('cached failed probes grant no ownership to other sources or budgets at exhaustion',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const f=splitPaintFixture(),box={x:15,y:25,w:70,h:50},token=createSceneGlyphOcclusion(f.input.image,[f.text],f.size,f.input.budget);
  assert.equal(bridge(token,f.input.image,f.input.budget,box,[255,0,0]).size,0);
  const scanned=f.input.budget.used;assert.ok(scanned>0);
@@ -244,7 +244,7 @@ test("a broad round hollow center also lacks a source stroke witness",()=>{
 });
 
 test('rejected broad holes cannot starve later independently witnessed strokes under the unchanged shared allowance',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const image={width:850,height:450,rgba:Buffer.alloc(850*450*4)},fill=[0,130,70],budget={used:0};
  for(let i=0;i<850*450;i++)image.rgba.set([...fill,255],i*4);
  const paint=(x,y)=>image.rgba.set([255,255,255,255],(y*850+x)*4);
@@ -263,7 +263,7 @@ test('rejected broad holes cannot starve later independently witnessed strokes u
 });
 
 test('cached complete context grants each requested footprint atomically and never exceeds the total ownership ceiling',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const image={width:950,height:500,rgba:Buffer.alloc(950*500*4)},fill=[0,130,70],budget={used:0};
  for(let i=0;i<950*500;i++)image.rgba.set([...fill,255],i*4);
  for(const [left,stripes]of [[30,8],[300,25]])for(let stripe=0;stripe<stripes;stripe++)

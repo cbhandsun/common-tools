@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/component-template-source-evidence");
+module.exports = require("../../../../packages/slideclone-core/archetypes/component-template-source-evidence");

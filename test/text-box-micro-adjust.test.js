@@ -13,7 +13,7 @@ const {
   fitHighConfidenceSingleLineOcrToEvidence,
   suggestTextBoxMicroAdjustments,
   applyTextBoxMicroAdjustments
-} = require("../packages/slideclone-core/text-box-micro-adjust");
+} = require("../packages/slideclone-core/typography/text-box-micro-adjust");
 
 test("suggestTextBoxMicroAdjustments nudges box position and font size from crop mismatch", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-text-adjust-"));

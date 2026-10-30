@@ -17,7 +17,10 @@ test('renderer XML rejects unsafe, ambiguous, malformed and oversized group inpu
 test('render staging retains original binding bytes and rewrites only the rendering copy',t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'lo-group-port-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const source=path.join(root,'source.pptx'),output=path.join(root,'staged.pptx');writeStoredZipAtomic(source,[{name:'ppt/slides/slide1.xml',data:xml},{name:'untouched.bin',data:'retained'}]);
- const before=fs.readFileSync(source);assert.equal(stage(source,output).groupedTextBindingsRenderedAsGeometry,1);assert.deepEqual(fs.readFileSync(source),before);assert.equal(readZipEntryText(output,'ppt/slides/slide1.xml'),preserve(xml).xml);assert.equal(readZipEntryText(output,'untouched.bin'),'retained');assert.throws(()=>stage(source,source),TypeError);
+ const before=fs.readFileSync(source),summary=stage(source,output);assert.equal(summary.groupedTextBindingsRenderedAsGeometry,1);
+ assert.equal(summary.authoredConnectorBindingsRenderedAsGeometry,2);assert.deepEqual(fs.readFileSync(source),before);
+ assert.equal(readZipEntryText(output,'ppt/slides/slide1.xml'),xml.replace(/<a:(?:stCxn|endCxn)\b[^>]*\/>/gu,''));
+ assert.equal(readZipEntryText(output,'untouched.bin'),'retained');assert.throws(()=>stage(source,source),TypeError);
  writeStoredZipAtomic(source,[{name:'ppt/presentation.xml',data:'empty'}]);stage(source,output);assert.deepEqual(fs.readFileSync(source),fs.readFileSync(output));
  fs.writeFileSync(source,'invalid');assert.throws(()=>stage(source,output));
 });

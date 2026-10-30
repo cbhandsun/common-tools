@@ -1,7 +1,7 @@
 "use strict";
 
 const test = require("node:test");
-const { chartZoneImage, chartAxisAtom, chartRectAtom, chartLineAtom, chartPointAtom, chartDonutAtom, chartDonutSegmentAtom, chartArcArrowSegmentAtom, visualAtomImage, component, makeImage, fillRect, fillRightTriangle, setPixel, matrixTextBoxes, quadrantTextBoxes, drawSyntheticNetwork, drawLine, getPixel, parseHex, colorDistanceForTest } = require("./helpers/native-rebuild-visual-fixtures");
+const { createOpenXmlBatchSmokeIr, chartZoneImage, chartAxisAtom, chartRectAtom, chartLineAtom, chartPointAtom, chartDonutAtom, chartDonutSegmentAtom, chartArcArrowSegmentAtom, visualAtomImage, component, makeImage, fillRect, fillRightTriangle, setPixel, matrixTextBoxes, quadrantTextBoxes, drawSyntheticNetwork, drawLine, getPixel, parseHex, colorDistanceForTest } = require("./helpers/native-rebuild-visual-fixtures");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -17,7 +17,7 @@ const {
 const {
   extractVisualAtoms,
   detectDenseLinkedNodeAtoms
-} = require("../packages/slideclone-core/visual-atoms");
+} = require("../packages/slideclone-core/scene-plan/visual-atoms");
 const {
   annotateNativeElementsWithPluginReplacementPlans,
   isReplacementPlanCompatibleWithNativeItem
@@ -1021,35 +1021,7 @@ test("buildPptxBatch can build multiple native editable PPTX files through OpenX
   assert.match(readZipEntry(secondPptx, "ppt/slides/slide1.xml").toString("utf8"), /Native Batch Two/);
 });
 
-function createOpenXmlBatchSmokeIr(text) {
-  return {
-    version: "1.0",
-    slideSize: { widthPt: 960, heightPt: 540 },
-    pages: [{
-      pageIndex: 0,
-      sourceImage: "",
-      background: { fill: "#FFFFFF" },
-      shapes: [{
-        id: "card",
-        type: "roundrect",
-        box: { x: 100, y: 90, w: 280, h: 90 },
-        style: { fill: "#EAF2FF", stroke: "#4472C4", strokeWidth: 1 },
-        source: { nativeComponentGroupId: "batch-card" }
-      }],
-      textBoxes: [{
-        id: "label",
-        text,
-        box: { x: 120, y: 115, w: 240, h: 32 },
-        font: { family: "Arial", sizePt: 18, weight: "bold", color: "#1F1F1F", align: "center", valign: "mid", lineHeightMultiple: 1 },
-        style: {},
-        source: { nativeComponentGroupId: "batch-card" }
-      }],
-      images: [],
-      tables: [],
-      charts: []
-    }]
-  };
-}
+
 
 test("createVisualAtomNativeShapes turns visual atoms into editable primitives", () => {
   const shapes = createVisualAtomNativeShapes([{
@@ -4268,7 +4240,7 @@ test("createGenericNodeDiagramSkeletonShapes does not rebuild screenshots or low
 });
 
 test("generic node diagram skeletons are wired into final page shape output", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-core/page-shape-finalizer.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-core/scene-plan/page-shape-finalizer.js"), "utf8");
   const finalShapesLine = source.split(/\r?\n/).find((line) => line.includes("pageDraft.shapes = sanitizeNativeShapes"));
 
   assert.ok(finalShapesLine);
@@ -7014,7 +6986,7 @@ test("createStructuredIllustrationCardShellShapes emits native card borders for 
 });
 
 test("structured illustration card shells are wired without requiring a source image", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-core/page-hybrid-graphics-stage.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-core/scene-plan/page-hybrid-graphics-stage.js"), "utf8");
   const shellLine = source.split(/\r?\n/).find((line) => line.includes("const structuredIllustrationCardShellShapes ="));
 
   assert.ok(shellLine);
@@ -18743,7 +18715,7 @@ test("fully objectified process-with-screenshots diagrams split residuals instea
 });
 
 test("process-with-screenshots flow is wired without requiring a source image", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-core/page-native-graphics-stage.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-core/scene-plan/page-native-graphics-stage.js"), "utf8");
   const processFlowLine = source.split(/\r?\n/).find((line) => line.includes("const processWithScreenshotsFlow ="));
 
   assert.ok(processFlowLine);

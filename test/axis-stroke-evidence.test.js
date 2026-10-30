@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { axisStrokeEvidenceMask } = require("../packages/slideclone-core/axis-stroke-evidence");
+const { axisStrokeEvidenceMask } = require("../packages/slideclone-core/routing/axis-stroke-evidence");
 
 function raster(width = 50, height = 40) {
   return { width, height, rgba: Buffer.alloc(width * height * 4, 255) };

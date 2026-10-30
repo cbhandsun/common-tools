@@ -1,10 +1,10 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { ocrLineRevision } = require("../packages/slideclone-core/ocr-line-consensus");
-const { admitOcrConfidenceEvidence } = require("../packages/slideclone-core/ocr-confidence-evidence");
-const { admitOcrResult } = require("../packages/slideclone-core/ocr-result-admission");
-const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr-source-deck");
+const { ocrLineRevision } = require("../packages/slideclone-core/ocr/ocr-line-consensus");
+const { admitOcrConfidenceEvidence } = require("../packages/slideclone-core/ocr/ocr-confidence-evidence");
+const { admitOcrResult } = require("../packages/slideclone-core/ocr/ocr-result-admission");
+const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr/ocr-source-deck");
 function fixture() {
   const original = { text: "GraphGraph", confidence: 0.89, box: { x: 40, y: 50, w: 100, h: 20 } };
   const dimensions = { widthPx: 300, heightPx: 180 }, line = { ...original, confidence: 0.939 };

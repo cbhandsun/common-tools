@@ -6,6 +6,7 @@ const path = require("node:path");
 const { createRequire } = require("node:module");
 const test = require("node:test");
 const { IMAGE_EDITABLE_RELEASE_FILES } = require("../scripts/verify-runtime-package");
+const {coreModulePath}=require('./helpers/isolated-core-package.cjs');
 
 const modules = ["pptx-openxml-dotnet", "chart-native-payload", "restricted-svg", "openxml-build-cache", "pptx-zip", "cache-budget", "openxml-build-jobs"];
 const ooxmlModules = ["pptx-inventory", "pptx-zip"];
@@ -13,7 +14,8 @@ const repository = path.resolve(__dirname, "..");
 
 function copyCore(destination) {
   fs.mkdirSync(destination, { recursive: true });
-  for (const name of ["package.json", ...modules.map((name) => `${name}.js`)]) {
+  for (const name of ["package.json", ...modules.map(coreModulePath)]) {
+    fs.mkdirSync(path.dirname(path.join(destination,name)),{recursive:true});
     fs.copyFileSync(path.join(repository, "packages/slideclone-core", name), path.join(destination, name));
   }
 }
@@ -58,7 +60,7 @@ test("OpenXML preparation, graphics, ZIP and cache run from the isolated core pa
   assert.equal(cache.readOpenXmlBuildCache(cacheDir, key, restored).hit, true);
   assert.deepEqual(fs.readFileSync(restored), fs.readFileSync(outFile));
   assert.equal(fs.existsSync(path.join(root, "skills")), false);
-  for (const name of modules) assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/slideclone-core/${name}.js`));
+  for (const name of modules) assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/slideclone-core/${coreModulePath(name)}`));
   for (const name of ooxmlModules) assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/ooxml-core/${name}.js`));
 });
 
@@ -74,7 +76,7 @@ test("legacy OpenXML entry points share the core implementation without workspac
     const target = path.join(root, relative);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.copyFileSync(path.join(repository, relative), target);
-    assert.equal(require(target), require(path.join(core, name)));
+    assert.equal(require(target), require(path.join(core,coreModulePath(name))));
   }
   const { legacyEdges } = require("../scripts/verify-workspace-boundaries").verifyWorkspaceBoundaries();
   assert.equal(legacyEdges.some((edge) => edge.target.endsWith("/pptx-openxml-dotnet.js")), false);

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { admitOcrGraphicEvidence } = require("../packages/slideclone-core/ocr-graphic-evidence-admission");
+const { admitOcrGraphicEvidence } = require("../packages/slideclone-core/ocr/ocr-graphic-evidence-admission");
 
 function value(overrides = {}) {
   return {

@@ -2,10 +2,10 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require("./helpers/temporary-directory.cjs");
 const { crc32, createPptQualityJob, extractEntry, pptQualitySummary, readCentralDirectory, runPptQualityJob } = require("../packages/ppt-quality-core");
 const { createPptImproveJob, pptImproveSummary, runPptImproveJob } = require("../packages/ppt-improve-core");
 const { callTool, enabledTools } = require("../packages/mcp-server/core");
@@ -90,8 +90,22 @@ function slideXml(file) {
 }
 
 function temporaryWorkspace() {
-  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "common-tools-ppt-quality-")));
+  return createTemporaryTestDirectory("common-tools-ppt-quality-");
 }
+
+test("PPT quality workspace cleanup retries transient removal without weakening permanent errors", t => {
+  const root = temporaryWorkspace(), rmdir = fs.rmdirSync;
+  fs.writeFileSync(path.join(root, "cleanup-evidence"), "fixture");
+  let attempts = 0;
+  try {
+    t.mock.method(fs, "rmdirSync", (directory, ...args) => {
+      if (directory === root && ++attempts <= 2) throw Object.assign(new Error("transient directory scan"), { code: "ENOTEMPTY" });
+      return rmdir(directory, ...args);
+    });
+    removeTemporaryTestDirectory(root);
+    assert.ok(attempts >= 3); assert.equal(fs.existsSync(root), false);
+  } finally { t.mock.restoreAll(); removeTemporaryTestDirectory(root); }
+});
 
 function writeBrokenRelationshipFixture(root, name = "broken.pptx") {
   const file = path.join(root, name);
@@ -126,7 +140,7 @@ test("PPT quality creates separate verified reports without modifying the source
     assert.equal(report.summary.unusedMediaCount, 1);
     assert.equal(report.source.path, undefined);
     assert.equal(pptQualitySummary(completed, root)?.summary.mediaCount, 1);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("PPT improve requires the matching audit report and removes only orphaned media into a new PPTX", () => {
@@ -154,7 +168,7 @@ test("PPT improve requires the matching audit report and removes only orphaned m
     const reaudited = runPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: rerunQuality.id });
     assert.equal(reaudited.status, "succeeded");
     assert.equal(JSON.parse(fs.readFileSync(path.join(root, "post-quality", "ppt-quality-report.json"), "utf8")).summary.unusedMediaCount, 0);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("PPT improve does not fabricate an output or post-audit when no safe repair applies", () => {
@@ -173,12 +187,12 @@ test("PPT improve does not fabricate an output or post-audit when no safe repair
     assert.equal(fs.existsSync(path.join(improveOutput, "improved.pptx")), false);
     assert.equal(fs.existsSync(path.join(improveOutput, "improved-ppt-quality-report.json")), false);
     assert.equal(pptImproveSummary(completed, root)?.postAudit, null);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("PPT improve audit-only profile identifies safe work without creating a deck", () => {
   const root = temporaryWorkspace();
-  try { const input = writeFixture(root); const stateRoot = path.join(root, ".state"); const qualityOutput = path.join(root, "quality"); const qualityJob = createPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: qualityOutput }); runPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: qualityJob.id }); const output = path.join(root, "audit-only"); const job = createPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, report: path.join(qualityOutput, "ppt-quality-report.json"), output, profile: "audit-only" }); const completed = runPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: job.id }); assert.equal(completed.status, "succeeded"); assert.equal(fs.existsSync(path.join(output, "improved.pptx")), false); const report = JSON.parse(fs.readFileSync(path.join(output, "ppt-improve-report.json"))); assert.equal(report.repairProfile, "audit-only"); assert.equal(report.result.eligibleUnusedMediaCount, 1); assert.equal(report.result.removedMediaCount, 0); assert.throws(() => createPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, report: path.join(qualityOutput, "ppt-quality-report.json"), output: path.join(root, "bad"), profile: "unsafe" }), /profile/); } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  try { const input = writeFixture(root); const stateRoot = path.join(root, ".state"); const qualityOutput = path.join(root, "quality"); const qualityJob = createPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, output: qualityOutput }); runPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: qualityJob.id }); const output = path.join(root, "audit-only"); const job = createPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, report: path.join(qualityOutput, "ppt-quality-report.json"), output, profile: "audit-only" }); const completed = runPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: job.id }); assert.equal(completed.status, "succeeded"); assert.equal(fs.existsSync(path.join(output, "improved.pptx")), false); const report = JSON.parse(fs.readFileSync(path.join(output, "ppt-improve-report.json"))); assert.equal(report.repairProfile, "audit-only"); assert.equal(report.result.eligibleUnusedMediaCount, 1); assert.equal(report.result.removedMediaCount, 0); assert.throws(() => createPptImproveJob({ workspaceRoot: root, stateRoot, ownerId: "owner", input, report: path.join(qualityOutput, "ppt-quality-report.json"), output: path.join(root, "bad"), profile: "unsafe" }), /profile/); } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("PPT improve metadata profiles create re-audited copies with bounded non-visual repairs", () => {
@@ -200,7 +214,7 @@ test("PPT improve metadata profiles create re-audited copies with bounded non-vi
       const result = JSON.parse(fs.readFileSync(path.join(output, "ppt-improve-report.json"), "utf8")).result;
       assert.ok(result.repairCounts[metric] > 0); assert.equal(result.repairActionCount, result.repairCounts[metric]); assert.ok(completed.artifacts.some((artifact) => artifact.name === "improved-ppt-quality-report.json"));
     }
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("PPT improve never overwrites an existing report and rolls back this attempt's output", () => {
@@ -221,7 +235,7 @@ test("PPT improve never overwrites an existing report and rolls back this attemp
     assert.match(completed.error.message, /output already exists/);
     assert.equal(fs.readFileSync(existingReport, "utf8"), "keep-existing-report");
     for (const name of ["improved.pptx", "improved-ppt-quality-report.json", "improved-ppt-quality-report.md", "ppt-improve-report.md"]) assert.equal(fs.existsSync(path.join(improveOutput, name)), false);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("PPT quality detects source changes and MCP report access requires separate enablement", () => {
@@ -238,7 +252,7 @@ test("PPT quality detects source changes and MCP report access requires separate
     assert.equal(failed.status, "failed");
     assert.match(failed.error.message, /changed/);
     assert.equal(callTool("get_ppt_quality_report", { id: failed.id }, { workspaceRoot: root, stateRoot, ownerId: "owner" }).audit, null);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("PPT quality fails closed when a ZIP entry no longer matches its CRC-32 directory record", () => {
@@ -257,7 +271,7 @@ test("PPT quality fails closed when a ZIP entry no longer matches its CRC-32 dir
     assert.equal(completed.status, "failed");
     assert.match(completed.error.message, /checksum|directory/);
     assert.equal(fs.existsSync(path.join(output, "ppt-quality-report.json")), false);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("PPT quality fails closed when a local ZIP entry name disagrees with its central directory", () => {
@@ -275,7 +289,7 @@ test("PPT quality fails closed when a local ZIP entry name disagrees with its ce
     const completed = runPptQualityJob({ workspaceRoot: root, stateRoot, ownerId: "owner", id: created.id });
     assert.equal(completed.status, "failed");
     assert.match(completed.error.message, /local entry does not match/);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("PPT quality reports unresolved internal relationships as a failed structural gate without exposing target paths", () => {
@@ -295,7 +309,7 @@ test("PPT quality reports unresolved internal relationships as a failed structur
     assert.deepEqual(report.findings.find((finding) => finding.id === "broken-relationships"), { id: "broken-relationships", severity: "error", count: 1, message: "One or more internal OOXML relationships do not resolve safely inside the package." });
     assert.equal(JSON.stringify(report).includes("missing.png"), false);
     assert.equal(pptQualitySummary(completed, root)?.summary.unresolvedRelationshipCount, 1);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("MCP Apps expose verified PPT audit and improvement report tools only after independent enablement", () => {
@@ -309,7 +323,7 @@ test("MCP Apps expose verified PPT audit and improvement report tools only after
     setCapabilityEnabled(stateRoot, "ppt-improve", true);
     const tools = enabledTools(context, request);
     for (const name of ["get_ppt_quality_report", "get_ppt_improve_report"]) assert.deepEqual(tools.find((tool) => tool.name === name)?._meta, { ui: { resourceUri: "ui://common-tools/quality-report.html", visibility: ["model"] } });
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });
 
 test("PPT quality CLI creates jobs and supports direct local execution", () => {
@@ -351,5 +365,5 @@ test("PPT quality CLI creates jobs and supports direct local execution", () => {
     const repeatedPipeline = spawnSync(process.execPath, [cli, "ppt-improve", "pipeline", "--workspace", root, "--state", stateRoot, "--input", input, "--out", pipelineOutput], { encoding: "utf8", windowsHide: true });
     assert.equal(repeatedPipeline.status, 1);
     assert.match(repeatedPipeline.stderr, /output already exists/);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeTemporaryTestDirectory(root); }
 });

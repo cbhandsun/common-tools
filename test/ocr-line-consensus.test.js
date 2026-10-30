@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {ocrLineRevision,planOcrLineConsensus}=require("../packages/slideclone-core/ocr-line-consensus");
+const {ocrLineRevision,planOcrLineConsensus}=require("../packages/slideclone-core/ocr/ocr-line-consensus");
 function fixture() {
   const line={text:"Network I/O,",confidence:0.82,box:{x:40,y:50,w:100,h:20}};
   const observations=[8,16].map((padding,index)=>({cropBox:{x:40-padding,y:50-padding,w:100+padding*2,h:20+padding*2},
@@ -19,7 +19,7 @@ test("a confirmed wording correction invalidates word proposals bound to the old
  const result=planOcrLineConsensus(input);
  assert.equal(result.ocr.lines[0].text,"Network I/O");
  assert.equal(result.ocr.lines[0].wordPositionHints,undefined);
- const {admitOcrResult}=require("../packages/slideclone-core/ocr-result-admission");
+ const {admitOcrResult}=require("../packages/slideclone-core/ocr/ocr-result-admission");
  assert.doesNotThrow(()=>admitOcrResult(result.ocr,input.dimensions));
 });
 
@@ -28,7 +28,7 @@ test("same-text confidence confirmation retains the original source word proposa
  for(const observation of input.evidence[0].observations)observation.ocr.lines[0].text=input.ocr.lines[0].text;
  const result=planOcrLineConsensus(input);
  assert.deepEqual(result.ocr.lines[0].wordPositionHints,input.ocr.lines[0].wordPositionHints);
- const {admitOcrResult}=require("../packages/slideclone-core/ocr-result-admission");
+ const {admitOcrResult}=require("../packages/slideclone-core/ocr/ocr-result-admission");
  assert.doesNotThrow(()=>admitOcrResult(result.ocr,input.dimensions));
 });
 test("empty OCR or absent evidence preserves source text",()=>{

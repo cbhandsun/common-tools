@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceSceneCompileFeedback:feedback}=require('../packages/slideclone-core/source-scene-compile-feedback');
-const {selectRegionalInventoryTargets:select,readRegionalInventoryObservations:read,regionalInventoryPrompt:prompt}=require('../packages/slideclone-core/source-scene-regional-inventory');
-const {parseLocalTargets,localResponseFormat,decodeLocalResponse}=require('../packages/slideclone-core/source-scene-local-response');
-const {applySceneRegionBoundaryReview:apply}=require('../packages/slideclone-core/source-scene-region-boundary-review');
+const {sourceSceneCompileFeedback:feedback}=require('../packages/slideclone-core/scene-plan/source-scene-compile-feedback');
+const {selectRegionalInventoryTargets:select,readRegionalInventoryObservations:read,regionalInventoryPrompt:prompt}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
+const {parseLocalTargets,localResponseFormat,decodeLocalResponse}=require('../packages/slideclone-core/scene-plan/source-scene-local-response');
+const {applySceneRegionBoundaryReview:apply}=require('../packages/slideclone-core/scene-plan/source-scene-region-boundary-review');
 
 function fixture(){
  const plan={version:1,sourceHash:'a'.repeat(64),widthPx:200,heightPx:200,
@@ -19,8 +19,28 @@ function fixture(){
  return {plan,failures,target,frame,response,capacity:{objects:0,relations:0}};
 }
 
+test('fractional regional envelopes contain every member exactly without changing either source crop',()=>{
+ const {sceneRegionalReviewContext:context}=require('../packages/slideclone-core/scene-plan/source-scene-region-boundary-review');
+ const {allocateSourceSceneReview:allocate,sourceSceneReviewCrop:crop}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
+ const target={index:93,regionId:'panel',box:{x:271.5,y:818.12,w:226.974,h:188.24},endpoints:[{id:'peer',box:{x:271.5,y:443.088,w:226.974,h:30}}]};
+ const original=structuredClone(target),right=target.box.x+target.box.w,bottom=target.box.y+target.box.h;
+ const old={x:271.5,y:443.088,w:226.974,h:563.2719999999999};
+ assert.ok(old.y+old.h<bottom,'freeze the real one-ULP cancellation failure');
+ const descriptor={...target,contextBox:old,role:'region-inventory',optional:true,textKnown:false};
+ assert.throws(()=>allocate({width:1086,height:1448,targets:[descriptor]}),/target context/);
+ const frame=context(target),fixed={...descriptor,contextBox:frame};
+ assert.deepEqual(frame,{x:271,y:443,w:228,h:564});assert.ok(frame.x+frame.w>=right&&frame.y+frame.h>=bottom);
+ assert.deepEqual(allocate({width:1086,height:1448,targets:[fixed]}).indices,[93]);
+ for(const ratio of [0,.7])assert.deepEqual(crop(fixed,ratio,1086,1448),crop(descriptor,ratio,1086,1448));
+ assert.deepEqual(target,original);
+ // The allocator still rejects real clipping: rounding is performed only by
+ // the context producer, never granted to arbitrary external descriptors.
+ assert.throws(()=>allocate({width:1086,height:1448,targets:[{...fixed,contextBox:{...frame,h:560}}]}),/target context/);
+ const {includesSuite}=require('../scripts/test-suites');assert.equal(includesSuite('source-scene-region-boundary-review.test.js','unit'),true);
+});
+
 test('boundary review crops retain a declared member outside the proposed owner envelope without changing ownership or census',()=>{
- const {sourceSceneReviewCrop,allocateSourceSceneReview}=require('../packages/slideclone-core/source-scene-review-allocation');
+ const {sourceSceneReviewCrop,allocateSourceSceneReview}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
  const f=fixture();f.plan.regions[2].box={x:170,y:185,w:20,h:10};
  const before=structuredClone(f.plan),target=select(f.plan,32,0,undefined,f.failures).find(row=>row.regionId==='panel');
  assert.deepEqual(target.contextBox,{x:20,y:20,w:170,h:175});
@@ -40,7 +60,7 @@ test('a boundary member cannot be projected into an unrelated atlas tile outside
 });
 
 test('regional context validates empty malformed hostile and extreme references before inspecting their geometry',()=>{
- const {sceneRegionalReviewContext:context}=require('../packages/slideclone-core/source-scene-region-boundary-review');
+ const {sceneRegionalReviewContext:context}=require('../packages/slideclone-core/scene-plan/source-scene-region-boundary-review');
  const f=fixture();assert.deepEqual(context(f.target),f.target.box);let traps=0;const trap=()=>{traps++;throw Error('private-content');};
  for(const change of [t=>t.boundaryMembers=new Array(1),t=>t.boundaryMembers=new Proxy([],{}),
   t=>t.boundaryMembers=[{box:{x:1,y:1,w:Infinity,h:1}}],t=>t.box.x=16384,
@@ -140,7 +160,7 @@ test('the boundary regression is discovered by unit and all CI',()=>{
 
 test('an accepted model envelope still fails real source compilation when its panel pixels do not exist',t=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
- const {writePng}=require('../packages/slideclone-core/png'),{preflightSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {writePng}=require('../packages/slideclone-core/png'),{preflightSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-boundary-proof-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,{width:200,height:200,rgba:Buffer.alloc(160000,255)});
  const f=fixture();f.plan.sourceHash=crypto.createHash('sha256').update(fs.readFileSync(sourceFile)).digest('hex');

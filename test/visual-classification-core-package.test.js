@@ -1,3 +1,4 @@
+const { coreModulePath, copyCoreModuleClosure } = require('./helpers/isolated-core-package.cjs');
 "use strict";
 
 const assert = require("node:assert/strict");
@@ -17,26 +18,11 @@ test("visual classification executes its complete dependency closure without Ski
   const installed = path.join(directory, "node_modules/@common-tools/slideclone-core");
   fs.mkdirSync(installed, { recursive: true });
   fs.copyFileSync(path.join(core, "package.json"), path.join(installed, "package.json"));
-  const pending = [path.join(core, "layer-classifier.js")];
-  const copied = new Set();
-  while (pending.length) {
-    const file = pending.pop();
-    if (copied.has(file)) continue;
-    copied.add(file);
-    assert.equal(path.dirname(file), core, "classification dependencies must remain in core");
-    const name = path.basename(file);
-    assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/slideclone-core/${name}`), `${name} must be shipped`);
-    const source = fs.readFileSync(file, "utf8");
-    fs.writeFileSync(path.join(installed, name), source);
-    for (const dependency of collectImports(source, name)) {
-      assert.equal(typeof dependency.specifier, "string");
-      assert.ok(dependency.specifier.startsWith("./"), "classification must not require external runtime services");
-      pending.push(require.resolve(path.resolve(core, dependency.specifier)));
-    }
-  }
+  copyCoreModuleClosure(installed, ['layer-classifier'], IMAGE_EDITABLE_RELEASE_FILES);
+
   const load = createRequire(path.join(directory, "consumer.cjs"));
-  const { classifyVisualLayer } = load("@common-tools/slideclone-core/layer-classifier");
-  const { extractVisualAtoms } = load("@common-tools/slideclone-core/visual-atoms");
+  const { classifyVisualLayer } = load("@common-tools/slideclone-core/scene-plan/layer-classifier");
+  const { extractVisualAtoms } = load("@common-tools/slideclone-core/scene-plan/visual-atoms");
   const width = 400; const height = 240;
   const image = { width, height, rgba: Buffer.alloc(width * height * 4, 255) };
   const region = { x: 0, y: 0, w: width, h: height };
@@ -61,6 +47,6 @@ test("visual classification executes its complete dependency closure without Ski
   assert.equal(layer.reconstructionPlan.residualCrop, true);
   assert.equal(fs.existsSync(path.join(directory, "skills")), false);
   for (const name of ["layer-classifier", "visual-atoms", "diagram-understanding"]) {
-    assert.equal(require(path.join(root, `skills/pd-hifi-slideclone/scripts/lib/${name}`)), require(path.join(core, name)));
+    assert.equal(require(path.join(root, `skills/pd-hifi-slideclone/scripts/lib/${name}`)), require(path.join(core, coreModulePath(name))));
   }
 });

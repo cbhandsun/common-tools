@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   inferNativeComponentGroupForText,
   visualAtomMinimumUnitGroupId
-} = require("../packages/slideclone-core/visual-atom-component-grouping");
+} = require("../packages/slideclone-core/scene-plan/visual-atom-component-grouping");
 const {
   annotateTextBoxesWithNativeComponentGroups,
   createVisualAtomNativeShapes

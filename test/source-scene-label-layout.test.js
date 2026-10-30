@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');
-const {reconcileSceneLabelLayout}=require('../packages/slideclone-core/source-scene-label-layout');
-const {prepareRegionProgramLabels}=require('../packages/slideclone-core/source-scene-region-program');
-const {admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
+const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');
+const {reconcileSceneLabelLayout}=require('../packages/slideclone-core/scene-plan/source-scene-label-layout');
+const {prepareRegionProgramLabels}=require('../packages/slideclone-core/scene-plan/source-scene-region-program');
+const {admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
 function fixture(){
  const boxes=[{x:10,y:10,w:10,h:10},{x:70,y:10,w:10,h:10}],dimensions={widthPx:100,heightPx:100};
  const refs=boxes.map(box=>sourceLabelIdentity(box,dimensions));
@@ -92,5 +92,5 @@ test('empty and maximum source inventories keep fixed limits; unsafe and cross-f
 test('layout regression and runtime module enter the unified CI and package surfaces',()=>{
  const suites=require('../scripts/test-suites'),runtime=require('../scripts/verify-runtime-package');
  assert.equal(suites.includesSuite(__filename,'all'),true);assert.equal(suites.includesSuite(__filename,'unit'),true);
- assert.ok(runtime.REQUIRED_FILES.includes('packages/slideclone-core/source-scene-label-layout.js'));
+ assert.ok(runtime.REQUIRED_FILES.includes('packages/slideclone-core/scene-plan/source-scene-label-layout.js'));
 });

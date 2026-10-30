@@ -75,7 +75,7 @@ function createOwnedTextRuntimeProfile(options) {
     const companions = [path.join(path.dirname(builder), "OpenXmlDeckBuilder.dll"),
       path.join(path.dirname(renderer), "soffice.bin")].filter(file => fs.existsSync(file));
     const files = [...new Set([builder, renderer, pdfRenderer, ...companions,
-      ...["owned-text-runtime-profile", "owned-text-probe", "owned-text-refinement", "owned-text-target-window", "owned-source-snapshot", "owned-text-advance", "owned-text-eligibility", "source-owned-glyph-shapes", "color-component-bounds", "text-ink-geometry", "render-libreoffice"]
+      ...["owned-text-runtime-profile", "owned-text-probe", "owned-text-refinement", "owned-text-target-window", "owned-source-snapshot", "owned-text-advance", "owned-text-eligibility", "typography/source-owned-glyph-shapes", "scene-plan/color-component-bounds", "typography/text-ink-geometry", "render-libreoffice"]
         .map(name => path.join(__dirname, `${name}.js`)), ...fonts].map(file => fs.realpathSync(file)))].sort();
     const budget = { bytes: 0 }, identities = [];
     for (const file of files) {

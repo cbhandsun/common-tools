@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   applyPrototypeValidationScreenshotPolicy
-} = require("../packages/slideclone-core/prototype-validation-screenshot-policy");
+} = require("../packages/slideclone-core/quality/prototype-validation-screenshot-policy");
 
 test("prototype validation policy preserves UI screenshots and removes fake editable placeholders", () => {
   const page = {

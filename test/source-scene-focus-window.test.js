@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {allocateSourceSceneReview:allocate,sourceSceneReviewCrop:crop,sourceSceneReviewFocusWindow:focus}=require('../packages/slideclone-core/source-scene-review-allocation');
-const {prepareSceneReviewImages:prepare}=require('../packages/slideclone-core/source-scene-local-observations');
+const {allocateSourceSceneReview:allocate,sourceSceneReviewCrop:crop,sourceSceneReviewFocusWindow:focus}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
+const {prepareSceneReviewImages:prepare}=require('../packages/slideclone-core/scene-plan/source-scene-local-observations');
 const {readPng}=require('../packages/slideclone-core/png');
 const unit={index:10,box:{x:80,y:60,w:900,h:260},role:'region-inventory',optional:true,textKnown:false};
 const dimensions={width:1200,height:700};

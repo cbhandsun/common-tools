@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceObliqueDashFootprint:footprint}=require('../packages/slideclone-core/source-oblique-dash-footprint');
-const {sourceObliqueDashProfile:profile}=require('../packages/slideclone-core/source-oblique-dash-profile');
-const {sourceVisibleCrossingDashProfile:crossing}=require('../packages/slideclone-core/source-visible-crossing-dash-profile');
+const {sourceObliqueDashFootprint:footprint}=require('../packages/slideclone-core/routing/source-oblique-dash-footprint');
+const {sourceObliqueDashProfile:profile}=require('../packages/slideclone-core/routing/source-oblique-dash-profile');
+const {sourceVisibleCrossingDashProfile:crossing}=require('../packages/slideclone-core/routing/source-visible-crossing-dash-profile');
 
 function fixture(slope=.87,horizontal=true){
  const width=320,height=260,rgba=new Uint8Array(width*height*4).fill(255),scale=Math.hypot(1,slope),intercept=120-slope*160;

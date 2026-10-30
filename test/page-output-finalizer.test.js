@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { fixture } = require("./helpers/page-output-fixture.cjs");
-const { createPageOutputFinalizer } = require("../packages/slideclone-core/page-output-finalizer");
+const { createPageOutputFinalizer } = require("../packages/slideclone-core/scene-plan/page-output-finalizer");
 
 test("output cleanup applies screenshot policy before and after crop materialization", () => {
   const f = fixture();

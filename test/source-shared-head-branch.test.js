@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceSharedHeadBranch:observe}=require('../packages/slideclone-core/source-shared-head-branch');
+const {sourceSharedHeadBranch:observe}=require('../packages/slideclone-core/routing/source-shared-head-branch');
 function fixture(){
  const width=64,height=64,mask=new Uint8Array(width*height);
  for(let y=5;y<=30;y++)mask[y*width+32]=1;
@@ -36,5 +36,5 @@ test('disconnected, empty, malformed, hostile and exhausted branch observations 
  const getter=fixture();Object.defineProperty(getter,'mask',{get:trap});
  for(const value of [getter,new Proxy({}, {get:trap}),{...fixture(),mask:new Proxy(new Uint8Array(4096),{get:trap})}])assert.throws(()=>observe(value),TypeError);
  assert.equal(calls,0);assert.equal(require('../scripts/test-suites').includesSuite(__filename,'unit'),true);
- assert.ok(require('../scripts/verify-runtime-package').IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-shared-head-branch.js'));
+ assert.ok(require('../scripts/verify-runtime-package').IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/routing/source-shared-head-branch.js'));
 });

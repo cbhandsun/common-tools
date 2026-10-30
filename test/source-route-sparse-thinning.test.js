@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {thinSourceRoute}=require('../packages/slideclone-core/source-route-centerline');
+const {thinSourceRoute}=require('../packages/slideclone-core/routing/source-route-centerline');
 // Independent dense reference: original parallel two-phase deletion rule.
 function dense(input,width,height,work,terminals){
  const mask=input.slice(),removed=[];

@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createPageSemanticClaims } = require("../packages/slideclone-core/page-semantic-claims");
+const { createPageSemanticClaims } = require("../packages/slideclone-core/scene-plan/page-semantic-claims");
 const names = ["createSkillsCapabilityMatrixObjects", "createDemandIntakeFunnelObjects", "createSmartReviewBranchGateObjects", "createSkillChainOrchestrationObjects", "createAssetLandingTriadObjects"];
 const empty = () => ({ matched: false, sourceIds: [], shapes: [], textBoxes: [], images: [] });
 function fixture(implementations = {}) {

@@ -1,10 +1,10 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createIconBoundaryPartition:create,deferIconBoundaryComponent:defer,sealIconBoundaryPartition:seal}=require('../packages/slideclone-core/source-scene-icon-boundary-partition');
-const {measureSourceSceneVisibleGap}=require('../packages/slideclone-core/source-scene-visible-gap');
-const {compileSourceSceneVisibleGap}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
-const {measureSceneNativeIconDetailed}=require('../packages/slideclone-core/source-scene-icon');
+const {createIconBoundaryPartition:create,deferIconBoundaryComponent:defer,sealIconBoundaryPartition:seal}=require('../packages/slideclone-core/scene-plan/source-scene-icon-boundary-partition');
+const {measureSourceSceneVisibleGap}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+const {compileSourceSceneVisibleGap}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+const {measureSceneNativeIconDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-icon');
 function fixture(){
  const image={width:240,height:180,rgba:Buffer.alloc(240*180*4,255)},budget={used:0},ink=new Set();
  const put=(x,y,rgb)=>image.rgba.set([...rgb,255],(y*240+x)*4);

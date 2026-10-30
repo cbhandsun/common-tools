@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parseSceneProgramBindings,readSceneProgram,sceneProgramSchema}=require('../packages/slideclone-core/source-scene-program-contract');
-const {parseLocalTargets,localResponseFormat,decodeLocalResponse,sceneRegionalOutputPrompt}=require('../packages/slideclone-core/source-scene-local-response');
+const {parseSceneProgramBindings,readSceneProgram,sceneProgramSchema}=require('../packages/slideclone-core/scene-plan/source-scene-program-contract');
+const {parseLocalTargets,localResponseFormat,decodeLocalResponse,sceneRegionalOutputPrompt}=require('../packages/slideclone-core/scene-plan/source-scene-local-response');
 const binding=()=>({objects:['object-a','object-b'],relations:['relation-a'],labels:[0,2],allowNewMembers:false});
 const style=refs=>({refs,family:'Arial',weight:'regular',sizePt:null,role:null});
 const response=()=>({objects:['object-a','object-b'],relations:['relation-a'],labels:[style([0,2])]});

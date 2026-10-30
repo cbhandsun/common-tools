@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { createHierarchyDiagramToolkit } = require("../packages/slideclone-core/hierarchy-diagram");
+const { createHierarchyDiagramToolkit } = require("../packages/slideclone-core/archetypes/hierarchy-diagram");
 
 test("hierarchy diagram plugin fails closed for malformed and extreme candidates", () => {
   const toolkit = createHierarchyDiagramToolkit(operations());

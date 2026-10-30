@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {planSceneCropLayout}=require("../packages/slideclone-core/source-scene-crop-layout");
+const {planSceneCropLayout}=require("../packages/slideclone-core/scene-plan/source-scene-crop-layout");
 const tight=[[341,134],[146,148],[127,111],[125,117],[132,133],[119,133],[128,124],[118,124],[402,276],[428,294],[402,352],[428,346],[470,372]];
 const context=[[745,612],[354,356],[305,289],[301,293],[316,317],[303,317],[306,302],[290,296],[566,440],[604,470],[566,516],[604,522],[571,574]];
 function sizes(rows){return rows.map(([w,h],index)=>({index,w,h}));}

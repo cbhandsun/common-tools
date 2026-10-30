@@ -1,8 +1,9 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
 const path = require("path");
-const { DEFAULT_SLIDE } = require("@common-tools/slideclone-core/page-text-rule-helpers");
-const { lineBox } = require("@common-tools/slideclone-core/workflow-shape-primitives");
+const { DEFAULT_SLIDE } = core("@common-tools/slideclone-core/typography/page-text-rule-helpers");
+const { lineBox } = core("@common-tools/slideclone-core/archetypes/workflow-shape-primitives");
 
 function createPrototypeLoopAssetsFactory(dependencies = {}) {
   const {

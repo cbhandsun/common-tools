@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {insidePolygon}=require('../packages/slideclone-core/source-scene-band-geometry');
-const {createMeasuredScenePortFrame,measuredSceneContourPort,measuredSceneProjectedPort,verifyMeasuredScenePort}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {measureSceneRelationDetailed:measure}=require('../packages/slideclone-core/source-scene-relation');
+const {insidePolygon}=require('../packages/slideclone-core/scene-plan/source-scene-band-geometry');
+const {createMeasuredScenePortFrame,measuredSceneContourPort,measuredSceneProjectedPort,verifyMeasuredScenePort}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {measureSceneRelationDetailed:measure}=require('../packages/slideclone-core/scene-plan/source-scene-relation');
 function fixture(vertical=false,varyColor=false){
  const image={width:200,height:180,rgba:Buffer.alloc(200*180*4,255)},a={x:20,y:20,w:60,h:120},b={x:120,y:20,w:60,h:120};
  let points=[[0,0],[1,0],[1,1/6],[14/15,1/6],[14/15,1/3],[1,1/3],[1,1],[0,1]],rectangle=[[0,0],[1,0],[1,1],[0,1]];

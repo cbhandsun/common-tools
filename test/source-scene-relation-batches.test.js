@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {sceneRelationBatches:read,sceneLocalRelationCapacity:capacity,recordSceneLocalRelationBatch:merge,sceneInventoryRelationBatchesValid:valid}=require('../packages/slideclone-core/source-scene-relation-batches');
+const {sceneRelationBatches:read,sceneLocalRelationCapacity:capacity,recordSceneLocalRelationBatch:merge,sceneInventoryRelationBatchesValid:valid}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
 const base=n=>({version:1,sourceHash:'a'.repeat(64),widthPx:200,heightPx:100,regions:[],objects:[],relations:Array.from({length:n},(_,i)=>({id:'relation-e'+i,regionId:'root',fromId:'a',toId:'b',direction:'forward'}))});
 
 test('rejected proposal counters cannot refresh the local allowance or execute hostile controls',()=>{
@@ -26,9 +26,9 @@ test('rejected proposal counters cannot refresh the local allowance or execute h
 });
 
 test('global rejections without usable anchors reserve original proposal slots and survive native inventory audit',()=>{
- const {admitSourceScenePlan:admit}=require('../packages/slideclone-core/source-scene-plan');
- const {sceneRelationSlotsUsed:used}=require('../packages/slideclone-core/source-scene-relation-batches');
- const {buildSceneInventoryEvidence:build,auditSceneInventory:audit}=require('../packages/slideclone-core/source-scene-observed-inventory');
+ const {admitSourceScenePlan:admit}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+ const {sceneRelationSlotsUsed:used}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
+ const {buildSceneInventoryEvidence:build,auditSceneInventory:audit}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
  const scene={format:'compact-v5',coordinateSpace:'normalized-1000',boxFormat:'ymin-xmin-ymax-xmax',
   regions:[['root',null,'section',[0,0,1000,1000]]],inventory:[['root',0,0,2]],objects:[],
   relations:[['bad1','root','missing-a','missing-b','forward',[200,200,300,300]],
@@ -88,8 +88,8 @@ test('native inventory cannot hide real relations, reserved failures or extra al
 });
 
 test('26 source arrows pass from the original three planner phases into 26 actual native connections without new scans or object slots',async t=>{
- const {writePng}=require('../packages/slideclone-core/png'),{createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
- const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler'),{auditSceneInventory}=require('../packages/slideclone-core/source-scene-observed-inventory');
+ const {writePng}=require('../packages/slideclone-core/png'),{createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
+ const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler'),{auditSceneInventory}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-26-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const {image,scene}=require('./helpers/scene-arrow-chain.cjs').sourceArrowChain();
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,image);let calls=0;
@@ -125,8 +125,8 @@ test('new batch and rejection regressions are discovered by the unified unit and
 });
 
 test('batch context binds scheduling and complete regional programs to the same real relation inventory',()=>{
- const {orderSourceSceneProposals}=require('../packages/slideclone-core/source-scene-proposal-order');
- const {prepareRegionProgramLabels}=require('../packages/slideclone-core/source-scene-region-program');
+ const {orderSourceSceneProposals}=require('../packages/slideclone-core/scene-plan/source-scene-proposal-order');
+ const {prepareRegionProgramLabels}=require('../packages/slideclone-core/scene-plan/source-scene-region-program');
  const original=base(24),added=Array.from({length:2},(_,i)=>({...original.relations[0],id:'relation-extra-'+i}));
  const p=merge(original,{...original,relations:[...original.relations,...added]},added.map(r=>r.id));
  p.regions=[{id:'root',kind:'section',parentId:null,box:{x:0,y:0,w:200,h:100}}];
@@ -141,8 +141,8 @@ test('batch context binds scheduling and complete regional programs to the same 
 });
 
 test('overlapping missing text cannot erase quarantined source controls or their original global slots',async t=>{
- const {writePng}=require('../packages/slideclone-core/png'),{createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
- const {sceneRejectedRelationCandidates}=require('../packages/slideclone-core/source-scene-rejected-relations');
+ const {writePng}=require('../packages/slideclone-core/png'),{createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
+ const {sceneRejectedRelationCandidates}=require('../packages/slideclone-core/scene-plan/source-scene-rejected-relations');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-controls-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,{width:200,height:100,rgba:Buffer.alloc(200*100*4,255)});let calls=0;
  const scene={coordinateSpace:'source-pixels',regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:200,h:100}},

@@ -1,14 +1,15 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
-const { normalizeStructuredCaseMatrixText, normalizeTextKey } = require("@common-tools/slideclone-core/diagram-label-matching");
+const { normalizeStructuredCaseMatrixText, normalizeTextKey } = core("@common-tools/slideclone-core/archetypes/diagram-label-matching");
 const {
   assetOsKpiBenefitTextColor,
   assetOsKpiBenefitTextRole,
   DEFAULT_SLIDE,
   isAssetOsKpiBenefitDiagramText,
   normalizeAssetOsKpiBenefitTextKey
-} = require("@common-tools/slideclone-core/page-text-rule-helpers");
-const { roundedBox } = require("@common-tools/slideclone-core/prd-generation-shapes");
+} = core("@common-tools/slideclone-core/typography/page-text-rule-helpers");
+const { roundedBox } = core("@common-tools/slideclone-core/archetypes/prd-generation-shapes");
 
 function createAssetOsKpiBenefitObjects(page, rawTextBoxes = [], visibleTextBoxes = [], slideSize = DEFAULT_SLIDE) {
   if (!shouldObjectifyAssetOsKpiBenefitPage(page, rawTextBoxes, slideSize)) return { shapes: [], textBoxes: [] };

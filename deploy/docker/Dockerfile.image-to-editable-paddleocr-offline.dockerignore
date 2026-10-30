@@ -1,0 +1,8 @@
+# Refresh only package sources and compile OpenXML inside the SDK stage.
+**
+!packages/
+!packages/**
+packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/bin/
+packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/bin/**
+packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/obj/
+packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/obj/**

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {validateDeckIrTree} = require("./deck-ir-tree");
 const {readRawImageDimensions} = require("./archive-admission");
-const {validateSemanticFallback} = require("./semantic-fallback-adapter");
+const {validateSemanticFallback} = require("./archetypes/semantic-fallback-adapter");
 
 /** @param {unknown} value @returns {Record<string, unknown>} */
 function record(value) {

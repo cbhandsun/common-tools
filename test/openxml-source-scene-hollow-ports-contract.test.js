@@ -2,8 +2,8 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {sourceHollowNodes}=require('./helpers/scene-hollow-nodes.cjs');
 const {writePng}=require('../packages/slideclone-core/png');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
-const {buildOpenXmlDecksSync}=require('../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+const {buildOpenXmlDecksSync}=require('../packages/slideclone-core/pptx-openxml-dotnet');
 const {readZipEntryText}=require('../packages/ooxml-core/pptx-zip');
 test('hollow source perimeters emit real off-center connection sites without a filled rectangle proxy',{timeout:120000},t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'hollow-openxml-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));

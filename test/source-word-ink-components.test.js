@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {isolateSourceWordInk}=require("../packages/slideclone-core/source-word-ink-components");
+const {isolateSourceWordInk}=require("../packages/slideclone-core/typography/source-word-ink-components");
 function fixture(){const width=20,height=16,ink=new Uint8Array(width*height);
  for(let y=5;y<11;y++)for(let x=6;x<14;x++)ink[y*width+x]=1;
  return {width,height,ink,seed:{x:3,y:3,w:14,h:10}};}

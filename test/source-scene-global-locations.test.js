@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceSceneGlobalLocations}=require('../packages/slideclone-core/source-scene-global-locations');
+const {sourceSceneGlobalLocations}=require('../packages/slideclone-core/scene-plan/source-scene-global-locations');
 const row=(index=0)=>({index,labelRef:'private-label-identity',box_2d:[10,20,30,40],confidence:.95});
 
 test('global locator compression preserves every original index, frame, confidence and quoted hint',()=>{
@@ -33,5 +33,5 @@ test('malformed, extreme, sparse and executable input fail before accessing user
 test('global locator regression enters unified CI and runtime distribution',()=>{
  const suites=require('../scripts/test-suites'),runtime=require('../scripts/verify-runtime-package');
  assert.equal(suites.includesSuite(__filename,'unit'),true);assert.equal(suites.includesSuite(__filename,'all'),true);
- assert.ok(runtime.REQUIRED_FILES.includes('packages/slideclone-core/source-scene-global-locations.js'));
+ assert.ok(runtime.REQUIRED_FILES.includes('packages/slideclone-core/scene-plan/source-scene-global-locations.js'));
 });

@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {withSceneCompilationSession:open}=require('../packages/slideclone-core/source-scene-compilation-session');
-const {readSceneFillRaster:read}=require('../packages/slideclone-core/source-scene-fill-raster-cache');
+const {withSceneCompilationSession:open}=require('../packages/slideclone-core/scene-plan/source-scene-compilation-session');
+const {readSceneFillRaster:read}=require('../packages/slideclone-core/scene-plan/source-scene-fill-raster-cache');
 function fixture(){return {image:{width:130,height:130,rgba:Buffer.alloc(130*130*4,255)},sourceHash:'a'.repeat(64)};}
 test('preflight and final geometry re-read one private source snapshot under the same 4M counter',()=>{
  const f=fixture(),first=open(f,s=>{read(s.image,{x:60,y:60,w:10,h:10},s.budget);return s.budget.used;});

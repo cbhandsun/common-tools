@@ -1,8 +1,8 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {createSceneMeasurementCache}=require("../packages/slideclone-core/source-scene-measurement-cache");
-const {measureLayeredSceneBackground}=require("../packages/slideclone-core/source-scene-layered-background");
-const {parseBandBackground,crossesUnobservedCore,curveTouchesUnobservedCore}=require("../packages/slideclone-core/source-scene-band-geometry");
+const {createSceneMeasurementCache}=require("../packages/slideclone-core/scene-plan/source-scene-measurement-cache");
+const {measureLayeredSceneBackground}=require("../packages/slideclone-core/scene-plan/source-scene-layered-background");
+const {parseBandBackground,crossesUnobservedCore,curveTouchesUnobservedCore}=require("../packages/slideclone-core/scene-plan/source-scene-band-geometry");
 function fixture(){
  const image={width:1200,height:400,rgba:Buffer.alloc(1200*400*4,255)},hint={x:20,y:80,w:1160,h:260};
  const paint=(box,color)=>{for(let y=box.y;y<box.y+box.h;y++)for(let x=box.x;x<box.x+box.w;x++)image.rgba.set([...color,255],(y*image.width+x)*4);};
@@ -27,7 +27,7 @@ test("unmeasured provider child boxes cannot authorize parent foreground masks",
 });
 
 test("a complete layered source body retains its physical frame independently of the returned drawing",()=>{
- const {measuredSceneOpaqueSurface,hasMeasuredScenePortFrame}=require('../packages/slideclone-core/source-scene-port-evidence');
+ const {measuredSceneOpaqueSurface,hasMeasuredScenePortFrame}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
  const f=fixture();for(const child of f.children)assert.ok(f.cache.surface(child).measured);
  assert.equal(f.cache.portFrame(f.hint),null);
  const fit=f.cache.layeredBackground(f.hint,f.children);assert.ok(fit);
@@ -87,7 +87,7 @@ test("layered background regressions are discovered by the unified unit suite",(
 });
 
 test("band ownership accepts the cubic contour already emitted by the source tracer",()=>{
- const {parseBandBackground,ownerVertices}=require("../packages/slideclone-core/source-scene-band-geometry");
+ const {parseBandBackground,ownerVertices}=require("../packages/slideclone-core/scene-plan/source-scene-band-geometry");
  const f=fixture(),segments=[{type:"moveTo",points:[{x:0,y:0}]},
   {type:"cubicBezTo",points:[{x:.5,y:0},{x:1,y:.5},{x:1,y:1}]},
   {type:"lnTo",points:[{x:0,y:1}]},{type:"close",points:[]}];
@@ -98,7 +98,7 @@ test("band ownership accepts the cubic contour already emitted by the source tra
 });
 
 test("cubic band owners reject malformed, out of range, hostile and over-budget controls",()=>{
- const {parseBandBackground}=require("../packages/slideclone-core/source-scene-band-geometry");
+ const {parseBandBackground}=require("../packages/slideclone-core/scene-plan/source-scene-band-geometry");
  const f=fixture(),curve=[{type:"moveTo",points:[{x:0,y:0}]},
   {type:"cubicBezTo",points:[{x:.5,y:0},{x:1,y:.5},{x:1,y:1}]},
   {type:"lnTo",points:[{x:0,y:1}]},{type:"close",points:[]}];

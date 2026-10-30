@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRingTextOwned}=require('../packages/slideclone-core/source-ring-text-ownership');
-const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
-const {measureOutlinedSceneContainerDetailed}=require('../packages/slideclone-core/source-scene-outline');
+const {sourceRingTextOwned}=require('../packages/slideclone-core/typography/source-ring-text-ownership');
+const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
+const {measureOutlinedSceneContainerDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-outline');
 function fixture(){
  const image={width:160,height:120,rgba:Buffer.alloc(160*120*4,255)},budget={used:0},hint={x:30,y:25,w:90,h:70};
  const put=(x,y)=>image.rgba.set([20,20,20,255],(y*160+x)*4);

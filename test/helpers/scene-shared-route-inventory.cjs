@@ -1,6 +1,6 @@
 'use strict';
 const {sharedJunctionFixture}=require('./scene-shared-junction.cjs');
-const {initializeSceneObjectBatches}=require('../../packages/slideclone-core/source-scene-object-batches');
+const {initializeSceneObjectBatches}=require('../../packages/slideclone-core/scene-plan/source-scene-object-batches');
 // Final-member contract fixture only. Source pixels and compile authority are
 // deliberately absent; production source measurement needs separate coverage.
 function sharedRouteInventoryFixture(){

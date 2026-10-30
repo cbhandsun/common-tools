@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { vectorizeVerifiedLineArtIcon } = require("../packages/slideclone-core/sparse-icon-native-contours");
+const { vectorizeVerifiedLineArtIcon } = require("../packages/slideclone-core/archetypes/sparse-icon-native-contours");
 
 function image(width, height) { return { width, height, rgba: Buffer.alloc(width * height * 4, 255) }; }
 function fill(im, x, y, w, h, color) {
@@ -43,4 +43,13 @@ test("verified line art validates image and target boundaries", () => {
   }
   assert.throws(() => vectorizeVerifiedLineArtIcon({ ...request, box: { ...request.box, w: Infinity } }), TypeError);
   assert.throws(() => vectorizeVerifiedLineArtIcon({ ...request, idPrefix: "" }), TypeError);
+});
+
+test("verified line art ignores tiny interior fill speckles while retaining valid outlines", () => {
+  const im = image(64, 64);
+  fill(im, 8, 8, 20, 20, [20, 20, 20]);
+  fill(im, 40, 40, 4, 4, [215, 233, 255]);
+  const shapes = vectorizeVerifiedLineArtIcon({ image: im, box: { x: 0, y: 0, w: 64, h: 64 }, idPrefix: "outline" });
+  assert.equal(shapes.length, 1);
+  assert.equal(shapes[0].source.iconPart, "outline-contour");
 });

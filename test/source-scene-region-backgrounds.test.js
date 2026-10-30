@@ -1,9 +1,9 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),os=require("node:os"),path=require("node:path"),crypto=require("node:crypto");
 const {writePng}=require("../packages/slideclone-core/png");
-const {parseSourceScenePlan}=require("../packages/slideclone-core/source-scene-plan");
-const {compileSourceScene}=require("../packages/slideclone-core/source-scene-compiler");
-const {proposeSceneTableHeaders}=require("../packages/slideclone-core/source-scene-table-headers");
+const {parseSourceScenePlan}=require("../packages/slideclone-core/scene-plan/source-scene-plan");
+const {compileSourceScene}=require("../packages/slideclone-core/scene-plan/source-scene-compiler");
+const {proposeSceneTableHeaders}=require("../packages/slideclone-core/scene-plan/source-scene-table-headers");
 function fixture(t,kind="section"){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),"scene-region-background-"));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)},sourceFile=path.join(root,"source.png");

@@ -33,7 +33,7 @@ test('open-arrow builder regression is present in the unified contract suite',()
 test('explicit relationship dimensions match existing OpenXML defaults without changing native geometry',{timeout:60000},t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'native-arrow-size-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- const {flowConnectorShape}=require('../packages/slideclone-core/relationship-native-shapes');
+ const {flowConnectorShape}=require('../packages/slideclone-core/archetypes/relationship-native-shapes');
  const shape=flowConnectorShape({id:'source'},{box:{x:10,y:20,w:30,h:20}},{box:{x:100,y:20,w:30,h:20}},null,0);
  const previous=structuredClone(shape);delete previous.style.endArrowWidth;delete previous.style.endArrowLength;
  const slides=[];

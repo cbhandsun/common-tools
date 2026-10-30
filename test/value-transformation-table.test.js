@@ -12,7 +12,7 @@ const {
   createValueTransformationTableModel,
   materializeValueTransformationIcon,
   normalizeValueTransformationTextBoxes
-} = require("../packages/slideclone-core/value-transformation-table");
+} = require("../packages/slideclone-core/archetypes/value-transformation-table");
 
 const values = [
   "核心价值转化：从旧模式到智能化基座",

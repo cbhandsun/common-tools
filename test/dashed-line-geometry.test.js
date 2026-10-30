@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { fitDashedLineGeometry } = require("../packages/slideclone-core/dashed-line-geometry");
+const { fitDashedLineGeometry } = require("../packages/slideclone-core/routing/dashed-line-geometry");
 
 function fixture(sign = 1) {
   const points = [];

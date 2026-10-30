@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {selectTypographyCandidate:select}=require('../packages/slideclone-core/typography-candidate-selection');
+const {selectTypographyCandidate:select}=require('../packages/slideclone-core/typography/typography-candidate-selection');
 const hash=c=>c.repeat(64),ink=(h=20)=>({x:10,y:10,w:80,h});
 function request(){return {geometryUncertaintyPt:.5,source:[{id:'a',ink:ink()}],
  baseline:{id:'base',pdr:.2,mad:20,texts:[{id:'a',content:hash('a'),revision:hash('b'),ink:ink(16)}]},

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { measureTriangleTopologyPrimitives } = require("../packages/slideclone-core/triangle-topology-measurement");
+const { measureTriangleTopologyPrimitives } = require("../packages/slideclone-core/archetypes/triangle-topology-measurement");
 
 test("measures arrow geometry, baseline, and center from accent pixels", () => {
   const image = blankImage(400, 320);

@@ -2,7 +2,7 @@
 const test = require("node:test"), assert = require("node:assert/strict");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
 const { writeStoredZipAtomic } = require("../packages/ooxml-core/pptx-zip");
-const { parsePresentationFrame, readPresentationRasterFrame } = require("../packages/slideclone-core/presentation-frame");
+const { parsePresentationFrame, readPresentationRasterFrame } = require("../packages/slideclone-core/archetypes/presentation-frame");
 const ns = "http://schemas.openxmlformats.org/presentationml/2006/main";
 const xml = (body = '<p:sldSz cx="7785100" cy="5803900"/>') => `<p:presentation xmlns:p="${ns}">${body}</p:presentation>`;
 

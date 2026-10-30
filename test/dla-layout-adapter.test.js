@@ -8,7 +8,7 @@ const {
   associateTextWithDlaRegions,
   normalizeDlaRegions,
   synthesizeSemanticLayoutTree
-} = require("../packages/slideclone-core/dla-layout-adapter");
+} = require("../packages/slideclone-core/archetypes/dla-layout-adapter");
 
 test("assertDlaRegion validates confidence, labels, and bounding box", () => {
   const valid = assertDlaRegion({

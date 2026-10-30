@@ -1,14 +1,14 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),{EventEmitter}=require('node:events');
-const {fitSceneFillGeometryBatch}=require('../packages/slideclone-core/source-scene-fill-geometry-batch');
-const {fitSceneFillGeometry}=require('../packages/slideclone-core/source-scene-fill-geometry');
+const {fitSceneFillGeometryBatch}=require('../packages/slideclone-core/scene-plan/source-scene-fill-geometry-batch');
+const {fitSceneFillGeometry}=require('../packages/slideclone-core/scene-plan/source-scene-fill-geometry');
 const deadline=()=>({deadlineMs:Date.now()+10000});
 function fixture(offset=0){
  const points=[];for(let x=0;x<160;x++)for(let y=2+(Math.floor(x/2)%2)*2;y<22;y++)points.push({x:x+offset,y});
  return {points,box:{x:offset,y:2,w:160,h:20},wide:true,bridged:false,compound:false};
 }
 function batchWithWorker(Worker){
- const threads=require('node:worker_threads'),file=require.resolve('../packages/slideclone-core/source-scene-fill-geometry-batch');
+ const threads=require('node:worker_threads'),file=require.resolve('../packages/slideclone-core/scene-plan/source-scene-fill-geometry-batch');
  const original=threads.Worker,cached=require.cache[file];
  try{threads.Worker=Worker;delete require.cache[file];return require(file).fitSceneFillGeometryBatch;}
  finally{threads.Worker=original;require.cache[file]=cached;}
@@ -26,7 +26,7 @@ test('empty batches, source control sanitization and malformed inputs retain the
  for(const inputs of [null,Array(2),new Proxy([],{}),Array(33).fill(fixture()),[null],[{...fixture(),bridged:'yes'}]])
   await assert.rejects(fitSceneFillGeometryBatch(inputs,deadline()),TypeError);
  const input=fixture(),before=structuredClone(input);input.secret='must not cross the boundary';
- const {parseSceneFillGeometry}=require('../packages/slideclone-core/source-scene-fill-geometry');
+ const {parseSceneFillGeometry}=require('../packages/slideclone-core/scene-plan/source-scene-fill-geometry');
  assert.deepEqual(parseSceneFillGeometry(input),before);
  let evaluated=0;Object.defineProperty(input,'points',{get(){evaluated++;throw Error('private content');}});
  await assert.rejects(fitSceneFillGeometryBatch([input],deadline()),TypeError);assert.equal(evaluated,0);

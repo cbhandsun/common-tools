@@ -1,6 +1,6 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
-const { sourceRouteLocalBackground: measure } = require("../packages/slideclone-core/source-route-local-background");
+const { sourceRouteLocalBackground: measure } = require("../packages/slideclone-core/routing/source-route-local-background");
 function fixture() {
   const image = { width: 24, height: 32, rgba: Buffer.alloc(24 * 32 * 4, 255) }, body = new Uint8Array(24 * 32);
   const put = (x, y, rgb) => image.rgba.set([...rgb, 255], (y * 24 + x) * 4);
@@ -58,10 +58,10 @@ test("background observation is invariant to axis transposition and reverse dire
 test("new route background tests enter the unified unit and all suites", () => {
   const suites = require("../scripts/test-suites"), runtime = require("../scripts/verify-runtime-package");
   for (const suite of ["unit", "all"]) assert.equal(suites.includesSuite(__filename, suite), true);
-  assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes("packages/slideclone-core/source-route-local-background.js"));
+  assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes("packages/slideclone-core/routing/source-route-local-background.js"));
 });
 test("only internally measured non-global sections identify an active local background", () => {
-  const {hasRouteLocalBackground:active}=require("../packages/slideclone-core/source-route-local-background");
+  const {hasRouteLocalBackground:active}=require("../packages/slideclone-core/routing/source-route-local-background");
   const f=fixture(),at=measure(f);assert.equal(active(at),true);
   const unanchored=fixture();unanchored.body.fill(0);assert.equal(active(measure(unanchored)),false);
   const flat=fixture();flat.image.rgba.fill(255);assert.equal(active(measure(flat)),false);

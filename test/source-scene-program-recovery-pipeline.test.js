@@ -2,12 +2,12 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {writePng}=require('../packages/slideclone-core/png');
-const {admitSourceScenePlan:admit}=require('../packages/slideclone-core/source-scene-plan');
-const {selectTopologyReviewTargets:select,applyTopologyReview:apply}=require('../packages/slideclone-core/source-scene-topology-review');
-const {currentSceneAdmissionRejections:active,rebindRegionProgramMembers:rebind}=require('../packages/slideclone-core/source-scene-region-program');
-const {compileSourceScene:compile,preflightSourceScene:preflight}=require('../packages/slideclone-core/source-scene-compiler');
-const {sceneRelationSlotsUsed:slots,sceneLocalRelationCapacity:localCapacity}=require('../packages/slideclone-core/source-scene-relation-batches');
-const {auditSceneInventory:audit}=require('../packages/slideclone-core/source-scene-observed-inventory');
+const {admitSourceScenePlan:admit}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {selectTopologyReviewTargets:select,applyTopologyReview:apply}=require('../packages/slideclone-core/scene-plan/source-scene-topology-review');
+const {currentSceneAdmissionRejections:active,rebindRegionProgramMembers:rebind}=require('../packages/slideclone-core/scene-plan/source-scene-region-program');
+const {compileSourceScene:compile,preflightSourceScene:preflight}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+const {sceneRelationSlotsUsed:slots,sceneLocalRelationCapacity:localCapacity}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
+const {auditSceneInventory:audit}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
 
 function fixture(t,blank=false,malformedPath=false,withAlias=false){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-program-recovery-'));
@@ -88,8 +88,8 @@ test('original two-view topology repair restores a rejected owner program and re
 });
 
 test('a repaired owner with charged physical aliases reaches native compilation and final member audit after compaction',t=>{
- const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/source-scene-physical-inventory');
- const {sceneHeaderObjectCapacity:headerCapacity,sceneLocalObjectCapacity:objectCapacity}=require('../packages/slideclone-core/source-scene-object-batches');
+ const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/scene-plan/source-scene-physical-inventory');
+ const {sceneHeaderObjectCapacity:headerCapacity,sceneLocalObjectCapacity:objectCapacity}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
  for(const blank of [false,true]){
   const {repaired,request}=fixture(t,blank,true,true),snapshot=structuredClone(repaired.resolvedRegionPrograms);
   const next=compact(repaired,[{id:'object-alias',canonicalId:'object-a'}]).plan;
@@ -120,7 +120,7 @@ test('unselected or disagreeing original observations cannot discharge the progr
 
 test('the production planner schedules the original relation repair and persists its restored owner program within one observation pair',async t=>{
  for(const malformedPath of [false,true]){
- const {proposal,request}=fixture(t,false,malformedPath),{createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+ const {proposal,request}=fixture(t,false,malformedPath),{createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
  const counts={global:0,local:0};
  const planner=createSourceScenePlanner({recognize:async input=>{
   if(input.task==='structure'){counts.global++;return {scene:proposal,reviews:[],missingText:[]};}
@@ -144,8 +144,8 @@ test('the production planner schedules the original relation repair and persists
 });
 
 test('the production planner restores original dependencies after real source-measured preflight compaction',async t=>{
- const {proposal,request}=fixture(t,false,true,true),{createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
- const counts={global:0,local:0,preflight:0};
+ const {proposal,request}=fixture(t,false,true,true),{createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
+ const counts={global:0,local:0,preflight:0},sessions=[];
  const planner=createSourceScenePlanner({recognize:async input=>{
   if(input.task==='structure'){counts.global++;return {scene:proposal,reviews:[],missingText:[]};}
   counts.local++;const targets=input.localTargets;
@@ -158,9 +158,11 @@ test('the production planner restores original dependencies after real source-me
  }});
  const out=await planner({root:request.root,sourceFile:request.sourceFile,dimensions:{widthPx:200,heightPx:180},ocr:{lines:[]},
   isCancellationRequested:async()=>false,preflightSourceScene:(plan,compilationSession)=>{
-   counts.preflight++;return preflight({...request,plan,compilationSession});
+   counts.preflight++;const out=preflight({...request,plan,compilationSession});sessions.push(out.compilationSession);return out;
   }});
- assert.deepEqual(counts,{global:1,local:2,preflight:1});assert.deepEqual(active(out.plan),[]);
+ assert.deepEqual(counts,{global:1,local:2,preflight:2});assert.deepEqual(active(out.plan),[]);
+ assert.equal(sessions[0],sessions[1],'recovered route dependencies must refresh on the original compiler ledger');
+ assert.equal(out.compilationSession,sessions[0]);
  assert.deepEqual(out.plan.pendingRegionPrograms,[]);assert.equal(out.plan.resolvedRegionPrograms.length,1);
  assert(out.plan.objectBatches.aliases.some(row=>row.id==='object-alias'&&row.canonicalId==='object-a'));
  assert(out.plan.resolvedRegionPrograms[0].program.objects.includes('object-alias'));
@@ -176,18 +178,37 @@ test('the production planner restores original dependencies after real source-me
 
 test('resolution controls cannot hide changed source, missing dependencies, conflicting labels or different admission failures',t=>{
  const {repaired,request}=fixture(t);
+ let mutationIndex=0;
  for(const change of [p=>p.resolvedRegionPrograms[0].sourceHash='b'.repeat(64),p=>p.resolvedRegionPrograms[0].widthPx++,
   p=>p.resolvedRegionPrograms[0].index=23,p=>p.resolvedRegionPrograms[0].program.regionId='region-left',
   p=>p.regionPrograms.find(row=>row.regionId==='region-root').relations=[],p=>p.resolvedRegionPrograms.push(structuredClone(p.resolvedRegionPrograms[0])),
   p=>p.resolvedRegionPrograms[0].program.labels=[{refs:['label-'+'a'.repeat(24)],family:'Arial'}],
   p=>p.admission.rejections[0].detailCode='program-contract',p=>p.pendingRegionPrograms=[{index:0,program:structuredClone(p.resolvedRegionPrograms[0].program)}]]){
-  const bad=structuredClone(repaired);change(bad);assert.throws(()=>compile({...request,plan:bad}),e=>e instanceof TypeError&&/^Scene /u.test(e.message));
+  const bad=structuredClone(repaired);change(bad);assert.throws(()=>compile({...request,plan:bad}),e=>e instanceof TypeError&&/^Scene /u.test(e.message),'resolution mutation '+mutationIndex);mutationIndex++;
  }
  const unknown=structuredClone(repaired);unknown.admission.rejections.push({collection:'relation',index:5,reason:'relation-contract',detailCode:'tuple'});
  delete unknown.relationBatches;assert.equal(active(unknown).length,1);assert.equal(active(unknown)[0].collection,'relation');
  const legacy=structuredClone(repaired);delete legacy.resolvedRegionPrograms;
  assert(active(legacy).some(row=>row.collection==='program'));
  assert.throws(()=>rebind(repaired,{...repaired,resolvedRegionPrograms:structuredClone(repaired.resolvedRegionPrograms)}),/transition/);
+});
+
+test('new resolution bindings retain the original owner before canonical transfer and survive serialization without becoming source authority',t=>{
+ const {repaired,request}=fixture(t);assert.match(repaired.resolvedRegionPrograms[0].programBinding,/^[a-f0-9]{64}$/);
+ const saved=JSON.parse(JSON.stringify(repaired));assert.equal(compile({...request,plan:saved}).evidence.resolvedRelations,1);
+ for(const value of ['',null,7,'x'.repeat(64),'a'.repeat(65)]){
+  const invalid=structuredClone(saved);invalid.resolvedRegionPrograms[0].programBinding=value;
+  assert.throws(()=>compile({...request,plan:invalid}),e=>e instanceof TypeError&&/^Scene /u.test(e.message));
+ }
+ const legacy=structuredClone(saved);delete legacy.resolvedRegionPrograms[0].programBinding;
+ assert.equal(compile({...request,plan:legacy}).evidence.resolvedRelations,1,'legacy records still require their ordinary validated dependencies');
+ const stripped=structuredClone(legacy);stripped.resolvedRegionPrograms[0].program.regionId='region-left';
+ assert.throws(()=>compile({...request,plan:stripped}),/Scene restored program binding/,'removing the fingerprint cannot reattach an empty dependency set to another owner');
+ const reordered=structuredClone(saved),original=reordered.resolvedRegionPrograms[0].program;
+ reordered.resolvedRegionPrograms[0].program={labels:original.labels,relations:original.relations,objects:original.objects,regionId:original.regionId};
+ assert.equal(compile({...request,plan:reordered}).evidence.resolvedRelations,1);
+ const empty=fixture(t,true),candidate=structuredClone(empty.repaired);
+ assert.equal(compile({...empty.request,plan:candidate}).evidence.resolvedRelations,0,'the binding never supplies source strokes');
 });
 
 test('program restoration metadata cannot authorize native content on an empty source',t=>{

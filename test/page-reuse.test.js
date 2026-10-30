@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { resolvePageReuse } = require("../packages/slideclone-core/page-reuse");
+const { resolvePageReuse } = require("../packages/slideclone-core/scene-plan/page-reuse");
 
 function fixture(overrides = {}) {
   const calls = [], stats = {};

@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/full-slide-native-residual");
+module.exports = require("../../../../packages/slideclone-core/archetypes/full-slide-native-residual");

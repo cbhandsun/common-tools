@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
+const { pathToFileURL } = require("node:url");
 const { classifyTestResource, includesSuite, parseSuite, validateTestSuiteManifest } = require("./test-suites");
 
 function parseShardCount(argv = process.argv.slice(2), env = process.env) {
@@ -103,16 +104,17 @@ function summarizeExecutionWaves(waves, options = {}) {
   };
 }
 
-function runShard(root, shard, index) {
+function runTestBatch(root, files, reporter) {
   return new Promise((resolve, reject) => {
-    const startedAt = Date.now();
-    const reporter = parseReporter();
     const child = spawn(process.execPath, [
       "--test",
       // Parallelism belongs to the wave scheduler, not another per-shard pool.
       "--test-concurrency=1",
-      ...(reporter ? [`--test-reporter=${reporter}`] : []),
-      ...shard.files
+      `--test-reporter=${reporter || "dot"}`,
+      "--test-reporter-destination=stdout",
+      `--test-reporter=${pathToFileURL(path.join(__dirname, "test-process-reporter.js")).href}`,
+      "--test-reporter-destination=stdout",
+      ...files
     ], {
       cwd: root,
       env: process.env,
@@ -121,13 +123,23 @@ function runShard(root, shard, index) {
     });
     child.once("error", reject);
     child.once("close", (code, signal) => resolve({
-      index,
       code: Number.isInteger(code) ? code : 1,
-      signal: signal || null,
-      elapsedMs: Date.now() - startedAt,
-      fileCount: shard.files.length
+      signal: signal || null
     }));
   });
+}
+
+async function runShard(root, shard, index) {
+  if (!Array.isArray(shard.files) || shard.files.length < 1 || shard.files.length > 4096
+    || Array.from(shard.files).some(file => typeof file !== "string" || !file || file.startsWith("-") || file.includes("\0"))) {
+    throw new TypeError("Test shard files are invalid");
+  }
+  const startedAt = Date.now();
+  const reporter = parseReporter();
+  // The Node CLI consumes test paths as patterns. Keep native inventory paths,
+  // but pass portable separators at the subprocess boundary on every platform.
+  const result = await runTestBatch(root, shard.files.map(file => file.replaceAll("\\", "/")), reporter);
+  return { index, ...result, elapsedMs: Date.now() - startedAt, fileCount: shard.files.length };
 }
 
 async function main() {

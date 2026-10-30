@@ -1,10 +1,10 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
-const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');
-const {parseRegionPrograms,prepareRegionProgramLabels}=require('../packages/slideclone-core/source-scene-region-program');
-const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {boundedOcrSourceDeck,expandPositionedMixedColorTextSegments}=require('../packages/slideclone-core/ocr-source-deck');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');
+const {parseRegionPrograms,prepareRegionProgramLabels}=require('../packages/slideclone-core/scene-plan/source-scene-region-program');
+const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {boundedOcrSourceDeck,expandPositionedMixedColorTextSegments}=require('../packages/slideclone-core/ocr/ocr-source-deck');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 const {writePng}=require('../packages/slideclone-core/png');
 const dimensions={widthPx:100,heightPx:100},slideSize={widthPt:100,heightPt:100};
 const box={x:20,y:20,w:40,h:10},ref=sourceLabelIdentity(box,dimensions);
@@ -21,13 +21,13 @@ test('semantic roles reach typography through admitted source label bindings',()
  assert.equal(result.source.typographyRole,'body');assert.equal(result.source.typographyRoleEvidence,'scene-proposal');
  const raw=[{regionId:'root',objects:[],relations:[],labels:[{refs:[0],role:'script'}]}];
  assert.throws(()=>parseRegionPrograms(raw,{regions:[{id:'root'}],objects:[],relations:[]},[ref],v=>v),/role/u);
- const {expandCompactProgramScene}=require('../packages/slideclone-core/source-scene-compact-program');
+ const {expandCompactProgramScene}=require('../packages/slideclone-core/scene-plan/source-scene-compact-program');
  const expanded=expandCompactProgramScene({format:'compact-v8',regions:[],inventory:[],objects:[],relations:[],programs:[['root',[[[0],null,null,null,3]]]]});
  assert.equal(expanded.programs[0].labels[0].role,'body');
 });
 
 test('bound region typography remains independent from inferred outer-region styles',()=>{
- const {proposeParagraphTypography}=require('../packages/slideclone-core/paragraph-typography');
+ const {proposeParagraphTypography}=require('../packages/slideclone-core/typography/paragraph-typography');
  const plan=controls();plan.regionPrograms[0].labels[0].role='body';
  const text=label();delete text.positionedRuns;text.source.sceneRegionId='outer';
  text.box={x:20,y:20,w:40,h:30};
@@ -43,7 +43,7 @@ test('bound region typography remains independent from inferred outer-region sty
 });
 
 test('production OCR source frames survive scaled region binding and paragraph planning',()=>{
- const {proposeParagraphTypography}=require('../packages/slideclone-core/paragraph-typography');
+ const {proposeParagraphTypography}=require('../packages/slideclone-core/typography/paragraph-typography');
  const secondBox={x:20,y:33,w:40,h:10};
  const deck=boundedOcrSourceDeck({metadata:{dimensions},sourceImage:'source.png',ocr:{lines:[
   {text:'第一行 Ω',confidence:.99,box},{text:'第二行 Ж',confidence:.99,box:secondBox}]}});
@@ -83,7 +83,7 @@ test('regional typography reaches ordinary rich text runs while preserving conte
 });
 
 test('regional styles reach canonical positioned font overrides without adding unsupported run fields',()=>{
- const {validatePositionedTextLayout}=require('../packages/slideclone-core/positioned-text-layout');
+ const {validatePositionedTextLayout}=require('../packages/slideclone-core/typography/positioned-text-layout');
  const text={...label(),wrap:false,style:{wrap:false,fit:'none',textWarp:'textPlain'}};
  text.positionedRuns[0].fontOverride={family:'Arial',latinFamily:'Calibri',weight:'regular'};
  const before=structuredClone(text);

@@ -4,11 +4,11 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { materializeLeadingIconCrops } = require("../packages/slideclone-core/leading-icon-crop-materializer");
-const { refineGraphicCrop } = require("../packages/slideclone-core/graphic-crop-materializer");
+const { materializeLeadingIconCrops } = require("../packages/slideclone-core/archetypes/leading-icon-crop-materializer");
+const { refineGraphicCrop } = require("../packages/slideclone-core/scene-plan/graphic-crop-materializer");
 const { readPng } = require("../packages/slideclone-core/png");
-const { detectLeadingIconCropCandidates } = require("../packages/slideclone-core/leading-icon-crop-evidence");
-const { auditSemanticEditability } = require("../packages/slideclone-core/semantic-editability-quality");
+const { detectLeadingIconCropCandidates } = require("../packages/slideclone-core/archetypes/leading-icon-crop-evidence");
+const { auditSemanticEditability } = require("../packages/slideclone-core/quality/semantic-editability-quality");
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "leading-icon-materializer-"));

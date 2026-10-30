@@ -1,10 +1,11 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
 const {
   colorDistance,
   pixel,
   rgbToHex
-} = require("@common-tools/slideclone-core/raster-native-detection");
+} = core("@common-tools/slideclone-core/scene-plan/raster-native-detection");
 
 function sampleUniformPageBackgroundFill(image, fallback = "#FFFFFF") {
   if (!image || !Number.isSafeInteger(image.width) || !Number.isSafeInteger(image.height)

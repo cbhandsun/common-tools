@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { pruneSourceOwnedGlyphShapes } = require("../packages/slideclone-core/source-owned-glyph-shapes");
+const { pruneSourceOwnedGlyphShapes } = require("../packages/slideclone-core/typography/source-owned-glyph-shapes");
 const { textProbeRevision } = require("../packages/slideclone-core/owned-text-advance");
 
 const slideSize = { widthPt: 960, heightPt: 720 };

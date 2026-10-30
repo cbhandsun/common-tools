@@ -1,10 +1,10 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {rebindRegionProgramMembers,prepareRegionProgramLabels}=require('../packages/slideclone-core/source-scene-region-program');
-const {applyRegionalInventoryReview}=require('../packages/slideclone-core/source-scene-regional-inventory');
-const {applyInventoryReview}=require('../packages/slideclone-core/source-scene-inventory-review');
-const {applyStructuralReview}=require('../packages/slideclone-core/source-scene-structural-review');
-const {compactPhysicalSceneInventory}=require('../packages/slideclone-core/source-scene-physical-inventory');
+const {rebindRegionProgramMembers,prepareRegionProgramLabels}=require('../packages/slideclone-core/scene-plan/source-scene-region-program');
+const {applyRegionalInventoryReview}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
+const {applyInventoryReview}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-review');
+const {applyStructuralReview}=require('../packages/slideclone-core/scene-plan/source-scene-structural-review');
+const {compactPhysicalSceneInventory}=require('../packages/slideclone-core/scene-plan/source-scene-physical-inventory');
 function fixture(){
  const plan={version:1,sourceHash:'a'.repeat(64),widthPx:100,heightPx:100,
   regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:100,h:100}},

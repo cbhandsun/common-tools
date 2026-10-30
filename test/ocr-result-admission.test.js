@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {admitOcrResult}=require("../packages/slideclone-core/ocr-result-admission");
+const {admitOcrResult}=require("../packages/slideclone-core/ocr/ocr-result-admission");
 const size={widthPx:100,heightPx:100};
 const line={text:"label",confidence:.95,box:{x:10,y:10,w:30,h:10}};
 test("OCR source frame accepts matching metadata and existing metadata-free input",()=>{

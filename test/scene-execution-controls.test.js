@@ -77,7 +77,7 @@ test('the scene client cold-loads in an installed layout without development wor
  const workspace=path.resolve(__dirname,'..');
  fs.cpSync(path.join(workspace,'packages/slideclone-core'),path.join(packages,'slideclone-core'),{recursive:true,
   filter:file=>!file.split(path.sep).includes('node_modules')});
- for(const name of ['source-scene-client','scene-execution-controls','scene-execution-policy','scene-model-request-options','scene-response-content','scene-request-failure'])
+ for(const name of ['source-scene-client','scene-provider-endpoint','scene-execution-controls','scene-execution-policy','scene-model-request-options','scene-response-content','scene-request-failure'])
   fs.copyFileSync(path.join(workspace,'packages/remote-mcp-server',name+'.js'),path.join(remote,name+'.js'));
  const probe="try{const c=require(process.argv[1]);if(c.sceneVisionFromEnvironment({})!==undefined)throw Error();process.stdout.write('ready');}catch(e){process.stdout.write(['MODULE_NOT_FOUND','ERR_PACKAGE_PATH_NOT_EXPORTED'].includes(e.code)?e.code:'entry-failed');process.exitCode=2;}";
  const result=spawnSync(process.execPath,['-e',probe,path.join(remote,'source-scene-client.js')],{cwd:root,encoding:'utf8',windowsHide:true,timeout:30000});

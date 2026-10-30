@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');
-const {sceneInventoryCapacity}=require('../packages/slideclone-core/source-scene-capacity');
+const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');
+const {sceneInventoryCapacity}=require('../packages/slideclone-core/scene-plan/source-scene-capacity');
 const source={sourceHash:'a'.repeat(64),widthPx:800,heightPx:600,labelRefs:[sourceLabelIdentity({x:30,y:30,w:40,h:20},{widthPx:800,heightPx:600})]};
 function compact(){return {format:'compact-v8',coordinateSpace:'normalized-1000',boxFormat:'ymin-xmin-ymax-xmax',
  regions:[[0,null,0,[0,0,1000,1000]],[1,0,1,[100,100,900,900]]],inventory:[[0,0,0,0],[1,2,0,1]],
@@ -23,7 +23,7 @@ test('undirected has explicit numeric code four and never replaces unknown',()=>
  for(const value of [5,-1,4.5,'undirected',null,{}]){
   raw.relations[0][4]=value;assert.throws(()=>parseSourceScenePlan(raw,source),TypeError);
  }
- const {sceneRelationsConflict}=require('../packages/slideclone-core/source-scene-relation-identity');
+ const {sceneRelationsConflict}=require('../packages/slideclone-core/scene-plan/source-scene-relation-identity');
  const a={fromId:'a',toId:'b',direction:'undirected'};
  assert.equal(sceneRelationsConflict(a,{...a,fromId:'b',toId:'a'}),true);
  assert.equal(sceneRelationsConflict(a,{...a,direction:'both'}),false);
@@ -92,7 +92,7 @@ test('hostile nested compact tuples never execute getters, proxies or coercion h
 });
 test('the compact decoder is required by the unified runtime package release contract',()=>{
  const {IMAGE_EDITABLE_RELEASE_FILES}=require('../scripts/verify-runtime-package');
- assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-scene-compact-program.js'));
+ assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/scene-plan/source-scene-compact-program.js'));
 });
 
 function nestedCompact(){
@@ -138,7 +138,7 @@ test('compact explicit nesting keeps missing, cyclic, ambiguous and hostile owne
 });
 
 test('production compact prompt binds embedded units to explicit parent objects without hiding their inventory',()=>{
- const {SCENE_PROGRAM_PROMPT}=require('../packages/slideclone-core/source-scene-plan');
+ const {SCENE_PROGRAM_PROMPT}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
  assert.match(SCENE_PROGRAM_PROMPT,/Object tuple: \[id,ownerId,kind,box,pictorialContent\]/u);
  assert.match(SCENE_PROGRAM_PROMPT,/enclosing container OBJECT ID/u);
  assert.match(SCENE_PROGRAM_PROMPT,/object nesting never hides its slot or removes it from the census/u);
@@ -146,7 +146,7 @@ test('production compact prompt binds embedded units to explicit parent objects 
 });
 
 test('production prompt schedules existing bounded interior recovery without demanding duplicate explicit proposals',()=>{
- const {SCENE_PROGRAM_PROMPT}=require('../packages/slideclone-core/source-scene-program-prompt');
+ const {SCENE_PROGRAM_PROMPT}=require('../packages/slideclone-core/scene-plan/source-scene-program-prompt');
  assert.match(SCENE_PROGRAM_PROMPT,/Inventory ALL independent pictorial units, INCLUDING icons INSIDE/u);
  assert.match(SCENE_PROGRAM_PROMPT,/Explicit icons plus interior recovery targets share 32/u);
  assert.match(SCENE_PROGRAM_PROMPT,/Omit an embedded icon proposal only/u);

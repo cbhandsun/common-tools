@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSourceSceneVisibleGap:measure}=require('../packages/slideclone-core/source-scene-visible-gap');
-const {compileSourceSceneVisibleGap:compile}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
-const {measureSceneRelationDetailed}=require('../packages/slideclone-core/source-scene-relation');
+const {measureSourceSceneVisibleGap:measure}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+const {compileSourceSceneVisibleGap:compile}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+const {measureSceneRelationDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-relation');
 function fixture(vertical=false){
  const image={width:240,height:180,rgba:Buffer.alloc(240*180*4,255)},budget={used:0};
  const put=(x,y,rgb=[30,60,90])=>image.rgba.set([...rgb,255],(y*240+x)*4);
@@ -31,7 +31,7 @@ test('complete separated source dashes remain ONE editable relation with exact o
   const r={...relation,direction:'undirected'},output=compile({fit:result.fit,relation:r,fromId:'a',toId:'b',width:240,height:180,slideSize:{widthPt:240,heightPt:180}});
   assert.equal(output.type,'line');assert.equal(output.style.lineCap,'flat');assert.equal(output.style.startAnchor.elementId,'a');
   assert.equal(output.style.endAnchor.elementId,'b');assert.ok(!output.style.startArrow&&!output.style.endArrow);
-  const {measuredSceneVisibleGapPaint:paint}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
+  const {measuredSceneVisibleGapPaint:paint}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
   assert.deepEqual(paint(f.image,output),cells);assert.deepEqual(f.image.rgba,before);
   assert.equal(measure({...f,direction:'forward'}).fit,null);
   output.style.strokeDashPattern='[[1,1],[1,1]]';assert.equal(paint(f.image,output),null);
@@ -65,8 +65,8 @@ test('complete broad achromatic dashes preserve partial caps and bounded source 
 });
 
 test('complete owner inventories receive only actual unchanged private gap ink, never its proposed box or empty corridors',()=>{
- const {measuredSceneVisibleGapPaint}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
- const {measuredSceneVisibleGapCells}=require('../packages/slideclone-core/source-scene-visible-gap');
+ const {measuredSceneVisibleGapPaint}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
+ const {measuredSceneVisibleGapCells}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
  for(const vertical of [false,true]){
   const f=fixture(vertical),result=measure(f);assert.ok(result.fit,result.reason);
   const before=f.budget.used,request={fit:result.fit,relation,fromId:'a',toId:'b',width:240,height:180,slideSize:{widthPt:240,heightPt:180}};
@@ -95,8 +95,8 @@ test('complete owner inventories receive only actual unchanged private gap ink, 
 });
 
 test('the real census finalizer preserves the private ink receipt through its exact inventory binding',()=>{
- const {finalizeSourceScene}=require('../packages/slideclone-core/source-scene-finalize');
- const {measuredSceneVisibleGapPaint,bindMeasuredSceneVisibleGapInventory}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
+ const {finalizeSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-finalize');
+ const {measuredSceneVisibleGapPaint,bindMeasuredSceneVisibleGapInventory}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
  const f=fixture(),result=measure(f);assert.ok(result.fit,result.reason);
  const output=compile({fit:result.fit,relation,fromId:'a',toId:'b',width:240,height:180,slideSize:{widthPt:240,heightPt:180}});
  const expected=measuredSceneVisibleGapPaint(f.image,output),before=f.budget.used;
@@ -173,7 +173,7 @@ test('unobserved boundary, forged capabilities, cross-source and hostile control
  for(const value of [{...request,fit:structuredClone(result.fit)},{...request,fromId:'c'}, {...request,width:241}, {...request,relation:{...relation,direction:'backward'}}])assert.throws(()=>compile(value),/proof/);
 });
 test('scope and existing relation identity remain mandatory at the production stage',()=>{
- const {compileExistingSceneVisibleGaps:stage}=require('../packages/slideclone-core/source-scene-visible-gap-stage');
+ const {compileExistingSceneVisibleGaps:stage}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-stage');
  const f=fixture(),plan={version:1,sourceHash:'a'.repeat(64),widthPx:240,heightPx:180,
   regions:[{id:'region-root',parentId:null,kind:'section',box:{x:0,y:0,w:240,h:180}}],
   objects:[{id:'object-a',regionId:'region-root',kind:'container',box:f.from.box},{id:'object-b',regionId:'region-root',kind:'container',box:f.to.box}],relations:[relation]};
@@ -186,7 +186,7 @@ test('scope and existing relation identity remain mandatory at the production st
  const invalid=structuredClone(plan);invalid.objects[1].regionId='region-other';assert.equal(stage({...request,plan:invalid}).parts.length,0);
 });
 test('complete source evidence consumes coarse two-vertex programs and binds the original proposal to its private proof',()=>{
- const {compileExistingSceneVisibleGaps:stage}=require('../packages/slideclone-core/source-scene-visible-gap-stage');
+ const {compileExistingSceneVisibleGaps:stage}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-stage');
  const f=fixture(),visiblePath={kind:'polyline',dash:'solid',vertices:[{x:80,y:61},{x:160,y:59}]},shaftBox={x:74,y:53,w:92,h:15};
  const r={...relation,visiblePath,shaftBox},plan={version:1,sourceHash:'a'.repeat(64),widthPx:240,heightPx:180,
   regions:[{id:'region-root',parentId:null,kind:'section',box:{x:0,y:0,w:240,h:180}}],
@@ -212,7 +212,7 @@ test('complete source evidence consumes coarse two-vertex programs and binds the
  const source=fixture();for(let y=53;y<=67;y++)source.put(110,y,[255,255,255]);assert.equal(measure({...source,visiblePath,shaftBox}).fit,null);
 });
 test('complete terminal paint accepts a broad source base and rejects hidden branches and missing body',()=>{
- const {sourceVisibleArrowTerminals:terminals}=require('../packages/slideclone-core/source-visible-arrow-terminals');
+ const {sourceVisibleArrowTerminals:terminals}=require('../packages/slideclone-core/routing/source-visible-arrow-terminals');
  const widths=[...Array(15).fill(4),16,18,18,18,16,16,14,12,11,10,8,7,5,4,2],counts=[...Array(15).fill(4),7,12,13,16,16,16,14,12,11,10,8,7,5,4,2];
  assert.deepEqual(terminals({widths,counts,leftArrow:false,rightArrow:true}),{widthPx:4,firstBody:0,lastBody:14});
  assert.equal(terminals({widths,counts,leftArrow:true,rightArrow:false}),null);
@@ -224,7 +224,7 @@ test('complete terminal paint accepts a broad source base and rejects hidden bra
 });
 
 test('a complete short head can taper inside the original terminal window without hiding a side branch',()=>{
- const {sourceVisibleArrowTerminals:terminals}=require('../packages/slideclone-core/source-visible-arrow-terminals');
+ const {sourceVisibleArrowTerminals:terminals}=require('../packages/slideclone-core/routing/source-visible-arrow-terminals');
  const head=[2,4,6,8,10,12,12,10,6],body=Array(12).fill(3);
  const widths=[...head,...body,...head.toReversed()],counts=widths.map(w=>w>=6?4:w);
  assert.deepEqual(terminals({widths,counts,leftArrow:true,rightArrow:true}),{widthPx:3,firstBody:9,lastBody:20});

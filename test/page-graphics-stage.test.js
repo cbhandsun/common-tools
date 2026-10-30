@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createPageGraphicsStage } = require("../packages/slideclone-core/page-graphics-stage");
+const { createPageGraphicsStage } = require("../packages/slideclone-core/scene-plan/page-graphics-stage");
 
 function fixture(overrides = {}) {
   const calls = [];

@@ -146,7 +146,20 @@
         "id": { "type": "string" },
         "type": { "type": "string" },
         "box": { "$ref": "#/$defs/box" },
-        "style": { "type": "object" },
+        "style": {
+          "type": "object",
+          "properties": {
+            "shadow": {
+              "type": ["object", "null"],
+              "properties": {
+                "scaleX": { "type": "number", "minimum": 0.00001, "maximum": 1 },
+                "scaleY": { "type": "number", "minimum": 0.00001, "maximum": 1 }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
         "assetPath": { "type": "string" },
         "categories": { "type": "array", "items": { "type": "string" }, "maxItems": 10000 },
         "values": { "type": "array", "items": { "type": "number" }, "maxItems": 10000 },

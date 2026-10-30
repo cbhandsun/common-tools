@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {createReconstructionSearchControl}=require("../packages/slideclone-core/reconstruction-search-control");
+const {createReconstructionSearchControl}=require("../packages/slideclone-core/archetypes/reconstruction-search-control");
 const H=n=>n.toString(16).padStart(64,"0"),M=(pdr=.15)=>({pdr,missing:.08,mad:15,layout:0,style:0});
 function create(overrides={}){return createReconstructionSearchControl({baseline:M(),baselineHash:H(0),families:["text","graphics"],...overrides});}
 function trial(c,n,m=M(),hardFailures=0,strictPassed=false){assert.equal(c.prepare({hash:H(n),family:"text"}).render,true);return c.complete({hash:H(n),metrics:m,hardFailures,strictPassed});}

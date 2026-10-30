@@ -2,7 +2,20 @@
 // Compile probes use only spare crop work. They neither defer the existing
 // required structure reviews nor remove any final compilation rejection.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {allocateSourceSceneReview:allocate}=require('../packages/slideclone-core/source-scene-review-allocation');
+const {allocateSourceSceneReview:allocate}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
+
+test('both unknown glyph views retain their complete bounded context and charge the unchanged pixel allowance',()=>{
+ const {sourceSceneReviewCrop:crop}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
+ const target={index:0,box:{x:40,y:40,w:12,h:8},role:'missing',optional:false,textKnown:false},before=structuredClone(target);
+ assert.deepEqual(crop(target,0,100,100),{x:35,y:35,w:22,h:18});
+ assert.deepEqual(crop(target,.7,100,100),{x:31,y:31,w:30,h:26});
+ assert.deepEqual(crop({...target,textKnown:true},0,100,100),target.box);
+ const cost=allocate({width:100,height:100,targets:[target]});
+ assert.equal(cost.reservedPixels,2*(22*18+30*26)+8*12*8);assert.ok(cost.sheetPixels+cost.reservedPixels<=4000000);
+ const edge={...target,box:{x:0,y:0,w:12,h:8}};
+ assert.deepEqual(crop(edge,0,20,15),{x:0,y:0,w:17,h:13});
+ assert.deepEqual(crop(edge,.7,20,15),{x:0,y:0,w:20,h:15});assert.deepEqual(target,before);
+});
 
 test('unadmitted relation repair can defer without displacing required structural review',()=>{
  const targets=[{index:0,box:{x:30,y:30,w:40,h:40},role:'structure',optional:false,textKnown:false},
@@ -52,7 +65,7 @@ test('complete review context is charged while the original OCR target retains i
  const plain=allocate({...input,targets:[{...target,contextBox:undefined}]});
  assert.ok(result.sheetPixels>plain.sheetPixels);assert.equal(result.reservedPixels,78*78);
  assert.deepEqual(result.indices,[0]);assert.equal(JSON.stringify(input),before);
- const {sourceSceneReviewCrop}=require('../packages/slideclone-core/source-scene-review-allocation');
+ const {sourceSceneReviewCrop}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
  assert.deepEqual(sourceSceneReviewCrop(target,0,150,150),target.contextBox);
  assert.deepEqual(sourceSceneReviewCrop(target,.7,150,150),{x:11,y:11,w:78,h:78});
  for(const contextBox of [null,{x:45,y:40,w:10,h:10},{x:0,y:0,w:151,h:150},new Proxy(target.contextBox,{})])
@@ -81,7 +94,7 @@ test('focused OCR views charge both complete observations and preserve every atl
 });
 
 test('an oversized context observation cannot enlarge the source isolation window limit',()=>{
- const {sourceSceneReviewedGraphicCrop}=require('../packages/slideclone-core/source-scene-review-allocation');
+ const {sourceSceneReviewedGraphicCrop}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
  const target={index:0,box:{x:400,y:400,w:20,h:20},contextBox:{x:250,y:250,w:500,h:500},role:'review',optional:false,textKnown:false};
  const result=allocate({width:1000,height:1000,targets:[target]});
  assert.deepEqual(sourceSceneReviewedGraphicCrop(target,1000,1000),target.contextBox);

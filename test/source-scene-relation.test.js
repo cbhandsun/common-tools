@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {measureSceneRelation}=require("../packages/slideclone-core/source-scene-relation");
+const {measureSceneRelation}=require("../packages/slideclone-core/scene-plan/source-scene-relation");
 function fixture(direction="forward"){
  const image={width:200,height:140,rgba:Buffer.alloc(200*140*4,255)};
  const put=(x,y)=>image.rgba.set([30,60,90,255],(y*200+x)*4);
@@ -91,7 +91,7 @@ test("transparent source ink and exterior pixels cannot prove a visible shaft",(
 });
 
 test("a real offset shaft requires two source-boundary tokens and independently observed attachments",()=>{
- const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+ const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
  const f=fixture();f.image.rgba.fill(255);
  for(const node of [f.from,f.to])for(let y=40;y<80;y++)for(let x=node.box.x;x<node.box.x+60;x++)f.image.rgba.set([210,230,245,255],(y*200+x)*4);
  for(let x=80;x<=119;x++)for(let y=56;y<=58;y++)f.image.rgba.set([30,60,90,255],(y*200+x)*4);
@@ -114,7 +114,7 @@ test("a real offset shaft requires two source-boundary tokens and independently 
 });
 
 function unequalPorts(){
- const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+ const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
  const f=fixture();f.image.rgba.fill(255);f.from.box={x:20,y:20,w:60,h:80};f.to.box={x:120,y:40,w:60,h:20};
  for(const node of [f.from,f.to])for(let y=node.box.y;y<node.box.y+node.box.h;y++)for(let x=node.box.x;x<node.box.x+node.box.w;x++)
   f.image.rgba.set([210,230,245,255],(y*200+x)*4);
@@ -146,8 +146,8 @@ test('a shared port hypothesis grants no authority to guessed, occluded, detache
 });
 
 test('measured noncentral ports work vertically and retain independent attachment and scan limits',()=>{
- const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
- const {measureSceneRelationDetailed}=require('../packages/slideclone-core/source-scene-relation');
+ const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+ const {measureSceneRelationDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-relation');
  const f=unequalPorts(),image={width:f.image.height,height:f.image.width,rgba:Buffer.alloc(f.image.rgba.length)};
  for(let y=0;y<f.image.height;y++)for(let x=0;x<f.image.width;x++)
   image.rgba.set(f.image.rgba.subarray((y*f.image.width+x)*4,(y*f.image.width+x+1)*4),(x*image.width+y)*4);
@@ -167,8 +167,8 @@ test('measured noncentral ports work vertically and retain independent attachmen
 });
 
 test('the shared interval is only a bounded hypothesis, never evidence for blank or disjoint nodes',()=>{
- const {createMeasuredScenePortFrame}=require('../packages/slideclone-core/source-scene-port-evidence');
- const {measuredScenePortAxis}=require('../packages/slideclone-core/source-scene-port-axis');
+ const {createMeasuredScenePortFrame}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+ const {measuredScenePortAxis}=require('../packages/slideclone-core/scene-plan/source-scene-port-axis');
  const f=unequalPorts();f.image.rgba.fill(255);assert.equal(measureSceneRelation({...f,budget:{used:0}}),null);
  for(const bounds of [{x:120,y:101,w:60,h:20},{x:40,y:35,w:60,h:20},{x:120,y:100,w:60,h:20}]){
   const to={id:'b',box:bounds,portFrame:createMeasuredScenePortFrame(f.image,{box:bounds,fill:'#D2E6F5'})};
@@ -180,14 +180,14 @@ test('the shared interval is only a bounded hypothesis, never evidence for blank
 test("axis recovery cannot spend beyond the existing pixel allowance or emit incompatible proofs",()=>{
  const f=fixture();f.image.rgba.fill(255);f.budget.used=3999900;
  assert.throws(()=>measureSceneRelation(f),RangeError);assert.equal(f.budget.used,3999900);
- const {recoverSourceRelationAxis}=require('../packages/slideclone-core/source-scene-relation-recovery');
+ const {recoverSourceRelationAxis}=require('../packages/slideclone-core/scene-plan/source-scene-relation-recovery');
  const fit={start:{x:0,y:0},end:{x:10,y:0},startSide:"right",endSide:"left",widthPx:3,support:1,color:"#123456"};
  assert.equal(recoverSourceRelationAxis(offset=>({fit:{...fit,start:{x:0,y:offset},end:{x:10,y:offset}},reason:null})),null);
 });
 
 test("a measured body-colored fringe is not shaft ink, and its exclusion cannot borrow provider authority",()=>{
- const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
- const {measuredScenePortFill}=require('../packages/slideclone-core/source-scene-port-evidence');
+ const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+ const {measuredScenePortFill}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
  const f=fixture(),body=[210,230,245,255];
  for(const node of [f.from,f.to])for(let y=40;y<80;y++)for(let x=node.box.x;x<node.box.x+60;x++)f.image.rgba.set(body,(y*200+x)*4);
  // A 17-channel fringe is outside the fill component's 16-channel predicate
@@ -214,7 +214,7 @@ test("a measured body-colored fringe is not shaft ink, and its exclusion cannot 
 
 
 test("relation failures expose fixed stage codes without changing geometry or budget",()=>{
- const {measureSceneRelationDetailed}=require('../packages/slideclone-core/source-scene-relation');
+ const {measureSceneRelationDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-relation');
  const normal=fixture(),expected=measureSceneRelation(normal),input=fixture();
  assert.deepEqual(measureSceneRelationDetailed(input),{fit:expected,reason:null});assert.equal(input.budget.used,normal.budget.used);
  const blank=fixture();blank.image.rgba.fill(255);assert.deepEqual(measureSceneRelationDetailed(blank),{fit:null,reason:'shaft-support'});

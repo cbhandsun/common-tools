@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSourceSceneCaptionRoute:measure}=require('../packages/slideclone-core/source-scene-caption-route');
-const {compileSourceSceneCaptionRoute:compile}=require('../packages/slideclone-core/source-scene-caption-route-compiler');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
-const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+const {measureSourceSceneCaptionRoute:measure}=require('../packages/slideclone-core/scene-plan/source-scene-caption-route');
+const {compileSourceSceneCaptionRoute:compile}=require('../packages/slideclone-core/scene-plan/source-scene-caption-route-compiler');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
 function fixture({terminalShade=false}={}){
  const image={width:240,height:180,rgba:Buffer.alloc(240*180*4,255)},budget={used:0};
  const put=(x,y,color=[30,60,90])=>image.rgba.set([...color,255],(y*240+x)*4);
@@ -76,7 +76,7 @@ test('independent terminal paint survives local shading while full-fragment pain
 });
 
 test('flat observed caps extend through source ink without relaxing coverage or path limits',()=>{
- const {sourceCaptionRouteStroke:stroke}=require('../packages/slideclone-core/source-caption-route-stroke');
+ const {sourceCaptionRouteStroke:stroke}=require('../packages/slideclone-core/routing/source-caption-route-stroke');
  const width=130,height=30,mask=new Uint8Array(width*height),rgba=Buffer.alloc(width*height*4,255);
  for(let y=10;y<=13;y++)for(let x=10;x<=102;x++){mask[y*width+x]=1;rgba.set([30,60,90,255],(y*width+x)*4);}
  const request=()=>({path:Array.from({length:91},(_,x)=>({x:x+10,y:11})),mask,rgba,width,height,arrow:false,work:{checks:0}});

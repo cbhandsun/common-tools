@@ -1,12 +1,12 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {sharedRouteInventoryFixture:fixture}=require('./helpers/scene-shared-route-inventory.cjs');
-const {readSharedSceneRouteGraphs:read,sharedSceneRouteMembers:members,survivingSharedSceneRoutes:surviving}=require('../packages/slideclone-core/source-scene-shared-route-inventory');
-const {survivingSceneUnits}=require('../packages/slideclone-core/source-scene-inventory-materialization');
-const {buildSceneInventoryEvidence:build,auditSceneInventory:audit}=require('../packages/slideclone-core/source-scene-observed-inventory');
-const {packSceneInventoryMembers:pack,unpackSceneInventoryMembers:unpack}=require('../packages/slideclone-core/source-scene-inventory-codec');
-const {writeSceneInventoryArtifact:write}=require('../packages/slideclone-core/source-scene-inventory-artifact');
-const {finalizeSourceScene}=require('../packages/slideclone-core/source-scene-finalize');
+const {readSharedSceneRouteGraphs:read,sharedSceneRouteMembers:members,survivingSharedSceneRoutes:surviving}=require('../packages/slideclone-core/scene-plan/source-scene-shared-route-inventory');
+const {survivingSceneUnits}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-materialization');
+const {buildSceneInventoryEvidence:build,auditSceneInventory:audit}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
+const {packSceneInventoryMembers:pack,unpackSceneInventoryMembers:unpack}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-codec');
+const {writeSceneInventoryArtifact:write}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-artifact');
+const {finalizeSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-finalize');
 const validate=f=>read([f.graph],f.units,f.plan.sourceHash);
 const paths=f=>surviving([f.graph],f.shapes,[],f.units);
 
@@ -30,7 +30,8 @@ test('deleting the trunk invalidates both paths and deleting one branch invalida
   assert.ok(audit(evidence,shapes,[],f.plan.sourceHash).some(r=>r.reason==='compile-missing'&&r.kind==='relations'&&r.count===count));
  }
  const extra=structuredClone(f.shapes[3]);extra.id='unlisted-part';
- assert.deepEqual(audit(evidence,[...f.shapes,extra],[],f.plan.sourceHash),[{reason:'evidence-invalid'}]);
+ assert.deepEqual(audit(evidence,[...f.shapes,extra],[],f.plan.sourceHash),[{reason:'evidence-invalid',detail:'graph-members-unexpected',
+  unitId:f.graph.id,expectedMembers:8,actualMembers:9}]);
 });
 
 test('external endpoints must belong to the exact recorded object, and all its required members must survive',()=>{
@@ -150,7 +151,7 @@ test('the complete graph uses the existing 32-part and 16-vertex path bounds wit
  f.graph.edges.splice(0,1,...chain);
  for(const route of f.graph.paths)route.edges.splice(0,1,...chain.map(e=>({id:e.id,reversed:false})));
  assert.equal(members(f.graph).length,32);assert.equal(f.graph.paths[0].edges.length+1,16);assert.equal(validate(f).length,1);
- const {sceneLocalObjectCapacity,sceneHeaderObjectCapacity}=require('../packages/slideclone-core/source-scene-object-batches');
+ const {sceneLocalObjectCapacity,sceneHeaderObjectCapacity}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
  assert.equal(sceneLocalObjectCapacity(f.plan),32);assert.equal(sceneHeaderObjectCapacity(f.plan),61);
  f.graph.paths[0].edges.push({...f.graph.paths[0].edges.at(-1)});assert.throws(()=>validate(f),TypeError);
 });

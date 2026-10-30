@@ -43,7 +43,8 @@
       "@common-tools/archive-core",
       "@common-tools/capability-contracts",
       "@common-tools/capability-runtime",
-      "@common-tools/ooxml-core"
+      "@common-tools/ooxml-core",
+      "@common-tools/slideclone-core"
     ],
     "ppt-improve-core": [
       "@common-tools/capability-contracts",

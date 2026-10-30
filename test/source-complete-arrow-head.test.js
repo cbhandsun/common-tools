@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {hasCompleteSourceArrowHead:head}=require('../packages/slideclone-core/source-complete-arrow-head');
+const {hasCompleteSourceArrowHead:head}=require('../packages/slideclone-core/routing/source-complete-arrow-head');
 function profile(length=14,shaft=4,peak=17){
  const taper=Array.from({length},(_,i)=>Math.round(1+(peak-1)*i/(length-1)));
  return [...Array(60).fill(shaft),...taper.reverse()];

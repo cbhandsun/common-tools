@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {fixture}=require('./helpers/source-bent-gap.cjs');
-const {measureSourceSceneVisibleGap:measure,measuredSceneVisibleGapCells}=require('../packages/slideclone-core/source-scene-visible-gap');
-const {compileSourceSceneVisibleGap:compile,measuredSceneVisibleGapPaint}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
+const {measureSourceSceneVisibleGap:measure,measuredSceneVisibleGapCells}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+const {compileSourceSceneVisibleGap:compile,measuredSceneVisibleGapPaint}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
 test('complete source bend compiles to ONE editable native elbow attached to actual texts in all four quadrants',()=>{
  for(const flipX of [false,true])for(const flipY of [false,true]){
   const f=fixture(flipX,flipY),source=Buffer.from(f.image.rgba),result=measure(f);assert.ok(result.fit,result.reason);

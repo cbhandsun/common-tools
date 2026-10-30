@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { auditSemanticEditability } = require("../packages/slideclone-core/semantic-editability-quality");
+const { auditSemanticEditability } = require("../packages/slideclone-core/quality/semantic-editability-quality");
 
 const slideSize = { widthPt: 100, heightPt: 100 };
 function deck(page) { return { slideSize, pages: [{ shapes: [], images: [], ...page }] }; }
@@ -15,6 +15,27 @@ test("semantic editability accepts native-only pages without raster-derived fall
   }));
   assert.equal(result.passed, true);
   assert.equal(result.metrics.rasterDerivedPrimitiveCount, 0);
+});
+
+test("IR structure and serialized behavior claims cannot report actual Office following as verified", () => {
+  for (const shapes of [[], [
+    { id: "a", type: "rect", box: { x: 0, y: 0, w: 10, h: 10 } },
+    { id: "b", type: "rect", box: { x: 40, y: 40, w: 10, h: 10 } },
+    { id: "edge", type: "line", box: { x: 10, y: 5, w: 30, h: 40 },
+      style: { startAnchor: { elementId: "a" }, endAnchor: { elementId: "b" } },
+      source: { nodeMoveRerouting: true, editingBehaviorVerified: true } }
+  ]]) {
+    const input = deck({ shapes }), before = structuredClone(input), result = auditSemanticEditability(input);
+    assert.equal(result.passed, true);
+    assert.deepEqual(result.relationshipEditing, { required: "node-rerouting", basis: "compiled-ir-structure-only",
+      containsOnlyReroutableRepresentations: true, nodeMoveRerouting: null, nodeFollowingVerification: "not-assessed" });
+    assert.deepEqual(input, before);
+  }
+  const fixed = auditSemanticEditability(deck({ shapes: [{ id: "fixed", type: "freeform", source: { detector: "source-scene-route" } }] }));
+  assert.equal(fixed.passed, false);
+  assert.equal(fixed.relationshipEditing.containsOnlyReroutableRepresentations, false);
+  assert.equal(fixed.relationshipEditing.nodeMoveRerouting, false);
+  assert.equal(fixed.relationshipEditing.nodeFollowingVerification, "not-assessed");
 });
 
 test("semantic editability rejects raster-derived pixel primitives", () => {
@@ -147,4 +168,40 @@ test("fixed route paint audit preserves native connectors, controls, isolated ic
     assert.equal(result.passed, true);
     assert.equal(result.metrics.fixedRelationshipPaintCount, 0);
   }
+});
+
+test("approved approximate routes undergo the same geometry and node-following checks as source routes", () => {
+  const { encodeNativeFreeformPath } = require("../packages/slideclone-core/scene-plan/native-freeform-path");
+  const nodes = [
+    { id: "a", type: "rect", box: { x: 0, y: 0, w: 10, h: 10 } },
+    { id: "b", type: "rect", box: { x: 40, y: 40, w: 10, h: 10 } }
+  ];
+  const route = { id: "approved-route", type: "freeform", box: { x: 5, y: 10, w: 40, h: 30 },
+    style: { fill: "none", closed: false, stroke: "#336699", strokeWidthPt: 1,
+      freeformPath: encodeNativeFreeformPath([{ type: "moveTo", points: [{ x: 0, y: 0 }] },
+        { type: "cubicBezTo", points: [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: 1, y: 1 }] }]),
+      startAnchor: { elementId: "a", side: "bottom", position: .5 },
+      endAnchor: { elementId: "b", side: "top", position: .5 } },
+    source: { detector: "approved-native-route-approximation", approximationApprovalId: "review", strictSourceEquivalent: false } };
+  const input = deck({ shapes: [...nodes, route] }), before = structuredClone(input);
+  const strict = auditSemanticEditability(input), path = auditSemanticEditability(input, { relationshipEditing: "native-path" });
+  assert.equal(strict.passed, false);
+  assert.equal(strict.metrics.fixedRelationshipPaintCount, 1);
+  assert.equal(strict.relationshipEditing.nodeMoveRerouting, false);
+  assert.equal(path.passed, true);
+  assert.equal(path.metrics.nativePathRelationshipCount, 1);
+  assert.equal(path.metrics.nonReroutableRelationshipCount, 1);
+  for (const edit of [
+    r => r.style.fill = "#336699", r => r.style.closed = true, r => delete r.style.freeformPath,
+    r => r.style.endAnchor.elementId = "missing", r => r.style.endAnchor.position = 0,
+    r => r.style.freeformPath = "private-content", r => r.source.editable = true
+  ]) {
+    const changed = structuredClone(input); edit(changed.pages[0].shapes[2]);
+    // A serialized approval or editable flag cannot enable node following.
+    assert.equal(auditSemanticEditability(changed).passed, false);
+    const result = auditSemanticEditability(changed, { relationshipEditing: "native-path" });
+    assert.equal(result.passed, changed.pages[0].shapes[2].source.editable === true);
+    assert.doesNotMatch(JSON.stringify(result), /private-content/u);
+  }
+  assert.deepEqual(input, before);
 });

@@ -7,7 +7,7 @@ const path = require("path");
 const { run: runTool } = require("../../../packages/slideclone-core/renderer-process");
 const { readImageSize } = require("./lib/image-size");
 const { countPptxSlides } = require("./lib/pptx-inventory");
-const { readPresentationRasterFrame } = require("../../slideclone-core/presentation-frame");
+const { readPresentationRasterFrame } = require("../../slideclone-core/archetypes/presentation-frame");
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));

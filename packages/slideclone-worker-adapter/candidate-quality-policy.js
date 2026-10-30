@@ -1,7 +1,7 @@
 "use strict";
 
 const { auditNativeComponentQuality, largeRasterEditability, qualityRendered, visualQualityDoesNotRegress } = require("../slideclone-core/team-native-rebuild");
-const { auditSemanticEditability } = require("../slideclone-core/semantic-editability-quality");
+const { auditWorkerSemanticEditability: auditSemanticEditability } = require("./worker-relationship-policy");
 
 function visualFidelityPassed(quality) {
   return Array.isArray(quality?.checks) && quality.checks.some((check) => check?.name === "visual-fidelity" && check.passed === true);

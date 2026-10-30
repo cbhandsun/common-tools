@@ -1,4 +1,4 @@
-import { detectLongLines, detectEntropyMicroComponents, pixel, ptLineToPxMask, sampleMaskBackgroundColor, median, mergeAxisRuns } from "../../packages/slideclone-core/raster-native-detection";
+import { detectLongLines, detectEntropyMicroComponents, pixel, ptLineToPxMask, sampleMaskBackgroundColor, median, mergeAxisRuns } from "../../packages/slideclone-core/scene-plan/raster-native-detection";
 
 const raster = { width: 10, height: 10, rgba: new Uint8Array(400) };
 const slide = { widthPt: 960, heightPt: 540 };

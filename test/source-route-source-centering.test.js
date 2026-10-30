@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {centerSourceRoute:measure}=require('../packages/slideclone-core/source-route-source-centering');
+const {centerSourceRoute:measure}=require('../packages/slideclone-core/routing/source-route-source-centering');
 function fixture(){
  const width=26,height=18,mask=new Uint8Array(width*height);
  for(let x=2;x<=23;x++)for(let y=6;y<=10;y++)mask[y*width+x]=1;
@@ -26,6 +26,6 @@ test('centering cannot close source gaps, invent a loop, expand path capacity or
  assert.equal(measure(loop,fresh.mask,fresh.width,fresh.height,'undirected',{checks:0}),null);
  const exhausted={checks:4000000};assert.equal(measure(fresh.path,fresh.mask,fresh.width,fresh.height,'undirected',exhausted),null);assert.equal(exhausted.checks,4000001);
  const runtime=require('../scripts/verify-runtime-package'),{includesSuite}=require('../scripts/test-suites');
- assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-route-source-centering.js'));
+ assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/routing/source-route-source-centering.js'));
  for(const suite of ['unit','all'])assert.equal(includesSuite(__filename,suite),true);
 });

@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {selectTopologyReviewTargets:select,readTopologyObservations:read,applyTopologyReview:apply,sceneEndpointWithinScope:inside,topologyReviewPrompt:prompt}=require('../packages/slideclone-core/source-scene-topology-review');
+const {parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {selectTopologyReviewTargets:select,readTopologyObservations:read,applyTopologyReview:apply,sceneEndpointWithinScope:inside,topologyReviewPrompt:prompt}=require('../packages/slideclone-core/scene-plan/source-scene-topology-review');
 function fixture(){return parseSourceScenePlan({coordinateSpace:'source-pixels',regions:[
  {id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:200,h:100}},
  {id:'left',parentId:'root',kind:'diagram',box:{x:0,y:0,w:95,h:100}},
@@ -160,7 +160,7 @@ test('an arrow location survives endpoint consensus and binds to the exact local
  assert.match(prompt(t.slice(0,1),frame),/do not reassign it by reading order/);
  const result=apply(p,t,[rows(),rows()]);assert.deepEqual(result.plan.relations[0].shaftBox,p.relations[0].shaftBox);
  t[0].shaftBox.y=90;assert.equal(p.relations[0].shaftBox.y,26);
- const {sceneRelationWithinAnchor:within}=require('../packages/slideclone-core/source-scene-topology-review');
+ const {sceneRelationWithinAnchor:within}=require('../packages/slideclone-core/scene-plan/source-scene-topology-review');
  assert.equal(within(result.plan.relations[0],{start:{x:25,y:30},end:{x:35,y:30}}),true);
  assert.equal(within(result.plan.relations[0],{start:{x:25,y:50},end:{x:35,y:50}}),false);
  assert.equal(within(p.relations[1],{start:{x:25,y:50},end:{x:35,y:50}}),true);

@@ -1,3 +1,4 @@
+const { coreModulePath } = require('./helpers/isolated-core-package.cjs');
 "use strict";
 
 const assert = require("node:assert/strict");
@@ -11,6 +12,7 @@ const { IMAGE_EDITABLE_RELEASE_FILES, MAX_PACKAGE_BYTES, PPT_CREATE_RELEASE_FILE
 
 function metadata(files = REQUIRED_FILES) {
   return JSON.stringify([{
+    name: "common-tools",
     filename: `common-tools-${packageManifest.version}.tgz`,
     size: 1024,
     files: files.map((file) => ({ path: file, size: 1 }))
@@ -39,11 +41,29 @@ test("runtime package verifier accepts a bounded release-only file manifest", ()
 test('runtime package requires every transparent owner source and transaction module',()=>{
   const files=['source-scene-open-owner-transaction','source-scene-open-owner-inventory','source-scene-open-owner-members','source-scene-open-paint','source-scene-literal-paint','source-scene-inventory-codec','source-scene-inventory-artifact','source-scene-admission-history','source-scene-shared-route-inventory'];
   for(const module of files){
-    const file=`packages/slideclone-core/${module}.js`;
+    const file=`packages/slideclone-core/${coreModulePath(module)}`;
     assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(file));
     assert.throws(()=>parsePackMetadata(metadata(REQUIRED_FILES.filter(entry=>entry!==file))));
   }
 });
+
+test('installed runtime cannot omit numeric frame failure diagnostics',()=>{
+  const file='packages/slideclone-core/scene-plan/source-scene-frame-diagnostics.js';
+  assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(file));
+  assert.throws(()=>parsePackMetadata(metadata(REQUIRED_FILES.filter(entry=>entry!==file))));
+});
+
+test('installed runtime cannot omit source corner fragment direction measurement',()=>{
+  const file='packages/slideclone-core/scene-plan/source-corner-fragment-direction.js';
+  assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(file));
+  assert.throws(()=>parsePackMetadata(metadata(REQUIRED_FILES.filter(entry=>entry!==file))));
+});
+
+  test('installed runtime cannot omit local source frame ridge measurement',()=>{
+    const file='packages/slideclone-core/scene-plan/source-frame-local-ridge.js';
+    assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(file));
+    assert.throws(()=>parsePackMetadata(metadata(REQUIRED_FILES.filter(entry=>entry!==file))));
+  });
 
 test("installed runtime package surfaces must remain package-owned files", () => {
   assert.deepEqual(collectPackageSurfaceTargets({ main: "index.js", exports: { ".": "./index.js", "./feature": { require: "./feature.js" } } }), [
@@ -128,6 +148,49 @@ test("classified Runtime probes expose only bounded safe failure codes", () => {
     () => runClassifiedProbe(() => ({ status: 2, stdout: "secret=value\n" }), [], process.cwd(), "probe failed"),
     /probe failed \(unclassified\)/
   );
+});
+
+test("classified Runtime adapter forwards the shared route deadline without relaxing ready checks", () => {
+  for (const stdout of ["ready", "ready\n"]) {
+    let calls = 0;
+    const invoke = () => runClassifiedProbe((_command, args, options) => {
+      calls += 1;
+      assert.deepEqual(args, ["fixture"]);
+      assert.deepEqual(options, { cwd: process.cwd(), encoding: "utf8", windowsHide: true, shell: false, timeout: 120000, maxBuffer: 4096 });
+      return { status: 0, stdout };
+    }, ["fixture"], process.cwd(), "probe failed", "shared-route");
+    if (stdout === "ready") assert.equal(invoke(), "ready");
+    else assert.throws(invoke, (error) => error.code === "RUNTIME_PROBE_FAILED");
+    assert.equal(calls, 1);
+  }
+});
+
+test("classified Runtime probes preserve safe process failure diagnoses", () => {
+  const cases = [
+    [{ status: null, error: { code: "ETIMEDOUT" }, stdout: "", stderr: "private-user-content" }, "timeout", null, null, "ETIMEDOUT"],
+    [{ status: null, signal: "SIGTERM", stdout: "private-user-content" }, "signal", null, "SIGTERM", null],
+    [{ status: 2, stdout: "worker-reconstruction", stderr: "private-user-content" }, "exit", 2, null, null],
+    [null, "invalid-result", null, null, null],
+    [{ status: 0, signal: "SIGTERM", stdout: "ready" }, "signal", 0, "SIGTERM", null],
+    [{ status: 0, stdout: "ready\n" }, "invalid-result", 0, null, null]
+  ];
+  for (const [result, reason, exitCode, signal, spawnCode] of cases) {
+    let calls = 0;
+    assert.throws(() => runClassifiedProbe((_command, argumentsList, options) => {
+      calls += 1;
+      assert.deepEqual(argumentsList, ["private-argument"]);
+      assert.deepEqual(options, { cwd: process.cwd(), encoding: "utf8", windowsHide: true, shell: false, timeout: 60000, maxBuffer: 4096 });
+      return result;
+    }, ["private-argument"], process.cwd(), "probe failed"), (error) => {
+      assert.equal(error.code, "RUNTIME_PROBE_FAILED");
+      assert.deepEqual([error.reason, error.exitCode, error.signal, error.spawnCode], [reason, exitCode, signal, spawnCode]);
+      assert.equal(error.message.includes("private"), false);
+      assert.equal(JSON.stringify(error).includes("private"), false);
+      assert.equal(Object.hasOwn(error, "cause"), false);
+      return true;
+    });
+    assert.equal(calls, 1);
+  }
 });
 
 test("runtime package retains the Git marketplace required by installed plugin commands", () => {

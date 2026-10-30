@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {preserveSourceWordFonts:preserve}=require("../packages/slideclone-core/source-word-font-identity");
+const {preserveSourceWordFonts:preserve}=require("../packages/slideclone-core/typography/source-word-font-identity");
 const box={x:1,y:2,w:3,h:4};
 const run=(text,fontOverride)=>({text,box:{...box},...(fontOverride?{fontOverride}:{})});
 test("font spans preserve exact Unicode, spaces and formatting without changing measured boxes",()=>{

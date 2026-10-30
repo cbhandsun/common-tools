@@ -3,9 +3,9 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const facadePath = require.resolve("../packages/slideclone-core/line-text-native-components");
-const analysisPath = require.resolve("../packages/slideclone-core/line-text-native-analysis");
-const primitivesPath = require.resolve("../packages/slideclone-core/line-text-native-primitives");
+const facadePath = require.resolve("../packages/slideclone-core/typography/line-text-native-components");
+const analysisPath = require.resolve("../packages/slideclone-core/typography/line-text-native-analysis");
+const primitivesPath = require.resolve("../packages/slideclone-core/typography/line-text-native-primitives");
 const facade = require(facadePath);
 const analysis = require(analysisPath);
 const primitives = require(primitivesPath);
@@ -66,9 +66,9 @@ test("line text native helpers preserve normalized lines and editable shape meta
 
 test("line text native split helpers ship in the image runtime package", () => {
   for (const file of [
-    "packages/slideclone-core/line-text-native-components.js",
-    "packages/slideclone-core/line-text-native-analysis.js",
-    "packages/slideclone-core/line-text-native-primitives.js"
+    "packages/slideclone-core/typography/line-text-native-components.js",
+    "packages/slideclone-core/typography/line-text-native-analysis.js",
+    "packages/slideclone-core/typography/line-text-native-primitives.js"
   ]) {
     assert.equal(IMAGE_EDITABLE_RELEASE_FILES.includes(file), true, file);
   }

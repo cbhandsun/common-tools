@@ -1,3 +1,4 @@
+const { coreModulePath, copyCoreModuleClosure } = require('./helpers/isolated-core-package.cjs');
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -15,11 +16,11 @@ test("isolated core runs real parallel pixel workers with serial-equivalent resu
   const modules = ["png", "component-region-quality", "native-freeform-path", "missing-native-component-quality", "diff-pixel-png", "pixel-diff-page-worker", "text-weight-evidence", "text-ink-geometry", "source-text-separator", "measured-text-fit",
     "positioned-text-reframe", "positioned-text-layout", "source-word-layout-projection", "positioned-text-font-override",
     "text-ink-joint-evidence", "typography-contract", "source-word-joint-observation", "source-row-component-ownership", "source-row-whitespace-corridor"];
-  for (const file of ["package.json", ...modules.map((name) => `${name}.js`)]) fs.copyFileSync(path.join(__dirname, "../packages/slideclone-core", file), path.join(installed, file));
-  for (const name of modules) assert.ok(REQUIRED_FILES.includes(`packages/slideclone-core/${name}.js`), name);
+  copyCoreModuleClosure(installed, modules, REQUIRED_FILES);
+  for (const name of modules) assert.ok(REQUIRED_FILES.includes(`packages/slideclone-core/${coreModulePath(name)}`), name);
   const load = createRequire(path.join(root, "consumer.cjs"));
   const compare = load("@common-tools/slideclone-core/diff-pixel-png");
-  const {buildComponentRegions}=load(path.join(installed,"component-region-quality.js"));
+  const {buildComponentRegions}=load(path.join(installed,coreModulePath("component-region-quality")));
   const [surface]=buildComponentRegions({shapes:[{type:"freeform",box:{x:10,y:10,w:80,h:80},
     style:{fill:"#123456",stroke:"none",freeformPath:"[[0,0,0],[1,1,0],[1,1,1],[1,0,1],[4]]"}}]},
     {widthPt:100,heightPt:100});

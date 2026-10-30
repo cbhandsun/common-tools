@@ -2,7 +2,7 @@
 const test=require("node:test"),assert=require("node:assert/strict");
 const {validateDeckIrEnvelope}=require("../packages/slideclone-core/deck-ir-tree");
 const {validateDeckPageStructures}=require("../packages/slideclone-core/deck-ir-structure");
-const {projectSourceWordRuns}=require("../packages/slideclone-core/source-word-layout-projection");
+const {projectSourceWordRuns}=require("../packages/slideclone-core/typography/source-word-layout-projection");
 function deck(){return {version:"1.0",slideSize:{widthPt:960,heightPt:540},pages:[{pageIndex:0,textBoxes:[{
  id:"line",text:"AAAABBBB",box:{x:10,y:10,w:100,h:20},font:{family:"Arial",sizePt:12},wrap:false,
  style:{wrap:false,fit:"none",textWarp:"textPlain"},positionedRuns:[{text:"AAAA",box:{x:12,y:15,w:40,h:10}},{text:"BBBB",box:{x:64,y:15,w:44,h:10}}]

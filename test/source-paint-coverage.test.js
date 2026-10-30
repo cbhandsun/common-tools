@@ -1,8 +1,8 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {sourcePaintCoverageVariation}=require("../packages/slideclone-core/source-paint-coverage");
-const {createInkCoreConsensus}=require("../packages/slideclone-core/source-ink-core-consensus");
-const {detectMixedColorTextSegments}=require("../packages/slideclone-core/ocr-source-deck");
+const {sourcePaintCoverageVariation}=require("../packages/slideclone-core/scene-plan/source-paint-coverage");
+const {createInkCoreConsensus}=require("../packages/slideclone-core/scene-plan/source-ink-core-consensus");
+const {detectMixedColorTextSegments}=require("../packages/slideclone-core/ocr/ocr-source-deck");
 const background={r:245,g:249,b:253},paint=[20,35,60];
 function sample(coverage){
  const rgb=paint.map((value,c)=>Math.round(value+(Object.values(background)[c]-value)*coverage));

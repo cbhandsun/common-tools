@@ -3,7 +3,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { admitSemanticArcs } = require("../packages/slideclone-core/semantic-arc-admission");
+const { admitSemanticArcs } = require("../packages/slideclone-core/archetypes/semantic-arc-admission");
 
 /** @param {number} width @param {number} height @param {[number, number, number, number]} [color] */
 function imageOf(width, height, color = [255, 255, 255, 255]) {

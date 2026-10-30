@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {compareNativeStrokeRender}=require('../packages/slideclone-core/source-native-stroke-comparison');
-const {compareNativeSourceRender}=require('../packages/slideclone-core/source-native-render-comparison');
+const {compareNativeStrokeRender}=require('../packages/slideclone-core/routing/source-native-stroke-comparison');
+const {compareNativeSourceRender}=require('../packages/slideclone-core/scene-plan/source-native-render-comparison');
 const W=64,H=48,BG=[250,244,238];
 /** Anti-aliased stroke renderer: coverage of a w-wide segment set, supersampled.
  * @param {{segments:number[][],color:number[],width?:number,dx?:number,dy?:number}[]} strokes */

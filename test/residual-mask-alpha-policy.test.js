@@ -1,8 +1,8 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { admitTransparentResidualMasks } = require("../packages/slideclone-core/residual-mask-alpha-policy");
-const { eraseMasks } = require("../packages/slideclone-core/residual-primitive-erasure");
+const { admitTransparentResidualMasks } = require("../packages/slideclone-core/quality/residual-mask-alpha-policy");
+const { eraseMasks } = require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
 
 test("alpha selection accepts only exact existing nontext mask identities", () => {
   const a = { x: 1, y: 1, w: 2, h: 2 }, b = { x: 4, y: 1, w: 2, h: 2 };

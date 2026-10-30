@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/relationship-native-shell");
+module.exports = require("@common-tools/slideclone-core/archetypes/relationship-native-shell");

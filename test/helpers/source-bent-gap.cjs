@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {sourceLabelIdentity}=require('../../packages/slideclone-core/source-label-identity');
-const {bindSceneTextEndpoints}=require('../../packages/slideclone-core/source-scene-text-endpoints');
+const {sourceLabelIdentity}=require('../../packages/slideclone-core/scene-plan/source-label-identity');
+const {bindSceneTextEndpoints}=require('../../packages/slideclone-core/scene-plan/source-scene-text-endpoints');
 function fixture(flipX=false,flipY=false){
  const width=260,height=220,image={width,height,rgba:Buffer.alloc(width*height*4,255)},budget={used:0};
  const point=(x,y)=>({x:flipX?width-1-x:x,y:flipY?height-1-y:y});

@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {paintPrimitive}=require('./helpers/scene-primitive-program-fixture.cjs');
-const {parsePrimitiveCandidate}=require('../packages/slideclone-core/source-scene-primitive-candidate');
-const {compileScenePrimitiveProgram}=require('../packages/slideclone-core/source-scene-primitive-program');
-const {measureSceneRelationDetailed}=require('../packages/slideclone-core/source-scene-relation');
+const {parsePrimitiveCandidate}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-candidate');
+const {compileScenePrimitiveProgram}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-program');
+const {measureSceneRelationDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-relation');
 function fixture(){
  const image={width:300,height:160,rgba:Buffer.alloc(300*160*4,255)},budget={used:0},nodes=[];
  for(const x of [20,170])paintPrimitive(image,parsePrimitiveCandidate({id:'source-'+x,kind:'cylinder',capRatio:.2,

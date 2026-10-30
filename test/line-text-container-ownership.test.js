@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createLineTextNativeComponentObjects } = require("../packages/slideclone-core/line-text-native-components");
+const { createLineTextNativeComponentObjects } = require("../packages/slideclone-core/typography/line-text-native-components");
 
 function raster(width = 960, height = 540) {
   return { width, height, rgba: new Uint8Array(width * height * 4).fill(255) };

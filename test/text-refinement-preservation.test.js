@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {textRefinementAuthoritySnapshot:snapshot,assertTextRefinementPreservesAuthority:preserves,textRefinementAuditFailures:failures}=require('../packages/slideclone-core/text-refinement-preservation');
+const {textRefinementAuthoritySnapshot:snapshot,assertTextRefinementPreservesAuthority:preserves,textRefinementAuditFailures:failures}=require('../packages/slideclone-core/typography/text-refinement-preservation');
 const {includesSuite}=require('../scripts/test-suites');
 function deck(){return {slideSize:{widthPt:100,heightPt:100},pages:[{source:{sourceScene:{version:1,unresolved:[{id:'node',reason:'missing'}]}},
  shapes:[],images:[],textBoxes:[{id:'text',text:'中文 Ω',box:{x:1,y:1,w:50,h:20},font:{family:'Arial',sizePt:12,weight:'regular'},

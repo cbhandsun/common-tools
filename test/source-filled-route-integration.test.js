@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSourceSceneRoute,isMeasuredSourceRoute}=require('../packages/slideclone-core/source-scene-route');
-const {compileSourceSceneRoute}=require('../packages/slideclone-core/source-scene-route-compiler');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+const {measureSourceSceneRoute,isMeasuredSourceRoute}=require('../packages/slideclone-core/scene-plan/source-scene-route');
+const {compileSourceSceneRoute}=require('../packages/slideclone-core/scene-plan/source-scene-route-compiler');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 function fixture(){
  const width=260,height=220,image={width,height,rgba:Buffer.alloc(width*height*4,255)},budget={used:0};
  const put=(x,y,rgb=[25,75,210])=>image.rgba.set([...rgb,255],(y*width+x)*4);
@@ -52,10 +52,37 @@ test('filled route integration preserves direction, ownership, opaque width and 
 test('source-measured native route passes semantic editability while fixed body substitutions fail',()=>{
  const f=fixture(),result=measureSourceSceneRoute(f);assert.ok(result.fit,result.reason);
  const parts=compileSourceSceneRoute(request(f,result.fit));
- const {auditSemanticEditability}=require('../packages/slideclone-core/semantic-editability-quality');
+ const {auditSemanticEditability}=require('../packages/slideclone-core/quality/semantic-editability-quality');
  const audit=auditSemanticEditability({slideSize:{widthPt:260,heightPt:220},pages:[{shapes:parts,images:[]}]});
  assert.equal(audit.passed,true);assert.equal(audit.metrics.fixedRelationshipPaintCount,0);
  const fixed={id:'fixed-body',type:'freeform',box:{x:60,y:60,w:140,h:90},source:{...parts[0].source,routeControl:false,editable:true}};
  const substituted=auditSemanticEditability({slideSize:{widthPt:260,heightPt:220},pages:[{shapes:[...parts,fixed],images:[]}]});
  assert.equal(substituted.passed,false);assert.equal(substituted.metrics.fixedRelationshipPaintCount,1);
+});
+
+test('all corner modes retain a complete measured footprint instead of regularizing away its source paint',()=>{
+ const f=require('./helpers/source-filled-fringe.cjs').sourceFilledFringeFixture(),before=Buffer.from(f.image.rgba);
+ const result=measureSourceSceneRoute(f);assert.ok(result.fit,result.reason);const fit=result.fit;
+ assert.ok(fit.filledBody);assert.equal(fit.widthPx,3);
+ const {orthogonalSourceRoute,nativeElbowConnector}=require('../packages/slideclone-core/routing/source-route-native-elbow');
+ const route=orthogonalSourceRoute(fit.points,{widthPx:fit.widthPx});assert.ok(route);assert.ok(nativeElbowConnector(route));
+ const {compileFilledSourceRoute}=require('../packages/slideclone-core/routing/source-filled-route-compiler');
+ const input={...request(f,fit),slideSize:{widthPt:240,heightPt:180}},expected=compileFilledSourceRoute(input);
+ assert.equal(expected.filter(s=>s.type==='freeform').length,2);assert.equal(expected.filter(s=>s.type==='line').length,2);
+ for(const connectorCornerMode of ['auto','rounded-freeform','reroutable-elbow']){
+  const parts=compileSourceSceneRoute({...input,connectorCornerMode});assert.deepEqual(parts,expected,connectorCornerMode);
+  assert.ok(parts.every(s=>!s.style.endArrow&&!s.style.startArrow));
+  assert.ok(parts.filter(s=>s.type==='freeform').every(s=>s.style.stroke==='none'&&s.style.fill!=='none'));
+  assert.equal(parts.find(s=>s.type==='line').style.startAnchor.elementId,'a');
+  assert.equal(parts.at(-1).style.endAnchor.elementId,'b');
+  assert.throws(()=>compileSourceSceneRoute({...input,connectorCornerMode,fit:structuredClone(fit)}),/proof/);
+ }
+ assert.ok(Object.isFrozen(fit.filledBody));assert.ok(fit.filledBody.parts.every(Object.isFrozen));
+ assert.throws(()=>{fit.filledBody.parts[0].box.x=0;},TypeError);
+ assert.throws(()=>compileSourceSceneRoute({...input,fromId:'other'}),/proof/);
+ assert.deepEqual(f.image.rgba,before);assert.ok(f.budget.used<=4000000);
+ const {auditSemanticEditability}=require('../packages/slideclone-core/quality/semantic-editability-quality');
+ const audit=auditSemanticEditability({slideSize:input.slideSize,pages:[{shapes:expected,images:[]}]});
+ assert.equal(audit.passed,false);assert.equal(audit.metrics.fixedRelationshipPaintCount,2);
+ assert.ok(require('../scripts/test-suites').includesSuite(__filename,'unit'));
 });

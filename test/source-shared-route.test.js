@@ -1,16 +1,16 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {sourceSharedTreeFixture:fixture,sourceSharedGapTreeFixture:gapFixture}=require('./helpers/source-shared-tree.cjs');
-const {measureSharedSourceRoute:measure}=require('../packages/slideclone-core/source-shared-route-measurement');
-const {compileSharedSourceRoute:compile}=require('../packages/slideclone-core/source-shared-route-compiler');
+const {measureSharedSourceRoute:measure}=require('../packages/slideclone-core/routing/source-shared-route-measurement');
+const {compileSharedSourceRoute:compile}=require('../packages/slideclone-core/routing/source-shared-route-compiler');
 const relations=['left','right'].map(name=>({id:'relation-'+name,regionId:'root',fromId:'region-source',toId:'object-'+name,direction:'forward'}));
 for(const [variant,factory]of [['physical',fixture],['logical-gap',gapFixture]])test(`the production compiler preserves a ${variant} region tree through final inventory and artifact round-trip`,t=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
- const {writePng}=require('../packages/slideclone-core/png'),{compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
- const {parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
- const {initializeSceneObjectBatches}=require('../packages/slideclone-core/source-scene-object-batches');
- const {auditSceneInventory:audit}=require('../packages/slideclone-core/source-scene-observed-inventory');
- const {packSceneInventoryMembers:pack}=require('../packages/slideclone-core/source-scene-inventory-codec');
+ const {writePng}=require('../packages/slideclone-core/png'),{compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+ const {parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+ const {initializeSceneObjectBatches}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
+ const {auditSceneInventory:audit}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
+ const {packSceneInventoryMembers:pack}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-codec');
  const f=factory(),root=fs.mkdtempSync(path.join(os.tmpdir(),'source-shared-production-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,f.image);
@@ -28,8 +28,10 @@ for(const [variant,factory]of [['physical',fixture],['logical-gap',gapFixture]])
  assert.equal(inventory.endpointBindings.length,1);assert.equal(inventory.endpointBindings[0].kind,'region');
  assert.deepEqual(audit(pack(inventory),result.page.shapes,result.page.images,sourceHash,result.page.textBoxes),[]);
  const graph=inventory.sharedRouteGraphs[0],common=graph.paths[0].edges.find(a=>graph.paths[1].edges.some(b=>a.id===b.id));assert.ok(common);
- const trunk=graph.edges.find(e=>e.id===common.id).memberId;
- assert.ok(audit(inventory,result.page.shapes.filter(s=>s.id!==trunk),[],sourceHash).some(r=>r.kind==='relations'&&r.count===2));
+ assert.equal(graph.rendering,'whole-native-paths-v1');assert.equal(graph.renderedPaths.length,2);
+ const members=new Set(graph.renderedPaths.map(p=>p.memberId));assert.ok([...members].every(id=>result.page.shapes.some(s=>s.id===id)));
+ assert.ok(audit(inventory,result.page.shapes.filter(s=>!members.has(s.id)),[],sourceHash).some(r=>r.kind==='relations'&&r.count===2));
+ assert.ok(audit(inventory,result.page.shapes.filter(s=>s.id!==graph.renderedPaths[0].memberId),[],sourceHash).some(r=>r.kind==='relations'));
  assert.equal(result.page.images.length,0);assert.equal(crypto.createHash('sha256').update(fs.readFileSync(sourceFile)).digest('hex'),sourceHash);
 });
 test('real source pixels prove a complete tree and compile one native trunk with real region contacts',()=>{
@@ -59,7 +61,7 @@ test('unattached boundary fringe does not exhaust the capacity of privately prov
 });
 
 test('shared head and shaft width consume the privately observed body-adjacent background consistently',()=>{
- const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+ const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
  const f=fixture(),source=f.nodes[0];source.box={x:20,y:20,w:260,h:30};
  for(let y=20;y<50;y++)for(let x=20;x<280;x++)f.put(x,y,[210,230,245]);
  for(let y=50;y<166;y++)for(let x=20;x<280;x++){
@@ -178,8 +180,8 @@ test('budgets, forged ports, source substitution and hostile controls fail close
  assert.equal(calls,0);
  const {includesSuite}=require('../scripts/test-suites');assert.ok(includesSuite(__filename,'unit'));
 });
-test('a bounded high-cardinality body portfolio exhausts geometry without exposing a partial source proof',()=>{
+test('a high-cardinality portfolio with duplicate bodies rejects ambiguous ports before exhausting geometry',()=>{
  const f=fixture();f.nodes=Array.from({length:32},(_,i)=>({...f.nodes[i%3],id:'native-stress-'+i,endpointId:'object-stress-'+i}));
  const before=Buffer.from(f.image.rgba),result=measure(f);
- assert.equal(result.fit,null);assert.equal(result.reason,'shared-geometry-budget');assert.deepEqual(f.image.rgba,before);
+ assert.equal(result.fit,null);assert.equal(result.reason,'shared-ambiguous-ports');assert.deepEqual(f.image.rgba,before);
 });

@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { readPng, writePng } = require("../packages/slideclone-core/png");
-const { refineGrayBorderResiduals } = require("../packages/slideclone-core/gray-border-residual");
+const { refineGrayBorderResiduals } = require("../packages/slideclone-core/archetypes/gray-border-residual");
 
 function fixture(t, imageCount = 1) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "gray-border-residual-"));

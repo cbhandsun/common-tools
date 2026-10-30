@@ -1,12 +1,12 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
 const fs=require("node:fs"),path=require("node:path"),os=require("node:os"),crypto=require("node:crypto");
-const {splitNativeBackground:split}=require("../packages/slideclone-core/native-background-parts");
-const {traceNativeMaskContours:trace}=require("../packages/slideclone-core/native-mask-contours");
-const {measureSceneFillWindow}=require("../packages/slideclone-core/source-scene-fill-window");
+const {splitNativeBackground:split}=require("../packages/slideclone-core/scene-plan/native-background-parts");
+const {traceNativeMaskContours:trace}=require("../packages/slideclone-core/scene-plan/native-mask-contours");
+const {measureSceneFillWindow}=require("../packages/slideclone-core/scene-plan/source-scene-fill-window");
 const {writePng}=require("../packages/slideclone-core/png");
-const {parseSourceScenePlan}=require("../packages/slideclone-core/source-scene-plan");
-const {compileSourceScene}=require("../packages/slideclone-core/source-scene-compiler");
+const {parseSourceScenePlan}=require("../packages/slideclone-core/scene-plan/source-scene-plan");
+const {compileSourceScene}=require("../packages/slideclone-core/scene-plan/source-scene-compiler");
 function fixture(width=360){
  const box={x:20,y:25,w:width,h:30},points=[];
  for(let x=0;x<width;x++)for(let y=(Math.floor(x/2)%2)*6;y<30;y++)points.push({x:box.x+x,y:box.y+y});

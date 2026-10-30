@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
 const {validateDeckPageStructures}=require("../packages/slideclone-core/deck-ir-structure");
-const {parsePositionedTextFontOverride:parse,validateScriptFontFamily}=require("../packages/slideclone-core/positioned-text-font-override");
+const {parsePositionedTextFontOverride:parse,validateScriptFontFamily}=require("../packages/slideclone-core/typography/positioned-text-font-override");
 function fixture(){return [{pageIndex:0,shapes:[],images:[],tables:[],charts:[],textBoxes:[{id:"mixed",text:"AB",box:{x:0,y:0,w:100,h:30},
  font:{family:"Arial",sizePt:12,weight:"bold"},wrap:false,style:{wrap:false,fit:"none",textWarp:"textPlain"},
  positionedRuns:[{text:"A",box:{x:0,y:0,w:30,h:30},fontOverride:{family:"Microsoft YaHei",weight:"regular"}},

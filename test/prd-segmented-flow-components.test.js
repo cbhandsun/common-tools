@@ -8,7 +8,7 @@ const path = require("node:path");
 const { readPng, writePng } = require("../packages/slideclone-core/png");
 const {
   finalizePrdSegmentedFlowComponents
-} = require("../packages/slideclone-core/prd-segmented-flow-components");
+} = require("../packages/slideclone-core/archetypes/prd-segmented-flow-components");
 
 function fixture(root) {
   const sourceImage = { width: 960, height: 540, rgba: Buffer.alloc(960 * 540 * 4, 220) };

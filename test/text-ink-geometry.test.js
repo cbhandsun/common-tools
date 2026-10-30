@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { measureTextInkGeometry, measureSourceTextInkGeometry } = require("../packages/slideclone-core/text-ink-geometry");
+const { measureTextInkGeometry, measureSourceTextInkGeometry } = require("../packages/slideclone-core/typography/text-ink-geometry");
 
 function fixture() {
   const image = scale => {

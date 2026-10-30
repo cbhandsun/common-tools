@@ -13,6 +13,9 @@ function sceneWorkerConsumerProbe(){return String.raw`
  try{
   const {createNativeRebuilder}=require(path.join(root,'packages/remote-mcp-server/bin/common-tools-team-image-worker.js'));
   assert.equal(typeof createNativeRebuilder,'function');
+  stage='worker-native-engine-cold-load';
+  const actualNative=require(path.join(root,'packages/slideclone-native-engine')).loadNativeImageRebuilder();
+  assert.equal(typeof actualNative.rebuildDeckFromWorkDir,'function');
   stage='worker-fixture';
   temporary=fs.mkdtempSync(path.join(parent,'common-tools-installed-worker-'));
   const {writePng}=require(path.join(root,'packages/slideclone-core/png.js'));
@@ -22,12 +25,16 @@ function sceneWorkerConsumerProbe(){return String.raw`
    return {root:directory,metadata:{inputFile,assetPath:'assets/source.png',dimensions:{widthPx:100,heightPx:100}},
     ocr:{lines:Array.from({length:38},(_,i)=>({text:'fixture'+i,confidence:.8,box:{x:10,y:10,w:30,h:10}}))},isCancellationRequested:async()=>false};
   };
-  const sizes=[];let globals=0,generated=0;
+  const sizes=[],approvedModes=[];let globals=0,generated=0;
   stage='worker-factory';
-  const configured=createNativeRebuilder({rawImageOcrProfile:{kind:'umi'}},{environment:{COMMON_TOOLS_IMAGE_SCENE_REVIEW_BATCHES:'2'},
+  const configured=createNativeRebuilder({rawImageOcrProfile:{kind:'umi'},connectorCornerMode:'rounded-freeform'},{environment:{COMMON_TOOLS_IMAGE_SCENE_REVIEW_BATCHES:'2'},
    sceneVision:async request=>{
     if(request.task==='structure'){globals++;return {reviews:[],missingText:[]};}
     sizes.push([...request.localTargets.reviews]);return {reviews:request.localTargets.reviews.map(index=>({index,kind:'text'})),recoveredText:[]};
+   },applyApprovedFrames:async context=>{
+    approvedModes.push(context.connectorCornerMode);
+    const {issueApprovedFrameApplication}=require(path.join(root,'packages/slideclone-core/scene-plan/approved-frame-application-lifecycle.js'));
+    return issueApprovedFrameApplication(context,{commit(){},rollback(){assert.fail('unexpected rollback');}});
    },loadImplementation:()=>({rebuildDeckFromWorkDir(work){generated++;return JSON.parse(fs.readFileSync(path.join(work,'ir/deck.json'),'utf8'));}})});
   stage='worker-reconstruction';const result=await configured(fixture('configured'));
   stage='worker-consumer-assertions';
@@ -35,6 +42,7 @@ function sceneWorkerConsumerProbe(){return String.raw`
   assert.deepEqual([...sizes[0],...sizes[2]],Array.from({length:38},(_,i)=>i));
   assert.deepEqual(sizes[0],sizes[1]);assert.deepEqual(sizes[2],sizes[3]);
   assert.equal(result.deck.meta.sourceSceneReview.reviewed,38);assert.equal(result.deck.meta.sourceSceneReview.reviewAllocation.batchCount,2);
+  assert.deepEqual(approvedModes,['rounded-freeform']);
   let unconfiguredCalls=0,unconfiguredGenerated=0;
   stage='worker-default-budget';
   const unconfigured=createNativeRebuilder({rawImageOcrProfile:{kind:'umi'}},{environment:{},
@@ -42,6 +50,22 @@ function sceneWorkerConsumerProbe(){return String.raw`
    loadImplementation:()=>({rebuildDeckFromWorkDir(){unconfiguredGenerated++;throw Error();}})});
   await assert.rejects(unconfigured(fixture('default')),error=>error.code==='SCENE_REVIEW_CAPACITY_EXCEEDED'&&error.limitTargets===32);
   assert.equal(unconfiguredCalls,0);assert.equal(unconfiguredGenerated,0);
+  stage='worker-output-policy';
+  const {workerSettings}=require(path.join(root,'packages/remote-mcp-server/bin/common-tools-team-image-worker.js'));
+  assert.equal(workerSettings({OPENXML_BUILDER_EXE:process.execPath}).outputPolicy,'source-fidelity');
+  const policySettings=workerSettings({OPENXML_BUILDER_EXE:process.execPath,COMMON_TOOLS_IMAGE_OUTPUT_POLICY:'semantic-native'});
+  assert.equal(policySettings.outputPolicy,'semantic-native');
+  stage='worker-deployment-policy';
+  const {readImageReconstructionPolicy,assertResolvedImageReconstructionPolicy}=require(path.join(root,'packages/cli/image-reconstruction-policy.js'));
+  const selectedPolicy=readImageReconstructionPolicy({COMMON_TOOLS_IMAGE_OUTPUT_POLICY:'semantic-native'});
+  assert.deepEqual(selectedPolicy,{outputPolicy:'semantic-native',connectorCornerMode:'reroutable-elbow'});
+  assert.throws(()=>assertResolvedImageReconstructionPolicy({},selectedPolicy),/reconstruction policy does not match/u);
+  assert.throws(()=>readImageReconstructionPolicy({COMMON_TOOLS_IMAGE_OUTPUT_POLICY:''}),/reconstruction policy is invalid/u);
+  const {startupFailureCode}=require(path.join(root,'packages/remote-mcp-server/bin/common-tools-team-image-worker.js'));
+  assert.equal(startupFailureCode(new TypeError('native-output-policy-invalid')),'invalid-configuration');
+  const semantic=createNativeRebuilder({...policySettings,rawImageOcrProfile:{kind:'umi'}},{environment:{},sceneVision:null,
+   loadImplementation:()=>({rebuildDeckFromWorkDir:work=>JSON.parse(fs.readFileSync(path.join(work,'ir/deck.json'),'utf8'))})});
+  await assert.rejects(semantic(fixture('output-policy')),/semantic-native-output-incomplete/u);
   stage='ready';
  }catch{process.exitCode=2;}
  finally{

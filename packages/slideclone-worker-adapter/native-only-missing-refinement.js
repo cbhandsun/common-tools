@@ -5,7 +5,7 @@ const crypto = require("node:crypto");
 const { types } = require("node:util");
 const { rollbackRegressedMissingAdditions } = require("./missing-candidate-rollback");
 const { runCandidatePair } = require("./candidate-pair-executor");
-const { auditNativeComponentQuality } = require("../slideclone-core/native-component-quality");
+const { auditNativeComponentQuality } = require("../slideclone-core/quality/native-component-quality");
 /** @param {unknown} value @returns {value is Record<string,unknown>} */
 function record(value) { return value !== null && typeof value === "object" && !Array.isArray(value) && !types.isProxy(value)
   && Object.values(Object.getOwnPropertyDescriptors(value)).every(property => "value" in property); }

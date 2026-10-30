@@ -7,7 +7,7 @@ const {
   filterSkillsCapabilityMatrixTextBoxes,
   isolateLightNeutralIcon,
   shouldObjectifySkillsCapabilityMatrix
-} = require("../packages/slideclone-core/skills-capability-matrix");
+} = require("../packages/slideclone-core/archetypes/skills-capability-matrix");
 
 function fixture() {
   const labels = [

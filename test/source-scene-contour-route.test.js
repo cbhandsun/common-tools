@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createMeasuredScenePortFrame,measuredScenePortBodyMask,measuredSceneContourPort}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {measureSourceSceneRoute}=require('../packages/slideclone-core/source-scene-route');
-const {compileSourceSceneRoute}=require('../packages/slideclone-core/source-scene-route-compiler');
+const {createMeasuredScenePortFrame,measuredScenePortBodyMask,measuredSceneContourPort}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {measureSourceSceneRoute}=require('../packages/slideclone-core/scene-plan/source-scene-route');
+const {compileSourceSceneRoute}=require('../packages/slideclone-core/scene-plan/source-scene-route-compiler');
 function fixture(){
  const image={width:150,height:150,rgba:Buffer.alloc(150*150*4,255)},budget={used:0},nodes=[];
  const put=(x,y,rgb)=>image.rgba.set([...rgb,255],(y*150+x)*4);
@@ -59,7 +59,7 @@ test('curved-body routing retains text ownership, continuity, actual port and bu
  const {includesSuite}=require('../scripts/test-suites');assert.ok(includesSuite(__filename,'unit'));assert.ok(includesSuite(__filename,'all'));
 });
 test('terminal preservation keeps separate components and distant contacts without drawing new pixels',()=>{
- const {sourceRouteTerminalMask,thinSourceRoute}=require('../packages/slideclone-core/source-route-centerline');
+ const {sourceRouteTerminalMask,thinSourceRoute}=require('../packages/slideclone-core/routing/source-route-centerline');
  const width=30,height=20,mask=new Uint8Array(width*height);
  for(const y of [4,14])for(let x=3;x<=24;x++)for(let d=-1;d<=1;d++)mask[(y+d)*width+x]=1;
  const before=mask.slice(),work={checks:0};
@@ -78,7 +78,7 @@ test('terminal preservation keeps separate components and distant contacts witho
  const empty=new Uint8Array(width*height);assert.equal(sourceRouteTerminalMask(empty,width,height,from,to,{checks:0}).some(Boolean),false);
 });
 test('the original pair cap counts connected source hypotheses and still rejects actual excess',()=>{
- const {sourceRouteConnectedPairs}=require('../packages/slideclone-core/source-route-centerline');
+ const {sourceRouteConnectedPairs}=require('../packages/slideclone-core/routing/source-route-centerline');
  const width=30,height=40,mask=new Uint8Array(width*height);
  for(let y=1;y<height;y+=3)for(let x=1;x<=20;x++)mask[y*width+x]=1;
  const starts=Array.from({length:13},(_,i)=>({index:(1+i*3)*width+1,id:'a'+i}));

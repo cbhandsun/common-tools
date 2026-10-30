@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sceneObligationCoverage:coverage}=require('../packages/slideclone-core/source-scene-obligation-coverage');
-const {completeRegionPrograms}=require('../packages/slideclone-core/source-scene-region-completion');
+const {sceneObligationCoverage:coverage}=require('../packages/slideclone-core/scene-plan/source-scene-obligation-coverage');
+const {completeRegionPrograms}=require('../packages/slideclone-core/scene-plan/source-scene-region-completion');
 const hash='a'.repeat(64);
 function plan(){return {version:1,sourceHash:hash,widthPx:100,heightPx:100,
  regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:100,h:100}},

@@ -3,7 +3,7 @@ const test=require("node:test"),assert=require("node:assert/strict");
 const {createSceneVisionClient,sceneVisionFromEnvironment}=require("../packages/remote-mcp-server/source-scene-client");
 
 test('structural transport requests the executable geometry required by its schema and preserves it for source review',async()=>{
- const {readStructuralObservations}=require('../packages/slideclone-core/source-scene-structural-review');
+ const {readStructuralObservations}=require('../packages/slideclone-core/scene-plan/source-scene-structural-review');
  const geometry={kind:'cylinder',capRatio:.2,radiusRatio:null,seams:[.4,.7],corners:null};
  for(const enforceLocalSchema of [false,true]){
   let calls=0;const client=createSceneVisionClient({...options,enforceLocalSchema,fetchImpl:async(_url,init)=>{
@@ -176,4 +176,35 @@ test("safe failure codes distinguish invalid transport JSON, output JSON and exa
  for(const [body,code] of cases){let calls=0;const client=createSceneVisionClient({...options,fetchImpl:async()=>{calls++;return new Response(body);}});
   await assert.rejects(client(local),e=>e.code===code&&e.message==='Scene provider recognition failed');assert.equal(calls,1);
  }
+});
+
+test('json_object transport always names JSON in trusted input without altering prompts that already do or other modes',async()=>{
+ // Regression: OpenAI-compatible json_object mode rejects inputs lacking the word JSON;
+ // the Chat->Responses gateway surfaced it as an opaque 502 for candidate classification.
+ const seen=[];const fetchImpl=async(_url,init)=>{seen.push(JSON.parse(init.body));
+  return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:'{"classifications":[]}'}}]}));};
+ const json=createSceneVisionClient({...options,enforceJsonOutput:true,fetchImpl});
+ await json({...request,prompt:'Return ONLY {"classifications":[]}.',task:'structure'});
+ await json({...request,prompt:'Return one JSON object.',task:'structure'});
+ await json({...request,prompt:'classify'});
+ await createSceneVisionClient({...options,fetchImpl})({...request,prompt:'classify',task:'structure'});
+ assert.deepEqual(seen[0].response_format,{type:'json_object'});
+ assert.equal(seen[0].messages[0].content[0].text,'Return ONLY {"classifications":[]}.\nOUTPUT TRANSPORT: respond with exactly one JSON object.');
+ assert.equal(seen[1].messages[0].content[0].text,'Return one JSON object.');
+ assert.equal(seen[2].response_format,undefined);assert.equal(seen[2].messages[0].content[0].text,'classify');
+ assert.equal(seen[3].response_format,undefined);assert.equal(seen[3].messages[0].content[0].text,'classify');
+ assert.ok(seen.every(body=>body.max_tokens===6000&&body.messages[0].content.length===3));
+});
+
+test('HTTP failures expose only a bounded numeric status, never provider content',async()=>{
+ for(const status of [400,502,503]){
+  const client=createSceneVisionClient({...options,fetchImpl:async()=>new Response(`private ${options.token}`,{status,headers:{'x-private':options.token}})});
+  await assert.rejects(client({...request,task:'structure'}),error=>{
+   assert.equal(error.code,'SCENE_HTTP_FAILED');assert.equal(error.phase,'response');assert.equal(error.httpStatus,status);
+   assert.equal(error.message,'Scene provider recognition failed');assert.ok(!JSON.stringify(error).includes('private'));return true;});
+ }
+ const invalid=createSceneVisionClient({...options,fetchImpl:async()=>new Response('{}')});
+ await assert.rejects(invalid({...request,task:'structure'}),error=>error.code!=='SCENE_HTTP_FAILED'&&error.httpStatus===undefined);
+ const thrown=createSceneVisionClient({...options,fetchImpl:async()=>{throw new Error(options.token);}});
+ await assert.rejects(thrown(request),error=>error.httpStatus===undefined&&!JSON.stringify(error).includes('private'));
 });

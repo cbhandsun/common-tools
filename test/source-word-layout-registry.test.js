@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {boundedOcrSourceDeck}=require("../packages/slideclone-core/ocr-source-deck");
-const {applySourceWordLayouts,registerSourceWordLayout,planIntactSourceWordLayouts,rebindIntactSourceWordLayouts}=require("../packages/slideclone-core/source-word-layout-registry");
+const {boundedOcrSourceDeck}=require("../packages/slideclone-core/ocr/ocr-source-deck");
+const {applySourceWordLayouts,registerSourceWordLayout,planIntactSourceWordLayouts,rebindIntactSourceWordLayouts}=require("../packages/slideclone-core/typography/source-word-layout-registry");
 function source(join=false,extend=false,single=false){const width=120,height=40,rgba=new Uint8Array(width*height*4).fill(255);for(let y=15;y<25;y++)for(let x=extend?9:12;x<108;x++)if(join||x<52||x>=64)rgba.set([17,17,17,255],(y*width+x)*4);
 return boundedOcrSourceDeck({metadata:{dimensions:{widthPx:width,heightPx:height}},sourceImage:"assets/source.png",sourceRaster:{width,height,rgba},
 ocr:{lines:[{text:"AAAABBBB",box:{x:10,y:10,w:100,h:20},confidence:.99,wordPositionHints:single?[{text:'AAAABBBB',box:{x:10,y:10,w:100,h:20}}]:[{text:"AAAA",box:{x:10,y:10,w:50,h:20}},{text:"BBBB",box:{x:60,y:10,w:50,h:20}}]}]}});}

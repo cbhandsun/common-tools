@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sharedJunctionArmsInked}=require('../packages/slideclone-core/source-shared-junction-arms');
-const {sourceSharedRouteCoverage}=require('../packages/slideclone-core/source-shared-route-coverage');
+const {sharedJunctionArmsInked}=require('../packages/slideclone-core/routing/source-shared-junction-arms');
+const {sourceSharedRouteCoverage}=require('../packages/slideclone-core/routing/source-shared-route-coverage');
 const W=40,H=30,BG=[250,244,238];
 const raster=()=>{const rgba=new Uint8Array(W*H*4);for(let n=0;n<W*H;n++)rgba.set([...BG,255],n*4);return {rgba};};
 const at=(x,y)=>y*W+x;

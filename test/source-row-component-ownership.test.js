@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {classifySourceRowComponents:classify}=require('../packages/slideclone-core/source-row-component-ownership');
+const {classifySourceRowComponents:classify}=require('../packages/slideclone-core/scene-plan/source-row-component-ownership');
 function fixture(){const width=20,height=20,ink=new Uint8Array(400);
  for(let y=3;y<7;y++)for(let x=4;x<14;x++)ink[y*width+x]=1;
  for(let y=13;y<17;y++)for(let x=4;x<14;x++)ink[y*width+x]=1;

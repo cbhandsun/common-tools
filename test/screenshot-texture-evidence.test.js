@@ -2,8 +2,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { hasRepeatedAlignedDensityRows, hasScatteredTextureEvidence, hasUnverifiedNativeGeometry, shouldPreserveCropFromSpeculativeAtoms, assertUnverifiedRegionTextPreserved } = require("../packages/slideclone-core/screenshot-texture-evidence");
-const { understandDiagramLayer } = require("../packages/slideclone-core/diagram-understanding-entry");
+const { hasRepeatedAlignedDensityRows, hasScatteredTextureEvidence, hasUnverifiedNativeGeometry, shouldPreserveCropFromSpeculativeAtoms, assertUnverifiedRegionTextPreserved } = require("../packages/slideclone-core/typography/screenshot-texture-evidence");
+const { understandDiagramLayer } = require("../packages/slideclone-core/archetypes/diagram-understanding-entry");
 
 function peak(x, y, size = 13.5) {
   return { box: { x, y, w: size, h: size } };

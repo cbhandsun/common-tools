@@ -1,5 +1,5 @@
-import { measureTextInkGeometry } from "../../packages/slideclone-core/text-ink-geometry";
-import { planMeasuredSingleLineTextFit } from "../../packages/slideclone-core/measured-text-fit";
+import { measureTextInkGeometry } from "../../packages/slideclone-core/typography/text-ink-geometry";
+import { planMeasuredSingleLineTextFit } from "../../packages/slideclone-core/typography/measured-text-fit";
 declare const input: unknown;
 const measurement = measureTextInkGeometry(input);
 const proposed = planMeasuredSingleLineTextFit(input);

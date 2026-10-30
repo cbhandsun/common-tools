@@ -1,7 +1,7 @@
 // @ts-check
 "use strict";
 const {types}=require('node:util');
-const {rotatedTextEnvelope}=require('../slideclone-core/ocr-text-quadrilateral');
+const {rotatedTextEnvelope}=require('../slideclone-core/ocr/ocr-text-quadrilateral');
 const {readPng}=require('../slideclone-core/png');
 const {isCandidateVerificationCacheEntry}=require('./candidate-verification-cache');
 /** @typedef {{x:number,y:number,w:number,h:number}} Box */

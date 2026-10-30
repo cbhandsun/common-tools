@@ -5,7 +5,7 @@ const test = require("node:test");
 const {
   semanticFallbackToPageContext,
   validateSemanticFallback
-} = require("../packages/slideclone-core/semantic-fallback-adapter");
+} = require("../packages/slideclone-core/archetypes/semantic-fallback-adapter");
 
 test("validateSemanticFallback normalizes model semantic hierarchy without geometry", () => {
   const fallback = validateSemanticFallback({

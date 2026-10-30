@@ -2,10 +2,10 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const iconEvidence = require("../packages/slideclone-core/ocr-source-icon-evidence");
+const iconEvidence = require("../packages/slideclone-core/ocr/ocr-source-icon-evidence");
 const { hasSourceIconEvidence } = iconEvidence;
-const { sourceGraphicEvidence } = require("../packages/slideclone-core/ocr-source-graphic-evidence");
-const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr-source-deck");
+const { sourceGraphicEvidence } = require("../packages/slideclone-core/ocr/ocr-source-graphic-evidence");
+const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr/ocr-source-deck");
 
 function fixture({ size = 96, x = 24, y = 24, ink = [25, 25, 25], fill = [215, 230, 242], text = "G", confidence = 0.57 } = {}) {
   const width = x + size * 3, height = y + size * 3;

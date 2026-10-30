@@ -9,7 +9,7 @@ const {
   distributeBoxes,
   snapBox,
   solveGridLayout
-} = require("../packages/slideclone-core/layout-constraint-solver");
+} = require("../packages/slideclone-core/archetypes/layout-constraint-solver");
 
 test("assertBox validates and extracts coordinate bounding boxes", () => {
   assert.deepEqual(assertBox({ x: 10, y: 20, w: 100, h: 50 }), { x: 10, y: 20, w: 100, h: 50 });

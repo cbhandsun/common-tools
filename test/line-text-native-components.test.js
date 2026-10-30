@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createLineTextNativeComponents, createLineTextNativeComponentObjects } = require("../packages/slideclone-core/line-text-native-components");
+const { createLineTextNativeComponents, createLineTextNativeComponentObjects } = require("../packages/slideclone-core/typography/line-text-native-components");
 
 function h(id, x, y, w, stroke = "#D0D7E2") {
   return { id, type: "line", box: { x, y, w, h: 0 }, style: { stroke, strokeWidthPt: 1 }, source: { detector: "long-axis-line" } };
@@ -189,7 +189,7 @@ test("horizontal section panels require source fill across the proposed interior
 });
 
 test("panel fill evidence rejects invalid color tolerances", () => {
-  const { panelFillMatchesInterior } = require("../packages/slideclone-core/line-text-native-primitives");
+  const { panelFillMatchesInterior } = require("../packages/slideclone-core/typography/line-text-native-primitives");
   for (const tolerance of [NaN, Infinity, -1, 47, Number.MAX_VALUE]) {
     assert.equal(panelFillMatchesInterior(null, { x: 0, y: 0, w: 10, h: 10 }, { widthPt: 10, heightPt: 10 }, "#FFFFFF", tolerance), false);
   }

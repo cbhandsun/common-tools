@@ -9,7 +9,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const { promoteNativeChartPayload } = require("../packages/slideclone-core/chart-native-payload");
+const { promoteNativeChartPayload } = require("../packages/slideclone-core/archetypes/chart-native-payload");
 const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const {
   readZipEntries,
@@ -722,6 +722,7 @@ test("OpenXmlDeckBuilder emits component replacement anchors into PPTX XML", { t
 
 test("OpenXmlDeckBuilder emits native connector shapes with semantic anchors", () => {
   const source = fs.readFileSync(programFile, "utf8");
+  const geometrySource = fs.readFileSync(path.join(path.dirname(programFile), "NativeConnectorGeometry.cs"), "utf8");
   const lineEndSource = fs.readFileSync(path.join(path.dirname(programFile), "LineEndStyle.cs"), "utf8");
   const pythonBuilderSource = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "scripts", "python", "build_pptx.py"), "utf8");
 
@@ -729,12 +730,12 @@ test("OpenXmlDeckBuilder emits native connector shapes with semantic anchors", (
   assert.match(source, /BuildBoxIndex\(page\)/);
   assert.match(source, /ResolveAnchor\(GetObject\(element\.Style, "startAnchor"\)/);
   assert.match(source, /ResolveAnchor\(GetObject\(element\.Style, "endAnchor"\)/);
-  assert.match(source, /SafeConnectorExtent\(Math\.Abs\(end\.X - start\.X\)\)/);
-  assert.match(source, /SafeConnectorExtent\(Math\.Abs\(end\.Y - start\.Y\)\)/);
-  assert.match(source, /A\.ShapeTypeValues\.BentConnector2/);
-  assert.match(source, /"elbow-3" => A\.ShapeTypeValues\.BentConnector3/);
-  assert.match(source, /"elbow-4" => A\.ShapeTypeValues\.BentConnector4/);
-  assert.match(source, /"elbow-5" => A\.ShapeTypeValues\.BentConnector5/);
+  assert.match(source, /NativeConnectorExtents\.Resolve\(Math\.Abs\(end\.X - start\.X\), Math\.Abs\(end\.Y - start\.Y\), connectorType\)/);
+  assert.match(source, /NativeConnectorGeometry\.Create/);
+  assert.match(geometrySource, /A\.ShapeTypeValues\.BentConnector2/);
+  assert.match(geometrySource, /"elbow-3" => A\.ShapeTypeValues\.BentConnector3/);
+  assert.match(geometrySource, /"elbow-4" => A\.ShapeTypeValues\.BentConnector4/);
+  assert.match(geometrySource, /"elbow-5" => A\.ShapeTypeValues\.BentConnector5/);
   assert.match(source, /new P\.NonVisualConnectionShapeProperties/);
   assert.match(source, /LineEndStyle\.Append\(outline, style\)/);
   assert.match(lineEndSource, /new A\.HeadEnd/);
@@ -745,7 +746,7 @@ test("OpenXmlDeckBuilder emits native connector shapes with semantic anchors", (
   assert.match(pythonBuilderSource, /end\.set\("len", line_end_size\(arrow_length\)\)/);
 });
 
-test("OpenXmlDeckBuilder clamps zero-size connector extents for renderer compatibility", { timeout: 60_000 }, () => {
+test("OpenXmlDeckBuilder preserves straight zero axes and guards collapsed connector points", { timeout: 60_000 }, () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-zero-connector-"));
   const irFile = path.join(tmp, "deck.ir.json");
   const pptxFile = path.join(tmp, "deck.pptx");
@@ -768,6 +769,12 @@ test("OpenXmlDeckBuilder clamps zero-size connector extents for renderer compati
           type: "line",
           box: { x: 140, y: 160, w: 200, h: 0 },
           style: { stroke: "#123456", strokeWidthPt: 1, endArrow: "triangle", endArrowWidth: "large", endArrowLength: "small" }
+        },
+        {
+          id: "collapsed-point",
+          type: "line",
+          box: { x: 400, y: 200, w: 0, h: 0 },
+          style: { stroke: "#123456", strokeWidthPt: 1 }
         }
       ],
       textBoxes: [],
@@ -784,11 +791,22 @@ test("OpenXmlDeckBuilder clamps zero-size connector extents for renderer compati
   assert.ok(readZipEntry(pptxFile, "ppt/theme/theme1.xml").length > 0);
   assert.match(masterRels, /Target="\/ppt\/theme\/theme1\.xml"/);
   assert.match(contentTypes, /PartName="\/ppt\/theme\/theme1\.xml"/);
-  const extents = [...slideXml.matchAll(/<a:ext cx="(\d+)" cy="(\d+)"/g)]
-    .map((match) => ({ cx: Number(match[1]), cy: Number(match[2]) }));
-  assert.ok(extents.some((extent) => extent.cx > 0 && extent.cy > 0), "expected positive connector extents");
-  assert.equal(extents.some((extent) => extent.cx === 0 || extent.cy === 0), false);
-  assert.match(slideXml, /<a:tailEnd type="triangle" w="lg" len="sm"\s*\/>/);
+  const connectors = [...slideXml.matchAll(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g)].map((match) => match[0]);
+  assert.equal(connectors.length, 3);
+  const expected = new Map([
+    ["vertical-line", { cx: 0, cy: 1524000 }],
+    ["horizontal-line", { cx: 2540000, cy: 0 }],
+    ["collapsed-point", { cx: 1270, cy: 1270 }]
+  ]);
+  for (const [id, extent] of expected) {
+    const matching = connectors.filter((body) => body.includes(`name="${id}"`));
+    assert.equal(matching.length, 1, id);
+    const values = /<a:ext cx="(\d+)" cy="(\d+)"/.exec(matching[0]);
+    assert.ok(values, id);
+    assert.deepEqual({ cx: Number(values[1]), cy: Number(values[2]) }, extent, id);
+  }
+  const horizontal = connectors.find((body) => body.includes('name="horizontal-line"'));
+  assert.match(horizontal, /<a:tailEnd type="triangle" w="lg" len="sm"\s*\/>/);
 });
 
 test("OpenXmlDeckBuilder emits editable custom geometry for freeform IR", { timeout: 60_000 }, () => {
@@ -911,7 +929,7 @@ test("OpenXmlDeckBuilder emits editable custom geometry for freeform IR", { time
 });
 
 test("OpenXmlDeckBuilder preserves native contour holes without raster media", { timeout: 60_000 }, (t) => {
-  const { traceNativeMaskContours } = require("../packages/slideclone-core/native-mask-contours");
+  const { traceNativeMaskContours } = require("../packages/slideclone-core/scene-plan/native-mask-contours");
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openxml-native-contour-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const points = [];
@@ -1050,7 +1068,10 @@ test("OpenXmlDeckBuilder writes shape shadows and picture crop rectangles", () =
   assert.match(source, /CreateShapeFill\(element\.Style\)/);
   assert.match(source, /CreateGradientFill\(GetObject\(style, "gradient"\)\)/);
   assert.match(source, /AppendEffectList\(shapeProperties, element\.Style\)/);
-  assert.match(source, /new A\.EffectList\(CreateOuterShadow\(shadow\)\)/);
+  assert.match(source, /var effects = new A\.EffectList\(\);/);
+  assert.match(source, /if \(shadow is not null\) effects\.Append\(CreateOuterShadow\(shadow\)\);/);
+  assert.match(source, /if \(shadow is null && glow is null\) return;/);
+  assert.match(source, /shapeProperties\.Append\(effects\);/);
   assert.match(source, /new A\.OuterShadow\(rgb\)/);
   assert.match(source, /new A\.Alpha \{ Val = alpha \}/);
   assert.match(source, /CreateSourceRectangle\(VisualElementIr element\)/);
@@ -1099,15 +1120,17 @@ test("OpenXmlDeckBuilder turns chart IR into editable vector elements", () => {
 
 test("OpenXmlDeckBuilder emits native visual atoms as grouped PPT components", () => {
   const source = fs.readFileSync(programFile, "utf8");
-
-  assert.match(source, /var groupedComponentIds = AppendGroupedShapes\(/);
-  assert.match(source, /static \(HashSet<string> TextBoxIds, HashSet<string> ImageIds\) AppendGroupedShapes\(/);
-  assert.match(source, /NativeComponentGroupId\(element\)/);
-  assert.match(source, /GetString\(element\.Source, "nativeComponentGroupId"\)/);
-  assert.match(source, /NativeTextBoxComponentGroupId\(element\)/);
-  assert.match(source, /GetString\(textBox\.Style, "nativeComponentGroupId"\)/);
-  assert.match(source, /if \(groupedComponentIds\.TextBoxIds\.Contains\(textBox\.Id\)\) continue/);
-  assert.match(source, /if \(groupedComponentIds\.ImageIds\.Contains\(image\.Id\)\) continue/);
+  const plan = fs.readFileSync(path.join(openXmlBuilderRoot, "NativeComponentGroupPlan.cs"), "utf8");
+  // Membership and once-only emission belong to the extracted plan; the
+  // composition entry point retains actual shape/image/text writer calls.
+  assert.match(source, /NativeComponentGroupPlan\.Create\(/);
+  for (const item of ["shape", "image", "textBox"]) {
+    assert.ok(source.includes(`componentGroups.TryTake(${item}, out var group)`));
+  }
+  assert.match(plan, /GroupId\(element\.Source\) \?\? GroupId\(element\.Style\)/);
+  assert.match(plan, /TryGetProperty\("nativeComponentGroupId", out var property\)/);
+  assert.match(plan, /if \(emitted\.Add\(id\)\) emission = group/);
+  assert.doesNotMatch(source, /static .*AppendGroupedShapes\(/);
   assert.match(source, /new P\.GroupShape\(/);
   assert.match(source, /new P\.NonVisualGroupShapeProperties\(/);
   assert.match(source, /new P\.GroupShapeProperties\(new A\.TransformGroup\(/);

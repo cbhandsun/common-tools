@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {boundedOcrSourceDeck}=require('../packages/slideclone-core/ocr-source-deck');
-const {projectOcrTextBox}=require('../packages/slideclone-core/ocr-text-quadrilateral');
-const {applySourceWordLayouts,registerSourceWordLayout}=require('../packages/slideclone-core/source-word-layout-registry');
-const {prepareRotatedSourceWordFrame}=require('../packages/slideclone-core/source-word-rotated-frame');
+const {boundedOcrSourceDeck}=require('../packages/slideclone-core/ocr/ocr-source-deck');
+const {projectOcrTextBox}=require('../packages/slideclone-core/ocr/ocr-text-quadrilateral');
+const {applySourceWordLayouts,registerSourceWordLayout}=require('../packages/slideclone-core/typography/source-word-layout-registry');
+const {prepareRotatedSourceWordFrame}=require('../packages/slideclone-core/typography/source-word-rotated-frame');
 function fixture(degrees=12){
  const width=140,height=90,rgba=new Uint8Array(width*height*4).fill(255),r=degrees*Math.PI/180,c=Math.cos(r),s=Math.sin(r),cx=70,cy=45;
  const polygon=[[-35,-10],[35,-10],[35,10],[-35,10]].map(([x,y])=>[cx+c*x-s*y,cy+s*x+c*y]);

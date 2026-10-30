@@ -1,9 +1,9 @@
 // @ts-check
 "use strict";
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
-const {record,list,jsonSnapshot,numeric}=require("../slideclone-core/typography-contract");
-const {parseRenderedTypographyAudit}=require("../slideclone-core/rendered-typography-audit");
-const {createReconstructionSearchControl}=require("../slideclone-core/reconstruction-search-control");
+const {record,list,jsonSnapshot,numeric}=require("../slideclone-core/typography/typography-contract");
+const {parseRenderedTypographyAudit}=require("../slideclone-core/typography/rendered-typography-audit");
+const {createReconstructionSearchControl}=require("../slideclone-core/archetypes/reconstruction-search-control");
 /** @typedef {{deck:Record<string,unknown>,changedTextBoxes:number,parameters:Record<string,unknown>}} Proposal */
 /** @typedef {ReturnType<typeof createReconstructionSearchControl>} Control */
 /** @typedef {{accepted:true,changedTextBoxes:number,candidateTextBoxes:number,deck:Record<string,unknown>,deckFile:string,pptxFile:string,quality:Record<string,unknown>}} Artifact */

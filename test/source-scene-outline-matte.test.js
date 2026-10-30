@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSceneOutlineMatte}=require('../packages/slideclone-core/source-scene-outline-matte');
-const {measureSceneIconBackdrop,matteSceneParametricBackdrop,sceneParametricBackdropGeometry}=require('../packages/slideclone-core/source-scene-parametric-surface');
+const {measureSceneOutlineMatte}=require('../packages/slideclone-core/scene-plan/source-scene-outline-matte');
+const {measureSceneIconBackdrop,matteSceneParametricBackdrop,sceneParametricBackdropGeometry}=require('../packages/slideclone-core/scene-plan/source-scene-parametric-surface');
 const {cropPng}=require('../packages/slideclone-core/png');
-const {withSceneFillRasterCache:withCache,readSceneFillRaster:read,sceneFillRasterReadCost:cost}=require('../packages/slideclone-core/source-scene-fill-raster-cache');
+const {withSceneFillRasterCache:withCache,readSceneFillRaster:read,sceneFillRasterReadCost:cost}=require('../packages/slideclone-core/scene-plan/source-scene-fill-raster-cache');
 function fixture(){
  const image={width:200,height:130,rgba:Buffer.alloc(200*130*4,255)},hint={x:20,y:15,w:140,h:90},budget={used:0};
  for(let y=15;y<105;y++)for(let x=20;x<160;x++)image.rgba.set(x<22||x>=158||y<17||y>=103?[10,20,30,255]:[235,245,250,255],(y*200+x)*4);
@@ -54,7 +54,7 @@ test('validated pixel views cannot execute buffer accessors during adjacent-back
 });
 
 test('the original private glyph proof resolves OCR padding across the same measured ring',()=>{
- const {createSceneGlyphOcclusion,sceneIconTextFootprint}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {createSceneGlyphOcclusion,sceneIconTextFootprint}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const f=fixture();
  for(let y=15;y<105;y++)for(let x=20;x<160;x++)if(x<22||x>=158||y<17||y>=103)
   f.image.rgba.set([0,120,200,255],(y*200+x)*4);

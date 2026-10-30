@@ -1,4 +1,4 @@
-import { fitSourceBorders } from "../../packages/slideclone-core/source-border-fit";
+import { fitSourceBorders } from "../../packages/slideclone-core/scene-plan/source-border-fit";
 
 const input: unknown = {};
 const result = fitSourceBorders(input);

@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {writePng}=require('../packages/slideclone-core/png');
-const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
-const {prepareSceneReviewImages}=require('../packages/slideclone-core/source-scene-local-observations');
+const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
+const {prepareSceneReviewImages}=require('../packages/slideclone-core/scene-plan/source-scene-local-observations');
 test('view preparation keeps empty input bounded and rejects invalid budgets before I/O',()=>{
  const request={image:{width:10,height:10,rgba:Buffer.alloc(400,255)},directory:'unused',cropTargets:[],focusIndices:[],reservedPixels:0,pixels:4000000,paddingRatio:0};
  const out=prepareSceneReviewImages(request);assert.deepEqual(out.images,[]);assert.equal(out.pixels,4000000);

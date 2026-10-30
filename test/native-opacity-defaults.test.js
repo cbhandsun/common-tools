@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {compactNativeOpacityDefaults}=require('../packages/slideclone-core/native-opacity-defaults');
+const {compactNativeOpacityDefaults}=require('../packages/slideclone-core/scene-plan/native-opacity-defaults');
 test('opaque defaults compact without changing overrides, non-default alpha, source or geometry',()=>{
  const page={shapes:[{box:{x:1,y:2,w:3,h:4},style:{opacity:1},source:{opacity:1}}],textBoxes:[
   {font:{opacity:1},style:{opacity:1}},{font:{opacity:.2},style:{opacity:1}},

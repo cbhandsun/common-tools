@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 function fixture(){
  const image={width:440,height:140,rgba:Buffer.alloc(440*140*4,255)},hint={x:20,y:20,w:400,h:90};
  for(let x=20;x<420;x++)for(let y=20+2*(Math.floor((x-20)/2)%2);y<110;y++)image.rgba.set([210,230,245,255],(y*440+x)*4);

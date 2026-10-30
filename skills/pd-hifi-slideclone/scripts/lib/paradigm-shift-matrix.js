@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/paradigm-shift-matrix");
+module.exports = require("@common-tools/slideclone-core/archetypes/paradigm-shift-matrix");

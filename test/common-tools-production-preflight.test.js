@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const fs = require("node:fs");
-const os = require("node:os");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require("./helpers/temporary-directory.cjs");
 const { spawnSync } = require("node:child_process");
 const { writeReleaseEvidence } = require("../scripts/release-evidence");
 const { createSbom } = require("../scripts/generate-sbom");
@@ -11,6 +11,75 @@ const test = require("node:test");
 const { REQUIRED_PRODUCTION_MIGRATIONS, credentialSourceMode, immutableImageReference, inspectProductionRelease, releaseSignatureRequired, runProductionPreflight, validateResolvedProductionCompose, verifyProductionSchemaMigrations } = require("../packages/cli/production-preflight");
 
 const DIGEST = "a".repeat(64);
+
+test("production preflight rejects invalid reconstruction policy before external checks", () => {
+  let calls = 0;
+  const external = () => { calls++; throw new Error("external check must not run"); };
+  for (const key of ["COMMON_TOOLS_IMAGE_OUTPUT_POLICY", "COMMON_TOOLS_IMAGE_CONNECTOR_CORNER_MODE"]) {
+    for (const value of ["", null, false, {}, "private-do-not-echo", "x".repeat(4097), "semantic-native\0"]) {
+      assert.throws(() => runProductionPreflight(productionEnvironment({ [key]: value }), {
+        repositoryRoot: path.resolve(__dirname, ".."), composeValidator: external, evidenceVerifier: external, migrationLoader: external
+      }), error => error instanceof TypeError && !error.message.includes("private-do-not-echo"));
+    }
+  }
+  assert.equal(calls, 0);
+});
+
+test("resolved production Compose preserves the requested reconstruction policy", () => {
+  const remoteImage = `registry.example.test/common-tools/remote@sha256:${DIGEST}`;
+  const imageWorkerImage = `registry.example.test/common-tools/image-worker@sha256:${DIGEST}`;
+  const environment = { NODE_ENV: "production", COMMON_TOOLS_TEAM_MODE: "production" };
+  const service = image => ({ image, environment: { ...environment }, depends_on: { "team-migrate": { condition: "service_completed_successfully" } } });
+  const valid = { services: {
+    "team-migrate": { image: remoteImage, environment },
+    "remote-mcp": { ...service(remoteImage), environment: { ...environment, COMMON_TOOLS_REMOTE_BACKEND: "postgres-redis-s3", COMMON_TOOLS_REQUIRE_PROJECT_RBAC: "true", COMMON_TOOLS_REMOTE_HOST: "0.0.0.0" } },
+    "team-retention": service(remoteImage), "project-audit-worker": service(remoteImage),
+    "image-to-editable-worker": service(imageWorkerImage)
+  } };
+  const workerEnvironment = valid.services["image-to-editable-worker"].environment;
+  const imageReconstruction = { outputPolicy: "semantic-native", connectorCornerMode: "reroutable-elbow" };
+  const expected = { remoteImage, imageWorkerImage, imageReconstruction };
+  workerEnvironment.COMMON_TOOLS_IMAGE_OUTPUT_POLICY = "semantic-native";
+  workerEnvironment.COMMON_TOOLS_IMAGE_CONNECTOR_CORNER_MODE = "reroutable-elbow";
+  assert.equal(validateResolvedProductionCompose(valid, expected), true);
+  for (const value of [undefined, "source-fidelity", "", "private-do-not-echo"]) {
+    workerEnvironment.COMMON_TOOLS_IMAGE_OUTPUT_POLICY = value;
+    assert.throws(() => validateResolvedProductionCompose(valid, expected), /reconstruction policy/u);
+  }
+  workerEnvironment.COMMON_TOOLS_IMAGE_OUTPUT_POLICY = "semantic-native";
+  workerEnvironment.COMMON_TOOLS_IMAGE_CONNECTOR_CORNER_MODE = "rounded-freeform";
+  assert.throws(() => validateResolvedProductionCompose(valid, expected), /reconstruction policy/u);
+});
+
+test("production preflight carries every valid reconstruction choice into Compose verification", () => {
+  for (const outputPolicy of ["source-fidelity", "semantic-native"]) {
+    for (const connectorCornerMode of ["auto", "rounded-freeform", "reroutable-elbow"]) {
+      const environment = productionEnvironment({ COMMON_TOOLS_IMAGE_OUTPUT_POLICY: outputPolicy, COMMON_TOOLS_IMAGE_CONNECTOR_CORNER_MODE: connectorCornerMode });
+      let selected;
+      const report = runProductionPreflight(environment, {
+        repositoryRoot: path.resolve(__dirname, ".."), evidenceVerifier: verifiedEvidence(environment),
+        composeValidator: (_root, _files, expected) => { selected = expected.imageReconstruction; }
+      });
+      assert.equal(report.composeValidated, true);
+      assert.deepEqual(selected, { outputPolicy, connectorCornerMode });
+      assert.ok(Object.isFrozen(selected));
+    }
+  }
+});
+
+test("production preflight preserves the selected reconstruction snapshot during external checks", () => {
+  const environment = productionEnvironment({ COMMON_TOOLS_IMAGE_OUTPUT_POLICY: "semantic-native" });
+  let selected;
+  runProductionPreflight(environment, {
+    repositoryRoot: path.resolve(__dirname, ".."),
+    evidenceVerifier: () => {
+      environment.COMMON_TOOLS_IMAGE_OUTPUT_POLICY = "source-fidelity";
+      return verifiedEvidence(environment)();
+    },
+    composeValidator: (_root, _files, expected) => { selected = expected.imageReconstruction; }
+  });
+  assert.deepEqual(selected, { outputPolicy: "semantic-native", connectorCornerMode: "reroutable-elbow" });
+});
 function productionEnvironment(overrides = {}) {
   return {
     COMMON_TOOLS_REMOTE_IMAGE: `registry.example.test/common-tools/remote@sha256:${DIGEST}`,
@@ -184,8 +253,8 @@ test("production preflight passes the normalized approved revision into verifica
 });
 
 test("production admission verifies real release files against the independently selected revision", (t) => {
-  const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "production-revision-"));
-  t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+  const repositoryRoot = createTemporaryTestDirectory("production-revision-");
+  t.after(() => removeTemporaryTestDirectory(repositoryRoot));
   const packagePath = path.join(repositoryRoot, "package.json");
   const lockPath = path.join(repositoryRoot, "package-lock.json");
   const sbomPath = path.join(repositoryRoot, "sbom.json");

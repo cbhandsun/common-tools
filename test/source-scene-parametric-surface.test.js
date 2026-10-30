@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {fitSourceTextBand,fitObservedSourceTextBand}=require('../packages/slideclone-core/source-text-band-evidence');
-const {measureSceneParametricSurface}=require('../packages/slideclone-core/source-scene-parametric-surface');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
-const {withSceneFillRasterCache}=require('../packages/slideclone-core/source-scene-fill-raster-cache');
+const {fitSourceTextBand,fitObservedSourceTextBand}=require('../packages/slideclone-core/typography/source-text-band-evidence');
+const {measureSceneParametricSurface}=require('../packages/slideclone-core/scene-plan/source-scene-parametric-surface');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+const {withSceneFillRasterCache}=require('../packages/slideclone-core/scene-plan/source-scene-fill-raster-cache');
 function fixture({wavy=true,labels=true}={}){
  const image={width:160,height:120,rgba:Buffer.alloc(160*120*4)},put=(x,y,color)=>{const i=(y*160+x)*4;image.rgba.set([...color,255],i);};
  for(let y=0;y<120;y++)for(let x=0;x<160;x++)put(x,y,[253,232,242]);

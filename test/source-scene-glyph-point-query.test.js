@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createSceneGlyphOcclusion:create,sceneGlyphOcclusionEvidence:evidence,sceneSourceTextPointsOwned:query,sceneIconTextFootprint:whole,
- stageSceneGlyphOwnership:stage,commitSceneGlyphOwnership:commit}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ stageSceneGlyphOwnership:stage,commitSceneGlyphOwnership:commit}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
 function fixture(){
  const image={width:120,height:90,rgba:Buffer.alloc(120*90*4,255)},budget={used:0},box={x:40,y:30,w:30,h:25};
  for(let y=35;y<50;y++)for(let x=50;x<54;x++)image.rgba.set([0,0,0,255],(y*120+x)*4);
@@ -51,7 +51,7 @@ test('source pixels outside the measured glyph context remain protected at crop 
 });
 
 test('nearly exhausted shared ownership admits exact ring points without borrowing a full text population',()=>{
- const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {sceneFillGlyphBridge:bridge}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const image={width:950,height:500,rgba:Buffer.alloc(950*500*4)},fill=[0,130,70],budget={used:0};
  for(let i=0;i<950*500;i++)image.rgba.set([...fill,255],i*4);
  for(const [left,stripes]of [[30,8],[300,25]])for(let stripe=0;stripe<stripes;stripe++)

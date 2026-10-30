@@ -1,9 +1,9 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {parseResidualTextInk,compileResidualTextMask,compileBoundedResidualTextMask}=require("../packages/slideclone-core/residual-text-mask");
-const {eraseMasks}=require("../packages/slideclone-core/residual-primitive-erasure");
-const {auditResidualPixelOwnership:audit}=require("../packages/slideclone-core/residual-pixel-ownership");
-const {eraseObjectMask}=require("../packages/slideclone-core/full-slide-native-residual");
+const {parseResidualTextInk,compileResidualTextMask,compileBoundedResidualTextMask}=require("../packages/slideclone-core/typography/residual-text-mask");
+const {eraseMasks}=require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
+const {auditResidualPixelOwnership:audit}=require("../packages/slideclone-core/scene-plan/residual-pixel-ownership");
+const {eraseObjectMask}=require("../packages/slideclone-core/archetypes/full-slide-native-residual");
 function fixture(scale=1,shift=0,color=[20,30,40],left=[200,230,210],right=[240,210,230]) {
   const width=100*scale+shift,height=60*scale+shift,source={width,height,rgba:Buffer.alloc(width*height*4,255)};
   for(let y=6*scale+shift;y<54*scale+shift;y++)for(let x=6*scale+shift;x<94*scale+shift;x++) source.rgba.set([...(x<50*scale+shift?left:right),255],(y*width+x)*4);

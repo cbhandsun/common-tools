@@ -1,10 +1,10 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {canErasePreservedInteriorPath}=require("../packages/slideclone-core/residual-preserved-path");
+const {canErasePreservedInteriorPath}=require("../packages/slideclone-core/scene-plan/residual-preserved-path");
 const {residualEraseObjects}=require("../packages/slideclone-core/team-native-rebuild");
-const {eraseObjectMask}=require("../packages/slideclone-core/full-slide-native-residual");
-const {eraseMasks}=require("../packages/slideclone-core/residual-primitive-erasure");
-const {auditResidualPixelOwnership}=require("../packages/slideclone-core/residual-pixel-ownership");
+const {eraseObjectMask}=require("../packages/slideclone-core/archetypes/full-slide-native-residual");
+const {eraseMasks}=require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
+const {auditResidualPixelOwnership}=require("../packages/slideclone-core/scene-plan/residual-pixel-ownership");
 function ring(){
  const loop=points=>[{type:"moveTo",points:[points[0]]},...points.slice(1).map(point=>({type:"lnTo",points:[point]})),{type:"close",points:[]}];
  const p=(x,y)=>({x,y});

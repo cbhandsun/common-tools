@@ -1,8 +1,8 @@
 "use strict";
 const assert=require("node:assert/strict"),test=require("node:test");
-const {sourceIconPaletteShapes:palette}=require("../packages/slideclone-core/source-icon-palette");
-const {sourceIconPaintError:score}=require("../packages/slideclone-core/source-icon-paint-error");
-const {nativeSceneIconShapes}=require("../packages/slideclone-core/source-scene-native-icon");
+const {sourceIconPaletteShapes:palette}=require("../packages/slideclone-core/scene-plan/source-icon-palette");
+const {sourceIconPaintError:score}=require("../packages/slideclone-core/scene-plan/source-icon-paint-error");
+const {nativeSceneIconShapes}=require("../packages/slideclone-core/scene-plan/source-scene-native-icon");
 const box={x:10,y:20,w:64,h:64};
 function fixture(){
  const image={width:32,height:32,rgba:Buffer.alloc(32*32*4)};
@@ -28,11 +28,11 @@ test("source-native icon stage selects better complete paint without raster fall
 
 test("page composition prevents palette refinements from inflating the shared structure tree",()=>{
  const image=fixture(),icon={id:"scene-icon-fixture",assetPath:"assets/unused.png",box,source:{sceneRegionId:"root"}};
- const {vectorizeDensePictorialIcon}=require("../packages/slideclone-core/pictorial-icon-native-vectorization");
+ const {vectorizeDensePictorialIcon}=require("../packages/slideclone-core/archetypes/pictorial-icon-native-vectorization");
  const baseline=vectorizeDensePictorialIcon({image,box,idPrefix:icon.id});
  const bounded=nativeSceneIconShapes(icon,"unused","",image,false,true);
  const unrestricted=nativeSceneIconShapes(icon,"unused","",image);
- const {compactNativeFreeformPaths}=require("../packages/slideclone-core/native-freeform-path");
+ const {compactNativeFreeformPaths}=require("../packages/slideclone-core/scene-plan/native-freeform-path");
  const count=value=>1+(value&&typeof value==="object"?Object.values(value).reduce((n,v)=>n+count(v),0):0);
  const cost=shapes=>{
   const deck={pages:[{shapes:structuredClone(shapes)}]};compactNativeFreeformPaths(deck);
@@ -77,7 +77,7 @@ test("touching staircase runs share exact compound boundaries within the origina
  assert.ok(shapes.every(s=>s.style.freeformSegments.length<=120));
  assert.deepEqual(score(image,box,shapes),{error:0,missing:0,extra:0});
  assert.deepEqual(image.rgba,before);
- const {compactNativeFreeformPaths,readNativeFreeformSegments}=require("../packages/slideclone-core/native-freeform-path");
+ const {compactNativeFreeformPaths,readNativeFreeformSegments}=require("../packages/slideclone-core/scene-plan/native-freeform-path");
  const deck={pages:[{shapes:structuredClone(shapes)}]};compactNativeFreeformPaths(deck);
  assert.deepEqual(deck.pages[0].shapes.map(s=>readNativeFreeformSegments(s.style)),shapes.map(s=>s.style.freeformSegments));
  assert.deepEqual(score(image,box,deck.pages[0].shapes),{error:0,missing:0,extra:0});

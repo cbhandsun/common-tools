@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { promoteOrthogonalConnectorRoutes } = require("../packages/slideclone-core/orthogonal-connector-promotion");
+const { promoteOrthogonalConnectorRoutes } = require("../packages/slideclone-core/routing/orthogonal-connector-promotion");
 
 function routeSegment(id, x, y, w, h, extra = {}) {
   return {

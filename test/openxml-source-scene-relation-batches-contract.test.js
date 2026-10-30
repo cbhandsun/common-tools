@@ -2,10 +2,10 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {sourceArrowChain}=require('./helpers/scene-arrow-chain.cjs');
 const {writePng}=require('../packages/slideclone-core/png');
-const {parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {recordSceneLocalRelationBatch}=require('../packages/slideclone-core/source-scene-relation-batches');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
-const {buildOpenXmlDecksSync}=require('../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet');
+const {parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {recordSceneLocalRelationBatch}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+const {buildOpenXmlDecksSync}=require('../packages/slideclone-core/pptx-openxml-dotnet');
 const {readZipEntryText}=require('../packages/ooxml-core/pptx-zip');
 
 test('26 source-measured relations retain both actual native endpoint identities in the emitted PPTX', {timeout:120000},t=>{

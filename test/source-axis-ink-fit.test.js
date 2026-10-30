@@ -1,8 +1,8 @@
 "use strict";
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { fitSourceAxisInk } = require("../packages/slideclone-core/source-axis-ink-fit");
-const { refineSourceNativeEdges } = require("../packages/slideclone-core/source-native-edge-refinement");
+const { fitSourceAxisInk } = require("../packages/slideclone-core/scene-plan/source-axis-ink-fit");
+const { refineSourceNativeEdges } = require("../packages/slideclone-core/routing/source-native-edge-refinement");
 
 function fixture(vertical = false, color = [20, 70, 225, 255]) {
   const image = { width: 240, height: 180, rgba: Buffer.alloc(240 * 180 * 4, 255) };

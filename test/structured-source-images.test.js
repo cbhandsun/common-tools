@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { resolveStructuredSourceImages } = require("../packages/slideclone-core/structured-source-images");
+const { resolveStructuredSourceImages } = require("../packages/slideclone-core/archetypes/structured-source-images");
 
 test("structured source admission enforces image and aggregate limits and ignores nested crop provenance", t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "structured-source-bounds-"));

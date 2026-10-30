@@ -1,11 +1,11 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {observeOpenScenePaint}=require('../packages/slideclone-core/source-scene-open-paint');
-const {observeSceneLiteralPaint}=require('../packages/slideclone-core/source-scene-literal-paint');
-const {observeOpenSceneOwnerMembers}=require('../packages/slideclone-core/source-scene-open-owner-members');
-const {observeOpenSceneOwnerInventory:observe,retainedOpenSceneOwnerInventory:retained}=require('../packages/slideclone-core/source-scene-open-owner-inventory');
-const {createSceneGlyphOcclusion}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
-const {hasMeasuredScenePortFrame,measuredSceneOpaqueSurface}=require('../packages/slideclone-core/source-scene-port-evidence');
+const {observeOpenScenePaint}=require('../packages/slideclone-core/scene-plan/source-scene-open-paint');
+const {observeSceneLiteralPaint}=require('../packages/slideclone-core/scene-plan/source-scene-literal-paint');
+const {observeOpenSceneOwnerMembers}=require('../packages/slideclone-core/scene-plan/source-scene-open-owner-members');
+const {observeOpenSceneOwnerInventory:observe,retainedOpenSceneOwnerInventory:retained}=require('../packages/slideclone-core/scene-plan/source-scene-open-owner-inventory');
+const {createSceneGlyphOcclusion}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
+const {hasMeasuredScenePortFrame,measuredSceneOpaqueSurface}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
 function fixture({omitLiteral=false,extraLiteral=false,unknownAlpha=false}={}){
  const image={width:64,height:64,rgba:Buffer.alloc(64*64*4)},size={widthPt:64,heightPt:64},budget={used:0};
  for(let i=0;i<64*64;i++)image.rgba.set([245,249,255,255],i*4);
@@ -50,7 +50,7 @@ test('unpreserved residuals stay failures; extra paint cannot cover another unit
 });
 
 test('a bounded two-phase transaction derives literal cells from its full check and reuses charged source windows',()=>{
- const {createSceneFillRasterScope,withSceneFillRasterScope}=require('../packages/slideclone-core/source-scene-fill-raster-cache');
+ const {createSceneFillRasterScope,withSceneFillRasterScope}=require('../packages/slideclone-core/scene-plan/source-scene-fill-raster-cache');
  const f=fixture(),oldParts=new Set(f.literalPaint.parts);delete f.literalPaint;
  const initialBudget=f.budget.used;
  withSceneFillRasterScope(f.image,f.budget,createSceneFillRasterScope(f.image,f.budget),()=>{

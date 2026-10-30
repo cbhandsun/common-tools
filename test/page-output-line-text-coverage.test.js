@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   dropLineTextCoveredForegroundCrops,
   shouldDropLineTextCoveredForegroundCrop
-} = require("../packages/slideclone-core/page-output-rules");
+} = require("../packages/slideclone-core/scene-plan/page-output-rules");
 
 function foregroundImage(reason = "complex-graphic-preserved-as-movable-crop") {
   return {

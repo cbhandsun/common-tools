@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {hasTabularTextLayout:has}=require('../packages/slideclone-core/source-tabular-text-layout');
-const {proposeSceneTableHeaders:propose}=require('../packages/slideclone-core/source-scene-table-headers');
+const {hasTabularTextLayout:has}=require('../packages/slideclone-core/typography/source-tabular-text-layout');
+const {proposeSceneTableHeaders:propose}=require('../packages/slideclone-core/scene-plan/source-scene-table-headers');
 function fixture(){
  const region={x:0,y:0,w:100,h:100},headers=[{x:10,y:10,w:20,h:10},{x:60,y:10,w:20,h:10}],body=[20,40].flatMap(y=>[{x:12,y:y+10,w:20,h:8},{x:62,y:y+10,w:20,h:8}]);
  return {region,headers,body};

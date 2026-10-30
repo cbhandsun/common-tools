@@ -12,6 +12,7 @@ const { boundedEditableText, boundedRawDataText, validateEditableChartData, vali
 const { MAX_OBJECTS_PER_PAGE, applyObjectLifecycleOperation } = require("./ir-lifecycle");
 const { applyPageLifecycleOperation } = require("./ir-page-lifecycle");
 const { inspectTemplate } = require("./template");
+const { applyNativeNetworkReflowOperation } = require("./ir-network-reflow");
 
 const MAX_IR_BYTES = 4 * 1024 * 1024;
 const MAX_PATCH_BYTES = 256 * 1024;
@@ -113,8 +114,11 @@ function applyIrEditorPatch(rawIr, patch) {
   if (patch.version !== "1.0" || !REVISION_PATTERN.test(patch.expectedRevision || "") || patch.expectedRevision !== revision) throw new Error("editable IR patch revision does not match the deck");
   if (!Array.isArray(patch.operations) || patch.operations.length < 1 || patch.operations.length > MAX_OPERATIONS) throw new TypeError("editable IR patch operations are invalid");
   const ir = clone(validated);
+  const networkReflowWork = { checks: 0 }, networkReflows = [];
   patch.operations.forEach((operation, index) => {
     if (!plainObject(operation) || typeof operation.type !== "string") throw new TypeError(`editable IR operation ${index + 1} is invalid`);
+    const networkReflow = applyNativeNetworkReflowOperation(ir, operation, networkReflowWork);
+    if (networkReflow) { networkReflows.push(networkReflow); return; }
     if (applyPageLifecycleOperation(ir, operation, index)) return;
     if (applyObjectLifecycleOperation(ir, operation, index, { collections: COLLECTIONS, validateBox, boundedText })) return;
     if (operation.type === "set-text") {
@@ -177,7 +181,9 @@ function applyIrEditorPatch(rawIr, patch) {
     throw new TypeError(`editable IR operation ${index + 1} is unsupported`);
   });
   validateEditableIr(ir);
-  return Object.freeze({ ir, revision: deckIrFingerprint(ir), operationCount: patch.operations.length, checks: Object.freeze([{ name: "ir-batch-style-validated", passed: true }, { name: "ir-object-lifecycle-validated", passed: true }, { name: "ir-page-lifecycle-validated", passed: true }, { name: "ir-revision-bound", passed: true }]) });
+  return Object.freeze({ ir, revision: deckIrFingerprint(ir), operationCount: patch.operations.length,
+    ...(networkReflows.length ? { networkReflows: Object.freeze(networkReflows) } : {}),
+    checks: Object.freeze([{ name: "ir-batch-style-validated", passed: true }, { name: "ir-object-lifecycle-validated", passed: true }, { name: "ir-page-lifecycle-validated", passed: true }, { name: "ir-revision-bound", passed: true }]) });
 }
 function parseJson(buffer, maximum, label) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 1 || buffer.length > maximum) throw new TypeError(`${label} file size is invalid`);
@@ -212,7 +218,8 @@ function persistIrEditorPatch({ workspaceRoot, input, patch, output }) {
   const patchFile = checkedInput(workspaceRoot, patch, MAX_PATCH_BYTES, "editable IR patch"); const outputFile = checkedNewOutput(workspaceRoot, output);
   const result = applyIrEditorPatch(parseJson(fs.readFileSync(inputFile), MAX_IR_BYTES, "editable IR input"), parseJson(fs.readFileSync(patchFile), MAX_PATCH_BYTES, "editable IR patch"));
   fs.writeFileSync(outputFile, `${JSON.stringify(result.ir, null, 2)}\n`, { flag: "wx", mode: 0o600 });
-  return Object.freeze({ output: outputFile, revision: result.revision, operationCount: result.operationCount, pageCount: result.ir.pages.length });
+  return Object.freeze({ output: outputFile, revision: result.revision, operationCount: result.operationCount, pageCount: result.ir.pages.length,
+    ...(result.networkReflows ? { networkReflows: result.networkReflows } : {}) });
 }
 function materializeEditedIr(rawIr, inputFile, workspaceRoot, outputRoot) {
   const ir = clone(validateEditableIr(rawIr)); const assets = new Map();
@@ -261,7 +268,9 @@ function applyAndExportIrArtifacts({ workspaceRoot, input, patch, output, templa
     const exported = exportEditedIrArtifacts({ workspaceRoot, input: temporary, output: outputRoot, template, buildPptx, buildPdf });
     ownsOutput = true;
     const finalizationReportFile = path.join(outputRoot, "edit-finalization-report.json");
-    const finalizationReport = Object.freeze({ version: "1.0", inputRevision, patchSha256, outputRevision: applied.revision, operationCount: applied.operationCount, checks: Object.freeze([{ name: "edit-input-revision-bound", passed: true }, { name: "edit-patch-fingerprint-recorded", passed: true }, { name: "edit-export-quality-passed", passed: exported.report.passed }]), passed: exported.report.passed });
+    const finalizationReport = Object.freeze({ version: "1.0", inputRevision, patchSha256, outputRevision: applied.revision, operationCount: applied.operationCount,
+      ...(applied.networkReflows ? { networkReflows: applied.networkReflows } : {}),
+      checks: Object.freeze([{ name: "edit-input-revision-bound", passed: true }, { name: "edit-patch-fingerprint-recorded", passed: true }, { name: "edit-export-quality-passed", passed: exported.report.passed }]), passed: exported.report.passed });
     fs.writeFileSync(finalizationReportFile, `${JSON.stringify(finalizationReport, null, 2)}\n`, { flag: "wx", mode: 0o600 });
     return Object.freeze({ output: exported.output, operationCount: applied.operationCount, revision: applied.revision, files: Object.freeze({ ...exported.files, finalizationReportFile }), report: exported.report, finalizationReport });
   } catch (error) {

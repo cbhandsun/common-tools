@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSpatialOutlineExterior:measure}=require('../packages/slideclone-core/source-outline-spatial-exterior');
-const {measureOutlinedSceneContainerDetailed:original,measureOutlinedSceneContainerSpatial:spatial,sceneOutlineWindow}=require('../packages/slideclone-core/source-scene-outline');
+const {measureSpatialOutlineExterior:measure}=require('../packages/slideclone-core/scene-plan/source-outline-spatial-exterior');
+const {measureOutlinedSceneContainerDetailed:original,measureOutlinedSceneContainerSpatial:spatial,sceneOutlineWindow}=require('../packages/slideclone-core/scene-plan/source-scene-outline');
 const control={x0:0,y0:0,x1:90,y1:90,textMasks:[]};
 test('uniform sides corroborate one background and all reads remain in the original observed window',()=>{
  const result=measure(control,(x,y)=>{assert(x>=0&&y>=0&&x<90&&y<90);assert(x<9||x>=81||y<9||y>=81);return [250,250,250,255];});
@@ -59,17 +59,17 @@ test('a neighbouring border can require a charged wider observation while the bo
  assert.ok(refused.rejections['outline-retry-scan-budget']>0);assert.equal(limited.used,4000000);
 });
 test('opt-in cache selection preserves successful measurements and validates controls without reads',()=>{
- const {createSceneMeasurementCache:cache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+ const {createSceneMeasurementCache:cache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
  const f=ring();const budget={used:0};assert.throws(()=>cache(f.image,[],budget,undefined,'true'),TypeError);assert.equal(budget.used,0);
  const old=cache(f.image,[],{used:0}),next=cache(f.image,[],{used:0},undefined,true);
  assert.equal(old.outline(f.hint),null);assert.ok(next.outline(f.hint));
  const used=next.evidence.outlineReuses;assert.ok(next.outline(f.hint));assert.equal(next.evidence.outlineReuses,used+1);
- assert.throws(()=>require('../packages/slideclone-core/source-scene-compiler').compileSourceScene({spatialExterior:'true'}),/exterior selection/);
+ assert.throws(()=>require('../packages/slideclone-core/scene-plan/source-scene-compiler').compileSourceScene({spatialExterior:'true'}),/exterior selection/);
 });
 test('normal compiler defaults to charged spatial source evidence and preserves an explicit legacy comparison',t=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
- const {writePng}=require('../packages/slideclone-core/png'),{parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
- const {compileSourceScene:compile}=require('../packages/slideclone-core/source-scene-compiler');
+ const {writePng}=require('../packages/slideclone-core/png'),{parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+ const {compileSourceScene:compile}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const f=ring(),root=fs.mkdtempSync(path.join(os.tmpdir(),'spatial-exterior-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const sourceFile=path.join(root,'source.png');writePng(sourceFile,f.image);
  const plan=parseSourceScenePlan({coordinateSpace:'source-pixels',regions:[{id:'root',parentId:null,kind:'diagram',box:{x:0,y:0,w:180,h:140}}],

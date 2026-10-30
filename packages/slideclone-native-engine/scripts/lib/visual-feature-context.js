@@ -1,2 +1,3 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/visual-feature-context");
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
+module.exports = core("@common-tools/slideclone-core/typography/visual-feature-context");

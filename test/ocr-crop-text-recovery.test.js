@@ -6,9 +6,9 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { readPng, writePng } = require("../packages/slideclone-core/png");
-const { recoverMissingOcrText } = require("../packages/slideclone-core/ocr-crop-text-recovery");
+const { recoverMissingOcrText } = require("../packages/slideclone-core/ocr/ocr-crop-text-recovery");
 const { addFinalTextGroupNativeComponents, addRecoveredLineTextNativeComponents, addSourceOcrLineTextNativeComponents, dropSolidRegionsCoveredByLineTextPanels, expandVisiblePositionedMixedColorTextSegments, promoteLineTextCropOcrText, promoteSourceOcrTextInNativeLineTextShapes, shouldOmitFullSlideResidualAfterOcrRecovery, shouldSuppressSolidRegionDueToLineTextPanel } = require("../packages/slideclone-core/team-native-rebuild");
-const { dropLineTextCoveredForegroundCrops, shouldDropLineTextCoveredForegroundCrop } = require("../packages/slideclone-core/page-output-rules");
+const { dropLineTextCoveredForegroundCrops, shouldDropLineTextCoveredForegroundCrop } = require("../packages/slideclone-core/scene-plan/page-output-rules");
 const { createRawImageNativeRebuilder } = require("../packages/slideclone-core/team-native-rebuild");
 
 const slideSize = { widthPt: 400, heightPt: 300 };

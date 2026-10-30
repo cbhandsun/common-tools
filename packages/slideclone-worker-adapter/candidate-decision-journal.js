@@ -58,7 +58,7 @@ function createCandidateDecisionJournal(base) {
       if(!record(input)||typeof input.publicationPassed!=="boolean"||!Number.isSafeInteger(input.trials)||Number(input.trials)<0||Number(input.trials)>256
         ||!record(input.status)||typeof input.status.action!=="string"||!["continue","stop-passed","stop-budget","stop-stalled"].includes(input.status.action)
         ||!Array.isArray(input.frontier))throw new TypeError("Invalid search journal evidence");
-      const candidates=require('../slideclone-core/typography-contract').list(input.frontier,256);
+      const candidates=require('../slideclone-core/typography/typography-contract').list(input.frontier,256);
       const frontier=candidates.map(item=>{
         if(!record(item)||typeof item.hash!=="string"||!/^[a-f0-9]{64}$/u.test(item.hash)||!record(item.metrics))throw new TypeError("Invalid search journal candidate");
         const values=item.metrics;

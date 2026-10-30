@@ -1,24 +1,25 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
-const { entropyChallengeAnnotationEntries } = require("@common-tools/slideclone-core/entropy-challenge-crops");
+const { entropyChallengeAnnotationEntries } = core("@common-tools/slideclone-core/archetypes/entropy-challenge-crops");
 const {
   shouldObjectifyEntropyFragmentCloud,
   shouldObjectifyEntropyIsland
-} = require("@common-tools/slideclone-core/graphic-crop-generation");
+} = core("@common-tools/slideclone-core/scene-plan/graphic-crop-generation");
 const {
   entropyChallengeFooterEntries,
   entropyChallengeNativeComponentMetadata,
   hasEntropyChallengeFooterEvidence,
   DEFAULT_SLIDE
-} = require("@common-tools/slideclone-core/page-text-rule-helpers");
+} = core("@common-tools/slideclone-core/typography/page-text-rule-helpers");
 const {
   constrainPtBox,
   expandPtBox,
   detectEntropyMicroComponents,
   isEntropyOrangePixel,
   isEntropyIslandMicroPixel
-} = require("@common-tools/slideclone-core/raster-native-detection");
-const { lineBox } = require("@common-tools/slideclone-core/workflow-shape-primitives");
+} = core("@common-tools/slideclone-core/scene-plan/raster-native-detection");
+const { lineBox } = core("@common-tools/slideclone-core/archetypes/workflow-shape-primitives");
 
 function createEntropyChallengeAnnotationObjects(textBoxes = [], images = [], slideSize = DEFAULT_SLIDE) {
   const fragment = (images || []).find((image) =>

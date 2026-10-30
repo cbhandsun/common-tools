@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parseSourceScenePlan,admitSourceScenePlan,SCENE_PLAN_PROMPT}=require('../packages/slideclone-core/source-scene-plan');
-const {buildSceneInventoryEvidence,auditSceneInventory}=require('../packages/slideclone-core/source-scene-observed-inventory');
-const {auditNativeComponentQuality}=require('../packages/slideclone-core/native-component-quality');
+const {parseSourceScenePlan,admitSourceScenePlan,SCENE_PLAN_PROMPT}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {buildSceneInventoryEvidence,auditSceneInventory}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
+const {auditNativeComponentQuality}=require('../packages/slideclone-core/quality/native-component-quality');
 const source={sourceHash:'a'.repeat(64),widthPx:100,heightPx:100};
 function proposal(){return {format:'compact-v5',coordinateSpace:'normalized-1000',boxFormat:'ymin-xmin-ymax-xmax',
  regions:[[0,null,'section',[0,0,1000,1000]],[1,0,'card',[100,100,900,900]]],
@@ -84,7 +84,7 @@ test('audit fails closed on hostile evidence and source changes while legacy abs
 });
 
 test('observed omissions schedule complete nonempty regions within original target and object capacity',()=>{
- const {selectRegionalInventoryTargets:select}=require('../packages/slideclone-core/source-scene-regional-inventory');
+ const {selectRegionalInventoryTargets:select}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
  const raw=proposal();raw.objects.push([2,1,'container',[500,500,700,700],'absent']);
  raw.relations=[[0,1,0,2,'forward',[410,410,490,490]]];raw.inventory[1]=[1,3,2,1];
  const p=parseSourceScenePlan(raw,source),before=JSON.stringify(p),targets=select(p,32,0);
@@ -95,6 +95,6 @@ test('observed omissions schedule complete nonempty regions within original targ
  assert.deepEqual(select(p,0,0),[]);assert.equal(JSON.stringify(p),before);
  const full=structuredClone(p);full.objects=Array.from({length:64},(_,i)=>({...p.objects[0],id:'object-'+i}));full.observedInventory[1].containers=100;
  full.relations=Array.from({length:24},(_,i)=>({...p.relations[0],id:'relation-'+i}));
- const {recordSceneLocalRelationBatch}=require('../packages/slideclone-core/source-scene-relation-batches');
+ const {recordSceneLocalRelationBatch}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
  const exhausted=recordSceneLocalRelationBatch(full,full,[],full.relations.map(r=>r.id));assert.deepEqual(select(exhausted,32,0),[]);
 });

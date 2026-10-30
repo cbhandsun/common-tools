@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {orderSourceSceneProposals:order}=require("../packages/slideclone-core/source-scene-proposal-order");
+const {orderSourceSceneProposals:order}=require("../packages/slideclone-core/scene-plan/source-scene-proposal-order");
 test("text-covered wide backgrounds precede small units without changing source proposals or node ordering",()=>{
  const small={id:"badge",kind:"container",box:{x:0,y:0,w:20,h:20}},title={id:"title",kind:"container",box:{x:30,y:0,w:400,h:50}},
   node={id:"node",kind:"container",box:{x:0,y:70,w:300,h:50}},icon={id:"icon",kind:"icon",box:{x:0,y:0,w:10,h:10}};

@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {squaredSourceStrokeDistances}=require('../packages/slideclone-core/source-stroke-distance');
+const {squaredSourceStrokeDistances}=require('../packages/slideclone-core/routing/source-stroke-distance');
 test('exact squared distances agree with an exhaustive geometric oracle including diagonal strokes',()=>{
  for(let w=1;w<=12;w++)for(let h=1;h<=12;h++){
   const mask=Uint8Array.from({length:w*h},(_,i)=>(i*17+w*3+h)%7?1:0),before=mask.slice();

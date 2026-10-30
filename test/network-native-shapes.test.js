@@ -7,7 +7,7 @@ const test = require("node:test");
 const {
   MAX_STANDARD_NETWORK_NODES,
   createNetworkNativeShapeToolkit
-} = require("../packages/slideclone-core/network-native-shapes");
+} = require("../packages/slideclone-core/archetypes/network-native-shapes");
 
 test("standard native networks place all ray connectors behind all nodes", () => {
   const toolkit = createNetworkNativeShapeToolkit(operations());

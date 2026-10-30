@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSourceRoutePaint:measure,sourceRouteSegmentGradient:gradient}=require('../packages/slideclone-core/source-route-paint');
+const {measureSourceRoutePaint:measure,sourceRouteSegmentGradient:gradient}=require('../packages/slideclone-core/routing/source-route-paint');
 function fixture(color){
  const width=220,path=Array.from({length:180},(_,i)=>({x:10+i,y:20})),rgba=new Uint8Array(width*40*4);
  for(const [i,p]of path.entries())rgba.set([...color(i/179,i),255],(p.y*width+p.x)*4);
@@ -38,10 +38,10 @@ test('rapid unsupported paint changes, missing route samples and work exhaustion
  assert.equal(measure([],f.rgba,f.width,{checks:0}),null);assert.equal(measure(f.path.slice(0,7),f.rgba,f.width,{checks:0}),null);
  assert.equal(measure(Array(513).fill(f.path[0]),f.rgba,f.width,{checks:0}),null);
  assert.equal(measure(f.path,f.rgba,f.width,{checks:4000000}),null);
- for(const [start,end,angle]of [[0,0,0],[-1,.5,0],[.5,1.1,0],[.5,.2,0],[0,1,NaN]])
+ for(const [start,end,angle]of [[-1,.5,0],[.5,1.1,0],[.5,.2,0],[0,1,NaN]])
   assert.throws(()=>gradient([{position:0,color:'#000000'},{position:1,color:'#FFFFFF'}],start,end,angle),TypeError);
  const runtime=require('../scripts/verify-runtime-package'),suites=require('../scripts/test-suites');
- assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-route-paint.js'));
+ assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/routing/source-route-paint.js'));
  for(const suite of ['unit','all'])assert.equal(suites.includesSuite(__filename,suite),true);
 });
 
@@ -52,7 +52,29 @@ test('reused gradient proposals independently verify every candidate source samp
  assert.ok(next);assert.equal(next.support,first.support);assert.ok(work.checks<firstWork.checks);
  const broken=fixture((_,i)=>i%2?[220,20,40]:[10,190,210]);
  assert.equal(measure(broken.path,broken.rgba,broken.width,{checks:0},first.stops),null);
- const exhausted={checks:4000000-f.path.length*32};
+ // Reused proposals charge the original cells plus an independent color check.
+ const exhausted={checks:4000000-f.path.length*3+1};
  assert.equal(measure(f.path,f.rgba,f.width,exhausted,first.stops),null);
  assert.ok(exhausted.checks>4000000);
+});
+test('long Z runs retain an independent source-space color proof after path simplification',()=>{
+ const {nativeSourceRouteGradient:native}=require('../packages/slideclone-core/routing/source-route-native-gradient');
+ for(const transpose of [false,true])for(const reverse of [false,true]){
+  const h=50,w=320,path=[];
+  for(let y=5;y<5+h;y++)path.push({x:5,y});
+  for(let x=5;x<5+w;x++)path.push({x,y:5+h});
+  for(let y=5+h;y<=5+2*h;y++)path.push({x:5+w,y});
+  if(transpose)for(const p of path)[p.x,p.y]=[p.y,p.x];
+  if(reverse)path.reverse();
+  const width=350,rgba=new Uint8Array(width*350*4);
+  for(const p of path)rgba.set([30,Math.round(230-((transpose?p.x:p.y)-5)*2),150,255],(p.y*width+p.x)*4);
+  const work={checks:0},before=rgba.slice(),fit=measure(path,rgba,width,work);assert.ok(fit?.stops);assert.equal(fit.spatial.support,1);
+  const indices=(reverse?[0,h,h+w,path.length-1].map(i=>path.length-1-i).reverse():[0,h,h+w,path.length-1]);
+  const points=indices.map(i=>path[i]),paint={stops:fit.stops,positions:indices.map(i=>fit.positions[i])};
+  // The old spatial regression of interpolated path colors rejects this source.
+  assert.equal(native(points,paint),undefined);
+  const gradient=native(points,{...paint,spatial:fit.spatial});assert.ok(gradient);assert.equal(gradient.angleDeg,transpose?0:90);
+  assert.deepEqual(gradient.stops,[{position:0,color:'#1EE696'},{position:1,color:'#1E1E96'}]);
+  assert.deepEqual(rgba,before);assert.ok(work.checks<=4000000);
+ }
 });

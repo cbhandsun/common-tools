@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sceneInteriorRowTargets}=require('../packages/slideclone-core/source-scene-interior-row-targets');
+const {sceneInteriorRowTargets}=require('../packages/slideclone-core/scene-plan/source-scene-interior-row-targets');
 const parent={x:20,y:20,w:160,h:180};
 test('original row geometry preserves left and right pictorial space without changing controls',()=>{
  for(const x of [100,22]){
@@ -40,5 +40,5 @@ test('invalid and hostile geometry cannot execute accessors or disclose their er
 });
 test('row recovery is included in the unified CI suite and runtime package contract',()=>{
  assert.equal(require('../scripts/test-suites').includesSuite('test/source-scene-interior-row-targets.test.js','unit'),true);
- assert.ok(require('../scripts/verify-runtime-package').IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-scene-interior-row-targets.js'));
+ assert.ok(require('../scripts/verify-runtime-package').IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/scene-plan/source-scene-interior-row-targets.js'));
 });

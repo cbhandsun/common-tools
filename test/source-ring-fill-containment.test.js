@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {sourceRingEnclosesFill:encloses}=require("../packages/slideclone-core/source-ring-fill-containment");
+const {sourceRingEnclosesFill:encloses}=require("../packages/slideclone-core/scene-plan/source-ring-fill-containment");
 function fixture(){const width=24,height=24,box={x:3,y:3,w:16,h:16},ringPixels=[];
  for(let y=3;y<19;y++)for(let x=3;x<19;x++)if(x===3||x===18||y===3||y===18)ringPixels.push(y*width+x);
  return {width,height,box,ringPixels,fillPixels:new Set([8*width+8,9*width+9])};}
@@ -39,7 +39,7 @@ test("unsafe, sparse, forged and invalid cell controls fail without invoking acc
  assert.equal(calls,0);
 });
 test("serialized fill handles cannot borrow measured source cells",()=>{
- const {measureSceneFillWindow,sceneFillEnclosedByRing}=require("../packages/slideclone-core/source-scene-fill-window");
+ const {measureSceneFillWindow,sceneFillEnclosedByRing}=require("../packages/slideclone-core/scene-plan/source-scene-fill-window");
  const image={width:80,height:80,rgba:Buffer.alloc(80*80*4,255)},ring=[];
  for(let y=20;y<60;y++)for(let x=20;x<60;x++)image.rgba.set([140,190,230,255],(y*80+x)*4);
  for(let x=19;x<=60;x++){ring.push(19*80+x,60*80+x);}for(let y=20;y<60;y++)ring.push(y*80+19,y*80+60);

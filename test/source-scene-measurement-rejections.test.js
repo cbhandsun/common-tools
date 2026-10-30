@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createSceneGlyphOcclusion:createGlyph,sceneFillGlyphBridge:bridge,sceneGlyphOcclusionEvidence:evidence,
- sceneGlyphOcclusionRejections:rejections}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
-const {createSceneMeasurementCache:create}=require('../packages/slideclone-core/source-scene-measurement-cache');
+ sceneGlyphOcclusionRejections:rejections}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
+const {createSceneMeasurementCache:create}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 function striped(){
  const image={width:950,height:500,rgba:Buffer.alloc(950*500*4)},fill=[0,130,70],budget={used:0};
  const paint=(x,y,color)=>image.rgba.set([...color,255],(y*950+x)*4);

@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sceneProgramTasks,sceneProgramTaskRevision,sceneRegionalProgramBindings}=require('../packages/slideclone-core/source-scene-program-tasks');
-const {admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {selectRegionalInventoryTargets}=require('../packages/slideclone-core/source-scene-regional-inventory');
+const {sceneProgramTasks,sceneProgramTaskRevision,sceneRegionalProgramBindings}=require('../packages/slideclone-core/scene-plan/source-scene-program-tasks');
+const {admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {selectRegionalInventoryTargets}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
 
 function fixture(){
  const labels=[{box:{x:10,y:10,w:20,h:8}},{box:{x:110,y:10,w:20,h:8}}];

@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/system-map-pixel-evidence");
+module.exports = require("@common-tools/slideclone-core/archetypes/system-map-pixel-evidence");

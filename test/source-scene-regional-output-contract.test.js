@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sceneRegionalOutputPrompt}=require('../packages/slideclone-core/source-scene-local-response');
-const {regionalInventoryPrompt}=require('../packages/slideclone-core/source-scene-regional-inventory');
+const {sceneRegionalOutputPrompt}=require('../packages/slideclone-core/scene-plan/source-scene-local-response');
+const {regionalInventoryPrompt}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
 const {createSceneVisionClient}=require('../packages/remote-mcp-server/source-scene-client');
 const targets={reviews:[],missing:[],regionInventories:[10,11],regionObjectCapacity:2,regionRelationCapacity:0,regionBoundaryIndices:[10]};
 const empty={reviewsByIndex:{},recoveredByIndex:{},regionInventoriesByIndex:{10:{units:[],relations:[],boundary:{confidence:0,box_2d:null}},11:{units:[],relations:[]}}};

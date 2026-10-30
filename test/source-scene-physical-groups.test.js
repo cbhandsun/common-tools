@@ -1,11 +1,12 @@
+const { coreModulePath } = require('./helpers/isolated-core-package.cjs');
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {bindSourceScenePhysicalGroups:bind}=require('../packages/slideclone-core/source-scene-physical-groups');
-const {sourceGroupTextPolygon,measuredGroupVertices,fullyContainedGroupPolygon}=require('../packages/slideclone-core/source-scene-group-containment');
-const {createMeasuredScenePortFrame,measuredSceneContainsGroup,measuredSceneGroupBounds}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {ungroupSourceNativeOverlays}=require('../packages/slideclone-core/source-native-finalization');
-const {combineMeasuredSceneGroupReceipts,retainedSceneGroupMembers}=require('../packages/slideclone-core/source-scene-group-retention');
-const {finalizeSourceScene}=require('../packages/slideclone-core/source-scene-finalize');
+const {bindSourceScenePhysicalGroups:bind}=require('../packages/slideclone-core/scene-plan/source-scene-physical-groups');
+const {sourceGroupTextPolygon,measuredGroupVertices,fullyContainedGroupPolygon}=require('../packages/slideclone-core/scene-plan/source-scene-group-containment');
+const {createMeasuredScenePortFrame,measuredSceneContainsGroup,measuredSceneGroupBounds}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {ungroupSourceNativeOverlays}=require('../packages/slideclone-core/scene-plan/source-native-finalization');
+const {combineMeasuredSceneGroupReceipts,retainedSceneGroupMembers}=require('../packages/slideclone-core/scene-plan/source-scene-group-retention');
+const {finalizeSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-finalize');
 function fixture(){
  const image={width:100,height:100,rgba:Buffer.alloc(40000,255)},box={x:10,y:10,w:80,h:80};
  const portFrame=createMeasuredScenePortFrame(image,{box,fill:'#CDEFFF'});
@@ -19,6 +20,40 @@ function enclosingRing(reverseHole=true){
  return {id:'enclosing-outline',type:'freeform',box:{x:0,y:0,w:100,h:100},style:{fill:'#005599',stroke:'none',strokeWidthPt:0,
   freeformSegments:[...loop(outer),...loop(reverseHole?inner.reverse():inner)]}};
 }
+
+test('an invisible attachment anchor can cross independent paint during grouping and final retention',()=>{
+ const input=fixture(),anchor=enclosingRing();anchor.id='scene-outline-panel';anchor.style.fill='none';
+ const unrelated={id:'independent-paint',type:'rect',box:{x:12,y:12,w:10,h:10},style:{fill:'#445566',stroke:'none',strokeWidthPt:0},source:{editable:true}};
+ input.shapes.push(unrelated,anchor);const before=structuredClone({shapes:input.shapes,textBoxes:input.textBoxes});
+ const result=bind(input);assert.equal(result.evidence.physicalGroups,1);assert.equal(result.evidence.physicalGroupPaintConflicts,0);
+ assert.equal(result.evidence.physicallyGroupedText,1);assert.deepEqual(result.shapes[1],unrelated);
+ assert.equal(result.shapes[2].source.nativeComponentGroupId,'scene-unit-panel');
+ const page={shapes:result.shapes,images:[],textBoxes:result.textBoxes},receipt=result.sealGroups(page),kept=retainedSceneGroupMembers(page,receipt);
+ assert.equal(kept.size,3);ungroupSourceNativeOverlays(page,receipt);assert.equal(page.shapes[2].source.nativeComponentGroupId,'scene-unit-panel');
+ assert.deepEqual({shapes:input.shapes,textBoxes:input.textBoxes},before);
+ const painted=fixture(),visible=structuredClone(anchor);visible.style.stroke='#112233';painted.shapes.push(unrelated,visible);
+ assert.equal(bind(painted).evidence.physicalGroups,0,'a visible stroke keeps the original paint conflict');
+});
+
+test('physical grouping checks the emitted disjoint outline parts rather than the temporary solid anchor',()=>{
+ const {applySourceOutlinePaint}=require('../packages/slideclone-core/scene-plan/source-outline-paint-shapes');
+ const input=fixture(),anchor=enclosingRing();anchor.id='scene-outline-panel';anchor.box={x:10,y:10,w:80,h:80};
+ const unit=[{type:'moveTo',points:[{x:0,y:0}]},{type:'lnTo',points:[{x:1,y:0}]},
+  {type:'lnTo',points:[{x:1,y:1}]},{type:'lnTo',points:[{x:0,y:1}]},{type:'close',points:[]}];
+ anchor.style.freeformSegments=unit;
+ const other={id:'independent-paint',type:'rect',box:{x:12,y:12,w:10,h:10},style:{fill:'#445566',stroke:'none',strokeWidthPt:0},source:{editable:true}};
+ input.shapes.push(other,anchor);
+ const paint={disjoint:true,baseColor:'#123456',box:anchor.box,parts:[{color:'#123456',box:{x:88,y:10,w:2,h:80},segments:unit}]};
+ const outlinePaints=new Map([[anchor.id,paint]]),before=structuredClone({shapes:input.shapes,images:input.images,textBoxes:input.textBoxes}),pixels=Buffer.from(input.image.rgba),expected=applySourceOutlinePaint(input.shapes,outlinePaints).shapes;
+ assert.equal(bind(input).evidence.physicalGroups,0,'the temporary solid anchor reproduces the old conflict');
+ const result=bind({...input,outlinePaints});assert.equal(result.evidence.physicalGroups,1);assert.equal(result.evidence.physicallyGroupedText,1);
+ assert.equal(result.evidence.physicalGroupPaintConflicts,0);assert.deepEqual(result.shapes.map(s=>({...s,source:undefined})),expected.map(s=>({...s,source:undefined})));
+ const page={shapes:result.shapes,images:[],textBoxes:result.textBoxes},receipt=result.sealGroups(page);
+ assert.equal(retainedSceneGroupMembers(page,receipt).size,4);
+ assert.deepEqual({shapes:input.shapes,images:input.images,textBoxes:input.textBoxes},before);assert.deepEqual(input.image.rgba,pixels);
+ const contact=new Map([[anchor.id,{...paint,parts:[{...paint.parts[0],box:{x:12,y:12,w:10,h:10}}]}]]);
+ assert.equal(bind({...input,outlinePaints:contact}).evidence.physicalGroups,0,'actual emitted paint still blocks reordering');
+});
 test('a measured node and its text group through a surrounding hollow native frame without changing paint',()=>{
  const input=fixture();input.shapes.push(enclosingRing());
  const before=structuredClone(input),result=bind(input);
@@ -254,9 +289,13 @@ test('the normal 88 admitted-body boundary stays deterministic and grouping test
  const {discoverTestFiles}=require('../scripts/test-sharded'),{IMAGE_EDITABLE_RELEASE_FILES}=require('../scripts/verify-runtime-package');
  assert.ok(discoverTestFiles(require('node:path').resolve(__dirname,'..'),'all').some(p=>p.file.endsWith('source-scene-physical-groups.test.js')));
  for(const name of ['source-scene-group-containment','source-scene-physical-groups'])
-  assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/'+name+'.js'));
+  assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/'+coreModulePath(name)));
 });
 test('derived geometry exhaustion leaves incomplete ownership flat and never spends a source pixel allowance',()=>{
+ const paid=fixture(),prepaid=bind({...paid,initialGeometryChecks:3999999});
+ assert.equal(prepaid.evidence.physicalGroups,0);assert.ok(prepaid.evidence.physicalGroupSkippedGeometry>0);
+ assert.ok(prepaid.evidence.physicalGroupGeometryChecks<=4000000);
+ for(const initialGeometryChecks of [-1,4000001,Infinity,NaN,'1',null])assert.throws(()=>bind({...paid,initialGeometryChecks}),TypeError);
  const f=fixture();f.physicalNodes=Array.from({length:88},(_,i)=>({...f.physicalNodes[0],proposalId:'alias-'+i}));
  f.textBoxes=Array.from({length:5000},(_,i)=>({...f.textBoxes[0],id:'label-'+i}));
  const result=bind(f);assert.equal(result.evidence.physicalGroups,0);

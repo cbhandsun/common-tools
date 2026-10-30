@@ -1,11 +1,30 @@
 ARG BASE_IMAGE=common-tools-image-to-editable-paddleocr:local
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0-bookworm-slim AS openxml-builder
+
+WORKDIR /src
+COPY packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/packages.lock.json ./OpenXmlDeckBuilder/
+# Persist packages separately from the network-mode-specific build layer so a
+# reviewed online warmup can support a later --network=none rebuild.
+RUN --mount=type=cache,id=common-tools-openxml-nuget,target=/root/.nuget/packages dotnet restore ./OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj --locked-mode
+COPY packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder ./OpenXmlDeckBuilder
+RUN --mount=type=cache,id=common-tools-openxml-nuget,target=/root/.nuget/packages dotnet publish ./OpenXmlDeckBuilder/OpenXmlDeckBuilder.csproj --configuration Release --no-restore --output /opt/openxml
+
 FROM ${BASE_IMAGE}
 
+# A legacy OCR image without UNO cannot render the current native tracks.
+# Refuse that base before producing a refreshed image that fails at job time.
+RUN /usr/bin/python3 -I -c 'import uno'
+
+# Reuse the reviewed OCR runtime and models; rebuild the writer from the same
+# package sources as the Worker. No host bin/obj output is an image input.
 COPY --chown=worker:worker packages ./packages
-USER root
-RUN mkdir -p /opt/openxml \
-    && printf '%s\n' '#!/bin/sh' 'exec /usr/share/dotnet/dotnet /app/packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/bin/Debug/net8.0/OpenXmlDeckBuilder.dll "$@"' > /opt/openxml/OpenXmlDeckBuilder \
-    && chmod 755 /opt/openxml/OpenXmlDeckBuilder \
-    && chown -R worker:worker /opt/openxml
-USER worker
+COPY --from=openxml-builder /usr/share/dotnet/dotnet /usr/share/dotnet/dotnet
+COPY --from=openxml-builder /usr/share/dotnet/host /usr/share/dotnet/host
+COPY --from=openxml-builder /usr/share/dotnet/shared /usr/share/dotnet/shared
+COPY --from=openxml-builder --chown=worker:worker /opt/openxml /opt/openxml
+ENV DOTNET_ROOT=/usr/share/dotnet
+ENV PATH=/usr/share/dotnet:${PATH}
 ENV OPENXML_BUILDER_EXE=/opt/openxml/OpenXmlDeckBuilder
+ENV LIBREOFFICE_PYTHON_BIN=/usr/bin/python3
+USER worker

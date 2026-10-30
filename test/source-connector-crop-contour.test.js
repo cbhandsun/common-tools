@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os");
-const {reconcileSourceConnectorCrops:reconcile}=require("../packages/slideclone-core/source-connector-crop-contour");
-const {proposeSourceNativePage:finalize,finalizeSourceNativePage:compose,proposeNativeOwnedGraphics}=require("../packages/slideclone-core/source-native-finalization");
+const {reconcileSourceConnectorCrops:reconcile}=require("../packages/slideclone-core/routing/source-connector-crop-contour");
+const {proposeSourceNativePage:finalize,finalizeSourceNativePage:compose,proposeNativeOwnedGraphics}=require("../packages/slideclone-core/scene-plan/source-native-finalization");
 const {writePng}=require("../packages/slideclone-core/png");
 function fixture({scale=1,offset=0,color=[25,110,210]}={}) {
   const project=b=>({x:b.x*scale+offset,y:b.y*scale+offset,w:b.w*scale,h:b.h*scale});

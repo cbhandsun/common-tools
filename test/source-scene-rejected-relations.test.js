@@ -1,11 +1,11 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {admitSourceScenePlan:admit,parseSourceScenePlan:parse}=require('../packages/slideclone-core/source-scene-plan');
-const {sceneRejectedRelationCandidates:pending}=require('../packages/slideclone-core/source-scene-rejected-relations');
-const {sceneRelationSlotsUsed:slots,recordSceneLocalRelationBatch:recordBatch}=require('../packages/slideclone-core/source-scene-relation-batches');
-const {selectTopologyReviewTargets:select,applyTopologyReview:apply}=require('../packages/slideclone-core/source-scene-topology-review');
-const {applyRegionalInventoryReview:regional}=require('../packages/slideclone-core/source-scene-regional-inventory');
-const {sceneRelationsConflict:conflict}=require('../packages/slideclone-core/source-scene-relation-identity');
+const {admitSourceScenePlan:admit,parseSourceScenePlan:parse}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {sceneRejectedRelationCandidates:pending}=require('../packages/slideclone-core/scene-plan/source-scene-rejected-relations');
+const {sceneRelationSlotsUsed:slots,recordSceneLocalRelationBatch:recordBatch}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
+const {selectTopologyReviewTargets:select,applyTopologyReview:apply}=require('../packages/slideclone-core/scene-plan/source-scene-topology-review');
+const {applyRegionalInventoryReview:regional}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
+const {sceneRelationsConflict:conflict}=require('../packages/slideclone-core/scene-plan/source-scene-relation-identity');
 const source={sourceHash:'a'.repeat(64),widthPx:200,heightPx:100};
 function raw(){return {coordinateSpace:'source-pixels',regions:[
  {id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:200,h:100}},
@@ -126,7 +126,7 @@ test('anchored review excludes distant page nodes while retaining physical paren
 });
 
 test('source-proven physical alias compaction rebinds quarantined controls without losing their original slot or rejection',()=>{
- const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/source-scene-physical-inventory');
+ const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/scene-plan/source-scene-physical-inventory');
  const value=raw();value.objects.push({...value.objects[0],id:'alias'});value.relations[0].fromId='alias';
  const plan=admit(value,source),before=structuredClone(plan),out=compact(plan,[{id:'object-alias',canonicalId:'object-a'}]);
  assert.equal(out.evidence.releasedObjectSlots,1);assert.equal(out.plan.objects.length,2);
@@ -137,7 +137,7 @@ test('source-proven physical alias compaction rebinds quarantined controls witho
 
 test('two parallel arrows with the same physical endpoints survive consensus and compile at their own source anchors',t=>{
  const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
- const {writePng}=require('../packages/slideclone-core/png'),{compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {writePng}=require('../packages/slideclone-core/png'),{compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'parallel-source-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const image={width:200,height:180,rgba:Buffer.alloc(200*180*4,255)},put=(x,y,c)=>image.rgba.set([...c,255],(y*200+x)*4);
  for(const x0 of [20,120])for(let y=20;y<140;y++)for(let x=x0;x<x0+60;x++)put(x,y,x<x0+2||x>=x0+58||y<22||y>=138?[90,40,60]:[210,230,245]);

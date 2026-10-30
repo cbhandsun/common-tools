@@ -1,4 +1,4 @@
-import { createPageGraphicsStage } from "../../packages/slideclone-core/page-graphics-stage";
+import { createPageGraphicsStage } from "../../packages/slideclone-core/scene-plan/page-graphics-stage";
 declare const external: unknown;
 const stage = createPageGraphicsStage(external);
 const result = stage.preparePageGraphics(external);

@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {selectRegionalInventoryTargets:select,readRegionalInventoryObservations:read,applyRegionalInventoryReview:apply,regionalInventoryPrompt:prompt}=require('../packages/slideclone-core/source-scene-regional-inventory');
-const {parseLocalTargets,localResponseFormat,decodeLocalResponse}=require('../packages/slideclone-core/source-scene-local-response');
-const {recordSceneLocalRelationBatch:recordBatch}=require('../packages/slideclone-core/source-scene-relation-batches');
+const {selectRegionalInventoryTargets:select,readRegionalInventoryObservations:read,applyRegionalInventoryReview:apply,regionalInventoryPrompt:prompt}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
+const {parseLocalTargets,localResponseFormat,decodeLocalResponse}=require('../packages/slideclone-core/scene-plan/source-scene-local-response');
+const {recordSceneLocalRelationBatch:recordBatch}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
 function exhaustLocal(plan){return recordBatch(plan,plan,[],plan.relations.map(r=>r.id));}
 function fixture(){
  const box={x:10,y:10,w:80,h:80},target={index:5,regionId:'card',box};
@@ -42,7 +42,7 @@ test('an undirected connector remains one identity when its endpoint order is re
  const rows=read(f.response,[f.target],f.frame,f.capacity),out=apply(f.plan,[f.target],[rows,structuredClone(rows)]);
  assert.deepEqual(out.plan.relations,f.plan.relations);
  assert.equal(out.evidence.rejectedRelations[0].reason,'existing-relation');
- const {sceneLocalRelationCapacity:remaining}=require('../packages/slideclone-core/source-scene-relation-batches');
+ const {sceneLocalRelationCapacity:remaining}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
  assert.equal(remaining(out.plan),23,'a rejected duplicate still consumes its proposal slot');
 });
 
@@ -62,7 +62,7 @@ test('regional geometry survives keyed transport, source mapping and two-view co
 
 test('rejected and context-only regional relation proposals consume the same local batch as accepted additions',()=>{
  const {sceneLocalRelationCapacity:remaining,sceneRelationBatches:batches,sceneInventoryRelationBatches:exportBatches,
-  sceneInventoryRelationBatchesValid:valid}=require('../packages/slideclone-core/source-scene-relation-batches');
+  sceneInventoryRelationBatchesValid:valid}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
  const f=existingFixture(),rows=read(f.response,[f.target],f.frame,f.capacity),conflict=structuredClone(rows);
  conflict[0].relations[0].direction='both';
  const before=structuredClone(f.plan),rejected=apply(f.plan,[f.target],[rows,conflict]);
@@ -78,7 +78,7 @@ test('rejected and context-only regional relation proposals consume the same loc
 });
 
 test('24 failed local proposals exhaust capacity and an overfull rejected batch fails before any plan mutation',()=>{
- const {sceneLocalRelationCapacity:remaining}=require('../packages/slideclone-core/source-scene-relation-batches');
+ const {sceneLocalRelationCapacity:remaining}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
  const f=existingFixture(),rows=read(f.response,[f.target],f.frame,f.capacity);
  rows[0].relations=Array.from({length:24},()=>({...rows[0].relations[0]}));
  const conflict=structuredClone(rows);conflict[0].relations.forEach(r=>r.direction='both');

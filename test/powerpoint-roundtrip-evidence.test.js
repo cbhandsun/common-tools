@@ -2,9 +2,9 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require("./helpers/temporary-directory.cjs");
 const { recordRoundTripEvidence, summarizeRoundTripReport } = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-roundtrip-evidence");
 const { validatePowerPointEditableRoundTrip } = require("../packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-editable-roundtrip");
 const { normalizeConnectorTarget } = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-connector-roundtrip");
@@ -33,8 +33,8 @@ function report(verified = true) {
       stage: verified ? "complete" : "reopen", hresult: verified ? null : "0x80004005", error: "private-content-secret" }] };
 }
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ct-roundtrip-evidence-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = createTemporaryTestDirectory("ct-roundtrip-evidence-");
+  t.after(() => removeTemporaryTestDirectory(root));
   return { root, reportFile: path.join(root, "powerpoint-editable-roundtrip-report.json"), summaryFile: path.join(root, "powerpoint-editable-roundtrip-summary.json") };
 }
 

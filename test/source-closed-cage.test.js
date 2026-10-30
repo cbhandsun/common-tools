@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {isolateClosedSourceCage:isolate}=require('../packages/slideclone-core/source-closed-cage');
+const {isolateClosedSourceCage:isolate}=require('../packages/slideclone-core/scene-plan/source-closed-cage');
 function fixture(dividers=[35,55]){
  const cells=new Set();for(let y=15;y<=75;y++)for(let x=15;x<=95;x++)
   if(x<=17||x>=93||y<=17||y>=73||dividers.some(line=>y>=line&&y<=line+2))cells.add(y*120+x);

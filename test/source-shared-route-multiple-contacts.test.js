@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {sourceSharedTreeFixture}=require('./helpers/source-shared-tree.cjs');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
-const {measureSharedSourceRoute}=require('../packages/slideclone-core/source-shared-route-measurement');
-const {compileSharedSourceRoute}=require('../packages/slideclone-core/source-shared-route-compiler');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+const {measureSharedSourceRoute}=require('../packages/slideclone-core/routing/source-shared-route-measurement');
+const {compileSharedSourceRoute}=require('../packages/slideclone-core/routing/source-shared-route-compiler');
 function fixture(mixed=false){
  const f=sourceSharedTreeFixture(),target={id:'native-target',endpointId:'object-target',box:{x:30,y:170,w:240,h:30},arrow:true};
  for(let y=170;y<200;y++)for(let x=30;x<270;x++)f.put(x,y,[210,230,245]);
@@ -73,10 +73,10 @@ test('inferred contacts retain strict input, blank, source, budget and unified C
 });
 test('the default scene compiler binds separate contacts of one native object and preserves final shared ownership',t=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
- const {writePng}=require('../packages/slideclone-core/png'),{compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
- const {parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
- const {initializeSceneObjectBatches}=require('../packages/slideclone-core/source-scene-object-batches');
- const {auditSceneInventory}=require('../packages/slideclone-core/source-scene-observed-inventory');
+ const {writePng}=require('../packages/slideclone-core/png'),{compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+ const {parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+ const {initializeSceneObjectBatches}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
+ const {auditSceneInventory}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
  const f=fixture(),root=fs.mkdtempSync(path.join(os.tmpdir(),'multi-contact-scene-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,f.image);
  const sourceHash=crypto.createHash('sha256').update(fs.readFileSync(sourceFile)).digest('hex');
@@ -92,7 +92,9 @@ test('the default scene compiler binds separate contacts of one native object an
  assert.deepEqual(auditSceneInventory(inventory,result.page.shapes,result.page.images,sourceHash),[]);
  assert.equal(graph.nodes.filter(n=>n.endpointId==='object-target').length,2);
  assert.equal(result.page.shapes.filter(s=>s.source?.sceneInventoryId==='object-target').length,1);
- const common=graph.paths[0].edges.find(a=>graph.paths[1].edges.some(b=>a.id===b.id)),trunk=graph.edges.find(e=>e.id===common.id).memberId;
+ assert.equal(graph.rendering,'whole-native-paths-v1');assert.equal(graph.renderedPaths.length,2);
+ assert.ok(graph.paths[0].edges.some(a=>graph.paths[1].edges.some(b=>a.id===b.id)));
+ const trunk=graph.renderedPaths[0].memberId;
  assert.ok(auditSceneInventory(inventory,result.page.shapes.filter(s=>s.id!==trunk),[],sourceHash).some(r=>r.kind==='relations'&&r.count===2));
  assert.equal(result.page.images.length,0);
 });

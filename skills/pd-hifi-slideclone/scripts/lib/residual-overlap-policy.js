@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/residual-overlap-policy");
+module.exports = require("@common-tools/slideclone-core/quality/residual-overlap-policy");

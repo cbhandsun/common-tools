@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/source-scene-physical-inventory');
+const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/scene-plan/source-scene-physical-inventory');
 function fixture(){return {version:1,sourceHash:'a'.repeat(64),widthPx:100,heightPx:100,
  regions:[{id:'root',kind:'section',parentId:null,box:{x:0,y:0,w:100,h:100}}],objects:[
   {id:'alias',kind:'container',regionId:'root',box:{x:10,y:10,w:30,h:40}},

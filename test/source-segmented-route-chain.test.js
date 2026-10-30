@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {certifySegmentedRouteChain:certify}=require('../packages/slideclone-core/source-segmented-route-chain');
+const {certifySegmentedRouteChain:certify}=require('../packages/slideclone-core/routing/source-segmented-route-chain');
 function component(x,y=10){const cells=[];for(let xx=x;xx<x+7;xx++)for(let yy=y;yy<y+3;yy++)cells.push({x:xx,y:yy});return {box:{x,y,w:7,h:3},cells,boundary:false};}
 test('all observed disconnected dashes form one unique chain without painting its gaps',()=>{
  const input={components:[component(10),component(34),component(22),component(46)],noisePixels:0},before=structuredClone(input),r=certify(input);

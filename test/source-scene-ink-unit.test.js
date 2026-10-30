@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createSceneInkPort:create,bindSceneInkPortUnit:bind,sceneInkPortUnitOwnsCell:owns,sceneInkPortOwnsCell,sceneInkPortContour}=require('../packages/slideclone-core/source-scene-ink-port');
+const {createSceneInkPort:create,bindSceneInkPortUnit:bind,sceneInkPortUnitOwnsCell:owns,sceneInkPortOwnsCell,sceneInkPortContour}=require('../packages/slideclone-core/scene-plan/source-scene-ink-port');
 function fixture(){
  const image={width:60,height:40,rgba:Buffer.alloc(60*40*4,255)},window={x:0,y:0,w:60,h:40};
  const body={...image,rgba:Buffer.alloc(image.rgba.length)},member={...image,rgba:Buffer.alloc(image.rgba.length)},foreign={...image,rgba:Buffer.alloc(image.rgba.length)};

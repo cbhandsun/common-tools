@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {fixture}=require('./helpers/source-bent-gap.cjs');
-const {measureSourceSceneVisibleGap}=require('../packages/slideclone-core/source-scene-visible-gap');
-const {compileSourceSceneVisibleGap}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
-const {replaceMeasuredSceneConnectors:replace}=require('../packages/slideclone-core/source-scene-replaced-connectors');
+const {measureSourceSceneVisibleGap}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+const {compileSourceSceneVisibleGap}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
+const {replaceMeasuredSceneConnectors:replace}=require('../packages/slideclone-core/scene-plan/source-scene-replaced-connectors');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {writePng}=require('../packages/slideclone-core/png');
 function setup(flipX=false,flipY=false){

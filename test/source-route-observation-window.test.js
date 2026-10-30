@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRouteObservationWindow}=require('../packages/slideclone-core/source-route-observation-window');
+const {sourceRouteObservationWindow}=require('../packages/slideclone-core/routing/source-route-observation-window');
 function fixture(){return {hint:{x:38,y:59,w:165,h:76},from:{x:20,y:20,w:50,h:40},to:{x:170,y:20,w:50,h:40},width:240,height:180,anchored:true,programmed:false};}
 test('successful shaft observations retain exactly their original margin',()=>{
  const input=fixture(),snapshot=structuredClone(input);

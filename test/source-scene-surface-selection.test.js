@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const glyph=require('../packages/slideclone-core/source-scene-glyph-occlusion');
-const {selectMeasuredSceneSurfaceChoices:select}=require('../packages/slideclone-core/source-scene-surface-selection');
+const glyph=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
+const {selectMeasuredSceneSurfaceChoices:select}=require('../packages/slideclone-core/scene-plan/source-scene-surface-selection');
 function fixture(){
  const image={width:1000,height:450,rgba:Buffer.alloc(1000*450*4)},budget={used:0},fill=[0,130,70];
  for(let i=0;i<1000*450;i++)image.rgba.set([...fill,255],i*4);

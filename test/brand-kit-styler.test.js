@@ -9,7 +9,7 @@ const {
   colorDistance,
   parseHexColor,
   retargetColor
-} = require("../packages/slideclone-core/brand-kit-styler");
+} = require("../packages/slideclone-core/archetypes/brand-kit-styler");
 
 test("parseHexColor correctly converts #RGB and #RRGGBB", () => {
   assert.deepEqual(parseHexColor("#FFF"), { r: 255, g: 255, b: 255 });

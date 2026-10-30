@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr-source-deck");
+const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr/ocr-source-deck");
 
 function fixture(text, paint) {
   const width = 200, height = 200;

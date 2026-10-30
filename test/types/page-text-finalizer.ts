@@ -1,4 +1,4 @@
-import { createPageTextFinalizer, type Operations, type Inputs, type Page } from "../../packages/slideclone-core/page-text-finalizer";
+import { createPageTextFinalizer, type Operations, type Inputs, type Page } from "../../packages/slideclone-core/typography/page-text-finalizer";
 declare const operations: Operations;
 declare const inputs: Inputs;
 declare const page: Page;

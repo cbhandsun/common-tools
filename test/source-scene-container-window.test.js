@@ -1,8 +1,8 @@
 "use strict";
-const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
 const test = require("node:test"), assert = require("node:assert/strict");
-const { measureSceneContainer } = require("../packages/slideclone-core/source-scene-container");
-const { sampleAtomInteriorFill, sampleAtomInteriorFillSeeds } = require("../packages/slideclone-core/visual-atom-interior-fill");
+const { measureSceneContainer } = require("../packages/slideclone-core/scene-plan/source-scene-container");
+const { sampleAtomInteriorFill, sampleAtomInteriorFillSeeds } = require("../packages/slideclone-core/scene-plan/visual-atom-interior-fill");
 function imageWithPanel(panel) {
   const image = { width: 400, height: 300, rgba: Buffer.alloc(400 * 300 * 4, 255) };
   for (let y = panel.y; y < panel.y + panel.h; y++) for (let x = panel.x; x < panel.x + panel.w; x++)

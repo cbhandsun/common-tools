@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
+const {createTemporaryTestDirectory:createTemp,removeTemporaryTestDirectory:removeTemp}=require('./helpers/temporary-directory.cjs');
 const path = require("node:path");
 const { createOwnedTextRefiner } = require("../packages/slideclone-core/owned-text-refinement");
 const { textProbeRevision } = require("../packages/slideclone-core/owned-text-advance");
@@ -32,8 +32,8 @@ function quality(texts, pixelDiffRatio = 0.09, overrides = {}) {
 }
 
 function fixture(t, textCount = 1) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "owned-text-refinement-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = createTemp("owned-text-refinement-");
+  t.after(() => removeTemp(root));
   const sourceFile = path.join(root, "source.png"), renderedFile = path.join(root, "rendered.png");
   const deckFile = path.join(root, "baseline.json"), pptxFile = path.join(root, "baseline.pptx");
   fs.writeFileSync(sourceFile, "source-image");

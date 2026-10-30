@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceSceneCompileFeedback:feedback}=require('../packages/slideclone-core/source-scene-compile-feedback');
-const {selectStructuralReviewTargets:select}=require('../packages/slideclone-core/source-scene-structural-review');
+const {sourceSceneCompileFeedback:feedback}=require('../packages/slideclone-core/scene-plan/source-scene-compile-feedback');
+const {selectStructuralReviewTargets:select}=require('../packages/slideclone-core/scene-plan/source-scene-structural-review');
 test('safe source-icon and explicit-program failures reach their actual source units instead of disappearing from local review',()=>{
  const plan={objects:[{id:'object-a'},{id:'object-b'}],relations:[{id:'relation-ab',fromId:'object-a',toId:'object-b'}]};
  const result=feedback(plan,{unresolved:[{id:'object-a',reason:'icon-isolation',detailCode:'icon-source-text'},
@@ -12,7 +12,7 @@ test('safe source-icon and explicit-program failures reach their actual source u
  assert.ok(!JSON.stringify([...result]).includes('private-token'));
 });
 test('failure feedback reports observed shaft, direction and port stages without converting failure into success',()=>{
- const {deeperSourceRelationFailure:deeper}=require('../packages/slideclone-core/source-scene-relation-recovery');
+ const {deeperSourceRelationFailure:deeper}=require('../packages/slideclone-core/scene-plan/source-scene-relation-recovery');
  assert.equal(deeper('shaft-window-boundary','shaft-width'),'shaft-width');
  assert.equal(deeper('shaft-width','arrow-direction'),'arrow-direction');
  assert.equal(deeper('arrow-direction','node-axis-alignment'),'node-axis-alignment');

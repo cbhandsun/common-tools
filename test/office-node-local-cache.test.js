@@ -192,6 +192,205 @@ test("local cache rejects a linked marker and unsafe replacement without followi
   assert.equal(fs.readFileSync(outside, "utf8"), "not cache data");
 });
 
+
+function renameFailure(code, source, destination, overrides = {}) {
+  return Object.assign(new Error("simulated-rename-failure"), { code, syscall: "rename", path: source, dest: destination }, overrides);
+}
+
+function noDelay(t) {
+  const waits = [];
+  t.mock.method(require("node:timers/promises"), "setTimeout", async (milliseconds) => { waits.push(milliseconds); });
+  return waits;
+}
+
+test("local cache retries only matching transient rename locks and preserves complete bytes", async (t) => {
+  const f = fixture(t), waits = noDelay(t), rename = fs.renameSync;
+  fs.writeFileSync(path.join(f.root, "node_modules", "fixture"), "complete");
+  let calls = 0;
+  t.mock.method(fs, "renameSync", (source, destination) => {
+    calls += 1;
+    if (calls < 3) throw renameFailure("EPERM", source, destination);
+    return rename(source, destination);
+  });
+  await saveLocalCache(f.context);
+  assert.equal(calls, 3); assert.deepEqual(waits, [25, 50]);
+  assert.equal(fs.readFileSync(path.join(f.context.entry, "payload", "node_modules", "fixture"), "utf8"), "complete");
+  assert.deepEqual(fs.readdirSync(f.context.managed), [path.basename(f.context.entry)]);
+});
+
+test("local cache bounds permanent rename locks and propagates the exact final error", async (t) => {
+  const waits = noDelay(t);
+  for (const code of ["EPERM", "EBUSY", "EACCES"]) {
+    const f = fixture(t);
+    let calls = 0, lastError;
+    const mock = t.mock.method(fs, "renameSync", (source, destination) => {
+      calls += 1; lastError = renameFailure(code, source, destination); throw lastError;
+    });
+    await assert.rejects(saveLocalCache(f.context), (error) => error === lastError);
+    assert.equal(calls, 6); assert.equal(fs.existsSync(f.context.entry), false);
+    assert.deepEqual(fs.readdirSync(f.context.managed), []);
+    mock.mock.restore();
+  }
+  assert.deepEqual(waits, Array(3).fill([25, 50, 100, 200, 400]).flat());
+});
+
+test("local cache does not retry malformed, unrelated or non-locking rename errors", async (t) => {
+  const waits = noDelay(t);
+  let touched = 0;
+  const failures = [
+    (s, d) => renameFailure("ENOENT", s, d), (s, d) => renameFailure("EIO", s, d), (s, d) => renameFailure("EXDEV", s, d),
+    (s, d) => renameFailure("EPERM", s, d, { syscall: "unlink" }),
+    (s, d) => renameFailure("EPERM", s, d, { path: "other-source" }),
+    (s, d) => renameFailure("EPERM", s, d, { dest: "other-destination" }),
+    () => ({ code: "EPERM" }),
+    () => new Proxy(new Error("private"), { get() { touched += 1; throw new Error("private"); } }),
+    (s, d) => { const error = renameFailure("EPERM", s, d); Object.defineProperty(error, "code", { get() { touched += 1; throw new Error("private"); } }); return error; }
+  ];
+  for (const makeFailure of failures) {
+    const f = fixture(t);
+    let calls = 0, original;
+    const mock = t.mock.method(fs, "renameSync", (source, destination) => { calls += 1; original = makeFailure(source, destination); throw original; });
+    // assert.rejects itself probes a caught value's then property; compare the
+    // unknown rejection directly so a hostile Proxy is never inspected.
+    let rejected = false, caught;
+    try { await saveLocalCache(f.context); } catch (error) { rejected = true; caught = error; }
+    assert.equal(rejected, true); assert.equal(caught, original);
+    assert.equal(calls, 1); assert.equal(fs.existsSync(f.context.entry), false);
+    mock.mock.restore();
+  }
+  assert.deepEqual(waits, []); assert.equal(touched, 0);
+});
+
+test("cache publication helper rejects empty, malformed, excessive, controlled and linked paths before mutation", (t) => {
+  const { createLocalCachePublication } = require("../scripts/lib/office-node-cache-publish");
+  const f = fixture(t), initial = fs.readdirSync(f.context.managed);
+  let calls = 0;
+  const inspect = () => { calls += 1; };
+  for (const managed of [undefined, null, "", "relative", path.parse(f.context.managed).root, `${f.context.managed}${"x".repeat(4097)}`]) {
+    assert.throws(() => createLocalCachePublication(managed, f.context.entry, inspect), /publication boundary/u);
+  }
+  for (const entry of [undefined, null, "", "relative", path.join(f.context.managed, "bad-key"), path.join(f.toolCache, path.basename(f.context.entry)), `${f.context.entry}${"x".repeat(4097)}`]) {
+    assert.throws(() => createLocalCachePublication(f.context.managed, entry, inspect), /publication boundary/u);
+  }
+  for (const control of [...Array.from({ length: 32 }, (_, index) => String.fromCharCode(index)), "\u007f"]) {
+    assert.throws(() => createLocalCachePublication(`${f.context.managed}${control}`, f.context.entry, inspect), /publication boundary/u);
+    assert.throws(() => createLocalCachePublication(f.context.managed, `${f.context.entry}${control}`, inspect), /publication boundary/u);
+  }
+  for (const invalid of [undefined, null, {}, [], new Proxy(inspect, { apply() { calls += 1; throw Error("private"); } })]) {
+    assert.throws(() => createLocalCachePublication(f.context.managed, f.context.entry, invalid), /publication boundary/u);
+  }
+  const linked = path.join(f.temporary, "linked-managed");
+  fs.symlinkSync(f.context.managed, linked, "junction");
+  assert.throws(() => createLocalCachePublication(linked, path.join(linked, path.basename(f.context.entry)), inspect), /publication boundary/u);
+  assert.deepEqual(fs.readdirSync(f.context.managed), initial); assert.equal(calls, 0);
+});
+
+test("local cache preserves a target that appears during rename backoff, including a link", async (t) => {
+  for (const linked of [false, true]) {
+    const f = fixture(t), outside = path.join(f.temporary, "outside");
+    fs.mkdirSync(outside); fs.writeFileSync(path.join(outside, "keep"), "protected");
+    let calls = 0;
+    const renameMock = t.mock.method(fs, "renameSync", (source, destination) => { calls += 1; throw renameFailure("EPERM", source, destination); });
+    const timerMock = t.mock.method(require("node:timers/promises"), "setTimeout", async () => {
+      if (linked) fs.symlinkSync(outside, f.context.entry, "junction");
+      else { fs.mkdirSync(f.context.entry); fs.writeFileSync(path.join(f.context.entry, "winner"), "preserved"); }
+    });
+    await assert.rejects(saveLocalCache(f.context), /publication target changed/u);
+    assert.equal(calls, 1); assert.equal(fs.readFileSync(path.join(outside, "keep"), "utf8"), "protected");
+    if (linked) assert.equal(fs.lstatSync(f.context.entry).isSymbolicLink(), true);
+    else assert.equal(fs.readFileSync(path.join(f.context.entry, "winner"), "utf8"), "preserved");
+    assert.equal(fs.readdirSync(f.context.managed).filter((name) => name.startsWith("staging-")).length, 0);
+    renameMock.mock.restore(); timerMock.mock.restore();
+  }
+});
+
+test("local cache refuses replaced staging or managed identities and never cleans outside data", async (t) => {
+  for (const swap of ["staging-directory", "staging-link", "managed-link"]) {
+    const f = fixture(t), outside = path.join(f.temporary, "outside"), held = path.join(f.temporary, "held"), rename = fs.renameSync;
+    fs.mkdirSync(outside); fs.writeFileSync(path.join(outside, "keep"), "protected");
+    let sourcePath, calls = 0;
+    const renameMock = t.mock.method(fs, "renameSync", (source, destination) => { sourcePath = source; calls += 1; throw renameFailure("EPERM", source, destination); });
+    const timerMock = t.mock.method(require("node:timers/promises"), "setTimeout", async () => {
+      const target = swap === "managed-link" ? f.context.managed : sourcePath;
+      rename(target, held);
+      if (swap === "staging-directory") { fs.mkdirSync(target); fs.writeFileSync(path.join(target, "replacement"), "preserved"); }
+      else fs.symlinkSync(outside, target, "junction");
+    });
+    await assert.rejects(saveLocalCache(f.context), (error) => error instanceof AggregateError && error.errors.length === 2
+      && error.cause === error.errors[0] && /publication boundary/u.test(error.errors[0].message) && /publication boundary/u.test(error.errors[1].message));
+    assert.equal(calls, 1); assert.equal(fs.readFileSync(path.join(outside, "keep"), "utf8"), "protected");
+    assert.equal(fs.existsSync(path.join(outside, path.basename(f.context.entry))), false);
+    if (swap === "staging-directory") assert.equal(fs.readFileSync(path.join(sourcePath, "replacement"), "utf8"), "preserved");
+    else assert.equal(fs.lstatSync(swap === "managed-link" ? f.context.managed : sourcePath).isSymbolicLink(), true);
+    renameMock.mock.restore(); timerMock.mock.restore();
+  }
+});
+
+test("local cache checks the initial old entry identity before deleting it", async (t) => {
+  const f = fixture(t), held = path.join(f.temporary, "old-entry"), copyFile = fs.promises.copyFile;
+  fs.writeFileSync(path.join(f.root, "node_modules", "fixture"), "dependency");
+  await saveLocalCache(f.context);
+  let swapped = false;
+  t.mock.method(fs.promises, "copyFile", async (...args) => {
+    await copyFile(...args);
+    if (!swapped) {
+      swapped = true; fs.renameSync(f.context.entry, held); fs.mkdirSync(f.context.entry);
+      fs.writeFileSync(path.join(f.context.entry, "winner"), "preserved");
+    }
+  });
+  await assert.rejects(saveLocalCache(f.context), /publication boundary/u);
+  assert.equal(fs.readFileSync(path.join(f.context.entry, "winner"), "utf8"), "preserved");
+  assert.equal(fs.existsSync(path.join(held, "entry.json")), true);
+  assert.equal(fs.readdirSync(f.context.managed).filter((name) => name.startsWith("staging-")).length, 0);
+});
+
+test("local cache deletes the initially captured old entry once, never on a rename retry", async (t) => {
+  const f = fixture(t); await saveLocalCache(f.context);
+  const waits = noDelay(t), remove = fs.rmSync, rename = fs.renameSync;
+  let removals = 0, attempts = 0;
+  t.mock.method(fs, "rmSync", (target, options) => { if (target === f.context.entry) removals += 1; return remove(target, options); });
+  t.mock.method(fs, "renameSync", (source, destination) => { attempts += 1; if (attempts < 3) throw renameFailure("EPERM", source, destination); return rename(source, destination); });
+  await saveLocalCache(f.context);
+  assert.equal(removals, 1); assert.equal(attempts, 3); assert.deepEqual(waits, [25, 50]);
+  assert.equal(fs.existsSync(path.join(f.context.entry, "entry.json")), true);
+});
+
+test("local cache concurrent same-key saves keep one complete winner and reject the competitor", async (t) => {
+  const f = fixture(t), copyFile = fs.promises.copyFile;
+  fs.writeFileSync(path.join(f.root, "node_modules", "fixture"), "complete");
+  let arrivals = 0, release;
+  const barrier = new Promise((resolve) => { release = resolve; });
+  t.mock.method(fs.promises, "copyFile", async (...args) => {
+    await copyFile(...args); arrivals += 1; if (arrivals === 2) release(); await barrier;
+  });
+  const results = await Promise.allSettled([saveLocalCache(f.context), saveLocalCache(f.context)]);
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  const rejected = results.find((result) => result.status === "rejected");
+  assert.match(rejected.reason.message, /publication target changed/u);
+  assert.equal(fs.readFileSync(path.join(f.context.entry, "payload", "node_modules", "fixture"), "utf8"), "complete");
+  assert.deepEqual(fs.readdirSync(f.context.managed), [path.basename(f.context.entry)]);
+});
+
+test("local cache preserves original copy or publish errors together with cleanup failures", async (t) => {
+  noDelay(t);
+  for (const phase of ["copy", "publish"]) {
+    const f = fixture(t), remove = fs.rmSync, cleanupError = new Error("simulated-cleanup-failure");
+    fs.writeFileSync(path.join(f.root, "node_modules", "fixture"), "dependency");
+    let primary = new Error("simulated-copy-failure");
+    const failureMock = phase === "copy"
+      ? t.mock.method(fs.promises, "copyFile", async () => { throw primary; })
+      : t.mock.method(fs, "renameSync", (source, destination) => { primary = renameFailure("EPERM", source, destination); throw primary; });
+    const cleanupMock = t.mock.method(fs, "rmSync", (target, options) => {
+      if (path.dirname(target) === f.context.managed && path.basename(target).startsWith("staging-")) throw cleanupError;
+      return remove(target, options);
+    });
+    await assert.rejects(saveLocalCache(f.context), (error) => error instanceof AggregateError && error.cause === primary
+      && error.errors[0] === primary && error.errors[1] === cleanupError && error.errors.length === 2);
+    assert.equal(fs.existsSync(f.context.entry), false);
+    failureMock.mock.restore(); cleanupMock.mock.restore();
+  }
+});
+
 test("local cache copies concurrently with a fixed eight-file bound and preserves bytes", async (t) => {
   const f = fixture(t);
   for (let index = 0; index < 24; index += 1) fs.writeFileSync(path.join(f.root, "node_modules", `file-${index}`), `content-${index}`);

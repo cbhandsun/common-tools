@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createSceneMeasurementCache:create}=require('../packages/slideclone-core/source-scene-measurement-cache');
-const {measureSceneParametricSurface}=require('../packages/slideclone-core/source-scene-parametric-surface');
-const {hasMeasuredScenePortFrame}=require('../packages/slideclone-core/source-scene-port-evidence');
+const {createSceneMeasurementCache:create}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+const {measureSceneParametricSurface}=require('../packages/slideclone-core/scene-plan/source-scene-parametric-surface');
+const {hasMeasuredScenePortFrame}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
 function fixture(){
  const image={width:340,height:120,rgba:Buffer.alloc(340*120*4)},hint={x:20,y:20,w:280,h:70};
  const put=(x,y,color)=>image.rgba.set([...color,255],(y*340+x)*4);
@@ -33,8 +33,8 @@ test('complete-body recovery is cached, immutable and bound to the source and th
  assert.equal(cache.portFrame({...f.hint,x:21}),null);
 });
 test('source connectivity is private evidence and cannot be supplied by cloned, proxy or unrelated measurements',()=>{
- const {measureSceneContainer}=require('../packages/slideclone-core/source-scene-container');
- const {sceneFillHasConnectedBody:connected}=require('../packages/slideclone-core/source-scene-fill-window');
+ const {measureSceneContainer}=require('../packages/slideclone-core/scene-plan/source-scene-container');
+ const {sceneFillHasConnectedBody:connected}=require('../packages/slideclone-core/scene-plan/source-scene-fill-window');
  const f=fixture(),paint=measureSceneContainer(f.image,f.hint,f.masks,f.budget);assert.ok(paint?.parts);
  assert.equal(connected(paint,f.image),true);
  for(const candidate of [null,{},structuredClone(paint),new Proxy(paint,{})])assert.equal(connected(candidate,f.image),false);
@@ -44,8 +44,8 @@ test('source connectivity is private evidence and cannot be supplied by cloned, 
 });
 test('the normal compiler consumes a proven partitioned body as a visible native node, label group and source-attached relation',t=>{
  const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
- const {writePng}=require('../packages/slideclone-core/png'),{parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
- const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {writePng}=require('../packages/slideclone-core/png'),{parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+ const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const f=fixture(),image={width:400,height:120,rgba:Buffer.alloc(400*120*4)};
  const put=(x,y,color)=>image.rgba.set([...color,255],(y*400+x)*4);
  for(let y=0;y<120;y++)for(let x=0;x<400;x++)put(x,y,[253,232,242]);
@@ -63,7 +63,9 @@ test('the normal compiler consumes a proven partitioned body as a visible native
  const original=structuredClone(page),result=compileSourceScene({page,plan,sourceFile,root,slideSize:{widthPt:400,heightPt:120}});
  const body=result.page.shapes.find(s=>s.id==='scene-container-object-body');assert.ok(body);
  assert.equal(body.type,'rect');assert.notEqual(body.style.fill,'none');assert.ok(body.style.gradient);
- assert.equal(result.evidence.resolvedRelations,1);assert.equal(result.evidence.physicallyGroupedText,2);
+ assert.equal(result.evidence.resolvedRelations,1);assert.equal(result.evidence.physicallyGroupedText,2,
+  JSON.stringify({matched:result.evidence.physicallyMatchedText,conflicts:result.evidence.physicalGroupPaintConflicts,
+   checks:result.evidence.physicalGroupGeometryChecks,skipped:result.evidence.physicalGroupSkippedGeometry}));
  assert.ok(result.page.textBoxes.every(text=>text.source.nativeComponentGroupId===body.source.nativeComponentGroupId));
  assert.equal(result.evidence.unresolved.some(item=>item.reason==='compound-background-node'||item.detailCode==='missing-native-node'),false);
  assert.ok(result.evidence.sourceScanPixels<=4000000);assert.deepEqual(page,original);

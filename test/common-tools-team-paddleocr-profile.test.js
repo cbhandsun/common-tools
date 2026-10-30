@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
-const { EXPECTED_VERSIONS, MIN_TEXT_CONFIDENCE, PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile } = require("../packages/slideclone-core/team-paddleocr-profile");
+const { EXPECTED_VERSIONS, MIN_TEXT_CONFIDENCE, PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile } = require("../packages/slideclone-core/ocr/team-paddleocr-profile");
 const { resolveNativeEngineRuntimeRoot } = require("../packages/slideclone-native-engine");
 
 function environment(overrides = {}) {

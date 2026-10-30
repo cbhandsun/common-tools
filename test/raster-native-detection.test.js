@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const detection = require("../packages/slideclone-core/raster-native-detection");
+const detection = require("../packages/slideclone-core/scene-plan/raster-native-detection");
 
 const slideSize = { widthPt: 960, heightPt: 540 };
 

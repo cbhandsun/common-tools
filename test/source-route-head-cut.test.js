@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRouteHeadCut}=require('../packages/slideclone-core/source-route-head-cut');
-const {sourceFilledHeadProfile}=require('../packages/slideclone-core/source-filled-head-profile');
+const {sourceRouteHeadCut}=require('../packages/slideclone-core/routing/source-route-head-cut');
+const {sourceFilledHeadProfile}=require('../packages/slideclone-core/routing/source-filled-head-profile');
 function head(slope,halfHead=13){
  const width=180,height=150,tip={x:110,y:30},scale=Math.hypot(1,slope),dx=slope/scale,dy=-1/scale;
  const cut={x:tip.x-dx*48,y:tip.y-dy*48},cells=[];

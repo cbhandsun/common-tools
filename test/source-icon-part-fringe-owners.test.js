@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceIconPartFringeOwners:observe}=require('../packages/slideclone-core/source-icon-part-fringe-owners');
+const {sourceIconPartFringeOwners:observe}=require('../packages/slideclone-core/scene-plan/source-icon-part-fringe-owners');
 function fixture(){
  const width=9,height=7,owners=new Int8Array(width*height).fill(-1),rgba=new Uint8Array(width*height*4);
  const ink=(x,y,owner)=>{const n=y*width+x;rgba.set([20,30,40,255],n*4);if(owner!==undefined)owners[n]=owner;return n;};

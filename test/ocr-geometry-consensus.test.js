@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {geometryReviewTargets,geometryReviewSheet,applyGeometryConsensus}=require("../packages/slideclone-core/ocr-geometry-consensus");
+const {geometryReviewTargets,geometryReviewSheet,applyGeometryConsensus}=require("../packages/slideclone-core/ocr/ocr-geometry-consensus");
 function fixture(){const image={width:100,height:100,rgba:Buffer.alloc(40000,255)};
 for(let y=24;y<40;y++)for(let x=24;x<44;x++)image.rgba.set([17,17,17,255],(y*100+x)*4);
 for(let y=48;y<90;y++)for(let x=32;x<35;x++)image.rgba.set([17,17,17,255],(y*100+x)*4);
@@ -58,10 +58,10 @@ test("geometry consensus retains the contextual word proposal in the same source
  const before=structuredClone({ocr,second}),result=applyGeometryConsensus(ocr,[first,second],{widthPx:100,heightPx:100});
  assert.deepEqual(result.ocr.lines[0].wordPositionHints,[{text:"字",box:{x:22,y:22,w:24,h:22}}]);
  assert.deepEqual({ocr,second},before);
- const {admitOcrResult}=require("../packages/slideclone-core/ocr-result-admission");
+ const {admitOcrResult}=require("../packages/slideclone-core/ocr/ocr-result-admission");
  assert.doesNotThrow(()=>admitOcrResult(result.ocr,{widthPx:100,heightPx:100}));
- const {boundedOcrSourceDeck}=require("../packages/slideclone-core/ocr-source-deck");
- const {applySourceWordLayouts}=require("../packages/slideclone-core/source-word-layout-registry");
+ const {boundedOcrSourceDeck}=require("../packages/slideclone-core/ocr/ocr-source-deck");
+ const {applySourceWordLayouts}=require("../packages/slideclone-core/typography/source-word-layout-registry");
  const deck=boundedOcrSourceDeck({metadata:{dimensions:{widthPx:100,heightPx:100}},ocr:result.ocr,sourceImage:"source.png",sourceRaster:image});
  assert.equal(applySourceWordLayouts(deck.pages[0],deck.pages[0].textBoxes).layouts,1);
  assert.deepEqual(geometryReviewTargets(image,result.ocr),[]);

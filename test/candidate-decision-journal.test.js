@@ -1,11 +1,12 @@
 "use strict";
-const assert=require("node:assert/strict"), test=require("node:test"), fs=require("node:fs"),os=require("node:os"),path=require("node:path");
+const assert=require("node:assert/strict"), test=require("node:test"), fs=require("node:fs"),path=require("node:path");
+const {createTemporaryTestDirectory:createTemp,removeTemporaryTestDirectory:removeTemp}=require('./helpers/temporary-directory.cjs');
 const {createCandidateDecisionJournal:create}=require("../packages/slideclone-worker-adapter/candidate-decision-journal");
 const {createStrictNativeCandidatePolicy,assessStrictNativeCandidate}=require("../packages/slideclone-worker-adapter/candidate-quality-policy");
 function quality(pdr=0.10) {return {metrics:{"pixel-diff-ratio":pdr,"foreground-missing-ratio":0.10,"mean-absolute-delta":13,"component-regions-attention":97,"worst-component-normalized-severity":8},providerMessage:"private-token user-content"};}
 
 test('search journal bounds and whitelists evidence without reading hostile frontiers',t=>{
- const base=fs.mkdtempSync(path.join(os.tmpdir(),'search-journal-'));t.after(()=>fs.rmSync(base,{recursive:true,force:true}));
+ const base=createTemp('search-journal-');t.after(()=>removeTemp(base));
  const root=fs.mkdtempSync(path.join(base,'job-')),file=path.join(root,'candidate.pptx');fs.writeFileSync(file,'artifact');
  const journal=create(base);journal.remember({root,pptxFile:file},quality(),1);
  const entry={hash:'a'.repeat(64),metrics:{pdr:.1,missing:.1,mad:13,layout:0,style:0,content:'private-token'},text:'private-token'};
@@ -18,7 +19,7 @@ test('search journal bounds and whitelists evidence without reading hostile fron
 });
 
 test("strict native decisions record all gate reasons without changing admission or leaking content",()=>{
-  const base=fs.mkdtempSync(path.join(os.tmpdir(),"candidate-strict-decisions-"));
+  const base=createTemp("candidate-strict-decisions-");
   try {
     const root=fs.mkdtempSync(path.join(base,"job-")),file=path.join(root,"candidate.pptx");fs.writeFileSync(file,"artifact");
     const journal=create(base),before={...quality(),checks:[{name:"quality-rendered",passed:true}]};
@@ -32,11 +33,11 @@ test("strict native decisions record all gate reasons without changing admission
     assert.deepEqual(saved.reasons,actual.reasons);assert.equal(saved.candidateId,2);
     assert.equal(serialized.includes("private-token"),false);
     assert.throws(()=>createStrictNativeCandidatePolicy({recordDecision:null}),/invalid/);
-  }finally{fs.rmSync(base,{recursive:true,force:true});}
+  }finally{removeTemp(base);}
 });
 
 test("journal retries transient replacement locks and preserves the last evidence on permanent failure",t=>{
-  const base=fs.mkdtempSync(path.join(os.tmpdir(),"candidate-decisions-lock-"));
+  const base=createTemp("candidate-decisions-lock-");
   try {
     const root=fs.mkdtempSync(path.join(base,"job-")),file=path.join(root,"candidate.pptx");
     fs.writeFileSync(file,"artifact");
@@ -58,10 +59,10 @@ test("journal retries transient replacement locks and preserves the last evidenc
     assert.throws(()=>journal.decide({baselineQuality:quality(),candidateQuality:quality(),accepted:true,sharedRegression:0}),{code:"EIO"});
     assert.equal(calls,1);assert.deepEqual(fs.readFileSync(destination),before);
     assert.equal(fs.readdirSync(root).some(name=>name.startsWith(".candidate-decisions-")),false);
-  }finally{fs.rmSync(base,{recursive:true,force:true});}
+  }finally{removeTemp(base);}
 });
 test("candidate decisions identify real artifacts and local regressions without provider text",()=>{
-  const base=fs.mkdtempSync(path.join(os.tmpdir(),"candidate-decisions-"));
+  const base=createTemp("candidate-decisions-");
   try {
     const root=fs.mkdtempSync(path.join(base,"job-")), file=path.join(root,"candidate.pptx"); fs.writeFileSync(file,"artifact");
     const journal=create(base),before=quality(),after=quality(0.086);
@@ -74,19 +75,19 @@ test("candidate decisions identify real artifacts and local regressions without 
     assert.throws(()=>journal.decide({baselineQuality:before,candidateQuality:after,accepted:false,sharedRegression:0,policy:"ocr-recovery",policyReasons:["private-token"]}),/reasons are invalid/);
     for(let i=0;i<270;i++) journal.decide({baselineQuality:before,candidateQuality:after,accepted:true,sharedRegression:0});
     const bounded=JSON.parse(fs.readFileSync(path.join(root,"candidate-decisions.json"))); assert.equal(bounded.decisions.length,256);assert.equal(bounded.dropped,15);
-  } finally {fs.rmSync(base,{recursive:true,force:true});}
+  } finally {removeTemp(base);}
 });
 test("journal publication replaces a hardlinked output without altering the linked file",()=>{
-  const base=fs.mkdtempSync(path.join(os.tmpdir(),"candidate-decisions-link-"));
+  const base=createTemp("candidate-decisions-link-");
   try {
     const root=fs.mkdtempSync(path.join(base,"job-")),external=path.join(base,"unrelated.json"),file=path.join(root,"candidate.pptx");
     fs.writeFileSync(external,"original");fs.linkSync(external,path.join(root,"candidate-decisions.json"));fs.writeFileSync(file,"artifact");
     create(base).remember({root,pptxFile:file},quality(),1);
     assert.equal(fs.readFileSync(external,"utf8"),"original");
-  } finally {fs.rmSync(base,{recursive:true,force:true});}
+  } finally {removeTemp(base);}
 });
 test("malformed, hostile and out-of-workspace decision inputs fail closed",()=>{
-  const base=fs.mkdtempSync(path.join(os.tmpdir(),"candidate-decisions-"));
+  const base=createTemp("candidate-decisions-");
   try {
     const journal=create(base);
     for(const input of [null,{}, {accepted:true,sharedRegression:NaN}]) assert.throws(()=>journal.decide(input),/invalid/);
@@ -94,5 +95,5 @@ test("malformed, hostile and out-of-workspace decision inputs fail closed",()=>{
     assert.throws(()=>journal.decide(hostile),/invalid/);
     assert.throws(()=>journal.remember({root:base,pptxFile:path.join(base,"missing")},quality(),10));
     assert.doesNotThrow(()=>journal.remember({},null,0));
-  }finally{fs.rmSync(base,{recursive:true,force:true});}
+  }finally{removeTemp(base);}
 });

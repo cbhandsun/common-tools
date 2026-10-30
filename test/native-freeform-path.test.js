@@ -1,8 +1,8 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {encodeNativeFreeformPath:encode,decodeNativeFreeformPath:decode,readNativeFreeformSegments:read,compactNativeFreeformPaths:compact}=require("../packages/slideclone-core/native-freeform-path");
-const {isClosedNativeFreeformSurface:closed}=require("../packages/slideclone-core/native-freeform-path");
-const {freeformResidualMasks}=require("../packages/slideclone-core/residual-freeform-mask");
+const {encodeNativeFreeformPath:encode,decodeNativeFreeformPath:decode,readNativeFreeformSegments:read,compactNativeFreeformPaths:compact}=require("../packages/slideclone-core/scene-plan/native-freeform-path");
+const {isClosedNativeFreeformSurface:closed}=require("../packages/slideclone-core/scene-plan/native-freeform-path");
+const {freeformResidualMasks}=require("../packages/slideclone-core/scene-plan/residual-freeform-mask");
 const {validateDeckIrTree}=require("../packages/slideclone-core/deck-ir-tree");
 const path=[{type:"moveTo",points:[{x:0,y:0}]},{type:"lnTo",points:[{x:1,y:0}]},
  {type:"cubicBezTo",points:[{x:1,y:.5},{x:1,y:1},{x:.5,y:1}]},{type:"lnTo",points:[{x:0,y:1}]},{type:"close",points:[]}];

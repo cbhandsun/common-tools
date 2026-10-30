@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { sourceGraphicEvidence, inspectSourceGraphicEvidence } = require("../packages/slideclone-core/ocr-source-graphic-evidence");
+const { sourceGraphicEvidence, inspectSourceGraphicEvidence } = require("../packages/slideclone-core/ocr/ocr-source-graphic-evidence");
 
 function image(width = 180, height = 110) {
   return { width, height, rgba: Buffer.alloc(width * height * 4, 255) };

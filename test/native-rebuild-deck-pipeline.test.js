@@ -18,7 +18,7 @@ const {
   createNativeRebuildPlan,
   createPageProgressLifecycle,
   rebuildStrategyOptions
-} = require("../packages/slideclone-core/native-rebuild-deck-pipeline");
+} = require("../packages/slideclone-core/scene-plan/native-rebuild-deck-pipeline");
 
 function planServices(overrides = {}) {
   return {

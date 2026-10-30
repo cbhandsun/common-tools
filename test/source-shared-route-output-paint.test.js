@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {sourceSharedOutputFixture}=require('./helpers/source-shared-output.cjs');
-const {measuredSharedSceneRoutePaintGroups:read}=require('../packages/slideclone-core/source-shared-route-compiler');
-const {sharedSourcePaintCells}=require('../packages/slideclone-core/source-shared-route-measurement');
-const {createSharedRouteOutputPaintRegistry}=require('../packages/slideclone-core/source-shared-route-output-paint');
+const {measuredSharedSceneRoutePaintGroups:read}=require('../packages/slideclone-core/routing/source-shared-route-compiler');
+const {sharedSourcePaintCells}=require('../packages/slideclone-core/routing/source-shared-route-measurement');
+const {createSharedRouteOutputPaintRegistry}=require('../packages/slideclone-core/routing/source-shared-route-output-paint');
 
 test('shared output proof reads complete current members and charges unrelated indexed rows',()=>{
  const f=sourceSharedOutputFixture(),work={checks:0},before=Buffer.from(f.image.rgba);
@@ -24,7 +24,7 @@ test('shared output proof refuses nonnumeric endpoint geometry without executing
 });
 
 test('shared output proof rejects accessors and proxies without evaluating user code',()=>{
- for(const mode of ['row','box','source','nested','proxy','array-proxy']){
+ for(const mode of ['row','box','source','nested','proxy','array-proxy','revoked-array']){
   const f=sourceSharedOutputFixture();let calls=0;
   const getter=()=>{calls++;throw Error('sensitive-content');};
   if(mode==='row')Object.defineProperty(f.bodies[0],'box',{get:getter,enumerable:true});
@@ -33,9 +33,22 @@ test('shared output proof rejects accessors and proxies without evaluating user 
   if(mode==='nested')f.built.parts[0].style.nested={get value(){return getter();}};
   if(mode==='proxy')f.built.parts[0].style=new Proxy({},{get:getter,ownKeys:getter,getPrototypeOf:getter});
   if(mode==='array-proxy')f.shapes=new Proxy(f.shapes,{get:getter,ownKeys:getter,getPrototypeOf:getter});
+  if(mode==='revoked-array'){const revoked=Proxy.revocable(f.shapes,{});revoked.revoke();f.shapes=revoked.proxy;}
   let proofs=[];try{proofs=read(f.image,f.shapes,{checks:0});}catch(error){assert.match(error.message,/shared paint/);}
   assert.deepEqual(proofs,[],mode);assert.equal(calls,0,mode);
  }
+});
+
+test('shared output proof rejects sparse custom iterators before executing input code',()=>{
+ const f=sourceSharedOutputFixture();let calls=0;
+ const shapes=Array(1);shapes[Symbol.iterator]=function*(){calls++;yield* f.shapes;};
+ assert.throws(()=>read(f.image,shapes,{checks:0}),/^TypeError: Scene shared paint read members are invalid$/);
+ assert.equal(calls,0);
+ const parts=Array(1);parts[Symbol.iterator]=function*(){calls++;yield* f.built.parts;};
+ const registry=createSharedRouteOutputPaintRegistry();
+ assert.throws(()=>registry.capture({fit:f.fit,image:f.image,parts,slideSize:{widthPt:300,heightPt:230},work:{checks:0}}),
+  /^TypeError: Scene shared paint output is invalid$/);
+ assert.equal(calls,0);assert.deepEqual(registry.read(f.image,f.shapes,{checks:0}),[]);
 });
 
 test('shared output proof bounds snapshot strings and nested trees before serialization',()=>{

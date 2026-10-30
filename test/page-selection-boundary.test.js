@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { parsePageSelection, planSelectedPages, shouldIncludePage } = require("../packages/slideclone-core/page-selection");
+const { parsePageSelection, planSelectedPages, shouldIncludePage } = require("../packages/slideclone-core/scene-plan/page-selection");
 
 test("page selection rejects malformed empty-set lookalikes instead of selecting every page", () => {
   for (const selection of [{ size: 0 }, [], false, 0, "", new Map(), new Set([-1]), new Set([100000]), new Set(["1"])]) {

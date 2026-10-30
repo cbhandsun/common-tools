@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSourceSceneVisibleGap:measure,measuredSceneVisibleGapCells}=require('../packages/slideclone-core/source-scene-visible-gap');
-const {compileSourceSceneVisibleGap:compile}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
+const {measureSourceSceneVisibleGap:measure,measuredSceneVisibleGapCells}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+const {compileSourceSceneVisibleGap:compile}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
 const {diagonalGapFixture:fixture}=require('./helpers/scene-diagonal-gap.cjs');
 
 function dashedFixture(options={}){
@@ -136,7 +136,7 @@ test('diagonal tests belong to the unified CI suite',()=>{
 });
 test('the real scene compiler resolves a diagonal gap into one connector between the actual source nodes',t=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
- const {writePng}=require('../packages/slideclone-core/png'),{compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {writePng}=require('../packages/slideclone-core/png'),{compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const f=fixture(),root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-diagonal-gap-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const sourceFile=path.join(root,'source.png');writePng(sourceFile,f.image);
  const plan={version:1,sourceHash:crypto.createHash('sha256').update(fs.readFileSync(sourceFile)).digest('hex'),widthPx:220,heightPx:220,

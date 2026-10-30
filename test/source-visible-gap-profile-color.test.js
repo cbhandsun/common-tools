@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceVisibleGapProfile:profile}=require('../packages/slideclone-core/source-visible-gap-profile');
+const {sourceVisibleGapProfile:profile}=require('../packages/slideclone-core/routing/source-visible-gap-profile');
 function fixture(vertical=false){
  // Keep the original twelve-column terminal witness monotonically widening.
  // The hollow base then tapers to a separately observed contiguous shaft.

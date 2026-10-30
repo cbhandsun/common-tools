@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRouteNodeBackground:measure}=require('../packages/slideclone-core/source-route-node-background');
+const {sourceRouteNodeBackground:measure}=require('../packages/slideclone-core/routing/source-route-node-background');
 
 function fixture(){
  const width=48,height=32,image={width,height,rgba:Buffer.alloc(width*height*4,255)},mask=new Uint8Array(width*height);
@@ -54,5 +54,5 @@ test('actual cap scans and candidate copies share one ledger and exhaustion cann
  const sentinel=spent.work.checks;assert.deepEqual(failed(5*48+20),spent.background);assert.equal(spent.work.checks,sentinel);
  const suites=require('../scripts/test-suites'),runtime=require('../scripts/verify-runtime-package');
  assert.equal(suites.includesSuite(__filename,'unit'),true);
- assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-route-body-shadow-spans.js'));
+ assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/routing/source-route-body-shadow-spans.js'));
 });

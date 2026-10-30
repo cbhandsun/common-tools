@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
-const {regenerateSourceSceneRegions:regenerate}=require('../packages/slideclone-core/source-scene-regeneration');
-const {initializeSceneObjectBatches,sceneLocalObjectCapacity}=require('../packages/slideclone-core/source-scene-object-batches');
-const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');
+const {regenerateSourceSceneRegions:regenerate}=require('../packages/slideclone-core/scene-plan/source-scene-regeneration');
+const {initializeSceneObjectBatches,sceneLocalObjectCapacity}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
+const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');
 function fixture(){
  const bytes=Buffer.from('immutable source bytes'),dimensions={widthPx:100,heightPx:100},box={x:20,y:20,w:10,h:10};
  const ref=sourceLabelIdentity(box,dimensions);
@@ -13,12 +13,12 @@ function fixture(){
  return {plan,bytes,retired:[{index:0,box}],sourceLabels:[],verifySource:()=>{},isCancellationRequested:async()=>false};
 }
 function response(request,units=[{kind:'icon',confidence:.99,box_2d:[180,180,320,320]}]){
- const {parseLocalTargets}=require('../packages/slideclone-core/source-scene-local-response');parseLocalTargets(request.localTargets);
+ const {parseLocalTargets}=require('../packages/slideclone-core/scene-plan/source-scene-local-response');parseLocalTargets(request.localTargets);
  return {reviews:[],recoveredText:[],regionInventories:request.localTargets.regionInventories.map(index=>({index,units,relations:[]}))};
 }
 
 test('independent regional regeneration preserves the admitted logical relation census without migrating legacy plans',async()=>{
- const {SCENE_LOGICAL_RELATION_PROMPT}=require('../packages/slideclone-core/source-scene-program-prompt');
+ const {SCENE_LOGICAL_RELATION_PROMPT}=require('../packages/slideclone-core/scene-plan/source-scene-program-prompt');
  for(const logical of [false,true]){
   const f=fixture();if(logical)f.plan.relationObservationUnit='logical-relations-v1';let calls=0;
   const out=await regenerate({...f,recognize:async request=>{calls++;assert.equal(request.prompt.includes(SCENE_LOGICAL_RELATION_PROMPT),logical);return response(request);}});
@@ -35,7 +35,7 @@ test('classification regeneration emits missing graphic members and replaces sta
  assert.deepEqual(out.plan.observedInventory,before.observedInventory);assert.equal(sceneLocalObjectCapacity(out.plan),31);
  assert.deepEqual(f.plan,before);assert.deepEqual(f.bytes,bytes);
  // The proposal alone cannot complete the region: no emitted source receipt.
- const {completeRegionPrograms}=require('../packages/slideclone-core/source-scene-region-completion');
+ const {completeRegionPrograms}=require('../packages/slideclone-core/scene-plan/source-scene-region-completion');
  const completed=completeRegionPrograms({page:{shapes:[],textBoxes:[],images:[]},plan:out.plan,slideSize:{widthPt:100,heightPt:100},preflight:false,
   objects:new Map(),relations:new Map(),interiorParents:new Set(),recoveries:[],unresolved:[],labelEvidence:{prepared:0,rejected:[]}});
  assert.equal(completed.evidence.completed,0);assert.ok(completed.evidence.rejected[0].missing.includes(out.plan.objects[0].id));
@@ -77,7 +77,7 @@ test('production planner classifies and generates required graphics in the same 
  const scene={coordinateSpace:'source-pixels',regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:100,h:100}}],
   objects:[],relations:[],inventory:[['root',0,1,0]],programs:[{regionId:'root',objects:[],relations:[],labels:[{refs:[0]}]}]};
  let calls=0;
- const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+ const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
  const out=await createSourceScenePlanner({recognize:async request=>{
   calls++;if(calls===1)return {scene,reviews:[{index:0,kind:'graphic'}],missingText:[]};
   assert.ok(calls<=3,'one global and two local calls are a hard boundary');
@@ -89,7 +89,7 @@ test('production planner classifies and generates required graphics in the same 
   const unit=index=>{
    const source=frame.sourceTargets.find(t=>t.index===index).cropBox,atlas=frame.sheetTargets.find(t=>t.index===index).cropBox;
    const x=atlas.x+18-source.x,y=atlas.y+18-source.y;
-   const box_2d=require('../packages/slideclone-core/source-scene-coordinate-frame').sourceBox2D({x,y,w:14,h:14},frame);
+   const box_2d=require('../packages/slideclone-core/scene-plan/source-scene-coordinate-frame').sourceBox2D({x,y,w:14,h:14},frame);
    return {kind:'icon',confidence:.99,box_2d};
   };
   return {reviews:targets.reviews.map(index=>({index,kind:'graphic'})),recoveredText:targets.missing.map(index=>({index,text:null,confidence:0})),
@@ -106,7 +106,7 @@ test('production planner classifies and generates required graphics in the same 
 });
 
 test('shared generation reconciles only unique listed graphics and preserves incomplete obligations',()=>{
- const {reconcileSceneGraphicLabels:reconcile}=require('../packages/slideclone-core/source-scene-regeneration');
+ const {reconcileSceneGraphicLabels:reconcile}=require('../packages/slideclone-core/scene-plan/source-scene-regeneration');
  for(const mode of ['accepted','empty','ambiguous','text-collision','unlisted','wrong-owner']){
   const f=fixture(),plan=structuredClone(f.plan);
   const icon={id:'object-regional-1-0',regionId:'root',kind:'icon',box:{x:18,y:18,w:14,h:14}};
@@ -126,7 +126,7 @@ test('shared generation reconciles only unique listed graphics and preserves inc
 });
 
 test('shared generation rejects unsafe, unbounded and unbound inputs without invoking accessors',()=>{
- const {reconcileSceneGraphicLabels:reconcile}=require('../packages/slideclone-core/source-scene-regeneration');
+ const {reconcileSceneGraphicLabels:reconcile}=require('../packages/slideclone-core/scene-plan/source-scene-regeneration');
  const f=fixture(),input={plan:f.plan,retired:f.retired,sourceLabels:[],added:[]};let calls=0;
  const hostile={get plan(){calls++;throw Error('private');}};
  for(const bad of [null,hostile,new Proxy(input,{}),{...input,retired:new Array(1)},

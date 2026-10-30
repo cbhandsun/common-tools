@@ -72,8 +72,8 @@ test("card-grid ring decoration does not select concentric replay", () => {
 });
 
 test("uncertain source geometry rejects trusted templates before they can consume original text", () => {
-  const { isProtectedFidelityFirstDiagram } = require("../packages/slideclone-core/component-template-source-evidence");
-  const { filterTextBoxesConsumedByComponentTemplateBackfill } = require("../packages/slideclone-core/page-text-rules");
+  const { isProtectedFidelityFirstDiagram } = require("../packages/slideclone-core/archetypes/component-template-source-evidence");
+  const { filterTextBoxesConsumedByComponentTemplateBackfill } = require("../packages/slideclone-core/typography/page-text-rules");
   const sourceTextBoxes = [1, 2, 3, 4].map(index => ({ id: `original-${index}`, text: `Body ${index}`, box: { x: 100, y: 110 + index * 20, w: 80, h: 15 } }));
   const image = cardGridImage();
   image.source.layer.diagramUnderstanding.evidence = { nativeGeometryUnverified: true };

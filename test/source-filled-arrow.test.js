@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {filledArrowFixture,axisFilledArrowFixture}=require('./helpers/scene-filled-arrow.cjs');
-const {measureSourceSceneVisibleGap:measure,measuredSceneVisibleGapCells}=require('../packages/slideclone-core/source-scene-visible-gap');
-const {compileSourceSceneVisibleGap:compile,measuredSceneVisibleGapPaint}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
-const {auditNativeComponentQuality:audit}=require('../packages/slideclone-core/native-component-quality');
+const {measureSourceSceneVisibleGap:measure,measuredSceneVisibleGapCells}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+const {compileSourceSceneVisibleGap:compile,measuredSceneVisibleGapPaint}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
+const {auditNativeComponentQuality:audit}=require('../packages/slideclone-core/quality/native-component-quality');
 const relation={id:'relation-filled',regionId:'region-root',fromId:'object-a',toId:'object-b',direction:'forward'};
 function compiled(){const f=filledArrowFixture(),result=measure(f);assert.ok(result.fit,result.reason);assert.ok(result.fit.sourcePath,'thick body needs a complete measured source contour');
  const request={fit:result.fit,relation,fromId:'a',toId:'b',width:256,height:256,slideSize:{widthPt:256,heightPt:256}};

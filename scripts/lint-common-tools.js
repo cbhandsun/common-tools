@@ -16,10 +16,12 @@ function legacySkillScript(relativePath) {
 
 const eslintTargets = [
   "packages/*/*.js",
+  "packages/slideclone-core/**/*.js",
   "packages/*/bin/**/*.js",
   "packages/*/verification/**/*.js",
   "scripts/*.js",
   "scripts/lib/direct-scene-contract.js",
+  "scripts/lib/common-tools-syntax-check.js",
   legacySkillScript("lib/render-cache-metadata.js"),
   "packages/slideclone-native-engine/scripts/batch-native-audit-summary.js",
   "packages/slideclone-native-engine/scripts/component-asset-manifest.js",

@@ -1,10 +1,10 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {selectSceneInteriorTargets}=require('../packages/slideclone-core/source-scene-interior-targets');
-const {discoverSceneInteriorForeground:discover}=require('../packages/slideclone-core/source-scene-interior-discovery');
-const {measureSceneIconBackdrop}=require('../packages/slideclone-core/source-scene-parametric-surface');
-const {createSceneGlyphOcclusion,sceneIconTextFootprint}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
-const {withSceneFillRasterCache:withCache,readSceneFillRaster:read}=require('../packages/slideclone-core/source-scene-fill-raster-cache');
+const {selectSceneInteriorTargets}=require('../packages/slideclone-core/scene-plan/source-scene-interior-targets');
+const {discoverSceneInteriorForeground:discover}=require('../packages/slideclone-core/scene-plan/source-scene-interior-discovery');
+const {measureSceneIconBackdrop}=require('../packages/slideclone-core/scene-plan/source-scene-parametric-surface');
+const {createSceneGlyphOcclusion,sceneIconTextFootprint}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
+const {withSceneFillRasterCache:withCache,readSceneFillRaster:read}=require('../packages/slideclone-core/scene-plan/source-scene-fill-raster-cache');
 function plan(){return {version:1,sourceHash:'a'.repeat(64),widthPx:400,heightPx:300,
  regions:[{id:'region',parentId:null,kind:'section',box:{x:0,y:0,w:400,h:300}}],
  objects:[{id:'known',kind:'container',regionId:'region',pictorialContent:'present',box:{x:20,y:20,w:160,h:180}},
@@ -89,11 +89,11 @@ test('discovery rejects malformed, extreme and hostile controls before executing
  assert.throws(()=>discover({...f,image:huge,box:{x:0,y:0,w:600,h:600}}),RangeError);
 });
 test('legacy optional interiors keep their admitted source path without acquiring new parent or glyph context',()=>{
- const {measureSceneInterior}=require('../packages/slideclone-core/source-scene-interior-measurement');
+ const {measureSceneInterior}=require('../packages/slideclone-core/scene-plan/source-scene-interior-measurement');
  const f=rasterFixture();let calls=0;
  const request={image:f.image,box:{x:70,y:40,w:35,h:30},searchBox:f.box,id:'node',regionId:'region',root:process.cwd(),
   slideSize:{widthPt:200,heightPt:130},textBoxes:[],budget:f.budget};
- const {measureSceneIcon}=require('../packages/slideclone-core/source-scene-icon');
+ const {measureSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-icon');
  const expected=measureSceneIcon({...request,budget:{used:0}});
  const actual=measureSceneInterior(request,{textMasks:[],sourceDriven:false,recoverSource(){calls++;throw Error('Unexpected optional recovery');}});
  assert.deepEqual(actual,expected);assert.equal(calls,0);
@@ -101,7 +101,7 @@ test('legacy optional interiors keep their admitted source path without acquirin
 test('the production compiler generates native interior paths for a declared node with no relation proposals',t=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
  const {writePng}=require('../packages/slideclone-core/png');
- const {compileSourceScene,preflightSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {compileSourceScene,preflightSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const f=rasterFixture(),root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-required-interior-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  for(let y=40;y<70;y++)for(let x=70;x<105;x++)f.image.rgba.set([235,245,250,255],(y*200+x)*4);

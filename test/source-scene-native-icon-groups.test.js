@@ -1,9 +1,10 @@
+const { coreModulePath } = require('./helpers/isolated-core-package.cjs');
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {compileSceneIcon,sceneNativeIconBinding}=require('../packages/slideclone-core/source-scene-native-icon');
-const {assembleSourceSceneCompleteGroups:assemble}=require('../packages/slideclone-core/source-scene-complete-groups');
-const {createMeasuredScenePortFrame}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {retainedSceneGroupMembers}=require('../packages/slideclone-core/source-scene-group-retention');
+const {compileSceneIcon,sceneNativeIconBinding}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
+const {assembleSourceSceneCompleteGroups:assemble}=require('../packages/slideclone-core/scene-plan/source-scene-complete-groups');
+const {createMeasuredScenePortFrame}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {retainedSceneGroupMembers}=require('../packages/slideclone-core/scene-plan/source-scene-group-retention');
 const {ungroupHybridOverlayObjects}=require('../packages/slideclone-core/team-native-rebuild');
 function fixture(parentObjectId=''){
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)},box={x:20,y:20,w:160,h:130};
@@ -104,7 +105,7 @@ test('new boundary controls reject proxy, getter and sparse lists without readin
  assert.equal(reads,0);
 });
 test('failed icon proposals cannot suppress bounded interior recovery targets',()=>{
- const {selectSceneInteriorTargets}=require('../packages/slideclone-core/source-scene-interior-targets');
+ const {selectSceneInteriorTargets}=require('../packages/slideclone-core/scene-plan/source-scene-interior-targets');
  const f=fixture();f.plan.regions=[{id:'region',box:{x:0,y:0,w:400,h:300}}];f.plan.relations=[{fromId:'parent',toId:'other'}];
  assert.equal(selectSceneInteriorTargets(f.plan,[],1).length,1);
  assert.equal(selectSceneInteriorTargets(f.plan,[],1,['parent']).length,0);
@@ -114,6 +115,6 @@ test('failed icon proposals cannot suppress bounded interior recovery targets',(
 test('new group modules and regressions are discovered by the unified CI and runtime contract',()=>{
  const {discoverTestFiles}=require('../scripts/test-sharded'),{IMAGE_EDITABLE_RELEASE_FILES}=require('../scripts/verify-runtime-package');
  for(const suite of ['unit','all'])assert.ok(discoverTestFiles(process.cwd(),suite).some(p=>p.file.endsWith('source-scene-native-icon-groups.test.js')));
- for(const name of ['owner','paint','retention','snapshot'])assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-scene-group-'+name+'.js'));
- assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-scene-native-icon-groups.js'));
+ for(const name of ['owner','paint','retention','snapshot'])assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/'+coreModulePath('source-scene-group-'+name)));
+ assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/scene-plan/source-scene-native-icon-groups.js'));
 });

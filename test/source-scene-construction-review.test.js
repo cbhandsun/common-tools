@@ -3,13 +3,13 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {primitiveImage}=require('./helpers/scene-primitive-program-fixture.cjs');
 const {writePng}=require('../packages/slideclone-core/png');
-const {admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {compileSourceScene,preflightSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
-const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
-const {selectSourceSceneReviewTargets,selectSourceSceneMissingReviewTargets}=require('../packages/slideclone-core/source-scene-review-targets');
-const {applyStructuralReview}=require('../packages/slideclone-core/source-scene-structural-review');
-const {retainedSceneGroupMembers}=require('../packages/slideclone-core/source-scene-group-retention');
-const {allocateSourceSceneReview}=require('../packages/slideclone-core/source-scene-review-allocation');
+const {admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {compileSourceScene,preflightSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
+const {selectSourceSceneReviewTargets,selectSourceSceneMissingReviewTargets}=require('../packages/slideclone-core/scene-plan/source-scene-review-targets');
+const {applyStructuralReview}=require('../packages/slideclone-core/scene-plan/source-scene-structural-review');
+const {retainedSceneGroupMembers}=require('../packages/slideclone-core/scene-plan/source-scene-group-retention');
+const {allocateSourceSceneReview}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
 
 function fixture(t){
  const source=primitiveImage('cylinder',{missingSeam:true});

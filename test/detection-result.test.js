@@ -6,7 +6,7 @@ const {
   createDetectionResult,
   unmatchedDetectionResult,
   validateDetectionResult
-} = require("../packages/slideclone-core/detection-result");
+} = require("../packages/slideclone-core/scene-plan/detection-result");
 
 test("detection results normalize evidence, claims, diagnostics, and confidence", () => {
   const result = createDetectionResult({

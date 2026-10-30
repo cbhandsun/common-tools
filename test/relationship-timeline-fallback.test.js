@@ -1,8 +1,8 @@
 "use strict";
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { createRelationshipNativeShell: shell } = require("../packages/slideclone-core/relationship-native-shell");
-const { looksLikeVisualTimelineRoadmap: timeline } = require("../packages/slideclone-core/diagram-archetypes");
+const { createRelationshipNativeShell: shell } = require("../packages/slideclone-core/archetypes/relationship-native-shell");
+const { looksLikeVisualTimelineRoadmap: timeline } = require("../packages/slideclone-core/archetypes/diagram-archetypes");
 function fixture(scale = 1, offset = 0) {
   const box = value => ({x:value.x*scale+offset,y:value.y*scale+offset,w:value.w*scale,h:value.h*scale});
   const nodes = [0,1,2].map(index=>({id:`n${index}`,kind:"native-rect-candidate",box:box({x:40+180*index,y:80,w:80,h:48}),color:"#2468AC",nativeCandidate:true}));

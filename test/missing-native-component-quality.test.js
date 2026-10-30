@@ -6,7 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 const fs = require("node:fs");
 const { compareImages } = require("../packages/slideclone-core/diff-pixel-png");
-const { detectMissingNativeComponentRegions } = require("../packages/slideclone-core/missing-native-component-quality");
+const { detectMissingNativeComponentRegions } = require("../packages/slideclone-core/quality/missing-native-component-quality");
 const { writePng } = require("../packages/slideclone-core/png");
 const { compactDeckFinalPrimitiveCandidate, fitDeckMissingNativeVisualAtomShapes, fitDeckWorstComponentFidelityPrimitives, tryBuildFinalMissingNativeVisualAtomCandidate } = require("../packages/slideclone-worker-adapter/team-worker");
 

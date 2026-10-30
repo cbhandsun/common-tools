@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {compactNativeTextInsetDefaults:compact}=require("../packages/slideclone-core/native-text-inset-defaults");
+const {compactNativeTextInsetDefaults:compact}=require("../packages/slideclone-core/typography/native-text-inset-defaults");
 test("zero native insets omit losslessly while geometry, text, provenance and nondefaults survive",()=>{
  const text={text:"节点",box:{x:1,y:2,w:30,h:20},positionedRuns:[{text:"节点",box:{x:1,y:2,w:30,h:20}}],source:{marginLeftPt:0},
   style:{marginLeftPt:0,marginRightPt:0,marginTopPt:3.5,marginBottomPt:72,wrap:false,fit:"none"}};
@@ -25,7 +25,7 @@ test("sparse, proxy, accessor, oversized and immutable inputs fail atomically wi
  assert.equal(calls,0);
 });
 test("unified evidence compaction and CI use the new inset regression",()=>{
- const {compactTeamComponentEvidence}=require("../packages/slideclone-core/team-component-evidence");
+ const {compactTeamComponentEvidence}=require("../packages/slideclone-core/archetypes/team-component-evidence");
  const deck={pages:[{textBoxes:[{style:{marginLeftPt:0,marginRightPt:0,marginTopPt:0,marginBottomPt:0}}]}]};
  compactTeamComponentEvidence(deck);assert.deepEqual(deck.pages[0].textBoxes[0].style,{});
  const fs=require("node:fs");assert.match(fs.readFileSync(require.resolve("../scripts/verify-runtime-package"),"utf8"),/native-text-inset-defaults\.js/u);

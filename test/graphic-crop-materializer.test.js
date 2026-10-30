@@ -5,9 +5,9 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { materializeGraphicCrops, refineGraphicCrop } = require("../packages/slideclone-core/graphic-crop-materializer");
+const { materializeGraphicCrops, refineGraphicCrop } = require("../packages/slideclone-core/scene-plan/graphic-crop-materializer");
 const { readPng } = require("../packages/slideclone-core/png");
-const { splitSparseLargeGraphicComponents } = require("../packages/slideclone-core/residual-component-analysis");
+const { splitSparseLargeGraphicComponents } = require("../packages/slideclone-core/scene-plan/residual-component-analysis");
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "graphic-crop-module-"));

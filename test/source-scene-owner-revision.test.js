@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {initializeSceneObjectBatches:init,sceneLocalObjectCapacity:capacity}=require('../packages/slideclone-core/source-scene-object-batches');
-const {selectSceneOwnerRevisions:select,applySceneOwnerRevisions:apply}=require('../packages/slideclone-core/source-scene-owner-revision');
+const {initializeSceneObjectBatches:init,sceneLocalObjectCapacity:capacity}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
+const {selectSceneOwnerRevisions:select,applySceneOwnerRevisions:apply}=require('../packages/slideclone-core/scene-plan/source-scene-owner-revision');
 function fixture(){
  const owner={id:'card',parentId:'root',kind:'card',box:{x:40,y:40,w:200,h:220}};
  const objects=[{id:'lost',regionId:'card',kind:'icon',box:{x:4,y:4,w:1,h:1}},
@@ -32,7 +32,7 @@ test('ambiguous, unknown, nested, legal and oversized inventories do not acquire
   const p=structuredClone(fixture().plan);mutate(p);assert.deepEqual(select(p),[]);
  }
  assert.deepEqual(select(undefined),[]);
- const f=fixture();for(let i=0;i<10;i++)f.plan=require('../packages/slideclone-core/source-scene-object-batches').recordSceneLocalObjectBatch(f.plan,f.plan,[],['known-a','known-b','lost']);
+ const f=fixture();for(let i=0;i<10;i++)f.plan=require('../packages/slideclone-core/scene-plan/source-scene-object-batches').recordSceneLocalObjectBatch(f.plan,f.plan,[],['known-a','known-b','lost']);
  assert.deepEqual(select(f.plan),[],'two spare slots cannot reserve a three-member census');
 });
 test('failed observations retain all old members and spend the full existing review reservation without refund',()=>{

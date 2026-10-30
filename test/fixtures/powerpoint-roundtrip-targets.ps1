@@ -87,6 +87,36 @@ $unreadableDeck=[pscustomobject]@{Slides=(New-Collection @([pscustomobject]@{Sha
 Require ((Get-ShapeById $unreadableDeck ([pscustomobject]@{Slide=1;Shape=85})).Id -eq 85) 'Unreadable sibling displaced an exact available identity.'
 Require-Failure {Get-ShapeById $unreadableDeck ([pscustomobject]@{Slide=1;Shape=999})}
 $checks += 2
+# Office can expose an unrelated COM shape before its ID is available. It must
+# not prevent discovery of a later real target, or become an invented target.
+foreach ($badIdentity in @($null, 0, -1, '71', 1.5, [long]71)) {
+  $unreadable=[pscustomobject]@{Id=$badIdentity;Type=17;HasTextFrame=-1;TextFrame2=[pscustomobject]@{HasText=-1;TextRange=[pscustomobject]@{Text='do not edit'}}}
+  $childText.TextFrame2.TextRange.Text='valid target'
+  $availableDeck=[pscustomobject]@{Slides=(New-Collection @([pscustomobject]@{Shapes=(New-Collection @($unreadable,$childText))}))}
+  $availableTarget=Find-Target $availableDeck 'shape-text'
+  Require ($availableTarget.Shape -eq 71) 'Unreadable sibling blocked a later real text identity.'
+  Apply-Edit $availableDeck $availableTarget
+  Require (Verify-Edit $availableDeck $availableTarget) 'The discovered text edit did not survive exact identity lookup.'
+  Require ($unreadable.TextFrame2.TextRange.Text -ceq 'do not edit') 'Invalid identity was used to mutate a different object.'
+  Require-Failure { Find-Target ([pscustomobject]@{Slides=(New-Collection @([pscustomobject]@{Shapes=(New-Collection @($unreadable))}))}) 'shape-text' }
+  $checks += 4
+}
+$unreadyOwner=[pscustomobject]@{Id=$null;Type=6;GroupItems=(New-Collection @($childText))}
+$unreadyOwnerDeck=[pscustomobject]@{Slides=(New-Collection @([pscustomobject]@{Shapes=(New-Collection @($unreadyOwner))}))}
+Require ((Find-Target $unreadyOwnerDeck 'shape-text').Shape -eq 71) 'A missing group ID hid a child with a real identity.'
+Require ((Get-ShapeById $unreadyOwnerDeck ([pscustomobject]@{Slide=1;Shape=71})).Id -eq 71) 'Exact child lookup depended on an unrelated parent ID.'
+$checks += 2
+$laterOwner=[pscustomobject]@{Id=86;Type=6;GroupItems=(New-Collection @($childText))}
+$laterOwnerDeck=[pscustomobject]@{Slides=(New-Collection @([pscustomobject]@{Shapes=(New-Collection @($unreadyGroup,$laterOwner))}))}
+$laterTarget=Find-Target $laterOwnerDeck 'shape-text'
+Require ($laterTarget.Shape -eq 71) 'An earlier unready group blocked a later real text identity.'
+Apply-Edit $laterOwnerDeck $laterTarget
+Require (Verify-Edit $laterOwnerDeck $laterTarget) 'A later grouped text edit was not verified.'
+$checks += 2
+$neverReady.Reads=0
+Require-Failure { Find-TargetWithRetry $invalidDeck 'shape-text' }
+Require ($neverReady.Reads -eq 12) 'Permanently missing identities bypassed the discovery retry bound.'
+$checks += 2
 foreach ($mode in @('geometry', 'shape-text', 'smartart-text', 'auto')) {
   $text = [pscustomobject]@{ TextRange = [pscustomobject]@{ Text = 'fixture' }; HasText = -1 }
   $nodeShape = [pscustomobject]@{ TextFrame2 = $text }

@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const { sourcePanelLayoutEvidence }=require("../packages/slideclone-core/source-panel-layout-evidence");
-const { shouldUseMixedDiagramUnderlay }=require("../packages/slideclone-core/graphic-crop-analysis");
+const { sourcePanelLayoutEvidence }=require("../packages/slideclone-core/scene-plan/source-panel-layout-evidence");
+const { shouldUseMixedDiagramUnderlay }=require("../packages/slideclone-core/scene-plan/graphic-crop-analysis");
 function fixture(scale=1,color=[210,220,230]) {
   const width=600*scale,height=400*scale;
   const image={width,height,rgba:Buffer.alloc(width*height*4,255)};

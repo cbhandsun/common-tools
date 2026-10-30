@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require("./helpers/temporary-directory.cjs");
 const path = require("node:path");
 const test = require("node:test");
 const { ownerPrefix } = require("../packages/team-runtime/job-input");
@@ -39,8 +39,8 @@ function memoryStore() {
 
 /** @param {import("node:test").TestContext} t */
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ocr-checkpoint-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = createTemporaryTestDirectory("ocr-checkpoint-");
+  t.after(() => removeTemporaryTestDirectory(root));
   const inputFile = path.join(root, "source.png");
   fs.writeFileSync(inputFile, "source-image-bytes", { mode: 0o600 });
   const ownerId = "fixture-owner";
@@ -52,6 +52,20 @@ function fixture(t) {
     job: { ownerId, id, inputObjectKey: `${prefix}inputs/source.tar.gz`, outputPrefix: `${prefix}jobs/${id}/` }
   };
 }
+
+test("OCR checkpoint fixture cleanup retries a transient directory lock and removes only its owned root", (t) => {
+  const { inputFile } = fixture(t), root = path.dirname(inputFile), rmdir = fs.rmdirSync;
+  let failures = 0;
+  const blocked = t.mock.method(fs, "rmdirSync", (target, ...args) => {
+    if (target === root && failures++ === 0) throw Object.assign(new Error("transient directory lock"), { code: "ENOTEMPTY" });
+    return rmdir(target, ...args);
+  });
+  try {
+    removeTemporaryTestDirectory(root);
+    assert.ok(failures >= 2, "the transient root removal must be retried");
+    assert.equal(fs.existsSync(root), false);
+  } finally { blocked.mock.restore(); }
+});
 
 /** @param {readonly boolean[]} results */
 function cancellation(results) {

@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {allocateSourceSceneReview:allocate,sourceSceneReviewCrop}=require('../packages/slideclone-core/source-scene-review-allocation');
-const {prepareSceneReviewImages}=require('../packages/slideclone-core/source-scene-local-observations');
+const {allocateSourceSceneReview:allocate,sourceSceneReviewCrop}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
+const {prepareSceneReviewImages}=require('../packages/slideclone-core/scene-plan/source-scene-local-observations');
 const {readPngBuffer}=require('../packages/slideclone-core/png');
-const {sourceSceneLocalPrompt}=require('../packages/slideclone-core/source-scene-local-prompt');
+const {sourceSceneLocalPrompt}=require('../packages/slideclone-core/scene-plan/source-scene-local-prompt');
 
 test('a source-clipped icon review requests explicit whole-unit geometry without granting pixel ownership',()=>{
  const input={rules:'',targets:[],missing:[],focused:[],sheetTargets:[],inventories:[],relationPrompt:'',regionalPrompt:'',extraKeys:[],
@@ -19,7 +19,7 @@ test('a source-clipped icon review requests explicit whole-unit geometry without
  assert.match(prompt,/box_2d:null if the current box already bounds it/,'ordinary structural reviews retain their geometry contract');
  assert.doesNotMatch(sourceSceneLocalPrompt({...input,structures:[]}),/current envelope has FAILED source isolation/);
 });
-const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
 const {writePng}=require('../packages/slideclone-core/png');
 function target(index,role='structure'){return {index,role,box:{x:25+index,y:40,w:18,h:20},optional:role==='probe',textKnown:false};}
 test('structural contradictions receive paired native source views without borrowing reserved work or OCR slots',()=>{
@@ -89,7 +89,7 @@ test('planner wires both focused structural observations into unchanged independ
   {index:captured.structuralObservations[0][0].index,kind:'icon',confidence:.99,regionId:'region-right',box:null}
  ]));
  const original=initialPlan;
- const replay=require('../packages/slideclone-core/source-scene-structural-review').applyStructuralReview(original,
+ const replay=require('../packages/slideclone-core/scene-plan/source-scene-structural-review').applyStructuralReview(original,
   [{index:captured.structuralObservations[0][0].index,objectId:'object-unit',box:original.objects[0].box}],captured.structuralObservations);
  assert.deepEqual(replay.plan,result.plan);assert.deepEqual(replay.evidence,result.evidence.structuralReview);
 });

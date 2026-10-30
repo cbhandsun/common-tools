@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/visual-atoms.js");
+module.exports = require("../../../../packages/slideclone-core/scene-plan/visual-atoms.js");

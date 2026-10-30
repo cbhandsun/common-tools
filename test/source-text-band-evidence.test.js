@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { fitSourceTextBand, fitObservedSourceTextBand } = require("../packages/slideclone-core/source-text-band-evidence");
+const { fitSourceTextBand, fitObservedSourceTextBand } = require("../packages/slideclone-core/typography/source-text-band-evidence");
 
 function raster(width = 320, height = 200) {
   return { width, height, rgba: new Uint8Array(width * height * 4).fill(255) };

@@ -29,3 +29,26 @@ test('source dash export preserves complete observed runs and rejects unsafe or 
   {strokeDashPattern:'[[1,1,1],[1,1]]'},{strokeDashPattern:'{invalid'},{strokeDashPattern:Array(2).fill([1,1])},
   {dash:'solid'}].entries())assert.throws(()=>build(make(style),'invalid-'+i));
 });
+
+test('actual directed source-dash export retains every opaque or covered interval, complete terminal and real node anchors',()=>{
+ const {fixture,coveredFixture}=require('./helpers/source-directed-dashes.cjs');
+ const {measureSourceSceneVisibleGap:measure}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+ const {compileSourceSceneVisibleGap:compile}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'directed-source-dash-'));
+ for(const covered of [false,true])for(const vertical of [false,true])for(const reversed of [false,true]){
+  const f=(covered?coveredFixture:fixture)(vertical),from=reversed?f.to:f.from,to=reversed?f.from:f.to,direction=reversed?'backward':'forward';
+  const result=measure({...f,from,to,direction});assert.ok(result.fit,result.reason);
+  const relation={id:'relation-dash',regionId:'region-root',fromId:'object-a',toId:'object-b',direction};
+  const shape=compile({fit:result.fit,relation,fromId:from.id,toId:to.id,width:240,height:180,slideSize:{widthPt:240,heightPt:180}});
+  const deck={version:'1.0',slideSize:{widthPt:240,heightPt:180},pages:[{pageIndex:0,sourceImage:'',background:{fill:'#FFFFFF'},
+   shapes:[f.from,f.to].map(node=>({...node,type:'rect',style:{fill:'#D2E6F5'}})).concat(shape),textBoxes:[],images:[],tables:[],charts:[]}]};
+  const ir=path.join(root,`${covered}-${vertical}-${reversed}.json`),pptx=path.join(root,`${covered}-${vertical}-${reversed}.pptx`);
+  fs.writeFileSync(ir,JSON.stringify(deck));runBuilder(['--ir',ir,'--out',pptx]);
+  const xml=readZipEntry(pptx,'ppt/slides/slide1.xml').toString('utf8');
+  const actual=[...xml.matchAll(/<a:ds d="(\d+)" sp="(\d+)"/gu)].map(m=>[Number(m[1]),Number(m[2])]);
+  assert.deepEqual(actual,JSON.parse(shape.style.strokeDashPattern).map(pair=>pair.map(n=>Math.round(n*100000))));
+  assert.equal(actual.length,f.dashes.length+1,'the complete terminal is included as the final or first physical run');
+  assert.match(xml,reversed?/<a:headEnd type="triangle"/u:/<a:tailEnd type="triangle"/u);
+  assert.match(xml,/<a:stCxn id="\d+" idx="\d+"/u);assert.match(xml,/<a:endCxn id="\d+" idx="\d+"/u);
+ }
+});

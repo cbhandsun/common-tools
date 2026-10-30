@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {layoutParagraph}=require("../packages/slideclone-core/paragraph-layout");
+const {layoutParagraph}=require("../packages/slideclone-core/typography/paragraph-layout");
 const input=text=>({text,font:{family:"Arial",sizePt:10,lineHeightMultiple:1.2},box:{x:10,y:20,w:50,h:100}});
 const measure=(s,f)=>({width:[...s].length*(f.weight==="bold"?12:10),height:10});
 test("whole-line shaping preserves Unicode graphemes, whitespace and empty lines",()=>{

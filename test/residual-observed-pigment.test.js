@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {compileResidualTextMask,compileBoundedResidualTextMask}=require('../packages/slideclone-core/residual-text-mask');
-const {eraseMasks}=require('../packages/slideclone-core/residual-primitive-erasure');
-const {auditResidualPixelOwnership}=require('../packages/slideclone-core/residual-pixel-ownership');
+const {compileResidualTextMask,compileBoundedResidualTextMask}=require('../packages/slideclone-core/typography/residual-text-mask');
+const {eraseMasks}=require('../packages/slideclone-core/scene-plan/residual-primitive-erasure');
+const {auditResidualPixelOwnership}=require('../packages/slideclone-core/scene-plan/residual-pixel-ownership');
 function fixture(shift=0,light=false){
  const source={width:70+shift,height:40+shift,rgba:Buffer.alloc((70+shift)*(40+shift)*4,light?0:255)};
  const background=light?[0,0,0]:[255,255,255],pigment=light?[195,235,245]:[60,20,10],native=light?[255,255,255]:[0,0,0];

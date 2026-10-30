@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRouteContourParts:contours}=require('../packages/slideclone-core/source-route-contour-parts');
+const {sourceRouteContourParts:contours}=require('../packages/slideclone-core/routing/source-route-contour-parts');
 test('filled route contours retain every original cell and preserve an interior hole',()=>{
  const width=40,height=40,cells=[];
  for(let y=5;y<35;y++)for(let x=5;x<35;x++)if(x<10||x>=30||y<10||y>=30)cells.push(y*width+x);

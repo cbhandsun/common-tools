@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {parseSourceScenePlan,admitSourceScenePlan}=require("../packages/slideclone-core/source-scene-plan");
+const {parseSourceScenePlan,admitSourceScenePlan}=require("../packages/slideclone-core/scene-plan/source-scene-plan");
 const source={sourceHash:"a".repeat(64),widthPx:800,heightPx:600};
 function scene(){return {coordinateSpace:"normalized-1000",regions:[{id:"root",parentId:null,kind:"section",box:{x:0,y:0,w:1000,h:1000}},
  {id:"card",parentId:"root",kind:"card",box:{x:100,y:100,w:400,h:400}}],objects:[{id:"icon",regionId:"card",kind:"icon",box:{x:200,y:200,w:100,h:100}}],relations:[]};}
@@ -200,7 +200,7 @@ test("compact-v2 admission preserves valid corners while recording bad units and
 });
 
 test("scene inventory allocates major physical regions and whole-page coverage under the approved object batches",()=>{
- const {SCENE_PLAN_PROMPT,SCENE_PROGRAM_PROMPT}=require('../packages/slideclone-core/source-scene-plan');
+ const {SCENE_PLAN_PROMPT,SCENE_PROGRAM_PROMPT}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
  for(const prompt of [SCENE_PLAN_PROMPT,SCENE_PROGRAM_PROMPT]){
  assert.match(prompt,/including heading areas, side notes and lower sections/u);
  assert.match(prompt,/top-level panels/u);

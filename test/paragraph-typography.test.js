@@ -1,8 +1,8 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {proposeParagraphTypography,assertTypographyContent}=require("../packages/slideclone-core/paragraph-typography");
-const {parseTypographyDeck}=require("../packages/slideclone-core/typography-contract");
-const {auditTypographyLayout}=require("../packages/slideclone-core/typography-quality");
+const {proposeParagraphTypography,assertTypographyContent}=require("../packages/slideclone-core/typography/paragraph-typography");
+const {parseTypographyDeck}=require("../packages/slideclone-core/typography/typography-contract");
+const {auditTypographyLayout}=require("../packages/slideclone-core/quality/typography-quality");
 function fixture(){return {slideSize:{widthPt:960,heightPt:540},pages:[{shapes:[],textBoxes:[
  {id:"a",text:"中文 ΩЖ ",box:{x:10,y:10,w:200,h:20},font:{family:"Arial",sizePt:14,weight:"regular"},source:{sceneRegionId:"panel",evidenceBox:{x:10,y:10,w:200,h:20}}},
  {id:"b",text:"第二行",box:{x:10,y:33,w:190,h:20},font:{family:"Calibri",sizePt:15,weight:"regular"},source:{sceneRegionId:"panel",evidenceBox:{x:10,y:33,w:190,h:20}}}
@@ -53,7 +53,7 @@ test("content audit rejects deletions, duplicated lineage and changed paragraph 
 });
 
 test("outlined paragraph proposals preserve the admitted paint contract",()=>{
- const {parseNativeTextOutline}=require("../packages/slideclone-core/native-text-outline");
+ const {parseNativeTextOutline}=require("../packages/slideclone-core/typography/native-text-outline");
  const d=fixture();d.pages[0].textBoxes[0].style={textWarp:"textPlain",textOutlineWidthPt:.4,textOutlineColor:"#123456"};
  const result=proposeParagraphTypography(d).deck.pages[0].textBoxes[0];
  assert.deepEqual(parseNativeTextOutline(result.style),{widthPt:.4,color:"#123456"});

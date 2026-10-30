@@ -2,9 +2,9 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { excludeOcrGlyphAtoms } = require("../packages/slideclone-core/visual-atom-native-policy");
-const { createVisualAtomNativeShapes } = require("../packages/slideclone-core/visual-atom-native-reconstruction");
-const {createOcrAtomConflictFilter}=require('../packages/slideclone-core/visual-atom-ocr-conflict');
+const { excludeOcrGlyphAtoms } = require("../packages/slideclone-core/quality/visual-atom-native-policy");
+const { createVisualAtomNativeShapes } = require("../packages/slideclone-core/scene-plan/visual-atom-native-reconstruction");
+const {createOcrAtomConflictFilter}=require('../packages/slideclone-core/scene-plan/visual-atom-ocr-conflict');
 
 const slideSize = { widthPt: 960, heightPt: 540 };
 const glyph = { id: "glyph", kind: "native-rect-candidate", box: { x: 200, y: 100, w: 13, h: 14 } };

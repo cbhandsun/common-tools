@@ -107,21 +107,24 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
     var componentTextBoxes = (page.TextBoxes ?? [])
         .Where(textBox => !IsTableOverlaySource(textBox.Source))
         .ToList();
-    var groupedComponentIds = AppendGroupedShapes(
-        shapeTree,
-        residualLayers.ForegroundShapes,
-        componentImages,
-        componentTextBoxes,
-        slidePart,
-        irDirectory,
-        ref shapeId,
-        boxIndex,
-        usesTemplateBindings
-    );
+    var componentGroups = NativeComponentGroupPlan.Create(residualLayers.ForegroundShapes, componentImages, componentTextBoxes, page.OutputEditGroups);
+    foreach (var shape in residualLayers.ForegroundShapes)
+    {
+        if (componentGroups.TryTake(shape, out var group))
+        {
+            AppendComponentGroup(shapeTree, group, slidePart, irDirectory, ref shapeId, boxIndex, usesTemplateBindings);
+            continue;
+        }
+        shapeTree.Append(CreateShape(shape, shapeId++, boxIndex));
+    }
 
     foreach (var image in componentImages)
     {
-        if (groupedComponentIds.ImageIds.Contains(image.Id)) continue;
+        if (componentGroups.TryTake(image, out var group))
+        {
+            AppendComponentGroup(shapeTree, group, slidePart, irDirectory, ref shapeId, boxIndex, usesTemplateBindings);
+            continue;
+        }
         if (TryCreatePicture(image, slidePart, shapeId, irDirectory, out var picture, TemplatePlaceholderWriter.Binding(placeholderBindings, "images", image.Id)))
         {
             shapeTree.Append(picture);
@@ -179,7 +182,11 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
 
     foreach (var textBox in page.TextBoxes ?? [])
     {
-        if (groupedComponentIds.TextBoxIds.Contains(textBox.Id)) continue;
+        if (!IsTableOverlaySource(textBox.Source) && componentGroups.TryTake(textBox, out var group))
+        {
+            AppendComponentGroup(shapeTree, group, slidePart, irDirectory, ref shapeId, boxIndex, usesTemplateBindings);
+            continue;
+        }
         if (textBox.PositionedRuns is not null)
         {
             shapeTree.Append(NativePositionedText.Create(textBox, ref shapeId,
@@ -426,88 +433,18 @@ static A.TextVerticalValues? TextVertical(string? value) => value?.Trim().ToLowe
     _ => null
 };
 
-static (HashSet<string> TextBoxIds, HashSet<string> ImageIds) AppendGroupedShapes(
+static void AppendComponentGroup(
     P.ShapeTree shapeTree,
-    IReadOnlyList<VisualElementIr> shapes,
-    IReadOnlyList<VisualElementIr> images,
-    IReadOnlyList<TextBoxIr> textBoxes,
+    NativeComponentGroup? group,
     SlidePart slidePart,
     string irDirectory,
     ref uint shapeId,
     IReadOnlyDictionary<string, BoxIr>? boxIndex,
     bool usesTemplateBindings)
 {
-    var nextShapeId = shapeId;
-    var groups = shapes
-        .Select((element, index) => new { element, index, groupId = NativeComponentGroupId(element) })
-        .Where(item => !string.IsNullOrWhiteSpace(item.groupId))
-        .GroupBy(item => item.groupId!, StringComparer.Ordinal)
-        .ToDictionary(group => group.Key, group => group.Select(item => item.element).ToList(), StringComparer.Ordinal);
-    var groupedTextBoxes = textBoxes
-        .Select((element, index) => new { element, index, groupId = NativeTextBoxComponentGroupId(element) })
-        .Where(item => !string.IsNullOrWhiteSpace(item.groupId))
-        .GroupBy(item => item.groupId!, StringComparer.Ordinal)
-        .ToDictionary(group => group.Key, group => group.Select(item => item.element).ToList(), StringComparer.Ordinal);
-    var groupedImages = images
-        .Select((element, index) => new { element, index, groupId = NativeComponentGroupId(element) })
-        .Where(item => !string.IsNullOrWhiteSpace(item.groupId))
-        .GroupBy(item => item.groupId!, StringComparer.Ordinal)
-        .ToDictionary(group => group.Key, group => group.Select(item => item.element).ToList(), StringComparer.Ordinal);
-    var allGroupIds = groups.Keys
-        .Concat(groupedImages.Keys)
-        .Concat(groupedTextBoxes.Keys)
-        .ToHashSet(StringComparer.Ordinal);
-    var groupIds = allGroupIds
-        .Where(groupId =>
-            (groups.TryGetValue(groupId, out var shapeMembers) ? shapeMembers.Count : 0)
-            + (groupedImages.TryGetValue(groupId, out var imageMembers) ? imageMembers.Count : 0)
-            + (groupedTextBoxes.TryGetValue(groupId, out var textMembers) ? textMembers.Count : 0) > 1)
-        .ToHashSet(StringComparer.Ordinal);
-    var emittedGroups = new HashSet<string>(StringComparer.Ordinal);
-    var groupedTextBoxIds = new HashSet<string>(StringComparer.Ordinal);
-    var groupedImageIds = new HashSet<string>(StringComparer.Ordinal);
-    void EmitGroup(string groupId)
-    {
-        if (!emittedGroups.Add(groupId)) return;
-        groups.TryGetValue(groupId, out var shapeMembers);
-        groupedImages.TryGetValue(groupId, out var imageMembers);
-        groupedTextBoxes.TryGetValue(groupId, out var textMembers);
-        shapeTree.Append(CreateComponentGroupShape(
-            groupId,
-            shapeMembers ?? [],
-            imageMembers ?? [],
-            textMembers ?? [],
-            slidePart,
-            irDirectory,
-            ref nextShapeId,
-            boxIndex,
-            usesTemplateBindings
-        ));
-        foreach (var textBox in textMembers ?? []) groupedTextBoxIds.Add(textBox.Id);
-        foreach (var image in imageMembers ?? []) groupedImageIds.Add(image.Id);
-    }
-    foreach (var shape in shapes)
-    {
-        var groupId = NativeComponentGroupId(shape);
-        if (!string.IsNullOrWhiteSpace(groupId) && groupIds.Contains(groupId))
-        {
-            EmitGroup(groupId);
-            continue;
-        }
-        shapeTree.Append(CreateShape(shape, nextShapeId++, boxIndex));
-    }
-    foreach (var image in images)
-    {
-        var groupId = NativeComponentGroupId(image);
-        if (!string.IsNullOrWhiteSpace(groupId) && groupIds.Contains(groupId)) EmitGroup(groupId);
-    }
-    foreach (var textBox in textBoxes)
-    {
-        var groupId = NativeTextBoxComponentGroupId(textBox);
-        if (!string.IsNullOrWhiteSpace(groupId) && groupIds.Contains(groupId)) EmitGroup(groupId);
-    }
-    shapeId = nextShapeId;
-    return (groupedTextBoxIds, groupedImageIds);
+    if (group is null) return;
+    shapeTree.Append(CreateComponentGroupShape(group.Id, group.Shapes, group.Images, group.TextBoxes,
+        slidePart, irDirectory, ref shapeId, boxIndex, usesTemplateBindings));
 }
 
 static P.GroupShape CreateComponentGroupShape(
@@ -564,17 +501,6 @@ static P.GroupShape CreateComponentGroupShape(
     return group;
 }
 
-static string? NativeComponentGroupId(VisualElementIr element)
-{
-    return GetString(element.Source, "nativeComponentGroupId");
-}
-
-static string? NativeTextBoxComponentGroupId(TextBoxIr textBox)
-{
-    return GetString(textBox.Source, "nativeComponentGroupId")
-        ?? GetString(textBox.Style, "nativeComponentGroupId");
-}
-
 static BoxIr UnionBounds(IEnumerable<BoxIr> boxes)
 {
     var bounds = boxes
@@ -618,8 +544,10 @@ static P.ConnectionShape CreateConnectionShape(VisualElementIr element, uint sha
     var end = ResolveAnchor(GetObject(element.Style, "endAnchor"), boxIndex, element.Box.X + element.Box.W, element.Box.Y + element.Box.H);
     var x = Math.Min(start.X, end.X);
     var y = Math.Min(start.Y, end.Y);
-    var w = SafeConnectorExtent(Math.Abs(end.X - start.X));
-    var h = SafeConnectorExtent(Math.Abs(end.Y - start.Y));
+    var connectorType = GetString(element.Style, "connectorType");
+    var extents = NativeConnectorExtents.Resolve(Math.Abs(end.X - start.X), Math.Abs(end.Y - start.Y), connectorType);
+    var w = extents.Width;
+    var h = extents.Height;
     var flipH = (start.X > end.X) != (GetBoolean(element.Style, "flipH") == true);
     var flipV = (start.Y > end.Y) != (GetBoolean(element.Style, "flipV") == true);
     int? rotation = null;
@@ -628,7 +556,8 @@ static P.ConnectionShape CreateConnectionShape(VisualElementIr element, uint sha
     // the measured route. Attachments still come from the anchors.
     if (TryReadConnectorFrame(element.Style, out var frame))
     {
-        x = frame.X; y = frame.Y; w = SafeConnectorExtent(frame.W); h = SafeConnectorExtent(frame.H);
+        var frameExtents = NativeConnectorExtents.Resolve(frame.W, frame.H, connectorType);
+        x = frame.X; y = frame.Y; w = frameExtents.Width; h = frameExtents.Height;
         flipH = frame.FlipH; flipV = frame.FlipV;
         if (frame.Rotation != 0) rotation = ToOpenXmlAngle(frame.Rotation);
     }
@@ -644,7 +573,7 @@ static P.ConnectionShape CreateConnectionShape(VisualElementIr element, uint sha
 
     var shapeProperties = new P.ShapeProperties(
         transform,
-        NativeConnectorGeometry.Create(GetString(element.Style, "connectorType"), element.Style),
+        NativeConnectorGeometry.Create(connectorType, element.Style),
         new A.NoFill(),
         CreateOutline(element.Style)
     );
@@ -659,8 +588,6 @@ static P.ConnectionShape CreateConnectionShape(VisualElementIr element, uint sha
         shapeProperties
     );
 }
-
-static double SafeConnectorExtent(double value) => Math.Max(0.1, value);
 
 static bool TryReadConnectorFrame(JsonElement? style, out (double X, double Y, double W, double H, double Rotation, bool FlipH, bool FlipV) frame)
 {
@@ -956,6 +883,7 @@ static double Clamp(double value, double min, double max) => Math.Max(min, Math.
 
 static A.Outline CreateOutline(JsonElement? style)
 {
+    var lineCap = NativeLineCap.Resolve(style);
     var stroke = GetString(style, "stroke");
     var strokeWidth = GetNumber(style, "strokeWidthPt") ?? GetNumber(style, "strokeWidth") ?? 1;
     if (string.IsNullOrWhiteSpace(stroke) || IsNone(stroke) || strokeWidth <= 0)
@@ -972,6 +900,7 @@ static A.Outline CreateOutline(JsonElement? style)
     {
         Width = ToLineWidth(strokeWidth)
     };
+    if (lineCap is { } cap) outline.CapType = cap;
     var strokeGradient = CreateGradientFill(GetObject(style, "strokeGradient"));
     if (strokeGradient is not null)
     {
@@ -1012,6 +941,10 @@ static A.GradientFill? CreateGradientFill(JsonElement? gradient)
     if (GetString(gradient, "type") is { Length: > 0 } type
         && !string.Equals(type, "linear", StringComparison.OrdinalIgnoreCase)) return null;
     if (!gradient.Value.TryGetProperty("stops", out var stopsElement) || stopsElement.ValueKind != JsonValueKind.Array) return null;
+    // Six fitted source stops may acquire two derived boundary colors when
+    // clipped into a whole path's drawing frame. Never truncate its tail.
+    if (stopsElement.GetArrayLength() > 8)
+        throw new InvalidDataException("Native gradient stop budget is invalid.");
     var stops = new List<A.GradientStop>();
     var index = 0;
     var total = Math.Max(1, stopsElement.GetArrayLength() - 1);
@@ -1029,7 +962,6 @@ static A.GradientFill? CreateGradientFill(JsonElement? gradient)
         }
         stops.Add(new A.GradientStop(gradientColor) { Position = position });
         index++;
-        if (stops.Count >= 6) break;
     }
     if (stops.Count < 2) return null;
     var angle = DrawingGradientAngle.Convert(GetNumber(gradient, "angleDeg") ?? 0);
@@ -1187,9 +1119,13 @@ static int ToGeometryCoordinate(double value)
 
 static void AppendEffectList(P.ShapeProperties shapeProperties, JsonElement? style)
 {
-    var shadow = GetObject(style, "shadow");
-    if (shadow is null) return;
-    shapeProperties.Append(new A.EffectList(CreateOuterShadow(shadow)));
+    var shadow = NativeShadowScale.ReadShadow(style);
+    var glow = NativeGlow.Read(style);
+    if (shadow is null && glow is null) return;
+    var effects = new A.EffectList();
+    if (glow is not null) effects.Append(glow);
+    if (shadow is not null) effects.Append(CreateOuterShadow(shadow));
+    shapeProperties.Append(effects);
 }
 
 static A.OuterShadow CreateOuterShadow(JsonElement? shadow)
@@ -1198,7 +1134,7 @@ static A.OuterShadow CreateOuterShadow(JsonElement? shadow)
     var alpha = ToAlpha(GetNumber(shadow, "alpha") ?? 0.18);
     var rgb = new A.RgbColorModelHex { Val = color };
     rgb.Append(new A.Alpha { Val = alpha });
-    return new A.OuterShadow(rgb)
+    var effect = new A.OuterShadow(rgb)
     {
         BlurRadius = ToEmu(GetNumber(shadow, "blurPt") ?? 4),
         Distance = ToEmu(GetNumber(shadow, "distancePt") ?? 1.5),
@@ -1206,6 +1142,8 @@ static A.OuterShadow CreateOuterShadow(JsonElement? shadow)
         Alignment = A.RectangleAlignmentValues.Center,
         RotateWithShape = false
     };
+    NativeShadowScale.Apply(effect, shadow);
+    return effect;
 }
 
 static A.Reflection CreateTextReflection(JsonElement? reflection)

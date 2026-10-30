@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {hasSourceArrowTerminal}=require('../packages/slideclone-core/ocr-source-arrow-evidence');
-const {inspectSourceGraphicEvidence}=require('../packages/slideclone-core/ocr-source-graphic-evidence');
-const {boundedOcrSourceDeck}=require('../packages/slideclone-core/ocr-source-deck');
+const {hasSourceArrowTerminal}=require('../packages/slideclone-core/ocr/ocr-source-arrow-evidence');
+const {inspectSourceGraphicEvidence}=require('../packages/slideclone-core/ocr/ocr-source-graphic-evidence');
+const {boundedOcrSourceDeck}=require('../packages/slideclone-core/ocr/ocr-source-deck');
 function fixture(options={}){
  const image={width:80,height:80,rgba:Buffer.alloc(80*80*4,255)},box={x:20,y:20,w:20,h:30};
  const color=options.color??[28,55,83],background=options.background??[255,255,255];

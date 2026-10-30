@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRouteContactCentres:centres}=require('../packages/slideclone-core/source-route-contact-centres');
+const {sourceRouteContactCentres:centres}=require('../packages/slideclone-core/routing/source-route-contact-centres');
 function fixture(weights,side='bottom'){
  const width=30,mask=new Uint8Array(900),rgba=new Uint8Array(3600).fill(255),sites=[];
  for(const [i,weight]of weights.entries()){

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {boundedSceneOcrHints}=require('../packages/slideclone-core/source-scene-ocr-hints');
+const {boundedSceneOcrHints}=require('../packages/slideclone-core/scene-plan/source-scene-ocr-hints');
 
 test('only existing high confidence OCR contributes bounded semantic hints without changing source lines',()=>{
  const input=[{text:'trusted location hint',confidence:.9},{text:'ambiguous pictorial token',confidence:.89},{text:'',confidence:1}];
@@ -31,8 +31,8 @@ test('invalid, sparse, oversized, accessor and proxy boundaries fail without inv
 });
 
 test('unverified OCR context enrichment requires explicit activation and cannot change the default input',()=>{
- const {sourceSceneOcrTargets}=require('../packages/slideclone-core/source-scene-local-prompt');
- const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+ const {sourceSceneOcrTargets}=require('../packages/slideclone-core/scene-plan/source-scene-local-prompt');
+ const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
  const input=[{text:'source label',confidence:.99,box:{x:10,y:10,w:20,h:10}}],image={width:100,height:100};
  assert.equal(sourceSceneOcrTargets(input,image)[0].ocrTextHint,undefined);
  assert.equal(sourceSceneOcrTargets(input,image,true)[0].ocrTextHint,'source label');

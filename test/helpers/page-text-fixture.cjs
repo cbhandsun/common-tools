@@ -1,5 +1,5 @@
 "use strict";
-const { createPageTextFinalizer } = require("../../packages/slideclone-core/page-text-finalizer");
+const { createPageTextFinalizer } = require("../../packages/slideclone-core/typography/page-text-finalizer");
 const operationNames = [
   "annotateTextBoxesWithNativeComponentGroups",
   "filterTextBoxesClaimedByPortalFourLayer",

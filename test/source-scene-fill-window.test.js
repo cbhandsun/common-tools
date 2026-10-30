@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {measureSceneFillWindow,probeSceneFillTolerance}=require("../packages/slideclone-core/source-scene-fill-window");
-const {measureSceneContainer}=require("../packages/slideclone-core/source-scene-container");
+const {measureSceneFillWindow,probeSceneFillTolerance}=require("../packages/slideclone-core/scene-plan/source-scene-fill-window");
+const {measureSceneContainer}=require("../packages/slideclone-core/scene-plan/source-scene-container");
 function request(){
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)},hint={x:80,y:75,w:160,h:60};
  for(let y=75;y<135;y++)for(let x=80;x<240;x++)image.rgba.set([210,230,245,255],(y*400+x)*4);
@@ -9,7 +9,7 @@ function request(){
 }
 
 test("a measured paint component uses bounded cubic corners instead of losing its closed body",()=>{
- const {traceNativeMaskContours}=require("../packages/slideclone-core/native-mask-contours");
+ const {traceNativeMaskContours}=require("../packages/slideclone-core/scene-plan/native-mask-contours");
  const image={width:200,height:80,rgba:Buffer.alloc(200*80*4,255)},points=[];
  for(let x=20;x<180;x++)for(let y=22+(Math.floor((x-20)/2)%2)*2;y<42;y++){
   image.rgba.set([120,160,220,255],(y*200+x)*4);points.push({x,y});
@@ -105,7 +105,7 @@ test("uniform local seeds cannot falsely compete with their own source body afte
 });
 
 test("source component identity requires mutual observed ownership and cannot be fabricated from matching bounds",()=>{
- const {sameSceneFillComponent}=require('../packages/slideclone-core/source-scene-fill-window');
+ const {sameSceneFillComponent}=require('../packages/slideclone-core/scene-plan/source-scene-fill-window');
  const input=request();for(let y=75;y<135;y++)input.image.rgba.set([227,230,245,255],(y*400+79)*4);
  const a=measureSceneFillWindow(input).fit,b=measureSceneFillWindow({...input,fill:[214,230,245],color:'#D6E6F5'}).fit;
  assert.ok(a);assert.ok(b);assert.notDeepEqual(a.box,b.box);assert.equal(sameSceneFillComponent(a,b),true);

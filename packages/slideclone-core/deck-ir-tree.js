@@ -46,8 +46,8 @@ function visit(value, depth, counter, fieldPath, slideArea) {
   if (types.isProxy(value)) throw new TypeError("editable deck cannot contain proxies");
   const reviewPath=fieldPath[0]==='meta'&&fieldPath[1]==='sourceSceneReview'?fieldPath.slice(2):[];
   const isReviewPixelCount=reviewPath.length===1&&reviewPath[0]==='cropPixels'
-    ||reviewPath[0]==='deferredRegionalReview'&&(reviewPath.length===2&&['spentBefore','spentAfter'].includes(String(reviewPath[1]))
-      ||reviewPath.length===3&&reviewPath[1]==='allocation'&&['sheetPixels','reservedPixels'].includes(String(reviewPath[2])));
+    ||['deferredRegionalReview','ownerRevisionReview'].includes(String(reviewPath[0]))&&(reviewPath.length===2&&['spentBefore','spentAfter'].includes(String(reviewPath[1]))
+      ||reviewPath.length===3&&reviewPath[1]==='allocation'&&['sheetPixels','reservedPixels','focusPixels'].includes(String(reviewPath[2])));
   if(isReviewPixelCount){
     // These audit values are actual debits of the existing shared 4M source
     // pixel ledger. They are not geometry or a larger review allowance.
@@ -68,7 +68,10 @@ function visit(value, depth, counter, fieldPath, slideArea) {
     return;
   }
   const isSceneWorkField=fieldPath.at(-1)==='sourceScanPixels'||fieldPath.at(-1)==='physicalGroupGeometryChecks';
-  const isSceneWorkCount=isSceneWorkField&&((fieldPath.length===3&&fieldPath[0]==="source"&&fieldPath[1]==="sourceScene")
+  const isOutputRouteWork=fieldPath.length===3&&fieldPath[0]==='meta'&&fieldPath[1]==='nativeRouteSelection'&&fieldPath[2]==='geometryChecks';
+  const isSceneRouteWork=scenePath.length===2&&(scenePath[0]==='replacedConnectors'&&scenePath[1]==='checks'
+    ||scenePath[0]==='outlineAxisRetirements'&&scenePath[1]==='geometryChecks');
+  const isSceneWorkCount=isOutputRouteWork||isSceneRouteWork||isSceneWorkField&&((fieldPath.length===3&&fieldPath[0]==="source"&&fieldPath[1]==="sourceScene")
     ||(fieldPath.length===5&&fieldPath[0]==="pages"&&typeof fieldPath[1]==="number"&&Number.isSafeInteger(fieldPath[1])&&fieldPath[1]>=0&&fieldPath[2]==="source"&&fieldPath[3]==="sourceScene")
     ||(fieldPath.length===3&&fieldPath[0]==="meta"&&fieldPath[1]==="sourceSceneCompilation"));
   if(isSceneWorkCount){
@@ -97,7 +100,7 @@ function visit(value, depth, counter, fieldPath, slideArea) {
     && fieldPath[1] === "residualBranchRejected" && fieldPath[2] === "pixelOwnership"
     && ["scannedPixels", "ownedPixels", "ownedForegroundPixels", "remainingOwnedForegroundPixels",
       "remainingOwnedBackgroundPixels", "unownedChangedPixels", "remainingTextCorePixels",
-      "incorrectTextBackgroundPixels", "unresolvedTextMasks"].includes(String(fieldPath[3]));
+      "incorrectTextBackgroundPixels", "unresolvedTextMasks", "incorrectRouteBackgroundPixels"].includes(String(fieldPath[3]));
   if (isResidualRejectionCount) {
     // The residual audit already bounds these counters to 40M pixels. Keeping
     // rejected-branch evidence does not make that branch or its raster usable.

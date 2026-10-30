@@ -6,8 +6,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { cropPng, readPng, writePng } = require("../packages/slideclone-core/png");
-const { eraseObjectifiedLayerPrimitives } = require("../packages/slideclone-core/residual-primitive-erasure");
-const { filterTextBoxesForGraphicUnderlays } = require("../packages/slideclone-core/page-text-rules");
+const { eraseObjectifiedLayerPrimitives } = require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
+const { filterTextBoxesForGraphicUnderlays } = require("../packages/slideclone-core/typography/page-text-rules");
 
 function makeImage(width, height, color) {
   const rgba = Buffer.alloc(width * height * 4);

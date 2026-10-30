@@ -1,10 +1,10 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {writePng,readPng}=require('../packages/slideclone-core/png');
-const {compileSceneIcon}=require('../packages/slideclone-core/source-scene-native-icon');
-const {compileSourceScene,preflightSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
-const {admitSourcePictorialCrop}=require('../packages/slideclone-core/source-pictorial-crop-admission');
-const {completeRegionPrograms}=require('../packages/slideclone-core/source-scene-region-completion');
+const {compileSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
+const {compileSourceScene,preflightSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+const {admitSourcePictorialCrop}=require('../packages/slideclone-core/scene-plan/source-pictorial-crop-admission');
+const {completeRegionPrograms}=require('../packages/slideclone-core/scene-plan/source-scene-region-completion');
 test('pictorial admission rejects unsafe inputs and preserves bounded dense assets',()=>{
  const raster={width:10,height:10,rgba:Buffer.alloc(400)},box={w:10,h:10},size={widthPt:100,heightPt:100};
  for(let y=1;y<9;y++)for(let x=1;x<9;x++)raster.rgba.set([10,20,30,255],(y*10+x)*4);

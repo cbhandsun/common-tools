@@ -1,2 +1,2 @@
 "use strict";
-module.exports=require("../../../../packages/slideclone-core/workflow-cover-text");
+module.exports=require("../../../slideclone-core/typography/workflow-cover-text");

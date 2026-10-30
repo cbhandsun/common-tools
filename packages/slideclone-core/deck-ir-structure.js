@@ -1,9 +1,11 @@
 // @ts-check
 "use strict";
-const { validatePositionedTextLayout } = require("./positioned-text-layout");
-const {readNativeFreeformSegments}=require("./native-freeform-path");
-const {parseNativeTextOutline}=require("./native-text-outline");
-const {validateScriptFontFamily}=require("./positioned-text-font-override");
+const { validatePositionedTextLayout } = require("./typography/positioned-text-layout");
+const {readNativeFreeformSegments}=require("./scene-plan/native-freeform-path");
+const {parseNativeTextOutline}=require("./typography/native-text-outline");
+const {validateScriptFontFamily}=require("./typography/positioned-text-font-override");
+const {parseNativeShadowScale}=require("./scene-plan/native-shadow-scale");
+const {validateOutputEditGroups}=require("./scene-plan/output-edit-groups");
 
 /** @param {unknown} value @returns {Record<string, unknown>} */
 function object(value) {
@@ -188,7 +190,8 @@ function validateDeckPageStructures(pages) {
   const pageIndices = new Set();
   for (const value of pages) {
     const page = object(value);
-    canonicalFields(page, ["pageIndex", "slideSize", "sourceImage", "textBoxes", "shapes", "images", "tables", "charts", "icons", "background", "reconstruction", "intent", "citations", "speakerNotes", "preserveTemplateSlide"]);
+    canonicalFields(page, ["pageIndex", "slideSize", "sourceImage", "textBoxes", "shapes", "images", "tables", "charts", "icons", "background", "reconstruction", "intent", "citations", "speakerNotes", "preserveTemplateSlide", "outputEditGroups"]);
+    if(page.outputEditGroups!==undefined)validateOutputEditGroups(page);
     pageMetadata(page);
     if (page.reconstruction != null) object(page.reconstruction);
     const pageIndex = page.pageIndex === undefined ? 0 : page.pageIndex;
@@ -203,6 +206,7 @@ function validateDeckPageStructures(pages) {
         canonicalFields(entry, ["id", "type", "text", "box", "font", "style", "rotation", "source", "wrap", "runs", "positionedRuns", "role", "assetPath", "rows", "categories", "values", "series", "nativePayload", "points"]);
         stringFields(entry, ["id", "type"]);
         if (key === "textBoxes") textData(entry);
+        if (key === "shapes" || key === "images") parseNativeShadowScale(entry.style);
         if(key==="shapes"&&entry.style!=null){const style=object(entry.style);canonicalFields(style,["freeformPath","freeformSegments"]);
           if(style.freeformPath!==undefined){if(entry.type!=="freeform")throw new TypeError("editable deck compact path requires freeform shape");readNativeFreeformSegments(style);}}
         if (["shapes", "images", "tables"].includes(key)) points(entry.points);

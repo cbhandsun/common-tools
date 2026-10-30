@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { planMeasuredSingleLineTextSpacing } = require("../packages/slideclone-core/measured-text-fit");
+const { planMeasuredSingleLineTextSpacing } = require("../packages/slideclone-core/typography/measured-text-fit");
 
 function fixture(heightRatio = 1.2) {
   const text = { id: "label", text: "Editable plain text", box: { x: 100, y: 100, w: 160, h: 24 },

@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os");
-const {materializeReviewedSceneGraphics:materialize,mapReviewedSceneGraphics:map}=require("../packages/slideclone-core/source-scene-reviewed-graphics");
+const {materializeReviewedSceneGraphics:materialize,mapReviewedSceneGraphics:map}=require("../packages/slideclone-core/scene-plan/source-scene-reviewed-graphics");
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),"reviewed-graphic-"));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)};
@@ -25,6 +25,40 @@ test("dual-reviewed OCR graphics materialize in the remaining local budget with 
  const mapped=map(result.graphics,{widthPx:400,heightPx:300},{widthPt:200,heightPt:150});
  assert.equal(mapped[0].box.x,g.box.x/2);assert.equal(mapped[0].box.w,g.box.w/2);assert.deepEqual(mapped[0].source,g.source);
 });
+
+test('a complete opaque reviewed badge uses existing pictorial admission and the same bounded ledger',t=>{
+ const f=fixture(t);f.image.rgba.fill(255);
+ for(let y=100;y<140;y++)for(let x=100;x<140;x++)f.image.rgba.set([20,60,100,255],(y*f.image.width+x)*4);
+ const target={index:7,box:{x:100,y:100,w:40,h:40},searchBox:{x:95,y:95,w:50,h:50}};
+ const {materializeSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-icon');
+ const controls={...f,...target,id:'sparse-probe',regionId:'reviewed-ocr',slideSize:{widthPt:400,heightPt:300}};
+ assert.equal(materializeSceneIcon(controls),null);
+ const budget={used:3990000},result=materialize({...f,rejectedOcr:[target],budget});
+ assert.deepEqual(result.unresolved,[]);assert.equal(result.graphics.length,1);
+ assert.equal(result.graphics[0].source.tightCropAdmission.operation,'source-isolated-pictorial-asset');
+ assert.ok(result.graphics[0].source.tightCropAdmission.opaqueDensity>.8);
+ assert.ok(budget.used>3990000&&budget.used<=4000000);
+ assert.throws(()=>materialize({...f,rejectedOcr:[target],budget:{used:3999999}}),RangeError);
+ const text=materialize({...f,rejectedOcr:[target],textBoxes:[{text:'owned',box:target.box}],budget:{used:0}});
+ assert.deepEqual(text.unresolved,[7]);assert.equal(text.graphics.length,0);
+});
+
+test('fallback policies share only source bytes and fit the original one-window reservation',t=>{
+ const f=fixture(t),searchBox={x:95,y:95,w:50,h:50},area=searchBox.w*searchBox.h;
+ for(const mode of ['opaque','blank','text','clipped']){
+  f.image.rgba.fill(255);
+  if(mode!=='blank')for(let y=100;y<140;y++)for(let x=100;x<(mode==='clipped'?150:140);x++)
+   f.image.rgba.set([20,60,100,255],(y*f.image.width+x)*4);
+  const budget={used:4000000-area},before=Buffer.from(f.image.rgba);
+  const result=materialize({...f,rejectedOcr:[{index:7,box:{x:100,y:100,w:40,h:40},searchBox}],budget,
+   textBoxes:mode==='text'?[{text:'owned',box:{x:100,y:100,w:40,h:40}}]:[]});
+  assert.equal(budget.used,4000000);assert.deepEqual(f.image.rgba,before);
+  assert.deepEqual(result.unresolved,mode==='opaque'?[]:[7]);
+  assert.equal(result.graphics.length,mode==='opaque'?1:0);
+ }
+ assert.throws(()=>materialize({...f,rejectedOcr:[{index:7,box:{x:100,y:100,w:40,h:40},searchBox}],
+  budget:{used:4000001-area}}),RangeError);
+});
 test("blank, text-owned and clipped graphics stay unresolved without creating source images",t=>{
  for(const mode of ["blank","text","clipped"]){const f=fixture(t);
   if(mode==="blank")f.image.rgba.fill(255);
@@ -43,7 +77,7 @@ test("empty reviews have no scan cost and invalid binding or exhausted budgets f
 });
 
 test("known graphics removed from OCR cannot disappear from the native completion gate",()=>{
- const {auditNativeComponentQuality:audit}=require("../packages/slideclone-core/native-component-quality");
+ const {auditNativeComponentQuality:audit}=require("../packages/slideclone-core/quality/native-component-quality");
  const page={shapes:[],images:[],textBoxes:[]};
  const missing=audit({pages:[page],meta:{sourceSceneReview:{unresolvedReviewedGraphics:[40,42]}}});
  assert.equal(missing.passed,false);assert.equal(missing.metrics.unresolvedSceneComponents,2);
@@ -54,14 +88,14 @@ test("known graphics removed from OCR cannot disappear from the native completio
 });
 
 test("review completeness validates bounded source indices without invoking hostile controls",()=>{
- const {unresolvedReviewedGraphicCount:count}=require("../packages/slideclone-core/source-scene-reviewed-graphics");
+ const {unresolvedReviewedGraphicCount:count}=require("../packages/slideclone-core/scene-plan/source-scene-reviewed-graphics");
  assert.equal(count(undefined),0);assert.equal(count({}),0);assert.equal(count({unresolvedReviewedGraphics:[0,511]}),2);
  let executed=0;const hostile={};Object.defineProperty(hostile,"unresolvedReviewedGraphics",{get(){executed++;throw Error("private-provider-body");}});
  const array=[];Object.defineProperty(array,"0",{get(){executed++;throw Error("private-provider-body");}});array.length=1;
  for(const value of [null,[],hostile,new Proxy({},{}),{unresolvedReviewedGraphics:array},
   ...[null,new Array(1),new Proxy([],{}),[-1],[512],[Infinity],["1"],[1,1],Array(33).fill(0)].map(indices=>({unresolvedReviewedGraphics:indices}))])assert.equal(count(value),null);
  assert.equal(executed,0);
- const {auditNativeComponentQuality:audit}=require("../packages/slideclone-core/native-component-quality");
+ const {auditNativeComponentQuality:audit}=require("../packages/slideclone-core/quality/native-component-quality");
  for(const meta of [hostile,new Proxy({},{}),{sourceSceneReview:hostile},{sourceSceneReview:{unresolvedReviewedGraphics:[512]}}]){
   const result=audit({pages:[{shapes:[],images:[]}],meta});assert.equal(result.passed,false);
  }
@@ -69,8 +103,8 @@ test("review completeness validates bounded source indices without invoking host
 });
 
 test("page completion survives replacement of deck metadata without counting the same review twice",()=>{
- const {withReviewedGraphicEvidence:attach}=require("../packages/slideclone-core/source-scene-reviewed-graphics");
- const {auditNativeComponentQuality:audit}=require("../packages/slideclone-core/native-component-quality");
+ const {withReviewedGraphicEvidence:attach}=require("../packages/slideclone-core/scene-plan/source-scene-reviewed-graphics");
+ const {auditNativeComponentQuality:audit}=require("../packages/slideclone-core/quality/native-component-quality");
  const page={shapes:[],images:[],source:{existing:true}},before=JSON.stringify(page);
  const evidence={sourceHash:"a".repeat(64),unresolvedReviewedGraphics:[40,42]};
  const bound=attach(page,evidence);assert.equal(JSON.stringify(page),before);assert.equal(bound.source.existing,true);

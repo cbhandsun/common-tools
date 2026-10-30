@@ -1,12 +1,12 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
-const {admitSourceScenePlan:admit}=require('../packages/slideclone-core/source-scene-plan');
-const {selectTopologyReviewTargets:select,applyTopologyReview:apply}=require('../packages/slideclone-core/source-scene-topology-review');
-const {sceneAdmissionHistory:history,recordSceneAdmissionRepairs:recordRepairs}=require('../packages/slideclone-core/source-scene-admission-history');
-const {sceneRelationSlotsUsed:slots,sceneLocalRelationCapacity:capacity}=require('../packages/slideclone-core/source-scene-relation-batches');
-const {buildSceneInventoryEvidence:inventory,auditSceneInventory:audit}=require('../packages/slideclone-core/source-scene-observed-inventory');
-const {packSceneInventoryMembers:pack,unpackSceneInventoryMembers:unpack}=require('../packages/slideclone-core/source-scene-inventory-codec');
-const {writeSceneInventoryArtifact:artifact}=require('../packages/slideclone-core/source-scene-inventory-artifact');
+const {admitSourceScenePlan:admit}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {selectTopologyReviewTargets:select,applyTopologyReview:apply}=require('../packages/slideclone-core/scene-plan/source-scene-topology-review');
+const {sceneAdmissionHistory:history,recordSceneAdmissionRepairs:recordRepairs}=require('../packages/slideclone-core/scene-plan/source-scene-admission-history');
+const {sceneRelationSlotsUsed:slots,sceneLocalRelationCapacity:capacity}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
+const {buildSceneInventoryEvidence:inventory,auditSceneInventory:audit}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
+const {packSceneInventoryMembers:pack,unpackSceneInventoryMembers:unpack}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-codec');
+const {writeSceneInventoryArtifact:artifact}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-artifact');
 const source={sourceHash:'a'.repeat(64),widthPx:200,heightPx:100};
 function fixture(count=2,alias=false){
  const plan=admit({coordinateSpace:'source-pixels',regions:[
@@ -53,7 +53,7 @@ test('final inventory, lossless transport and content-addressed artifact preserv
  const receipt=artifact(root,evidence),loaded=JSON.parse(fs.readFileSync(path.join(root,receipt.assetPath)));
  assert.deepEqual(audit(loaded,shapes,[],source.sourceHash),[]);assert.deepEqual(loaded.admissionHistory,evidence.admissionHistory);
  assert(audit(loaded,shapes.slice(0,-1),[],source.sourceHash).some(row=>row.reason==='compile-missing'));
- const duplicate=[...shapes,structuredClone(shapes.at(-1))];assert.deepEqual(audit(loaded,duplicate,[],source.sourceHash),[{reason:'evidence-invalid'}]);
+ const duplicate=[...shapes,structuredClone(shapes.at(-1))];assert.deepEqual(audit(loaded,duplicate,[],source.sourceHash),[{reason:'evidence-invalid',detail:'output-members-invalid'}]);
 });
 
 test('history cannot hide other rejected attempts or reserved relations in final inventory',()=>{
@@ -92,7 +92,7 @@ test('malformed artifact mappings fail closed and cannot refund rejected global 
 });
 
 test('later source-proven physical compaction keeps the immutable repair snapshot and resolves only existing charged aliases',()=>{
- const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/source-scene-physical-inventory');
+ const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/scene-plan/source-scene-physical-inventory');
  const {repaired}=fixture(1,true),before=structuredClone(repaired.admission.history);
  const result=compact(repaired,[{id:'object-alias',canonicalId:'object-a'}]).plan;
  assert.equal(result.relations[0].fromId,'object-a');assert.deepEqual(history(result),before);

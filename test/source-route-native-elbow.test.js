@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { orthogonalSourceRoute, orthogonalSourceTree, nativeElbowConnector, nativeElbowVertices } = require('../packages/slideclone-core/source-route-native-elbow');
+const { orthogonalSourceRoute, orthogonalSourceTree, nativeElbowConnector, nativeElbowVertices } = require('../packages/slideclone-core/routing/source-route-native-elbow');
 
 /** Rounded corner of radius r between two axis legs, sampled like a traced centerline. */
 function roundedL(r) {

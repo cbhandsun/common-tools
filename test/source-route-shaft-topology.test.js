@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRouteShaftTopology:topology}=require('../packages/slideclone-core/source-route-shaft-topology');
+const {sourceRouteShaftTopology:topology}=require('../packages/slideclone-core/routing/source-route-shaft-topology');
 function fixture(){
  const width=100,height=90,mask=new Uint8Array(width*height);
  const put=(x,y)=>{mask[y*width+x]=1;};

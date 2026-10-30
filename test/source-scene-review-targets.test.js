@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {selectSourceSceneReviewTargets:select}=require('../packages/slideclone-core/source-scene-review-targets');
-const {selectSourceSceneMissingReviewTargets:selectMissing}=require('../packages/slideclone-core/source-scene-review-targets');
+const {selectSourceSceneReviewTargets:select}=require('../packages/slideclone-core/scene-plan/source-scene-review-targets');
+const {selectSourceSceneMissingReviewTargets:selectMissing}=require('../packages/slideclone-core/scene-plan/source-scene-review-targets');
 function fixture(){
  const plan={version:1,sourceHash:'a'.repeat(64),widthPx:1000,heightPx:1000,
   regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:1000,h:1000}}],

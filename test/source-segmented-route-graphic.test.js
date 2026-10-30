@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {proposeSegmentedRouteGraphic:propose}=require('../packages/slideclone-core/source-segmented-route-graphic');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+const {proposeSegmentedRouteGraphic:propose}=require('../packages/slideclone-core/routing/source-segmented-route-graphic');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 function fixture(){
  const image={width:240,height:180,rgba:Buffer.alloc(240*180*4,255)},budget={used:0};
  const put=(x,y,color=[30,60,90])=>image.rgba.set([...color,255],(y*image.width+x)*4);
@@ -20,7 +20,7 @@ test('each actual disconnected source dash becomes one editable path while gaps 
  assert(r.shapes.every(s=>s.box.w===7&&s.box.h===3&&s.style.fill==='#1E3C5A'));
  assert(r.shapes.every(s=>s.source.sourcePhysicalAttachment===false&&s.source.sourceDirectionVerified===false));
  assert(r.shapes.every(s=>s.source.sceneRelationId===undefined));
- const {encodeNativeFreeformPath}=require('../packages/slideclone-core/native-freeform-path');
+ const {encodeNativeFreeformPath}=require('../packages/slideclone-core/scene-plan/native-freeform-path');
  assert(r.shapes.every(s=>typeof encodeNativeFreeformPath(s.style.freeformSegments)==='string'));
 });
 test('blank sources, unsafe masks, clipped branches, changed paint and forged observations cannot publish partial paths',()=>{

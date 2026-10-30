@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
-const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
-const {applyBatchedSceneReview}=require('../packages/slideclone-core/source-scene-ocr-batches');
-const {sourceSceneReviewCapacity}=require('../packages/slideclone-core/source-scene-review');
-const {allocateSourceSceneReview}=require('../packages/slideclone-core/source-scene-review-allocation');
+const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
+const {applyBatchedSceneReview}=require('../packages/slideclone-core/scene-plan/source-scene-ocr-batches');
+const {sourceSceneReviewCapacity}=require('../packages/slideclone-core/scene-plan/source-scene-review');
+const {allocateSourceSceneReview}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
 const {writePng}=require('../packages/slideclone-core/png');
 const hash='a'.repeat(64);
 function fixture(t,count=38){
@@ -101,8 +101,8 @@ test('hostile batch envelopes or target accessors cannot execute, and empty OCR 
  assert.equal(require('../scripts/test-suites').classifyTestFile(__filename),'integration');
 });
 test('more than 32 unresolved reviewed graphics still fail the unchanged completion quality gate',()=>{
- const {unresolvedReviewedGraphicCount}=require('../packages/slideclone-core/source-scene-reviewed-graphics');
- const {auditNativeComponentQuality}=require('../packages/slideclone-core/native-component-quality');
+ const {unresolvedReviewedGraphicCount}=require('../packages/slideclone-core/scene-plan/source-scene-reviewed-graphics');
+ const {auditNativeComponentQuality}=require('../packages/slideclone-core/quality/native-component-quality');
  const evidence={unresolvedReviewedGraphics:Array.from({length:38},(_,i)=>i)};
  assert.equal(unresolvedReviewedGraphicCount(evidence),38);
  const result=auditNativeComponentQuality({pages:[{shapes:[],images:[],textBoxes:[]}],meta:{sourceSceneReview:evidence}});

@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {primitiveImage}=require('./helpers/scene-primitive-program-fixture.cjs');
-const {compileSceneCageProgram:compile,cageSceneParentMembers:members,rebindCageSceneParentMembers:rebind}=require('../packages/slideclone-core/source-scene-cage-program');
+const {compileSceneCageProgram:compile,cageSceneParentMembers:members,rebindCageSceneParentMembers:rebind}=require('../packages/slideclone-core/scene-plan/source-scene-cage-program');
 function fixture(options={}){const f=primitiveImage('cylinder',options);return {image:f.image,
  object:{id:'object-unit',regionId:'region-root',kind:'container',box:f.box,nativeGeometry:f.nativeGeometry},textMasks:[],budget:{used:0},slideSize:{widthPt:f.image.width,heightPt:f.image.height}};}
 test('complete source cage emits native faces and a source-bound receipt under the shared scan limit',()=>{

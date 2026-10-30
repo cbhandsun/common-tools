@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSourceSceneRoute}=require('../packages/slideclone-core/source-scene-route');
-const {compileSourceSceneRoute}=require('../packages/slideclone-core/source-scene-route-compiler');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+const {measureSourceSceneRoute}=require('../packages/slideclone-core/scene-plan/source-scene-route');
+const {compileSourceSceneRoute}=require('../packages/slideclone-core/scene-plan/source-scene-route-compiler');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 function fixture(){
  const image={width:240,height:180,rgba:Buffer.alloc(240*180*4,255)},budget={used:0};
  const put=(x,y,rgb=[30,60,90])=>image.rgba.set([...rgb,255],(y*240+x)*4);
@@ -104,7 +104,7 @@ test('a complete native route cannot silently drop a connected branch or another
  // The hint includes the whole observed branch. No cropped disappearance is a pass.
  const result=measureSourceSceneRoute({...f,shaftBox:{x:38,y:59,w:165,h:98}});
  assert.equal(result.fit,null);assert.equal(result.reason,'route-unrepresented-branch');
- const {simplifySourceRoute,sourceRoutePath}=require('../packages/slideclone-core/source-route-centerline');
+ const {simplifySourceRoute,sourceRoutePath}=require('../packages/slideclone-core/routing/source-route-centerline');
  assert.equal(simplifySourceRoute([{x:0,y:0},{x:1,y:1},{x:2,y:0}],{checks:4000000}),null);
  assert.equal(sourceRoutePath(new Uint8Array(10),5,2,0,9,{checks:4000000}),null);
 });

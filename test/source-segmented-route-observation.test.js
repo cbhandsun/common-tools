@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {observeSegmentedSourceRoute:observe}=require('../packages/slideclone-core/source-segmented-route-observation');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+const {observeSegmentedSourceRoute:observe}=require('../packages/slideclone-core/routing/source-segmented-route-observation');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 function fixture(){
  const image={width:240,height:180,rgba:Buffer.alloc(240*180*4,255)},budget={used:0};
  const put=(x,y,color=[30,60,90])=>image.rgba.set([...color,255],(y*image.width+x)*4);

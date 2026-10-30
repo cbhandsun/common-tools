@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { classifyVisualLayer } = require("../packages/slideclone-core/layer-classifier");
+const { classifyVisualLayer } = require("../packages/slideclone-core/scene-plan/layer-classifier");
 const { createVisualAtomNativeShapes } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 const SLIDE = { widthPt: 560, heightPt: 340 };

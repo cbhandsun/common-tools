@@ -1,3 +1,4 @@
+const { copyCoreModuleClosure } = require('./helpers/isolated-core-package.cjs');
 "use strict";
 
 const assert = require("node:assert/strict");
@@ -18,28 +19,10 @@ test("native chart shell shapes execute their complete core closure and generate
   fs.mkdirSync(installed, { recursive: true });
   fs.copyFileSync(path.join(core, "package.json"), path.join(installed, "package.json"));
 
-  const pending = [path.join(core, "native-chart-shell-shapes.js")];
-  const copied = new Set();
-  while (pending.length > 0) {
-    const file = pending.pop();
-    if (copied.has(file)) continue;
-    copied.add(file);
-    assert.equal(path.dirname(file), core, "chart dependencies must remain in core");
-    const name = path.basename(file);
-    assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/slideclone-core/${name}`), `${name} must be shipped`);
-    const source = fs.readFileSync(file, "utf8");
-    fs.writeFileSync(path.join(installed, name), source);
-    for (const dependency of collectImports(source, name)) {
-      assert.equal(typeof dependency.specifier, "string");
-      // Pure Node type inspection is not an external OCR/rendering service.
-      if (dependency.specifier === "node:util") continue;
-      assert.ok(dependency.specifier.startsWith("./"), "chart module must not require external runtime services");
-      pending.push(require.resolve(path.resolve(core, dependency.specifier)));
-    }
-  }
+  copyCoreModuleClosure(installed, ['native-chart-shell-shapes'], IMAGE_EDITABLE_RELEASE_FILES);
 
   const load = createRequire(path.join(directory, "consumer.cjs"));
-  const { createChartZoneNativeShellShapes } = load("@common-tools/slideclone-core/native-chart-shell-shapes");
+  const { createChartZoneNativeShellShapes } = load("@common-tools/slideclone-core/scene-plan/native-chart-shell-shapes");
   const image = { id: "chart", source: { layer: { layerType: "chart-zone" } } };
   const atoms = [
     { id: "axis", kind: "grid-line-candidate", box: { x: 10, y: 120, w: 240, h: 1 }, axis: "h", color: "#94A3B8" },

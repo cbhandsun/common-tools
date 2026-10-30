@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence,sceneIconTextFootprint}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
-const {measureSceneParametricSurface,measureSceneIconBackdrop,matteSceneParametricBackdrop}=require('../packages/slideclone-core/source-scene-parametric-surface');
+const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence,sceneIconTextFootprint}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
+const {measureSceneParametricSurface,measureSceneIconBackdrop,matteSceneParametricBackdrop}=require('../packages/slideclone-core/scene-plan/source-scene-parametric-surface');
 const {cropPng}=require('../packages/slideclone-core/png');
-const {sceneIconBackdropHint}=require('../packages/slideclone-core/source-scene-icon-context');
+const {sceneIconBackdropHint}=require('../packages/slideclone-core/scene-plan/source-scene-icon-context');
 function glyphFixture(size=80){
  const image={width:size,height:size,rgba:Buffer.alloc(size*size*4,255)},budget={used:0};
  for(let y=23;y<35;y++)for(let x=23;x<26;x++)image.rgba.set([0,0,0,255],(y*size+x)*4);
@@ -84,8 +84,8 @@ test('oversized cards defer to bounded spatial caption context without granting 
 });
 test('real glyph evidence survives both component isolation and final crop admission and emits native paths',t=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
- const {measureSceneIconDetailed}=require('../packages/slideclone-core/source-scene-icon');
- const {compileSceneIcon}=require('../packages/slideclone-core/source-scene-native-icon');
+ const {measureSceneIconDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-icon');
+ const {compileSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
  const f=glyphFixture(160),root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-icon-controls-'));
  for(let y=39;y<62;y++)for(let x=22;x<40;x++)f.image.rgba.set([0,0,0,255],(y*160+x)*4);
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
@@ -104,7 +104,7 @@ test('established four-edge bodies remain available for icon separation without 
  const image={width:160,height:120,rgba:Buffer.alloc(160*120*4,255)},budget={used:0},hint={x:20,y:20,w:100,h:70};
  for(let y=20;y<90;y++)for(let x=20;x<120;x++)image.rgba.set([251,247,200,255],(y*160+x)*4);
  for(let y=45;y<65;y++)for(let x=48;x<53;x++)image.rgba.set([0,0,0,255],(y*160+x)*4);
- assert.ok(require('../packages/slideclone-core/source-text-band-evidence').fitSourceTextBand({image,box:hint,slideSize:{widthPt:160,heightPt:120}}));
+ assert.ok(require('../packages/slideclone-core/typography/source-text-band-evidence').fitSourceTextBand({image,box:hint,slideSize:{widthPt:160,heightPt:120}}));
  assert.equal(measureSceneParametricSurface(image,hint,[],budget),null);
  const proof=measureSceneIconBackdrop(image,hint,[],budget);assert.ok(proof);
  const window={x:40,y:35,w:25,h:40},crop=cropPng(image,window),matte=matteSceneParametricBackdrop(proof,image,budget,window,crop);

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { promoteNativeChartPayload, validateDeckNativeChartPayloads } = require("../packages/slideclone-core/chart-native-payload");
+const { promoteNativeChartPayload, validateDeckNativeChartPayloads } = require("../packages/slideclone-core/archetypes/chart-native-payload");
 
 function chart() {
   return {

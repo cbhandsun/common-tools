@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');
+const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');
 const dimensions={widthPx:1000,heightPx:1000},boxes=[{x:20,y:20,w:20,h:20}],source={sourceHash:'a'.repeat(64),...dimensions,labelBoxes:boxes,
  labelRefs:boxes.map(b=>sourceLabelIdentity(b,dimensions))};
 function packed(){return {format:'packed-v1',regions:[[null,0,[0,0,1000,1000],[0,0,0]],[0,1,[100,100,900,900],[2,0,1]]],
@@ -62,7 +62,7 @@ test('packed malformed independent rows cannot disappear or execute untrusted fi
 test('packed protocol and regression enter the same CI and runtime package surfaces',()=>{
  const runtime=require('../scripts/verify-runtime-package'),suites=require('../scripts/test-suites');
  for(const name of ['source-scene-packed-program.js','source-scene-packed-program-prompt.js'])
-  assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/'+name));
+  assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/'+require('./helpers/isolated-core-package.cjs').coreModulePath(name)));
  assert.equal(suites.includesSuite(__filename,'all'),true);assert.equal(suites.includesSuite(__filename,'unit'),true);
 });
 

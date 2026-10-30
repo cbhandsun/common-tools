@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { refineSourceNativeEdges, reassignSourceNativeEdgeOwners } = require("../packages/slideclone-core/source-native-edge-refinement");
+const { refineSourceNativeEdges, reassignSourceNativeEdgeOwners } = require("../packages/slideclone-core/routing/source-native-edge-refinement");
 
 test("source edge fitting admits saturated ink behind an antialiased stroke estimate, not another hue", () => {
   for (const color of [[20, 70, 225], [225, 70, 20], [80, 80, 80]]) {

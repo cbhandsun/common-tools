@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRingInteriorWitness:prove,measureSourceRingInteriorWitness:measure}=require('../packages/slideclone-core/source-ring-interior-witness');
-const {measureOutlinedSceneContainer}=require('../packages/slideclone-core/source-scene-outline');
+const {sourceRingInteriorWitness:prove,measureSourceRingInteriorWitness:measure}=require('../packages/slideclone-core/scene-plan/source-ring-interior-witness');
+const {measureOutlinedSceneContainer}=require('../packages/slideclone-core/scene-plan/source-scene-outline');
 function fixture(){
  const raster={width:32,height:32,rgba:Buffer.alloc(32*32*4,255)},points=[];
  for(let y=3;y<29;y++)for(let x=3;x<29;x++){
@@ -21,7 +21,7 @@ test('a thick ring needs observed closed colored cells rather than a large inner
  }
  const budget={used:0},outline=measureOutlinedSceneContainer(image,{x:23,y:23,w:26,h:26},[],budget);
  assert.ok(outline);assert.ok(outline.segments.some(s=>s.type==='close'));assert.ok(budget.used<=262144);
- assert.equal(require('../packages/slideclone-core/source-closed-ring').hasClosedRingTopology(outline.segments),false);
+ assert.equal(require('../packages/slideclone-core/scene-plan/source-closed-ring').hasClosedRingTopology(outline.segments),false);
  assert.equal(outline.interiorWitness,true);
  assert.ok(outline.interiorPaint);assert.ok(outline.interiorPaint.box.w<outline.box.w);
 });
@@ -55,7 +55,7 @@ test('the compiler emits the proven face together with its outline, without sour
  const plan={version:1,sourceHash,widthPx:80,heightPx:80,regions:[{id:'region-root',parentId:null,kind:'section',box:{x:0,y:0,w:80,h:80}}],
   objects:[{id:'object-node',regionId:'region-root',kind:'container',box:{x:23,y:23,w:26,h:26}}],relations:[]};
  const page={shapes:[],images:[],textBoxes:[]};
- const result=require('../packages/slideclone-core/source-scene-compiler').compileSourceScene({root,sourceFile,plan,page,slideSize:{widthPt:80,heightPt:80}});
+ const result=require('../packages/slideclone-core/scene-plan/source-scene-compiler').compileSourceScene({root,sourceFile,plan,page,slideSize:{widthPt:80,heightPt:80}});
  // A pre-existing independently measured fill is equally valid. The behavior
  // contract is a colored native face plus outline, not a particular detector.
  const face=result.page.shapes.find(s=>typeof s.style?.fill==='string'&&/^#[a-f\d]{6}$/iu.test(s.style.fill)

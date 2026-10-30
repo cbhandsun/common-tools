@@ -1,5 +1,5 @@
 'use strict';
-const {createSceneMeasurementCache}=require('../../packages/slideclone-core/source-scene-measurement-cache');
+const {createSceneMeasurementCache}=require('../../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 function fixture({reverse=false,up=false,vertical=false}={}){
  const image={width:220,height:220,rgba:Buffer.alloc(220*220*4,255)},budget={used:0},oracle=new Set();
  const transform=(a,c)=>{let x=a,y=c+(up?180-a:a);if(vertical)[x,y]=[y,x];return {x,y};};

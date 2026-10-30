@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/triangle-topology-measurement");
+module.exports = require("@common-tools/slideclone-core/archetypes/triangle-topology-measurement");

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { runTwoStageQualityGate } = require("../packages/slideclone-core/two-stage-quality-gate");
+const { runTwoStageQualityGate } = require("../packages/slideclone-core/quality/two-stage-quality-gate");
 
 function makeImage(color) {
   const rgba = Buffer.alloc(4 * 4 * 4);

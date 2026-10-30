@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {traceNativeMaskContours}=require("../packages/slideclone-core/native-mask-contours");
-const {shortestContourLoop,shortestCurvedContourLoop}=require("../packages/slideclone-core/native-contour-shortest-path");
+const {traceNativeMaskContours}=require("../packages/slideclone-core/scene-plan/native-mask-contours");
+const {shortestContourLoop,shortestCurvedContourLoop}=require("../packages/slideclone-core/routing/native-contour-shortest-path");
 function distance(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,d=dx*dx+dy*dy,t=d?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/d)):0;return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);}
 function flatten(segments,box){
  const rows=[];let last;

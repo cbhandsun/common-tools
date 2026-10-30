@@ -3,8 +3,8 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {primitiveImage}=require('./helpers/scene-primitive-program-fixture.cjs');
 const {writePng}=require('../packages/slideclone-core/png');
-const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 const source={sourceHash:'a'.repeat(64),widthPx:360,heightPx:200,labelRefs:[]};
 function proposal(kind='container',geometry={kind:'cylinder',seams:[.4,.7]}){
  return {coordinateSpace:'source-pixels',regions:[

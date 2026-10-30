@@ -1,11 +1,11 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureOutlinedSceneContainer,measureOutlinedSceneContainerDetailed:measure}=require('../packages/slideclone-core/source-scene-outline');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+const {measureOutlinedSceneContainer,measureOutlinedSceneContainerDetailed:measure}=require('../packages/slideclone-core/scene-plan/source-scene-outline');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {writePng}=require('../packages/slideclone-core/png');
-const {parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 function fixture(dashed=false){
  const image={width:160,height:120,rgba:Buffer.alloc(160*120*4,255)},hint={x:30,y:25,w:90,h:70};
  const put=(x,y)=>image.rgba.set([25,65,95,255],(y*image.width+x)*4);

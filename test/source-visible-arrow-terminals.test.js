@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
-const {sourceVisibleArrowTerminals:terminals}=require('../packages/slideclone-core/source-visible-arrow-terminals');
-const {sourceVisibleGapProfile:profile}=require('../packages/slideclone-core/source-visible-gap-profile');
+const {sourceVisibleArrowTerminals:terminals}=require('../packages/slideclone-core/routing/source-visible-arrow-terminals');
+const {sourceVisibleGapProfile:profile}=require('../packages/slideclone-core/routing/source-visible-gap-profile');
 const {readPng}=require('../packages/slideclone-core/png');
 const widths=[1,2,4,5,6,7,8,10,11,12,12,...Array(16).fill(4),12,12,10,9,8,6,5,4,3,2];
 test('narrow taper columns do not veto the separately witnessed unique central shaft',()=>{

@@ -5,7 +5,7 @@ const test = require("node:test");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { traceDiagonalConnectorFromRaster } = require("../packages/slideclone-core/diagonal-connector-contours");
+const { traceDiagonalConnectorFromRaster } = require("../packages/slideclone-core/routing/diagonal-connector-contours");
 const { fitDeckMissingNativeVisualAtomShapes, tryBuildFinalMissingNativeVisualAtomCandidate } = require("../packages/slideclone-worker-adapter/team-worker");
 const { writePng } = require("../packages/slideclone-core/png");
 

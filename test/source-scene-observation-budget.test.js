@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createSceneObservationBudget:create}=require('../packages/slideclone-core/source-scene-observation-budget');
+const {createSceneObservationBudget:create}=require('../packages/slideclone-core/scene-plan/source-scene-observation-budget');
 const request=task=>({task,prompt:'',images:[],isCancellationRequested:async()=>false});
 test('explicit batch authorization grants exactly two observations per batch with one shared global call',async()=>{
  let calls=0;const observe=create(async()=>{calls++;return {};},2);

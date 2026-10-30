@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createHash } = require("node:crypto");
-const { traceNativeMaskContours } = require("../packages/slideclone-core/native-mask-contours");
+const { traceNativeMaskContours } = require("../packages/slideclone-core/scene-plan/native-mask-contours");
 
 test("contour indexing preserves frozen paths and work counts for every small occupancy mask", () => {
   // Captured from the original coordinate-string implementation. This covers

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { auditNativeComponentQuality } = require("../packages/slideclone-core/native-component-quality");
+const { auditNativeComponentQuality } = require("../packages/slideclone-core/quality/native-component-quality");
 
 function validDeck() {
   return {
@@ -79,4 +79,56 @@ test("native component audit fails closed for invalid and excessive input", () =
   assert.throws(() => auditNativeComponentQuality({ pages: [] }), /deck is invalid/u);
   assert.throws(() => auditNativeComponentQuality({ pages: [{ shapes: [null] }] }), /shape/u);
   assert.throws(() => auditNativeComponentQuality({ pages: [{ shapes: Array.from({ length: 10001 }, () => ({})) }] }), /object limit/u);
+});
+
+test('arrow integrity accepts every explicit line cap supported by the native writer without changing paint',()=>{
+  for(const lineCap of ['flat','round','square'])for(const type of ['line','arc']){
+    const deck=validDeck(),shape=deck.pages[0].shapes[0];shape.type=type;shape.style.lineCap=lineCap;
+    const before=structuredClone(deck),result=auditNativeComponentQuality(deck);
+    assert.equal(result.checks.find(c=>c.name==='native-connector-integrity').passed,true,`${type}/${lineCap}`);
+    assert.equal(result.passed,true);assert.deepEqual(deck,before);
+  }
+});
+
+test('source-measured directed dashes retain their exact flat caps and pass native arrow integrity',()=>{
+  const f=require('./helpers/source-directed-dashes.cjs').fixture();
+  const {measureSourceSceneVisibleGap}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+  const {compileSourceSceneVisibleGap}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
+  const {fit}=measureSourceSceneVisibleGap(f);assert.ok(fit);
+  const shape=compileSourceSceneVisibleGap({fit,relation:{id:'relation-dash',regionId:'region-root',fromId:'a',toId:'b',direction:'forward'},
+    fromId:f.from.id,toId:f.to.id,width:240,height:180,slideSize:{widthPt:240,heightPt:180}});
+  assert.equal(shape.style.lineCap,'flat');assert.equal(shape.style.endArrow,'triangle');
+  const before=structuredClone(shape),pixels=Buffer.from(f.image.rgba);
+  const result=auditNativeComponentQuality({pages:[{shapes:[shape],images:[]}]});
+  assert.equal(result.passed,true);assert.deepEqual(shape,before);assert.deepEqual(f.image.rgba,pixels);
+});
+
+test('missing, illegal and hostile explicit arrow caps fail without executing coercion or getter hooks',()=>{
+  let calls=0;const trap=()=>{calls++;throw Error('private-cap-content');};
+  const proxy=new Proxy({},{get:trap,ownKeys:trap,getPrototypeOf:trap,getOwnPropertyDescriptor:trap});
+  for(const cap of [undefined,null,'','ROUND','butt',' round ',false,1,Infinity,[],{},'x'.repeat(100000),proxy,{toString:trap}]){
+    const deck=validDeck();deck.pages[0].shapes[0].style.lineCap=cap;
+    const result=auditNativeComponentQuality(deck);
+    assert.equal(result.passed,false);assert.equal(result.checks.find(c=>c.name==='native-connector-integrity').passed,false);
+    assert.ok(result.findings.some(f=>f.code==='arrow-line-cap-invalid'));
+    assert.ok(!JSON.stringify(result).includes('private-cap-content'));
+  }
+  const deck=validDeck();Object.defineProperty(deck.pages[0].shapes[0].style,'lineCap',{get:trap});
+  assert.throws(()=>auditNativeComponentQuality(deck),{name:'TypeError',message:'native component quality shape style is invalid'});
+  for(const style of [proxy,null,'round',[],{get startArrow(){return trap();}}]){
+    const invalid=validDeck();invalid.pages[0].shapes[0].style=style;
+    assert.throws(()=>auditNativeComponentQuality(invalid),{name:'TypeError',message:'native component quality shape style is invalid'});
+  }
+  assert.equal(calls,0);
+});
+
+test('legal flat caps cannot bypass missing width, arrow size, arc fill or detached arrow failures',()=>{
+  for(const mutate of [s=>delete s.strokeWidthPt,s=>delete s.endArrowWidth,s=>delete s.endArrowLength,s=>s.fill='#FFFFFF']){
+    const deck=validDeck(),style=deck.pages[0].shapes[0].style;style.lineCap='flat';mutate(style);
+    assert.equal(auditNativeComponentQuality(deck).passed,false);
+  }
+  const deck=validDeck();deck.pages[0].shapes.push({id:'detached',type:'triangle',source:{role:'relationship'}});
+  assert.ok(auditNativeComponentQuality(deck).findings.some(f=>f.code==='standalone-relationship-arrow'));
+  for(const suite of ['unit','all'])assert.ok(require('../scripts/test-sharded').discoverTestFiles(process.cwd(),suite)
+    .some(row=>row.file.replaceAll('\\','/')==='test/native-component-quality.test.js'));
 });

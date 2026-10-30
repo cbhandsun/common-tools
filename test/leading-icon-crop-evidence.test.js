@@ -1,8 +1,8 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectLeadingIconCropCandidates: detect, LEADING_ICON_CROP_LIMITS: limits } = require("../packages/slideclone-core/leading-icon-crop-evidence");
-const primitiveEvidence = require("../packages/slideclone-core/source-icon-primitive-evidence");
+const { detectLeadingIconCropCandidates: detect, LEADING_ICON_CROP_LIMITS: limits } = require("../packages/slideclone-core/archetypes/leading-icon-crop-evidence");
+const primitiveEvidence = require("../packages/slideclone-core/scene-plan/source-icon-primitive-evidence");
 const { discoverTestFiles } = require("../scripts/test-sharded");
 const path = require("node:path");
 

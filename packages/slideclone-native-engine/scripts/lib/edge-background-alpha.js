@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/edge-background-alpha");
+module.exports = require("../../../slideclone-core/scene-plan/edge-background-alpha");

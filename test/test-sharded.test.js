@@ -14,6 +14,7 @@ const {
   parseReporter,
   parseShardCount,
   parseSuite,
+  runShard,
   summarizeExecutionWaves
 } = require("../scripts/test-sharded");
 const {
@@ -144,6 +145,10 @@ test("test suites classify fast feedback, contracts, and integration checks", ()
   assert.equal(includesSuite("test/common-tools-remote-plugin-bundles.test.js", "integration"), true);
   assert.equal(includesSuite("test/common-tools-mcp.test.js", "unit"), false);
   assert.equal(includesSuite("test/common-tools-mcp.test.js", "integration"), true);
+  assert.equal(classifyTestResource("test/common-tools-team-runtime.test.js"), "external-process");
+  assert.equal(includesSuite("test/common-tools-team-runtime.test.js", "unit"), false);
+  assert.equal(includesSuite("test/common-tools-team-runtime.test.js", "integration"), true);
+  assert.equal(includesSuite("test/common-tools-team-runtime.test.js", "all"), true);
   assert.equal(includesSuite("test/font-fit.test.js", "all"), true);
   assert.equal(parseSuite(["--suite", "contract"], {}), "contract");
   assert.equal(parseSuite(["--suite", "all", "--suite", "unit"], {}), "unit");
@@ -173,6 +178,25 @@ test("unit suite excludes external-process tests so fast feedback stays local", 
     .sort();
   assert.deepEqual(externalUnitTests, []);
 });
+
+test("shared Worker consumer probes run once in the serialized integration wave", () => {
+  const root = path.resolve(__dirname, "..");
+  const name = "runtime-shared-route-consumer.test.js";
+  const discover = require("../scripts/test-sharded").discoverTestFiles;
+  assert.equal(classifyTestResource(`test/${name}`), "external-process");
+  assert.equal(classifyTestFile(`test/${name}`), "integration");
+  for (const suite of ["all", "integration", "unit", "contract"]) {
+    const matches = discover(root, suite).filter(({ file }) => path.basename(file) === name);
+    assert.equal(matches.length, suite === "all" || suite === "integration" ? 1 : 0);
+  }
+  const waves = createExecutionWaves(discover(root, "integration"), 2);
+  const wave = waves.find((entry) => entry.some((shard) => shard.files.some((file) => path.basename(file) === name)));
+  assert.ok(wave);
+  assert.equal(wave.length, 1);
+  assert.deepEqual([...wave[0].resources], ["external-process"]);
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  assert.match(manifest.scripts["verify:ci"], /\bnpm run test:integration\b/u);
+});
 test('compiler-session and feedback regressions are included in unit and unified CI discovery',()=>{
  const root=path.resolve(__dirname,'..'),discover=require('../scripts/test-sharded').discoverTestFiles;
  for(const suite of ['unit','all']){
@@ -192,22 +216,77 @@ test("real shards serialize files even for standard resources and propagate fail
     const source = `const fs = require('node:fs'); const test = require('node:test');
 test('exclusive file execution', async () => {
   const descriptor = fs.openSync('exclusive.lock', 'wx');
-  try { await new Promise(resolve => setTimeout(resolve, 300)); fs.writeFileSync(__filename + '.executed', 'yes'); }
+  try { await new Promise(resolve => setTimeout(resolve, 300)); fs.writeFileSync(__filename + '.executed', 'yes'); fs.writeFileSync(__filename + '.runner-parent', String(process.ppid)); }
   finally { fs.closeSync(descriptor); fs.unlinkSync('exclusive.lock'); }
 });`;
     for (const name of ["a.test.cjs", "b.test.cjs"]) fs.writeFileSync(path.join(root, name), source);
     const passed = run(["a.test.cjs", "b.test.cjs"], "standard");
     assert.equal(passed.status, 0, passed.stdout + passed.stderr);
     for (const name of ["a.test.cjs", "b.test.cjs"]) assert.equal(fs.readFileSync(path.join(root, name + ".executed"), "utf8"), "yes");
+    const parent = name => fs.readFileSync(path.join(root, name + ".runner-parent"), "utf8");
+    assert.equal(parent("a.test.cjs"), parent("b.test.cjs"), "standard files keep the shared batch runner");
+    const isolated = run(["b.test.cjs", "a.test.cjs"], "external-process");
+    assert.equal(isolated.status, 0, isolated.stdout + isolated.stderr);
+    assert.equal(parent("a.test.cjs"), parent("b.test.cjs"), "external files retain the serialized batch runner");
     fs.writeFileSync(path.join(root, "fail.test.cjs"), "require('node:test')('expected failure', () => { throw new Error('fixture failure'); });");
-    const failed = run(["fail.test.cjs"], "external-process");
+    // Sorted after fail.test.cjs: a failing file must not suppress a later one.
+    fs.writeFileSync(path.join(root, "z.test.cjs"), source);
+    const failed = run(["fail.test.cjs", "z.test.cjs"], "external-process");
     assert.equal(failed.status, 1, failed.stdout + failed.stderr);
+    assert.equal(fs.readFileSync(path.join(root, "z.test.cjs.executed"), "utf8"), "yes");
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
+test("real runner invocation normalizes Windows test paths without dropping the snapshot regressions", () => {
+  const { discoverTestFiles } = require("../scripts/test-sharded");
+  const files = discoverTestFiles(process.cwd(), "integration");
+  assert.equal(files.filter(({ file }) => path.normalize(file) === path.join("test", "rendered-page-snapshot-cache.test.js")).length, 1);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ct-shard-path-"));
+  try {
+    fs.mkdirSync(path.join(root, "test"));
+    fs.writeFileSync(path.join(root, "test", "rendered-page-snapshot-cache.test.js"),
+      "require('node:test')('portable path', () => require('node:fs').writeFileSync('executed', 'yes'));");
+    const env = { ...process.env, TEST_REPORTER: "tap" }; delete env.NODE_TEST_CONTEXT;
+    const result = spawnSync(process.execPath, ["--eval",
+      `require(${JSON.stringify(require.resolve("../scripts/test-sharded"))}).runShard(${JSON.stringify(root)}, {files:["test\\\\rendered-page-snapshot-cache.test.js"], resources:new Set(["external-process"])}, 0).then(result => { process.exitCode = result.code; });`
+    ], { env, encoding: "utf8", windowsHide: true, timeout: 15000 });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /# tests 1\b/u);
+    assert.equal(fs.readFileSync(path.join(root, "executed"), "utf8"), "yes");
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("invalid or empty shard plans cannot produce a passing gate or supply runner options", async () => {
+  for (const files of [[], null, "a.test.js", new Array(1), [null], [""], ["--test-only"], ["a\0.test.js"], new Array(4097).fill("a.test.js")]) {
+    await assert.rejects(runShard(process.cwd(), { files, resources: new Set(["external-process"]) }, 0),
+      { name: "TypeError", message: "Test shard files are invalid" });
+  }
+});
+
+test("unified runner preserves child process failures and prints safe exit diagnostics in every reporter", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ct-shard-process-"));
+  try {
+    fs.writeFileSync(path.join(root, "child.test.js"), "process.exit(23);\n");
+    for (const reporter of ["dot", "spec", "tap"]) {
+      const env = { ...process.env, TEST_REPORTER: reporter }; delete env.NODE_TEST_CONTEXT;
+      const result = spawnSync(process.execPath, ["--eval",
+        `require(${JSON.stringify(require.resolve("../scripts/test-sharded"))}).runShard(${JSON.stringify(root)}, {files:["child.test.js"]}, 0).then(result => { process.exitCode = result.code; });`
+      ], { env, encoding: "utf8", windowsHide: true, timeout: 15000 });
+      assert.equal(result.error, undefined);
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.match(result.stdout, /# test-process-failure \{"file":"child.test.js","exitCode":23,"signal":null\}/u);
+      assert.equal(result.stdout.includes(root), false);
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("resource-aware execution isolates heavy shards while retaining standard parallelism", () => {
+  const { classifyTestResource } = require("../scripts/test-suites");
+  // This file starts nested real Node test runners. It must not share the
+  // standard wave with other suites while checking child-process deadlines.
+  assert.equal(classifyTestResource("test/test-sharded.test.js"), "external-process");
   const waves = createExecutionWaves([
     { file: "test/a.test.js", size: 10, resource: "standard" },
     { file: "test/b.test.js", size: 8, resource: "standard" },

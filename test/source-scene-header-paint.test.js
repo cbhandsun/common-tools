@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSceneFillWindow}=require('../packages/slideclone-core/source-scene-fill-window');
-const {appendSceneTableHeaderBackgrounds:append}=require('../packages/slideclone-core/source-scene-table-headers');
-const {nativeFilledPathDisjoint}=require('../packages/slideclone-core/native-filled-path-overlap');
+const {measureSceneFillWindow}=require('../packages/slideclone-core/scene-plan/source-scene-fill-window');
+const {appendSceneTableHeaderBackgrounds:append}=require('../packages/slideclone-core/scene-plan/source-scene-table-headers');
+const {nativeFilledPathDisjoint}=require('../packages/slideclone-core/scene-plan/native-filled-path-overlap');
 function rectangle(){return [{type:'moveTo',points:[{x:0,y:0}]},{type:'lnTo',points:[{x:1,y:0}]},
  {type:'lnTo',points:[{x:1,y:1}]},{type:'lnTo',points:[{x:0,y:1}]},{type:'close',points:[]}];}
 function fixture(){const image={width:140,height:100,rgba:Buffer.alloc(140*100*4,255)};
@@ -43,7 +43,7 @@ test('single body headers retain their original output and empty measurements em
 function measured(){return {box:{x:20,y:20,w:100,h:60},fill:'#78A0DC',support:.9,
  parts:[{box:{x:20,y:20,w:100,h:60},segments:rectangle()}]};}
 test('paint part parser retains original 32 part and 120 command ceilings and isolates controls',()=>{
- const {parseScenePaintParts:parse}=require('../packages/slideclone-core/source-scene-paint-parts');
+ const {parseScenePaintParts:parse}=require('../packages/slideclone-core/scene-plan/source-scene-paint-parts');
  const f=fixture(),v=measured(),before=structuredClone(v);
  const result=parse(v,f.image);result[0].box.x=0;result[0].segments[0].points[0].x=.1;
  assert.deepEqual(v,before);
@@ -54,7 +54,7 @@ test('paint part parser retains original 32 part and 120 command ceilings and is
  commands.parts[0].segments.splice(1,0,rectangle()[1]);assert.throws(()=>parse(commands,f.image),TypeError);
 });
 test('invalid or unsafe parts cannot create a bounding rectangle or leave partially appended shapes',()=>{
- const {parseScenePaintParts:parse}=require('../packages/slideclone-core/source-scene-paint-parts');
+ const {parseScenePaintParts:parse}=require('../packages/slideclone-core/scene-plan/source-scene-paint-parts');
  let touches=0;
  const getter={get box(){touches++;throw Error('secret-payload');}};
  const poisonedParts=[{box:{x:20,y:20,w:45,h:60},segments:rectangle()},getter];
@@ -84,7 +84,7 @@ test('a coincident union rectangle cannot suppress fragmented contours as alread
 
 test('a surviving source-measured body prevents header recovery from minting a duplicate inventory unit',()=>{
  const f=fixture();for(let y=20;y<80;y++)for(let x=20;x<120;x++)f.image.rgba.set([120,160,220,255],(y*140+x)*4);
- const {createSceneMeasurementCache:create}=require('../packages/slideclone-core/source-scene-measurement-cache');
+ const {createSceneMeasurementCache:create}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
  const cache=create(f.image,[],f.budget),declared={x:21,y:21,w:98,h:58},fit=cache.fill(declared);assert.ok(fit);
  const before={id:'declared-body',type:'freeform',box:fit.box,style:{fill:'#79A1DC',freeformSegments:rectangle()}};
  f.shapes.push(before);const seen=[];

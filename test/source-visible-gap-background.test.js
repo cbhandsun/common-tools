@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceVisibleGapBackground:background}=require('../packages/slideclone-core/source-visible-gap-background');
+const {sourceVisibleGapBackground:background}=require('../packages/slideclone-core/routing/source-visible-gap-background');
 function fixture(vertical=false){
  const width=vertical?25:40,height=vertical?40:25,rgba=Buffer.alloc(width*height*4,255),foreign=new Uint8Array(width*height);
  for(let a=0;a<3;a++)for(let c=0;c<25;c++){

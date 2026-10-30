@@ -1,36 +1,36 @@
 "use strict";
-const { attemptSourceResidual } = require("./residual-branch-result");
-const { assertUnverifiedRegionTextPreserved } = require("./screenshot-texture-evidence");
-const { canErasePreservedInteriorPath } = require("./residual-preserved-path");
+const { attemptSourceResidual, finalizeWithApprovedFrames, withApprovedBackdropBudget,finalizeNativeRouteRepresentations,commitNativeRouteMaterialization,parseNativeOutputPolicy,selectNativeOutputImages,groupSemanticNodes } = require("./native-rebuild-residual-stage");
+const { assertUnverifiedRegionTextPreserved } = require("./native-rebuild-residual-stage");
+const { canErasePreservedInteriorPath } = require("./native-rebuild-residual-stage");
 
 const fs = require("node:fs");
-const { createNativeRebuildCandidatePolicy } = require("./native-rebuild-candidate-policy");
+const { createNativeRebuildCandidatePolicy } = require("./quality/native-rebuild-candidate-policy");
 const { qualityRendered, visualQualityDoesNotRegress, rasterEditabilityDoesNotRegress, selectNativeRebuildCandidate, selectOcrRecovery, assessOcrRecovery, shouldStopOcrRecoverySearch } = createNativeRebuildCandidatePolicy({largeRasterEditability,nativeObjectMetrics});
 const path = require("node:path");
-const { detectSolidVisualFallbackRectangles } = require("./solid-region-evidence");
+const { detectSolidVisualFallbackRectangles } = require("./scene-plan/solid-region-evidence");
 const { cropPng, readPng, writePng } = require("./png");
-const { averageColor, colorDistance, maskBounds, pixel, pointInMask, pxToPtBox, rgbToHex, sampleMaskBackgroundColor } = require("./raster-native-detection");
-const { addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebuild } = require("./knowledge-graph-native");
-const { auditNativeComponentQuality } = require("./native-component-quality");
+const { averageColor, colorDistance, maskBounds, pixel, pointInMask, pxToPtBox, rgbToHex, sampleMaskBackgroundColor } = require("./scene-plan/raster-native-detection");
+const { addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebuild } = require("./native-rebuild-scene-stage");
+const { auditNativeComponentQuality } = require("./quality/native-component-quality");
 const { PRODUCTION_PROFILE_NAME, createProductionNativeRebuildOptions } = require("./native-rebuild-profile");
-const { compactTeamComponentEvidence } = require("./team-component-evidence");
-const { createDeclarativePipeline } = require("./declarative-rebuilder-pipeline");
-const { applySemanticFallbackPipeline } = require("./declarative-fallback-projection");
-const { semanticFallbackToPageContext } = require("./semantic-fallback-adapter");
-const { recoverMissingOcrText } = require("./ocr-crop-text-recovery");
-const { fitHighConfidenceSingleLineOcrToEvidence } = require("./text-box-micro-adjust");
-const { dropLineTextCoveredForegroundCrops, shouldDropLineTextCoveredForegroundCrop } = require("./page-output-rules");
-const { createLineTextNativeComponentObjects } = require("./line-text-native-components");
-const { refineSourceNativeEdges, reassignSourceNativeEdgeOwners } = require("./source-native-edge-refinement");
-const { refineGrayBorderResiduals } = require("./gray-border-residual");
-const { replaceResidualCropsWithNativeComponents } = require("./residual-crop-native-replacement");
-const { runSemanticRebuildTransaction } = require("./semantic-rebuild-transaction");
-const { finalizeSourceNativePage,ungroupSourceNativeOverlays } = require("./source-native-finalization");
-const {mapReviewedSceneGraphics,withReviewedGraphicEvidence}=require("./source-scene-reviewed-graphics");
+const { compactTeamComponentEvidence } = require("./archetypes/team-component-evidence");
+const { createDeclarativePipeline } = require("./native-rebuild-scene-stage");
+const { applySemanticFallbackPipeline } = require("./native-rebuild-scene-stage");
+const { semanticFallbackToPageContext } = require("./native-rebuild-scene-stage");
+const { recoverMissingOcrText } = require("./native-rebuild-ocr-stage");
+const { fitHighConfidenceSingleLineOcrToEvidence } = require("./native-rebuild-ocr-stage");
+const { dropLineTextCoveredForegroundCrops, shouldDropLineTextCoveredForegroundCrop } = require("./native-rebuild-ocr-stage");
+const { createLineTextNativeComponentObjects } = require("./native-rebuild-ocr-stage");
+const { refineSourceNativeEdges, reassignSourceNativeEdgeOwners } = require("./native-rebuild-residual-stage");
+const { refineGrayBorderResiduals } = require("./native-rebuild-residual-stage");
+const { replaceResidualCropsWithNativeComponents } = require("./native-rebuild-residual-stage");
+const { runSemanticRebuildTransaction } = require("./native-rebuild-scene-stage");
+const { finalizeSourceNativePage,ungroupSourceNativeOverlays } = require("./native-rebuild-residual-stage");
+const {mapReviewedSceneGraphics,withReviewedGraphicEvidence,captureSourceCropRegistrations,sealSceneInventoryRevisionDeck,sealSceneGlyphRecoveryDeck}=require("./native-rebuild-scene-stage");
 
-const { boundedOcrSourceDeck, correctContextualOcrLines, expandPositionedMixedColorTextSegments } = require("./ocr-source-deck");
-const { admitOcrResult } = require("./ocr-result-admission");
-const { applySourceWordLayouts, createSourceWordLayoutSession } = require("./source-word-layout-registry");
+const { boundedOcrSourceDeck, correctContextualOcrLines, expandPositionedMixedColorTextSegments } = require("./native-rebuild-ocr-stage");
+const { admitOcrResult } = require("./native-rebuild-ocr-stage");
+const { applySourceWordLayouts, createSourceWordLayoutSession } = require("./native-rebuild-ocr-stage");
 
 function nativeObjectMetrics(deck) {
   const totals = { shapes: 0, connectors: 0, textBoxes: 0, tables: 0, charts: 0, icons: 0, images: 0 };
@@ -588,10 +588,13 @@ function residualEraseObjects(page, options = {}) {
   for (const [collection, requireEditable] of [["textBoxes", false], ["shapes", true], ["tables", true], ["charts", true], ["icons", true]]) {
     for (const item of Array.isArray(page[collection]) ? page[collection] : []) {
       if (!item || typeof item !== "object" || Array.isArray(item) || (item.source?.preserveResidualInterior === true && item.source?.residualBackgroundFill !== true && !canErasePreservedInteriorPath(item)) || (requireEditable && item.source?.editable === false)) continue;
-      const envelope = collection === "textBoxes" ? require("./ocr-text-quadrilateral").rotatedTextEnvelope(item) : null;
+      const envelope = collection === "textBoxes" ? require("./ocr/ocr-text-quadrilateral").rotatedTextEnvelope(item) : null;
       const box = envelope || item.box;
       if (!box || !["x", "y", "w", "h"].every((key) => Number.isFinite(box[key]))) throw new Error("native image residual object is invalid");
-      const key = [item.type || collection, box.x, box.y, box.w, box.h].join(":");
+      // Freeform bounds do not identify their paint: a body, hollow outline
+      // and measured detail can share the same box but own different pixels.
+      // Keep each path's erasure; only the same object reference is redundant.
+      const key = item.type === "freeform" ? item : [item.type || collection, box.x, box.y, box.w, box.h].join(":");
       if (seen.has(key)) continue;
       seen.add(key);
       objects.push(envelope ? { ...item, box, rotation: 0 } : item);
@@ -1041,9 +1044,10 @@ function sameNativeTextBox(left = {}, right = {}) {
   return overlap / Math.max(1, minArea) >= 0.45;
 }
 
-function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageFile, refineSourceOcr, reviewSourceScene, compileSourceScene, preflightSourceScene, createFullSlideResidual, refineSemanticImages, admitSemanticShapes, restoreOcrGlyphs, refineGrayBorders, refineNativeEdges, resolveComponentIndexes, preserveLocalFidelityImages = false, createSemanticFallbackPipeline = createDeclarativePipeline } = {}) {
+function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageFile, refineSourceOcr, reviewSourceScene, compileSourceScene, preflightSourceScene, createFullSlideResidual, refineSemanticImages, admitSemanticShapes, restoreOcrGlyphs, refineGrayBorders, refineNativeEdges, resolveComponentIndexes, applyApprovedFrames, preserveLocalFidelityImages = false, connectorCornerMode, outputPolicy, createSemanticFallbackPipeline = createDeclarativePipeline } = {}) {
   if (typeof rebuildDeckFromWorkDir !== "function") throw new TypeError("native image rebuild implementation is required");
   if (resolveComponentIndexes !== undefined && typeof resolveComponentIndexes !== "function") throw new TypeError("native image component resolver is invalid");
+  if (applyApprovedFrames !== undefined && typeof applyApprovedFrames !== "function") throw new TypeError("native image approved frame service is invalid");
   if (normalizeImageFile !== undefined && typeof normalizeImageFile !== "function") throw new TypeError("native image normalizer is invalid");
   if (refineSourceOcr !== undefined && typeof refineSourceOcr !== "function") throw new TypeError("native image source OCR refiner is invalid");
   if (reviewSourceScene !== undefined && typeof reviewSourceScene !== "function") throw new TypeError("native image source scene reviewer is invalid");
@@ -1060,7 +1064,9 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
   if (restoreOcrGlyphs && createFullSlideResidual && !preserveLocalFidelityImages) throw new TypeError("native image OCR glyph restoration requires preserved local images");
   const nativeEdgeRefiner = refineNativeEdges || refineSourceNativeEdges;
   const grayBorderRefiner = refineGrayBorders || refineGrayBorderResiduals;
-  return async ({ root, metadata, ocr, isCancellationRequested, recoverOcrCropText = true, recoverOcrCropIds }) => {
+  connectorCornerMode = require("./routing/source-route-corner-mode").parseConnectorCornerMode(connectorCornerMode);
+  outputPolicy = parseNativeOutputPolicy(outputPolicy);
+  return async ({ root, metadata, ocr, isCancellationRequested, recoverOcrCropText = true, recoverOcrCropIds }) => withApprovedBackdropBudget(async () => {
     if (typeof root !== "string" || !path.isAbsolute(root) || !metadata || typeof metadata.inputFile !== "string") throw new TypeError("native image rebuild request is invalid");
     if (typeof recoverOcrCropText !== "boolean") throw new TypeError("native image OCR recovery policy is invalid");
     const workDir = path.join(root, "native-work");
@@ -1082,7 +1088,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
     const sceneReview = reviewSourceScene ? await reviewSourceScene({ root, sourceFile, dimensions: metadata.dimensions, ocr, isCancellationRequested,
       ...(preflightSourceScene?{preflightSourceScene:(plan,compilationSession)=>{
         const draft=boundedOcrSourceDeck({metadata,ocr,sourceImage:'normalized/001.png',sourceRaster,sourceWordSession:sourceWordSession.token});
-        return preflightSourceScene({page:draft.pages[0],plan,sourceFile,root,slideSize:draft.slideSize,pictorialMode:preserveLocalFidelityImages?"source-crop":"native",
+        return preflightSourceScene({page:draft.pages[0],plan,sourceFile,root,slideSize:draft.slideSize,connectorCornerMode,pictorialMode:preserveLocalFidelityImages?"source-crop":"native",
           ...(compilationSession!==undefined?{compilationSession}:{})});
       }}:{}) }) : null;
     if (sceneReview) ocr = sceneReview.ocr;
@@ -1102,14 +1108,15 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
         componentOptions[name] = components[name];
       }
     }
-    const generatedDeck = rebuildDeckFromWorkDir(workDir, {
+    const sourceCropCapture = captureSourceCropRegistrations(sourceRaster, root, sourceDeck.slideSize, () => rebuildDeckFromWorkDir(workDir, {
       ...createProductionNativeRebuildOptions(),
       ...componentOptions,
       pages: "1",
       irDir: root,
       assetDir: path.join(root, "assets"),
       deckName: "deck"
-    });
+    }));
+    const generatedDeck = sourceCropCapture.result;
     assertUnverifiedRegionTextPreserved(generatedDeck.pages[0], admittedSourceDeck.pages[0].textBoxes);
     if (sceneReview) generatedDeck.meta = { ...(generatedDeck.meta || {}), sourceSceneReview: sceneReview.evidence };
     applySemanticFallbackPipeline(generatedDeck.pages[0], semanticFallbackContext, createSemanticFallbackPipeline);
@@ -1227,21 +1234,24 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
     if (droppedLineTextCoveredSolidRegions > 0) {
       generatedDeck.meta = { ...(generatedDeck.meta || {}), droppedLineTextCoveredSolidRegions };
     }
-    let sceneGroupReceipt,sceneOpenOwnerReceipt;
+    let sceneGroupReceipt,sceneOpenOwnerReceipt,sceneNativeRouteReceipt;
     if (sceneReview?.plan && compileSourceScene) {
-      const compiled = compileSourceScene({ page: generatedDeck.pages[0], plan: sceneReview.plan, sourceFile, root, slideSize: generatedDeck.slideSize,pictorialMode:preserveLocalFidelityImages?"source-crop":"native",
+      const compiled = compileSourceScene({ page: generatedDeck.pages[0], plan: sceneReview.plan, sourceFile, root, slideSize: generatedDeck.slideSize,connectorCornerMode,deferNativeRoutes:connectorCornerMode==='reroutable-elbow',pictorialMode:preserveLocalFidelityImages?"source-crop":"native",sourceCropSession:sourceCropCapture.token,
+        ...(sceneReview.sourceIconReview!==undefined?{sourceIconReview:sceneReview.sourceIconReview}:{}),
+        ...(sceneReview.sourceRouteCatalogs!==undefined?{sourceRouteCatalogs:sceneReview.sourceRouteCatalogs}:{}),
         ...(sceneReview.compilationSession!==undefined?{compilationSession:sceneReview.compilationSession}:{}) });
       generatedDeck.pages[0] = compiled.page;
       sceneGroupReceipt=compiled.groupReceipt;
       sceneOpenOwnerReceipt=compiled.openOwnerReceipt;
+      sceneNativeRouteReceipt=compiled.nativeRouteReceipt;
       let compilationEvidence=compiled.evidence;
       if(compiled.evidence.observedInventory){
-        const inventory=require('./source-scene-inventory-artifact').writeSceneInventoryArtifact(root,compiled.evidence.observedInventory);
+        const inventory=require('./scene-plan/source-scene-inventory-artifact').writeSceneInventoryArtifact(root,compiled.evidence.observedInventory);
         compilationEvidence={regions:compiled.evidence.regions,relations:compiled.evidence.relations,resolvedRelations:compiled.evidence.resolvedRelations,
           unresolved:compiled.evidence.unresolved,regionPrograms:compiled.evidence.regionPrograms,sourceScanPixels:compiled.evidence.sourceScanPixels,
           observedInventory:inventory,details:'pages[0].source.sourceScene'};
         const source=generatedDeck.pages[0].source;
-        const packed=require('./source-scene-inventory-codec').packSceneInventoryMembers(compiled.evidence.observedInventory);
+        const packed=require('./scene-plan/source-scene-inventory-codec').packSceneInventoryMembers(compiled.evidence.observedInventory);
         generatedDeck.pages[0]={...generatedDeck.pages[0],source:{...source,sourceScene:{...source.sourceScene,observedInventory:packed}}};
       }
       generatedDeck.meta = { ...generatedDeck.meta, sourceSceneCompilation: compilationEvidence };
@@ -1267,6 +1277,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
         sourceFile,
         outputFile: path.join(root, ...residualAssetPath.split("/")),
         objects: eraseObjects,
+        sourceShapes: page.shapes,
         slideSize: { x: 0, y: 0, w: slideSize.widthPt, h: slideSize.heightPt },
         isCancellationRequested
       }));
@@ -1314,7 +1325,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
     // Private region receipts bind the complete paint order. Consume them
     // before adding an independently witnessed page background; the background
     // grants no authority to change that sealed region or erase its source.
-    const sourceBands = require('./source-text-band-background').proposeSourceTextBandBackgrounds({
+    const sourceBands = require('./typography/source-text-band-background').proposeSourceTextBandBackgrounds({
       image: readPng(sourceFile), slideSize: generatedDeck.slideSize, shapes: generatedDeck.pages[0].shapes
     });
     if (sourceBands.backgrounds.length) generatedDeck.pages[0].shapes.unshift(...sourceBands.backgrounds);
@@ -1348,11 +1359,32 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
     // layout even though the source image and text have not changed.
     normalizeSourceAssetProvenance(generatedDeck, metadata.assetPath);
     compactTeamComponentEvidence(generatedDeck);
+    return finalizeWithApprovedFrames(applyApprovedFrames, { deck: generatedDeck, root, sourceFile, isCancellationRequested, connectorCornerMode }, () => {
+    const nativeRoutes=finalizeNativeRouteRepresentations({page:generatedDeck.pages[0],slideSize:generatedDeck.slideSize,connectorCornerMode,
+      receipt:sceneNativeRouteReceipt,work:{checks:0}});
+    // Approved materializations bind the actual page identity through commit.
+    generatedDeck.pages[0].shapes=nativeRoutes.page.shapes;
+    if(nativeRoutes.page.source!==undefined)generatedDeck.pages[0].source=nativeRoutes.page.source;
+    generatedDeck.meta={...generatedDeck.meta,nativeRouteSelection:nativeRoutes.report};
+    // Image selection audits the same private measured replacement as the final
+    // component gate. Bind it first; the gate revalidates after final sealing.
+    commitNativeRouteMaterialization({deck:generatedDeck,receipt:nativeRoutes.materializationReceipt});
+    const selectedOutput=selectNativeOutputImages(generatedDeck,outputPolicy);
+    if(selectedOutput){
+      generatedDeck.pages[0].images=selectedOutput.images;
+      generatedDeck.meta={...generatedDeck.meta,nativeOutputSelection:selectedOutput.report};
+      const nodeGroups=groupSemanticNodes({page:generatedDeck.pages[0],work:{checks:0}});
+      if(nodeGroups.page.outputEditGroups!==undefined)generatedDeck.pages[0].outputEditGroups=nodeGroups.page.outputEditGroups;
+      generatedDeck.meta={...generatedDeck.meta,semanticNodeEditGrouping:nodeGroups.report};
+    }
+    sealSceneInventoryRevisionDeck(generatedDeck,root);
+    sealSceneGlyphRecoveryDeck(generatedDeck);
     const nativeComponentQuality = auditNativeComponentQuality(generatedDeck);
     generatedDeck.meta = { ...(generatedDeck.meta || {}), nativeComponentQuality };
     const metrics = nativeObjectMetrics(generatedDeck);
     return Object.freeze({ deck: generatedDeck, metrics, sourceImage: sourceFile, residual: generatedDeck.meta?.residualDeduplication || null, reconstructionProfile: PRODUCTION_PROFILE_NAME, nativeComponentQuality, ocrCropRecovery: { sourceLines: admittedSourceDeck.meta.ocrAdmission.editableLines, ...ocrCropRecovery } });
-  };
+    });
+  });
 }
 
 function expandVisiblePositionedMixedColorTextSegments(page = {}) {

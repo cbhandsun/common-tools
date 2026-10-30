@@ -1,11 +1,11 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {sampleAtomInteriorFill,sampleAtomInteriorFillSeeds}=require("../packages/slideclone-core/visual-atom-interior-fill");
-const {flowNodeShape}=require("../packages/slideclone-core/relationship-native-shapes");
+const {sampleAtomInteriorFill,sampleAtomInteriorFillSeeds}=require("../packages/slideclone-core/scene-plan/visual-atom-interior-fill");
+const {flowNodeShape}=require("../packages/slideclone-core/archetypes/relationship-native-shapes");
 function raster(color){const rgba=Buffer.alloc(100*100*4);for(let i=0;i<rgba.length;i+=4)rgba.set([...color,255],i);return {width:100,height:100,rgba};}
 
 test("OCR rectangles do not hide a locally uniform background seed or authorize its physical body",()=>{
- const {measureSceneContainer}=require("../packages/slideclone-core/source-scene-container");
+ const {measureSceneContainer}=require("../packages/slideclone-core/scene-plan/source-scene-container");
  const image=raster([255,255,255]),hint={x:15,y:20,w:70,h:60};
  for(let y=20;y<80;y++)for(let x=15;x<85;x++)image.rgba.set([120,220,160,255],(y*100+x)*4);
  for(let y=35;y<65;y++)for(let x=25;x<75;x++)if(x%12<4)image.rgba.set([0,0,0,255],(y*100+x)*4);

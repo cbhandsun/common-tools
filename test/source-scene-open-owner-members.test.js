@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {observeOpenScenePaint}=require('../packages/slideclone-core/source-scene-open-paint');
-const {observeOpenSceneOwnerMembers:observe,retainedOpenSceneOwnerMembers:retained}=require('../packages/slideclone-core/source-scene-open-owner-members');
-const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');
-const {hasMeasuredScenePortFrame,measuredSceneOpaqueSurface}=require('../packages/slideclone-core/source-scene-port-evidence');
+const {observeOpenScenePaint}=require('../packages/slideclone-core/scene-plan/source-scene-open-paint');
+const {observeOpenSceneOwnerMembers:observe,retainedOpenSceneOwnerMembers:retained}=require('../packages/slideclone-core/scene-plan/source-scene-open-owner-members');
+const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');
+const {hasMeasuredScenePortFrame,measuredSceneOpaqueSurface}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
 function fixture(){
  const image={width:64,height:64,rgba:Buffer.alloc(64*64*4)};
  for(let i=0;i<64*64;i++)image.rgba.set([245,249,255,255],i*4);
@@ -92,7 +92,7 @@ test('recovered unlisted drawables and unrelated overlapping paint stay sealed a
 });
 
 test('literal source additions require private source receipts and exact final native members',()=>{
- const {observeSceneLiteralPaint}=require('../packages/slideclone-core/source-scene-literal-paint');
+ const {observeSceneLiteralPaint}=require('../packages/slideclone-core/scene-plan/source-scene-literal-paint');
  for(const mode of ['valid','copied','missing','changed','hostile']){
   const f=fixture(),literal=observeSceneLiteralPaint({id:'extra-paint',image:f.image,window:{x:0,y:0,w:64,h:64},cells:new Set([30*64+30]),budget:{used:0},slideSize:f.slideSize});
   assert.equal(literal.failure,null);f.page.shapes.push(...literal.parts);f.literalPaint={receipt:literal.receipt,parts:literal.parts};

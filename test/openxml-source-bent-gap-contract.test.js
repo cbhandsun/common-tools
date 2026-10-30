@@ -2,9 +2,9 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {fixture}=require('./helpers/source-bent-gap.cjs');
-const {measureSourceSceneVisibleGap}=require('../packages/slideclone-core/source-scene-visible-gap');
-const {compileSourceSceneVisibleGap}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
-const {buildOpenXmlDecksSync}=require('../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet');
+const {measureSourceSceneVisibleGap}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+const {compileSourceSceneVisibleGap}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
+const {buildOpenXmlDecksSync}=require('../packages/slideclone-core/pptx-openxml-dotnet');
 const {readZipEntryText}=require('../packages/ooxml-core/pptx-zip');
 test('source-proven elbow exports real Office attachments to actual text shapes in every quadrant',{timeout:120000},()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'source-bent-gap-contract-')),pages=[];

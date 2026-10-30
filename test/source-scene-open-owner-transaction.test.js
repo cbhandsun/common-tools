@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {completeOpenSceneOwners:complete,retainedOpenSceneOwnerTransaction:retained}=require('../packages/slideclone-core/source-scene-open-owner-transaction');
-const {prepareSceneSourceMeasurements}=require('../packages/slideclone-core/source-scene-source-controls');
+const {completeOpenSceneOwners:complete,retainedOpenSceneOwnerTransaction:retained}=require('../packages/slideclone-core/scene-plan/source-scene-open-owner-transaction');
+const {prepareSceneSourceMeasurements}=require('../packages/slideclone-core/scene-plan/source-scene-source-controls');
 function fixture(){
  const image={width:64,height:64,rgba:Buffer.alloc(64*64*4)},slideSize={widthPt:64,heightPt:64},budget={used:0};
  for(let i=0;i<64*64;i++)image.rgba.set([245,249,255,255],i*4);
@@ -90,7 +90,7 @@ test('production reconstruction consumes the complete owner seal before composin
  assert.ok(result.deck.pages[0].shapes.some(s=>s.source?.detector==='source-scene-open-paint'&&s.source.nativeComponentRole));
 });
 test('legacy overlay cleanup retains the complete private open owner and rejects stale or forged tokens before mutation',()=>{
- const {ungroupSourceNativeOverlays}=require('../packages/slideclone-core/source-native-finalization');
+ const {ungroupSourceNativeOverlays}=require('../packages/slideclone-core/scene-plan/source-native-finalization');
  const f=fixture(),result=complete(f);assert.equal(result.failure,null);
  const paint=result.page.shapes.find(s=>s.source?.detector==='source-scene-open-paint');
  assert.ok(paint);const role=paint.source.nativeComponentRole;

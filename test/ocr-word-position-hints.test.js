@@ -1,9 +1,9 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
-const { admitOcrWordPositionHints } = require("../packages/slideclone-core/ocr-word-position-hints");
-const { admitOcrResult } = require("../packages/slideclone-core/ocr-result-admission");
-const { detectMixedColorTextSegments } = require("../packages/slideclone-core/ocr-source-deck");
-const { correctContextualOcrLines } = require("../packages/slideclone-core/ocr-source-deck");
+const { admitOcrWordPositionHints } = require("../packages/slideclone-core/ocr/ocr-word-position-hints");
+const { admitOcrResult } = require("../packages/slideclone-core/ocr/ocr-result-admission");
+const { detectMixedColorTextSegments } = require("../packages/slideclone-core/ocr/ocr-source-deck");
+const { correctContextualOcrLines } = require("../packages/slideclone-core/ocr/ocr-source-deck");
 const { normalizeOcrItems } = require("../packages/slideclone-native-engine/scripts/lib/ocr-result-contract");
 const line = { text: "AAAABBBB", confidence: .98, box: { x: 10, y: 5, w: 100, h: 20 } };
 const hints = [{ text: "AAAA", box: { x: 10, y: 5, w: 80, h: 20 } }, { text: "BBBB", box: { x: 90, y: 5, w: 20, h: 20 } }];
@@ -12,7 +12,7 @@ test("initial OCR word positions survive normalization and core snapshot without
   const item = normalizeOcrItems([{ ...line, polygon, wordPositionHints: hints }], { imageWidth: 120, imageHeight: 30 })[0];
   const admitted = admitOcrResult({ lines: [{ ...item, box: line.box }] }, { widthPx: 120, heightPx: 30 }).lines[0];
   assert.deepEqual(admitted.wordPositionHints, hints);
-  const pinned=require("../packages/slideclone-core/team-paddleocr-profile").normalizeLines([{...line,polygon,wordPositionHints:hints}],{widthPx:120,heightPx:30});
+  const pinned=require("../packages/slideclone-core/ocr/team-paddleocr-profile").normalizeLines([{...line,polygon,wordPositionHints:hints}],{widthPx:120,heightPx:30});
   assert.deepEqual(pinned.lines[0].wordPositionHints,hints);
   assert.ok(Object.isFrozen(admitted.wordPositionHints[0].box));
   assert.equal(admitted.glyphOwnership, undefined);

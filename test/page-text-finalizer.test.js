@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { fixture } = require("./helpers/page-text-fixture.cjs");
-const { createPageTextFinalizer } = require("../packages/slideclone-core/page-text-finalizer");
+const { createPageTextFinalizer } = require("../packages/slideclone-core/typography/page-text-finalizer");
 
 test("final text stage preserves producer order, references and ownership metadata", () => {
   const f = fixture();

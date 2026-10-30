@@ -2,13 +2,50 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {sourceSharedTreeFixture,sourceSharedGapTreeFixture}=require('./helpers/source-shared-tree.cjs');
 const {writePng}=require('../packages/slideclone-core/png');
-const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
-const {auditSceneInventory}=require('../packages/slideclone-core/source-scene-observed-inventory');
-const {packSceneInventoryMembers}=require('../packages/slideclone-core/source-scene-inventory-codec');
-const {writeSceneInventoryArtifact}=require('../packages/slideclone-core/source-scene-inventory-artifact');
-const {SCENE_LOGICAL_RELATION_PROMPT,SCENE_PROGRAM_PROMPT}=require('../packages/slideclone-core/source-scene-program-prompt');
-const {sourceSceneLocalPrompt}=require('../packages/slideclone-core/source-scene-local-prompt');
+const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+const {auditSceneInventory}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
+const {packSceneInventoryMembers}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-codec');
+const {writeSceneInventoryArtifact}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-artifact');
+const {SCENE_LOGICAL_RELATION_PROMPT,SCENE_PROGRAM_PROMPT}=require('../packages/slideclone-core/scene-plan/source-scene-program-prompt');
+const {sourceSceneLocalPrompt}=require('../packages/slideclone-core/scene-plan/source-scene-local-prompt');
+const {survivingSharedSceneRoutes}=require('../packages/slideclone-core/scene-plan/source-scene-shared-route-inventory');
+
+function assertWholeLogicalOutput(compiled,plan){
+ const inventory=compiled.evidence.observedInventory,graph=inventory.sharedRouteGraphs[0],shapes=compiled.page.shapes;
+ assert.equal(graph.rendering,'whole-native-paths-v1');assert.equal(graph.renderedPaths.length,2);
+ // Source identity still records the shared trunk, while output retires it
+ // in favor of complete logical connectors. Never restore fragmented paint
+ // merely to satisfy the obsolete output-member contract.
+ const common=graph.paths[0].edges.find(a=>graph.paths[1].edges.some(b=>a.id===b.id));assert.ok(common);
+ const trunk=graph.edges.find(edge=>edge.id===common.id);assert.ok(trunk);
+ assert.equal(shapes.filter(shape=>shape.id===trunk.memberId).length,0);
+ const packed=packSceneInventoryMembers(inventory);
+ const survivors=items=>survivingSharedSceneRoutes([graph],items,[],inventory.units,inventory.endpointBindings??[],compiled.page.textBoxes);
+ assert.equal(survivors(shapes).size,2);
+ const memberIds=new Set();
+ for(const rendered of graph.renderedPaths){
+  assert.ok(!memberIds.has(rendered.memberId));memberIds.add(rendered.memberId);
+  const rows=shapes.filter(s=>s.id===rendered.memberId);assert.equal(rows.length,1);
+  const shape=rows[0],relation=plan.relations.find(r=>r.id===rendered.relationId);assert.ok(relation);
+  assert.equal(shape.type,'line');assert.equal(shape.style.fill,'none');
+  assert.ok(shape.style.connectorType===undefined||/^elbow-[3-5]$/u.test(shape.style.connectorType));
+  assert.equal(shape.source.sceneRelationId,relation.id);
+  assert.equal(shapes.filter(s=>s.source?.sceneRelationId===relation.id).length,1);
+  assert.equal(shape.style.startAnchor.elementId,graph.nodes.find(n=>n.endpointId===relation.fromId).nativeId);
+  assert.equal(shape.style.endAnchor.elementId,graph.nodes.find(n=>n.endpointId===relation.toId).nativeId);
+  assert.equal(shape.style.startArrow==='triangle',['backward','both'].includes(relation.direction));
+  assert.equal(shape.style.endArrow==='triangle',['forward','both'].includes(relation.direction));
+  const missing=shapes.filter(s=>s.id!==shape.id);
+  assert.equal(survivors(missing).has(relation.id),false);
+  assert.ok(auditSceneInventory(packed,missing,[],plan.sourceHash,[]).some(r=>r.kind==='relations'&&r.reason==='compile-missing'));
+  const changed=structuredClone(shapes),wrong=changed.find(s=>s.id===shape.id);
+  wrong.style.endAnchor.elementId=wrong.style.startAnchor.elementId;
+  assert.equal(survivors(changed).has(relation.id),false,'wrong endpoints cannot retain the relation');
+ }
+ assert.ok(auditSceneInventory(packed,shapes.filter(s=>!memberIds.has(s.id)),[],plan.sourceHash,[])
+  .some(r=>r.kind==='relations'&&r.reason==='compile-missing'&&r.count===2));
+}
 function packedTree(f){
  const box=b=>[b.y/f.image.height*1000,b.x/f.image.width*1000,(b.y+b.h)/f.image.height*1000,(b.x+b.w)/f.image.width*1000].map(Math.round);
  return {format:'packed-v1',relationObservationUnit:'logical-relations-v1',
@@ -47,11 +84,7 @@ for(const [name,factory]of [['physical',sourceSharedTreeFixture],['logical-gap',
   assert.equal(inventory.version,5);assert.deepEqual(auditSceneInventory(packed,compiled.page.shapes,compiled.page.images,reviewed.plan.sourceHash,[]),[]);
   const artifact=writeSceneInventoryArtifact(root,inventory),saved=JSON.parse(fs.readFileSync(path.join(root,artifact.assetPath),'utf8'));
   assert.equal(saved.relationObservationUnit,'logical-relations-v1');assert.deepEqual(saved.sharedRouteGraphs,inventory.sharedRouteGraphs);
-  const graph=inventory.sharedRouteGraphs[0],common=graph.paths[0].edges.find(a=>graph.paths[1].edges.some(b=>a.id===b.id));assert.ok(common);
-  const trunk=graph.edges.find(edge=>edge.id===common.id).memberId;
-  assert.equal(compiled.page.shapes.filter(shape=>shape.id===trunk).length,1);
-  assert.ok(auditSceneInventory(packed,compiled.page.shapes.filter(shape=>shape.id!==trunk),[],reviewed.plan.sourceHash,[])
-   .some(row=>row.kind==='relations'&&row.reason==='compile-missing'&&row.count===2));
+  assertWholeLogicalOutput(compiled,reviewed.plan);
  });
 
 test('global compact and bounded local contracts agree while legacy local plans retain their original meaning',()=>{
@@ -86,9 +119,6 @@ for(const [name,factory]of [['physical',sourceSharedTreeFixture],['logical-gap',
   assert.equal(output.evidence.sharedRoutes.graphs,valid?1:0);
   if(valid){
    const inventory=output.evidence.observedInventory;assert.deepEqual(auditSceneInventory(packSceneInventoryMembers(inventory),output.page.shapes,[],reviewed.plan.sourceHash,[]),[]);
-   const graph=inventory.sharedRouteGraphs[0],common=graph.paths[0].edges.find(ref=>graph.paths[1].edges.some(other=>other.id===ref.id));assert.ok(common);
-   const trunk=graph.edges.find(edge=>edge.id===common.id).memberId;assert.equal(output.page.shapes.filter(s=>s.id===trunk).length,1);
-   assert.ok(auditSceneInventory(inventory,output.page.shapes.filter(s=>s.id!==trunk),[],reviewed.plan.sourceHash,[])
-    .some(row=>row.kind==='relations'&&row.count===2));
+   assertWholeLogicalOutput(output,reviewed.plan);
   }else assert.equal(output.evidence.sharedRoutes.rejected[0].reason,'shared-path-program');
  });

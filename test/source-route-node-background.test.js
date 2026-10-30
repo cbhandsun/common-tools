@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRouteNodeBackground:measure}=require('../packages/slideclone-core/source-route-node-background');
-const {sourceRouteLocalBackground}=require('../packages/slideclone-core/source-route-local-background');
+const {sourceRouteNodeBackground:measure}=require('../packages/slideclone-core/routing/source-route-node-background');
+const {sourceRouteLocalBackground}=require('../packages/slideclone-core/routing/source-route-local-background');
 function fixture(){
  const image={width:48,height:32,rgba:Buffer.alloc(48*32*4,255)},mask=new Uint8Array(48*32);
  const put=(x,y,rgb)=>image.rgba.set([...rgb,255],(y*48+x)*4);
@@ -16,6 +16,14 @@ test('a source body inside a multi-node window can independently certify its own
  const at=measure(f);assert.deepEqual(at(5*48+20),[255,205,185]);
  assert.deepEqual(at(30*48+20),f.background);assert.deepEqual(at(5*48+7),f.background);assert.deepEqual(at(5*48+32),f.background);
  assert.deepEqual(f.image.rgba,before);assert.deepEqual(f.bodies[0].mask,mask);assert.ok(f.work.checks<=4000000);
+});
+
+test('a bounded remaining ledger completes node background observation without duplicating the source window',()=>{
+ const f=fixture();f.work.checks=3998000;
+ const at=measure(f);
+ assert.deepEqual(at(5*48+20),[255,205,185]);
+ assert.deepEqual(at(30*48+20),f.background);
+ assert.ok(f.work.checks<=4000000,'the original shared budget must cover measurement and queries');
 });
 test('unknown anchors, sharp branches, transparent flanks and clipped gradients grant no local background',()=>{
  for(const change of [
@@ -76,5 +84,5 @@ test('malformed, extreme and executable inputs fail without reading provider acc
  const b=fixture();b.bodies[0].mask=new Proxy(new Uint8Array(48*32),{get:trap});assert.throws(()=>measure(b),TypeError);
  assert.throws(()=>measure(new Proxy({}, {get:trap})),TypeError);assert.equal(reads,0);
  const suites=require('../scripts/test-suites'),runtime=require('../scripts/verify-runtime-package');
- assert.equal(suites.includesSuite(__filename,'unit'),true);assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-route-node-background.js'));
+ assert.equal(suites.includesSuite(__filename,'unit'),true);assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/routing/source-route-node-background.js'));
 });

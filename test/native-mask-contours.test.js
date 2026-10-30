@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { traceNativeMaskContours } = require("../packages/slideclone-core/native-mask-contours");
+const { traceNativeMaskContours } = require("../packages/slideclone-core/scene-plan/native-mask-contours");
 
 test("native mask simplification fits a long continuous bent stroke within the unchanged segment and pixel-error budgets", () => {
   const pixels = [];

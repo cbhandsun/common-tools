@@ -6,8 +6,8 @@ const path = require("node:path");
 const { types } = require("node:util");
 const { validateDeckPageStructures } = require("./deck-ir-structure");
 const { validateDeckIrEnvelope } = require("./deck-ir-tree");
-const { validateDeckNativeChartPayloads } = require("./chart-native-payload");
-const { validateReconstructionContracts } = require("./reconstruction-contract-validation");
+const { validateDeckNativeChartPayloads } = require("./archetypes/chart-native-payload");
+const { validateReconstructionContracts } = require("./quality/reconstruction-contract-validation");
 
 /** @param {unknown} value */
 function safeAssetPath(value) {

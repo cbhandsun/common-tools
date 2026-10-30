@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {proposeSourceTextBandBackgrounds:propose}=require('../packages/slideclone-core/source-text-band-background');
-const {eraseObjectMask}=require('../packages/slideclone-core/full-slide-native-residual');
-const {eraseMasks}=require('../packages/slideclone-core/residual-primitive-erasure');
+const {proposeSourceTextBandBackgrounds:propose}=require('../packages/slideclone-core/typography/source-text-band-background');
+const {eraseObjectMask}=require('../packages/slideclone-core/archetypes/full-slide-native-residual');
+const {eraseMasks}=require('../packages/slideclone-core/scene-plan/residual-primitive-erasure');
 function fixture(){
  const width=160,height=200,rgba=Buffer.alloc(width*height*4,255);
  for(let y=190;y<200;y++)for(let x=0;x<width;x++)rgba.set([34,68,102,255],(y*width+x)*4);

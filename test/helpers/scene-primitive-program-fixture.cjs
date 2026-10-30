@@ -1,7 +1,7 @@
 'use strict';
-const {parsePrimitiveCandidate}=require('../../packages/slideclone-core/source-scene-primitive-candidate');
-const {primitiveProgramPaths,pathDistance}=require('../../packages/slideclone-core/source-scene-primitive-paths');
-const {insidePolygon}=require('../../packages/slideclone-core/source-scene-band-geometry');
+const {parsePrimitiveCandidate}=require('../../packages/slideclone-core/scene-plan/source-scene-primitive-candidate');
+const {primitiveProgramPaths,pathDistance}=require('../../packages/slideclone-core/scene-plan/source-scene-primitive-paths');
+const {insidePolygon}=require('../../packages/slideclone-core/scene-plan/source-scene-band-geometry');
 function primitiveImage(kind='cylinder',options={}) {
  const dimensions=options.dimensions??{width:360,height:200};
  const image={...dimensions,rgba:Buffer.alloc(dimensions.width*dimensions.height*4,255)};

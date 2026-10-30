@@ -1,8 +1,8 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { fitPanelFromConnectedColorRegion } = require("../packages/slideclone-core/line-text-native-analysis");
-const { createLineTextNativeComponentObjects } = require("../packages/slideclone-core/line-text-native-components");
+const { fitPanelFromConnectedColorRegion } = require("../packages/slideclone-core/typography/line-text-native-analysis");
+const { createLineTextNativeComponentObjects } = require("../packages/slideclone-core/typography/line-text-native-components");
 
 function raster(width = 320, height = 200) {
   return { width, height, rgba: Buffer.alloc(width * height * 4, 255) };

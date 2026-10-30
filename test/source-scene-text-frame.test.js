@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {writePng}=require('../packages/slideclone-core/png');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
-const {sourceSceneTextBoxes}=require('../packages/slideclone-core/source-scene-text-frame');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+const {sourceSceneTextBoxes}=require('../packages/slideclone-core/scene-plan/source-scene-text-frame');
 
 test('source frames preserve original evidence, keep legacy controls, and never mutate output typography',()=>{
  const image={width:400,height:300},size={widthPt:200,heightPt:150};

@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
 const test = require("node:test");
 const fs = require("node:fs");
-const { runProcess } = require("../../packages/slideclone-core/team-ocr-profile");
+const { runProcess } = require("../../packages/slideclone-core/ocr/team-ocr-profile");
 const { run: runRenderer } = require("../../packages/slideclone-core/renderer-process");
 
 assert.equal(process.platform, "linux", "Run this Linux signal gate in Linux CI or a Linux container");

@@ -2,8 +2,8 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { understandDiagramLayer } = require("../packages/slideclone-core/diagram-understanding");
-const { readinessFor, scoreUnderstanding } = require("../packages/slideclone-core/diagram-metrics");
+const { understandDiagramLayer } = require("../packages/slideclone-core/archetypes/diagram-understanding");
+const { readinessFor, scoreUnderstanding } = require("../packages/slideclone-core/quality/diagram-metrics");
 
 function flowFixture({ scale = 1, dx = 0, dy = 0, labels = ["First", "Second", "Third"] } = {}) {
   const box = (x, y, w, h) => ({ x: x * scale + dx, y: y * scale + dy, w: w * scale, h: h * scale });

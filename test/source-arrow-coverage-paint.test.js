@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceArrowCoveragePaint:measure}=require('../packages/slideclone-core/source-arrow-coverage-paint');
+const {sourceArrowCoveragePaint:measure}=require('../packages/slideclone-core/routing/source-arrow-coverage-paint');
 function fixture(){
  const body=Array.from({length:8},()=>[[20,50,80],[30,60,90]]);
  const terminal=Array.from({length:6},()=>[[3,33,63],[120,140,160]]);
@@ -41,7 +41,7 @@ test('all trials share the work ledger and exhaustion cannot return partial supp
 });
 test('actual JPEG arrow preserves complete geometry and both independent directional terminals',()=>{
  const path=require('node:path'),{readPng}=require('../packages/slideclone-core/png');
- const {sourceVisibleGapProfile:profile}=require('../packages/slideclone-core/source-visible-gap-profile');
+ const {sourceVisibleGapProfile:profile}=require('../packages/slideclone-core/routing/source-visible-gap-profile');
  const source=readPng(path.join(__dirname,'fixtures/source-short-arrow-jpeg.png'));
  for(const vertical of [false,true]){
   const width=vertical?source.height:source.width,height=vertical?source.width:source.height,rgba=Buffer.alloc(width*height*4);

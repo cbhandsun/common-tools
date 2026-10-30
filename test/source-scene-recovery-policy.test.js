@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {sourceSceneRecoveryState,sourceSceneRejectedTupleShapes}=require('../packages/slideclone-core/source-scene-recovery-policy');
+const {admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {sourceSceneRecoveryState,sourceSceneRejectedTupleShapes}=require('../packages/slideclone-core/scene-plan/source-scene-recovery-policy');
 const source={sourceHash:'a'.repeat(64),widthPx:100,heightPx:100,labelRefs:[]};
 function proposal(){return {format:'compact-v6',coordinateSpace:'normalized-1000',boxFormat:'ymin-xmin-ymax-xmax',
  regions:[['root',null,'diagram',[0,0,1000,1000]]],inventory:[['root',2,0,1]],

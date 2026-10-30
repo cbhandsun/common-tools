@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {runPairedSceneReview}=require('../packages/slideclone-core/source-scene-paired-review');
+const {runPairedSceneReview}=require('../packages/slideclone-core/scene-plan/source-scene-paired-review');
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};};
 const base=work=>({work,isCancellationRequested:async()=>false,verifySource:()=>{}});
 

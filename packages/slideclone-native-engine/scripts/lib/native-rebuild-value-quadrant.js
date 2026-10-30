@@ -1,12 +1,13 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
 const path = require("path");
-const { normalizeTextKey } = require("@common-tools/slideclone-core/diagram-label-matching");
-const { safeComponentToken } = require("@common-tools/slideclone-core/diagram-residual-crops");
-const { DEFAULT_SLIDE } = require("@common-tools/slideclone-core/page-text-rule-helpers");
+const { normalizeTextKey } = core("@common-tools/slideclone-core/archetypes/diagram-label-matching");
+const { safeComponentToken } = core("@common-tools/slideclone-core/archetypes/diagram-residual-crops");
+const { DEFAULT_SLIDE } = core("@common-tools/slideclone-core/typography/page-text-rule-helpers");
 const {
   ensureDir
-} = require("@common-tools/slideclone-core/residual-primitive-erasure");
+} = core("@common-tools/slideclone-core/scene-plan/residual-primitive-erasure");
 const {
   boxCenterInside,
   boxesNearPt,
@@ -16,8 +17,8 @@ const {
   ptToPxBox,
   pxToPtBox,
   round
-} = require("@common-tools/slideclone-core/raster-native-detection");
-const { lineBox, safeIdentifier } = require("@common-tools/slideclone-core/workflow-shape-primitives");
+} = core("@common-tools/slideclone-core/scene-plan/raster-native-detection");
+const { lineBox, safeIdentifier } = core("@common-tools/slideclone-core/archetypes/workflow-shape-primitives");
 const { cropPng, writePng } = require("./png");
 
 function createValueQuadrantShapes(images = [], textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE) {

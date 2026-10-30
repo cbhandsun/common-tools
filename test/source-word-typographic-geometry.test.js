@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {measureSourceWordTypographicGeometry:measure}=require("../packages/slideclone-core/source-word-typographic-geometry");
+const {measureSourceWordTypographicGeometry:measure}=require("../packages/slideclone-core/typography/source-word-typographic-geometry");
 function fixture(){
  const width=16,height=16,ink=new Uint8Array(width*height),rgba=new Uint8Array(width*height*4).fill(255);
  for(let y=3;y<13;y++)for(let x=3;x<13;x++){const n=y*width+x,edge=x===3||x===12||y===3||y===12;ink[n]=1;rgba.set(edge?[195,195,195,255]:[15,15,15,255],n*4);}

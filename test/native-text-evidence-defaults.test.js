@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {compactNativeTextEvidenceDefaults:compact}=require("../packages/slideclone-core/native-text-evidence-defaults");
+const {compactNativeTextEvidenceDefaults:compact}=require("../packages/slideclone-core/typography/native-text-evidence-defaults");
 const bounds={x:20,y:20,w:40,h:10};
 function text(){return {text:"visible",box:{...bounds},font:{family:"Arial",latinFamily:"Arial",eastAsianFamily:"Arial",complexScriptFamily:"Arial",align:"left"},
   source:{evidenceBox:{...bounds},ocrLabelBox:{...bounds},ocrLabelRef:"label-source",confidence:.9},
@@ -59,8 +59,8 @@ test("hostile, sparse, oversized and immutable controls fail atomically without 
 });
 
 test("region label identity and proposals consume the canonical envelope after compaction",()=>{
-  const {sourceLabelIdentity}=require("../packages/slideclone-core/source-label-identity");
-  const {prepareRegionProgramLabels}=require("../packages/slideclone-core/source-scene-region-program");
+  const {sourceLabelIdentity}=require("../packages/slideclone-core/scene-plan/source-label-identity");
+  const {prepareRegionProgramLabels}=require("../packages/slideclone-core/scene-plan/source-scene-region-program");
   const ref=sourceLabelIdentity(bounds,{widthPx:100,heightPx:100}),value=text();value.source.ocrLabelRef=ref;
   const plan={version:1,sourceHash:"a".repeat(64),widthPx:100,heightPx:100,
     regions:[{id:"region-root",parentId:null,kind:"section",box:{x:0,y:0,w:100,h:100}}],objects:[],relations:[],
@@ -72,11 +72,11 @@ test("region label identity and proposals consume the canonical envelope after c
 });
 
 test("unified compaction, package admission and CI include the canonical text contract",()=>{
-  const {compactTeamComponentEvidence}=require("../packages/slideclone-core/team-component-evidence");
+  const {compactTeamComponentEvidence}=require("../packages/slideclone-core/archetypes/team-component-evidence");
   const input=deck(text());compactTeamComponentEvidence(input);
   assert.equal(input.pages[0].textBoxes[0].source.ocrLabelBox,undefined);
   const {REQUIRED_FILES}=require("../scripts/verify-runtime-package");
-  assert(REQUIRED_FILES.includes("packages/slideclone-core/native-text-evidence-defaults.js"));
+  assert(REQUIRED_FILES.includes("packages/slideclone-core/typography/native-text-evidence-defaults.js"));
   const {includesSuite}=require("../scripts/test-suites");
   assert.equal(includesSuite(__filename,"all"),true);
 });

@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parseLocalTargets,localResponseFormat,decodeLocalResponse}=require('../packages/slideclone-core/source-scene-local-response');
+const {parseLocalTargets,localResponseFormat,decodeLocalResponse}=require('../packages/slideclone-core/scene-plan/source-scene-local-response');
 const targets={reviews:[2,7],missing:[12]},response={reviewsByIndex:{2:'text',7:'uncertain'},recoveredByIndex:{12:{text:null,confidence:0,box_2d:null,color:null}}};
 test('relation endpoint transport uses the existing shared slots with exact keys and no geometry authority',()=>{
  const t={...targets,relations:[13]},r={...response,relationsByIndex:{13:{fromId:'object-a',toId:'object-b',direction:'forward',confidence:.99}}};

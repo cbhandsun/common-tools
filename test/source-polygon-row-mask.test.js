@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {insidePolygon,ownerVertices}=require('../packages/slideclone-core/source-scene-band-geometry');
-const {createMeasuredScenePortFrame,measuredScenePortBodyMask}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {sourcePolygonRowMask}=require('../packages/slideclone-core/source-polygon-row-mask');
+const {insidePolygon,ownerVertices}=require('../packages/slideclone-core/scene-plan/source-scene-band-geometry');
+const {createMeasuredScenePortFrame,measuredScenePortBodyMask}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {sourcePolygonRowMask}=require('../packages/slideclone-core/scene-plan/source-polygon-row-mask');
 const image={width:800,height:800,rgba:Buffer.alloc(800*800*4,255)};
 function fixture(points,box={x:10,y:12,w:40,h:36},perimeterPixels=[]){
  const segments=points.map(([x,y],i)=>({type:i?'lnTo':'moveTo',points:[{x,y}]})).concat([{type:'close',points:[]}]);

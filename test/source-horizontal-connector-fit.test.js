@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { fitSourceHorizontalConnectors } = require("../packages/slideclone-core/source-horizontal-connector-fit");
+const { fitSourceHorizontalConnectors } = require("../packages/slideclone-core/routing/source-horizontal-connector-fit");
 
 function image(width = 640, height = 720) { return { width, height, rgba: new Uint8Array(width * height * 4).fill(255) }; }
 function pixel(im, x, y, color = [0, 120, 255], alpha = 255) { if (x >= 0 && y >= 0 && x < im.width && y < im.height) im.rgba.set([...color, alpha], (y * im.width + x) * 4); }

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { applySemanticFallbackPipeline, _private } = require("../packages/slideclone-core/declarative-fallback-projection");
+const { applySemanticFallbackPipeline, _private } = require("../packages/slideclone-core/archetypes/declarative-fallback-projection");
 
 function page() {
   return { source: {}, shapes: [{ id: "existing", type: "rect", box: { x: 1, y: 1, w: 1, h: 1 } }], textBoxes: [] };

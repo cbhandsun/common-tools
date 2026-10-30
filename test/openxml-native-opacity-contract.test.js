@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {compactNativeOpacityDefaults}=require('../packages/slideclone-core/native-opacity-defaults');
+const {compactNativeOpacityDefaults}=require('../packages/slideclone-core/scene-plan/native-opacity-defaults');
 const {runBuilder}=require('./helpers/openxml-contract-fixtures');
 const {readZipEntry}=require('../packages/ooxml-core/pptx-inventory');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os');

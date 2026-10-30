@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { buildOpenXmlDecksSync } = require("../skills/pd-hifi-slideclone/scripts/adapters/pptx-openxml-dotnet");
+const { buildOpenXmlDecksSync } = require("../packages/slideclone-core/pptx-openxml-dotnet");
 const { readZipEntryText } = require("../packages/ooxml-core/pptx-zip");
 
 test("positioned text ports bind existing children and preserve exact terminals without proxy shapes", {timeout:120000}, () => {

@@ -14,7 +14,7 @@ const {
   perceptualHashBits,
   sampleGrayscale,
   structuralSimilarity
-} = require("../packages/slideclone-core/perceptual-image-quality");
+} = require("../packages/slideclone-core/quality/perceptual-image-quality");
 
 function makeGradientImage(width = 32, height = 32) {
   const rgba = Buffer.alloc(width * height * 4);

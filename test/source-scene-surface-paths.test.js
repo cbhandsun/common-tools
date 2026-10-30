@@ -1,11 +1,11 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
-const {parseSurfacePaths}=require('../packages/slideclone-core/source-scene-surface-paths');
-const {parseSceneNativeGeometry,expandSceneNativeGeometry}=require('../packages/slideclone-core/source-scene-native-geometry');
-const {compileScenePrimitiveProgram}=require('../packages/slideclone-core/source-scene-primitive-program');
-const {admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {parseSurfacePaths}=require('../packages/slideclone-core/scene-plan/source-scene-surface-paths');
+const {parseSceneNativeGeometry,expandSceneNativeGeometry}=require('../packages/slideclone-core/scene-plan/source-scene-native-geometry');
+const {compileScenePrimitiveProgram}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-program');
+const {admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 const {writePng}=require('../packages/slideclone-core/png');
 const segment=(type,points=[])=>({type,points:points.map(([x,y])=>({x,y}))});
 const exterior={filled:true,segments:[segment('moveTo',[[0,0]]),segment('lnTo',[[1,0]]),segment('lnTo',[[1,1]]),segment('lnTo',[[0,1]]),segment('close')]};

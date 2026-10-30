@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {measureSourceWordLayout,remeasureSourceWordLayout,proposeIntactSourceWordLayout}=require("../packages/slideclone-core/source-word-layout-evidence");
+const {measureSourceWordLayout,remeasureSourceWordLayout,proposeIntactSourceWordLayout}=require("../packages/slideclone-core/typography/source-word-layout-evidence");
 function fixture(join=false){
  const width=120,height=40,rgba=new Uint8Array(width*height*4).fill(255);
  for(let y=15;y<25;y++)for(let x=12;x<108;x++)if(join||x<52||x>=64)rgba.set([30,35,40,255],(y*width+x)*4);

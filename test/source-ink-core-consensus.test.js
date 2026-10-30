@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {createInkCoreConsensus}=require("../packages/slideclone-core/source-ink-core-consensus");
-const {detectMixedColorTextSegments}=require("../packages/slideclone-core/ocr-source-deck");
+const {createInkCoreConsensus}=require("../packages/slideclone-core/scene-plan/source-ink-core-consensus");
+const {detectMixedColorTextSegments}=require("../packages/slideclone-core/ocr/ocr-source-deck");
 
 test('paint interval measurement is bounded, source-only and rejects unsafe controls',()=>{
  const core=createInkCoreConsensus(20);assert.equal(core.proposePaintForColumns(0,20),null);

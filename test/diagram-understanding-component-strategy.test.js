@@ -6,10 +6,10 @@ const assert = require("node:assert/strict");
 const {
   understandDiagramLayer,
   _private
-} = require("../packages/slideclone-core/diagram-understanding");
+} = require("../packages/slideclone-core/archetypes/diagram-understanding");
 const {
   summarizeLayerProfile
-} = require("../packages/slideclone-core/layer-classifier");
+} = require("../packages/slideclone-core/scene-plan/layer-classifier");
 
 test("diagram understanding protects screenshot texture clusters from stale cycle and timeline hints", () => {
   const box = { x: 40, y: 148, w: 277, h: 252 };

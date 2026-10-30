@@ -56,3 +56,32 @@ test('inward contour sites bind actual freeform nodes with scaling guides and no
  assert.match(xml,/fmla="\*\/ w 584200 635000"/u);assert.match(xml,/fmla="\*\/ w 50800 635000"/u);
  assert.equal((xml.match(/<a:ext cx="635000" cy="508000"/gu)||[]).length,2,'owner extents remain unchanged');
 });
+
+test('measured detached dashed gradients keep source axis, flips, exact dash intervals, arrows and real anchors in actual OpenXML',{timeout:60000},t=>{
+ const {fixture}=require('./helpers/source-detached-dashes.cjs');
+ const {measureSourceSceneVisibleGap:measure}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+ const {compileSourceSceneVisibleGap:compile}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'detached-gradient-contract-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const pages=[],expected=[];
+ for(const horizontal of [false,true])for(const mirrored of [false,true])for(const reversed of [false,true]){
+  const f=fixture(horizontal,mirrored,reversed),result=measure(f);assert.ok(result.fit,result.reason);
+  const relation={id:'relation-detached',regionId:'region-root',fromId:'object-a',toId:'object-b',direction:f.direction};
+  const shape=compile({fit:result.fit,relation,fromId:f.from.id,toId:f.to.id,width:300,height:300,slideSize:{widthPt:300,heightPt:300}});
+  pages.push({pageIndex:pages.length,textBoxes:[],images:[],tables:[],charts:[],shapes:[
+   {id:f.from.id,type:'rect',box:f.from.box,style:{fill:'#D21EA0',stroke:'none'}},
+   {id:f.to.id,type:'rect',box:f.to.box,style:{fill:'#D21EA0',stroke:'none'}},shape]});
+  expected.push({shape,horizontal,reversed,direction:f.direction});
+ }
+ const ir=path.join(root,'deck.json'),out=path.join(root,'deck.pptx');
+ fs.writeFileSync(ir,JSON.stringify({version:'1.0',slideSize:{widthPt:300,heightPt:300},pages}));runBuilder(['--ir',ir,'--out',out]);
+ for(const [i,e] of expected.entries()){
+  const xml=readZipEntry(out,`ppt/slides/slide${i+1}.xml`).toString('utf8'),shape=e.shape;
+  assert.equal((xml.match(/<p:sp>/gu)||[]).length,2);assert.equal((xml.match(/<p:cxnSp>/gu)||[]).length,1);assert.doesNotMatch(xml,/<p:pic\b/u);
+  assert.match(xml,/<a:stCxn id="2"/u);assert.match(xml,/<a:endCxn id="3"/u);
+  assert.equal((xml.match(/<a:ds /gu)||[]).length,16);assert.equal((xml.match(/<a:gs pos=/gu)||[]).length,4);
+  assert.ok(xml.includes(`ang="${shape.style.strokeGradient.angleDeg*60000}"`));
+  assert.ok(xml.includes(`<a:${e.direction==='forward'?'tailEnd':'headEnd'} type="triangle"`));
+  for(const stop of shape.style.strokeGradient.stops)assert.ok(xml.includes(`val="${stop.color.slice(1)}"`));
+  if(e.reversed)assert.ok(xml.includes(e.horizontal?'flipH="1"':'flipV="1"'));
+ }
+});

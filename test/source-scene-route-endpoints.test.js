@@ -1,12 +1,12 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {sharedRouteInventoryFixture}=require('./helpers/scene-shared-route-inventory.cjs');
-const {prepareSceneRouteEndpoints,readSceneRouteEndpoints}=require('../packages/slideclone-core/source-scene-route-endpoints');
-const {initializeSceneObjectBatches,sceneHeaderObjectCapacity}=require('../packages/slideclone-core/source-scene-object-batches');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
-const {buildSceneInventoryEvidence:build,auditSceneInventory:audit}=require('../packages/slideclone-core/source-scene-observed-inventory');
-const {packSceneInventoryMembers:pack,unpackSceneInventoryMembers:unpack}=require('../packages/slideclone-core/source-scene-inventory-codec');
-const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');
+const {prepareSceneRouteEndpoints,readSceneRouteEndpoints,sceneRouteEndpointSurvives}=require('../packages/slideclone-core/scene-plan/source-scene-route-endpoints');
+const {initializeSceneObjectBatches,sceneHeaderObjectCapacity}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+const {buildSceneInventoryEvidence:build,auditSceneInventory:audit}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
+const {packSceneInventoryMembers:pack,unpackSceneInventoryMembers:unpack}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-codec');
+const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');
 function fixture(kind='region'){
  const f=sharedRouteInventoryFixture(),body=f.shapes.find(s=>s.id==='node-source'),box={...body.box};
  const image={width:600,height:340,rgba:Buffer.alloc(600*340*4,255)},budget={used:0};
@@ -34,6 +34,61 @@ function fixture(kind='region'){
  return {...f,image,nodes,objects,textBoxes,endpoints,stage,endpointId};
 }
 const evidence=f=>build(f.plan,f.shapes,[],[],[f.graph],{endpoints:f.endpoints,textBoxes:f.textBoxes});
+
+// Same measured body as both a region boundary and a direct inventory unit,
+// matching the region-n9 / object-n119 conflict in fresh Worker v15.
+function ownedRegionFixture(){
+ const f=fixture(),body=f.shapes.find(s=>s.id==='node-source');
+ body.source.sceneInventoryId='object-source';
+ const outline=structuredClone(body);outline.id='node-source-outline';outline.type='rect';outline.style={fill:'none',stroke:'#234567',strokeWidthPt:1};
+ f.shapes.push(outline);f.objects.set(f.endpointId,[body.id,outline.id]);
+ f.plan.objects.unshift({id:'object-source',kind:'container',regionId:f.endpointId,box:{...body.box}});
+ f.plan.observedInventory.find(r=>r.regionId===f.endpointId).containers=1;
+ delete f.plan.objectBatches;f.plan=initializeSceneObjectBatches(f.plan);
+ f.stage=prepareSceneRouteEndpoints({image:f.image,plan:f.plan,nodes:f.nodes,objects:f.objects,textBoxes:[],slideSize:{widthPt:600,heightPt:340}});
+ f.endpoints=f.stage.capture(f.shapes,[]);return f;
+}
+
+test('a measured region references one complete existing container without claiming its physical members twice',()=>{
+ const f=ownedRegionFixture(),slots=sceneHeaderObjectCapacity(f.plan),value=evidence(f);
+ assert.equal(f.endpoints[0].ownerUnitId,'object-source');
+ assert.equal(value.units.length,5);assert.equal(value.units.filter(u=>u.id==='object-source').length,1);
+ assert.deepEqual(value.units.find(u=>u.id==='object-source').members.map(m=>m.id),['node-source','node-source-outline']);
+ assert.equal(sceneHeaderObjectCapacity(f.plan),slots);
+ assert.deepEqual(audit(value,f.shapes,[],f.plan.sourceHash),[]);
+ assert.deepEqual(audit(pack(value),f.shapes,[],f.plan.sourceHash),[]);
+ assert.deepEqual(unpack(JSON.parse(JSON.stringify(pack(value)))),value);
+ const noReference=structuredClone(f.endpoints);delete noReference[0].ownerUnitId;
+ assert.throws(()=>readSceneRouteEndpoints(noReference,value.units,f.plan.regions.map(r=>r.id)),/member is invalid/u);
+ for(const member of f.endpoints[0].members){
+  assert.ok(audit(value,f.shapes.filter(s=>s.id!==member.id),[],f.plan.sourceHash).some(r=>r.kind==='relations'&&r.count===2));
+  for(const mutate of [s=>s.box.x++,s=>s.style={...s.style,fill:'#123456'},s=>s.source.sceneInventoryId='object-left']){
+   const shapes=structuredClone(f.shapes);mutate(shapes.find(s=>s.id===member.id));
+   assert.equal(sceneRouteEndpointSurvives(f.endpoints[0],shapes,[]),false);
+   assert.ok(audit(value,shapes,[],f.plan.sourceHash).length>0);
+  }
+ }
+});
+
+test('region unit references reject foreign, partial, duplicate, missing and hostile ownership',()=>{
+ const f=ownedRegionFixture(),value=evidence(f),regions=f.plan.regions.map(r=>r.id);
+ for(const mutate of [e=>e.ownerUnitId='object-left',e=>e.ownerUnitId='unknown',e=>e.ownerUnitId='',
+  e=>e.ownerUnitId=null,e=>e.members.pop(),e=>e.members.push({...e.members[0]}),
+  e=>e.members[1].id='node-left',e=>e.kind='text',e=>e.extra=true]){
+  const endpoints=structuredClone(f.endpoints);mutate(endpoints[0]);
+  assert.throws(()=>readSceneRouteEndpoints(endpoints,value.units,regions),TypeError);
+ }
+ for(const mutate of [u=>u.kind='icon',u=>u.kind='relation',u=>u.regionId='region',u=>u.members.pop(),u=>u.members=[]]){
+  const units=structuredClone(value.units);mutate(units.find(u=>u.id==='object-source'));
+  assert.throws(()=>readSceneRouteEndpoints(f.endpoints,units,regions),TypeError);
+ }
+ let traps=0;const hostile=structuredClone(f.endpoints[0]);
+ Object.defineProperty(hostile,'ownerUnitId',{enumerable:true,get(){traps++;throw Error('private');}});
+ assert.throws(()=>readSceneRouteEndpoints([hostile],value.units,regions),TypeError);assert.equal(traps,0);
+ assert.deepEqual(f.stage.capture([...f.shapes,{...structuredClone(f.shapes[0]),id:'unexpected-owner-member'}],[]),[]);
+ const mixed=structuredClone(f.shapes);mixed.find(s=>s.id==='node-source-outline').source.sceneInventoryId='object-left';
+ assert.deepEqual(f.stage.capture(mixed,[]),[]);
+});
 test('a measured region can be a shared endpoint without becoming another object or spending slots',()=>{
  const f=fixture(),slots=sceneHeaderObjectCapacity(f.plan),value=evidence(f);
  assert.equal(f.endpoints.length,1);assert.equal(value.endpointBindings[0].kind,'region');
@@ -51,7 +106,7 @@ test('real text endpoints use actual text boxes and reach the final native-compo
  assert.ok(audit(value,f.shapes,[],f.plan.sourceHash).some(r=>r.kind==='relations'&&r.count===2));
  const texts=structuredClone(f.textBoxes);texts[0].text+=' changed';
  assert.ok(audit(value,f.shapes,[],f.plan.sourceHash,texts).some(r=>r.kind==='relations'&&r.count===2));
- const {auditNativeComponentQuality}=require('../packages/slideclone-core/native-component-quality');
+ const {auditNativeComponentQuality}=require('../packages/slideclone-core/quality/native-component-quality');
  const deck={pages:[{shapes:f.shapes,images:[],textBoxes:f.textBoxes,source:{sourceScene:{version:1,sourceHash:f.plan.sourceHash,unresolved:[],observedInventory:value}}}]};
  assert.equal(auditNativeComponentQuality(deck).findings.some(r=>r.code==='source-scene-inventory-incomplete'),false);
  deck.pages[0].textBoxes=[];
@@ -90,4 +145,50 @@ test('empty, illegal, extreme and hostile endpoint inputs fail without accessors
  for(const controls of [null,proxy,hostile])assert.throws(()=>build(f.plan,f.shapes,[],[],[f.graph],controls),TypeError);
  assert.equal(traps,0);
  const {includesSuite}=require('../scripts/test-suites');assert.ok(includesSuite(__filename,'unit'));
+});
+
+function freeformEndpoint(){
+ const f=fixture(),body=f.shapes.find(s=>s.id==='node-source');
+ body.type='freeform';body.style={fill:'#D2E6F5',stroke:'none',strokeWidthPt:0,opacity:1,
+  freeformSegments:[{type:'moveTo',points:[{x:0,y:0}]},{type:'lnTo',points:[{x:1,y:0}]},
+   {type:'lnTo',points:[{x:1,y:1}]},{type:'lnTo',points:[{x:0,y:1}]},{type:'close',points:[]}]};
+ f.endpoints=f.stage.capture(f.shapes,f.textBoxes);return f;
+}
+test('lossless path compaction and explicit default opacity preserve region endpoint materialization',()=>{
+ const {compactNativeFreeformPaths}=require('../packages/slideclone-core/scene-plan/native-freeform-path');
+ const f=freeformEndpoint(),value=evidence(f),before=structuredClone(f.endpoints);
+ assert.deepEqual(audit(value,f.shapes,[],f.plan.sourceHash),[]);
+ compactNativeFreeformPaths({pages:[{shapes:f.shapes}]});
+ const body=f.shapes.find(s=>s.id==='node-source');delete body.style.opacity;
+ body.style=Object.fromEntries(Object.entries(body.style).reverse());
+ assert.deepEqual(audit(value,f.shapes,[],f.plan.sourceHash),[]);
+ assert.deepEqual(f.endpoints,before,'the original evidence is not rewritten');
+ const compactCapture=f.stage.capture(f.shapes,[]);assert.deepEqual(compactCapture,f.endpoints);
+});
+test('equivalent endpoint encodings retain complete rendering checks and reject changed output',()=>{
+ const {compactNativeFreeformPaths}=require('../packages/slideclone-core/scene-plan/native-freeform-path');
+ for(const change of [s=>s.box.x++,s=>s.rotation=90,s=>s.style.fill='#102030',s=>s.style.opacity=.99,
+  s=>s.style.freeformPath='[[0,0,0],[1,0.8,0],[1,1,1],[1,0,1],[4]]',
+  s=>s.style.freeformPath='[[0,0,0],[1,0,1],[1,1,1],[1,1,0],[4]]',
+  s=>s.style.freeformPath='[[0,0,0],[2,1,0,1,1,0,1],[4]]',s=>s.source.sceneRegionId='region']){
+  const f=freeformEndpoint(),value=evidence(f);compactNativeFreeformPaths({pages:[{shapes:f.shapes}]});
+  change(f.shapes.find(s=>s.id==='node-source'));
+  assert.ok(audit(value,f.shapes,[],f.plan.sourceHash).some(r=>r.kind==='relations'&&r.count===2));
+ }
+});
+test('endpoint geometry snapshots reject ambiguous, empty, oversized and hostile paths without reading getters',()=>{
+ const {sceneRouteEndpointSurvives}=require('../packages/slideclone-core/scene-plan/source-scene-route-endpoints');
+ const f=freeformEndpoint();let calls=0;
+ const getter={};Object.defineProperty(getter,'x',{enumerable:true,get(){calls++;throw Error('private');}});
+ const proxy=new Proxy({},{get(){calls++;throw Error('private');},ownKeys(){calls++;throw Error('private');}});
+ for(const change of [s=>s.style.freeformPath='[[0,0,0],[1,1,1]]',s=>s.style.freeformSegments=[],
+  s=>{delete s.style.freeformSegments;s.style.freeformPath='';},
+  s=>{delete s.style.freeformSegments;s.style.freeformPath=' '.repeat(32769);},
+  s=>s.style.freeformSegments=Array(121).fill({type:'close',points:[]}),
+  s=>s.style.freeformSegments[1].points[0]=getter,s=>s.style.freeformSegments[1].points[0]=proxy]){
+  const shapes=structuredClone(f.shapes);change(shapes.find(s=>s.id==='node-source'));
+  assert.equal(sceneRouteEndpointSurvives(f.endpoints[0],shapes,[]),false);
+  assert.deepEqual(f.stage.capture(shapes,[]),[]);
+ }
+ assert.equal(calls,0);
 });

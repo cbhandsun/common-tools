@@ -1,8 +1,8 @@
 "use strict";
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { createSolidAtomSourceFilter } = require("../packages/slideclone-core/visual-atom-source-contradiction");
-const { createVisualAtomNativeShapes } = require("../packages/slideclone-core/visual-atom-native-reconstruction");
+const { createSolidAtomSourceFilter } = require("../packages/slideclone-core/scene-plan/visual-atom-source-contradiction");
+const { createVisualAtomNativeShapes } = require("../packages/slideclone-core/scene-plan/visual-atom-native-reconstruction");
 const size = { widthPt: 100, heightPt: 80 };
 const primitive=(type,box,style={})=>({type,box,style:{fill:'#336699',stroke:'none',strokeWidthPt:0,...style}});
 test('speculative ellipses cannot turn sparse caption ink into filled circles',()=>{

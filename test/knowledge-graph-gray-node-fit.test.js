@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { fitKnowledgeGraphGrayNodes } = require("../packages/slideclone-core/knowledge-graph-gray-node-fit");
+const { fitKnowledgeGraphGrayNodes } = require("../packages/slideclone-core/archetypes/knowledge-graph-gray-node-fit");
 function fixture() {
   const image = { width: 400, height: 400, rgba: new Uint8Array(400 * 400 * 4).fill(255) };
   const pixel = (x, y) => image.rgba.set([167, 167, 167, 255], (y * 400 + x) * 4);

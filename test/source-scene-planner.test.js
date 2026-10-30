@@ -1,7 +1,8 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),os=require("node:os"),path=require("node:path");
 const {writePng,readPng}=require("../packages/slideclone-core/png");
-const {createSourceScenePlanner}=require("../packages/slideclone-core/source-scene-planner");
+const {createSourceScenePlanner}=require("../packages/slideclone-core/scene-plan/source-scene-planner");
+const {SCENE_INVENTORY_CHECK_PROMPT}=require('../packages/slideclone-core/scene-plan/source-scene-packed-program-prompt');
 function fixture(){const root=fs.mkdtempSync(path.join(os.tmpdir(),"scene-planner-")),sourceFile=path.join(root,"source.png");
 writePng(sourceFile,{width:100,height:100,rgba:Buffer.alloc(40000,255)});
 return {root,sourceFile,dimensions:{widthPx:100,heightPx:100},isCancellationRequested:async()=>false,ocr:{lines:[{text:"Q",confidence:0.4,box:{x:20,y:20,w:10,h:10}},{text:"节点",confidence:0.99,box:{x:50,y:50,w:20,h:10}}]}};}
@@ -11,12 +12,36 @@ test('the actual production planner sends single and multiline text endpoint cap
  const stop=new Error('captured-production-prompt');
  await assert.rejects(createSourceScenePlanner({recognize:async request=>{
   calls++;assert.equal(request.task,'structure');assert.match(request.prompt,/packed-v1/);
-  const {SCENE_TEXT_ENDPOINT_PROMPT}=require('../packages/slideclone-core/source-scene-program-prompt');
+  const {SCENE_TEXT_ENDPOINT_PROMPT}=require('../packages/slideclone-core/scene-plan/source-scene-program-prompt');
   assert.ok(request.prompt.includes(SCENE_TEXT_ENDPOINT_PROMPT));assert.match(request.prompt,/\["labels",\[originalOcrIndex/);
   assert.match(request.prompt,/Both later independent source views/);
   assert.match(request.prompt,/excluding all declared REGION panels/);
   assert.match(request.prompt,/do not count a child region panel again as a container object in its parent census/);throw stop;
  }})(f),error=>error===stop);assert.equal(calls,1);
+});
+
+test('global inventory cross-check covers ancestor-owned relations and faint badge connectors in the existing observation',async t=>{
+ const f=fixture();t.after(()=>fs.rmSync(f.root,{recursive:true,force:true}));let calls=0;
+ const stop=new Error('inventory-request-captured');
+ await assert.rejects(createSourceScenePlanner({recognize:async request=>{
+  calls++;assert.equal(request.task,'structure');
+  const check=request.prompt.slice(request.prompt.lastIndexOf(' OWNERSHIP AND COMPLETENESS CHECK BEFORE RETURNING:'));
+  assert.equal(check,SCENE_INVENTORY_CHECK_PROMPT);
+  assert.match(check,/explicit object-parent chain/u);
+  assert.match(check,/child REGION panel is not an object in the parent census/u);
+  assert.match(check,/THAT RELATION'S explicit regionId/u);
+  assert.match(check,/including the page root/u);
+  assert.match(check,/cannot simultaneously claim observed absence/u);
+  assert.match(check,/re-inspect the source rather than copying the proposal-array length/u);
+  assert.match(check,/thin, light or dashed connectors outside the main colored network/u);
+  assert.match(check,/never infer an edge from numbering or reading order/u);
+  assert.match(check,/Return null for uncertain counts/u);
+  assert.match(request.prompt,/4M scans, 100000 glyph pixels, 540 seconds/u);
+  throw stop;
+ }})(f),error=>error===stop);
+ assert.equal(calls,1);
+ const files=require('../scripts/test-sharded').discoverTestFiles(process.cwd(),'unit').map(row=>row.file.replaceAll('\\','/'));
+ assert.ok(files.includes('test/source-scene-planner.test.js'));
 });
 
 test('oversized rejected relation remains unresolved while paired structural review executes',async t=>{
@@ -67,7 +92,7 @@ test('the original two local calls can recover omitted relations using existing 
  assert.equal(result.evidence.regionalInventoryReview.addedRelations,1);assert.equal(result.evidence.inventoryReview.proposed,2);
  // Recognition still grants no pixels: the source is white, so the real
  // compiler must reject this proposed edge rather than hallucinate its ink.
- const {preflightSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {preflightSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const compiled=preflightSourceScene({root:f.root,sourceFile:f.sourceFile,page:{shapes:[],textBoxes:[],images:[]},plan:result.plan,slideSize:{widthPt:100,heightPt:100}});
  assert.equal(compiled.evidence.resolvedRelations,0);assert.ok(compiled.evidence.unresolved.length>0);
 });
@@ -231,9 +256,9 @@ test('full global capacity can recover a omitted region in the same two calls af
  const scene={coordinateSpace:'source-pixels',regions:[{id:'root',kind:'section',parentId:null,box:{x:0,y:0,w:100,h:100}},
   {id:'omitted',kind:'card',parentId:'root',box:{x:50,y:10,w:45,h:80}}],
   objects:Array.from({length:64},(_,i)=>({id:'alias-'+i,kind:'container',regionId:'root',box:{x:3,y:8,w:29,h:34},pictorialContent:'absent'})),relations:[]};
- const compiler=require('../packages/slideclone-core/source-scene-compiler');let calls=0,released=0;
- f.preflightSourceScene=plan=>{const out=compiler.preflightSourceScene({root:f.root,sourceFile:f.sourceFile,page:{shapes:[],images:[],textBoxes:[]},plan,slideSize:{widthPt:100,heightPt:100}});
-  released=out.physicalInventory.evidence.releasedObjectSlots;return out;};
+ const compiler=require('../packages/slideclone-core/scene-plan/source-scene-compiler');let calls=0;const released=[],sessions=[];
+ f.preflightSourceScene=(plan,compilationSession)=>{const out=compiler.preflightSourceScene({root:f.root,sourceFile:f.sourceFile,page:{shapes:[],images:[],textBoxes:[]},plan,compilationSession,slideSize:{widthPt:100,heightPt:100}});
+  released.push(out.physicalInventory.evidence.releasedObjectSlots);sessions.push(out.compilationSession);return out;};
  const result=await createSourceScenePlanner({recognize:async request=>{
   if(++calls===1)return {scene,reviews:[],missingText:[]};
   assert.deepEqual(request.localTargets.regionInventories?.length,1);assert.equal(request.localTargets.regionObjectCapacity,32);
@@ -244,7 +269,9 @@ test('full global capacity can recover a omitted region in the same two calls af
     return {index,units:[{kind:'container',confidence:.99,box_2d:[Math.round(b[0]+(b[2]-b[0])*.2),Math.round(b[1]+(b[3]-b[1])*.2),Math.round(b[0]+(b[2]-b[0])*.8),Math.round(b[1]+(b[3]-b[1])*.8)]}],relations:[],
      ...(request.localTargets.regionBoundaryIndices?.includes(index)?{boundary:{confidence:0,box_2d:null}}:{})};})};
  }})(f);
- assert.equal(calls,3);assert.equal(released,63);assert.equal(result.plan.objects.length,2);
+ assert.equal(calls,3);assert.deepEqual(released,[63,0]);assert.equal(result.plan.objects.length,2);
+ assert.equal(sessions[0],sessions[1],'post-review measurement retains the original compiler ledger');
+ assert.equal(result.compilationSession,sessions[0]);
  assert.equal(result.evidence.regionalInventoryReview.added.length,1);assert.equal(result.plan.objects[1].regionId,'region-omitted');
  assert.equal(result.plan.objectBatches.batches[0].members.length,64,'alias compaction never refunds global proposals');
  assert.equal(result.plan.objectBatches.aliases.length,63);
@@ -254,7 +281,7 @@ test('full global capacity can recover a omitted region in the same two calls af
 
 test('optional compile probes cannot starve missing pictorial inventory in the same two reviews',async t=>{
  const f=fixture();t.after(()=>fs.rmSync(f.root,{recursive:true,force:true}));f.ocr.lines=[];
- const compiler=require('../packages/slideclone-core/source-scene-compiler');let calls=0;
+ const compiler=require('../packages/slideclone-core/scene-plan/source-scene-compiler');let calls=0;
  const scene={coordinateSpace:'source-pixels',regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:100,h:100}}],objects:[
   {id:'a',regionId:'root',kind:'container',box:{x:10,y:10,w:30,h:40}},
   {id:'b',regionId:'root',kind:'container',box:{x:60,y:10,w:30,h:40}}
@@ -282,7 +309,7 @@ test('full object capacity and optional preflight probes cannot suppress uncover
  const scene={coordinateSpace:'source-pixels',regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:512,h:512}}],
   objects:Array.from({length:64},(_,i)=>({id:'obj'+i,regionId:'root',kind:'container',box:{x:10+(i%8)*60,y:10+Math.floor(i/8)*60,w:24,h:24}})),relations:[]};
  f.ocr.lines=scene.objects.slice(0,58).map(o=>({text:'existing',confidence:1,box:{...o.box}}));
- const before=JSON.stringify(f.ocr),sourceBefore=fs.readFileSync(f.sourceFile),compiler=require('../packages/slideclone-core/source-scene-compiler');
+ const before=JSON.stringify(f.ocr),sourceBefore=fs.readFileSync(f.sourceFile),compiler=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  let calls=0;const bindings=[];
  f.preflightSourceScene=plan=>compiler.preflightSourceScene({root:f.root,sourceFile:f.sourceFile,page:{shapes:[],images:[],textBoxes:[]},plan,
   slideSize:{widthPt:100,heightPt:100}});
@@ -308,7 +335,7 @@ test('full object capacity and optional preflight probes cannot suppress uncover
 });
 test('real source preflight failures reach both existing local reviews before final compilation, without extra calls or assets',async t=>{
  const f=fixture();t.after(()=>fs.rmSync(f.root,{recursive:true,force:true}));f.ocr.lines=[];
- const compiler=require('../packages/slideclone-core/source-scene-compiler');let calls=0,preflightCalls=0;
+ const compiler=require('../packages/slideclone-core/scene-plan/source-scene-compiler');let calls=0,preflightCalls=0;
  const scene={coordinateSpace:'source-pixels',regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:100,h:100}}],
   objects:[{id:'missing',regionId:'root',kind:'container',box:{x:20,y:20,w:30,h:40}}],relations:[]};
  f.preflightSourceScene=plan=>{preflightCalls++;assert.equal(calls,1);return compiler.preflightSourceScene({root:f.root,sourceFile:f.sourceFile,
@@ -452,7 +479,7 @@ test('two original local calls correct impossible object ownership and endpoint 
 });
 test("production rebuild binds missing reviewed graphics to the page before candidate composition",async t=>{
  const {createRawImageNativeRebuilder}=require("../packages/slideclone-core/team-native-rebuild");
- const {auditNativeComponentQuality:audit}=require("../packages/slideclone-core/native-component-quality");
+ const {auditNativeComponentQuality:audit}=require("../packages/slideclone-core/quality/native-component-quality");
  const f=fixture();t.after(()=>fs.rmSync(f.root,{recursive:true,force:true}));
  const rebuild=createRawImageNativeRebuilder({reviewSourceScene:async input=>({ocr:input.ocr,evidence:{sourceHash:hashSource(input.sourceFile),unresolvedReviewedGraphics:[0]}}),
   rebuildDeckFromWorkDir:workDir=>JSON.parse(fs.readFileSync(path.join(workDir,"ir/deck.json")))});
@@ -486,7 +513,8 @@ test("the same global observation supplies the scene plan without extra vision c
  const planner=createSourceScenePlanner({includeOcrHints:true,recognize:async request=>{calls++;assert.match(request.prompt,/packed-v1/);assert.match(request.prompt,/independently observed DIRECT census/);assert.match(request.prompt,/shaftBox/);assert.match(request.prompt,/pictorialContent/);assert.match(request.prompt,/\[ymin,xmin,ymax,xmax\]/);assert.match(request.prompt,/width=100, height=100/);
   assert.match(request.prompt,/emitting scene FIRST/);assert.match(request.prompt,/INCLUDING icons INSIDE/);
   assert.equal(request.prompt.includes('"text":"节点"'),false);
-  const anchors=JSON.parse(request.prompt.split('OCR candidate locations (glyph content is in the source image): ')[1]);
+  assert.ok(request.prompt.endsWith(SCENE_INVENTORY_CHECK_PROMPT));
+  const anchors=JSON.parse(request.prompt.slice(0,-SCENE_INVENTORY_CHECK_PROMPT.length).split('OCR candidate locations (glyph content is in the source image): ')[1]);
   assert.deepEqual(anchors[1],[1,[500,500,600,700],.99,'节点']);
   assert.deepEqual(anchors[0],[0,[200,200,300,300],.99,'label']);
   assert.match(request.prompt,/use the explicit originalIndex/u);
@@ -499,7 +527,7 @@ test("the same global observation supplies the scene plan without extra vision c
 
 test('global OCR indices keep private source bindings when their unused hashes are omitted from the model prompt',async t=>{
  const f=fixture();t.after(()=>fs.rmSync(f.root,{recursive:true,force:true}));f.ocr.lines[0].text='source label';f.ocr.lines.forEach(line=>line.confidence=.99);
- const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');let calls=0;
+ const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');let calls=0;
  const result=await createSourceScenePlanner({recognize:async request=>{
   calls++;assert.equal(request.task,'structure');assert.doesNotMatch(request.prompt,/label-[a-f0-9]{24}/u);
   return {reviews:[],missingText:[],scene:{format:'compact-v8',coordinateSpace:'normalized-1000',boxFormat:'ymin-xmin-ymax-xmax',
@@ -521,7 +549,7 @@ test('observed deficits use the original two regional views to propose missing u
   calls++;if(request.task==='structure')return {scene,reviews:[],missingText:[]};
   const indices=request.localTargets.regionInventories;assert.equal(indices.length,1);
   assert.ok(request.localTargets.regionObjectCapacity<=62);assert.equal(request.localTargets.regionRelationCapacity,24);
-  require('../packages/slideclone-core/source-scene-local-response').parseLocalTargets(request.localTargets);
+  require('../packages/slideclone-core/scene-plan/source-scene-local-response').parseLocalTargets(request.localTargets);
   assert.match(request.prompt,/inventoryMissing/);
   const targets=JSON.parse(request.prompt.split('Targets: ')[1]),target=targets.find(row=>row.index===indices[0]);
   const [y,x,bottom,right]=target.candidateBox2D;

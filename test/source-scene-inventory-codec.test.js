@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
-const {packSceneInventoryMembers:pack,unpackSceneInventoryMembers:unpack}=require('../packages/slideclone-core/source-scene-inventory-codec');
-const {buildSceneInventoryEvidence:build,auditSceneInventory:audit}=require('../packages/slideclone-core/source-scene-observed-inventory');
-const {writeSceneInventoryArtifact:write}=require('../packages/slideclone-core/source-scene-inventory-artifact');
+const {packSceneInventoryMembers:pack,unpackSceneInventoryMembers:unpack}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-codec');
+const {buildSceneInventoryEvidence:build,auditSceneInventory:audit}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
+const {writeSceneInventoryArtifact:write}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-artifact');
 function fixture(){
  const plan={sourceHash:'a'.repeat(64),regions:[{id:'r'}],objects:[{id:'object-unit',regionId:'r',kind:'container'}],relations:[],
   observedInventory:[{regionId:'r',containers:1,icons:0,relations:0}]};

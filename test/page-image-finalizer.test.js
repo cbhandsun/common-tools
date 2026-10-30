@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createPageImageFinalizer } = require("../packages/slideclone-core/page-image-finalizer");
+const { createPageImageFinalizer } = require("../packages/slideclone-core/scene-plan/page-image-finalizer");
 
 function finalizer(overrides = {}) {
   return createPageImageFinalizer({

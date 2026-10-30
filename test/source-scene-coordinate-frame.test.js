@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {sourceBox2D}=require("../packages/slideclone-core/source-scene-coordinate-frame");
+const {sourceBox2D}=require("../packages/slideclone-core/scene-plan/source-scene-coordinate-frame");
 test("model corner boxes use normalized Y-X order with an explicit source transform",()=>{
  const box={x:80,y:120,w:160,h:180},dimensions={width:800,height:600};
  assert.deepEqual(sourceBox2D(box,dimensions),[200,100,500,300]);

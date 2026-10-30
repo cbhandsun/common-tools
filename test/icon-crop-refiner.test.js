@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { inferIntrusionEdges, inferPointFacingEdges, mapReferenceBoxToSourcePixels, refineDenseIconCrop, refineStandaloneIconCrop } = require("../packages/slideclone-core/icon-crop-refiner");
+const { inferIntrusionEdges, inferPointFacingEdges, mapReferenceBoxToSourcePixels, refineDenseIconCrop, refineStandaloneIconCrop } = require("../packages/slideclone-core/archetypes/icon-crop-refiner");
 
 function imageWithNeighbor() {
   const width = 20, height = 14;

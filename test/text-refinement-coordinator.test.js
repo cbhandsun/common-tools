@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { refineRenderedTextOnce } = require("../packages/slideclone-core/text-refinement-coordinator");
+const { refineRenderedTextOnce } = require("../packages/slideclone-core/typography/text-refinement-coordinator");
 const { writePng } = require("../packages/slideclone-core/png");
 
 function quality(passed, metrics = { "pixel-diff-ratio": 0.2, "foreground-missing-ratio": 0.2, "mean-absolute-delta": 20 }) {
@@ -57,7 +57,7 @@ function intactFixture(){
  const line={text:'AABBCC',confidence:.99,box:{x:10,y:20,w:80,h:16},wordPositionHints:[
   {text:'AA',box:{x:10,y:20,w:33,h:16}},{text:'BB',box:{x:43,y:20,w:5,h:16}},{text:'CC',box:{x:50,y:20,w:40,h:16}}]};
  const text={...textBox(),text:line.text,box:{...line.box}};
- const registry=require('../packages/slideclone-core/source-word-layout-registry');
+ const registry=require('../packages/slideclone-core/typography/source-word-layout-registry');
  registry.registerSourceWordLayout(text,line,{width,height,rgba},{remaining:4000000},[line.box]);
  value.deck.pages[0]=registry.applySourceWordLayouts({textBoxes:[text]},[text]).page;
  writePng(value.source,{width,height,rgba});writePng(value.rendered,{width,height,rgba});

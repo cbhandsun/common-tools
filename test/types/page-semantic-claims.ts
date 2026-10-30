@@ -1,4 +1,4 @@
-import { createPageSemanticClaims } from "../../packages/slideclone-core/page-semantic-claims";
+import { createPageSemanticClaims } from "../../packages/slideclone-core/scene-plan/page-semantic-claims";
 declare const operations: unknown;
 declare const input: unknown;
 const result = createPageSemanticClaims(operations).claimPageSemanticImages(input);

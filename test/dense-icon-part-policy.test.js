@@ -1,8 +1,8 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { selectDenseIconParts } = require("../packages/slideclone-core/dense-icon-part-policy");
-const { refineDenseIconCrop } = require("../packages/slideclone-core/icon-crop-refiner");
+const { selectDenseIconParts } = require("../packages/slideclone-core/quality/dense-icon-part-policy");
+const { refineDenseIconCrop } = require("../packages/slideclone-core/archetypes/icon-crop-refiner");
 
 const primary = { pixels: 2000, box: { x: 20, y: 40, w: 60, h: 50 }, color: { r: 20, g: 100, b: 220 } };
 const cap = { pixels: 700, box: { x: 22, y: 18, w: 56, h: 18 }, color: { r: 25, g: 110, b: 225 } };

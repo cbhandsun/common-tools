@@ -5,9 +5,9 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { cropPng, writePng } = require("../packages/slideclone-core/png");
-const { eraseObjectifiedLayerPrimitives } = require("../packages/slideclone-core/residual-primitive-erasure");
-const { filterTextBoxesForGraphicUnderlays } = require("../packages/slideclone-core/page-text-rules");
-const { createErasedCropTextRecovery } = require("../packages/slideclone-core/erased-crop-text-recovery");
+const { eraseObjectifiedLayerPrimitives } = require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
+const { filterTextBoxesForGraphicUnderlays } = require("../packages/slideclone-core/typography/page-text-rules");
+const { createErasedCropTextRecovery } = require("../packages/slideclone-core/typography/erased-crop-text-recovery");
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "erased-text-recovery-"));

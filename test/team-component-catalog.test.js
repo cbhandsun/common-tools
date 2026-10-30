@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { loadTeamComponentCatalog } = require("../packages/slideclone-core/team-component-catalog");
+const { loadTeamComponentCatalog } = require("../packages/slideclone-core/archetypes/team-component-catalog");
 const { buildComponentAssetManifest } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-matcher");
 
 function fixture(overrides = {}) {

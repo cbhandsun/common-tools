@@ -1,10 +1,10 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sceneRouteWithinAnchor:within}=require('../packages/slideclone-core/source-scene-relation-identity');
-const {measureSourceSceneRoute:measure}=require('../packages/slideclone-core/source-scene-route');
-const {compileSourceSceneRoute:compile}=require('../packages/slideclone-core/source-scene-route-compiler');
-const {compileExistingSceneRoutes:stage}=require('../packages/slideclone-core/source-scene-route-stage');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
+const {sceneRouteWithinAnchor:within}=require('../packages/slideclone-core/scene-plan/source-scene-relation-identity');
+const {measureSourceSceneRoute:measure}=require('../packages/slideclone-core/scene-plan/source-scene-route');
+const {compileSourceSceneRoute:compile}=require('../packages/slideclone-core/scene-plan/source-scene-route-compiler');
+const {compileExistingSceneRoutes:stage}=require('../packages/slideclone-core/scene-plan/source-scene-route-stage');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 test('a path must cross its own anchor even when the endpoints and source shaft are valid',()=>{
  const path=[{x:10,y:10},{x:90,y:10}],own={shaftBox:{x:30,y:5,w:20,h:10}};
  assert.equal(within(own,path),true);assert.equal(within({},path),true);

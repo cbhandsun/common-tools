@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { sourceIconPrimitiveEvidence } = require("../packages/slideclone-core/source-icon-primitive-evidence");
+const { sourceIconPrimitiveEvidence } = require("../packages/slideclone-core/scene-plan/source-icon-primitive-evidence");
 
 const BLUE = [19, 92, 230, 255];
 const BLUE_HEX = "#135CE6";

@@ -6,9 +6,9 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { readPng, writePng } = require("../packages/slideclone-core/png");
-const { restoreOcrGlyphResiduals } = require("../packages/slideclone-core/ocr-glyph-residual");
-const { sourceGraphicEvidence } = require("../packages/slideclone-core/ocr-source-graphic-evidence");
-const { auditNativeComponentQuality } = require("../packages/slideclone-core/native-component-quality");
+const { restoreOcrGlyphResiduals } = require("../packages/slideclone-core/ocr/ocr-glyph-residual");
+const { sourceGraphicEvidence } = require("../packages/slideclone-core/ocr/ocr-source-graphic-evidence");
+const { auditNativeComponentQuality } = require("../packages/slideclone-core/quality/native-component-quality");
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ocr-glyph-residual-"));

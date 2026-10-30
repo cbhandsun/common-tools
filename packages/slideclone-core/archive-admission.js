@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const {validateDeckIr} = require("./deck-ir-admission");
-const {validateSemanticFallback} = require("./semantic-fallback-adapter");
+const {validateSemanticFallback} = require("./archetypes/semantic-fallback-adapter");
 const {admitJpegContainer} = require("./jpeg-container-admission");
 const MAX_DECK_BYTES = 1024 * 1024;
 const MAX_ASSET_BYTES = 20 * 1024 * 1024;
@@ -41,7 +41,7 @@ function validatePackage(root) {
   try { ir = JSON.parse(fs.readFileSync(deckFile, "utf8")); }
   catch { throw new Error("editable deck.json is invalid JSON"); }
   const validated = validateDeckIr(ir, root);
-  const { resolveStructuredSourceImages } = require("./structured-source-images");
+  const { resolveStructuredSourceImages } = require("./archetypes/structured-source-images");
   return { kind: /** @type {const} */ ("deck-ir"), deckFile, ...validated, structuredDeck: ir, structuredSourceImages: resolveStructuredSourceImages(ir, root) };
 }
 /** @param {string} root */

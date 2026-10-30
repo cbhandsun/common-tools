@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { repositoryRoot, workspaceLinkEntries, workspaceLinksMatch, lockedPackagesMatch } = require("./office-node-dependencies");
+const { createLocalCachePublication } = require("./office-node-cache-publish");
 
 function statOrMissing(target) {
   try { return fs.lstatSync(target); } catch (error) { if (error.code === "ENOENT") return null; throw error; }
@@ -169,12 +170,6 @@ async function restoreLocalCache(context) {
   return true;
 }
 
-function removeManagedEntry(context, target) {
-  if (path.dirname(target) !== context.managed || !/^(?:[a-f0-9]{64}|staging-[A-Za-z0-9]+)$/u.test(path.basename(target))) throw new Error("Office local cache removal boundary is invalid");
-  inventory(target);
-  fs.rmSync(target, { recursive: true });
-}
-
 async function saveLocalCache(context) {
   plainAncestors(context.managed);
   if (!workspaceLinksMatch(context.root) || !lockedPackagesMatch(context.root)) throw new Error("Office local cache source dependencies are invalid");
@@ -186,9 +181,10 @@ async function saveLocalCache(context) {
   });
   if (!copies.some((copy) => copy.name === "node_modules")) throw new Error("Office local cache dependencies are missing");
   validateCombinedInventory(copies);
-  // Refuse unsafe existing cache paths even when replacing a damaged snapshot.
-  if (statOrMissing(context.entry)) inventory(context.entry);
-  const staging = fs.mkdtempSync(path.join(context.managed, "staging-"));
+  const publication = createLocalCachePublication(context.managed, context.entry, inventory);
+  const { staging } = publication;
+  let hasPrimaryFailure = false;
+  let primaryFailure;
   try {
     const payload = ensureChild(staging, "payload");
     for (const copy of copies) {
@@ -197,11 +193,22 @@ async function saveLocalCache(context) {
       await copyInventory(copy.source, path.join(parent, "node_modules"), copy.entries);
     }
     fs.writeFileSync(path.join(staging, "entry.json"), JSON.stringify({ schemaVersion: 1, key: context.key, scope: context.scope, roots: copies.map((copy) => copy.name) }), { flag: "wx", mode: 0o600 });
-    if (statOrMissing(context.entry)) removeManagedEntry(context, context.entry);
-    fs.renameSync(staging, context.entry);
-  } finally {
-    if (statOrMissing(staging)) removeManagedEntry(context, staging);
+    await publication.publish();
+  } catch (error) {
+    hasPrimaryFailure = true;
+    primaryFailure = error;
   }
+  let hasCleanupFailure = false;
+  let cleanupFailure;
+  try {
+    publication.cleanup();
+  } catch (error) {
+    hasCleanupFailure = true;
+    cleanupFailure = error;
+  }
+  if (hasPrimaryFailure && hasCleanupFailure) throw new AggregateError([primaryFailure, cleanupFailure], "Office local cache save and staging cleanup failed", { cause: primaryFailure });
+  if (hasPrimaryFailure) throw primaryFailure;
+  if (hasCleanupFailure) throw cleanupFailure;
 }
 
 module.exports = { inventory, localCacheContext, restoreLocalCache, saveLocalCache };

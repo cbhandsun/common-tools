@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {observeSceneLiteralPaint:observe,retainedSceneLiteralPaint:retained}=require('../packages/slideclone-core/source-scene-literal-paint');
-const {hasMeasuredScenePortFrame,measuredSceneOpaqueSurface}=require('../packages/slideclone-core/source-scene-port-evidence');
+const {observeSceneLiteralPaint:observe,retainedSceneLiteralPaint:retained}=require('../packages/slideclone-core/scene-plan/source-scene-literal-paint');
+const {hasMeasuredScenePortFrame,measuredSceneOpaqueSurface}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
 function fixture(){
  const width=32,height=24,image={width,height,rgba:Buffer.alloc(width*height*4,255)};
  const cells=new Set([2*width+2,2*width+3,3*width+2,10*width+20]);

@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {planSceneCropAtlas}=require('../packages/slideclone-core/source-scene-crop-atlas');
-const {createSceneCropSheet}=require('../packages/slideclone-core/source-scene-crop-sheet');
+const {planSceneCropAtlas}=require('../packages/slideclone-core/scene-plan/source-scene-crop-atlas');
+const {createSceneCropSheet}=require('../packages/slideclone-core/scene-plan/source-scene-crop-sheet');
 test('overlapping context shares pixels while every original target retains its bounded affine mapping',()=>{
  const image={width:600,height:500,rgba:Buffer.alloc(600*500*4)};
  for(let y=0;y<500;y++)for(let x=0;x<600;x++)image.rgba.set([x%256,y%256,(x+y)%256,255],(y*600+x)*4);
@@ -23,8 +23,8 @@ test('overlapping context shares pixels while every original target retains its 
   }
  }
  for(const a of atlas.annotations)assert.ok(result.targets.every(t=>a.y-7+5<=t.cropBox.y||a.y-7>=t.cropBox.y+t.cropBox.h||a.x+11<=t.cropBox.x||a.x>=t.cropBox.x+t.cropBox.w));
- const {readStructuralObservations}=require('../packages/slideclone-core/source-scene-structural-review');
- const {sourceBox2D}=require('../packages/slideclone-core/source-scene-coordinate-frame');
+ const {readStructuralObservations}=require('../packages/slideclone-core/scene-plan/source-scene-structural-review');
+ const {sourceBox2D}=require('../packages/slideclone-core/scene-plan/source-scene-coordinate-frame');
  const target=targets[2],outside=result.targets[0].candidateBox;
  const observation=readStructuralObservations({structures:[{index:target.index,kind:'icon',confidence:.99,regionId:'root',
   box_2d:sourceBox2D(outside,result.image)}]},[{index:target.index,objectId:'nested',box:target.cropBox}],

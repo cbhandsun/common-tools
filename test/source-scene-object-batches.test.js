@@ -1,12 +1,12 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {initializeSceneObjectBatches:init,sceneObjectBatches:read,sceneObjectLimit:limit,sceneLocalObjectCapacity:remaining,
- sceneHeaderObjectCapacity:headers,recordSceneLocalObjectBatch:record,sceneInventoryObjectBatchesValid:valid}=require('../packages/slideclone-core/source-scene-object-batches');
-const {admitSourceScenePlan:admit}=require('../packages/slideclone-core/source-scene-plan');
-const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/source-scene-physical-inventory');
-const {applyRegionalInventoryReview:regional,selectRegionalInventoryTargets:select}=require('../packages/slideclone-core/source-scene-regional-inventory');
-const {applyStructuralReview:structural}=require('../packages/slideclone-core/source-scene-structural-review');
-const {buildSceneInventoryEvidence:inventory,auditSceneInventory:audit}=require('../packages/slideclone-core/source-scene-observed-inventory');
+ sceneHeaderObjectCapacity:headers,recordSceneLocalObjectBatch:record,sceneInventoryObjectBatchesValid:valid}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
+const {admitSourceScenePlan:admit}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/scene-plan/source-scene-physical-inventory');
+const {applyRegionalInventoryReview:regional,selectRegionalInventoryTargets:select}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
+const {applyStructuralReview:structural}=require('../packages/slideclone-core/scene-plan/source-scene-structural-review');
+const {buildSceneInventoryEvidence:inventory,auditSceneInventory:audit}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
 function fixture(n=64){return {version:1,sourceHash:'a'.repeat(64),widthPx:1000,heightPx:1000,
  regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:1000,h:1000}}],
  objects:Array.from({length:n},(_,i)=>({id:'object-'+i,regionId:'root',kind:'container',box:{x:i*5,y:0,w:3,h:3}})),relations:[]};}
@@ -93,7 +93,7 @@ test('regional count follows complete-unit demand and shared reservations rather
  assert.equal(targets.reduce((n,t)=>n+t.preferredObjectSlots,0),32);assert.deepEqual(p,before);
  const reserved=select(p,32,0,undefined,undefined,5);assert.deepEqual(reserved.map(t=>t.preferredObjectSlots),[10,9,8]);
  assert.equal(select(p,1,0).length,1);assert.equal(select(p,0,0).length,0);
- const {allocateSourceSceneReview}=require('../packages/slideclone-core/source-scene-review-allocation');
+ const {allocateSourceSceneReview}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
  const allocation=allocateSourceSceneReview({width:1000,height:1000,targets:targets.map((t,index)=>({index,box:t.box,role:'region-inventory',optional:true,textKnown:false}))});
  assert.equal(allocation.indices.length,4);assert.ok(allocation.sheetPixels+allocation.reservedPixels+(allocation.focusPixels??0)<=4000000);
  for(const bad of [-1,33,1.1,Infinity,'4'])assert.throws(()=>select(p,32,0,undefined,undefined,bad),RangeError);

@@ -5,7 +5,7 @@ const { EventEmitter } = require("node:events");
 const path = require("node:path");
 const { PassThrough } = require("node:stream");
 const test = require("node:test");
-const { PROFILE_NAME, createPinnedRawImageOcr, parseTesseractTsv, readPinnedRawImageOcrProfile, runProcess, sha256File, verifyPinnedRawImageOcrProfile } = require("../packages/slideclone-core/team-ocr-profile");
+const { PROFILE_NAME, createPinnedRawImageOcr, parseTesseractTsv, readPinnedRawImageOcrProfile, runProcess, sha256File, verifyPinnedRawImageOcrProfile } = require("../packages/slideclone-core/ocr/team-ocr-profile");
 
 function profileEnvironment(overrides = {}) {
   return {

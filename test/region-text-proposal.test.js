@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parseRegionTextProposals:parse}=require('../packages/slideclone-core/region-text-proposal');
+const {parseRegionTextProposals:parse}=require('../packages/slideclone-core/typography/region-text-proposal');
 const context=()=>({regionId:'card',bounds:{x:0,y:0,w:200,h:100},owners:[{id:'badge',box:{x:5,y:5,w:40,h:40}}],existing:[]});
 const proposal=()=>({regionId:'card',additions:[{id:'missed-label',ownerId:'badge',text:'7',box:{x:10,y:10,w:20,h:25},font:{family:'Arial',sizePt:24,color:'#FFFFFF',bold:true}}]});
 test('missing OCR text becomes native text bound to a real owner without source authority',()=>{

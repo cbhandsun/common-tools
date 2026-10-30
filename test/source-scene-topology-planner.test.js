@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {writePng}=require('../packages/slideclone-core/png');
-const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-topology-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,{width:200,height:100,rgba:Buffer.alloc(80000,255)});

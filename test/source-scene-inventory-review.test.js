@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {selectInventoryReviewTargets:select,readInventoryObservations:read,applyInventoryReview:apply}=require('../packages/slideclone-core/source-scene-inventory-review');
+const {selectInventoryReviewTargets:select,readInventoryObservations:read,applyInventoryReview:apply}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-review');
 function fixture(){
  const box={x:10,y:10,w:50,h:50},plan={version:1,sourceHash:'a'.repeat(64),widthPx:100,heightPx:100,
   regions:[{id:'region-root',parentId:null,kind:'section',box:{x:0,y:0,w:100,h:100}}],
@@ -53,7 +53,12 @@ test('source-bound sheet coordinates are mapped once and cannot acquire neighbor
  const raw={index:2,kind:'icon',confidence:.99,regionId:'region-root',box_2d:[300,300,500,500]};
  assert.deepEqual(read({inventories:[raw]},[target],frame)[0].box,{x:25,y:25,w:20,h:20});
  const outside=read({inventories:[{...raw,box_2d:[0,0,500,500]}]},[target],frame);assert.equal(outside[0].rejection,'source-window');
- for(const rows of [[raw,raw],[],[{...raw,index:3}],[{...raw,box_2d:[300,300,250,500]}]])assert.throws(()=>read({inventories:rows},[target],frame),TypeError);
+ for(const rows of [[raw,raw],[],[{...raw,index:3}]])assert.throws(()=>read({inventories:rows},[target],frame),TypeError);
+ const invalid=read({inventories:[{...raw,box_2d:[300,300,250,500]}]},[target],frame);
+ assert.equal(invalid[0].rejection,'geometry-contract');assert.equal(invalid[0].box,null);
+ const original=fixture().plan,declined=apply(original,[target],[invalid,invalid]);
+ assert.deepEqual(declined.plan.objects,original.objects);
+ assert.deepEqual(declined.evidence.rejected,[{id:target.objectId,reason:'geometry-contract'}]);
  assert.deepEqual(read({},[],undefined),[]);
  let calls=0;for(const value of [null,[],new Proxy({},{}),{get inventories(){calls++;throw Error('private');}}])assert.throws(()=>read(value,[],undefined),TypeError);assert.equal(calls,0);
 });

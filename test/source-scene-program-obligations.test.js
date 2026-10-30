@@ -1,11 +1,11 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {rebindRegionProgramMembers:rebind,retainRegionProgramObligation:retain,currentSceneAdmissionRejections:active}=require('../packages/slideclone-core/source-scene-region-program');
-const {pendingSceneProgramObligations:pending,restoreRegionProgramObligations:restore}=require('../packages/slideclone-core/source-scene-program-obligations');
-const {initializeSceneObjectBatches:initialize,recordSceneLocalObjectBatch:addObjects}=require('../packages/slideclone-core/source-scene-object-batches');
-const {recordSceneLocalRelationBatch:addRelations}=require('../packages/slideclone-core/source-scene-relation-batches');
-const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/source-scene-physical-inventory');
+const {admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {rebindRegionProgramMembers:rebind,retainRegionProgramObligation:retain,currentSceneAdmissionRejections:active}=require('../packages/slideclone-core/scene-plan/source-scene-region-program');
+const {pendingSceneProgramObligations:pending,restoreRegionProgramObligations:restore}=require('../packages/slideclone-core/scene-plan/source-scene-program-obligations');
+const {initializeSceneObjectBatches:initialize,recordSceneLocalObjectBatch:addObjects}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
+const {recordSceneLocalRelationBatch:addRelations}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
+const {compactPhysicalSceneInventory:compact}=require('../packages/slideclone-core/scene-plan/source-scene-physical-inventory');
 const ref='label-'+'1'.repeat(24),hash='a'.repeat(64),box={x:10,y:10,w:20,h:20};
 function fixture(withAlias=false){
  const raw={coordinateSpace:'source-pixels',regions:['a','b'].map(id=>({id,parentId:null,kind:'section',box:{x:0,y:0,w:100,h:100}})),
@@ -31,6 +31,92 @@ test('strictly admitted original identities restore the program without clearing
  assert.deepEqual(out.regionPrograms[1],p.pendingRegionPrograms[0].program);
  assert.deepEqual(out.admission,p.admission);assert.equal(out.admission.complete,false);assert.deepEqual(p,before);
  assert.equal(next.pendingRegionPrograms.length,1);assert.equal(next.regionPrograms.length,1);
+});
+
+function rejectedRelation(){
+ const raw={coordinateSpace:'source-pixels',regions:[{id:'root',parentId:null,kind:'diagram',box:{x:0,y:0,w:100,h:100}}],
+  inventory:[['root',2,0,2]],objects:[{id:'a',regionId:'root',kind:'container',box:{x:10,y:10,w:20,h:20}},
+   {id:'b',regionId:'root',kind:'container',box:{x:70,y:10,w:20,h:20}}],
+  relations:[{id:'lost',regionId:'root',fromId:'a',toId:'b',direction:'invalid'}],
+  programs:[{regionId:'root',objects:['a','b'],relations:['lost'],labels:[]}]};
+ return admitSourceScenePlan(raw,{sourceHash:hash,widthPx:100,heightPx:100,labelRefs:[]});
+}
+function regionalRelation(plan){
+ const relation={id:'relation-regional-0-0',regionId:'region-root',fromId:'object-a',toId:'object-b',direction:'forward',shaftBox:{x:30,y:15,w:40,h:10}};
+ return addRelations(plan,{...plan,relations:[...plan.relations,relation]},[relation.id]);
+}
+function historicalRelationSubstitution(){
+ const original=rejectedRelation(),snapshot=structuredClone(original.pendingRegionPrograms[0]),next=regionalRelation(original);
+ return {...next,regionPrograms:[{...snapshot.program,relations:['relation-regional-0-0']}],pendingRegionPrograms:[],
+  resolvedRegionPrograms:[{...snapshot,sourceHash:hash,widthPx:100,heightPx:100}]};
+}
+
+test('a newly observed regional relation cannot substitute an unbound rejected relation identity',()=>{
+ const original=rejectedRelation(),snapshot=structuredClone(original.pendingRegionPrograms),next=regionalRelation(original),out=rebind(original,next);
+ assert.deepEqual(out.pendingRegionPrograms,snapshot);
+ assert.equal(out.regionPrograms.length,0);assert.equal(out.relations.length,1);
+ assert.deepEqual(out.relations,next.relations);assert.deepEqual(out.admission,original.admission);
+ assert.equal(out.relationBatches[0].rejected,1);assert.equal(out.relationBatches[1].members.length,1);
+});
+
+test('historical regional substitutions reopen their exact original obligation while current native relations survive',()=>{
+ const plan=historicalRelationSubstitution(),before=structuredClone(plan),snapshot=plan.resolvedRegionPrograms[0];
+ const expected={index:snapshot.index,program:snapshot.program};
+ assert.deepEqual(pending(plan),[expected]);
+ const state=require('../packages/slideclone-core/scene-plan/source-scene-recovery-policy').sourceSceneRecoveryState(plan);
+ assert.deepEqual(state,{requiresNewRevision:true,owners:[{regionId:'region-root',mode:'source-revision-required',missingObjects:[],missingRelations:['relation-lost']}]});
+ assert.equal(active(plan).filter(r=>r.collection==='program').length,1);
+ const out=rebind(plan,plan);
+ assert.deepEqual(out.pendingRegionPrograms,[expected]);assert.deepEqual(out.resolvedRegionPrograms,[]);
+ assert.deepEqual(out.regionPrograms,plan.regionPrograms);assert.deepEqual(out.relations,plan.relations);
+ assert.deepEqual(out.admission,plan.admission);assert.deepEqual(out.relationBatches,plan.relationBatches);assert.deepEqual(plan,before);
+ assert.deepEqual(pending(JSON.parse(JSON.stringify(out))),[expected]);
+ const loaded=JSON.parse(JSON.stringify(out));assert.deepEqual(rebind(loaded,loaded),out);
+});
+
+test('a historical missing relation is not discharged by matching counts or a regional member in another owner',()=>{
+ const plan=historicalRelationSubstitution();plan.observedInventory[0].relations=1;
+ assert.equal(pending(plan)[0].program.relations[0],'relation-lost');
+ const other={id:'region-other',parentId:null,kind:'diagram',box:{x:0,y:0,w:100,h:100}};
+ plan.regions.push(other);plan.relations[0].regionId=other.id;
+ assert.equal(pending(plan)[0].program.regionId,'region-root');
+ assert.equal(pending(plan)[0].program.relations[0],'relation-lost');
+});
+
+test('reopened history restores only when the exact original relation returns and then remains stable',()=>{
+ const historical=historicalRelationSubstitution(),plan=rebind(historical,historical);
+ const relation={...plan.relations[0],id:'relation-lost'},next=addRelations(plan,{...plan,relations:[...plan.relations,relation]},[relation.id]);
+ const restored=rebind(plan,next);
+ assert.equal(restored.pendingRegionPrograms.length,0);assert.equal(restored.resolvedRegionPrograms.length,1);
+ assert.ok(restored.regionPrograms[0].relations.includes('relation-lost'));
+ assert.ok(restored.regionPrograms[0].relations.includes('relation-regional-0-0'));
+ assert.deepEqual(pending(restored),[]);assert.equal(active(restored).some(row=>row.collection==='program'),false);
+ assert.deepEqual(rebind(restored,restored),restored);
+});
+
+test('reopened history remains bounded by distinct source owners when all current region slots are occupied',()=>{
+ const plan=historicalRelationSubstitution();
+ for(let index=1;index<24;index++){
+  const region={id:'region-extra'+index,parentId:null,kind:'section',box:{x:0,y:0,w:100,h:100}};
+  plan.regions.push(region);plan.regionPrograms.push({regionId:region.id,objects:[],relations:[],labels:[]});
+ }
+ const out=rebind(plan,plan);
+ assert.equal(out.regionPrograms.length,24);assert.equal(pending(out).length,1);
+ assert.deepEqual(out.resolvedRegionPrograms,[]);assert.equal(rebind(out,out).regionPrograms.length,24);
+});
+
+test('forged stale ambiguous and hostile historical resolutions fail without invoking accessors',()=>{
+ let traps=0;const trap=()=>{traps++;throw Error('private-history');};
+ for(const change of [p=>p.resolvedRegionPrograms[0].sourceHash='b'.repeat(64),p=>p.resolvedRegionPrograms[0].widthPx++,
+  p=>p.resolvedRegionPrograms[0].program.regionId='region-absent',p=>p.resolvedRegionPrograms[0].program.relations=['bad id'],
+  p=>p.resolvedRegionPrograms[0].program.relations=new Array(1),p=>p.resolvedRegionPrograms=new Proxy([],{get:trap}),
+  p=>Object.defineProperty(p.resolvedRegionPrograms[0],'program',{get:trap,enumerable:true}),
+  p=>p.pendingRegionPrograms=[{index:p.resolvedRegionPrograms[0].index,program:p.resolvedRegionPrograms[0].program}],
+  p=>p.resolvedRegionPrograms=Array(25).fill(p.resolvedRegionPrograms[0]),p=>p.admission.rejections=[]]){
+  const bad=historicalRelationSubstitution();change(bad);
+  assert.throws(()=>pending(bad),error=>error instanceof TypeError&&!error.message.includes('private-history'));
+ }
+ assert.equal(traps,0);
 });
 
 test('a pending program resolves charged physical aliases before strict restoration and keeps its original snapshot',()=>{

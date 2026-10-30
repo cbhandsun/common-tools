@@ -2,11 +2,11 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { validateComponentTemplate } = require("../packages/slideclone-core/component-template-catalog");
+const { validateComponentTemplate } = require("../packages/slideclone-core/archetypes/component-template-catalog");
 const {
   harvestComponentTemplate,
   instantiateComponentTemplate
-} = require("../packages/slideclone-core/component-template-harvester");
+} = require("../packages/slideclone-core/archetypes/component-template-harvester");
 
 test("harvestComponentTemplate normalizes shapes, text slots, and palette", () => {
   const shapes = [

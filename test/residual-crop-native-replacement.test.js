@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { writePng } = require("../packages/slideclone-core/png");
-const { replaceResidualCropsWithNativeComponents, _private: { analyzeLineArt } } = require("../packages/slideclone-core/residual-crop-native-replacement");
+const { replaceResidualCropsWithNativeComponents, _private: { analyzeLineArt } } = require("../packages/slideclone-core/scene-plan/residual-crop-native-replacement");
 
 test("native residual line-art color comes from its own crop, not neighboring visual atoms", t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "residual-native-color-"));

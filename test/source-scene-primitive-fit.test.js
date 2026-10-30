@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {fitScenePrimitiveCandidate}=require('../packages/slideclone-core/source-scene-primitive-fit');
+const {fitScenePrimitiveCandidate}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-fit');
 const image=()=>{const width=160,height=120,rgba=new Uint8Array(width*height*4).fill(255);
  for(let y=0;y<height;y++)for(let x=0;x<width;x++){const d=Math.hypot((x+.5-82)/32,(y+.5-60)/26);if(d<=1){const p=(y*width+x)*4;rgba[p]=120;rgba[p+1]=170;rgba[p+2]=220;}}
  return {width,height,rgba};};

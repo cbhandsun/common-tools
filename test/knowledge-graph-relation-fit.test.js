@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   fitKnowledgeGraphRelations,
-} = require("../packages/slideclone-core/knowledge-graph-relation-fit");
+} = require("../packages/slideclone-core/archetypes/knowledge-graph-relation-fit");
 
 function fixture({ lower = true } = {}) {
   const image = {

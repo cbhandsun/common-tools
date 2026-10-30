@@ -6,10 +6,10 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { cropPng, writePng } = require("../packages/slideclone-core/png");
-const { eraseObjectifiedLayerPrimitives } = require("../packages/slideclone-core/residual-primitive-erasure");
-const { filterTextBoxesForGraphicUnderlays } = require("../packages/slideclone-core/page-text-rules");
+const { eraseObjectifiedLayerPrimitives } = require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
+const { filterTextBoxesForGraphicUnderlays } = require("../packages/slideclone-core/typography/page-text-rules");
 
-const { buildPageHybridGraphicsStage } = require("../packages/slideclone-core/page-hybrid-graphics-stage");
+const { buildPageHybridGraphicsStage } = require("../packages/slideclone-core/scene-plan/page-hybrid-graphics-stage");
 
 test("hybrid erasure returns the exact source label lost by early underlay filtering", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "hybrid-erased-title-"));

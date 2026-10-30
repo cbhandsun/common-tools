@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { vectorizeDensePictorialIcon } = require("../packages/slideclone-core/pictorial-icon-native-vectorization");
+const { vectorizeDensePictorialIcon } = require("../packages/slideclone-core/archetypes/pictorial-icon-native-vectorization");
 
 test("a saturated dark outline and its pale same-hue interior retain independent source colors", () => {
   const image = makeTransparentImage(64, 64);
@@ -139,7 +139,7 @@ test("dark detail priority preserves saturated color and ignores transparent RGB
 });
 
 test("chromatic ink overlays retain the original base paths and original 32-part bound", () => {
-  const { _private: internals } = require("../packages/slideclone-core/pictorial-icon-native-vectorization");
+  const { _private: internals } = require("../packages/slideclone-core/archetypes/pictorial-icon-native-vectorization");
   for (const count of [1, 32]) {
     const image = makeTransparentImage(count === 1 ? 64 : 128, count === 1 ? 64 : 64);
     if (count === 1) {

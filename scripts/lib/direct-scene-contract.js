@@ -2,7 +2,7 @@
 
 // Experimental scene proposal admission. This grants no source, erase or
 // publication authority. Diagnostics contain schema paths, never input values.
-const { decodeNativeFreeformPath } = require("../../packages/slideclone-core/native-freeform-path");
+const { decodeNativeFreeformPath } = require("../../packages/slideclone-core/scene-plan/native-freeform-path");
 
 class SceneContractError extends TypeError {
   constructor(path, reason) {

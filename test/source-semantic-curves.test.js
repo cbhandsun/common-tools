@@ -1,8 +1,8 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { fitSourceSemanticCurves } = require("../packages/slideclone-core/source-semantic-curves");
-const { admitSemanticArcs } = require("../packages/slideclone-core/semantic-arc-admission");
+const { fitSourceSemanticCurves } = require("../packages/slideclone-core/scene-plan/source-semantic-curves");
+const { admitSemanticArcs } = require("../packages/slideclone-core/archetypes/semantic-arc-admission");
 function blank() { return { width: 480, height: 360, rgba: Buffer.alloc(480 * 360 * 4, 255) }; }
 function paint(image, x, y, rgb) {
   for (let dy = -2; dy <= 2; dy += 1) for (let dx = -2; dx <= 2; dx += 1) {

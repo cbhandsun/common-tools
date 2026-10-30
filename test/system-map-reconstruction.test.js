@@ -7,7 +7,7 @@ const {
   MODES,
   chooseSystemMapReconstructionMode,
   composeSystemMapDiagram
-} = require("../packages/slideclone-core/system-map-reconstruction");
+} = require("../packages/slideclone-core/archetypes/system-map-reconstruction");
 
 test("system map policy prefers bounded hybrid reconstruction for measurable textured topology", () => {
   const result = chooseSystemMapReconstructionMode({

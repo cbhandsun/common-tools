@@ -1,10 +1,10 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {sceneProgramTasks}=require('../packages/slideclone-core/source-scene-program-tasks');
-const {applyRegionalInventoryReview}=require('../packages/slideclone-core/source-scene-regional-inventory');
-const {readSceneProgram}=require('../packages/slideclone-core/source-scene-program-contract');
-const {applySceneGeneratedPrograms}=require('../packages/slideclone-core/source-scene-program-generation');
+const {admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {sceneProgramTasks}=require('../packages/slideclone-core/scene-plan/source-scene-program-tasks');
+const {applyRegionalInventoryReview}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
+const {readSceneProgram}=require('../packages/slideclone-core/scene-plan/source-scene-program-contract');
+const {applySceneGeneratedPrograms}=require('../packages/slideclone-core/scene-plan/source-scene-program-generation');
 
 function fixture(){
  const plan=admitSourceScenePlan({coordinateSpace:'source-pixels',regions:[{id:'owner',parentId:null,kind:'diagram',box:{x:0,y:0,w:100,h:80}}],inventory:[['owner',2,0,1]],objects:[],relations:[],programs:[]},{sourceHash:'a'.repeat(64),widthPx:100,heightPx:80,labelRefs:[]});

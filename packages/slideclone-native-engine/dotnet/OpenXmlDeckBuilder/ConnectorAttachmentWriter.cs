@@ -26,6 +26,7 @@ internal static class ConnectorAttachmentWriter
             Attach(drawing, element.Style, "startAnchor", true, name, drawings);
             Attach(drawing, element.Style, "endAnchor", false, name, drawings);
         }
+        NativeRelationshipAttachmentAudit.Validate(tree, page);
     }
 
     private static void Attach(P.NonVisualConnectorShapeDrawingProperties drawing,

@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {planMeasuredSingleLineTextFit}=require('../packages/slideclone-core/measured-text-fit');
-const {validatePositionedTextLayout}=require('../packages/slideclone-core/positioned-text-layout');
-const {reframePositionedText}=require('../packages/slideclone-core/positioned-text-reframe');
-const {planMeasuredSingleLineTextSpacing}=require('../packages/slideclone-core/measured-text-fit');
+const {planMeasuredSingleLineTextFit}=require('../packages/slideclone-core/typography/measured-text-fit');
+const {validatePositionedTextLayout}=require('../packages/slideclone-core/typography/positioned-text-layout');
+const {reframePositionedText}=require('../packages/slideclone-core/typography/positioned-text-reframe');
+const {planMeasuredSingleLineTextSpacing}=require('../packages/slideclone-core/typography/measured-text-fit');
 const slideSize={widthPt:960,heightPt:540};
 function item(){return {id:'line',text:'AB',box:{x:100,y:100,w:100,h:24},
  font:{family:'Arial',sizePt:16,align:'left',valign:'middle'},wrap:false,

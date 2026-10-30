@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("../../../../packages/slideclone-core/restricted-svg");
+module.exports = require("../../../slideclone-core/archetypes/restricted-svg");

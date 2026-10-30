@@ -1,9 +1,9 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {eraseMasks}=require("../packages/slideclone-core/residual-primitive-erasure");
-const {residualTextPlans}=require("../packages/slideclone-core/residual-text-erasure");
-const {auditResidualPixelOwnership:audit}=require("../packages/slideclone-core/residual-pixel-ownership");
-const {eraseObjectMask}=require("../packages/slideclone-core/full-slide-native-residual");
+const {eraseMasks}=require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
+const {residualTextPlans}=require("../packages/slideclone-core/typography/residual-text-erasure");
+const {auditResidualPixelOwnership:audit}=require("../packages/slideclone-core/scene-plan/residual-pixel-ownership");
+const {eraseObjectMask}=require("../packages/slideclone-core/archetypes/full-slide-native-residual");
 function fixture(scale=1,shift=0){
  const width=80*scale+shift,height=50*scale+shift,source={width,height,rgba:Buffer.alloc(width*height*4,255)};
  const paint=(x,y,w,h,color)=>{for(let py=y*scale+shift;py<(y+h)*scale+shift;py++)for(let px=x*scale+shift;px<(x+w)*scale+shift;px++)source.rgba.set([...color,255],(py*width+px)*4);};

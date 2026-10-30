@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
 const {readPngBuffer,writePng}=require('../packages/slideclone-core/png');
 
 test('focused observations bind each local rectangle to unchanged source pixels and charge every transmitted image',async t=>{

@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
-const {measureSourceSceneVisibleGap:measure,measuredSceneVisibleGapCells}=require('../packages/slideclone-core/source-scene-visible-gap');
-const {compileSourceSceneVisibleGap:compile}=require('../packages/slideclone-core/source-scene-visible-gap-compiler');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+const {measureSourceSceneVisibleGap:measure,measuredSceneVisibleGapCells}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+const {compileSourceSceneVisibleGap:compile}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap-compiler');
 function fixture({vertical=false,reverse=false,gap=0,slant=0}={}){
  const image={width:256,height:256,rgba:Buffer.alloc(256*256*4,255)},budget={used:0},oracle=new Set();
  const put=(x,y,rgb=[25,90,180])=>{if(vertical)[x,y]=[y,x];image.rgba.set([...rgb,255],(y*256+x)*4);};
@@ -46,7 +46,7 @@ test('partial boundary slabs do not turn a flat source endpoint into a pointed t
   const f=fixture({vertical,slant}),before=Buffer.from(f.image.rgba),result=measure(f);assert.ok(result.fit,result.reason);
   assert.deepEqual(measuredSceneVisibleGapCells(f.image,result.fit),f.oracle);assert.deepEqual(f.image.rgba,before);
  }
- const {sourceFilledArrowSlices}=require('../packages/slideclone-core/source-filled-arrow-slices');
+ const {sourceFilledArrowSlices}=require('../packages/slideclone-core/routing/source-filled-arrow-slices');
  const cells=[];for(let y=10;y<18;y++)for(let x=10;x<40;x++)cells.push(y*64+x);
  const slices=sourceFilledArrowSlices({cells,width:64,horizontal:true,slope:.02,intercept:13,work:{checks:0}});assert.ok(slices);
  assert.equal(slices[0].complete,false);assert.equal(slices.at(-1).complete,false);

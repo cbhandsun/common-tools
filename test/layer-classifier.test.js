@@ -7,7 +7,7 @@ const {
   buildReconstructionPlan,
   classifyVisualLayer,
   summarizeLayerProfile
-} = require("../packages/slideclone-core/layer-classifier");
+} = require("../packages/slideclone-core/scene-plan/layer-classifier");
 
 test("classifyVisualLayer marks large diagram crops as split reconstruction candidates", () => {
   const layer = classifyVisualLayer({

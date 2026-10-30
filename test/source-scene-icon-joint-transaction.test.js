@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {diagonalGapFixture}=require('./helpers/scene-diagonal-gap.cjs');
 const {writePng}=require('../packages/slideclone-core/png');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 function fixture(t,{broken=false,coupled=false,multipart=false,ordinary=false}={}){
  const f=diagonalGapFixture(),image={width:440,height:220,rgba:Buffer.alloc(440*220*4,255)};
  for(let y=0;y<220;y++)for(const offset of [0,220])f.image.rgba.copy(image.rgba,(y*440+offset)*4,y*220*4,(y+1)*220*4);

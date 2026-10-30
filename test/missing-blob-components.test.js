@@ -4,7 +4,7 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const os=require("node:os");
 const path=require("node:path");
-const {createMissingBlobComponentCollector,missingBlobTargetTouchesText}=require("../packages/slideclone-core/missing-blob-components");
+const {createMissingBlobComponentCollector,missingBlobTargetTouchesText}=require("../packages/slideclone-core/archetypes/missing-blob-components");
 const {writePng}=require("../packages/slideclone-core/png");
 const collect=createMissingBlobComponentCollector({summarizeColor:()=>"#0066EE",describeGeometry:()=>({
   points:[{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}],curve:null,connectorContour:null
@@ -64,7 +64,7 @@ test("trusted geometry failure propagates instead of fabricating a successful co
 });
 test("production missing component fitting emits native multi-path holes and skips text-owned regions",t=>{
   const {fitDeckMissingNativeVisualAtomShapes,validateDeckIr}=require("../packages/slideclone-worker-adapter/team-worker");
-  const {auditSemanticEditability}=require("../packages/slideclone-core/semantic-editability-quality");
+  const {auditSemanticEditability}=require("../packages/slideclone-core/quality/semantic-editability-quality");
   const root=fs.mkdtempSync(path.join(os.tmpdir(),"missing-blob-contour-"));
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   const sourceFile=path.join(root,"source.png"),value=fixture();

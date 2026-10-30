@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { createOcrStatusNativeComponents } = require("../packages/slideclone-core/ocr-status-native-components");
+const { createOcrStatusNativeComponents } = require("../packages/slideclone-core/ocr/ocr-status-native-components");
 
 const slideSize = { widthPt: 960, heightPt: 540 };
 

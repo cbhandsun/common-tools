@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/semantic-matrix-grid.js");
+module.exports = require("../../../../packages/slideclone-core/archetypes/semantic-matrix-grid.js");

@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"), assert=require("node:assert/strict");
-const {auditResidualPixelOwnership:audit}=require("../packages/slideclone-core/residual-pixel-ownership");
-const {eraseMasks}=require("../packages/slideclone-core/residual-primitive-erasure");
+const {auditResidualPixelOwnership:audit}=require("../packages/slideclone-core/scene-plan/residual-pixel-ownership");
+const {eraseMasks}=require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
 function fixture() {
   const source={width:40,height:30,rgba:Buffer.alloc(40*30*4,255)};
   for(let y=10;y<14;y++) for(let x=10;x<14;x++) source.rgba.fill(20,(y*40+x)*4,(y*40+x)*4+3);

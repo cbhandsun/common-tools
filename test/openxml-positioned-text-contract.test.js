@@ -27,8 +27,8 @@ test("compact positioned font overrides retain native script faces, weight, geom
 });
 
 test('source-bound regional typography reaches native positioned text in the generated PPTX',t=>{
- const {prepareRegionProgramLabels}=require('../packages/slideclone-core/source-scene-region-program');
- const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');
+ const {prepareRegionProgramLabels}=require('../packages/slideclone-core/scene-plan/source-scene-region-program');
+ const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');
  const input=fixture(),page=input.pages[0],text=page.textBoxes[0];
  const dimensions={widthPx:960,heightPx:540},ref=sourceLabelIdentity(text.box,dimensions);
  text.source={editable:true,evidenceBox:{...text.box},ocrLabelBox:{...text.box},ocrLabelRef:ref};
@@ -56,8 +56,8 @@ test('source-measured panel groups retain editable positioned children and ident
  parent.source={editable:true,evidenceBox:{...parent.box}};
  page.shapes=[{id:'scene-container-panel',type:'rect',box,style:{fill:'#CDEFFF',stroke:'none'},source:{editable:true}}];
  const image={width:960,height:540,rgba:Buffer.alloc(960*540*4,255)},
- token=require('../packages/slideclone-core/source-scene-port-evidence').createMeasuredScenePortFrame(image,{box,fill:'#CDEFFF'});
- const grouped=require('../packages/slideclone-core/source-scene-physical-groups').bindSourceScenePhysicalGroups({image,slideSize:input.slideSize,
+ token=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence').createMeasuredScenePortFrame(image,{box,fill:'#CDEFFF'});
+ const grouped=require('../packages/slideclone-core/scene-plan/source-scene-physical-groups').bindSourceScenePhysicalGroups({image,slideSize:input.slideSize,
   shapes:page.shapes,images:page.images,textBoxes:page.textBoxes,physicalNodes:[{proposalId:'panel',node:{box,portFrame:token}}]});
  assert.equal(grouped.evidence.physicallyGroupedText,1);
  const flat=write(input);page.shapes=grouped.shapes;page.textBoxes=grouped.textBoxes;const composed=write(input);
@@ -76,7 +76,7 @@ test("omitting zero native text margins preserves the complete OpenXML slide for
  Object.assign(parent.style,{marginLeftPt:0,marginRightPt:0,marginTopPt:0,marginBottomPt:0});
  input.pages[0].textBoxes.push({id:"ordinary",text:"native text",box:{x:200,y:30,w:150,h:30},font:{family:"Arial",sizePt:14},
   style:{marginLeftPt:0,marginRightPt:2,marginTopPt:0,marginBottomPt:4},source:{ocrProvider:"fixture"}});
- const compacted=structuredClone(input);require("../packages/slideclone-core/native-text-inset-defaults").compactNativeTextInsetDefaults(compacted);
+ const compacted=structuredClone(input);require("../packages/slideclone-core/typography/native-text-inset-defaults").compactNativeTextInsetDefaults(compacted);
  const before=write(input),after=write(compacted);runBuilder(["--ir",before.ir,"--out",before.pptx]);runBuilder(["--ir",after.ir,"--out",after.pptx]);
  const xmlBefore=readZipEntry(before.pptx,"ppt/slides/slide1.xml").toString("utf8"),xmlAfter=readZipEntry(after.pptx,"ppt/slides/slide1.xml").toString("utf8");
  assert.equal(xmlAfter,xmlBefore);assert.match(xmlAfter,/rIns="25400"/u);assert.match(xmlAfter,/bIns="50800"/u);

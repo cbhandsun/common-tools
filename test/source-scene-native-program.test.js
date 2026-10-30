@@ -2,15 +2,15 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {primitiveImage}=require('./helpers/scene-primitive-program-fixture.cjs');
-const {compileScenePrimitiveProgram,primitiveSceneParentMembers}=require('../packages/slideclone-core/source-scene-primitive-program');
-const {parseSceneNativeGeometry}=require('../packages/slideclone-core/source-scene-native-geometry');
-const {admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {compileScenePrimitiveProgram,primitiveSceneParentMembers}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-program');
+const {parseSceneNativeGeometry}=require('../packages/slideclone-core/scene-plan/source-scene-native-geometry');
+const {admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 const {writePng}=require('../packages/slideclone-core/png');
-const {recordSceneLocalObjectBatch}=require('../packages/slideclone-core/source-scene-object-batches');
-const {retainedSceneGroupMembers}=require('../packages/slideclone-core/source-scene-group-retention');
-const {sourceSceneCompileFeedback}=require('../packages/slideclone-core/source-scene-compile-feedback');
-const {selectStructuralReviewTargets}=require('../packages/slideclone-core/source-scene-structural-review');
+const {recordSceneLocalObjectBatch}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
+const {retainedSceneGroupMembers}=require('../packages/slideclone-core/scene-plan/source-scene-group-retention');
+const {sourceSceneCompileFeedback}=require('../packages/slideclone-core/scene-plan/source-scene-compile-feedback');
+const {selectStructuralReviewTargets}=require('../packages/slideclone-core/scene-plan/source-scene-structural-review');
 function request(fixture,budget={used:0}){return {image:fixture.image,
  object:{id:'object-unit',regionId:'region-root',kind:'container',box:fixture.box,nativeGeometry:fixture.nativeGeometry},
  textMasks:[],budget,slideSize:{widthPt:fixture.image.width,heightPt:fixture.image.height}};}

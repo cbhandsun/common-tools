@@ -298,4 +298,34 @@ function colorDistanceForTest(a, b) {
   return Math.sqrt((a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2);
 }
 
-module.exports={chartZoneImage,chartAxisAtom,chartRectAtom,chartLineAtom,chartPointAtom,chartDonutAtom,chartDonutSegmentAtom,chartArcArrowSegmentAtom,visualAtomImage,component,makeImage,fillRect,fillRightTriangle,setPixel,matrixTextBoxes,quadrantTextBoxes,drawSyntheticNetwork,drawLine,getPixel,parseHex,colorDistanceForTest};
+function createOpenXmlBatchSmokeIr(text) {
+  return {
+    version: "1.0",
+    slideSize: { widthPt: 960, heightPt: 540 },
+    pages: [{
+      pageIndex: 0,
+      sourceImage: "",
+      background: { fill: "#FFFFFF" },
+      shapes: [{
+        id: "card",
+        type: "roundrect",
+        box: { x: 100, y: 90, w: 280, h: 90 },
+        style: { fill: "#EAF2FF", stroke: "#4472C4", strokeWidth: 1 },
+        source: { nativeComponentGroupId: "batch-card" }
+      }],
+      textBoxes: [{
+        id: "label",
+        text,
+        box: { x: 120, y: 115, w: 240, h: 32 },
+        font: { family: "Arial", sizePt: 18, weight: "bold", color: "#1F1F1F", align: "center", valign: "mid", lineHeightMultiple: 1 },
+        style: {},
+        source: { nativeComponentGroupId: "batch-card" }
+      }],
+      images: [],
+      tables: [],
+      charts: []
+    }]
+  };
+}
+
+module.exports={createOpenXmlBatchSmokeIr,chartZoneImage,chartAxisAtom,chartRectAtom,chartLineAtom,chartPointAtom,chartDonutAtom,chartDonutSegmentAtom,chartArcArrowSegmentAtom,visualAtomImage,component,makeImage,fillRect,fillRightTriangle,setPixel,matrixTextBoxes,quadrantTextBoxes,drawSyntheticNetwork,drawLine,getPixel,parseHex,colorDistanceForTest};

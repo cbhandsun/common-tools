@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceSceneDirectReviewScope:scope}=require('../packages/slideclone-core/source-scene-direct-review-scope');
-const {selectRegionalInventoryTargets:select,applyRegionalInventoryReview:apply,regionalInventoryPrompt:prompt}=require('../packages/slideclone-core/source-scene-regional-inventory');
-const {initializeSceneObjectBatches,sceneLocalObjectCapacity}=require('../packages/slideclone-core/source-scene-object-batches');
+const {sourceSceneDirectReviewScope:scope}=require('../packages/slideclone-core/scene-plan/source-scene-direct-review-scope');
+const {selectRegionalInventoryTargets:select,applyRegionalInventoryReview:apply,regionalInventoryPrompt:prompt}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
+const {initializeSceneObjectBatches,sceneLocalObjectCapacity}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
 function fixture(){
  const root={id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:1000,h:800}},child={id:'card',parentId:'root',kind:'card',box:{x:0,y:150,w:1000,h:650}};
  const plan={version:1,sourceHash:'a'.repeat(64),widthPx:1000,heightPx:800,regions:[root,child],objects:[],relations:[],

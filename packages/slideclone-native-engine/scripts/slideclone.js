@@ -226,9 +226,9 @@ function createLocalComponentResolver({ componentCatalogRoot } = {}) {
   if (typeof implementation?.rebuildDeckFromWorkDir !== "function" || typeof implementation?.getComponentAnalysisServices !== "function") {
     throw new Error("local component analysis implementation is unavailable");
   }
-  const { loadTeamComponentCatalog } = require("../../../packages/slideclone-core/team-component-catalog");
-  const { createTeamComponentAnalysis } = require("../../../packages/slideclone-core/team-component-analysis");
-  const { buildComponentStrategyIndex, buildComponentAssetIndex } = require("../../../packages/slideclone-core/component-strategy-annotator");
+  const { loadTeamComponentCatalog } = require("../../slideclone-core/archetypes/team-component-catalog");
+  const { createTeamComponentAnalysis } = require("../../slideclone-core/archetypes/team-component-analysis");
+  const { buildComponentStrategyIndex, buildComponentAssetIndex } = require("../../slideclone-core/archetypes/component-strategy-annotator");
   const services = implementation.getComponentAnalysisServices();
   const { inventory } = loadTeamComponentCatalog({
     root: componentCatalogRoot,

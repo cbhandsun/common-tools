@@ -46,7 +46,7 @@ test('final opposite-polarity text keeps its baseline and offers only a privatel
  });
  const page=result.deck.pages[0],text=page.textBoxes.find(t=>t.text==='AABBCC');
  assert.equal(text.positionedRuns,undefined);assert.equal(text.font.color,'#FFFFFF');assert.equal(result.deck.meta.sourceWordLayout,undefined);
- const {planIntactSourceWordLayouts}=require('../packages/slideclone-core/source-word-layout-registry');
+ const {planIntactSourceWordLayouts}=require('../packages/slideclone-core/typography/source-word-layout-registry');
  const candidate=planIntactSourceWordLayouts(page);
  assert.equal(candidate.changes.length,1);const next=candidate.textBoxes.find(t=>t.id===text.id);
  assert.equal(next.positionedRuns.length,1);assert.equal(next.positionedRuns[0].text,'AABBCC');
@@ -55,7 +55,7 @@ test('final opposite-polarity text keeps its baseline and offers only a privatel
 });
 
 test('a rejected optional residual preserves source layouts and remains a failed final candidate',async t=>{
- const {residualOwnershipRejection}=require('../packages/slideclone-core/residual-branch-result');
+ const {residualOwnershipRejection}=require('../packages/slideclone-core/scene-plan/residual-branch-result');
  const failed={passed:false,scannedPixels:100,ownedPixels:12,ownedForegroundPixels:12,remainingOwnedForegroundPixels:0,
   remainingOwnedBackgroundPixels:0,unownedChangedPixels:0,remainingTextCorePixels:2,incorrectTextBackgroundPixels:0,unresolvedTextMasks:0};
  const result=await fixture(t,()=>{},true,'AAAABBBB',()=>{},async()=>{throw residualOwnershipRejection(failed);});

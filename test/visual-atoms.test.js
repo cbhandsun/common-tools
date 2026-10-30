@@ -7,8 +7,8 @@ const { blankImage, fillRect, fillEllipse, fillPill, fillDiamond, fillTriangleUp
 const {
   extractVisualAtoms,
   _private: { foregroundComponentsBySeedColor, inferDiagonalLineFit, looksLikeSearchIcon, searchIconEvidence }
-} = require("../packages/slideclone-core/visual-atoms");
-const { classifyVisualLayer } = require("../packages/slideclone-core/layer-classifier");
+} = require("../packages/slideclone-core/scene-plan/visual-atoms");
+const { classifyVisualLayer } = require("../packages/slideclone-core/scene-plan/layer-classifier");
 
 test("extractVisualAtoms separates node rectangles, connector lines, and icon crops", () => {
   const image = blankImage(400, 240, "#ffffff");

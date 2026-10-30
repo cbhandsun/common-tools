@@ -5,9 +5,9 @@ const fs=require("node:fs");
 const path=require("node:path");
 const os=require("node:os");
 const {writePng}=require("../packages/slideclone-core/png");
-const {createSourceOcrRefiner}=require("../packages/slideclone-core/ocr-source-refinement");
+const {createSourceOcrRefiner}=require("../packages/slideclone-core/ocr/ocr-source-refinement");
 const {createRawImageNativeRebuilder}=require("../packages/slideclone-core/team-native-rebuild");
-const {sourceLabelIdentity}=require("../packages/slideclone-core/source-label-identity");
+const {sourceLabelIdentity}=require("../packages/slideclone-core/scene-plan/source-label-identity");
 function setup(t) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),"ocr-source-test-"));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   const sourceFile=path.join(root,"source.png");writePng(sourceFile,{width:300,height:180,rgba:Buffer.alloc(300*180*4,255)});

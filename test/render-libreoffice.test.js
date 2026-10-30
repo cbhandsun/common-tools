@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require("./helpers/temporary-directory.cjs");
 
 const renderLibreOffice = require("../packages/slideclone-native-engine/scripts/adapters/render-libreoffice");
 const { writeStoredZipAtomic } = require("../packages/ooxml-core/pptx-zip");
@@ -78,7 +79,7 @@ test("render LibreOffice stages long PDF paths before Poppler reads them", (t) =
 });
 
 test("render LibreOffice stages conversion input, output, and profile outside a deep workspace", () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "render-lo-convert-stage-"));
+  const tmp = createTemporaryTestDirectory("render-lo-convert-stage-");
   let dir = tmp;
   while (path.join(dir, "render", "iteration-0", "lo-profile").length < 185) {
     dir = path.join(dir, "nested-long-segment");
@@ -97,7 +98,7 @@ test("render LibreOffice stages conversion input, output, and profile outside a 
     assert.ok(staged.renderDir.length < renderDir.length);
   } finally {
     renderLibreOffice._private.cleanupStagedConversion(staged);
-    fs.rmSync(tmp, { recursive: true, force: true });
+    removeTemporaryTestDirectory(tmp);
   }
 });
 

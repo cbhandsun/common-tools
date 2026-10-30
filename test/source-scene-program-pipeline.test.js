@@ -1,12 +1,12 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {writePng}=require('../packages/slideclone-core/png');
-const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
 const {createRawImageNativeRebuilder}=require('../packages/slideclone-core/team-native-rebuild');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 const {paintPrimitive}=require('./helpers/scene-primitive-program-fixture.cjs');
-const {parsePrimitiveCandidate}=require('../packages/slideclone-core/source-scene-primitive-candidate');
-const {retainedSceneGroupMembers}=require('../packages/slideclone-core/source-scene-group-retention');
+const {parsePrimitiveCandidate}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-candidate');
+const {retainedSceneGroupMembers}=require('../packages/slideclone-core/scene-plan/source-scene-group-retention');
 
 async function pipelineFixture(t,withPaths=false,withChildren=false,interiorOnly=false,options={}){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-program-pipeline-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
@@ -25,7 +25,8 @@ async function pipelineFixture(t,withPaths=false,withChildren=false,interiorOnly
   for(let x=70+offset;x<=168+offset;x++)for(let dy=-1;dy<=1;dy++)put(x,40+dy,[30,60,90]);
   for(let x=163+offset;x<=168+offset;x++)for(let dy=-(168+offset-x);dy<=168+offset-x;dy++)put(x,40+dy,[30,60,90]);
   const relation=[20+index,regionId,fromId,toId,0,normalized(70+offset,34,99,13)];
-  if(withPaths)relation.push([[2*(70+offset),200],[2*(168+offset),200]]);
+  // A declared reversal inside the hint cannot nominate a straight shaft.
+  if(withPaths)relation.push([[2*(70+offset),200],[2*(160+offset),200],[2*(80+offset),225],[2*(168+offset),200]]);
   relations.push(relation);
   if(withChildren||interiorOnly){
    objects.find(o=>o[0]===fromId)[4]=1;inventory[index][2]=1;
@@ -87,7 +88,7 @@ function compilationDetails(result){
  const summary=result.deck.meta.sourceSceneCompilation,details=result.deck.pages[0].source.sourceScene;
  assert.equal(summary.details,'pages[0].source.sourceScene');
  assert.deepEqual(summary.unresolved,details.unresolved);assert.deepEqual(summary.regionPrograms,details.regionPrograms);
- return {...details,observedInventory:require('../packages/slideclone-core/source-scene-inventory-codec').unpackSceneInventoryMembers(details.observedInventory)};
+ return {...details,observedInventory:require('../packages/slideclone-core/scene-plan/source-scene-inventory-codec').unpackSceneInventoryMembers(details.observedInventory)};
 }
 
 test('the default production observation carries complete region labels into actual native compilation',async t=>{

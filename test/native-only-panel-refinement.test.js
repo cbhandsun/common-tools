@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { createNativeOnlyPanelRefiner } = require("../packages/slideclone-worker-adapter/native-only-panel-refinement");
 const { fitDeckLightCardGeometry, fitDeckLowSaturationPanelFills, finalRefinementQualityAcceptable, validateDeckIr } = require("../packages/slideclone-worker-adapter/team-worker");
-const { auditSemanticEditability } = require("../packages/slideclone-core/semantic-editability-quality");
+const { auditSemanticEditability } = require("../packages/slideclone-core/quality/semantic-editability-quality");
 const { qualityRendered } = require("../packages/slideclone-core/team-native-rebuild");
 const { readPng, writePng } = require("../packages/slideclone-core/png");
 
@@ -111,7 +111,7 @@ test("passing, unchanged and semantically unsafe candidates do not render", asyn
   assert.equal(builds, 0);
 });
 test("production native-only branch refines panels before text and primitive selection", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../packages/slideclone-worker-adapter/team-worker.js"), "utf8");
+  const source = require('./helpers/worker-implementation-source.cjs').readWorkerImplementation();
   const start = source.indexOf("async function buildNativeOnlyResidualCandidate");
   const body = source.slice(start, source.indexOf("async function tryBuildNativeOnlyComponentFidelityPrimitiveCandidate", start));
   assert.match(body, /refineNativeOnlyPanels[\s\S]+const panelBaseline = panelRefined \|\| direct;[\s\S]+baseline: panelBaseline/u);

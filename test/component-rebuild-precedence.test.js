@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   shouldPreferAppliedPluginComponent
-} = require("../packages/slideclone-core/component-rebuild-precedence");
+} = require("../packages/slideclone-core/archetypes/component-rebuild-precedence");
 
 function componentImage(group = {}, overrides = {}) {
   return {

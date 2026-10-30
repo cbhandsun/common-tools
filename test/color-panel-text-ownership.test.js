@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { colorPanelOwnsText, hasSourceTextGeometry } = require("../packages/slideclone-core/color-panel-text-ownership");
+const { colorPanelOwnsText, hasSourceTextGeometry } = require("../packages/slideclone-core/typography/color-panel-text-ownership");
 
 const box = { x: 50, y: 80, w: 70, h: 14 };
 

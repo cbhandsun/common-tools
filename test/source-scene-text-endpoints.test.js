@@ -1,16 +1,16 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
-const {sourceLabelIdentity}=require('../packages/slideclone-core/source-label-identity');
-const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {parseSceneTextEndpoint,bindSceneTextEndpoints,hasSceneTextEndpoint,sceneTextEndpointObservationMask,survivingSceneTextEndpoint}=require('../packages/slideclone-core/source-scene-text-endpoints');
-const {sceneEndpointWithinScope}=require('../packages/slideclone-core/source-scene-topology-review');
-const {hasMeasuredScenePortFrame,measuredScenePortFill,measuredScenePortOwnsCell,measuredScenePortBodyMask}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {measureSourceSceneVisibleGap,measuredSceneVisibleGapCells}=require('../packages/slideclone-core/source-scene-visible-gap');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {sourceLabelIdentity}=require('../packages/slideclone-core/scene-plan/source-label-identity');
+const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {parseSceneTextEndpoint,bindSceneTextEndpoints,hasSceneTextEndpoint,sceneTextEndpointObservationMask,survivingSceneTextEndpoint}=require('../packages/slideclone-core/scene-plan/source-scene-text-endpoints');
+const {sceneEndpointWithinScope}=require('../packages/slideclone-core/scene-plan/source-scene-topology-review');
+const {hasMeasuredScenePortFrame,measuredScenePortFill,measuredScenePortOwnsCell,measuredScenePortBodyMask}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {measureSourceSceneVisibleGap,measuredSceneVisibleGapCells}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 const {writePng}=require('../packages/slideclone-core/png');
 const {diagonalGapFixture}=require('./helpers/scene-diagonal-gap.cjs');
-const {sceneTextEndpointHasMemberBox}=require('../packages/slideclone-core/source-scene-text-endpoints');
+const {sceneTextEndpointHasMemberBox}=require('../packages/slideclone-core/scene-plan/source-scene-text-endpoints');
 function fixture(){
  const f=diagonalGapFixture(),dimensions={widthPx:220,heightPx:220},slideSize={widthPt:220,heightPt:220};
  const boxes=[f.from.box,f.to.box],refs=boxes.map(b=>sourceLabelIdentity(b,dimensions));
@@ -27,7 +27,7 @@ function fixture(){
 
 test('clamped text ports explicitly distinguish diagonal displacement and preserve the terminal',()=>{
  const f=fixture(),node=f.bound.nodes.get(f.plan.textEndpoints[0].id),text=f.texts[0],b=text.box;
- const {sceneTextEndpointNativeAnchor:anchor}=require('../packages/slideclone-core/source-scene-text-endpoints');
+ const {sceneTextEndpointNativeAnchor:anchor}=require('../packages/slideclone-core/scene-plan/source-scene-text-endpoints');
  for(const [side,point,kind] of [['right',{x:b.x+b.w+10,y:b.y+b.h+3},'source-visible-diagonal-gap'],
   ['left',{x:b.x-10,y:b.y-3},'source-visible-diagonal-gap'],['bottom',{x:b.x+b.w/2,y:b.y+b.h+3},'source-visible-gap']]){
   const a=anchor(node.portFrame,text.id,{width:220,height:220,point,side});assert.ok(a);assert.equal(a.siteOffsetKind,kind);
@@ -147,7 +147,7 @@ test('packed transport preserves explicit OCR endpoint indices without object or
 });
 test('bounded regional consensus can add missing text-node relations and rejects stale endpoint geometry',()=>{
  const f=fixture(),plan={...f.plan,relations:[],observedInventory:[{regionId:'region-root',containers:0,icons:0,relations:1}]};
- const {selectRegionalInventoryTargets:select,applyRegionalInventoryReview:apply}=require('../packages/slideclone-core/source-scene-regional-inventory');
+ const {selectRegionalInventoryTargets:select,applyRegionalInventoryReview:apply}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
  const selected=select(plan,1,0);assert.equal(selected.length,1);
  const target={...selected[0],index:7};assert.equal(target.endpoints.length,2);assert.ok(target.endpoints.every(e=>e.entityKind==='text'));
  const rows=[{index:7,units:[],relations:[{from:plan.textEndpoints[0].id,to:plan.textEndpoints[1].id,direction:'forward'}]}];
@@ -160,7 +160,7 @@ test('complete-region receipts require actual unique native text endpoints to su
  const f=fixture(),relation=f.plan.relations[0],ids=f.plan.textEndpoints.map(t=>t.id);
  const plan={...f.plan,observedInventory:[{regionId:'region-root',containers:0,icons:0,relations:1}],
   regionPrograms:[{regionId:'region-root',objects:[],relations:[relation.id],labels:[]}]};
- const {completeRegionPrograms:complete}=require('../packages/slideclone-core/source-scene-region-completion');
+ const {completeRegionPrograms:complete}=require('../packages/slideclone-core/scene-plan/source-scene-region-completion');
  const base={page:{shapes:[{id:'native-line'}],images:[],textBoxes:f.texts},plan,slideSize:f.slideSize,preflight:true,
   objects:new Map(ids.map((id,i)=>[id,['native-text-'+i]])),relations:new Map([[relation.id,['native-line']]]),interiorParents:new Set(),recoveries:[],unresolved:[],labelEvidence:{prepared:0,rejected:[]}};
  assert.equal(complete(base).evidence.staged,1);

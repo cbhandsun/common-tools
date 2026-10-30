@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {readRegionalInventoryObservations:read,applyRegionalInventoryReview:apply}=require('../packages/slideclone-core/source-scene-regional-inventory');
-const {initializeSceneObjectBatches,sceneLocalObjectCapacity}=require('../packages/slideclone-core/source-scene-object-batches');
-const {sceneLocalRelationCapacity}=require('../packages/slideclone-core/source-scene-relation-batches');
+const {readRegionalInventoryObservations:read,applyRegionalInventoryReview:apply}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
+const {initializeSceneObjectBatches,sceneLocalObjectCapacity}=require('../packages/slideclone-core/scene-plan/source-scene-object-batches');
+const {sceneLocalRelationCapacity}=require('../packages/slideclone-core/scene-plan/source-scene-relation-batches');
 function fixture(){
  const box={x:10,y:10,w:80,h:80},target={index:5,regionId:'card',box};
  const plan=initializeSceneObjectBatches({version:1,sourceHash:'a'.repeat(64),widthPx:100,heightPx:100,
@@ -59,5 +59,5 @@ test('unsafe payloads, invalid control fields and broken source mappings still f
 test('regional unit regression and runtime helper use unified CI and package verification',()=>{
  const suites=require('../scripts/test-suites'),runtime=require('../scripts/verify-runtime-package');
  assert.equal(suites.includesSuite(__filename,'unit'),true);assert.equal(suites.includesSuite(__filename,'all'),true);
- assert.ok(runtime.REQUIRED_FILES.includes('packages/slideclone-core/source-scene-regional-unit.js'));
+ assert.ok(runtime.REQUIRED_FILES.includes('packages/slideclone-core/scene-plan/source-scene-regional-unit.js'));
 });

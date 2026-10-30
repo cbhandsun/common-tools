@@ -1,18 +1,19 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
 const path = require("path");
-const { looksLikeLargeKpiValue } = require("@common-tools/slideclone-core/native-text-style");
-const { DEFAULT_SLIDE } = require("@common-tools/slideclone-core/page-text-rule-helpers");
+const { looksLikeLargeKpiValue } = core("@common-tools/slideclone-core/typography/native-text-style");
+const { DEFAULT_SLIDE } = core("@common-tools/slideclone-core/typography/page-text-rule-helpers");
 const {
   ensureDir,
   eraseMasks,
   resolveAssetPathForIr
-} = require("@common-tools/slideclone-core/residual-primitive-erasure");
+} = core("@common-tools/slideclone-core/scene-plan/residual-primitive-erasure");
 const {
   boxCenterInside,
   normalizeHex,
   ptToPxBox
-} = require("@common-tools/slideclone-core/raster-native-detection");
+} = core("@common-tools/slideclone-core/scene-plan/raster-native-detection");
 const { cropPng, writePng } = require("./png");
 
 function createKpiEvidenceTextShapes(images = [], textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE, irDir = null) {

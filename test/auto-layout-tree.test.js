@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { resolveAutoLayout } = require("../packages/slideclone-core/auto-layout-tree");
+const { resolveAutoLayout } = require("../packages/slideclone-core/archetypes/auto-layout-tree");
 
 test("resolveAutoLayout lays out single item at bounds", () => {
   const item = { type: "item", id: "single", payload: { label: "Hero" } };

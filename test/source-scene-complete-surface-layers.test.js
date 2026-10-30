@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {composeCompletedSceneSurfaces}=require('../packages/slideclone-core/source-scene-complete-surface-layers');
-const {completeRegionPrograms}=require('../packages/slideclone-core/source-scene-region-completion');
+const {composeCompletedSceneSurfaces}=require('../packages/slideclone-core/scene-plan/source-scene-complete-surface-layers');
+const {completeRegionPrograms}=require('../packages/slideclone-core/scene-plan/source-scene-region-completion');
 function fixture(){
  const shape={id:'measured-panel',type:'rect',box:{x:0,y:0,w:100,h:100},style:{fill:'#EEEEFF',stroke:'none'},
   source:{residualBackgroundFill:true,preserveResidualInterior:true}};

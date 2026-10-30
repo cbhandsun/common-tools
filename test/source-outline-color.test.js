@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {measureSourceOutlineColor}=require("../packages/slideclone-core/source-outline-color");
+const {measureSourceOutlineColor}=require("../packages/slideclone-core/scene-plan/source-outline-color");
 function fixture(){return {width:10,points:[{x:1,y:1},{x:2,y:1},{x:3,y:1}],colors:new Map([[11,[20,40,60]],[12,[20,40,60]],[13,[180,200,220]]])};}
 test("cached source winding color uses the observed per-channel median including extreme channels",()=>{
  assert.equal(measureSourceOutlineColor(fixture()),"#14283c");

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRouteCoverageWidth:measure}=require('../packages/slideclone-core/source-route-coverage-width');
+const {sourceRouteCoverageWidth:measure}=require('../packages/slideclone-core/routing/source-route-coverage-width');
 function fixture(weights){
  const width=220,height=90,rgba=new Uint8Array(width*height*4).fill(255);
  const path=Array.from({length:160},(_,i)=>({x:30+i,y:45}));
@@ -22,7 +22,7 @@ test('coverage width measures original antialiased source ink without widening t
  const clipped=fixture([1,1,1]);clipped.path=clipped.path.map(p=>({...p,y:0}));assert.equal(measure(clipped),null);
  const exhausted=fixture([1,1,1]);exhausted.work.checks=4000000;assert.equal(measure(exhausted),null);assert.ok(exhausted.work.checks>4000000);
  const runtime=require('../scripts/verify-runtime-package'),{includesSuite}=require('../scripts/test-suites');
- assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-route-coverage-width.js'));
+ assert.ok(runtime.IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/routing/source-route-coverage-width.js'));
  for(const suite of ['unit','all'])assert.equal(includesSuite(__filename,suite),true);
 });
 
@@ -37,8 +37,21 @@ test('an explicitly bounded source window can certify both real flanks without f
  assert.equal(measure(clipped),null,'missing the actual second flank still fails');
 });
 
+test('complete shaft calibration rejects local opaque excess outside the median window, including cached sections',()=>{
+ const f=fixture([1,1,1]);
+ for(let x=35;x<=50;x++)for(let y=42;y<=48;y++)f.rgba.set([20,60,110,255],(y*f.width+x)*4);
+ assert.equal(measure(f),3,'the central estimator alone does not observe the wider terminal shaft');
+ assert.equal(measure({...f,complete:true}),null);
+ const antialiased=fixture([.15,.65,1,1,1,.65,.15]);
+ assert.ok(Math.abs(measure({...antialiased,complete:true})-4.6)<.02);
+ const cached=fixture([1,1,1]);cached.cache.set('32:45:34:45',6);
+ assert.equal(measure({...cached,complete:true}),null);
+ const capped=fixture([1,1,1]);capped.work.checks=4000000;
+ assert.equal(measure({...capped,complete:true}),null);
+});
+
 test('width uses the same independently measured smooth background as source ink extraction',()=>{
- const {sourceRouteLocalBackground}=require('../packages/slideclone-core/source-route-local-background');
+ const {sourceRouteLocalBackground}=require('../packages/slideclone-core/routing/source-route-local-background');
  const f=fixture([0]),body=new Uint8Array(f.width*f.height);
  const backgroundAtRow=y=>y<10?[255,255,255]:[255,Math.min(255,200+(y-10)*.7),Math.min(255,170+(y-10)*1.1)].map(Math.round);
  for(let y=0;y<f.height;y++)for(let x=0;x<f.width;x++){

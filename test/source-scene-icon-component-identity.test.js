@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os");
-const {materializeSceneIcon}=require("../packages/slideclone-core/source-scene-icon");
+const {materializeSceneIcon}=require("../packages/slideclone-core/scene-plan/source-scene-icon");
 const {readPng}=require("../packages/slideclone-core/png");
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),"scene-icon-identity-"));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));

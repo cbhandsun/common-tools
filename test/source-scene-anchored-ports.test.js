@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
-const {measureSceneRelationDetailed:measure}=require('../packages/slideclone-core/source-scene-relation');
-const {createMeasuredScenePortFrame:frame,verifyMeasuredScenePort:verify}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {deeperSourceRelationFailure}=require('../packages/slideclone-core/source-scene-relation-recovery');
+const {measureSceneRelationDetailed:measure}=require('../packages/slideclone-core/scene-plan/source-scene-relation');
+const {createMeasuredScenePortFrame:frame,verifyMeasuredScenePort:verify}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {deeperSourceRelationFailure}=require('../packages/slideclone-core/scene-plan/source-scene-relation-recovery');
 test('a fully measured neighbouring shaft keeps its anchor failure over shallower row rejections',()=>{
  for(const reason of ['source-window-alpha','shaft-window-boundary','shaft-support','shaft-discontinuity','shaft-width','arrow-direction','node-axis-alignment']){
   assert.equal(deeperSourceRelationFailure('relation-anchor',reason),'relation-anchor');
@@ -79,7 +79,7 @@ test('perimeter evidence is bounded, descriptor-safe, snapshotted and private to
   assert.throws(()=>frame(f.image,{...measurement,perimeterPixels}),TypeError);
  assert.throws(()=>frame(f.image,{...measurement,get perimeterPixels(){calls++;throw Error('private');}}),TypeError);
  assert.equal(calls,0);assert.equal(verify({...input,point:{x:83,y:50}}),false);
- const reshaped={...f.image,width:180,height:200},ports=require('../packages/slideclone-core/source-scene-port-evidence');
+ const reshaped={...f.image,width:180,height:200},ports=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
  assert.equal(verify({...input,image:reshaped}),false);
  assert.equal(ports.measuredScenePortFill(reshaped,token,node.box),null);assert.equal(ports.measuredSceneGroupBounds(reshaped,token),null);
 });
@@ -87,12 +87,12 @@ test('perimeter evidence is bounded, descriptor-safe, snapshotted and private to
 test('the compiler passes the proposed shaft location into source measurement and emits native bound relations',t=>{
  const f=fixture(false,true),root=fs.mkdtempSync(path.join(os.tmpdir(),'anchor-compiler-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');require('../packages/slideclone-core/png').writePng(sourceFile,f.image);
- const plan=require('../packages/slideclone-core/source-scene-plan').parseSourceScenePlan({coordinateSpace:'source-pixels',
+ const plan=require('../packages/slideclone-core/scene-plan/source-scene-plan').parseSourceScenePlan({coordinateSpace:'source-pixels',
   regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:200,h:180}}],
   objects:[f.from,f.to].map(n=>({id:n.id,kind:'container',regionId:'root',box:n.box})),
   relations:[{id:'edge',regionId:'root',fromId:'a',toId:'b',direction:'forward',shaftBox:f.shaftBox}]
  },{sourceHash:crypto.createHash('sha256').update(fs.readFileSync(sourceFile)).digest('hex'),widthPx:200,heightPx:180});
- const result=require('../packages/slideclone-core/source-scene-compiler').compileSourceScene({root,sourceFile,plan,
+ const result=require('../packages/slideclone-core/scene-plan/source-scene-compiler').compileSourceScene({root,sourceFile,plan,
   page:{shapes:[],images:[],textBoxes:[]},slideSize:{widthPt:200,heightPt:180}});
  assert.equal(result.evidence.resolvedRelations,1,JSON.stringify(result.evidence.unresolved));const edge=result.page.shapes.find(s=>s.source?.detector==='source-scene-relation');
  assert.equal(edge.type,'line');assert.equal(edge.style.startAnchor.position,.25);assert.equal(edge.style.endAnchor.position,.25);

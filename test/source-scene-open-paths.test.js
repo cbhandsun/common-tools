@@ -1,14 +1,14 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
-const {parseSurfacePaths}=require('../packages/slideclone-core/source-scene-surface-paths');
-const {parsePrimitiveCandidate,constructPrimitiveCandidate}=require('../packages/slideclone-core/source-scene-primitive-candidate');
-const {parseSceneNativeGeometry,expandSceneNativeGeometry,sceneNativeGeometrySchema}=require('../packages/slideclone-core/source-scene-native-geometry');
-const {compileScenePrimitiveProgram}=require('../packages/slideclone-core/source-scene-primitive-program');
-const {primitiveProgramPaths}=require('../packages/slideclone-core/source-scene-primitive-paths');
-const {fitScenePrimitiveCandidate}=require('../packages/slideclone-core/source-scene-primitive-fit');
-const {admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {parseSurfacePaths}=require('../packages/slideclone-core/scene-plan/source-scene-surface-paths');
+const {parsePrimitiveCandidate,constructPrimitiveCandidate}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-candidate');
+const {parseSceneNativeGeometry,expandSceneNativeGeometry,sceneNativeGeometrySchema}=require('../packages/slideclone-core/scene-plan/source-scene-native-geometry');
+const {compileScenePrimitiveProgram}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-program');
+const {primitiveProgramPaths}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-paths');
+const {fitScenePrimitiveCandidate}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-fit');
+const {admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 const {writePng}=require('../packages/slideclone-core/png');
 const line=(a,b)=>({filled:false,segments:[{type:'moveTo',points:[a]},{type:'lnTo',points:[b]}]});
 const paths=[line({x:0,y:0},{x:.3,y:0}),line({x:.7,y:0},{x:1,y:0}),line({x:1,y:0},{x:1,y:1}),line({x:.6,y:0},{x:.6,y:1})];
@@ -75,7 +75,7 @@ test('even one transparent path cannot borrow an independently closed body to co
 });
 
 test('the real compiler admits a complete transparent region only with its full source census and final private seal',t=>{
- const {retainedOpenSceneOwnerTransaction}=require('../packages/slideclone-core/source-scene-open-owner-transaction');
+ const {retainedOpenSceneOwnerTransaction}=require('../packages/slideclone-core/scene-plan/source-scene-open-owner-transaction');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'open-owner-complete-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const image={width:64,height:64,rgba:Buffer.alloc(64*64*4)};

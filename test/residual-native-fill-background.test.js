@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {residualTextPlans}=require('../packages/slideclone-core/residual-text-erasure');
-const {restoreResidualNativeFillBackground}=require('../packages/slideclone-core/residual-native-fill-background');
-const {eraseMasks}=require('../packages/slideclone-core/residual-primitive-erasure');
-const {auditResidualPixelOwnership}=require('../packages/slideclone-core/residual-pixel-ownership');
+const {residualTextPlans}=require('../packages/slideclone-core/typography/residual-text-erasure');
+const {restoreResidualNativeFillBackground}=require('../packages/slideclone-core/scene-plan/residual-native-fill-background');
+const {eraseMasks}=require('../packages/slideclone-core/scene-plan/residual-primitive-erasure');
+const {auditResidualPixelOwnership}=require('../packages/slideclone-core/scene-plan/residual-pixel-ownership');
 function fixture(alpha=255){
  const source={width:80,height:50,rgba:Buffer.alloc(80*50*4,255)},fill=[220,170,205];
  for(let y=15;y<35;y++)for(let x=20;x<60;x++)source.rgba.set([...fill,alpha],(y*80+x)*4);
@@ -76,5 +76,5 @@ test('existing public admission rejects hostile native paint fields without exec
 test('native matte regression and runtime module are included in the unified CI surfaces',()=>{
  const suites=require('../scripts/test-suites'),runtime=require('../scripts/verify-runtime-package');
  assert.equal(suites.classifyTestFile(__filename),'unit');assert.equal(suites.includesSuite(__filename,'unit'),true);assert.equal(suites.includesSuite(__filename,'all'),true);
- assert.ok(runtime.REQUIRED_FILES.includes('packages/slideclone-core/residual-native-fill-background.js'));
+ assert.ok(runtime.REQUIRED_FILES.includes('packages/slideclone-core/scene-plan/residual-native-fill-background.js'));
 });

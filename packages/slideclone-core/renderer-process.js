@@ -19,6 +19,23 @@ function terminateProcessTree(child, platform = process.platform, runTaskkill = 
   child.kill("SIGKILL");
 }
 
+/** Shutdown and close may observe the same child. Reuse the first termination
+ * result, including its failure, rather than enumerating the tree twice.
+ * @param {import("child_process").ChildProcess} child
+ * @param {typeof terminateProcessTree} [terminate] */
+function createProcessTreeTerminator(child, terminate = terminateProcessTree) {
+  let attempted = false, failed = false;
+  /** @type {unknown} */ let failure;
+  return () => {
+    if (!attempted) {
+      attempted = true;
+      try { terminate(child); }
+      catch (error) { failed = true; failure = error; }
+    }
+    if (failed) throw failure;
+  };
+}
+
 /** @param {unknown} command @param {unknown} args @param {string} platform */
 function commandPlan(command, args, platform = process.platform) {
   if (typeof command !== "string" || !command || command.length > 32768 || command.includes("\0")
@@ -66,11 +83,12 @@ function run(command, args, options = {}) {
     let reason = "";
     let settled = false;
     let terminationFailed = false;
+    const terminate = createProcessTreeTerminator(child);
     /** @type {NodeJS.Timeout | undefined} */
     let deadline;
     const kill = () => {
       try {
-        terminateProcessTree(child);
+        terminate();
       } catch (error) {
         if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) terminationFailed = true;
       }
@@ -84,14 +102,24 @@ function run(command, args, options = {}) {
       clearInterval(cancellationTimer);
       const result = { stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8") };
       stdout.length = 0; stderr.length = 0;
-      if (error) reject(Object.assign(error, result)); else resolve(result);
+      if (error) {
+        // A denied termination can leave the child alive without a close event.
+        // Release our event-loop handles while preserving the failure above;
+        // this does not claim that the process tree has stopped.
+        child.unref();
+        child.stdout.destroy();
+        child.stderr.destroy();
+        reject(Object.assign(error, result));
+      } else resolve(result);
     };
     /** @param {string} message */
     const stop = (message) => {
       if (settled || reason) return;
       reason = message;
-      deadline = setTimeout(() => finish(new Error("renderer process termination was not confirmed")), process.platform === "win32" ? 5000 : 1000);
       kill();
+      // Windows taskkill is synchronous. Its elapsed time must not consume the
+      // confirmation window before Node can dispatch the child's close event.
+      if (!settled) deadline = setTimeout(() => finish(new Error("renderer process termination was not confirmed")), process.platform === "win32" ? 5000 : 1000);
     };
     const timer = timeoutMs ? setTimeout(() => stop("renderer process timed out"), timeoutMs) : undefined;
     let cancellationPending = false;
@@ -127,4 +155,4 @@ function run(command, args, options = {}) {
 
 }
 
-module.exports = { run, commandPlan, _private: { terminateProcessTree } };
+module.exports = { run, commandPlan, _private: { terminateProcessTree, createProcessTreeTerminator } };

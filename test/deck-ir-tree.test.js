@@ -20,6 +20,23 @@ test('deferred scene review audit pixels retain their original shared 4M bound a
  assert.throws(()=>validateDeckIrTree(hostile),/data properties/u);assert.equal(calls,0);
  const {includesSuite}=require('../scripts/test-suites');for(const suite of ['unit','all'])assert.equal(includesSuite(__filename,suite),true);
 });
+
+test('owner review and native finalization counters serialize within their original 4M work bounds only at exact paths',()=>{
+ const paths=[['meta','sourceSceneReview','ownerRevisionReview','spentBefore'],['meta','sourceSceneReview','ownerRevisionReview','spentAfter'],
+  ...['sheetPixels','reservedPixels','focusPixels'].map(k=>['meta','sourceSceneReview','ownerRevisionReview','allocation',k]),
+  ['meta','sourceSceneReview','deferredRegionalReview','allocation','focusPixels'],['meta','nativeRouteSelection','geometryChecks']];
+ for(const root of [['source','sourceScene'],['meta','sourceSceneCompilation'],['pages',0,'source','sourceScene']])
+  paths.push([...root,'replacedConnectors','checks'],[...root,'outlineAxisRetirements','geometryChecks']);
+ const make=(parts,value)=>parts.reduceRight((child,key)=>typeof key==='number'?[child]:{[key]:child},value);
+ for(const parts of paths){
+  for(const value of [0,100001,1862005,3668448,4000000])assert.doesNotThrow(()=>validateDeckIrTree(make(parts,value)));
+  for(const value of [-1,.5,4000001,NaN,Infinity,null,undefined,'1862005'])assert.throws(()=>validateDeckIrTree(make(parts,value)),/invalid number/u);
+  for(const other of [make(['wrong',...parts],100001),make([...parts,'x'],100001)])assert.throws(()=>validateDeckIrTree(other),/invalid number/u);
+ }
+ assert.throws(()=>validateDeckIrTree({box:{geometryChecks:1862005}}),/invalid number/u);
+ let reads=0;const hostile={meta:{nativeRouteSelection:{get geometryChecks(){reads++;throw Error('private');}}}};
+ assert.throws(()=>validateDeckIrTree(hostile),/data properties/u);assert.equal(reads,0);
+});
 test('transparent owner inventory counters use exact audit paths and the unchanged 4M source cap',()=>{
  const roots=[audit=>({source:{sourceScene:{openOwners:audit}}}),audit=>({pages:[{source:{sourceScene:{openOwners:audit}}}]}),
   audit=>({meta:{sourceSceneCompilation:{openOwners:audit}}})];
@@ -71,8 +88,8 @@ test("rejected residual audit counters retain their pixel bounds without grantin
   assert.equal(includesSuite(__filename,"all"),true);
 });
 test("admitting residual rejection evidence keeps the native quality gate failed", () => {
-  const {auditNativeComponentQuality} = require("../packages/slideclone-core/native-component-quality");
-  const {residualOwnershipRejection,readResidualOwnershipRejection} = require("../packages/slideclone-core/residual-branch-result");
+  const {auditNativeComponentQuality} = require("../packages/slideclone-core/quality/native-component-quality");
+  const {residualOwnershipRejection,readResidualOwnershipRejection} = require("../packages/slideclone-core/scene-plan/residual-branch-result");
   const report = {passed:false,scannedPixels:4283415,ownedPixels:964500,ownedForegroundPixels:721774,
     remainingOwnedForegroundPixels:0,remainingOwnedBackgroundPixels:0,unownedChangedPixels:0,
     remainingTextCorePixels:186,incorrectTextBackgroundPixels:0,unresolvedTextMasks:0};

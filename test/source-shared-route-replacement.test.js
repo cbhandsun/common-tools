@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {sourceSharedTreeFixture}=require('./helpers/source-shared-tree.cjs');
-const {measureSharedSourceRoute}=require('../packages/slideclone-core/source-shared-route-measurement');
-const {compileSharedSourceRoute}=require('../packages/slideclone-core/source-shared-route-compiler');
-const {replaceMeasuredSceneConnectors}=require('../packages/slideclone-core/source-scene-replaced-connectors');
+const {measureSharedSourceRoute}=require('../packages/slideclone-core/routing/source-shared-route-measurement');
+const {compileSharedSourceRoute}=require('../packages/slideclone-core/routing/source-shared-route-compiler');
+const {replaceMeasuredSceneConnectors}=require('../packages/slideclone-core/scene-plan/source-scene-replaced-connectors');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {writePng}=require('../packages/slideclone-core/png');
 function fixture(){

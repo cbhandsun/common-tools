@@ -1,8 +1,8 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {compileSceneInteriorParts,sceneInteriorBindings}=require('../packages/slideclone-core/source-scene-interior-parts');
-const {assembleSourceSceneCompleteGroups:assemble}=require('../packages/slideclone-core/source-scene-complete-groups');
-const {createMeasuredScenePortFrame}=require('../packages/slideclone-core/source-scene-port-evidence');
+const {compileSceneInteriorParts,sceneInteriorBindings}=require('../packages/slideclone-core/scene-plan/source-scene-interior-parts');
+const {assembleSourceSceneCompleteGroups:assemble}=require('../packages/slideclone-core/scene-plan/source-scene-complete-groups');
+const {createMeasuredScenePortFrame}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
 function fixture(){
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)},box={x:20,y:20,w:160,h:130};
  for(let y=70;y<121;y++)for(let x=75;x<126;x++){
@@ -117,5 +117,5 @@ test('invalid boundary input rejects getters, proxies, sparse lists and illegal 
  }assert.equal(touched,false);
  const {discoverTestFiles}=require('../scripts/test-sharded'),{IMAGE_EDITABLE_RELEASE_FILES}=require('../scripts/verify-runtime-package');
  for(const suite of ['unit','all'])assert.ok(discoverTestFiles(process.cwd(),suite).some(p=>p.file.endsWith('source-scene-complete-groups.test.js')));
- assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-scene-complete-groups.js'));
+ assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/scene-plan/source-scene-complete-groups.js'));
 });

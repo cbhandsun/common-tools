@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {createSceneMeasurementCache:create}=require("../packages/slideclone-core/source-scene-measurement-cache");
-const {hasMeasuredScenePortFrame,measuredScenePortFill}=require('../packages/slideclone-core/source-scene-port-evidence');
+const {createSceneMeasurementCache:create}=require("../packages/slideclone-core/scene-plan/source-scene-measurement-cache");
+const {hasMeasuredScenePortFrame,measuredScenePortFill}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
 function fixture(){
  const image={width:200,height:180,rgba:Buffer.alloc(200*180*4,255)},hint={x:50,y:40,w:100,h:100},budget={used:0};
  for(let y=40;y<140;y++)for(let x=50;x<150;x++)image.rgba.set([140,190,230,255],(y*200+x)*4);
@@ -27,12 +27,12 @@ test('valid narrow proposals reject only the unsupported outline path without sc
 });
 
 test('an outline rejected as source text releases its temporary claims but keeps source observation costs',()=>{
- const f=fixture(),glyph=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const f=fixture(),glyph=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  f.image.rgba.fill(255);
  for(let y=40;y<140;y++)for(let x=50;x<150;x++)if(x<53||x>=147||y<43||y>=137)f.image.rgba.set([0,0,0,255],(y*200+x)*4);
  const mask={x:45,y:35,w:110,h:110},texts=[{text:'frame-looking-label',box:mask,font:{color:'#000000'}}],size={widthPt:200,heightPt:180},before=Buffer.from(f.image.rgba);
  const directBudget={used:0},directToken=glyph.createSceneGlyphOcclusion(f.image,texts,size,directBudget);
- const direct=require('../packages/slideclone-core/source-scene-outline').measureOutlinedSceneContainerDetailed(f.image,f.hint,[mask],directBudget,directToken);
+ const direct=require('../packages/slideclone-core/scene-plan/source-scene-outline').measureOutlinedSceneContainerDetailed(f.image,f.hint,[mask],directBudget,directToken);
  assert.equal(direct.outline,null);assert.ok(glyph.sceneGlyphOcclusionEvidence(directToken).glyphOwnedPixels>0);
  const token=glyph.createSceneGlyphOcclusion(f.image,texts,size,f.budget),cache=create(f.image,[mask],f.budget,token);
  assert.equal(cache.outline(f.hint),null);assert.equal(glyph.sceneGlyphOcclusionEvidence(token).glyphOwnedPixels,0);
@@ -144,7 +144,7 @@ test("a loose semantic hint preserves the physical fill and recovers its indepen
 });
 
 test("a recovered outer node keeps a port frame bound to that exact admitted surface rather than its inner paint",()=>{
- const {measuredScenePortFill}=require('../packages/slideclone-core/source-scene-port-evidence');
+ const {measuredScenePortFill}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)};
  for(let y=76;y<144;y++)for(let x=76;x<184;x++)image.rgba.set([30,60,90,255],(y*400+x)*4);
  for(let y=80;y<140;y++)for(let x=80;x<180;x++)image.rgba.set([210,230,245,255],(y*400+x)*4);
@@ -184,5 +184,57 @@ test("a valid tiny physical fill cannot trigger an out-of-contract secondary out
  for(let y=22;y<38;y++)for(let x=25;x<35;x++)image.rgba.set([140,190,230,255],(y*60+x)*4);
  const result=create(image,[],{used:0}).surface({x:24,y:20,w:12,h:20});
  assert.ok(result.measured);assert.equal(result.measured.box.w,10);assert.equal(result.outline,null);
+});
+
+function paleNodeFixture(){
+ const path=require('node:path'),fs=require('node:fs'),crypto=require('node:crypto');
+ const file=path.join(__dirname,'fixtures/source-physical-body/pale-node.png');
+ const metadata=JSON.parse(fs.readFileSync(file.replace('.png','.json'),'utf8'));
+ assert.equal(crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'),metadata.fixtureSha256);
+ return {...metadata,image:require('../packages/slideclone-core/png').readPng(file)};
+}
+
+test('a successful interior fill cannot hide its independently measured physical body and port perimeter',()=>{
+ const f=paleNodeFixture(),budget={used:0},cache=create(f.image,f.masks,budget,undefined,true);
+ const before=Buffer.from(f.image.rgba),fill=cache.fill(f.hint),result=cache.surface(f.hint);
+ assert.deepEqual(fill.box,f.innerBox);assert.ok(fill.segments);assert.equal(result.outline,null);
+ assert.deepEqual(result.measured.box,f.bodyBox);assert.notDeepEqual(f.bodyBox,f.innerBox);
+ assert.ok(result.measured.paint?.segments.length);assert.ok(result.measured.perimeterPixels.length);
+ const token=cache.portFrame(f.hint),used=budget.used;
+ assert.ok(hasMeasuredScenePortFrame(f.image,token,f.bodyBox));
+ assert.equal(hasMeasuredScenePortFrame(f.image,token,f.innerBox),false);
+ const {measuredScenePortOwnsCell}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+ assert.ok(result.measured.perimeterPixels.some(cell=>measuredScenePortOwnsCell(f.image,token,f.bodyBox,cell)));
+ assert.equal(hasMeasuredScenePortFrame(f.image,structuredClone(token),f.bodyBox),false);
+ assert.equal(hasMeasuredScenePortFrame({...f.image,rgba:Buffer.from(f.image.rgba)},token,f.bodyBox),false);
+ assert.equal(cache.sameSurface(f.hint,{...f.hint}),true);
+ assert.equal(cache.sameSurface(f.hint,{...f.hint,x:f.hint.x+1}),false);
+ const original=structuredClone(result);result.measured.box.y=0;result.measured.paint.segments.length=0;
+ assert.deepEqual(cache.surface({...f.hint}),original);assert.equal(budget.used,used);
+ assert.deepEqual(cache.fill(f.hint),fill);assert.deepEqual(f.image.rgba,before);
+ assert.ok(cache.failureDetails(f.hint).some(failure=>failure.path==='outline'));
+});
+
+test('an optional physical-body recovery preserves the admitted paint when its scan budget is depleted',()=>{
+ const f=paleNodeFixture(),budget={used:0},cache=create(f.image,f.masks,budget,undefined,true);
+ assert.equal(cache.outline(f.hint),null);const fill=cache.fill(f.hint);
+ assert.equal(cache.outline(fill.box),null);budget.used=4000000;
+ assert.deepEqual(cache.surface(f.hint),{outline:null,measured:fill});assert.equal(budget.used,4000000);
+ assert.ok(hasMeasuredScenePortFrame(f.image,cache.portFrame(f.hint),fill.box));
+ assert.equal(hasMeasuredScenePortFrame(f.image,cache.portFrame(f.hint),f.bodyBox),false);
+});
+
+test('masked physical edges cannot replace a successful inner component with a proposed rectangle',()=>{
+ const f=paleNodeFixture(),masks=[...f.masks,{x:38,y:36,w:49,h:5}],budget={used:0};
+ const cache=create(f.image,masks,budget,undefined,true),result=cache.surface(f.hint);
+ assert.equal(result.outline,null);assert.ok(result.measured);assert.equal(result.measured.perimeterPixels,undefined);
+ assert.equal(hasMeasuredScenePortFrame(f.image,cache.portFrame(f.hint),f.bodyBox),false);
+ const used=budget.used;assert.deepEqual(cache.surface(f.hint),result);assert.equal(budget.used,used);
+});
+
+test('physical body cache regressions are included in the unified CI suites',()=>{
+ const {discoverTestFiles}=require('../scripts/test-sharded');
+ for(const suite of ['unit','all'])assert.ok(discoverTestFiles(process.cwd(),suite)
+  .some(entry=>entry.file.replaceAll('\\','/')==='test/source-scene-measurement-cache.test.js'));
 });
 

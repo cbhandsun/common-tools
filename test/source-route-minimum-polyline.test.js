@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {minimumSourceRoutePolyline:minimum}=require('../packages/slideclone-core/source-route-minimum-polyline');
-const {simplifySourceRoute:greedy}=require('../packages/slideclone-core/source-route-centerline');
+const {minimumSourceRoutePolyline:minimum}=require('../packages/slideclone-core/routing/source-route-minimum-polyline');
+const {simplifySourceRoute:greedy}=require('../packages/slideclone-core/routing/source-route-centerline');
 const curve=length=>Array.from({length},(_,x)=>({x,y:20+Math.round(Math.sin(x/2))}));
 function represents(points,vertices){
  let low=0;
@@ -42,7 +42,7 @@ test('a complete oscillating source tree stays within 32 native members through 
   const x=35+sign*step,y=30+Math.round(Math.sin(step/2));mask[y*width+x]=1;
   if(step===32)terminals.push(y*width+x);
  }
- const before=mask.slice(),{sourceSharedShaftTree:tree}=require('../packages/slideclone-core/source-shared-shaft-tree');
+ const before=mask.slice(),{sourceSharedShaftTree:tree}=require('../packages/slideclone-core/routing/source-shared-shaft-tree');
  const result=tree({mask,width,height,terminals,work:{checks:0}});assert.ok(result);assert.ok(result.partCount<=32);
  assert.equal(result.edges.length,3);assert.deepEqual(mask,before);
 });
@@ -58,5 +58,23 @@ test('empty, invalid, extreme, unsafe and exhausted observations never grant an 
  const nested=curve(2);Object.defineProperty(nested[0],'x',{get:trap});
  for(const value of [getter,new Proxy({}, {get:trap}),{points:nested,work:{checks:0}}])assert.throws(()=>minimum(value),TypeError);
  assert.equal(calls,0);assert.equal(require('../scripts/test-suites').includesSuite(__filename,'unit'),true);
- assert.ok(require('../scripts/verify-runtime-package').IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-route-minimum-polyline.js'));
+ assert.ok(require('../scripts/verify-runtime-package').IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/routing/source-route-minimum-polyline.js'));
+});
+
+test('shared capacity is explicit and bounded while the single-relation default retains its physical limit',()=>{
+ const {fixture}=require('./helpers/source-route-part-capacity.cjs');
+ const points=fixture(18).points,before=structuredClone(points);
+ assert.equal(minimum({points,work:{checks:0}}),null);
+ assert.deepEqual(minimum({points,maxVertices:18,work:{checks:0}}),points);
+ assert.deepEqual(greedy(points,{checks:0},18),points);
+ assert.equal(greedy(points,{checks:0}),null);
+ assert.ok(minimum({points:fixture(17).points,work:{checks:0}}));
+ for(const maxVertices of [null,'18',NaN,Infinity,-1,0,1,2.5,121,{},[]]){
+  assert.throws(()=>minimum({points,maxVertices,work:{checks:0}}),TypeError);
+  assert.throws(()=>greedy(points,{checks:0},maxVertices),TypeError);
+ }
+ let calls=0;const input={points,work:{checks:0}};
+ Object.defineProperty(input,'maxVertices',{get(){calls++;throw Error('private');}});
+ assert.throws(()=>minimum(input),TypeError);assert.equal(calls,0);assert.deepEqual(points,before);
+ const work={checks:3999999};assert.equal(minimum({points,maxVertices:18,work}),null);assert.ok(work.checks>4000000);
 });

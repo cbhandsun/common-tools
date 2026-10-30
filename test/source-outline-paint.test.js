@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measureSourceOutlinePaint:measure}=require('../packages/slideclone-core/source-outline-paint');
-const {applySourceOutlinePaint:apply}=require('../packages/slideclone-core/source-outline-paint-shapes');
-const {hasClosedRingTopology}=require('../packages/slideclone-core/source-closed-ring');
-const {measureOutlinedSceneContainer}=require('../packages/slideclone-core/source-scene-outline');
+const {measureSourceOutlinePaint:measure}=require('../packages/slideclone-core/scene-plan/source-outline-paint');
+const {applySourceOutlinePaint:apply}=require('../packages/slideclone-core/scene-plan/source-outline-paint-shapes');
+const {hasClosedRingTopology}=require('../packages/slideclone-core/scene-plan/source-closed-ring');
+const {measureOutlinedSceneContainer}=require('../packages/slideclone-core/scene-plan/source-scene-outline');
 function fixture(){
  const points=[],colors=new Map(),width=100;
  for(let y=10;y<70;y++)for(let x=10;x<80;x++){

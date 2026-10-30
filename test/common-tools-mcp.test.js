@@ -15,6 +15,7 @@ const { UI_CONTRIBUTIONS } = require("../packages/mcp-server/mcp-apps");
 const cli = path.join(__dirname, "..", "packages", "cli", "bin", "common-tools.js");
 const { doctorReport, optionalUmiOcr } = require("../packages/cli/bin/common-tools");
 const localDoctorDiagnostics = require("../packages/cli/local-doctor");
+const { assertProcessSucceeded } = require("./helpers/child-process-status.cjs");
 
 test("worker doctor does not require access to the host Docker daemon", () => {
   // The worker doctor probes the locally installed .NET runtime. On a cold
@@ -356,7 +357,7 @@ test("stdio MCP exposes only the independently enabled project-audit tools", () 
     setCapabilityEnabled(state, "project-audit", true);
     const input = `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })}\n`;
     const result = spawnSync(process.execPath, [server], { input, encoding: "utf8", timeout: 5000, windowsHide: true, env: { ...process.env, COMMON_TOOLS_STATE: state } });
-    assert.equal(result.status, 0);
+    assertProcessSucceeded(result);
     assert.deepEqual(JSON.parse(result.stdout).result.tools.map((tool) => tool.name), ["health_check", "create_project_audit_job", "get_project_audit_report"]);
   } finally {
     fs.rmSync(state, { recursive: true, force: true });
@@ -372,7 +373,7 @@ test("stdio MCP creates a scoped project-audit job", () => {
     setCapabilityEnabled(state, "project-audit", true);
     const request = { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "create_project_audit_job", arguments: { projectRoot: workspace, output: path.join(workspace, "report"), level: "deep", scope: "3" } } };
     const result = spawnSync(process.execPath, [server], { input: `${JSON.stringify(request)}\n`, encoding: "utf8", timeout: 5000, windowsHide: true, env: { ...process.env, COMMON_TOOLS_WORKSPACE: workspace, COMMON_TOOLS_STATE: state } });
-    assert.equal(result.status, 0);
+    assertProcessSucceeded(result);
     const response = JSON.parse(result.stdout);
     assert.equal(response.result.structuredContent.capability, "project-audit");
     assert.equal(response.result.structuredContent.status, "queued");

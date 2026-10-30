@@ -2,12 +2,12 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { buildComponentRegions, compareComponentRegions } = require("../slideclone-core/component-region-quality");
+const { buildComponentRegions, compareComponentRegions } = require("../slideclone-core/quality/component-region-quality");
 const { createCandidateVerificationCache } = require("./candidate-verification-cache");
 const { createRenderedPageSnapshotCache, validatedRenderedPagePaths } = require("./rendered-page-snapshot-cache");
 const { missingReferenceRegions } = require("./missing-component-regression");
 const { createTextComparisonSession } = require("./text-comparison-session");
-const { parseRenderedTypographyAudit } = require("../slideclone-core/rendered-typography-audit");
+const { parseRenderedTypographyAudit } = require("../slideclone-core/typography/rendered-typography-audit");
 
 const DEFAULT_THRESHOLDS = Object.freeze({ maximumPixelDiffRatio: 0.08, maximumForegroundMissingRatio: 0.12, maximumMeanAbsoluteDelta: 12 });
 const COMPARISON_SETTINGS = Object.freeze({ threshold: 24, foregroundTolerancePx: 2, foregroundToleranceDelta: 54 });

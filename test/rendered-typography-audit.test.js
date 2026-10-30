@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {auditRenderedTypography}=require("../packages/slideclone-core/rendered-typography-audit");
+const {auditRenderedTypography}=require("../packages/slideclone-core/typography/rendered-typography-audit");
 const deck={slideSize:{widthPt:960,heightPt:540},pages:[{textBoxes:[{id:"p",text:"中文 Ω",box:{x:10,y:10,w:100,h:40},font:{family:"Arial",sizePt:12},style:{textLayout:"paragraph"}}]}]};
 const xml=words=>`<html><body><doc><page width="960" height="540">${words}</page></doc></body></html>`;
 const word=(text,right=90)=>`<word xMin="12" yMin="12" xMax="${right}" yMax="25">${text}</word>`;
@@ -57,7 +57,7 @@ test("ownership search has a finite boundary even for hostile dense pages",()=>{
 });
 
 test("numeric audit admission rejects contradictory and illegal coverage evidence",()=>{
- const {parseRenderedTypographyAudit}=require("../packages/slideclone-core/rendered-typography-audit");
+ const {parseRenderedTypographyAudit}=require("../packages/slideclone-core/typography/rendered-typography-audit");
  const good={passed:true,paragraphs:1,missing:0,overflow:0,collisions:0};
  for(const key of ['order','unverified','ambiguous']){
   for(const count of [null,-1,1.5,Infinity,10000001])assert.throws(()=>parseRenderedTypographyAudit({...good,[key]:count}));

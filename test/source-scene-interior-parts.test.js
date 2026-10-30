@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {selectSceneInteriorTargets}=require('../packages/slideclone-core/source-scene-interior-targets');
-const {compileSceneInteriorParts}=require('../packages/slideclone-core/source-scene-interior-parts');
+const {selectSceneInteriorTargets}=require('../packages/slideclone-core/scene-plan/source-scene-interior-targets');
+const {compileSceneInteriorParts}=require('../packages/slideclone-core/scene-plan/source-scene-interior-parts');
 function fixture(){
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)};
  for(let y=70;y<121;y++)for(let x=75;x<126;x++){
@@ -44,7 +44,7 @@ test('complete colored interior paint is compiled as bounded parts without chang
 });
 
 test('previously observed interiors remain available near the shared scan limit without buying new pixels',()=>{
- const {withSceneFillRasterCache,readSceneFillRaster}=require('../packages/slideclone-core/source-scene-fill-raster-cache');
+ const {withSceneFillRasterCache,readSceneFillRaster}=require('../packages/slideclone-core/scene-plan/source-scene-fill-raster-cache');
  const expected=compileSceneInteriorParts(fixture());
  const input=fixture();
  withSceneFillRasterCache(input.image,input.budget,()=>{
@@ -116,7 +116,7 @@ test('largest unobserved interiors win remaining slots without depending on prov
 test('the real compiler invokes interior recovery only after ordinary work and keeps unresolved topology',t=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
  const {writePng}=require('../packages/slideclone-core/png');
- const {compileSourceScene,preflightSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {compileSourceScene,preflightSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const input=fixture(),root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-interior-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  for(let y=20;y<150;y++)for(let x=20;x<180;x++)if((x<23||x>=177)&&y%12<4||(y<23||y>=147)&&x%12<4)input.image.rgba.set([20,20,20,255],(y*400+x)*4);
@@ -136,7 +136,7 @@ test('the real compiler invokes interior recovery only after ordinary work and k
 test('the real compiler assembles the complete measured node, label and interior in one native edit group',t=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
  const {writePng}=require('../packages/slideclone-core/png');
- const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const input=fixture(),root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-complete-node-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  for(let y=20;y<150;y++)for(let x=20;x<180;x++)if(input.image.rgba[(y*400+x)*4]===255)

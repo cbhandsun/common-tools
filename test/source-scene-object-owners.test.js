@@ -1,5 +1,5 @@
 
-'use strict';const test=require('node:test'),assert=require('node:assert/strict'),{resolveSceneObjectOwners:resolve}=require('../packages/slideclone-core/source-scene-object-owners');
+'use strict';const test=require('node:test'),assert=require('node:assert/strict'),{resolveSceneObjectOwners:resolve}=require('../packages/slideclone-core/scene-plan/source-scene-object-owners');
 const regions=[{id:'region-root',box:{x:0,y:0,w:300,h:200}}];
 function owners(){return [{id:'object-parent',ownerRegionId:'region-root',ownerObjectId:'object-root',kind:'container',box:{x:20,y:20,w:100,h:100}},{id:'object-child',ownerRegionId:'region-parent',ownerObjectId:'object-parent',kind:'icon',box:{x:40,y:40,w:20,h:20}}];}
 test('explicit unique contained container ownership resolves without moving any source box',()=>{const objects=owners(),before=JSON.stringify(objects);assert.deepEqual(resolve(regions,objects),[{objectId:'object-child',regionId:'region-root',parentObjectId:'object-parent'}]);assert.equal(JSON.stringify(objects),before);assert.deepEqual(resolve([],[]),[]);assert.deepEqual(resolve(regions,[]),[]);});

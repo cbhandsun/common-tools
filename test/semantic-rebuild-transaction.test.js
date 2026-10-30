@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { MAX_ADMITTED_SHAPES, runSemanticRebuildTransaction } = require("../packages/slideclone-core/semantic-rebuild-transaction");
+const { MAX_ADMITTED_SHAPES, runSemanticRebuildTransaction } = require("../packages/slideclone-core/archetypes/semantic-rebuild-transaction");
 
 function pageFixture() {
   return {

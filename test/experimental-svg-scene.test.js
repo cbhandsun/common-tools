@@ -1,10 +1,10 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createSvgSceneModel } = require("../packages/slideclone-core/experimental-svg-scene");
+const { createSvgSceneModel } = require("../packages/slideclone-core/archetypes/experimental-svg-scene");
 const api = createSvgSceneModel();
 const { JSDOM } = require("jsdom");
-const { createSvgSceneView } = require("../packages/slideclone-core/experimental-svg-view");
+const { createSvgSceneView } = require("../packages/slideclone-core/archetypes/experimental-svg-view");
 function deck() {
   return { slideSize: { widthPt: 960, heightPt: 1280 }, pages: [{ shapes: [
     { id: "node", type: "freeform", box: { x: 10, y: 20, w: 30, h: 40 }, style: { freeformPath: "[[0,0,0],[2,0.2,0.3,0.6,0.7,1,1],[4]]" } },

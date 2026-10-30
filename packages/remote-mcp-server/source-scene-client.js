@@ -1,11 +1,12 @@
 // @ts-check
 "use strict";
-const {parseLocalTargets,localResponseFormat,decodeLocalResponse,sceneRegionalOutputPrompt,sceneRelationOutputPrompt}=require("../slideclone-core/source-scene-local-response");
+const {parseLocalTargets,localResponseFormat,decodeLocalResponse,sceneRegionalOutputPrompt,sceneRelationOutputPrompt}=require("../slideclone-core/scene-plan/source-scene-local-response");
 const {sceneModelRequestOptions}=require("./scene-model-request-options");
 const {sceneExecutionPolicy}=require('./scene-execution-policy');
 const {readSceneResponseContent,sceneResponseFailureCode,awaitSceneResponse}=require('./scene-response-content');
 const {sceneTransportFailureCode}=require('./scene-request-failure');
 const {readSceneExecutionControls}=require('./scene-execution-controls');
+const {parseSceneProviderEndpoint}=require('./scene-provider-endpoint');
 /** @typedef {{bytes:Buffer,label:string}} SceneImage */
 /** JSON mode constrains syntax only. Enable it for a verified compatible
  * transport; scene admission and all source/quality gates remain mandatory.
@@ -13,13 +14,11 @@ const {readSceneExecutionControls}=require('./scene-execution-controls');
 function createSceneVisionClient({ endpoint, model, token, fetchImpl = fetch, enforceLocalSchema = false, enforceJsonOutput = false, streaming = false, executionProfile='standard',globalTimeoutMs }) {
   const policy=sceneExecutionPolicy(executionProfile);
   if(globalTimeoutMs!==undefined&&((globalTimeoutMs!==60000&&globalTimeoutMs!==90000&&globalTimeoutMs!==120000)||executionProfile!=='standard'))throw new TypeError('Scene global timeout configuration is invalid');
-  const url = new URL(endpoint);
-  if ((url.protocol !== "https:" && !(url.protocol === "http:" && ["127.0.0.1", "[::1]"].includes(url.hostname)))
-    || url.username || url.password || url.search || url.hash || !url.pathname.endsWith("/chat/completions")
-    || typeof model !== "string" || !/^[A-Za-z0-9/_.:-]{1,128}$/u.test(model)
+  const url = parseSceneProviderEndpoint(endpoint);
+  if (typeof model !== "string" || !/^[A-Za-z0-9/_.:-]{1,128}$/u.test(model)
     || typeof token !== "string" || !token || token.length > 16384 || /[\r\n\0]/u.test(token)
     || typeof enforceLocalSchema!=="boolean"||typeof enforceJsonOutput!=='boolean'||typeof streaming!=='boolean') throw new TypeError("Scene provider configuration is invalid");
-  /** @param {{prompt:string,images:SceneImage[],isCancellationRequested:()=>Promise<boolean>,task?:"structure"|"classify-ocr",localTargets?:import("../slideclone-core/source-scene-local-response").LocalTargets}} request */
+  /** @param {{prompt:string,images:SceneImage[],isCancellationRequested:()=>Promise<boolean>,task?:"structure"|"classify-ocr",localTargets?:import("../slideclone-core/scene-plan/source-scene-local-response").LocalTargets}} request */
   return async function recognizeScene({ prompt, images, isCancellationRequested, task, localTargets }) {
     if (typeof prompt !== "string" || prompt.length > 200000 || !Array.isArray(images) || images.length < 1 || images.length > 32
       || images.some(image => !Buffer.isBuffer(image.bytes) || image.bytes.length < 8 || typeof image.label !== "string" || image.label.length > 1024)
@@ -33,6 +32,8 @@ function createSceneVisionClient({ endpoint, model, token, fetchImpl = fetch, en
     const started=performance.now();
     let failureCode = "SCENE_TRANSPORT_FAILED";
     let failurePhase = 'request-build';
+    /** @type {number|undefined} */
+    let httpStatus;
     const timeout = setTimeout(() => { failureCode = "SCENE_PROVIDER_TIMEOUT"; controller.abort(); }, timeoutMs);
     const cancellation = setInterval(() => { Promise.resolve().then(isCancellationRequested).then(cancelled => {
       if (cancelled) { failureCode = "SCENE_CANCELLED"; controller.abort(); }
@@ -43,18 +44,28 @@ function createSceneVisionClient({ endpoint, model, token, fetchImpl = fetch, en
       const inventoryPrompt=targets?.inventories?`\ninventoriesByIndex MUST have EXACT keys ${JSON.stringify(targets.inventories.map(String))}. Each value is {kind,confidence,regionId,box_2d}, with kind icon/unknown, describing one COMPLETE pictorial child inside its specified node. Use unknown,0,null,null for insufficient evidence. Never return the parent node or text as an icon. No omissions or extra entries.`:'';
       const relationPrompt=targets?.relations?sceneRelationOutputPrompt(targets):'';
       const regionalPrompt=targets?sceneRegionalOutputPrompt(targets):'';
-      const content = [{ type: "text", text: outputPrompt+structuralPrompt+inventoryPrompt+relationPrompt+regionalPrompt }, ...images.flatMap(image => [
+      const jsonObjectMode=!(targets&&enforceLocalSchema)&&task!==undefined&&enforceJsonOutput;
+      const requestedPrompt=outputPrompt+structuralPrompt+inventoryPrompt+relationPrompt+regionalPrompt;
+      // OpenAI-compatible json_object mode rejects input that never names JSON;
+      // gateways surface that as an opaque 5xx. Add a fixed trusted sentence only.
+      const promptText=jsonObjectMode&&!/json/iu.test(requestedPrompt)?`${requestedPrompt}\nOUTPUT TRANSPORT: respond with exactly one JSON object.`:requestedPrompt;
+      const content = [{ type: "text", text: promptText }, ...images.flatMap(image => [
         { type: "text", text: image.label }, { type: "image_url", image_url: { url: `data:image/png;base64,${image.bytes.toString("base64")}` } }
       ])];
       const init = { method: "POST", redirect: /** @type {RequestRedirect} */ ("error"), signal: controller.signal,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ model, stream: streaming, max_tokens: policy.outputTokens,
           ...sceneModelRequestOptions(model,task),...(targets&&enforceLocalSchema?{response_format:localResponseFormat(targets)}:
-            task!==undefined&&enforceJsonOutput?{response_format:{type:'json_object'}}:{}),messages: [{ role: "user", content }] }) };
+            jsonObjectMode?{response_format:{type:'json_object'}}:{}),messages: [{ role: "user", content }] }) };
       failurePhase='fetch';
       const response = await awaitSceneResponse(fetchImpl(url, init),controller.signal);
       failurePhase='response';
-      if (!response.ok || !response.body) { failureCode = "SCENE_HTTP_FAILED"; throw new Error("Scene provider request failed"); }
+      if (!response.ok || !response.body) {
+        failureCode = "SCENE_HTTP_FAILED";
+        // Only the numeric status is retained; provider bodies/headers stay discarded.
+        if(Number.isInteger(response.status)&&response.status>=100&&response.status<=599)httpStatus=response.status;
+        throw new Error("Scene provider request failed");
+      }
       let text;
       try{text=await readSceneResponseContent(response,streaming,controller.signal,executionProfile);}catch(error){
         const code=sceneResponseFailureCode(error);if(code)failureCode=code;
@@ -69,7 +80,7 @@ function createSceneVisionClient({ endpoint, model, token, fetchImpl = fetch, en
     } catch (error) {
       // Provider bodies and exceptions may echo image contents or credentials.
       throw Object.assign(new Error("Scene provider recognition failed"), { code: failureCode,phase:failurePhase,
-        ...(failurePhase==='fetch'?{transportCode:sceneTransportFailureCode(error)}:{}) });
+        ...(failurePhase==='fetch'?{transportCode:sceneTransportFailureCode(error)}:{}),...(httpStatus!==undefined?{httpStatus}:{}) });
     } finally { clearTimeout(timeout); clearInterval(cancellation);controller.abort(); }
   };
 }

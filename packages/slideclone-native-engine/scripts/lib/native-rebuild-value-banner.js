@@ -1,9 +1,10 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
 const fs = require("fs");
-const { classifyImageExpressionForm } = require("@common-tools/slideclone-core/diagram-residual-crops");
-const { DEFAULT_SLIDE } = require("@common-tools/slideclone-core/page-text-rule-helpers");
-const { resolveAssetPathForIr } = require("@common-tools/slideclone-core/residual-primitive-erasure");
+const { classifyImageExpressionForm } = core("@common-tools/slideclone-core/archetypes/diagram-residual-crops");
+const { DEFAULT_SLIDE } = core("@common-tools/slideclone-core/typography/page-text-rule-helpers");
+const { resolveAssetPathForIr } = core("@common-tools/slideclone-core/scene-plan/residual-primitive-erasure");
 const {
   averageColor,
   boxCenterInside,
@@ -16,7 +17,7 @@ const {
   round,
   saturation,
   trimPxBox
-} = require("@common-tools/slideclone-core/raster-native-detection");
+} = core("@common-tools/slideclone-core/scene-plan/raster-native-detection");
 const { readPng } = require("./png");
 
 function createValueBannerBackgroundShapes(images = [], textBoxes = [], sourceImage = null, slideSize = DEFAULT_SLIDE, irDir = null) {

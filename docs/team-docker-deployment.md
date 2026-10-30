@@ -664,6 +664,19 @@ assets/                   # 可选；仅 .bmp/.gif/.jpg/.jpeg/.png/.tiff，单�
 
 ### 可选原始图片 OCR profile（默认关闭）
 
+图片 Worker 的原始图片重建支持独立的输出策略。部署配置 `COMMON_TOOLS_IMAGE_OUTPUT_POLICY=semantic-native` 可启用语义原生输出：仅在场景清单、区域覆盖、来源与残差擦除检查均完成后，省略已证明擦除的重建残差层，并组装可编辑节点。证据不完整时作业失败，不会静默降级为高仿输出。`source-fidelity` 保留原有输出，仍为未配置时的默认值；两种策略均不改写源图片或扩大局部近似授权。
+
+可编辑连线的形状策略单独由 `COMMON_TOOLS_IMAGE_CONNECTOR_CORNER_MODE` 控制，默认 `reroutable-elbow`。需要完整原生连接器与语义输出时配置：
+
+```text
+COMMON_TOOLS_IMAGE_CONNECTOR_CORNER_MODE=reroutable-elbow
+COMMON_TOOLS_IMAGE_OUTPUT_POLICY=semantic-native
+```
+
+基础 Compose 与 Tesseract/PaddleOCR overlay 均转发这两个变量。该配置用于包含对应代码版本的 Worker；修改配置不会更新已经运行的进程。启动时只接受受限枚举，空值、未知值或非法输入会在引擎和 OCR profile 加载前被拒绝。语义输出通过不代表已验证 PowerPoint 的实际拖动、缩放或保存重开。
+
+生产预检会在迁移、发布证据和 Compose 调用前验证这两项策略，并核对解析后的图片 Worker 配置，拒绝 overlay 丢失或更改所选策略。只有变量未设置时使用默认值；显式空值会保留至校验并被拒绝。`semantic-native` 的非法配置在 Worker 启动日志中使用固定的 `invalid-configuration` 分类，不回显输入值。镜像必须包含对应代码；单独修改旧镜像的环境变量不能交付新能力。
+
 原始 PNG/JPEG 不是上述默认协议的一部分。只有在图片 Worker 镜像本身包含已审批 Tesseract 和语言包，并且部署系统显式配置了 `tesseract-tsv-v1` 时，归档才可仅包含一个 `assets/source.png`、`assets/source.jpg` 或 `assets/source.jpeg`。压缩包、文件、图像尺寸和像素数仍使用同一组边界；客户端不能传入 OCR 命令、模型路径、语言、脚本或渲染参数。
 
 启用 profile 前，发布流程必须同时满足以下条件：
@@ -727,14 +740,14 @@ docker run --rm --network none --read-only --user 10001:10001 --entrypoint /bin/
 .\scripts\team-runtime-local-deploy.ps1 -Mode Apply -Project deploy -EnableRawImageOcr -RawImageOcrProvider Tesseract
 ```
 
-如 Docker Hub 暂不可用，而本机已有经过验证、包含模型的 PaddleOCR 镜像，可离线装入当前 Worker 代码并复用其 OCR 运行层：
+如 Docker Hub 暂不可用，而本机已有经过验证、包含模型的 PaddleOCR 镜像，可离线装入当前 Worker 代码并复用其 OCR 运行层。底座须包含 LibreOffice 及可执行 `import uno` 的 `/usr/bin/python3`，缺失时构建会拒绝，应先在联网环境准备与当前渲染依赖兼容的底座。构建还需要本地的 .NET 8 SDK 镜像及与当前锁文件一致的 NuGet 包缓存；缺少缓存时离线构建会失败。应先在可联网的同一 Docker builder 上使用这个 Dockerfile 执行一次 `--network=default` 构建，预热专用包缓存，再执行下面的断网构建；不能改用宿主机的旧 Debug 产物：
 
 ```powershell
 docker build --pull=false --network=none --file deploy/docker/Dockerfile.image-to-editable-paddleocr-offline --build-arg BASE_IMAGE=<reviewed-local-image> --tag common-tools-image-to-editable-paddleocr:offline .
 .\scripts\team-runtime-local-deploy.ps1 -Mode Plan -Project <existing-project> -ExistingSecretFile <absolute-path-outside-repo> -EnableSingleIngress -SingleIngressPublicUrl <existing-https-origin> -EnableRawImageOcr -RawImageOcrImage common-tools-image-to-editable-paddleocr:offline -SkipRawImageOcrBuild
 ```
 
-核对 Plan 的项目、能力、身份提供方及 Compose 后，再将 `-Mode Plan` 改为 `-Mode Apply`。`-SkipRawImageOcrBuild` 会对整个本机项目使用 `--no-build`，因此其他服务的现有镜像也必须齐备；脚本仍按 provider 核验 OCR 镜像。离线刷新只替换 Worker 的 `packages`，不能代替对原有 OCR 运行层来源及版本的审核。生产环境不能使用这个本机构建路径，必须使用 registry digest、release evidence 和生产预检。
+核对 Plan 的项目、能力、身份提供方及 Compose 后，再将 `-Mode Plan` 改为 `-Mode Apply`。`-SkipRawImageOcrBuild` 会对整个本机项目使用 `--no-build`，因此其他服务的现有镜像也必须齐备；脚本仍按 provider 核验 OCR 镜像。离线刷新替换 Worker 的 `packages`，并在 SDK 阶段以锁定依赖重新编译和发布原生 writer；构建上下文排除宿主机 `bin/obj`。它不能代替对原有 OCR 运行层来源及版本的审核。生产环境不能使用这个本机构建路径，必须使用 registry digest、release evidence 和生产预检。
 
 语言只允许 `eng`、`chi_sim`、`chi_tra`、`jpn`、`kor` 的无重复逗号列表。Worker 启动时执行固定的 `tesseract --list-langs` 自检；任何缺失语言包都会停止 Worker。生产预检还会将部署环境的 profile、二进制 hash 和语言列表与已验证 release evidence 中、同一 Worker image 的 profile 精确比对。每个 Job 只会以固定参数调用 `tesseract <image> stdout --psm 3 -l <locked-languages> tsv`，输出最多 1 MiB、运行最多 90 秒，并在取消、超时、非零退出、非法 TSV 或越界文字框时失败。OCR 结果进入固定 native-hybrid 重建器，置信度不足的视觉内容保留为 object-erased residual。
 

@@ -2,8 +2,8 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { createDeclarativePipeline } = require("../packages/slideclone-core/declarative-rebuilder-pipeline");
-const { semanticFallbackToPageContext } = require("../packages/slideclone-core/semantic-fallback-adapter");
+const { createDeclarativePipeline } = require("../packages/slideclone-core/archetypes/declarative-rebuilder-pipeline");
+const { semanticFallbackToPageContext } = require("../packages/slideclone-core/archetypes/semantic-fallback-adapter");
 
 test("DeclarativeRebuilderPipeline dispatches step_chain archetype to builtin-step-chain plugin", () => {
   const pipeline = createDeclarativePipeline();

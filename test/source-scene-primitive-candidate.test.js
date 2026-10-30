@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parsePrimitiveCandidate,constructPrimitiveCandidate}=require('../packages/slideclone-core/source-scene-primitive-candidate');
+const {parsePrimitiveCandidate,constructPrimitiveCandidate}=require('../packages/slideclone-core/scene-plan/source-scene-primitive-candidate');
 const frame={widthPx:800,heightPx:600,widthPt:400,heightPt:300};
 const recipe=kind=>({id:'unit',kind,box:{x:100,y:100,w:100,h:80},fill:'#AABBCC',stroke:'#112233',strokeWidthPx:2});
 for(const kind of ['ellipse','roundRect','quad','cylinder','handFrame'])test(`actual ${kind} constructor emits bounded native drawing`,()=>{

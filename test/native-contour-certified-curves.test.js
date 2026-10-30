@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {fitCertifiedContourLoop:fit}=require('../packages/slideclone-core/native-contour-certified-curves');
+const {fitCertifiedContourLoop:fit}=require('../packages/slideclone-core/routing/native-contour-certified-curves');
 function fixture(dx=0,dy=0){
  const points=[];
  for(let i=0;i<720;i++){

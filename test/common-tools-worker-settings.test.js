@@ -15,6 +15,15 @@ test("image startup refuses executable getters without evaluating user code", ()
   assert.throws(() => imageWorkerSettings(environment), /worker environment is invalid/);
   assert.equal(calls, 0);
 });
+test('image connector modes are explicit, validated before IO, and preserve the strict production default',()=>{
+ const key='COMMON_TOOLS_IMAGE_CONNECTOR_CORNER_MODE',base={OPENXML_BUILDER_EXE:process.execPath};
+ assert.equal(imageWorkerSettings(base).connectorCornerMode,'reroutable-elbow');
+ for(const mode of ['auto','rounded-freeform','reroutable-elbow'])assert.equal(imageWorkerSettings({...base,[key]:mode}).connectorCornerMode,mode);
+ for(const value of ['',null,false,{},'private-do-not-echo','x'.repeat(4097)])
+  assert.throws(()=>imageWorkerSettings({[key]:value}),error=>!error.message.includes('private-do-not-echo'));
+ let calls=0;const input={};Object.defineProperty(input,key,{get(){calls++;throw Error('private');}});
+ assert.throws(()=>imageWorkerSettings(input),TypeError);assert.equal(calls,0);
+});
 
 test("image startup snapshots only known string data and rejects hostile or extreme inputs", () => {
   const { readImageWorkerEnvironment, pathIsFile } = require("../packages/remote-mcp-server/image-worker-settings");

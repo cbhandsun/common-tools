@@ -1,8 +1,8 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {expandPositionedMixedColorTextSegments,boundedOcrSourceDeck}=require("../packages/slideclone-core/ocr-source-deck");
-const {eraseObjectMask}=require("../packages/slideclone-core/full-slide-native-residual");
-const {residualSourceTextEvidence}=require("../packages/slideclone-core/residual-source-text-evidence");
+const {expandPositionedMixedColorTextSegments,boundedOcrSourceDeck}=require("../packages/slideclone-core/ocr/ocr-source-deck");
+const {eraseObjectMask}=require("../packages/slideclone-core/archetypes/full-slide-native-residual");
+const {residualSourceTextEvidence}=require("../packages/slideclone-core/typography/residual-source-text-evidence");
 test("measured color segments retain parent provenance without reusing its erasure geometry",()=>{
   for(const scale of [1,2]){
     const box={x:10*scale,y:12*scale,w:60*scale,h:10*scale},polygon=[[10,12],[70,12],[70,22],[10,22]].map(p=>p.map(v=>v*scale));

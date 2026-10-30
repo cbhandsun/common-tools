@@ -5,9 +5,9 @@ const test = require("node:test");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { hasTallPunctuationGraphicInk } = require("../packages/slideclone-core/ocr-punctuation-graphic-evidence");
-const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr-source-deck");
-const { restoreOcrGlyphResiduals } = require("../packages/slideclone-core/ocr-glyph-residual");
+const { hasTallPunctuationGraphicInk } = require("../packages/slideclone-core/ocr/ocr-punctuation-graphic-evidence");
+const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr/ocr-source-deck");
+const { restoreOcrGlyphResiduals } = require("../packages/slideclone-core/ocr/ocr-glyph-residual");
 const { writePng } = require("../packages/slideclone-core/png");
 
 function raster(width = 160, height = 90) {

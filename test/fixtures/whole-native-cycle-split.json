@@ -1,0 +1,719 @@
+{
+  "basis": "actual-office-b-move-c-scale-counterexample-v1",
+  "businessRelations": 5,
+  "auxiliaryPaths": 1,
+  "before": [
+    {
+      "id": "scene-relation-n204",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.0525984251968503,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 249.92874015748032,
+          "y": 652.1386614173229,
+          "w": 91.52377952755906,
+          "h": 43.31488188976378,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": true
+        },
+        "connectorAdjustments": [
+          36437
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-container-object-n110",
+          "index": "0"
+        },
+        {
+          "node": "scene-outline-region-n8",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n205",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.0659055118110237,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 332.15614173228346,
+          "y": 613.2611811023622,
+          "w": 91.48874015748031,
+          "h": 121.10496062992127,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          36413
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-outline-object-n111",
+          "index": "0"
+        },
+        {
+          "node": "scene-outline-region-n8",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n206",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.1251181102362207,
+        "connectorType": "elbow-5",
+        "connectorFrame": {
+          "x": 432.4876377952756,
+          "y": 634.0346456692913,
+          "w": 92.37275590551181,
+          "h": 80.441968503937,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": true
+        },
+        "connectorAdjustments": [
+          36064,
+          91209,
+          49281
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-outline-object-n111",
+          "index": "0"
+        },
+        {
+          "node": "scene-outline-region-n9",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n207",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.1188188976377953,
+        "connectorType": "elbow-5",
+        "connectorFrame": {
+          "x": 512.9207874015748,
+          "y": 634.025748031496,
+          "w": 92.39055118110237,
+          "h": 80.441968503937,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          36077,
+          90110,
+          49290
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-container-object-n112",
+          "index": "1"
+        },
+        {
+          "node": "scene-outline-region-n9",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n208",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.046062992125984,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 615.9041732283465,
+          "y": 611.4843307086614,
+          "w": 91.50653543307087,
+          "h": 124.64086614173229,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": true
+        },
+        "connectorAdjustments": [
+          36425
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-container-object-n112",
+          "index": "1"
+        },
+        {
+          "node": "scene-outline-region-n10",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "shared-7d801ca99e2bbf4a739c749d-edge-14",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 2.3548031496062993,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 517.903937007874,
+          "y": 546.618346456693,
+          "w": 1.9822047244094487,
+          "h": 160.8840157480315,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": true
+        },
+        "connectorAdjustments": [
+          1781519
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-outline-object-n111",
+          "index": "2"
+        },
+        {
+          "node": "scene-container-object-n112",
+          "index": "1"
+        }
+      ]
+    }
+  ],
+  "bMoved": [
+    {
+      "id": "scene-relation-n204",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.0525984251968503,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 249.92874015748032,
+          "y": 652.1386614173229,
+          "w": 91.52377952755906,
+          "h": 43.31488188976378,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": true
+        },
+        "connectorAdjustments": [
+          36437
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-container-object-n110",
+          "index": "0"
+        },
+        {
+          "node": "scene-outline-region-n8",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n205",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.0659055118110237,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 332.26141732283463,
+          "y": 587.5752755905512,
+          "w": 117.06944881889764,
+          "h": 146.8959842519685,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          50000
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-outline-object-n111",
+          "index": "0"
+        },
+        {
+          "node": "scene-outline-region-n8",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n206",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.1251181102362207,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 432.5928346456693,
+          "y": 634.1396850393701,
+          "w": 117.95346456692913,
+          "h": 54.650944881889764,
+          "rotationDeg": 270,
+          "flipH": true,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          50000
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-outline-object-n111",
+          "index": "0"
+        },
+        {
+          "node": "scene-outline-region-n9",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n207",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.1188188976377953,
+        "connectorType": "elbow-5",
+        "connectorFrame": {
+          "x": 512.9207874015748,
+          "y": 634.025748031496,
+          "w": 92.39055118110237,
+          "h": 80.441968503937,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          36077,
+          90110,
+          49290
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-container-object-n112",
+          "index": "1"
+        },
+        {
+          "node": "scene-outline-region-n9",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n208",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.046062992125984,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 615.9041732283465,
+          "y": 611.4843307086614,
+          "w": 91.50653543307087,
+          "h": 124.64086614173229,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": true
+        },
+        "connectorAdjustments": [
+          36425
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-container-object-n112",
+          "index": "1"
+        },
+        {
+          "node": "scene-outline-region-n10",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "shared-7d801ca99e2bbf4a739c749d-edge-14",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 2.3548031496062993,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 518.0091338582677,
+          "y": 546.7233858267716,
+          "w": 27.56291338582677,
+          "h": 135.09299212598424,
+          "rotationDeg": 270,
+          "flipH": true,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          166963
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-outline-object-n111",
+          "index": "2"
+        },
+        {
+          "node": "scene-container-object-n112",
+          "index": "1"
+        }
+      ]
+    }
+  ],
+  "cScaled": [
+    {
+      "id": "scene-relation-n204",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.0525984251968503,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 249.92874015748032,
+          "y": 652.1386614173229,
+          "w": 91.52377952755906,
+          "h": 43.31488188976378,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": true
+        },
+        "connectorAdjustments": [
+          36437
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-container-object-n110",
+          "index": "0"
+        },
+        {
+          "node": "scene-outline-region-n8",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n205",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.0659055118110237,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 332.26141732283463,
+          "y": 587.5752755905512,
+          "w": 117.06944881889764,
+          "h": 146.8959842519685,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          50000
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-outline-object-n111",
+          "index": "0"
+        },
+        {
+          "node": "scene-outline-region-n8",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n206",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.1251181102362207,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 432.5928346456693,
+          "y": 634.1396850393701,
+          "w": 117.95346456692913,
+          "h": 54.650944881889764,
+          "rotationDeg": 270,
+          "flipH": true,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          50000
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-outline-object-n111",
+          "index": "0"
+        },
+        {
+          "node": "scene-outline-region-n9",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n207",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.1188188976377953,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 530.4605511811023,
+          "y": 640.030157480315,
+          "w": 68.84629921259842,
+          "h": 91.97732283464568,
+          "rotationDeg": 90,
+          "flipH": false,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          50000
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-container-object-n112",
+          "index": "1"
+        },
+        {
+          "node": "scene-outline-region-n9",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "scene-relation-n208",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 3.046062992125984,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 633.4440157480315,
+          "y": 629.023937007874,
+          "w": 67.96228346456692,
+          "h": 113.10559055118111,
+          "rotationDeg": 270,
+          "flipH": true,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          50000
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-container-object-n112",
+          "index": "1"
+        },
+        {
+          "node": "scene-outline-region-n10",
+          "index": "0"
+        }
+      ]
+    },
+    {
+      "id": "shared-7d801ca99e2bbf4a739c749d-edge-14",
+      "type": "line",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "style": {
+        "fill": "none",
+        "stroke": "#123456",
+        "lineCap": "round",
+        "strokeWidthPt": 2.3548031496062993,
+        "connectorType": "elbow-3",
+        "connectorFrame": {
+          "x": 512.0046456692913,
+          "y": 552.7278740157481,
+          "w": 51.10716535433071,
+          "h": 146.62826771653545,
+          "rotationDeg": 270,
+          "flipH": true,
+          "flipV": false
+        },
+        "connectorAdjustments": [
+          136348
+        ]
+      },
+      "bindings": [
+        {
+          "node": "scene-outline-object-n111",
+          "index": "2"
+        },
+        {
+          "node": "scene-container-object-n112",
+          "index": "1"
+        }
+      ]
+    }
+  ]
+}

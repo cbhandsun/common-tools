@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {createToolGapPlatformDiagramObjects:create,shouldObjectifyToolGapPlatformDiagram:eligible,toolGapPlatformNativeTextBoxes:textBoxes}=require("../packages/slideclone-core/tool-platform-reconstruction");
+const {createToolGapPlatformDiagramObjects:create,shouldObjectifyToolGapPlatformDiagram:eligible,toolGapPlatformNativeTextBoxes:textBoxes}=require("../packages/slideclone-core/archetypes/tool-platform-reconstruction");
 const slide={widthPt:960,heightPt:540};
 const raster={width:960,height:540,rgba:Buffer.alloc(960*540*4,255)};
 const labels="跨越工具孤岛 传统协作模式 普通AI工具 PM Portal Platform";

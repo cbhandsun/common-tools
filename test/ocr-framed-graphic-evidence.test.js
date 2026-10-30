@@ -4,9 +4,9 @@ const test = require("node:test");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { framedGraphicEvidence } = require("../packages/slideclone-core/ocr-framed-graphic-evidence");
-const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr-source-deck");
-const { restoreOcrGlyphResiduals } = require("../packages/slideclone-core/ocr-glyph-residual");
+const { framedGraphicEvidence } = require("../packages/slideclone-core/ocr/ocr-framed-graphic-evidence");
+const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr/ocr-source-deck");
+const { restoreOcrGlyphResiduals } = require("../packages/slideclone-core/ocr/ocr-glyph-residual");
 const { writePng } = require("../packages/slideclone-core/png");
 
 function fill(image, x, y, w, h, alpha = 255) {

@@ -2,13 +2,13 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { admitOcrPolygon, projectOcrPolygon, projectOcrTextBox, rotatedTextEnvelope } = require("../packages/slideclone-core/ocr-text-quadrilateral");
-const { admitOcrResult } = require("../packages/slideclone-core/ocr-result-admission");
-const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr-source-deck");
+const { admitOcrPolygon, projectOcrPolygon, projectOcrTextBox, rotatedTextEnvelope } = require("../packages/slideclone-core/ocr/ocr-text-quadrilateral");
+const { admitOcrResult } = require("../packages/slideclone-core/ocr/ocr-result-admission");
+const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr/ocr-source-deck");
 const { visibleTextBoxes } = require("../packages/slideclone-native-engine/scripts/lib/native-rebuild-visible-text");
-const { fitHighConfidenceSingleLineOcrToEvidence } = require("../packages/slideclone-core/text-box-micro-adjust");
+const { fitHighConfidenceSingleLineOcrToEvidence } = require("../packages/slideclone-core/typography/text-box-micro-adjust");
 const { residualEraseObjects } = require("../packages/slideclone-core/team-native-rebuild");
-const { normalizeLines } = require("../packages/slideclone-core/team-paddleocr-profile");
+const { normalizeLines } = require("../packages/slideclone-core/ocr/team-paddleocr-profile");
 
 const dimensions = { widthPx: 960, heightPx: 720 };
 function fixture(rotation = -15) {

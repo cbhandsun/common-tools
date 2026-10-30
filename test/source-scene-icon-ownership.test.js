@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {sceneIconInkTextCollisions:collisions}=require("../packages/slideclone-core/source-scene-icon-ownership");
+const {sceneIconInkTextCollisions:collisions}=require("../packages/slideclone-core/scene-plan/source-scene-icon-ownership");
 function fixture(){
  const rgba=Buffer.alloc(10*10*4);for(let y=2;y<8;y++)for(let x=2;x<8;x++)rgba[(y*10+x)*4+3]=255;
  return {sourceWidth:200,sourceHeight:100,originalPixelBox:{x:10,y:10,w:20,h:20},
@@ -35,7 +35,7 @@ test("hostile controls, sparse lists and proxy pixels do not invoke accessors",(
 });
 
 test('an isolated graphic in observed caption whitespace does not reserve unrelated caption glyphs',()=>{
- const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const source={width:120,height:90,rgba:Buffer.alloc(120*90*4,255)},budget={used:0},text={text:'I',box:{x:40,y:30,w:30,h:25},font:{color:'#000000'}};
  for(let y=35;y<50;y++)for(let x=50;x<54;x++)source.rgba.set([0,0,0,255],(y*120+x)*4);
  for(let y=32;y<35;y++)for(let x=42;x<45;x++)source.rgba.set([30,130,220,255],(y*120+x)*4);

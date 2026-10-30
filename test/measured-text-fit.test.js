@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { planMeasuredSingleLineTextFit } = require("../packages/slideclone-core/measured-text-fit");
+const { planMeasuredSingleLineTextFit } = require("../packages/slideclone-core/typography/measured-text-fit");
 
 const slideSize = { widthPt: 960, heightPt: 540 };
 

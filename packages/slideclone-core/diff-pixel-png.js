@@ -5,9 +5,9 @@ const os = require("os");
 const path = require("path");
 const { Worker } = require("worker_threads");
 const { readPng, writePng } = require("./png");
-const { buildComponentRegions, compareComponentRegions } = require("./component-region-quality");
-const { detectMissingNativeComponentRegions } = require("./missing-native-component-quality");
-const { measureTextWeightEvidence } = require("./text-weight-evidence");
+const { buildComponentRegions, compareComponentRegions } = require("./quality/component-region-quality");
+const { detectMissingNativeComponentRegions } = require("./quality/missing-native-component-quality");
+const { measureTextWeightEvidence } = require("./typography/text-weight-evidence");
 
 module.exports = async function diffPixelPng(input, context) {
   const threshold = Number(process.env.SLIDECLONE_PIXEL_THRESHOLD || "24");

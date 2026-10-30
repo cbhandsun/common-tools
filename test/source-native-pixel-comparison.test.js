@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {compareNativeSourceRender}=require('../packages/slideclone-core/source-native-render-comparison');
+const {compareNativeSourceRender}=require('../packages/slideclone-core/scene-plan/source-native-render-comparison');
 function fixture(){
  const width=12,height=12,rgba=Buffer.alloc(width*height*4,255),mask=new Uint8Array(width*height);
  for(const [x,y]of [[3,3],[4,3],[5,3],[6,3],[5,4],[5,5],[5,6]]){

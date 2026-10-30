@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {writePng}=require('../packages/slideclone-core/png');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
-const {auditSceneInventory,buildSceneInventoryEvidence}=require('../packages/slideclone-core/source-scene-observed-inventory');
-const {recoveryId,admitSceneRecoveries,captureSceneMembers,survivingSceneUnits,bindSceneRecoveries}=require('../packages/slideclone-core/source-scene-inventory-materialization');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+const {auditSceneInventory,buildSceneInventoryEvidence}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
+const {recoveryId,admitSceneRecoveries,captureSceneMembers,survivingSceneUnits,bindSceneRecoveries}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-materialization');
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-census-materialization-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)};
@@ -38,7 +38,7 @@ test('a source-measured compound header is complete only while every measured me
  for(let y=20;y<80;y++)for(let x=20;x<120;x++)if(x<65||x>=75)f.image.rgba.set([120,160,220,255],(y*400+x)*4);
  save(f);
  const budget={used:0},hint={x:20,y:20,w:100,h:60};
- const fit=require('../packages/slideclone-core/source-scene-fill-window').measureSceneFillWindow({
+ const fit=require('../packages/slideclone-core/scene-plan/source-scene-fill-window').measureSceneFillWindow({
   image:f.image,hint,fill:[120,160,220],color:'#78A0DC',budget,marginX:8,marginY:8}).fit;
  assert.ok(fit?.parts);
  // Preserve the exact source-measured commands while making the two closed
@@ -50,7 +50,7 @@ test('a source-measured compound header is complete only while every measured me
   paths.at(-1).segments.push(structuredClone(command));
  }
  assert.equal(paths.length,2);
- const result=require('../packages/slideclone-core/source-scene-table-headers').appendSceneTableHeaderBackgrounds({
+ const result=require('../packages/slideclone-core/scene-plan/source-scene-table-headers').appendSceneTableHeaderBackgrounds({
   headers:[{id:'compound',regionId:'region',box:hint}],image:f.image,budget,slideSize:f.slideSize,
   shapes:f.page.shapes,measure:()=>({...fit,parts:paths}),glyphReserve:()=>0,inventory:true});
  bindSceneRecoveries(result.inventoryUnits,f.page.shapes);
@@ -119,8 +119,8 @@ test('complete-member verification rejects duplicate IDs, forged additions, acce
  assert.equal(captureSceneMembers([getter],[]),null);assert.equal(captureSceneMembers(new Proxy([],{get(){calls++;}}),[]),null);assert.equal(calls,0);
 });
 test('regional review reuses measured recoveries instead of spending calls on duplicate object proposals',()=>{
- const {buildSceneInventoryEvidence}=require('../packages/slideclone-core/source-scene-observed-inventory');
- const {selectRegionalInventoryTargets:select}=require('../packages/slideclone-core/source-scene-regional-inventory');
+ const {buildSceneInventoryEvidence}=require('../packages/slideclone-core/scene-plan/source-scene-observed-inventory');
+ const {selectRegionalInventoryTargets:select}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
  const p={version:1,sourceHash:'a'.repeat(64),widthPx:400,heightPx:300,regions:[
   {id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:400,h:300}},
   {id:'card',parentId:'root',kind:'card',box:{x:0,y:0,w:400,h:300}}],objects:[

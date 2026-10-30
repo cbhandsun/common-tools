@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {residualInkComponents,residualInkFringe}=require("../packages/slideclone-core/residual-ink-components");
+const {residualInkComponents,residualInkFringe,conflictingForegroundComponents}=require("../packages/slideclone-core/scene-plan/residual-ink-components");
 test("equal-distance fringe requires all nearest solid owners and propagates rejection",()=>{
  const c=new Uint8Array(7).fill(1),s=Uint8Array.of(1,0,0,0,0,0,1);
  assert.deepEqual([...residualInkFringe(c,s,7,s)],[1,1,1,1,1,1,1]);
@@ -48,4 +48,12 @@ test("fringe admission preserves input masks, supports the existing maximum and 
  const mask=new Uint8Array(262144).fill(1),states=residualInkFringe(mask,mask,512,mask);
  assert.equal(states.length,262144);assert.ok(states.every(value=>value===1));
  assert.deepEqual([...residualInkFringe(new Uint8Array(4),new Uint8Array(4),2,new Uint8Array(4))],[0,0,0,0]);
+});
+test("conflicting foreground components exclude low-core graphics when strong text cores exist",()=>{
+ const width=20,height=10,fg=new Uint8Array(width*height),core=new Uint8Array(width*height);
+ for(let y=2;y<7;y++)for(let x=2;x<6;x++){const i=y*width+x;fg[i]=1;if(x<3&&y===2)core[i]=1;}
+ for(let y=2;y<7;y++)for(let x=12;x<16;x++){const i=y*width+x;fg[i]=1;core[i]=1;}
+ const excluded=conflictingForegroundComponents(fg,core,width);
+ assert.equal(excluded[2*width+2],1);
+ assert.equal(excluded[2*width+12],0);
 });

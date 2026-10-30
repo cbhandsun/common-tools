@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {createSceneCropSheet}=require("../packages/slideclone-core/source-scene-crop-sheet");
+const {createSceneCropSheet}=require("../packages/slideclone-core/scene-plan/source-scene-crop-sheet");
 function fixture(){
  const image={width:180,height:150,rgba:Buffer.alloc(180*150*4,255)};
  for(let y=0;y<150;y++)for(let x=0;x<180;x++)image.rgba.set([x,y,(x+y)%256,255],(y*180+x)*4);

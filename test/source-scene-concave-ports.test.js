@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {insidePolygon}=require('../packages/slideclone-core/source-scene-band-geometry');
-const {createMeasuredScenePortFrame,verifyMeasuredScenePort}=require('../packages/slideclone-core/source-scene-port-evidence');
+const {insidePolygon}=require('../packages/slideclone-core/scene-plan/source-scene-band-geometry');
+const {createMeasuredScenePortFrame,verifyMeasuredScenePort}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
 function fixture(side='left',concave=true){
  const box={x:10,y:10,w:40,h:40},vertical=side==='top'||side==='bottom';
  let points=concave?[[0,0],[.35,0],[.35,.7],[.65,.7],[.65,0],[1,0],[1,1],[0,1]]:[[0,0],[1,0],[1,1],[0,1]];

@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { restoreSourceNodeConnectors } = require("../packages/slideclone-core/source-node-connectors");
+const { restoreSourceNodeConnectors } = require("../packages/slideclone-core/routing/source-node-connectors");
 
 function fixture(native = false) {
   const image = { width: 600, height: 600, rgba: Buffer.alloc(600 * 600 * 4, 255) };
@@ -98,7 +98,7 @@ test("source endpoint evidence rejects unsafe ids and bounds native node work", 
 });
 
 test("production source edge refinement enables representation-independent connectors explicitly", () => {
-  const { refineSourceNativeEdges } = require("../packages/slideclone-core/source-native-edge-refinement");
+  const { refineSourceNativeEdges } = require("../packages/slideclone-core/routing/source-native-edge-refinement");
   const input = fixture();
   const enabled = refineSourceNativeEdges({ ...input, enableSourceNodeConnectors: true });
   assert.equal(enabled.evidence.sourceNodeConnectors.added, 1);

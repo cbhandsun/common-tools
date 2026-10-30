@@ -1,10 +1,10 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
-const {hasMeasuredScenePortFrame,measuredScenePortFill,measuredSceneGroupBounds,measuredSceneContourPort,verifyMeasuredScenePort,createMeasuredScenePortFrame}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {measureSceneRelationDetailed}=require('../packages/slideclone-core/source-scene-relation');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+const {hasMeasuredScenePortFrame,measuredScenePortFill,measuredSceneGroupBounds,measuredSceneContourPort,verifyMeasuredScenePort,createMeasuredScenePortFrame}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {measureSceneRelationDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-relation');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 const {writePng}=require('../packages/slideclone-core/png');
 const {sourceHollowNodes:fixture}=require('./helpers/scene-hollow-nodes.cjs');
 function measured(f,masks=[]){const budget={used:0},cache=createSceneMeasurementCache(f.image,masks,budget);

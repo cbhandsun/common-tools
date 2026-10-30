@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {proposeNativeTextPaint}=require('../packages/slideclone-core/native-text-paint-proposal');
+const {proposeNativeTextPaint}=require('../packages/slideclone-core/typography/native-text-paint-proposal');
 function fixture(){return {width:48,height:48,rgba:Buffer.alloc(48*48*4,255)};}
 function rectangle(image,x,y,w,h){
  for(let row=y;row<y+h;row++)for(let col=x;col<x+w;col++){

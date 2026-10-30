@@ -1,12 +1,12 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measurePatternedSceneFrame,patternedSceneFrameGeometry}=require('../packages/slideclone-core/source-scene-patterned-frame');
-const {nativePatternedSceneOutput,patternedSceneParentMembers,rebindPatternedSceneParentMembers}=require('../packages/slideclone-core/source-scene-patterned-output');
-const {measureSceneFillWindow,sceneFillPaintMeasurement}=require('../packages/slideclone-core/source-scene-fill-window');
-const {createMeasuredScenePortFrame,verifyMeasuredScenePort}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {bindSourceScenePhysicalGroups}=require('../packages/slideclone-core/source-scene-physical-groups');
-const {assembleSourceSceneCompleteGroups}=require('../packages/slideclone-core/source-scene-complete-groups');
-const {compileSceneIcon}=require('../packages/slideclone-core/source-scene-native-icon');
+const {measurePatternedSceneFrame,patternedSceneFrameGeometry}=require('../packages/slideclone-core/scene-plan/source-scene-patterned-frame');
+const {nativePatternedSceneOutput,patternedSceneParentMembers,rebindPatternedSceneParentMembers}=require('../packages/slideclone-core/scene-plan/source-scene-patterned-output');
+const {measureSceneFillWindow,sceneFillPaintMeasurement}=require('../packages/slideclone-core/scene-plan/source-scene-fill-window');
+const {createMeasuredScenePortFrame,verifyMeasuredScenePort}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {bindSourceScenePhysicalGroups}=require('../packages/slideclone-core/scene-plan/source-scene-physical-groups');
+const {assembleSourceSceneCompleteGroups}=require('../packages/slideclone-core/scene-plan/source-scene-complete-groups');
+const {compileSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
 const {ungroupHybridOverlayObjects}=require('../packages/slideclone-core/team-native-rebuild');
 
 function fixture(pictorial=false){
@@ -27,6 +27,23 @@ function fixture(pictorial=false){
  const node={box:measurement.box,portFrame:createMeasuredScenePortFrame(image,{...patternedSceneFrameGeometry(measurement,image),fill:'none'},measurement),parentPaint:shapes};
  return {image,hint,budget,put,measurement,background,slideSize,output,shapes,node,physicalNodes:[{proposalId:'parent',node}],images:[],textBoxes:[]};
 }
+
+test('a contained background can join an intact measured multi-face parent without replacing its receipt',()=>{
+ const f=fixture(),background={id:'background',type:'rect',box:{x:55,y:50,w:40,h:14},
+  style:{fill:'#FEF5F1',stroke:'none',strokeWidthPt:0},source:{detector:'solid-region-native-background',residualBackgroundFill:true}};
+ const label={id:'caption',text:'Caption',box:background.box,source:{editable:true,evidenceBox:background.box}};
+ const shapes=[...f.shapes,background],before=structuredClone(shapes);
+ const grouped=bindSourceScenePhysicalGroups({...f,shapes,textBoxes:[label]});
+ assert.equal(grouped.evidence.physicalGroups,1);assert.equal(grouped.shapes.at(-1).source.nativeComponentGroupId,'scene-unit-parent');
+ assert.ok(patternedSceneParentMembers(f.image,f.shapes,'parent',grouped.shapes),'the entire original parent receipt survives');
+ const page={shapes:grouped.shapes,images:[],textBoxes:grouped.textBoxes};
+ const {retainedSceneGroupMembers}=require('../packages/slideclone-core/scene-plan/source-scene-group-retention');
+ assert.equal(retainedSceneGroupMembers(page,grouped.sealGroups(page)).size,shapes.length+1);
+ assert.deepEqual(shapes,before);
+ const missing=fixture();missing.shapes.pop();
+ const rejected=bindSourceScenePhysicalGroups({...missing,shapes:[...missing.shapes,background],textBoxes:[label]});
+ assert.equal(rejected.evidence.physicalGroups,0,'a missing original face cannot be replaced by an inferred background');
+});
 
 test('fragmented boundary preserves every previously measured background path before its outline',()=>{
  const f=fixture(),count=f.background.parts.length;
@@ -102,6 +119,25 @@ test('native text and pictorial children complete one source-bound group that su
  assert.deepEqual(page.shapes.slice(0,f.background.parts.length).map(p=>p.style),f.shapes.slice(0,f.background.parts.length).map(p=>p.style));
 });
 
+test('adding a measured icon preserves the privately bound background in the existing physical group',()=>{
+ const f=fixture(true),background={id:'background',type:'rect',box:{x:55,y:50,w:40,h:14},
+  style:{fill:'#FEF5F1',stroke:'none',strokeWidthPt:0},source:{detector:'solid-region-native-background',residualBackgroundFill:true}};
+ const icon=compileSceneIcon({image:f.image,box:{x:65,y:78,w:23,h:24},id:'child',regionId:'region',root:process.cwd(),
+  slideSize:f.slideSize,textBoxes:[],budget:f.budget},{preflight:true,nativePictorial:true,parentObjectId:'parent'});
+ const label={id:'caption',text:'Caption',box:background.box,source:{editable:true,evidenceBox:background.box}};
+ const request={...f,shapes:[...f.shapes,background,...icon.shapes],textBoxes:[label],nativeIcons:[icon],interior:null,geometryChecks:0,
+  plan:{objects:[{id:'parent',kind:'container',regionId:'region',box:f.hint},{id:'child',kind:'icon',regionId:'region',parentObjectId:'parent',box:{x:65,y:78,w:23,h:24}}]}};
+ const grouped=bindSourceScenePhysicalGroups(request);
+ const completed=assembleSourceSceneCompleteGroups({...request,shapes:grouped.shapes,textBoxes:grouped.textBoxes,geometryChecks:grouped.evidence.physicalGroupGeometryChecks});
+ assert.equal(completed.completedParents.has('parent'),true);
+ const page={shapes:completed.shapes,images:[],textBoxes:completed.textBoxes};ungroupHybridOverlayObjects(page,completed.sealGroups(page));
+ assert.ok([...page.shapes,...page.textBoxes].every(p=>p.source.nativeComponentGroupId==='scene-unit-parent'));
+ assert.equal(page.shapes.find(p=>p.id==='background').style.fill,'#FEF5F1');
+ const copy=grouped.shapes.map(s=>s.id==='background'?structuredClone(s):s);
+ const rejected=assembleSourceSceneCompleteGroups({...request,shapes:copy,textBoxes:grouped.textBoxes,geometryChecks:grouped.evidence.physicalGroupGeometryChecks});
+ assert.equal(rejected.completedParents.has('parent'),false,'a copied group flag cannot replace the measured background member');
+});
+
 test('nearby corner blobs and large unexplained rail gaps cannot authorize an inferred enclosure',()=>{
  for(const mode of['blob','gap']){
   const f=fixture();
@@ -121,8 +157,8 @@ test('empty inferred boundary gaps never authorize physical connector attachment
 test('the full compiler keeps measured background paint when admitting a fragmented source node',t=>{
  const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
  const {writePng}=require('../packages/slideclone-core/png');
- const {parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
- const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+ const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const f=fixture(),root=fs.mkdtempSync(path.join(os.tmpdir(),'patterned-scene-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,f.image);

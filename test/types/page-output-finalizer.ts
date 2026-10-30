@@ -1,4 +1,4 @@
-import { createPageOutputFinalizer, type Inputs, type Operations, type Page } from "../../packages/slideclone-core/page-output-finalizer";
+import { createPageOutputFinalizer, type Inputs, type Operations, type Page } from "../../packages/slideclone-core/scene-plan/page-output-finalizer";
 declare const inputs: Inputs;
 declare const operations: Operations;
 declare const page: Page;

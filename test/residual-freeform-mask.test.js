@@ -1,14 +1,14 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {freeformResidualMasks}=require("../packages/slideclone-core/residual-freeform-mask");
-const {freeformBackgroundResidualMasks}=require("../packages/slideclone-core/residual-freeform-mask");
-const {eraseObjectMask}=require("../packages/slideclone-core/full-slide-native-residual");
-const {eraseMasks}=require("../packages/slideclone-core/residual-primitive-erasure");
-const {auditResidualPixelOwnership}=require("../packages/slideclone-core/residual-pixel-ownership");
+const {freeformResidualMasks}=require("../packages/slideclone-core/scene-plan/residual-freeform-mask");
+const {freeformBackgroundResidualMasks}=require("../packages/slideclone-core/scene-plan/residual-freeform-mask");
+const {eraseObjectMask}=require("../packages/slideclone-core/archetypes/full-slide-native-residual");
+const {eraseMasks}=require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
+const {auditResidualPixelOwnership}=require("../packages/slideclone-core/scene-plan/residual-pixel-ownership");
 const point=(x,y)=>({x,y}),loop=points=>[{type:"moveTo",points:[points[0]]},...points.slice(1).map(p=>({type:"lnTo",points:[p]})),{type:"close",points:[]}];
 
 test('cubic row intersections retain degenerate linear edges, horizontal tangencies and reverse winding',()=>{
- const {cubicRowCrossings}=require('../packages/slideclone-core/residual-bezier-crossings');
+ const {cubicRowCrossings}=require('../packages/slideclone-core/routing/residual-bezier-crossings');
  const line=[point(0,0),point(10,10),point(20,20),point(30,30)];
  assert.deepEqual(cubicRowCrossings(line,15),[{x:15,delta:1}]);
  assert.deepEqual(cubicRowCrossings([...line].reverse(),15),[{x:15,delta:-1}]);
@@ -56,6 +56,21 @@ test('opposite cubic winding preserves a real curved hole and leaves outside sou
 });
 function fixture(){return {type:"freeform",box:{x:5,y:5,w:20,h:20},style:{stroke:"none",fill:"#204060",freeformSegments:[
  ...loop([point(0,0),point(1,0),point(1,1),point(0,1)]),...loop([point(.2,.2),point(.2,.8),point(.8,.8),point(.8,.2)])]}};}
+
+test('unpainted native anchors validate their winding but erase no source cells',()=>{
+ const shape=fixture();shape.style.fill='none';const before=structuredClone(shape);
+ const image={width:30,height:30,rgba:Buffer.alloc(3600,255)},size={w:30,h:30};
+ assert.deepEqual(freeformResidualMasks(shape,image,size),[]);assert.deepEqual(eraseObjectMask(shape,image,size),[]);
+ assert.deepEqual(eraseMasks(image,eraseObjectMask(shape,image,size),{transparent:true}).rgba,image.rgba);
+ assert.deepEqual(shape,before);
+ for(const mutate of [s=>s.style.freeformSegments.pop(),s=>s.style.freeformSegments[0].points[0].x=Infinity,
+  s=>s.box.x=-1,s=>s.style.stroke='#204060',s=>s.style.fill='transparent']){
+  const bad=structuredClone(shape);mutate(bad);assert.throws(()=>freeformResidualMasks(bad,image,size),TypeError);
+ }
+ let reads=0;const bad=structuredClone(shape);Object.defineProperty(bad.style,'fill',{get(){reads++;throw Error('private-token');}});
+ assert.throws(()=>freeformResidualMasks(bad,image,size),e=>e instanceof TypeError&&!e.message.includes('private-token'));
+ assert.equal(reads,0);
+});
 test('stroked freeform backgrounds erase only source-matching filled winding, preserving borders, holes and foreground',()=>{
  for(const fill of ['#204060','#8a4e21'])for(const scale of [1,2]){
   const item=fixture();item.style.fill=fill;item.style.stroke='#192633';item.style.strokeWidthPt=2;

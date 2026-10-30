@@ -2,16 +2,16 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require('./helpers/temporary-directory.cjs');
 const { readPng, writePng } = require("../packages/slideclone-core/png");
-const { createFullSlideResidualBuilder } = require("../packages/slideclone-core/full-slide-native-residual");
-const { sameFileIdentity } = require("../packages/slideclone-core/residual-publication");
-const { eraseMasks } = require("../packages/slideclone-core/residual-primitive-erasure");
+const { createFullSlideResidualBuilder } = require("../packages/slideclone-core/archetypes/full-slide-native-residual");
+const { sameFileIdentity } = require("../packages/slideclone-core/scene-plan/residual-publication");
+const { eraseMasks } = require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
 
 function fixture(t, overrides = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "residual-publication-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = createTemporaryTestDirectory('residual-publication-');
+  t.after(() => removeTemporaryTestDirectory(root));
   const sourceFile = path.join(root, "source.png"), outputFile = path.join(root, "output.png");
   writePng(sourceFile, { width: 4, height: 4, rgba: Buffer.alloc(64, 128) });
   const sourceBytes = fs.readFileSync(sourceFile);
@@ -66,7 +66,7 @@ test("declared OCR with no source glyph evidence cannot be published",async t=>{
   writePng(value.request.sourceFile,{width:100,height:60,rgba:Buffer.alloc(100*60*4,255)});
   const text={text:"Declared only",font:{color:"#111111"},box:{x:10,y:10,w:60,h:20}};
   await assert.rejects(value.build({...value.request,objects:[text],slideSize:{x:0,y:0,w:100,h:60}}),error=>{
-    const evidence=require('../packages/slideclone-core/residual-branch-result').readResidualOwnershipRejection(error);
+    const evidence=require('../packages/slideclone-core/scene-plan/residual-branch-result').readResidualOwnershipRejection(error);
     assert.equal(evidence?.passed,false);assert.equal(evidence?.unresolvedTextMasks,1);
     assert.ok(Object.isFrozen(evidence));return /retains owned foreground/.test(error.message);
   });

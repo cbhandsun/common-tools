@@ -1,5 +1,5 @@
 'use strict';
-const {createSceneMeasurementCache}=require('../../packages/slideclone-core/source-scene-measurement-cache');
+const {createSceneMeasurementCache}=require('../../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 function filledArrowFixture({both=false}={}){
  const image={width:256,height:256,rgba:Buffer.alloc(256*256*4,255)},budget={used:0},oracle=new Set();
  const put=(x,y,color=[25,90,180])=>image.rgba.set([...color,255],(y*256+x)*4);

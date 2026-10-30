@@ -2,9 +2,9 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {writePng}=require('../packages/slideclone-core/png');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
-const {retainedSceneGroupMembers}=require('../packages/slideclone-core/source-scene-group-retention');
-const {ungroupSourceNativeOverlays}=require('../packages/slideclone-core/source-native-finalization');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
+const {retainedSceneGroupMembers}=require('../packages/slideclone-core/scene-plan/source-scene-group-retention');
+const {ungroupSourceNativeOverlays}=require('../packages/slideclone-core/scene-plan/source-native-finalization');
 
 test('a later measured panel preserves every source-compiled icon member, including its rectangular backdrop',t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-atomic-icon-'));

@@ -2,7 +2,7 @@
 "use strict";
 const crypto = require("node:crypto");
 const { types } = require("node:util");
-const { planMeasuredSingleLineTextFit } = require("./measured-text-fit");
+const { planMeasuredSingleLineTextFit } = require("./typography/measured-text-fit");
 const { isSimpleOwnedText, isOwnedTextEligible } = require("./owned-text-eligibility");
 const { parseOwnedTextResiduals, hasOwnedTextInternalResidual } = require("./owned-text-residual");
 

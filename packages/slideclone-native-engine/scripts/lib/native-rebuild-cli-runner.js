@@ -1,10 +1,11 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
 const path = require("path");
 const {
   isFlagDisabled,
   shouldRunPowerPointOpenGate
-} = require("@common-tools/slideclone-core/pptx-build-execution");
+} = core("@common-tools/slideclone-core/pptx-build-execution");
 const {
   isFlagEnabled,
   parseNativeRebuildArgs,

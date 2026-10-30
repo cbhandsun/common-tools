@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { buildComponentRegions, compareComponentRegions } = require("../packages/slideclone-core/component-region-quality");
+const { buildComponentRegions, compareComponentRegions } = require("../packages/slideclone-core/quality/component-region-quality");
 
 function image(width, height, color = 255) { return { width, height, rgba: Buffer.alloc(width * height * 4, color) }; }
 function setPixel(target, x, y, rgba) { const offset = (y * target.width + x) * 4; rgba.forEach((value, index) => { target.rgba[offset + index] = value; }); }
@@ -371,7 +371,7 @@ test("surface classification preserves explicit relationships open paths and unf
     assert.equal(region.role,"connector-straight");
     assert.equal(region.geometry.type,"segment");
   }
-  const {decodeNativeFreeformPath}=require("../packages/slideclone-core/native-freeform-path");
+  const {decodeNativeFreeformPath}=require("../packages/slideclone-core/scene-plan/native-freeform-path");
   const style={fill:"#123456",stroke:"none",freeformSegments:decodeNativeFreeformPath(base.style.freeformPath)};
   const [expanded]=buildComponentRegions({shapes:[{...base,style}]},{widthPt:24,heightPt:20});
   assert.equal(expanded.role,"shape");

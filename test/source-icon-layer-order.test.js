@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { orderSourceIconLayers: orderLayers } = require("../packages/slideclone-core/source-icon-layer-order");
+const { orderSourceIconLayers: orderLayers } = require("../packages/slideclone-core/scene-plan/source-icon-layer-order");
 const orderSourceIconLayers = shapes => orderLayers(shapes, { widthPt: 300, heightPt: 200 });
 const { removeFullSlideResidualImages } = require("../packages/slideclone-worker-adapter/team-worker");
 function fixture() {

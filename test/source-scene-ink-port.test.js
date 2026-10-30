@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {compileSceneIcon,sceneNativeIconNode}=require('../packages/slideclone-core/source-scene-native-icon');
-const {hasMeasuredScenePortFrame,measuredSceneContourPort,measuredScenePortBodyMask,measuredScenePortOwnsCell,measuredSceneGroupBounds,measuredSceneOpaqueSurface,measuredScenePortPerimeterCells}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {measureSourceSceneVisibleGap}=require('../packages/slideclone-core/source-scene-visible-gap');
+const {compileSceneIcon,sceneNativeIconNode}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
+const {hasMeasuredScenePortFrame,measuredSceneContourPort,measuredScenePortBodyMask,measuredScenePortOwnsCell,measuredSceneGroupBounds,measuredSceneOpaqueSurface,measuredScenePortPerimeterCells}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {measureSourceSceneVisibleGap}=require('../packages/slideclone-core/scene-plan/source-scene-visible-gap');
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-ink-port-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const image={width:180,height:110,rgba:Buffer.alloc(180*110*4,255)};
@@ -69,13 +69,13 @@ test('the scene compiler retains real pictorial endpoint IDs without proxy conta
  for(let step=0;step<5;step++)for(let y=60-step;y<=60+step;y++)f.put(104-step,y);
  const sourceFile=path.join(f.root,'source.png');require('../packages/slideclone-core/png').writePng(sourceFile,f.image);
  const sourceHash=require('node:crypto').createHash('sha256').update(fs.readFileSync(sourceFile)).digest('hex');
- const plan=require('../packages/slideclone-core/source-scene-plan').parseSourceScenePlan({coordinateSpace:'source-pixels',
+ const plan=require('../packages/slideclone-core/scene-plan/source-scene-plan').parseSourceScenePlan({coordinateSpace:'source-pixels',
   regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:180,h:110}}],
   objects:[20,110].map(left=>({id:'icon-'+left,regionId:'root',kind:'icon',box:{x:left,y:30,w:25,h:35}})),
   relations:[{id:'link',regionId:'root',fromId:'icon-20',toId:'icon-110',direction:'forward',shaftBox:{x:48,y:53,w:59,h:15}}]},
  {sourceHash,widthPx:180,heightPx:110});
  for(const preflight of [true,false]){
-  const result=require('../packages/slideclone-core/source-scene-compiler').compileSourceScene({sourceFile,plan,root:f.root,
+  const result=require('../packages/slideclone-core/scene-plan/source-scene-compiler').compileSourceScene({sourceFile,plan,root:f.root,
    page:{shapes:[],images:[],textBoxes:[]},slideSize:{widthPt:180,heightPt:110},preflight});
   assert.equal(result.evidence.icons,2);assert.equal(result.evidence.resolvedRelations,1,JSON.stringify(result.evidence.unresolved));
   assert.equal(result.page.images.length,0);
@@ -95,13 +95,13 @@ test('a complete multi-part icon relation binds the contacted member in the fina
  for(let step=0;step<5;step++)for(let y=60-step;y<=60+step;y++)f.put(104-step,y);
  const sourceFile=path.join(f.root,'source.png');require('../packages/slideclone-core/png').writePng(sourceFile,f.image);
  const sourceHash=require('node:crypto').createHash('sha256').update(fs.readFileSync(sourceFile)).digest('hex');
- const plan=require('../packages/slideclone-core/source-scene-plan').parseSourceScenePlan({coordinateSpace:'source-pixels',
+ const plan=require('../packages/slideclone-core/scene-plan/source-scene-plan').parseSourceScenePlan({coordinateSpace:'source-pixels',
   regions:[{id:'root',parentId:null,kind:'section',box:{x:0,y:0,w:180,h:110}}],
   objects:[20,110].map(left=>({id:'icon-'+left,regionId:'root',kind:'icon',box:{x:left,y:30,w:25,h:35}})),
   relations:[{id:'link',regionId:'root',fromId:'icon-20',toId:'icon-110',direction:'forward',shaftBox:{x:48,y:53,w:59,h:15}}]},
  {sourceHash,widthPx:180,heightPx:110});
  for(const preflight of [true,false]){
-  const result=require('../packages/slideclone-core/source-scene-compiler').compileSourceScene({sourceFile,plan,root:f.root,
+  const result=require('../packages/slideclone-core/scene-plan/source-scene-compiler').compileSourceScene({sourceFile,plan,root:f.root,
    page:{shapes:[],images:[],textBoxes:[]},slideSize:{widthPt:180,heightPt:110},preflight});
   assert.equal(result.evidence.resolvedRelations,1,JSON.stringify(result.evidence.unresolved));
   assert.equal(result.page.images.length,0);
@@ -120,7 +120,7 @@ test('multi-paint pictures cannot attach their whole unit to one native patch',t
 });
 
 test('multi-part ports select the source-contacted paint member and retain complete membership',t=>{
- const f=fixture(t),{sceneNativeIconEndpoint}=require('../packages/slideclone-core/source-scene-native-icon');
+ const f=fixture(t),{sceneNativeIconEndpoint}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
  for(let y=57;y<65;y++)for(let x=30;x<45;x++)f.image.rgba.set([180,40,30,255],(y*f.image.width+x)*4);
  const result=f.compile(20);assert.equal(result.failure,null);assert.ok(result.shapes.length>1);
  const red=sceneNativeIconEndpoint(f.image,result,60,'right'),blue=sceneNativeIconEndpoint(f.image,result,40,'right');
@@ -138,7 +138,7 @@ test('multi-part ports select the source-contacted paint member and retain compl
 });
 
 test('multi-part ownership rejects hostile, empty and oversized member collections without evaluating getters',t=>{
- const f=fixture(t),{createSceneIconPartPorts}=require('../packages/slideclone-core/source-scene-icon-part-ports');
+ const f=fixture(t),{createSceneIconPartPorts}=require('../packages/slideclone-core/scene-plan/source-scene-icon-part-ports');
  const window={x:20,y:30,w:25,h:35},isolated=require('../packages/slideclone-core/png').cropPng(f.image,window);
  let called=0;const hostile=[];Object.defineProperty(hostile,0,{get(){called++;throw Error('private');}});
  for(const shapes of [null,{},[],hostile,new Array(33).fill({})])assert.equal(createSceneIconPartPorts(f.image,isolated,window,window,shapes,{widthPt:180,heightPt:110}),null);
@@ -151,7 +151,7 @@ test('a diagonal shaft envelope selects a unique contacted part when its midpoin
  // touches the proposed shaft's full vertical interval.
  for(let y=57;y<65;y++)for(let x=110;x<135;x++)f.image.rgba.set([180,40,30,255],(y*f.image.width+x)*4);
  const multi=f.compile(110);assert.equal(multi.failure,null);assert.ok(multi.shapes.length>1);
- const {createSceneIconRelationNodes}=require('../packages/slideclone-core/source-scene-native-icon');
+ const {createSceneIconRelationNodes}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
  const resolve=createSceneIconRelationNodes({image:f.image,icons:[multi],nodes:new Map([['body',{id:'native-body',box:{x:20,y:80,w:20,h:20},portFrame:null}]]),slideSize:{widthPt:180,heightPt:110}});
  const pair=resolve({id:'link',regionId:'region',fromId:'body',toId:'icon-110',direction:'forward',shaftBox:{x:40,y:58,w:70,h:32}});
  assert.ok(pair.to,'a complete shaft envelope can touch the icon although its midpoint is outside it');
@@ -177,11 +177,11 @@ test('a shaft at a pictorial bounding-box corner cannot bypass actual ink attach
  // measured pictorial ink is unchanged; its left concave corner stays empty.
  for(let x=46;x<=109;x++)for(let y=47;y<=49;y++)f.put(x,y);
  for(let step=0;step<5;step++)for(let y=48-step;y<=48+step;y++)f.put(109-step,y);
- const result=require('../packages/slideclone-core/source-scene-relation').measureSceneRelationDetailed({image:f.image,from,to,direction:'forward',textMasks:[],budget:{used:0},shaftBox:{x:46,y:40,w:64,h:17}});
+ const result=require('../packages/slideclone-core/scene-plan/source-scene-relation').measureSceneRelationDetailed({image:f.image,from,to,direction:'forward',textMasks:[],budget:{used:0},shaftBox:{x:46,y:40,w:64,h:17}});
  assert.equal(result.fit,null,'a rectangle-aligned shaft does not prove contact with the pictorial source contour');
 });
 test('source ink masks preserve holes and fail closed on empty, illegal, extreme and hostile controls',()=>{
- const {createSceneInkPort}=require('../packages/slideclone-core/source-scene-ink-port');
+ const {createSceneInkPort}=require('../packages/slideclone-core/scene-plan/source-scene-ink-port');
  const source={width:40,height:40,rgba:Buffer.alloc(40*40*4,255)},isolated={width:20,height:20,rgba:Buffer.alloc(20*20*4)},box={x:10,y:10,w:20,h:20};
  for(let y=0;y<20;y++)for(let x=0;x<20;x++)if(x<3||x>=17||y<3||y>=17){
   isolated.rgba.set([30,60,90,255],(y*20+x)*4);source.rgba.set([30,60,90,255],((y+10)*40+x+10)*4);

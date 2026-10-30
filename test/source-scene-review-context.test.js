@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceSceneReviewContext}=require('../packages/slideclone-core/source-scene-review');
+const {sourceSceneReviewContext}=require('../packages/slideclone-core/scene-plan/source-scene-review');
 function object(id,box,regionId='r',kind='container'){return {id,box,regionId,kind};}
 test('gap reviews retain complete endpoints without needing a proposed relation',()=>{
  for(const vertical of [false,true]){

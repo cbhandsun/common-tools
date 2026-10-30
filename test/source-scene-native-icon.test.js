@@ -1,12 +1,45 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
-const {materializeSceneIcon}=require('../packages/slideclone-core/source-scene-icon');
-const {nativeSceneIconShapes}=require('../packages/slideclone-core/source-scene-native-icon');
+const {materializeSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-icon');
+const {nativeSceneIconShapes}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
 const {writePng}=require('../packages/slideclone-core/png');
 
+test('a fresh source icon clipped by default padding is completely isolated by one bounded compiler retry',t=>{
+ const {includesSuite}=require('../scripts/test-suites');
+ assert.equal(includesSuite('source-scene-native-icon.test.js','unit'),true);
+ assert.equal(includesSuite('source-scene-native-icon.test.js','all'),true);
+ const {readPng}=require('../packages/slideclone-core/png');
+ const {measureSceneNativeIconDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-icon');
+ const {compileSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
+ const fixture=path.join(__dirname,'fixtures/source-physical-body/clipped-code-icon.png');
+ const metadata=require('./fixtures/source-physical-body/clipped-code-icon.json');
+ assert.equal(require('node:crypto').createHash('sha256').update(fs.readFileSync(fixture)).digest('hex'),metadata.sha256);
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'complete-icon-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const image=readPng(fixture),original=Buffer.from(image.rgba);
+ const request={image,box:metadata.seed,id:'code',regionId:'region',root,slideSize:{widthPt:image.width,heightPt:image.height},textBoxes:[],budget:{used:0}};
+ assert.equal(measureSceneNativeIconDetailed(request).reason,'icon-source-clipped-component');
+ for(const preflight of [true,false]){
+  const budget={used:0},result=compileSceneIcon({...request,budget},{preflight,nativePictorial:true,parentObjectId:''});
+  assert.equal(result.failure,null);assert.ok(result.shapes.length);assert.ok(result.icon.box.y<17,'the slash top outside the old window survives');
+  assert.ok(budget.used>54*38&&budget.used<10000);assert.deepEqual(image.rgba,original);
+ }
+ assert.equal(fs.existsSync(path.join(root,'assets')),false,'native retry grants no raster fallback');
+ const options={preflight:true,nativePictorial:true,parentObjectId:''};
+ const explicit=compileSceneIcon({...request,budget:{used:0},searchBox:{x:15,y:17,w:54,h:38}},options);
+ assert.equal(explicit.detailCode,'icon-source-clipped-component');
+ const text=compileSceneIcon({...request,budget:{used:0},textBoxes:[{text:'label',box:{x:40,y:13,w:10,h:20}}]},options);
+ assert.equal(text.failure,'icon-isolation');assert.equal(text.detailCode,'icon-source-text');
+ assert.throws(()=>compileSceneIcon({...request,budget:{used:4000000}},options),RangeError);
+ const blank=compileSceneIcon({...request,image:{...image,rgba:Buffer.alloc(image.rgba.length,255)},budget:{used:0}},options);
+ assert.equal(blank.detailCode,'icon-source-empty');
+ const damaged={...image,rgba:Buffer.from(image.rgba)};
+ for(let y=0;y<30;y++)damaged.rgba.set([150,40,20,255],(y*image.width+45)*4);
+ assert.equal(compileSceneIcon({...request,image:damaged,budget:{used:0}},options).detailCode,'icon-source-clipped-component');
+});
+
 test('isolated dense and tall icons reach native reconstruction while raster retention stays rejected',t=>{
- const {compileSceneIcon,sceneNativeIconBinding}=require('../packages/slideclone-core/source-scene-native-icon');
- const {measureSceneIconDetailed,measureSceneNativeIconDetailed}=require('../packages/slideclone-core/source-scene-icon');
+ const {compileSceneIcon,sceneNativeIconBinding}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
+ const {measureSceneIconDetailed,measureSceneNativeIconDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-icon');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-native-admission-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  for(const [width,height]of [[60,60],[24,72]]){
   const image={width:400,height:400,rgba:Buffer.alloc(400*400*4,255)};
@@ -32,8 +65,8 @@ test('isolated dense and tall icons reach native reconstruction while raster ret
 });
 
 test('native-only isolation cannot fall back to an unadmitted raster when representation fails',t=>{
- const {compileSceneIcon}=require('../packages/slideclone-core/source-scene-native-icon');
- const {measureSceneNativeIconDetailed}=require('../packages/slideclone-core/source-scene-icon');
+ const {compileSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
+ const {measureSceneNativeIconDetailed}=require('../packages/slideclone-core/scene-plan/source-scene-icon');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-native-failure-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const image={width:400,height:400,rgba:Buffer.alloc(400*400*4,255)};
  for(let row=0;row<6;row++)for(let column=0;column<6;column++)for(let y=0;y<4;y++)for(let x=0;x<4;x++)
@@ -46,7 +79,7 @@ test('native-only isolation cannot fall back to an unadmitted raster when repres
  assert.equal(fs.existsSync(path.join(root,'assets')),false);
 });
 test('the composed icon stage preserves source rejection and preflight writes no representation assets',t=>{
- const {compileSceneIcon}=require('../packages/slideclone-core/source-scene-native-icon');
+ const {compileSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-icon-stage-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const image={width:400,height:300,rgba:Buffer.alloc(400*300*4,255)};
  for(let y=30;y<55;y++)for(let x=30;x<43;x++)image.rgba.set([30,60,90,255],(y*400+x)*4);
@@ -88,7 +121,7 @@ function fixtureIcon(image){return {assetPath:'unused.png',box:{x:100,y:200,w:im
 
 test('an isolated sparse native icon keeps its hole instead of failing the dense representation',()=>{
  const image=lineArtFixture(),icon=fixtureIcon(image);
- const {vectorizeDensePictorialIcon}=require('../packages/slideclone-core/pictorial-icon-native-vectorization');
+ const {vectorizeDensePictorialIcon}=require('../packages/slideclone-core/archetypes/pictorial-icon-native-vectorization');
  assert.deepEqual(vectorizeDensePictorialIcon({image,box:icon.box,idPrefix:icon.id}),[]);
  const shapes=nativeSceneIconShapes(icon,'unused','object-parent',image);
  assert.equal(shapes.length,1);assert.equal(shapes[0].type,'freeform');
@@ -102,7 +135,7 @@ test('an isolated sparse native icon keeps its hole instead of failing the dense
 test('successful dense native icons keep their complete original representation',()=>{
  const image=lineArtFixture();
  for(let y=13;y<67;y++)for(let x=13;x<67;x++)image.rgba.set([20,150,220,255],(y*image.width+x)*4);
- const icon=fixtureIcon(image),{vectorizeDensePictorialIcon}=require('../packages/slideclone-core/pictorial-icon-native-vectorization');
+ const icon=fixtureIcon(image),{vectorizeDensePictorialIcon}=require('../packages/slideclone-core/archetypes/pictorial-icon-native-vectorization');
  const expected=vectorizeDensePictorialIcon({image,box:icon.box,idPrefix:icon.id});assert.ok(expected.length);
  for(const shape of expected)Object.assign(shape.source,{sceneRegionId:'region',sceneParentObjectId:'object-parent'});
  assert.deepEqual(nativeSceneIconShapes(icon,'unused','object-parent',image),expected);
@@ -124,7 +157,7 @@ test('sparse representation keeps dimension, component and malformed raster limi
 });
 
 test('sparse representation follows source isolation in final and preflight, including text collision',t=>{
- const {compileSceneIcon}=require('../packages/slideclone-core/source-scene-native-icon');
+ const {compileSceneIcon}=require('../packages/slideclone-core/scene-plan/source-scene-native-icon');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-sparse-stage-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const image=lineArtFixture(400,400);
  for(let y=10;y<12;y++)for(let x=30;x<50;x++)image.rgba.fill(0,(y*400+x)*4,(y*400+x)*4+4);

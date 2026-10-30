@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {nativeOpaqueRectangleMasks:mask}=require('../packages/slideclone-core/native-opaque-rectangle-mask');
-const {eraseObjectMask}=require('../packages/slideclone-core/full-slide-native-residual');
-const {eraseMasks}=require('../packages/slideclone-core/residual-primitive-erasure');
+const {nativeOpaqueRectangleMasks:mask}=require('../packages/slideclone-core/scene-plan/native-opaque-rectangle-mask');
+const {eraseObjectMask}=require('../packages/slideclone-core/archetypes/full-slide-native-residual');
+const {eraseMasks}=require('../packages/slideclone-core/scene-plan/residual-primitive-erasure');
 const image={width:100,height:60},size={w:100,h:60};
 const rectangle={type:'rect',box:{x:20,y:20,w:60,h:20},style:{fill:'#203060',stroke:'none'}};
 test('opaque background replacement never erases source padding outside its own actual footprint',()=>{

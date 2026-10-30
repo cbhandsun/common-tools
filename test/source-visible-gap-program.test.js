@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceVisibleGapProgramEvidence:verify}=require('../packages/slideclone-core/source-visible-gap-program');
-const {sourceRouteMatchesProgram}=require('../packages/slideclone-core/source-scene-path-program');
+const {sourceVisibleGapProgramEvidence:verify}=require('../packages/slideclone-core/routing/source-visible-gap-program');
+const {sourceRouteMatchesProgram}=require('../packages/slideclone-core/scene-plan/source-scene-path-program');
 function fixture(){return {widthPx:240,heightPx:180,horizontal:true,increasing:true,
  window:{x:71,y:48,w:99,h:25},shaftBox:{x:74,y:53,w:92,h:15},
  program:{kind:'polyline',dash:'solid',vertices:[{x:80,y:61},{x:160,y:59}]},

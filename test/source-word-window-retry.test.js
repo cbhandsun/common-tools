@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {sourceWordWindowRetry}=require("../packages/slideclone-core/source-word-window-retry");
-const {measureSourceWordLayout}=require("../packages/slideclone-core/source-word-layout-evidence");
+const {sourceWordWindowRetry}=require("../packages/slideclone-core/typography/source-word-window-retry");
+const {measureSourceWordLayout}=require("../packages/slideclone-core/typography/source-word-layout-evidence");
 function fixture(){
  const width=120,height=40,rgba=new Uint8Array(width*height*4).fill(255);
  // The complete stroke extends past the first window, but closes before the

@@ -5,11 +5,46 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { createMaintenanceHeartbeat, createMetricsProvider, createObjectStore, createReadinessCheck, createRedisQueue, createRedisRateLimiter, createWorkerHeartbeats, loadTeamSecrets, optionalSecretFromEnvironment, secretFromEnvironment, startWorkerHeartbeat } = require("../packages/remote-mcp-server/team-providers");
+const { createMaintenanceHeartbeat, createMetricsProvider, createObjectStore, createObjectStoreClients, createReadinessCheck, createRedisQueue, createRedisRateLimiter, createWorkerHeartbeats, loadTeamSecrets, optionalSecretFromEnvironment, secretFromEnvironment, startWorkerHeartbeat } = require("../packages/remote-mcp-server/team-providers");
 const { loadTeamConfig } = require("../packages/team-runtime");
 const { main: auditWorkerMain } = require("../packages/remote-mcp-server/bin/common-tools-team-worker");
 const { main: imageWorkerMain } = require("../packages/remote-mcp-server/bin/common-tools-team-image-worker");
 const { main: pptImproveWorkerMain } = require("../packages/remote-mcp-server/bin/common-tools-team-ppt-improve-worker");
+
+test("real SDK upload signatures do not bind unknown payloads to empty-body CRC32", async () => {
+  for (const publicEndpoint of [undefined, "https://public.example.test/objects"]) {
+    const config = { objectStoreEndpoint: "https://internal.example.test", objectStorePublicEndpoint: publicEndpoint };
+    const { s3, presignClient } = createObjectStoreClients(config, { accessKeyId: "fixture-access", secretAccessKey: "fixture-secret" });
+    try {
+      assert.notEqual(s3, presignClient);
+      assert.equal(await s3.config.requestChecksumCalculation(), "WHEN_SUPPORTED", "real writes retain SDK integrity checks");
+      const store = createObjectStore(s3, "test-bucket", 60, { presignClient });
+      for (const contentLength of [0, 1, 2387721, 60 * 1024 * 1024]) {
+        const target = await store.createUploadTarget({ objectKey: "owners/fixture/inputs/archive.tar.gz", contentType: "application/gzip", contentLength });
+        const url = new URL(target.uploadUrl);
+        assert.equal(url.origin, new URL(publicEndpoint || config.objectStoreEndpoint).origin);
+        assert.ok(url.pathname.endsWith("/test-bucket/owners/fixture/inputs/archive.tar.gz"));
+        assert.equal(url.searchParams.get("X-Amz-Expires"), "60");
+        assert.ok(url.searchParams.get("X-Amz-SignedHeaders").split(";").includes("content-length"));
+        assert.ok(url.searchParams.has("X-Amz-Signature"));
+        assert.equal([...url.searchParams.keys()].some(key => /checksum/i.test(key)), false, "presigning must not invent a payload checksum");
+        assert.equal(url.searchParams.get("X-Amz-Content-Sha256"), "UNSIGNED-PAYLOAD");
+      }
+      const download = new URL((await store.createDownloadTarget({ objectKey: "owners/fixture/jobs/test/deck.pptx" })).downloadUrl);
+      assert.equal(download.origin, new URL(publicEndpoint || config.objectStoreEndpoint).origin);
+      assert.ok(download.searchParams.has("X-Amz-Signature"));
+    } finally { s3.destroy(); presignClient.destroy(); }
+  }
+});
+
+test("upload signing failures propagate without returning an unusable target", async () => {
+  const failure = new Error("fixture credential provider unavailable");
+  const { s3, presignClient } = createObjectStoreClients({ objectStoreEndpoint: "https://internal.example.test" }, async () => { throw failure; });
+  try {
+    const store = createObjectStore(s3, "test-bucket", 60, { presignClient });
+    await assert.rejects(store.createUploadTarget({ objectKey: "owners/fixture/inputs/source", contentType: "application/gzip", contentLength: 3 }), error => error === failure);
+  } finally { s3.destroy(); presignClient.destroy(); }
+});
 
 test("checkpoint reads preserve missing and failure identities without upload retries", async () => {
   const input = { objectKey: "owners/a/jobs/test/.internal/ocr/test.json", maxBytes: 3, retryMissing: false };

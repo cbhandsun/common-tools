@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {observeJointSourceWordRows:observe,sampleJointSourceWordOwner:sample}=require('../packages/slideclone-core/source-word-joint-observation');
+const {observeJointSourceWordRows:observe,sampleJointSourceWordOwner:sample}=require('../packages/slideclone-core/typography/source-word-joint-observation');
 function fixture(){const image={width:30,height:30,rgba:new Uint8Array(3600).fill(255)};
  for(const top of [6,16])for(let y=top;y<top+4;y++)for(let x=7;x<19;x++)image.rgba.set([17,17,17,255],(y*30+x)*4);
  const rows=[{box:{x:5,y:4,w:16,h:10},color:'#111111',confidence:.99},{box:{x:5,y:13,w:16,h:10},color:'#111111',confidence:.99}];
@@ -48,8 +48,8 @@ test('hostile, missing and invalid source context is rejected without user code'
 });
 
 test('horizontal frames require the exact private joint proof, original pixels and bounded source work',()=>{
- const {prepareAxisAlignedSourceWordFrame:prepare}=require('../packages/slideclone-core/source-word-rotated-frame');
- const {measureSourceWordLayout:measure}=require('../packages/slideclone-core/source-word-layout-evidence');
+ const {prepareAxisAlignedSourceWordFrame:prepare}=require('../packages/slideclone-core/typography/source-word-rotated-frame');
+ const {measureSourceWordLayout:measure}=require('../packages/slideclone-core/typography/source-word-layout-evidence');
  const f=fixture(),token=observe(f);
  const line={text:'ROW',confidence:.99,box:f.anchor};
  const request={image:f.image,line,nativeBox:f.anchor,neighbors:f.rows.map(r=>r.box),maximum:f.budget.remaining};

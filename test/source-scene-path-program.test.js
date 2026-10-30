@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
-const {parseScenePathProgram,sourceRouteMatchesProgram,sourceRouteComponentIsComplete}=require('../packages/slideclone-core/source-scene-path-program');
-const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {parseScenePathProgram,sourceRouteMatchesProgram,sourceRouteComponentIsComplete}=require('../packages/slideclone-core/scene-plan/source-scene-path-program');
+const {parseSourceScenePlan,admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 const {writePng}=require('../packages/slideclone-core/png');
 const frame={widthPx:800,heightPx:600,coordinateSpace:'normalized-1000',owner:{x:0,y:0,w:800,h:600}};
 const program=()=>({kind:'polyline',dash:'solid',vertices:[{x:100,y:100},{x:100,y:700},{x:800,y:700},{x:800,y:100}]});

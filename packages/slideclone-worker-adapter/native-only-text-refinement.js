@@ -3,7 +3,7 @@
 const path = require("node:path");
 const { types } = require("node:util");
 const { createNativeOnlyTextWeightRefiner } = require("./native-only-text-weight-refinement");
-const { textRefinementAuthoritySnapshot, assertTextRefinementPreservesAuthority, textRefinementAuditFailures } = require("../slideclone-core/text-refinement-preservation");
+const { textRefinementAuthoritySnapshot, assertTextRefinementPreservesAuthority, textRefinementAuditFailures } = require("../slideclone-core/typography/text-refinement-preservation");
 
 /** @param {unknown} value @returns {value is Record<string,unknown>} */
 function record(value) {

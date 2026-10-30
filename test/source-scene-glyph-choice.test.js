@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createSceneGlyphChoiceLedger:create,acquireSceneGlyphChoiceCells:acquire,stageSceneGlyphChoice:stage,commitSceneGlyphChoice:commit}=require('../packages/slideclone-core/source-scene-glyph-choice');
+const {createSceneGlyphChoiceLedger:create,acquireSceneGlyphChoiceCells:acquire,stageSceneGlyphChoice:stage,commitSceneGlyphChoice:commit}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-choice');
 const owner=n=>({owned:new Uint8Array(n),count:0});
 
 test('provisional candidates release new rights and selected candidates commit their actual union',()=>{
@@ -52,7 +52,7 @@ test('unknown receipts and hostile controls cannot invoke accessors or cross own
 });
 
 test('source glyph candidates cache observation without inheriting unselected ownership',()=>{
- const {createSceneGlyphOcclusion,sceneFillGlyphBridge:bridge,sceneGlyphOcclusionEvidence:report,stageSceneGlyphOwnership,commitSceneGlyphOwnership}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {createSceneGlyphOcclusion,sceneFillGlyphBridge:bridge,sceneGlyphOcclusionEvidence:report,stageSceneGlyphOwnership,commitSceneGlyphOwnership}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const image={width:120,height:90,rgba:Buffer.alloc(120*90*4,255)},budget={used:0};
  for(let y=35;y<50;y++)for(let x=50;x<54;x++)image.rgba.set([0,0,0,255],(y*120+x)*4);
  const token=createSceneGlyphOcclusion(image,[{text:'I',box:{x:40,y:30,w:30,h:25},font:{color:'#000000'}}],{widthPt:120,heightPt:90},budget);
@@ -68,7 +68,7 @@ test('source glyph candidates cache observation without inheriting unselected ow
 });
 
 test('cached icon footprints reacquire their complete population after a discarded choice',()=>{
- const {createSceneGlyphOcclusion,sceneIconTextFootprint:footprint,sceneGlyphOcclusionEvidence:report,stageSceneGlyphOwnership:measure,commitSceneGlyphOwnership:select}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
+ const {createSceneGlyphOcclusion,sceneIconTextFootprint:footprint,sceneGlyphOcclusionEvidence:report,stageSceneGlyphOwnership:measure,commitSceneGlyphOwnership:select}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
  const image={width:120,height:90,rgba:Buffer.alloc(120*90*4,255)},budget={used:0},box={x:40,y:30,w:30,h:25};
  for(let y=35;y<50;y++)for(let x=50;x<54;x++)image.rgba.set([0,0,0,255],(y*120+x)*4);
  const token=createSceneGlyphOcclusion(image,[{text:'I',box,font:{color:'#000000'}}],{widthPt:120,heightPt:90},budget);
@@ -78,8 +78,8 @@ test('cached icon footprints reacquire their complete population after a discard
 });
 
 test('a rejected complete container leaves observation fees but no permanent glyph allocation',()=>{
- const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence:report}=require('../packages/slideclone-core/source-scene-glyph-occlusion');
- const {measureSceneContainer}=require('../packages/slideclone-core/source-scene-container');
+ const {createSceneGlyphOcclusion,sceneGlyphOcclusionEvidence:report}=require('../packages/slideclone-core/scene-plan/source-scene-glyph-occlusion');
+ const {measureSceneContainer}=require('../packages/slideclone-core/scene-plan/source-scene-container');
  const image={width:100,height:100,rgba:Buffer.alloc(40000,255)},budget={used:0},box={x:30,y:30,w:40,h:40};
  for(let y=20;y<80;y++)for(let x=20;x<80;x++)if((x-49.5)**2+(y-49.5)**2<900)image.rgba.set([0,130,70,255],(y*100+x)*4);
  for(let y=30;y<70;y++)for(let x=30;x<70;x++)if(x<41||x>=59||y>=44&&y<56)image.rgba.set([255,255,255,255],(y*100+x)*4);

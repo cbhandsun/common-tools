@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { createNativeOnlyTextWeightRefiner } = require("../packages/slideclone-worker-adapter/native-only-text-weight-refinement");
 const { validateDeckIr } = require("../packages/slideclone-core/deck-ir-admission");
-const { auditSemanticEditability } = require("../packages/slideclone-core/semantic-editability-quality");
+const { auditSemanticEditability } = require("../packages/slideclone-core/quality/semantic-editability-quality");
 const { qualityRendered } = require("../packages/slideclone-core/team-native-rebuild");
 const { finalRefinementQualityAcceptable } = require("../packages/slideclone-worker-adapter/team-worker");
 function quality(pixel = 0.1, severity = [2,2]) {
@@ -168,7 +168,7 @@ test("rollback re-render cannot retain newly regressed text under a global gain"
 });
 
 test("both Worker paths compose geometry and weight before strict native adoption", () => {
-  const source=fs.readFileSync(path.join(__dirname,"../packages/slideclone-worker-adapter/team-worker.js"),"utf8");
+  const source=require('./helpers/worker-implementation-source.cjs').readWorkerImplementation();
   const start=source.indexOf("async function refineNativeOnlyResidualCandidateText(request)");
   const end=source.indexOf("async function refineNativeOnlyResidualCandidateTextGeometry",start);
   assert.match(source.slice(start,end),/return refineNativeOnlyTextCandidate\(request\)/u);

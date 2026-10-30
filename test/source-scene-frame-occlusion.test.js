@@ -1,13 +1,13 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {measurePatternedSceneFrame:measure,patternedSceneFrameGeometry:geometry}=require('../packages/slideclone-core/source-scene-patterned-frame');
-const {createSceneMeasurementCache}=require('../packages/slideclone-core/source-scene-measurement-cache');
-const {createMeasuredScenePortFrame,verifyMeasuredScenePort}=require('../packages/slideclone-core/source-scene-port-evidence');
-const {sceneFrameGapCoverage}=require('../packages/slideclone-core/source-scene-frame-occlusion');
+const {measurePatternedSceneFrame:measure,patternedSceneFrameGeometry:geometry}=require('../packages/slideclone-core/scene-plan/source-scene-patterned-frame');
+const {createSceneMeasurementCache}=require('../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
+const {createMeasuredScenePortFrame,verifyMeasuredScenePort}=require('../packages/slideclone-core/scene-plan/source-scene-port-evidence');
+const {sceneFrameGapCoverage}=require('../packages/slideclone-core/scene-plan/source-scene-frame-occlusion');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {writePng}=require('../packages/slideclone-core/png');
-const {parseSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+const {parseSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
 function fixture(visibleStroke=false){
  const image={width:240,height:210,rgba:Buffer.alloc(240*210*4,255)},hint={x:30,y:25,w:144,h:120};
  const put=(x,y,w,h,color=[30,60,90,255])=>{for(let row=y;row<y+h;row++)for(let col=x;col<x+w;col++)image.rgba.set(color,(row*image.width+col)*4);};
@@ -53,6 +53,22 @@ test('coverage requires the whole missing stroke band and preserves the work cei
  const exhausted={checks:3999999,exhausted:false},limited=sceneFrameGapCoverage(f.image,[f.token],exhausted);
  assert.equal(limited(1,75,137,144,2),false);assert.equal(exhausted.exhausted,true);
  const spent=exhausted.checks;assert.equal(limited.owns(100,144),false);assert.equal(exhausted.checks,spent,'exhaustion stops later geometry work');
+});
+
+test('disjoint measured foregrounds do not exhaust frame geometry before a bounded source window is visited',()=>{
+ const image={width:1000,height:400,rgba:Buffer.alloc(1000*400*4,255)},budget={used:0};
+ const owners=Array.from({length:6},(_,i)=>({x:700+i*40,y:40,w:24,h:24}));
+ for(const box of owners)for(let y=box.y;y<box.y+box.h;y++)for(let x=box.x;x<box.x+box.w;x++)
+  image.rgba.set([220,80,130,255],(y*image.width+x)*4);
+ const cache=createSceneMeasurementCache(image,[],budget),tokens=owners.map(box=>{
+  assert.ok(cache.surface(box).measured);const token=cache.portFrame(box);assert.ok(token);return token;
+ });
+ const work={checks:0,exhausted:false},covered=sceneFrameGapCoverage(image,tokens,work),before=Buffer.from(image.rgba);
+ for(let y=0;y<300;y++)for(let x=0;x<600;x++)assert.equal(covered.owns(x+.5,y+.5,[220,80,130]),false);
+ assert.equal(work.exhausted,false,'off-body cells must not spend full polygon work for every foreground');
+ assert.ok(work.checks<=4000000);assert.equal(covered.owns(700.5,40.5,[220,80,130]),true);
+ assert.equal(covered.owns(700.5,40.5,[30,60,90]),false,'geometry cannot own a differently painted stroke');
+ assert.deepEqual(image.rgba,before);
 });
 test('cache permits one source-authorized retry after the foreground is measured, then reuses its proof',()=>{
  const f=fixture();assert.equal(f.cache.outline(f.hint),null);assert.equal(f.cache.pattern(f.hint),null);

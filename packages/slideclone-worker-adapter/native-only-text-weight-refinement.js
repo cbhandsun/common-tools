@@ -3,8 +3,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { planEvidenceTextWeightFit } = require("../slideclone-core/text-weight-evidence");
-const { planMeasuredSingleLineTextFit } = require("../slideclone-core/measured-text-fit");
+const { planEvidenceTextWeightFit } = require("../slideclone-core/typography/text-weight-evidence");
+const { planMeasuredSingleLineTextFit } = require("../slideclone-core/typography/measured-text-fit");
 const { rollbackRegressedNativeTexts } = require("./text-candidate-rollback");
 
 /** @typedef {{[key:string]:unknown,slideSize:unknown,pages:Array<{[key:string]:unknown,textBoxes:unknown[]}>}} Deck */

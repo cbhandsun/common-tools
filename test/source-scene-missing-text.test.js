@@ -1,9 +1,9 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),os=require("node:os"),path=require("node:path");
 const {writePng}=require("../packages/slideclone-core/png");
-const {createSourceScenePlanner}=require("../packages/slideclone-core/source-scene-planner");
-const {proposeMissingSceneText,discoverMissingSceneText,readMissingSceneObservations,acceptMissingSceneText}=require("../packages/slideclone-core/source-scene-missing-text");
-const {partitionMissingSceneText}=require("../packages/slideclone-core/source-scene-missing-text");
+const {createSourceScenePlanner}=require("../packages/slideclone-core/scene-plan/source-scene-planner");
+const {proposeMissingSceneText,discoverMissingSceneText,readMissingSceneObservations,acceptMissingSceneText}=require("../packages/slideclone-core/scene-plan/source-scene-missing-text");
+const {partitionMissingSceneText}=require("../packages/slideclone-core/scene-plan/source-scene-missing-text");
 
 test('uncovered text-only member priority is a hypothesis and never supplies glyph content',()=>{
  const box={x:10,y:10,w:30,h:30},objects=[
@@ -31,10 +31,10 @@ test('a reversed bounded glyph rectangle rejects its unit, preserves other obser
  assert.equal(result.plan.admission.complete,false);
  assert.deepEqual(result.plan.admission.rejections,[{collection:'missingText',index:1,reason:'glyph-source-unit'}]);
  assert.deepEqual(fs.readFileSync(f.sourceFile),before);
- const {compileSourceScene}=require('../packages/slideclone-core/source-scene-compiler');
+ const {compileSourceScene}=require('../packages/slideclone-core/scene-plan/source-scene-compiler');
  const compiled=compileSourceScene({root:f.root,sourceFile:f.sourceFile,page:{shapes:[],images:[],textBoxes:[]},plan:result.plan,slideSize:{widthPt:100,heightPt:100}});
  assert.ok(compiled.evidence.unresolved.some(item=>item.id==='proposal-missingText-1'&&item.reason==='glyph-source-unit'));
- const {auditNativeComponentQuality}=require('../packages/slideclone-core/native-component-quality');
+ const {auditNativeComponentQuality}=require('../packages/slideclone-core/quality/native-component-quality');
  assert.equal(auditNativeComponentQuality({pages:[compiled.page],meta:{reconstructionMode:'native-hybrid'}}).checks.find(item=>item.name==='source-scene-completion').passed,false);
 });
 test('bounded glyph geometry rejection grants no scans; malformed transport and missing bindings still abort',t=>{
@@ -52,7 +52,7 @@ test('bounded glyph geometry rejection grants no scans; malformed transport and 
   assert.throws(()=>readMissingSceneObservations({recoveredText:[{index:1,text:'X',confidence:.99,color:'#FFFFFF',box_2d},
    {index:2,text:null,confidence:0}]},p,frame),/Scene missing text/);
  assert.throws(()=>readMissingSceneObservations({recoveredText:[{index:2,text:null,confidence:0}]},p,frame),/binding/);
- const {bindMissingSceneTextRejections:bind}=require('../packages/slideclone-core/source-scene-missing-text'),plan={admission:{complete:false,rejections:[{collection:'object',index:0,reason:'object-contract'}]}};
+ const {bindMissingSceneTextRejections:bind}=require('../packages/slideclone-core/scene-plan/source-scene-missing-text'),plan={admission:{complete:false,rejections:[{collection:'object',index:0,reason:'object-contract'}]}};
  const before=JSON.stringify(plan),bound=bind(plan,[{index:1,reason:'glyph-source-unit'},{index:2,reason:'recognition-confidence'}]);
  assert.equal(JSON.stringify(plan),before);assert.equal(bound.admission.complete,false);assert.equal(bound.admission.rejections.length,2);
  assert.equal(bind(plan,[]),plan);assert.equal(bind(undefined,[{index:1,reason:'glyph-source-unit'}]),undefined);
@@ -77,10 +77,10 @@ test("planner continues independent review while conflicts remain a failed scene
  assert.equal(calls,3);assert.deepEqual(result.ocr.lines.map(line=>line.text),["Original","X"]);
  assert.equal(result.plan.admission.complete,false);
  assert.deepEqual(result.plan.admission.rejections,[{collection:"missingText",index:0,reason:"existing-evidence-overlap"}]);
- const {compileSourceScene}=require("../packages/slideclone-core/source-scene-compiler");
+ const {compileSourceScene}=require("../packages/slideclone-core/scene-plan/source-scene-compiler");
  const {page,evidence}=compileSourceScene({page:{shapes:[],images:[],textBoxes:[]},plan:result.plan,sourceFile:f.sourceFile,root:f.root,slideSize:{widthPt:100,heightPt:100}});
  assert.ok(evidence.unresolved.some(item=>item.reason==="existing-evidence-overlap"));
- const {auditNativeComponentQuality}=require("../packages/slideclone-core/native-component-quality");
+ const {auditNativeComponentQuality}=require("../packages/slideclone-core/quality/native-component-quality");
  assert.equal(auditNativeComponentQuality({pages:[page],meta:{reconstructionMode:"native-hybrid"}}).checks.find(item=>item.name==="source-scene-completion").passed,false);
 });
 test("a conflicting proposal without a scene completion carrier still aborts before local calls",async t=>{
@@ -254,10 +254,10 @@ test("an out-of-unit observation cannot abort or authorize an independent valid 
 });
 test("visible gutter index annotations cannot become source text or acquire source pixel authority",t=>{
  const f=fixture(t),proposals=discoverMissingSceneText([{id:"unit",kind:"icon",box:{x:75,y:20,w:12,h:14}}],f.ocr.lines,[],1);
- const {createSceneCropSheet}=require("../packages/slideclone-core/source-scene-crop-sheet");
+ const {createSceneCropSheet}=require("../packages/slideclone-core/scene-plan/source-scene-crop-sheet");
  const sourceTargets=[{index:1,cropBox:{x:70,y:15,w:25,h:30},candidateBox:{x:5,y:5,w:12,h:14}}];
  const sheet=createSceneCropSheet({image:f.image,targets:sourceTargets}),crop=sheet.targets[0].cropBox;
- const {sourceBox2D}=require("../packages/slideclone-core/source-scene-coordinate-frame");
+ const {sourceBox2D}=require("../packages/slideclone-core/scene-plan/source-scene-coordinate-frame");
  const frame={width:sheet.image.width,height:sheet.image.height,sourceTargets,sheetTargets:sheet.targets};
  const annotation={x:crop.x,y:crop.y-7,w:3,h:5};
  const response={recoveredText:[{index:1,text:"1",confidence:1,color:"#000000",box_2d:sourceBox2D(annotation,sheet.image)}]};

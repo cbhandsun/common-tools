@@ -4,10 +4,10 @@ const test = require("node:test");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr-source-deck");
+const { boundedOcrSourceDeck } = require("../packages/slideclone-core/ocr/ocr-source-deck");
 const { createRawImageNativeRebuilder } = require("../packages/slideclone-core/team-native-rebuild");
-const { createFullSlideResidualBuilder } = require("../packages/slideclone-core/full-slide-native-residual");
-const { eraseMasks } = require("../packages/slideclone-core/residual-primitive-erasure");
+const { createFullSlideResidualBuilder } = require("../packages/slideclone-core/archetypes/full-slide-native-residual");
+const { eraseMasks } = require("../packages/slideclone-core/scene-plan/residual-primitive-erasure");
 const { cropPng, readPng, writePng } = require("../packages/slideclone-core/png");
 
 function input(candidate = {}, sourceRaster) {
@@ -93,7 +93,7 @@ test("raw rebuild restores uncertain glyph pixels after layout without changing 
       return ir;
     },
     createFullSlideResidual: createFullSlideResidualBuilder({ eraseMasks, readPng, writePng }),
-    restoreOcrGlyphs: require("../packages/slideclone-core/ocr-glyph-residual").restoreOcrGlyphResiduals,
+    restoreOcrGlyphs: require("../packages/slideclone-core/ocr/ocr-glyph-residual").restoreOcrGlyphResiduals,
     preserveLocalFidelityImages: true
   });
   const result = await rebuild({ root, metadata: { ...value.metadata, inputFile, assetPath: "assets/source.png" }, ocr: value.ocr, isCancellationRequested: () => false });

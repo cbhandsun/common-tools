@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {measureOutlinedSceneContainer,sceneOutlineWindow}=require("../packages/slideclone-core/source-scene-outline");
+const {measureOutlinedSceneContainer,sceneOutlineWindow}=require("../packages/slideclone-core/scene-plan/source-scene-outline");
 function roundedFixture(){
  const image={width:220,height:180,rgba:Buffer.alloc(220*180*4,255)},hint={x:40,y:40,w:120,h:90};
  const contains=(x,y,inset)=>{const l=40+inset,t=40+inset,r=160-inset,b=130-inset,rad=22-inset;

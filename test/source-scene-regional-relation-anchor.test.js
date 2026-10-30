@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {readRegionalRelationAnchor:read,regionalRelationAnchorsAgree:agree}=require('../packages/slideclone-core/source-scene-regional-relation-anchor');
+const {readRegionalRelationAnchor:read,regionalRelationAnchorsAgree:agree}=require('../packages/slideclone-core/scene-plan/source-scene-regional-relation-anchor');
 function fixture(){
  const target={index:7,regionId:'root',box:{x:50,y:20,w:100,h:80}};
  const frame={width:200,height:100,sourceTargets:[{index:7,cropBox:{...target.box}}],sheetTargets:[{index:7,cropBox:{x:10,y:10,w:100,h:80}}]};
@@ -30,7 +30,7 @@ test('new regional relation boundary is included in unified CI',()=>{
 });
 
 test('two-view regional admission retains the original shaft, rejects conflicts and charges failed proposals',()=>{
- const f=fixture(),{readRegionalInventoryObservations:decode,applyRegionalInventoryReview:apply}=require('../packages/slideclone-core/source-scene-regional-inventory');
+ const f=fixture(),{readRegionalInventoryObservations:decode,applyRegionalInventoryReview:apply}=require('../packages/slideclone-core/scene-plan/source-scene-regional-inventory');
  const objects=[{id:'left',regionId:'root',kind:'container',box:{x:60,y:40,w:20,h:20}},
   {id:'right',regionId:'root',kind:'container',box:{x:120,y:40,w:20,h:20}}];
  const plan={version:1,sourceHash:'a'.repeat(64),widthPx:200,heightPx:100,
@@ -43,5 +43,5 @@ test('two-view regional admission retains the original shaft, rejects conflicts 
  const conflict=structuredClone(a);conflict[0].relations[0].shaftBox.x+=20;
  const failed=apply(plan,[target],[a,conflict]);assert.equal(failed.plan.relations.length,0);
  assert.equal(failed.evidence.rejectedRelations[0].reason,'relation-consensus');
- assert.equal(require('../packages/slideclone-core/source-scene-relation-batches').sceneLocalRelationCapacity(failed.plan),23);
+ assert.equal(require('../packages/slideclone-core/scene-plan/source-scene-relation-batches').sceneLocalRelationCapacity(failed.plan),23);
 });

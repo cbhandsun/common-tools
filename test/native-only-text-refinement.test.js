@@ -6,8 +6,8 @@ const os = require("node:os");
 const path = require("node:path");
 const { createNativeOnlyTextRefiner } = require("../packages/slideclone-worker-adapter/native-only-text-refinement");
 const { validateDeckIr } = require("../packages/slideclone-core/deck-ir-admission");
-const { auditSemanticEditability } = require("../packages/slideclone-core/semantic-editability-quality");
-const { auditNativeComponentQuality } = require("../packages/slideclone-core/native-component-quality");
+const { auditSemanticEditability } = require("../packages/slideclone-core/quality/semantic-editability-quality");
+const { auditNativeComponentQuality } = require("../packages/slideclone-core/quality/native-component-quality");
 const { qualityRendered } = require("../packages/slideclone-core/team-native-rebuild");
 const { includesSuite } = require("../scripts/test-suites");
 

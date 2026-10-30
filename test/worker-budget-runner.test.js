@@ -2,8 +2,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
+const { createTemporaryTestDirectory: createTemp, removeTemporaryTestDirectory: removeTemp } = require("./helpers/temporary-directory.cjs");
 const { performance } = require("node:perf_hooks");
 const { WorkerFailure, storedWorkerFailure } = require("../packages/team-runtime/worker-failure");
 const { createBudgetedWorkerHandler, budgetedQualityVerifier, remainingWorkerTimeout, runWorkerStage } = require("../packages/slideclone-worker-adapter/worker-budget-runner");
@@ -12,20 +12,34 @@ const { run } = require("../packages/slideclone-core/renderer-process");
 const { writeStoredZipAtomic } = require("../packages/ooxml-core/pptx-zip");
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 function setup(t) {
-  const temporaryRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "worker-budget-runner-test-")));
+  const temporaryRoot = createTemp("worker-budget-runner-test-");
   const root = fs.mkdtempSync(path.join(temporaryRoot, "job-")), pptxFile = path.join(root, "candidate.pptx");
   writeStoredZipAtomic(pptxFile, [{ name: "[Content_Types].xml", data: Buffer.from("<Types/>") },
     { name: "ppt/presentation.xml", data: Buffer.from("<presentation/>") }]);
-  t.after(() => fs.rmSync(temporaryRoot, { recursive: true, force: true }));
+  t.after(() => removeTemp(temporaryRoot));
   return { temporaryRoot, root, pptxFile };
 }
+test("budget runner fixture cleanup retries a transient failure in its nested job directory", t => {
+  const f = setup(t), rmdir = fs.rmdirSync;
+  let attempts = 0;
+  try {
+    t.mock.method(fs, "rmdirSync", (target, ...args) => {
+      if ((Buffer.isBuffer(target) ? target.toString() : target) === f.root && ++attempts <= 2)
+        throw Object.assign(new Error("controlled transient scan"), { code: "ENOTEMPTY" });
+      return rmdir(target, ...args);
+    });
+    removeTemp(f.temporaryRoot);
+    assert.ok(attempts >= 3);
+    assert.equal(fs.existsSync(f.temporaryRoot), false);
+  } finally { t.mock.restoreAll(); }
+});
 function quality(ratio) {
   return { passed: false, checks: [{ name: "quality-rendered", passed: true }, { name: "visual-fidelity", passed: false }],
     metrics: { "pixel-diff-ratio": ratio, "foreground-missing-ratio": ratio, "mean-absolute-delta": ratio * 100 } };
 }
 
 test('scene capacity conflicts retain a distinct nonretryable public failure while forged provider codes remain generic',async()=>{
- const {sceneInventoryCapacityError}=require('../packages/slideclone-core/source-scene-capacity');
+ const {sceneInventoryCapacityError}=require('../packages/slideclone-core/scene-plan/source-scene-capacity');
  const {readStoredWorkerFailure}=require('../packages/team-runtime/worker-failure');
  const expected={code:'IMAGE_SCENE_CAPACITY_CONFLICT',message:'observed image relationships exceed reconstruction capacity',retryable:false};
  await assert.rejects(runWorkerStage('IMAGE_REBUILD_FAILED',()=>{throw sceneInventoryCapacityError();}),error=>{
@@ -82,17 +96,41 @@ test("success and non-timeout failure remove diagnostic snapshots and preserve s
 
 test("concurrent invocations isolate budgets and diagnostics", async t => {
   const f = setup(t);
+  let now = 0, enterSlow, releaseSlow, enterFast, releaseFast, fastRemaining;
+  const slowEntered = new Promise(resolve => { enterSlow = resolve; });
+  const fastEntered = new Promise(resolve => { enterFast = resolve; });
+  const slowGate = new Promise(resolve => { releaseSlow = resolve; });
+  const fastGate = new Promise(resolve => { releaseFast = resolve; });
   const handler = createBudgetedWorkerHandler(async ({ job }) => {
-    const start = performance.now();
-    while (performance.now() - start < job.durationMs) await runWorkerStage("IMAGE_QUALITY_FAILED", () => delay(30));
+    if (job.id === "slow") enterSlow(); else enterFast();
+    await runWorkerStage("IMAGE_QUALITY_FAILED", () => job.id === "slow" ? slowGate : fastGate);
+    if (job.id === "fast") fastRemaining = remainingWorkerTimeout(140);
     return job.id;
-  }, { timeoutMs: 140, temporaryRoot: f.temporaryRoot });
-  const outcomes = await Promise.allSettled([
-    handler({ job: { id: "slow", durationMs: 220 }, isCancellationRequested: () => false }),
-    handler({ job: { id: "fast", durationMs: 40 }, isCancellationRequested: () => false })
-  ]);
+  }, { timeoutMs: 140, temporaryRoot: f.temporaryRoot, now: () => now });
+  const slow = handler({ job: { id: "slow" }, isCancellationRequested: () => false });
+  await slowEntered;
+  now = 100;
+  const fast = handler({ job: { id: "fast" }, isCancellationRequested: () => false });
+  const pending = Promise.allSettled([slow, fast]);
+  await fastEntered;
+  now = 150;
+  releaseSlow(); releaseFast();
+  const outcomes = await pending;
   assert.equal(outcomes[0].status, "rejected");
+  assert.equal(outcomes[0].reason.executionBudget.timeoutMs, 140);
+  assert.equal(outcomes[0].reason.executionBudget.elapsedMs, 150);
+  assert.equal(outcomes[0].reason.executionBudget.timedOut, true);
   assert.deepEqual(outcomes[1], { status: "fulfilled", value: "fast" });
+  assert.equal(fastRemaining, 90);
+});
+
+test("handler clock injection retains the execution budget's clock validation", async t => {
+  const f = setup(t);
+  for (const now of [true, () => NaN, () => Infinity, () => -1]) {
+    const handler = createBudgetedWorkerHandler(async () => assert.fail("invalid clock must not start work"),
+      { timeoutMs: 140, temporaryRoot: f.temporaryRoot, now });
+    await assert.rejects(handler({ job: {}, isCancellationRequested: () => false }), /worker execution (?:budget|clock) is invalid/u);
+  }
 });
 
 test("total deadline kills a running renderer process tree before the handler returns", { timeout: 15000 }, async t => {

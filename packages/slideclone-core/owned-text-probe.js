@@ -6,10 +6,10 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { types } = require("node:util");
 const { readPng } = require("./png");
-const { measureSourceTextInkGeometry, measureTextInkGeometry } = require("./text-ink-geometry");
+const { measureSourceTextInkGeometry, measureTextInkGeometry } = require("./typography/text-ink-geometry");
 const { textProbeRevision } = require("./owned-text-advance");
 const { isOwnedTextEligible } = require("./owned-text-eligibility");
-const { pruneSourceOwnedGlyphShapes } = require("./source-owned-glyph-shapes");
+const { pruneSourceOwnedGlyphShapes } = require("./typography/source-owned-glyph-shapes");
 
 /** @typedef {{x:number,y:number,w:number,h:number}} Box */
 /** @typedef {{widthPt:number,heightPt:number}} Size */

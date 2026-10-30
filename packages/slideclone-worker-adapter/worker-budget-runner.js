@@ -6,7 +6,7 @@ const { WorkerFailure, runWorkerStage: runStage } = require("../team-runtime/wor
 const { createWorkerExecutionBudget } = require("./worker-execution-budget");
 const { createWorkerDiagnosticCandidate } = require("./worker-diagnostic-candidate");
 const { createCandidateDecisionJournal } = require("./candidate-decision-journal");
-const { isSceneInventoryCapacityError } = require("../slideclone-core/source-scene-capacity");
+const { isSceneInventoryCapacityError } = require("../slideclone-core/scene-plan/source-scene-capacity");
 /** @typedef {ReturnType<typeof createWorkerExecutionBudget>} Budget */
 /** @typedef {ReturnType<typeof createWorkerDiagnosticCandidate>} Diagnostic */
 /** @type {AsyncLocalStorage<{budget: Budget, diagnostic: Diagnostic, journal: ReturnType<typeof createCandidateDecisionJournal>}>} */
@@ -41,11 +41,11 @@ function budgetedQualityVerifier(verify) {
   };
 }
 /** @template T @param {(input: {job: unknown, isCancellationRequested: () => Promise<boolean>}) => Promise<T>} handler
- * @param {{timeoutMs: number, temporaryRoot: string}} settings */
+ * @param {{timeoutMs: number, temporaryRoot: string, now?: () => number}} settings */
 function createBudgetedWorkerHandler(handler, settings) {
   if (typeof handler !== "function") throw new TypeError("budgeted worker handler is invalid");
   return async (/** @type {{job: unknown, isCancellationRequested: () => unknown | Promise<unknown>}} */ input) => {
-    const budget = createWorkerExecutionBudget({ timeoutMs: settings.timeoutMs, isCancellationRequested: input?.isCancellationRequested });
+    const budget = createWorkerExecutionBudget({ timeoutMs: settings.timeoutMs, isCancellationRequested: input?.isCancellationRequested, now: settings.now });
     const diagnostic = createWorkerDiagnosticCandidate(settings.temporaryRoot);
     const journal = createCandidateDecisionJournal(settings.temporaryRoot);
     let retained = false;

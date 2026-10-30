@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/visual-feature-context");
+module.exports = require("@common-tools/slideclone-core/typography/visual-feature-context");

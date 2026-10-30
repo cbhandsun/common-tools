@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/detection-result.js");
+module.exports = require("../../../../packages/slideclone-core/scene-plan/detection-result.js");

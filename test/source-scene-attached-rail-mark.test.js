@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {attachedSceneRailMarks:propose}=require('../packages/slideclone-core/source-scene-attached-rail-mark');
+const {attachedSceneRailMarks:propose}=require('../packages/slideclone-core/scene-plan/source-scene-attached-rail-mark');
 function component(points){const xs=points.map(p=>p.x),ys=points.map(p=>p.y);return {points,box:{x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)+1-Math.min(...xs),h:Math.max(...ys)+1-Math.min(...ys)}};}
 function cells(x,y,w,h){return Array.from({length:w*h},(_,i)=>({x:x+i%w,y:y+Math.floor(i/w)}));}
 function fixture(){

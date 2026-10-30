@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceSharedContactTerminals:bind}=require('../packages/slideclone-core/source-shared-contact-terminals');
+const {sourceSharedContactTerminals:bind}=require('../packages/slideclone-core/routing/source-shared-contact-terminals');
 function fixture(){
  const width=32,height=32,skeleton=new Uint8Array(width*height);
  for(let x=8;x<=12;x++)skeleton[5*width+x]=1;
@@ -13,7 +13,7 @@ function fixture(){
 test('a contact span binds its unique natural skeleton endpoint instead of protecting the span centre',()=>{
  const f=fixture(),before=f.skeleton.slice();assert.deepEqual(bind(f),[5*32+12,26*32+4,26*32+24]);
  assert.deepEqual(f.skeleton,before);assert.ok(f.work.checks>0&&f.work.checks<=4000000);
- const {sourceSharedShaftTree:tree}=require('../packages/slideclone-core/source-shared-shaft-tree');
+ const {sourceSharedShaftTree:tree}=require('../packages/slideclone-core/routing/source-shared-shaft-tree');
  assert.equal(tree({mask:f.skeleton,width:32,height:32,terminals:f.contacts.map(c=>c.index),work:{checks:0}}),null);
  const accepted=tree({mask:f.skeleton,width:32,height:32,terminals:bind(f),work:{checks:0}});assert.ok(accepted);
  assert.deepEqual(accepted.skeleton,before);assert.equal(accepted.edges.length,3);
@@ -33,7 +33,7 @@ test('missing, ambiguous and overlapping contact endpoints do not create a mappi
  const before=branch.skeleton.slice();assert.ok(bind(branch));assert.deepEqual(branch.skeleton,before);
  // The binder maps contacts only. It cannot grant complete-tree authority:
  // the ordinary shaft tree must still reject the unrepresented extra branch.
- const {sourceSharedShaftTree}=require('../packages/slideclone-core/source-shared-shaft-tree');
+ const {sourceSharedShaftTree}=require('../packages/slideclone-core/routing/source-shared-shaft-tree');
  assert.equal(sourceSharedShaftTree({mask:branch.skeleton,width:32,height:32,terminals:bind(branch),work:{checks:0}}),null);
 });
 test('malformed, empty, hostile and exhausted controls fail without invoking user getters',()=>{
@@ -49,8 +49,8 @@ test('malformed, empty, hostile and exhausted controls fail without invoking use
  const nested=fixture();Object.defineProperty(nested.contacts[0],'alternatives',{get:trap});
  for(const value of [getter,nested,new Proxy({}, {get:trap}),{...fixture(),skeleton:new Proxy(new Uint8Array(1024),{get:trap})}])assert.throws(()=>bind(value),TypeError);
  assert.equal(calls,0);assert.equal(require('../scripts/test-suites').includesSuite(__filename,'unit'),true);
- assert.ok(require('../scripts/verify-runtime-package').IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-shared-contact-terminals.js'));
- assert.ok(require('../scripts/verify-runtime-package').IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/source-shared-route-edges.js'));
+ assert.ok(require('../scripts/verify-runtime-package').IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/routing/source-shared-contact-terminals.js'));
+ assert.ok(require('../scripts/verify-runtime-package').IMAGE_EDITABLE_RELEASE_FILES.includes('packages/slideclone-core/routing/source-shared-route-edges.js'));
 });
 test('the maximum bounded raster and contact count retain exact original terminal cells',()=>{
  const width=512,height=512,skeleton=new Uint8Array(width*height),contacts=[];

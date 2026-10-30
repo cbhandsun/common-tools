@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {measureSourceArrowBody}=require("../packages/slideclone-core/source-arrow-body");
+const {measureSourceArrowBody}=require("../packages/slideclone-core/routing/source-arrow-body");
 const short=[3,4,3,4,4,4,4,9,13,11,10,8,7,5];
 const forward=widths=>({widths,rightArrow:true,leftArrow:false});
 test("a complete short head is separated from its stable contiguous body",()=>{

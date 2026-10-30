@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { fitSourceBorders } = require("../packages/slideclone-core/source-border-fit");
+const { fitSourceBorders } = require("../packages/slideclone-core/scene-plan/source-border-fit");
 
 function image(w = 120, h = 80) { return { width: w, height: h, rgba: new Uint8Array(w * h * 4).fill(255) }; }
 function pixel(im, x, y, color) { const i = (y * im.width + x) * 4; im.rgba.set([...color, 255], i); }

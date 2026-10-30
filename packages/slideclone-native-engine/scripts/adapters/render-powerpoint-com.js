@@ -4,6 +4,8 @@ const fs = require("fs");
 const path = require("path");
 const { run } = require("../lib/exec");
 const { readImageSize } = require("../lib/image-size");
+const DEFAULT_EXPORT_TIMEOUT_MS = 120_000;
+const MAX_EXPORT_TIMEOUT_MS = 2_147_483_647;
 
 module.exports = async function renderPowerPointCom(input, context) {
   const pptxFile = input.pptx?.pptxFile;
@@ -29,7 +31,7 @@ module.exports = async function renderPowerPointCom(input, context) {
     exportWidth: sourceSize.widthPx || sourceSize.width || 1920,
     exportHeight: sourceSize.heightPx || sourceSize.height || 1080,
     maxPages: positiveInt(input.maxPages, 2_147_483_647),
-    timeoutMs: positiveInt(context.config?.powerPoint?.exportTimeoutMs, 60_000)
+    timeoutMs: exportTimeoutMs(context.config?.powerPoint?.exportTimeoutMs)
   });
 
   const renderedPages = fs.readdirSync(renderDir)
@@ -95,8 +97,26 @@ function isRetryableComError(error) {
   const message = String(error?.message || "");
   const text = `${stderr}\n${stdout}\n${message}`;
   if (/RPC_E_CALL_REJECTED|0x80010001|0x800706BE|ETIMEDOUT|timed out|timeout|call rejected|remote procedure call failed|InvokeMethodOnNull|Presentations is not ready yet|presentation open returned null|no rendered pages/i.test(text)) return true;
+  // renderer-process reports a structured exit instead of the old command text.
+  // Preserve the bounded empty-diagnostic retry without retrying cancellation
+  // or an unconfirmed process termination.
   return !stderr.trim() && !stdout.trim()
-    && /Command failed:\s*powershell(?:\.exe)?\b[\s\S]*\bexport-pptx\.ps1\b/i.test(message);
+    && (message === "renderer process failed" && Number.isSafeInteger(error?.code) && error.code !== 0
+      || /Command failed:\s*powershell(?:\.exe)?\b[\s\S]*\bexport-pptx\.ps1\b/i.test(message));
+}
+
+/** @param {unknown} value @returns {number} */
+function exportTimeoutMs(value) {
+  // Match the renderer's integer timer bound without coercing objects or
+  // accepting a numeric prefix from a malformed configuration string.
+  if (typeof value === "string") {
+    if (value.length > 32) return DEFAULT_EXPORT_TIMEOUT_MS;
+    const trimmed = value.trim();
+    if (!/^\d+$/u.test(trimmed)) return DEFAULT_EXPORT_TIMEOUT_MS;
+    value = Number(trimmed);
+  }
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 && value <= MAX_EXPORT_TIMEOUT_MS
+    ? value : DEFAULT_EXPORT_TIMEOUT_MS;
 }
 
 function positiveInt(value, fallback) {

@@ -3,7 +3,7 @@ const test=require("node:test"),assert=require("node:assert/strict"),fs=require(
 const {validateDeckPageStructures}=require("../packages/slideclone-core/deck-ir-structure");
 const {createMinimalDeckIr,runBuilder,invokeBuilder}=require("./helpers/openxml-contract-fixtures");
 const {readZipEntry}=require("../packages/ooxml-core/pptx-inventory");
-const {parseNativeTextOutline}=require("../packages/slideclone-core/native-text-outline");
+const {parseNativeTextOutline}=require("../packages/slideclone-core/typography/native-text-outline");
 function outlined(){const deck=createMinimalDeckIr("Editable"),text=deck.pages[0].textBoxes[0];text.style={textWarp:"textPlain",textOutlineColor:"#050201",textOutlineWidthPt:6.285};return deck;}
 
 test("outline paint parsing handles empty and hostile inputs without reading accessors",()=>{

@@ -1,8 +1,8 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { hasSourceColumnBarBoundary } = require("../packages/slideclone-core/visual-column-bar-boundary");
-const { detectBaselineColumnBarComponents } = require("../packages/slideclone-core/visual-atom-semantic-components");
+const { hasSourceColumnBarBoundary } = require("../packages/slideclone-core/archetypes/visual-column-bar-boundary");
+const { detectBaselineColumnBarComponents } = require("../packages/slideclone-core/scene-plan/visual-atom-semantic-components");
 
 function image() { return { width: 200, height: 130, rgba: Buffer.alloc(200 * 130 * 4, 255) }; }
 function fill(raster, box, color = [70, 120, 180, 255]) {

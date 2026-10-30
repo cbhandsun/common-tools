@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {sourceWordRetryFrame}=require("../packages/slideclone-core/source-word-retry-frame");
+const {sourceWordRetryFrame}=require("../packages/slideclone-core/typography/source-word-retry-frame");
 function fixture(){return {width:300,height:300,hint:{x:80,y:60,w:100,h:160},margin:40,
  sides:{left:false,right:true,top:false,bottom:true},neighbors:[]};}
 test("retry grows only independently censored sides and preserves the first observed window",()=>{

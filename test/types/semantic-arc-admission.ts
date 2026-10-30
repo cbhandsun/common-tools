@@ -1,4 +1,4 @@
-import { admitSemanticArcs } from "../../packages/slideclone-core/semantic-arc-admission";
+import { admitSemanticArcs } from "../../packages/slideclone-core/archetypes/semantic-arc-admission";
 
 const input: unknown = {};
 const result = admitSemanticArcs(input);

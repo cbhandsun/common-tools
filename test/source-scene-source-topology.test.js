@@ -1,13 +1,13 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {primitiveImage,paintPrimitive}=require('./helpers/scene-primitive-program-fixture.cjs');
-const {proposeSourceCylinderTopology:propose}=require('../packages/slideclone-core/source-scene-source-topology');
-const {admitSourceMeasuredScenePlan:admit,admitSourceScenePlan}=require('../packages/slideclone-core/source-scene-plan');
-const {withSceneCompilationSession:open}=require('../packages/slideclone-core/source-scene-compilation-session');
-const {compileSceneCageProgram:compile}=require('../packages/slideclone-core/source-scene-cage-program');
+const {proposeSourceCylinderTopology:propose}=require('../packages/slideclone-core/scene-plan/source-scene-source-topology');
+const {admitSourceMeasuredScenePlan:admit,admitSourceScenePlan}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
+const {withSceneCompilationSession:open}=require('../packages/slideclone-core/scene-plan/source-scene-compilation-session');
+const {compileSceneCageProgram:compile}=require('../packages/slideclone-core/scene-plan/source-scene-cage-program');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {writePng}=require('../packages/slideclone-core/png');
-const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
 function fixture(seams=[.4,.7]){
  const f=primitiveImage('cylinder');f.image.rgba.fill(255);paintPrimitive(f.image,{...f.recipe,seams});
  return {image:f.image,object:{id:'object-unit',regionId:'region-root',kind:'container',box:f.box,nativeGeometry:f.nativeGeometry},textMasks:[],budget:{used:0}};
@@ -82,7 +82,7 @@ test('actual optional planner proposes before its first ledger and carries the s
  }} )({root,sourceFile,dimensions:{widthPx:f.image.width,heightPx:f.image.height},ocr:{lines:[]},isCancellationRequested:async()=>false,
   preflightSourceScene:(plan,token)=>{assert(token);session=token;assert.equal(plan.objects[0].nativeGeometry.seams.length,1);
    const opened=open({image:f.image,sourceHash:plan.sourceHash,session:token},s=>s.budget.used);assert(opened.result>0);
-   return require('../packages/slideclone-core/source-scene-compiler').preflightSourceScene({root,sourceFile,plan,
+   return require('../packages/slideclone-core/scene-plan/source-scene-compiler').preflightSourceScene({root,sourceFile,plan,
     page:{shapes:[],textBoxes:[],images:[]},slideSize:{widthPt:f.image.width,heightPt:f.image.height},compilationSession:token});}});
  assert.equal(result.compilationSession,session);assert.equal(result.plan.objects[0].nativeGeometry.seams.length,1);
  const directory=fs.readdirSync(root).find(name=>name.startsWith('scene-review-'));

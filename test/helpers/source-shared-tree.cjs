@@ -1,5 +1,5 @@
 'use strict';
-const {createSceneMeasurementCache}=require('../../packages/slideclone-core/source-scene-measurement-cache');
+const {createSceneMeasurementCache}=require('../../packages/slideclone-core/scene-plan/source-scene-measurement-cache');
 function sourceSharedTreeFixture(){
  const image={width:300,height:230,rgba:Buffer.alloc(300*230*4,255)},budget={used:0};
  const put=(x,y,color=[30,60,90])=>image.rgba.set([...color,255],(y*image.width+x)*4);

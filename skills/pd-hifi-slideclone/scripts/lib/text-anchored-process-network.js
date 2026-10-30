@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/text-anchored-process-network");
+module.exports = require("@common-tools/slideclone-core/typography/text-anchored-process-network");

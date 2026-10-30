@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {sceneInventoryCapacity:capacity}=require('../packages/slideclone-core/source-scene-capacity');
+const {sceneInventoryCapacity:capacity}=require('../packages/slideclone-core/scene-plan/source-scene-capacity');
 function plan(counts){return {regions:counts.map((_,i)=>({id:'region-'+i})),
  observedInventory:counts.map((relations,i)=>({regionId:'region-'+i,containers:0,icons:0,relations}))};}
 const objectEvidence={objectLimit:64,interiorTargetLimit:32,knownContainerMinimum:0,knownIconMinimum:0,
@@ -29,7 +29,7 @@ test('explicit icons and implicit interiors obey the unchanged shared 32-target 
 });
 
 test('all reported object conflicts are impossible under the actual native recovery admission',()=>{
- const {admitSceneRecoveries,recoveryId}=require('../packages/slideclone-core/source-scene-inventory-materialization');
+ const {admitSceneRecoveries,recoveryId}=require('../packages/slideclone-core/scene-plan/source-scene-inventory-materialization');
  for(const [containers,icons]of [[65,0],[64,33],[32,33],[68,42],[0,65]]){
   const census=plan([0]);Object.assign(census.observedInventory[0],{containers,icons});assert.equal(capacity(census).feasible,false);
   for(let proposedIcons=0;proposedIcons<=Math.min(64,icons);proposedIcons++){
@@ -50,7 +50,7 @@ test('all reported object conflicts are impossible under the actual native recov
 });
 
 test('the structural prompt distinguishes complete pictorial units and audited nested physical regions within approved batches',()=>{
- const {SCENE_PLAN_PROMPT}=require('../packages/slideclone-core/source-scene-plan');
+ const {SCENE_PLAN_PROMPT}=require('../packages/slideclone-core/scene-plan/source-scene-plan');
  assert.match(SCENE_PLAN_PROMPT,/physically enclosed labeled subpanels/u);
  assert.match(SCENE_PLAN_PROMPT,/colored patches, holes, strokes or path primitives/u);
  assert.match(SCENE_PLAN_PROMPT,/never reduce counts to fit/u);
@@ -61,7 +61,7 @@ test('the structural prompt distinguishes complete pictorial units and audited n
 
 test('planner persists an impossible object census and rejects before source scans or either local call',async t=>{
  const {writePng}=require('../packages/slideclone-core/png');
- const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+ const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-object-capacity-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,{width:100,height:100,rgba:Buffer.alloc(40000,255)});
  let calls=0,scans=0;
@@ -110,7 +110,7 @@ test('getters, proxies and coercion cannot execute or leak private data',()=>{
 });
 test('planner preserves the admitted plan and fails before scans, local calls and rendering on impossible inventory',async t=>{
  const {writePng}=require('../packages/slideclone-core/png');
- const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+ const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'scene-capacity-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,{width:100,height:100,rgba:Buffer.alloc(40000,255)});
  let calls=0,scans=0;
@@ -130,7 +130,7 @@ test('the regression runs in the unified unit and all suites',()=>{
 });
 
 test('capacity error identity is private, immutable and does not trust forged codes or hostile inputs',()=>{
- const {sceneInventoryCapacityError,isSceneInventoryCapacityError}=require('../packages/slideclone-core/source-scene-capacity');
+ const {sceneInventoryCapacityError,isSceneInventoryCapacityError}=require('../packages/slideclone-core/scene-plan/source-scene-capacity');
  const error=sceneInventoryCapacityError();assert.equal(isSceneInventoryCapacityError(error),true);
  assert.throws(()=>{error.code='SCENE_PROVIDER_TIMEOUT';},TypeError);
  let calls=0;const forged=new Proxy({code:'SCENE_INVENTORY_CAPACITY_CONFLICT'},{get(){calls++;throw Error('private');}});

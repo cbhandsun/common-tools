@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {fitParagraphRenderFeedback}=require('../packages/slideclone-core/paragraph-render-feedback');
+const {fitParagraphRenderFeedback}=require('../packages/slideclone-core/typography/paragraph-render-feedback');
 function fixture(){return {slideSize:{widthPt:200,heightPt:100},pages:[{textBoxes:[0,1].map(i=>({id:`t${i}`,text:'中文 Ω',box:{x:0,y:i*30,w:100,h:12},font:{family:'Arial',sizePt:20},style:{textLayout:'paragraph',typographyStyleId:'body'},source:{evidenceBox:{x:0,y:i*30,w:100,h:12}},runs:[{text:'中文 Ω',font:{color:'#FF0000',sizePt:20}}]}))}]};}
 test('actual renderer height adjusts every member of a shared style without changing source or content',()=>{
  const d=fixture(),before=structuredClone(d),r=fitParagraphRenderFeedback(d,{measurements:[{pageIndex:0,textIndex:0,height:16}]});

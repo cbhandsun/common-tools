@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { calibrateConnectorStrokeWidth } = require("../packages/slideclone-core/connector-stroke-calibration");
+const { calibrateConnectorStrokeWidth } = require("../packages/slideclone-core/routing/connector-stroke-calibration");
 
 test("connector stroke calibration converts robust source pixel samples to slide points", () => {
   const result = calibrateConnectorStrokeWidth({

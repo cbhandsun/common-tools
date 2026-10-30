@@ -1,9 +1,9 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createSvgSceneModel } = require("../packages/slideclone-core/experimental-svg-scene");
-const { createUniformSvgTypography } = require("../packages/slideclone-core/experimental-svg-typography");
-const { createSvgSceneView } = require("../packages/slideclone-core/experimental-svg-view");
+const { createSvgSceneModel } = require("../packages/slideclone-core/archetypes/experimental-svg-scene");
+const { createUniformSvgTypography } = require("../packages/slideclone-core/typography/experimental-svg-typography");
+const { createSvgSceneView } = require("../packages/slideclone-core/archetypes/experimental-svg-view");
 const { JSDOM } = require("jsdom");
 const api = createSvgSceneModel(), typography = createUniformSvgTypography(api);
 const options = { family: "Portable Font 3952", regions: [{ id: "panel", box: { x: 0, y: 0, w: 150, h: 300 } }] };

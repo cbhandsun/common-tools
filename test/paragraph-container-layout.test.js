@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {proposeContainerParagraphLayout}=require("../packages/slideclone-core/paragraph-container-layout");
+const {proposeContainerParagraphLayout}=require("../packages/slideclone-core/typography/paragraph-container-layout");
 function fixture(){return {slideSize:{widthPt:200,heightPt:100},pages:[{shapes:[],textBoxes:[
  {id:'body',text:'第一行\n第二行',box:{x:10,y:10,w:60,h:20},font:{family:'Arial',sizePt:12},style:{textLayout:'paragraph',typographyRole:'body'},source:{typographyContainerBox:{x:0,y:0,w:200,h:100}}},
  {id:'next',text:'下一段',box:{x:10,y:60,w:100,h:20},font:{family:'Arial',sizePt:12}}]}]};}

@@ -5,7 +5,7 @@ const test = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
-const { textWeightCandidateTargets } = require("../packages/slideclone-core/text-weight-candidate-targets");
+const { textWeightCandidateTargets } = require("../packages/slideclone-core/typography/text-weight-candidate-targets");
 const { tryBuildFinalWorstTextWeightCandidate } = require("../packages/slideclone-worker-adapter/team-worker");
 
 const row = (id, score = 0) => ({ id, contributionScore: score, pageIndex: 0, kind: "text", role: "text" });

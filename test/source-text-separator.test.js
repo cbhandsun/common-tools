@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {measureSourceTextInkGeometry}=require("../packages/slideclone-core/text-ink-geometry");
-const {partitionSourceTextOverlaps}=require("../packages/slideclone-core/source-text-separator");
+const {measureSourceTextInkGeometry}=require("../packages/slideclone-core/typography/text-ink-geometry");
+const {partitionSourceTextOverlaps}=require("../packages/slideclone-core/typography/source-text-separator");
 function fixture(vertical=false,scale=1){
  const image={width:120*scale,height:120*scale,rgba:Buffer.alloc(120*120*scale*scale*4,255)};
  const boxes=vertical?[{x:20,y:10,w:18,h:50},{x:20,y:55,w:18,h:40}]:[{x:10,y:20,w:50,h:18},{x:55,y:20,w:40,h:18}];

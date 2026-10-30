@@ -1,8 +1,8 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {isolateClosedSourceRing:isolate,hasClosedRingTopology:topology}=require("../packages/slideclone-core/source-closed-ring");
-const {traceNativeMaskContours:trace}=require("../packages/slideclone-core/native-mask-contours");
-const {ringTouchesUnobservedCore:censored}=require("../packages/slideclone-core/source-closed-ring");
+const {isolateClosedSourceRing:isolate,hasClosedRingTopology:topology}=require("../packages/slideclone-core/scene-plan/source-closed-ring");
+const {traceNativeMaskContours:trace}=require("../packages/slideclone-core/scene-plan/native-mask-contours");
+const {ringTouchesUnobservedCore:censored}=require("../packages/slideclone-core/scene-plan/source-closed-ring");
 
 test("retained cells beside a skipped core remain censored, while observed perimeter cells and empty cores are complete",()=>{
  const window={x0:10,y0:20,x1:100,y1:100,margin:8};
@@ -55,7 +55,7 @@ test("invalid source frames, duplicate pixels and hostile controls fail without 
 });
 
 test('bounded source-hole distance is exact in every direction, including empty and extreme aspect frames',()=>{
- const {sourceRingDistance}=require('../packages/slideclone-core/source-ring-distance');
+ const {sourceRingDistance}=require('../packages/slideclone-core/routing/source-ring-distance');
  for(const [w,h,hole]of [[1,1,[]],[1,1,[0]],[1,31,[2,28]],[31,1,[2,28]],[23,19,[24,194,356]]]){
   const dist=sourceRingDistance(w,h,hole);
   for(let n=0;n<w*h;n++)assert.equal(dist[n],Math.min(...hole.map(p=>(n%w-p%w)**2+(Math.floor(n/w)-Math.floor(p/w))**2)));

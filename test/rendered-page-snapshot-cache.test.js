@@ -2,9 +2,10 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require("./helpers/temporary-directory.cjs");
 const path = require("node:path");
 const test = require("node:test");
+const { injectSnapshotReplayWriteFault } = require("./helpers/snapshot-replay-write-fault.cjs");
 const { crc32 } = require("../packages/ooxml-core");
 const { writePng } = require("../packages/slideclone-core/png");
 const { writeStoredZipAtomic } = require("../packages/slideclone-core/pptx-zip");
@@ -34,8 +35,8 @@ function quality(count = 1, passed = false) {
 }
 
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "rendered-page-snapshot-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = createTemporaryTestDirectory("rendered-page-snapshot-");
+  t.after(() => removeTemporaryTestDirectory(root));
   fs.mkdirSync(path.join(root, "assets"));
   const source = path.join(root, "assets", "source.png"), asset = path.join(root, "assets", "icon.png");
   const candidate = path.join(root, "candidate.pptx"), page = path.join(root, "render.png");
@@ -348,16 +349,17 @@ test("valid PNGs from an incomplete comparison never authorize a collection cach
 test("partial replay write failures clean only unpublished files and release their disk reservation", t => {
   const f = fixture(t), cache = createRenderedPageSnapshotCache({ maxReplayPages: 1 });
   const entry = f.entry(); capture(cache, f, entry);
-  const original = fs.writeFileSync;
-  const blocked = t.mock.method(fs, "writeFileSync", (file, ...args) => {
-    if (typeof file === "number") {
-      fs.writeSync(file, Buffer.from("partial"));
-      throw new Error("write interrupted");
-    }
-    return original(file, ...args);
-  });
-  try { assert.equal(cache.replay({ root: f.root, entry }), null); }
-  finally { blocked.mock.restore(); }
+  const injection = injectSnapshotReplayWriteFault(t.mock, fs, f.root);
+  try {
+    // Fault injection must never corrupt another descriptor, including the
+    // test runner's transport. Only this replay's unpublished PNG may fail.
+    const unrelated = path.join(f.root, "unrelated.bin"), descriptor = fs.openSync(unrelated, "wx");
+    try { fs.writeFileSync(descriptor, Buffer.from("retained")); }
+    finally { fs.closeSync(descriptor); }
+    assert.equal(fs.readFileSync(unrelated, "utf8"), "retained");
+    assert.equal(cache.replay({ root: f.root, entry }), null);
+  }
+  finally { injection.restore(); }
   assert.equal(fs.readdirSync(f.root).some(name => name.startsWith("quality-snapshot-replay-")), false);
   assert.ok(cache.replay({ root: f.root, entry }));
 });

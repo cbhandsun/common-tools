@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {allocateStagedSceneReview:allocate,reviewDeferredSceneRegions:review}=require('../packages/slideclone-core/source-scene-deferred-regional-review');
-const {allocateSourceSceneReview}=require('../packages/slideclone-core/source-scene-review-allocation');
+const {allocateStagedSceneReview:allocate,reviewDeferredSceneRegions:review}=require('../packages/slideclone-core/scene-plan/source-scene-deferred-regional-review');
+const {allocateSourceSceneReview}=require('../packages/slideclone-core/scene-plan/source-scene-review-allocation');
 function allocationFixture(){
  const missing=Array.from({length:7},(_,index)=>({index,box:{x:100+index*250,y:200,w:120,h:120},role:'missing',optional:false,textKnown:false}));
  const region={index:20,box:{x:10,y:1300,w:2200,h:420},role:'region-inventory',optional:true,textKnown:false};
@@ -45,7 +45,7 @@ test('deferred region receives one pair, retains actual pixel ledger and admits 
  assert.equal(onDisk.spentAfter,input.budget.used);assert.equal(onDisk.providerCalls,2);
 });
 test('deferred independent observations preserve the accepted relation unit without upgrading legacy plans',async t=>{
- const {SCENE_LOGICAL_RELATION_PROMPT}=require('../packages/slideclone-core/source-scene-program-prompt');
+ const {SCENE_LOGICAL_RELATION_PROMPT}=require('../packages/slideclone-core/scene-plan/source-scene-program-prompt');
  for(const logical of [false,true]){
   const input=fixture(t);if(logical)input.plan.relationObservationUnit='logical-relations-v1';let calls=0;
   const result=await review({...input,observe:async request=>{
@@ -97,7 +97,7 @@ test('deferred regional regression enters unified unit CI',()=>{
  assert.ok(require('../scripts/test-sharded').discoverTestFiles(process.cwd(),'unit').some(f=>f.file.replaceAll('\\','/')==='test/source-scene-deferred-regional-review.test.js'));
 });
 test('planner settles source scanners before dispatching the authorized second regional pair',async t=>{
- const {createSourceScenePlanner}=require('../packages/slideclone-core/source-scene-planner');
+ const {createSourceScenePlanner}=require('../packages/slideclone-core/scene-plan/source-scene-planner');
  const {writePng}=require('../packages/slideclone-core/png');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'staged-planner-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const sourceFile=path.join(root,'source.png');writePng(sourceFile,{width:2304,height:1728,rgba:Buffer.alloc(2304*1728*4,255)});

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {sourceRouteCoversComponent:measure}=require('../packages/slideclone-core/source-route-centerline');
+const {sourceRouteCoversComponent:measure}=require('../packages/slideclone-core/routing/source-route-centerline');
 // Independent original dense nearest-point certificate, including tie order.
 function dense(mask,width,height,path,shaft,startArrow,endArrow,work){
  if(!path[0])return false;

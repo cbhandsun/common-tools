@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { traceSparseConnectorContours, estimateSparseConnectorInkColor } = require("../packages/slideclone-core/sparse-connector-contours");
+const { traceSparseConnectorContours, estimateSparseConnectorInkColor } = require("../packages/slideclone-core/routing/sparse-connector-contours");
 
 test("sparse connector color uses the saturated ink core rather than the majority antialias halo", () => {
   const core = { r: 20, g: 80, b: 230 };

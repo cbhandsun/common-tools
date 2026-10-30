@@ -1,4 +1,4 @@
-import { refineGrayBorderResiduals } from "../../packages/slideclone-core/gray-border-residual";
+import { refineGrayBorderResiduals } from "../../packages/slideclone-core/archetypes/gray-border-residual";
 const input = { page: {} as unknown, slideSize: {} as unknown, sourceFile: "" as unknown, root: "" as unknown };
 async function verify() {
   const result = await refineGrayBorderResiduals(input);

@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
-const shapes=require('../packages/slideclone-core/relationship-native-shapes');
-const {auditNativeComponentQuality}=require('../packages/slideclone-core/native-component-quality');
+const shapes=require('../packages/slideclone-core/archetypes/relationship-native-shapes');
+const {auditNativeComponentQuality}=require('../packages/slideclone-core/quality/native-component-quality');
 
 test('relationship factories explicitly preserve the renderer medium arrow dimensions',()=>{
  const atom={kind:'connector-arrow-candidate',box:{x:20,y:30,w:60,h:4},color:'#234567',

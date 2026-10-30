@@ -1,5 +1,5 @@
 "use strict";
-const {createPageShapeFinalizer}=require("../../packages/slideclone-core/page-shape-finalizer");
+const {createPageShapeFinalizer}=require("../../packages/slideclone-core/scene-plan/page-shape-finalizer");
 const kinds={
   "arrays": [
     "titleChromeShapes",

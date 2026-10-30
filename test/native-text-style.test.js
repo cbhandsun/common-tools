@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const style = require("../packages/slideclone-core/native-text-style");
+const style = require("../packages/slideclone-core/typography/native-text-style");
 test("explicit native font weight wins over title and geometry heuristics", () => {
   const title = {text:"Quarterly results", role:"title", box:{x:10,y:20,w:300,h:40},font:{sizePt:28}};
   for (const weight of ["regular", "normal", "book", "light", 400, "400"]) {

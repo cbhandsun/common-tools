@@ -1,6 +1,6 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {findSourceRowWhitespaceCorridor:find}=require('../packages/slideclone-core/source-row-whitespace-corridor');
+const {findSourceRowWhitespaceCorridor:find}=require('../packages/slideclone-core/scene-plan/source-row-whitespace-corridor');
 function fixture(){const width=12,height=12,ink=new Uint8Array(width*height);
  for(let x=1;x<width-1;x++){ink[2*width+x]=1;ink[9*width+x]=1;}
  return {width,height,ink,upperCenter:2,lowerCenter:9,preferredRow:5};}

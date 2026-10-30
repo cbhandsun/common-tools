@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {parseSceneReviews,applySourceSceneReview,routeSceneReviewCandidates,sourceSceneReviewCapacity}=require("../packages/slideclone-core/source-scene-review");
+const {parseSceneReviews,applySourceSceneReview,routeSceneReviewCandidates,sourceSceneReviewCapacity}=require("../packages/slideclone-core/scene-plan/source-scene-review");
 const hash="a".repeat(64);
 test('review capacity preserves mandatory overlap and the exact 32-target boundary',()=>{
  const mandatory=Array.from({length:27},(_,index)=>({index,kind:'uncertain'}));
@@ -32,7 +32,7 @@ test('capacity rejects malformed, sparse, extreme and hostile input without invo
  assert.throws(()=>sourceSceneReviewCapacity(Array.from({length:512},(_,index)=>({index,kind:'uncertain'}))),error=>error.requiredReviews===512);
 });
 test('scene icon context does not crop a suspected token out of its physical object or decide its class',()=>{
- const {sourceSceneReviewContext}=require('../packages/slideclone-core/source-scene-review');
+ const {sourceSceneReviewContext}=require('../packages/slideclone-core/scene-plan/source-scene-review');
  const box={x:30,y:35,w:20,h:10};
  const plan={objects:[{id:'outer',kind:'container',box:{x:0,y:0,w:100,h:100}},
   {id:'icon',kind:'icon',box:{x:20,y:20,w:50,h:50}}]};

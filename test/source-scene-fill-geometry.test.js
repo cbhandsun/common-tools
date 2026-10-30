@@ -1,7 +1,7 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict');
-const {fitSceneFillGeometry}=require('../packages/slideclone-core/source-scene-fill-geometry');
-const {sameSceneFillComponent}=require('../packages/slideclone-core/source-scene-fill-window');
+const {fitSceneFillGeometry}=require('../packages/slideclone-core/scene-plan/source-scene-fill-geometry');
+const {sameSceneFillComponent}=require('../packages/slideclone-core/scene-plan/source-scene-fill-window');
 function fixture(){
  const box={x:10,y:20,w:30,h:15},points=[];
  for(let y=box.y;y<box.y+box.h;y++)for(let x=box.x;x<box.x+box.w;x++)points.push({x,y});
@@ -16,7 +16,7 @@ test('independent geometry retains a rectangle and cannot grant source ownership
  assert.equal(compound.parts[0].segments.length,5);
 });
 test('observed concavities and the bounded curved fallback retain their geometry',()=>{
- const {traceNativeMaskContours}=require('../packages/slideclone-core/native-mask-contours');
+ const {traceNativeMaskContours}=require('../packages/slideclone-core/scene-plan/native-mask-contours');
  const points=[];
  for(let x=20;x<180;x++)for(let y=22+(Math.floor((x-20)/2)%2)*2;y<42;y++)points.push({x,y});
  const box={x:20,y:22,w:160,h:20},state={checks:0,exhausted:false};

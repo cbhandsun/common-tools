@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { measureTextWeightEvidence, planEvidenceTextWeightFit } = require("../packages/slideclone-core/text-weight-evidence");
+const { measureTextWeightEvidence, planEvidenceTextWeightFit } = require("../packages/slideclone-core/typography/text-weight-evidence");
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
@@ -57,7 +57,7 @@ test("source-denser regular OCR can propose bold with the reciprocal existing de
     assert.deepEqual(entry, before);
   }
   const regular = { ...text(), font: { ...text().font, weight: "regular" } };
-  for (const ratio of [0.6, 1, 1 / .72 - .001, 1 / .35 + .001, 4]) {
+  for (const ratio of [0.6, 1, 1 / .75 - .001, 1 / .35 + .001, 4]) {
     assert.equal(planEvidenceTextWeightFit({ slideSize, textBoxes: [regular],
       evidence: [{ ...evidence()[0], coverageRatio: ratio }] }).changedTextBoxes, 0);
   }

@@ -1,8 +1,8 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { sampleInkColor } = require("../packages/slideclone-core/raster-native-detection");
-const { enclosedLightInkColor } = require("../packages/slideclone-core/enclosed-light-ink");
+const { sampleInkColor } = require("../packages/slideclone-core/scene-plan/raster-native-detection");
+const { enclosedLightInkColor } = require("../packages/slideclone-core/scene-plan/enclosed-light-ink");
 
 function fixture(ink = [255, 255, 255, 255]) {
   const image = { width: 100, height: 100, rgba: new Uint8Array(40000).fill(255) };

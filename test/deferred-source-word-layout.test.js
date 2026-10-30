@@ -1,9 +1,9 @@
 "use strict";
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {writePng}=require('../packages/slideclone-core/png');
-const {boundedOcrSourceDeck}=require('../packages/slideclone-core/ocr-source-deck');
-const {createSourceWordLayoutSession,registerSourceWordLayout,applySourceWordLayouts,validateSourceWordLayoutSession}=require('../packages/slideclone-core/source-word-layout-registry');
-const {projectOcrTextBox}=require('../packages/slideclone-core/ocr-text-quadrilateral');
+const {boundedOcrSourceDeck}=require('../packages/slideclone-core/ocr/ocr-source-deck');
+const {createSourceWordLayoutSession,registerSourceWordLayout,applySourceWordLayouts,validateSourceWordLayoutSession}=require('../packages/slideclone-core/typography/source-word-layout-registry');
+const {projectOcrTextBox}=require('../packages/slideclone-core/ocr/ocr-text-quadrilateral');
 function fixture(t){const root=fs.mkdtempSync(path.join(os.tmpdir(),'source-word-final-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const file=path.join(root,'source.png'),image={width:120,height:50,rgba:Buffer.alloc(120*50*4,255)};
  for(let y=17;y<30;y++)for(let x=14;x<106;x++)if(x<50||x>=65)image.rgba.set([17,17,17,255],(y*120+x)*4);
@@ -85,9 +85,9 @@ test('joint row ownership recovers rotated source text after ordinary final-pain
  assert.equal(after.page.textBoxes[1].positionedRuns.map(r=>r.text).join(''),'LOWER');assert.equal(after.layouts,2);
  assert.equal(after.page.textBoxes[1].rotation,latePage.textBoxes[1].rotation);assert.deepEqual(after.page.textBoxes[0],before.page.textBoxes[0]);
  assert.deepEqual(applySourceWordLayouts(latePage,late.pages[0].textBoxes).page,after.page);
- const {observeJointSourceWordRows}=require('../packages/slideclone-core/source-word-joint-observation');
- const {prepareRotatedSourceWordFrame}=require('../packages/slideclone-core/source-word-rotated-frame');
- const {measureSourceWordLayout,remeasureSourceWordLayout}=require('../packages/slideclone-core/source-word-layout-evidence');
+ const {observeJointSourceWordRows}=require('../packages/slideclone-core/typography/source-word-joint-observation');
+ const {prepareRotatedSourceWordFrame}=require('../packages/slideclone-core/typography/source-word-rotated-frame');
+ const {measureSourceWordLayout,remeasureSourceWordLayout}=require('../packages/slideclone-core/typography/source-word-layout-evidence');
  const budget={remaining:4000000},rows=lines.map(line=>({box:line.box,color:'#111111',confidence:.99}));
  const proof=observeJointSourceWordRows({image:session.image,anchor:lines[1].box,rows,budget});assert.ok(proof);
  const request={image:session.image,line:lines[1],nativeBox:lines[1].box,neighbors:lines.map(r=>r.box),maximum:budget.remaining};

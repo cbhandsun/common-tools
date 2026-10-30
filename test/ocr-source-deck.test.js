@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { boundedOcrSourceDeck } = require("../packages/slideclone-core/team-native-rebuild");
-const { expandPositionedMixedColorTextSegments, ocrFontScale } = require("../packages/slideclone-core/ocr-source-deck");
+const { expandPositionedMixedColorTextSegments, ocrFontScale } = require("../packages/slideclone-core/ocr/ocr-source-deck");
 
 test('source-backed color cuts follow unequal OCR word widths and retain exact text',()=>{
  const width=240,height=48,rgba=Buffer.alloc(width*height*4,255);
@@ -12,7 +12,7 @@ test('source-backed color cuts follow unequal OCR word widths and retain exact t
  for(const [i,u]of units.entries())for(let y=17;y<30;y++)for(let x=u.box.x+2;x<u.box.x+u.box.w-2;x++)
   rgba.set(i<2?[17,17,17,255]:[180,40,15,255],(y*width+x)*4);
  const line={text:units.map(u=>u.text).join(''),box:{x:10,y:12,w:220,h:24},confidence:.99,wordPositionHints:units};
- const {detectMixedColorTextSegments}=require('../packages/slideclone-core/ocr-source-deck');
+ const {detectMixedColorTextSegments}=require('../packages/slideclone-core/ocr/ocr-source-deck');
  const segments=detectMixedColorTextSegments({width,height,rgba},line);
  assert.equal(segments.length,2);assert.equal(segments[0].text,'Agent 默认化后，');assert.equal(segments[1].text,'控制面补齐');
  assert.deepEqual(segments.map(s=>s.color),[{r:17,g:17,b:17},{r:180,g:40,b:15}]);
@@ -23,7 +23,7 @@ test('source-backed color cuts follow unequal OCR word widths and retain exact t
 });
 
 test('mixed paint follows native horizontal geometry despite slight OCR quadrilateral jitter',()=>{
- const {applySourceWordLayouts}=require('../packages/slideclone-core/source-word-layout-registry');
+ const {applySourceWordLayouts}=require('../packages/slideclone-core/typography/source-word-layout-registry');
  for(const skew of [0,.6,-.6]){
   const width=240,height=48,rgba=Buffer.alloc(width*height*4,255);
   for(let i=0;i<12;i++)for(let y=18;y<28;y++)for(let x=17+i*16;x<28+i*16;x++)
@@ -45,7 +45,7 @@ test('mixed paint follows native horizontal geometry despite slight OCR quadrila
 });
 
 test("OCR admission snapshots valid output and rejects accessors, proxies, sparse and oversized arrays", () => {
-  const { admitOcrResult } = require("../packages/slideclone-core/ocr-result-admission");
+  const { admitOcrResult } = require("../packages/slideclone-core/ocr/ocr-result-admission");
   const size = { widthPx: 960, heightPx: 540 };
   const source = { lines: [{ text: " Al Agent ", box: { x: 1, y: 2, w: 20, h: 10 } }] };
   const admitted = admitOcrResult(source, size);

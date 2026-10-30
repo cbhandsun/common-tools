@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createSourceObstacleProbe:create}=require('../packages/slideclone-core/source-obstacle-probe');
+const {createSourceObstacleProbe:create}=require('../packages/slideclone-core/scene-plan/source-obstacle-probe');
 test('indexed obstacle queries exactly match dense half-open membership inside and outside the source window',()=>{
  let seed=16473;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
  for(let trial=0;trial<80;trial++){

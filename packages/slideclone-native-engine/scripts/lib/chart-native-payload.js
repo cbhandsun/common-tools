@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("../../../../packages/slideclone-core/chart-native-payload");
+module.exports = require("../../../slideclone-core/archetypes/chart-native-payload");

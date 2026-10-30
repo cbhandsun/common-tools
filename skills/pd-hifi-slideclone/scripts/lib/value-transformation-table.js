@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/value-transformation-table");
+module.exports = require("@common-tools/slideclone-core/archetypes/value-transformation-table");
