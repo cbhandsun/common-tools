@@ -536,14 +536,7 @@ function readZipEntries(buffer) {
 }
 
 function pngCrc32(buffer) {
-  let crc = 0xffffffff;
-  for (const byte of buffer) {
-    crc ^= byte;
-    for (let bit = 0; bit < 8; bit += 1) {
-      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0;
+  return typeof zlib.crc32 === "function" ? zlib.crc32(buffer) >>> 0 : 0;
 }
 
 function encodeRgbaToPngBuffer(width, height, rgba) {
@@ -1070,13 +1063,24 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
   return buildZipBuffer(entries);
 }
 
+const PORTAL_ARTIFACT_CACHE = new Map();
+function cacheJobArtifact(jobId, name, bytes) {
+  let slot = PORTAL_ARTIFACT_CACHE.get(jobId);
+  if (!slot) {
+    if (PORTAL_ARTIFACT_CACHE.size >= 16) PORTAL_ARTIFACT_CACHE.delete(PORTAL_ARTIFACT_CACHE.keys().next().value);
+    slot = {};
+    PORTAL_ARTIFACT_CACHE.set(jobId, slot);
+  }
+  slot[name] = bytes;
+}
+
 async function ensureJobEditableIconsAndPptx(jobId, { teamServices, objectStore }) {
   const irTarget = await teamServices.getArtifactTarget({ id: jobId, ownerId: PORTAL_OWNER_ID, name: "deck.ir.json" });
   const irBytes = await objectStore.readObject({ objectKey: irTarget.objectKey, maxBytes: 16 * 1024 * 1024 });
   const ir = normalizePortalEditableIr(JSON.parse(irBytes.toString("utf8")));
   if (!ir || !Array.isArray(ir.pages) || ir.pages.length === 0) return { ir, irTarget };
   const hasFullResidual = (ir.pages[0].images || []).some((img) => img?.id === "full-slide-residual" || img?.source?.fullSlideResidual === true);
-  if (ir.meta?.portalNativeSceneVersion === 2 && !hasFullResidual && (ir.pages[0].images || []).length > 0) return { ir, irTarget };
+  if (ir.meta?.portalNativeSceneVersion === 3 && !hasFullResidual && (ir.pages[0].images || []).length > 0) return { ir, irTarget };
 
   try {
     const pptxTarget = await teamServices.getArtifactTarget({ id: jobId, ownerId: PORTAL_OWNER_ID, name: "deck.pptx" });
@@ -1116,6 +1120,7 @@ async function ensureJobEditableIconsAndPptx(jobId, { teamServices, objectStore 
             const container = scene.shapes.find((s) => s.type === "roundRect" && img.box.x >= s.box.x - 4 && img.box.y >= s.box.y - 4 && img.box.x + img.box.w <= s.box.x + s.box.w + 4 && img.box.y + img.box.h <= s.box.y + s.box.h + 4);
             const cropped = makeTransparentIconCrop(raster, ir.slideSize, img.box, container?.style?.fill);
             const pngBuffer = encodeRgbaToPngBuffer(cropped.width, cropped.height, cropped.rgba);
+            img.dataUri = `data:image/png;base64,${pngBuffer.toString("base64")}`;
             const svgContent = traceRasterIconToSvg(cropped);
             const svgBuffer = svgContent ? Buffer.from(svgContent, "utf8") : null;
             if (svgBuffer) img.style = { ...(img.style || {}), svgDataUri: `data:image/svg+xml;base64,${svgBuffer.toString("base64")}` };
@@ -1131,7 +1136,7 @@ async function ensureJobEditableIconsAndPptx(jobId, { teamServices, objectStore 
       ...(ir.meta || {}),
       portalIconsExtracted: true,
       portalNativeSceneUpgraded: true,
-      portalNativeSceneVersion: 2,
+      portalNativeSceneVersion: 3,
       fullSlideResidualOmitted: true,
       extractedIconCount: (ir.pages[0].images || []).length
     };
@@ -1147,6 +1152,7 @@ async function ensureJobEditableIconsAndPptx(jobId, { teamServices, objectStore 
       body: Buffer.from(`${JSON.stringify(ir, null, 2)}\n`, "utf8"),
       contentType: "application/json"
     });
+    cacheJobArtifact(jobId, "deck.pptx", updatedPptx);
   } catch {
     // Fallback if icon extraction encounters an unexpected format.
   }
@@ -1227,6 +1233,7 @@ async function handlePortalEditableSave(requestUrl, rawBody, { teamServices, obj
     body: Buffer.from(`${JSON.stringify(mergedIr, null, 2)}\n`, "utf8"),
     contentType: "application/json"
   });
+  PORTAL_ARTIFACT_CACHE.delete(jobId);
   return {
     status: 200,
     body: {
@@ -1279,50 +1286,33 @@ async function handlePortalEditableArtifact(requestUrl, { teamServices, objectSt
       bodyBuffer: extracted.bytes
     };
   }
-  const target = await teamServices.getArtifactTarget({
-    id: jobId,
-    ownerId: PORTAL_OWNER_ID,
-    name
-  });
-  let bytes = await objectStore.readObject({
-    objectKey: target.objectKey,
-    maxBytes: 100 * 1024 * 1024
-  });
-  if (name === "deck.preview.html" || name === "deck.html" || name === "deck.ir.json" || name === "deck.pptx") {
+  const target = await teamServices.getArtifactTarget({ id: jobId, ownerId: PORTAL_OWNER_ID, name });
+  let bytes = PORTAL_ARTIFACT_CACHE.get(jobId)?.[name] || null;
+  if (!bytes && (name === "deck.preview.html" || name === "deck.html" || name === "deck.ir.json" || name === "deck.pptx")) {
     try {
       const { ir } = await ensureJobEditableIconsAndPptx(jobId, { teamServices, objectStore });
-      bytes = await objectStore.readObject({
-        objectKey: target.objectKey,
-        maxBytes: 100 * 1024 * 1024
-      });
       if (ir && Array.isArray(ir.pages)) {
         if (name === "deck.ir.json") {
           bytes = Buffer.from(`${JSON.stringify(ir, null, 2)}\n`, "utf8");
         } else if (name === "deck.pptx") {
-          bytes = syncPptxBufferWithDeckIr(bytes, ir);
+          bytes = PORTAL_ARTIFACT_CACHE.get(jobId)?.["deck.pptx"]
+            || syncPptxBufferWithDeckIr(await objectStore.readObject({ objectKey: target.objectKey, maxBytes: 100 * 1024 * 1024 }), ir);
         } else {
-          const storedHtml = bytes.toString("utf8");
+          const rawHtmlBytes = await objectStore.readObject({ objectKey: target.objectKey, maxBytes: 100 * 1024 * 1024 });
+          const storedHtml = rawHtmlBytes.toString("utf8");
           const srcById = new Map();
-          for (const m of storedHtml.matchAll(/<img\b[^>]*\bdata-object-id="([^"]+)"[^>]*\bsrc="([^"]+)"/g)) {
-            srcById.set(m[1], m[2]);
-          }
-          for (const m of storedHtml.matchAll(/<img\b[^>]*\bsrc="([^"]+)"[^>]*\bdata-object-id="([^"]+)"/g)) {
-            srcById.set(m[2], m[1]);
-          }
-          const missingMediaIds = ir.pages.flatMap((page) => (page.images || []).map((img) => String(img?.id || "").replace(/\.copy\..*$/u, ""))).filter((id) => id && !srcById.has(id));
+          for (const m of storedHtml.matchAll(/<img\b[^>]*\bdata-object-id="([^"]+)"[^>]*\bsrc="([^"]+)"/g)) srcById.set(m[1], m[2]);
+          for (const m of storedHtml.matchAll(/<img\b[^>]*\bsrc="([^"]+)"[^>]*\bdata-object-id="([^"]+)"/g)) srcById.set(m[2], m[1]);
+          const missingMediaIds = ir.pages.flatMap((page) => (page.images || []).filter((img) => !img?.dataUri).map((img) => String(img?.id || "").replace(/\.copy\..*$/u, ""))).filter((id) => id && !srcById.has(id));
           if (missingMediaIds.length > 0) {
             try {
               const pptxTarget = await teamServices.getArtifactTarget({ id: jobId, ownerId: PORTAL_OWNER_ID, name: "deck.pptx" });
-              const pptxBytes = await objectStore.readObject({ objectKey: pptxTarget.objectKey, maxBytes: 100 * 1024 * 1024 });
+              const pptxBytes = PORTAL_ARTIFACT_CACHE.get(jobId)?.["deck.pptx"] || await objectStore.readObject({ objectKey: pptxTarget.objectKey, maxBytes: 100 * 1024 * 1024 });
               for (const entry of readZipEntries(pptxBytes)) {
                 const m = entry.name.match(/^ppt\/media\/(icon-\d+)\.png$/u);
-                if (m && !srcById.has(m[1])) {
-                  srcById.set(m[1], `data:image/png;base64,${entry.data.toString("base64")}`);
-                }
+                if (m && !srcById.has(m[1])) srcById.set(m[1], `data:image/png;base64,${entry.data.toString("base64")}`);
               }
-            } catch {
-              // Ignore media fallback errors
-            }
+            } catch { /* ignore media fallback errors */ }
           }
           const slideW = Number(ir.slideSize?.widthPt) || 960;
           const slideH = Number(ir.slideSize?.heightPt) || 540;
@@ -1330,33 +1320,21 @@ async function handlePortalEditableArtifact(requestUrl, { teamServices, objectSt
             const id = String(img?.id || "");
             if (id !== "full-slide-residual") return "";
             const src = srcById.get(id) || img.dataUri;
-            if (!src) return "";
-            return `<img class="image" data-object-id="full-slide-residual" alt="" src="${src}" style="pointer-events:none;z-index:1;left:0%;top:0%;width:100%;height:100%;object-fit:contain">`;
+            return src ? `<img class="image" data-object-id="full-slide-residual" alt="" src="${src}" style="pointer-events:none;z-index:1;left:0%;top:0%;width:100%;height:100%;object-fit:contain">` : "";
           }).join(""));
           const fgImageTagsByPage = ir.pages.map((page) => (page.images || []).map((img) => {
             const id = String(img?.id || "");
             if (!id || id === "full-slide-residual") return "";
-            const baseId = id.replace(/\.copy\..*$/u, "");
-            const src = srcById.get(id) || srcById.get(baseId) || img.dataUri;
+            const src = srcById.get(id) || srcById.get(id.replace(/\.copy\..*$/u, "")) || img.dataUri;
             if (!src) return "";
             const box = img.box || { x: 0, y: 0, w: 24, h: 24 };
             const rot = Number(img.rotation) || 0;
             const rotCss = Number.isFinite(rot) && Math.abs(rot) > 0.01 ? `;transform:rotate(${rot}deg)` : "";
-            const style = `z-index:2;cursor:move;left:${box.x / slideW * 100}%;top:${box.y / slideH * 100}%;width:${box.w / slideW * 100}%;height:${box.h / slideH * 100}%;object-fit:contain${rotCss}`;
-            return `<img class="image" data-object-id="${escapeHtml(id)}" alt="" src="${src}" style="${style}">`;
+            return `<img class="image" data-object-id="${escapeHtml(id)}" alt="" src="${src}" style="z-index:2;cursor:move;left:${box.x / slideW * 100}%;top:${box.y / slideH * 100}%;width:${box.w / slideW * 100}%;height:${box.h / slideH * 100}%;object-fit:contain${rotCss}">`;
           }).join(""));
-          const editableIr = {
-            ...ir,
-            pages: ir.pages.map((page) => ({
-              ...page,
-              images: (Array.isArray(page.images) ? page.images : []).filter((img) => img?.id !== "full-slide-residual")
-            }))
-          };
+          const editableIr = { ...ir, pages: ir.pages.map((page) => ({ ...page, images: (Array.isArray(page.images) ? page.images : []).filter((img) => img?.id !== "full-slide-residual") })) };
           let html = name === "deck.preview.html"
-            ? createIrPreviewHtml(editableIr, {
-                sessionEndpoint: `/portal/api/editable-save?id=${jobId}`,
-                sessionToken: PORTAL_SAVE_TOKEN
-              })
+            ? createIrPreviewHtml(editableIr, { sessionEndpoint: `/portal/api/editable-save?id=${jobId}`, sessionToken: PORTAL_SAVE_TOKEN })
             : createPrintableHtml(editableIr);
           for (let pageIndex = 0; pageIndex < ir.pages.length; pageIndex += 1) {
             const bgTags = bgImageTagsByPage[pageIndex];
@@ -1370,11 +1348,11 @@ async function handlePortalEditableArtifact(requestUrl, { teamServices, objectSt
           }
           bytes = Buffer.from(html, "utf8");
         }
+        if (bytes) cacheJobArtifact(jobId, name, bytes);
       }
-    } catch {
-      // Fallback to stored artifact bytes when dynamic preview synthesis is unavailable.
-    }
+    } catch { /* fallback to stored artifact bytes */ }
   }
+  if (!bytes) bytes = await objectStore.readObject({ objectKey: target.objectKey, maxBytes: 100 * 1024 * 1024 });
   const mediaTypes = {
     "deck.pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "deck.pdf": "application/pdf",

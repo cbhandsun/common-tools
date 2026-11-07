@@ -80,6 +80,9 @@ function detectAdaptiveCardHierarchy(raster, slideSize, textBoxes = []) {
 
   const visited = new Uint8Array(raster.width * raster.height);
   const step = Math.max(1, Math.round(Math.min(scaleX, scaleY) * 2));
+  const maxNodes = Math.ceil(raster.width / step + 2) * Math.ceil(raster.height / step + 2);
+  const stackX = new Int32Array(maxNodes);
+  const stackY = new Int32Array(maxNodes);
   const rawRects = [];
 
   for (let y = step; y < raster.height - step; y += step) {
@@ -95,33 +98,39 @@ function detectAdaptiveCardHierarchy(raster, slideSize, textBoxes = []) {
       let minY = y;
       let maxY = y;
       let count = 0;
-      const queue = [[x, y]];
+      let top = 0;
+      stackX[top] = x;
+      stackY[top] = y;
+      top += 1;
       visited[idx] = 1;
 
-      while (queue.length > 0) {
-        const [cx, cy] = queue.pop();
+      const tryPush = (nx, ny) => {
+        if (nx < 0 || nx >= raster.width || ny < 0 || ny >= raster.height) return;
+        const nIdx = ny * raster.width + nx;
+        if (visited[nIdx]) return;
+        const np = pixelAt(raster, nx, ny);
+        if (colorDist(np, bg) >= 14 && colorDist(np, p) <= 42) {
+          visited[nIdx] = 1;
+          stackX[top] = nx;
+          stackY[top] = ny;
+          top += 1;
+        }
+      };
+
+      while (top > 0) {
+        top -= 1;
+        const cx = stackX[top];
+        const cy = stackY[top];
         count += 1;
         if (cx < minX) minX = cx;
         if (cx > maxX) maxX = cx;
         if (cy < minY) minY = cy;
         if (cy > maxY) maxY = cy;
 
-        const neighbors = [
-          [cx + step, cy],
-          [cx - step, cy],
-          [cx, cy + step],
-          [cx, cy - step]
-        ];
-        for (const [nx, ny] of neighbors) {
-          if (nx < 0 || nx >= raster.width || ny < 0 || ny >= raster.height) continue;
-          const nIdx = ny * raster.width + nx;
-          if (visited[nIdx]) continue;
-          const np = pixelAt(raster, nx, ny);
-          if (colorDist(np, bg) >= 14 && colorDist(np, p) <= 42) {
-            visited[nIdx] = 1;
-            queue.push([nx, ny]);
-          }
-        }
+        tryPush(cx + step, cy);
+        tryPush(cx - step, cy);
+        tryPush(cx, cy + step);
+        tryPush(cx, cy - step);
       }
 
       const bw = maxX - minX + step;

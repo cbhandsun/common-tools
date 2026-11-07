@@ -107,7 +107,7 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
           checks: (visualQuality.checks || []).map((c) => c.name === "visual-fidelity" ? { ...c, passed: true } : c)
         };
       }
-      if (raw && rawImageQualityVerifier && ocrRecoveryCandidateScopes(baselineRebuild).length > 0
+      if (raw && !isExtractedDiagramScene && rawImageQualityVerifier && ocrRecoveryCandidateScopes(baselineRebuild).length > 0
         && qualityRendered(visualQuality)) {
         const recoveryScopes = ocrRecoveryCandidateScopes(baselineRebuild);
         for (let index = 0; index < recoveryScopes.length; index += 1) {
@@ -140,7 +140,7 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       }
       // Resolve an uneditable page raster before spending typography candidates
       // on a representation that cannot pass the final publication gate.
-      if (raw && rawImageQualityVerifier && rawImageTextRefiner && renderedImages.length && shouldTryFinalWorstTextRefinement(visualQuality)
+      if (raw && !isExtractedDiagramScene && rawImageQualityVerifier && rawImageTextRefiner && renderedImages.length && shouldTryFinalWorstTextRefinement(visualQuality)
         && largeRasterEditability(metadata.generatedDeck).passed) {
         const refinementStartedAt = Date.now();
         const refined = await runWorkerStage("IMAGE_QUALITY_FAILED", () => rawImageTextRefiner({
@@ -157,7 +157,7 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
         }
         visualQuality = { ...visualQuality, metrics: { ...visualQuality.metrics, "text-refinement-accepted": Number(refined.accepted), "text-refinement-proposed-boxes": refined.changedTextBoxes, "text-refinement-milliseconds": Date.now() - refinementStartedAt, ...(refined.skippedPixelBudget ? {"text-refinement-skipped-pixel-budget": refined.skippedPixelBudget} : {}) } };
       }
-      if (raw && rawImageQualityVerifier && qualityRendered(visualQuality) && !largeRasterEditability(metadata.generatedDeck).passed) {
+      if (raw && !isExtractedDiagramScene && rawImageQualityVerifier && qualityRendered(visualQuality) && !largeRasterEditability(metadata.generatedDeck).passed) {
         let nativeOnlyCandidate = await runWorkerStage("IMAGE_QUALITY_FAILED", () => tryBuildNativeOnlyResidualCandidate({
           root, metadata, outputFile, rawImageQualityVerifier, sourceImages: metadata.normalizedSourceImages, isCancellationRequested,
           runBuild: ({ deckFile, pptxFile }) => runBuilder({ executable: builderExecutable, builderArgs, deckFile, outputFile: pptxFile, cwd: root, timeoutMs, isCancellationRequested })

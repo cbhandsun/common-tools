@@ -2,7 +2,7 @@
 
 const crypto = require("node:crypto");
 const childProcess = require("node:child_process");
-const fs = require("node:fs");
+const fs = require("node:fs"); const os = require("node:os");
 const path = require("node:path");
 const { admitOcrPolygon } = require("./ocr-text-quadrilateral");
 const { admitOcrWordPositionHints } = require("./ocr-word-position-hints");
@@ -122,7 +122,7 @@ function createPinnedPaddleRawImageOcr(profile, { loadAdapter = require } = {}) 
       const raw = await runLocalRaw({ sourceImage: inputFile, pageIndex: 0, page: dimensions, slideSize: { widthPt: dimensions.widthPx, heightPt: dimensions.heightPx } }, {
         signal: controller.signal,
         skillRoot: path.resolve(path.dirname(profile.adapter), "..", ".."),
-        config: { paddleOcr: { pythonBin: profile.python, workerScript: profile.worker, modelCacheDir: profile.modelCacheDir, lang: "ch", ocrVersion: "PP-OCRv6", device: "cpu", engine: "paddle_dynamic", cpuThreads: 2, textDetectionModel: "PP-OCRv6_small_det", textRecognitionModel: "PP-OCRv6_small_rec", cache: false, timeoutMs: 120000, initTimeoutMs: 180000 } }
+        config: { paddleOcr: { pythonBin: profile.python, workerScript: profile.worker, modelCacheDir: profile.modelCacheDir, lang: "ch", ocrVersion: "PP-OCRv6", device: "cpu", engine: "paddle_dynamic", cpuThreads: Math.max(2, Math.min(6, Number(process.env.COMMON_TOOLS_PADDLEOCR_CPU_THREADS) || os.cpus().length || 4)), textDetectionModel: "PP-OCRv6_small_det", textRecognitionModel: "PP-OCRv6_small_rec", cache: false, timeoutMs: 120000, initTimeoutMs: 180000 } }
       });
       if (!raw?.metadata || raw.metadata.paddleocrVersion !== EXPECTED_VERSIONS.paddleocr || raw.metadata.paddlepaddleVersion !== EXPECTED_VERSIONS.paddlepaddle) throw new Error("PaddleOCR runtime version does not match");
       return normalizeLines(raw.items, dimensions);

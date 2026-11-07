@@ -11,13 +11,21 @@ const LOCAL_FILE_SIGNATURE = 0x04034b50;
 const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
 const EOCD_SIGNATURE = 0x06054b50;
 
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i += 1) {
+    let c = i;
+    for (let k = 0; k < 8; k += 1) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
 function crc32(buffer) {
+  if (typeof zlib.crc32 === "function") return zlib.crc32(buffer) >>> 0;
   let crc = 0xffffffff;
-  for (const byte of buffer) {
-    crc ^= byte;
-    for (let bit = 0; bit < 8; bit += 1) {
-      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-    }
+  for (let i = 0; i < buffer.length; i += 1) {
+    crc = CRC32_TABLE[(crc ^ buffer[i]) & 0xff] ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;
 }
@@ -30,8 +38,9 @@ function buildZipBuffer(entries) {
   for (const entry of entries) {
     const nameBuffer = Buffer.from(entry.name, "utf8");
     const rawData = Buffer.isBuffer(entry.data) ? entry.data : Buffer.from(String(entry.data), "utf8");
-    const deflated = zlib.deflateRawSync(rawData, { level: 6 });
-    const useDeflate = deflated.length < rawData.length;
+    const isPreCompressed = /\.(?:png|jpe?g|gif|webp)$/i.test(entry.name);
+    const deflated = isPreCompressed ? null : zlib.deflateRawSync(rawData, { level: 6 });
+    const useDeflate = deflated !== null && deflated.length < rawData.length;
     const method = useDeflate ? 8 : 0;
     const payload = useDeflate ? deflated : rawData;
     const crc = crc32(rawData);

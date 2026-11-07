@@ -41,17 +41,19 @@ function makeTransparentIconCrop(raster, slideSize, boxPt, bgHex) {
   const w = Math.max(1, x1 - x0);
   const h = Math.max(1, y1 - y0);
   const rgba = Buffer.alloc(w * h * 4);
+  const src = raster.rgba;
+  const rw = raster.width;
   const bg = bgHex && /^#[0-9A-Fa-f]{6}$/.test(bgHex)
     ? [parseInt(bgHex.slice(1, 3), 16), parseInt(bgHex.slice(3, 5), 16), parseInt(bgHex.slice(5, 7), 16)]
     : px(raster, x0 + 1, y0 + 1).slice(0, 3);
   for (let y = 0; y < h; y += 1) {
+    const rowBase = (y0 + y) * rw;
     for (let x = 0; x < w; x += 1) {
-      const [r, g, b, a] = px(raster, x0 + x, y0 + y);
+      const si = (rowBase + x0 + x) * 4;
+      const r = src[si]; const g = src[si + 1]; const b = src[si + 2]; const a = src[si + 3];
       const dist = Math.max(Math.abs(r - bg[0]), Math.abs(g - bg[1]), Math.abs(b - bg[2]));
       const outIdx = (y * w + x) * 4;
-      rgba[outIdx] = r;
-      rgba[outIdx + 1] = g;
-      rgba[outIdx + 2] = b;
+      rgba[outIdx] = r; rgba[outIdx + 1] = g; rgba[outIdx + 2] = b;
       rgba[outIdx + 3] = dist <= 18 ? 0 : dist < 36 ? Math.round(((dist - 18) / 18) * a) : a;
     }
   }
@@ -75,7 +77,7 @@ function traceRasterIconToSvg(cropped) {
       const r = rgba[idx];
       const g = rgba[idx + 1];
       const b = rgba[idx + 2];
-      const key = `${r >> 5},${g >> 5},${b >> 5}`;
+      const key = ((r >> 5) << 6) | ((g >> 5) << 3) | (b >> 5);
       let entry = buckets.get(key);
       if (!entry) {
         entry = { rSum: 0, gSum: 0, bSum: 0, count: 0 };
@@ -139,7 +141,7 @@ function traceRasterIconToSvg(cropped) {
     for (let y = 0; y < height; y += 1) {
       const nextActive = new Map();
       for (const run of cluster.runsByRow[y]) {
-        const key = `${run.x0}:${run.x1}`;
+        const key = (run.x0 << 16) | run.x1;
         const prev = activeRects.get(key);
         if (prev) {
           prev.y1 = y + 1;

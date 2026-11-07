@@ -319,7 +319,7 @@ function makeChunk(type, data) {
 
 /** @param {Buffer} buffer @returns {number} */
 function crc32(buffer) {
-  let crc = 0xFFFFFFFF;
+  if (typeof zlib.crc32 === "function") return zlib.crc32(buffer) >>> 0; let crc = 0xFFFFFFFF;
   for (const byte of buffer) {
     crc ^= byte;
     for (let i = 0; i < 8; i += 1) {
