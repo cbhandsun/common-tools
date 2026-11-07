@@ -226,14 +226,14 @@ function createImageDeliveryArtifacts({ outputDir, buildPdf }) {
     pptxFile: path.join(inputs.root, "deck.pptx"), pdfFile: path.join(inputs.root, "deck.pdf"), planFile: path.join(inputs.root, "deck.preservation-plan.json")
   };
   for (const file of Object.values(files)) if (fs.existsSync(file)) throw new Error("image delivery artifact already exists");
+  const plan = createPreservationPlan(ir);
   writeNew(files.irFile, `${JSON.stringify(ir, null, 2)}\n`);
-  writeNew(files.planFile, `${JSON.stringify(createPreservationPlan(ir), null, 2)}\n`);
+  writeNew(files.planFile, `${JSON.stringify(plan, null, 2)}\n`);
   writeNew(files.htmlFile, createPrintableHtml(ir, { assetRoot: inputs.root }));
   writeNew(files.previewFile, createIrPreviewHtml(ir, { assetRoot: inputs.root }));
   fs.copyFileSync(inputs.pptxFile, files.pptxFile, fs.constants.COPYFILE_EXCL);
   const adapterResult = buildPdf({ pptxFile: files.pptxFile, outFile: files.pdfFile, sourceFingerprint: fingerprint, pageCount: ir.pages.length });
   inspectHtml(files.htmlFile, fingerprint, ir.pages.length); inspectPptx(files.pptxFile); const pdf = inspectPdf(files.pdfFile);
-  const plan = createPreservationPlan(ir);
   const checks = [
     { name: "shared-deck-ir-present", passed: true }, { name: "shared-preview-present", passed: true },
     { name: "preservation-candidates-available", passed: plan.pages.every((page) => page.candidates.length >= 1 && page.candidates.length <= 3) },

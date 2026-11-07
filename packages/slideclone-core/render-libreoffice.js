@@ -58,7 +58,7 @@ module.exports = async function renderLibreOffice(input, context) {
     await waitForStableFile(convertedPdf, {
       isCancellationRequested: context.isCancellationRequested,
       timeoutMs: context.config?.render?.pdfReadyTimeoutMs || 10_000,
-      intervalMs: context.config?.render?.pdfReadyPollMs || 250
+      intervalMs: context.config?.render?.pdfReadyPollMs || 25
     });
     if (path.resolve(convertedPdf) !== path.resolve(pdf)) fs.copyFileSync(convertedPdf, pdf);
   });
@@ -199,7 +199,7 @@ function isRetryablePdfReadError(error) {
 
 async function waitForStableFile(file, options = {}) {
   const timeoutMs = Math.max(1, Number(options.timeoutMs || 10_000));
-  const intervalMs = Math.max(20, Number(options.intervalMs || 250));
+  const intervalMs = Math.max(20, Number(options.intervalMs || 25));
   const startedAt = Date.now();
   let previousSize = -1;
   let stableCount = 0;

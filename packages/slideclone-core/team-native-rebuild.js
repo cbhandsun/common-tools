@@ -8,7 +8,7 @@ const { createNativeRebuildCandidatePolicy } = require("./quality/native-rebuild
 const { qualityRendered, visualQualityDoesNotRegress, rasterEditabilityDoesNotRegress, selectNativeRebuildCandidate, selectOcrRecovery, assessOcrRecovery, shouldStopOcrRecoverySearch } = createNativeRebuildCandidatePolicy({largeRasterEditability,nativeObjectMetrics});
 const path = require("node:path");
 const { detectSolidVisualFallbackRectangles } = require("./scene-plan/solid-region-evidence");
-const { cropPng, readPng, writePng } = require("./png");
+const { cropPng, readPng, writePng, withPngReadCache } = require("./png");
 const { averageColor, colorDistance, maskBounds, pixel, pointInMask, pxToPtBox, rgbToHex, sampleMaskBackgroundColor } = require("./scene-plan/raster-native-detection");
 const { addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebuild } = require("./native-rebuild-scene-stage");
 const { auditNativeComponentQuality } = require("./quality/native-component-quality");
@@ -1066,7 +1066,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
   const grayBorderRefiner = refineGrayBorders || refineGrayBorderResiduals;
   connectorCornerMode = require("./routing/source-route-corner-mode").parseConnectorCornerMode(connectorCornerMode);
   outputPolicy = parseNativeOutputPolicy(outputPolicy);
-  return async ({ root, metadata, ocr, isCancellationRequested, recoverOcrCropText = true, recoverOcrCropIds }) => withApprovedBackdropBudget(async () => {
+  return async ({ root, metadata, ocr, isCancellationRequested, recoverOcrCropText = true, recoverOcrCropIds }) => withPngReadCache(() => withApprovedBackdropBudget(async () => {
     if (typeof root !== "string" || !path.isAbsolute(root) || !metadata || typeof metadata.inputFile !== "string") throw new TypeError("native image rebuild request is invalid");
     if (typeof recoverOcrCropText !== "boolean") throw new TypeError("native image OCR recovery policy is invalid");
     const workDir = path.join(root, "native-work");
@@ -1363,7 +1363,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
     // before adding an independently witnessed page background; the background
     // grants no authority to change that sealed region or erase its source.
     const sourceBands = require('./typography/source-text-band-background').proposeSourceTextBandBackgrounds({
-      image: readPng(sourceFile), slideSize: generatedDeck.slideSize, shapes: generatedDeck.pages[0].shapes
+      image: sourceRaster, slideSize: generatedDeck.slideSize, shapes: generatedDeck.pages[0].shapes
     });
     if (sourceBands.backgrounds.length) generatedDeck.pages[0].shapes.unshift(...sourceBands.backgrounds);
     generatedDeck.meta = { ...generatedDeck.meta, sourceTextBands: {
@@ -1421,7 +1421,7 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
     const metrics = nativeObjectMetrics(generatedDeck);
     return Object.freeze({ deck: generatedDeck, metrics, sourceImage: sourceFile, residual: generatedDeck.meta?.residualDeduplication || null, reconstructionProfile: PRODUCTION_PROFILE_NAME, nativeComponentQuality, ocrCropRecovery: { sourceLines: admittedSourceDeck.meta.ocrAdmission.editableLines, ...ocrCropRecovery } });
     });
-  });
+  }));
 }
 
 function expandVisiblePositionedMixedColorTextSegments(page = {}) {

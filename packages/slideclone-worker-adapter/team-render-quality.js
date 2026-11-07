@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { buildComponentRegions, compareComponentRegions } = require("../slideclone-core/quality/component-region-quality");
+const { withPngReadCache } = require("../slideclone-core/png");
 const { createCandidateVerificationCache } = require("./candidate-verification-cache");
 const { createRenderedPageSnapshotCache, validatedRenderedPagePaths } = require("./rendered-page-snapshot-cache");
 const { missingReferenceRegions } = require("./missing-component-regression");
@@ -114,6 +115,7 @@ function createRawImageRenderQualityVerifier({ renderPresentation, comparePageFi
       failureStage = "snapshot";
       const snapshot = renderedPageSnapshotCache.capture({ root, pages: renderedImages });
       failureStage = "comparison";
+      const { metrics, maxima, visualPassed, passed, componentQuality, componentWorst, componentLocalMetrics, textWeightEvidence, componentReferenceMetrics, textPair } = withPngReadCache(() => {
       const metrics = sources.map((currentSource, pageIndex) => comparePageFiles({ pageIndex, sourceImage: currentSource, renderedImage: renderedImages[pageIndex], diffImage: path.join(outputDir, `diff-${String(pageIndex + 1).padStart(3, "0")}.png`), options: { ...COMPARISON_SETTINGS, ...(componentRegions ? { componentRegions: componentRegions[pageIndex], slideSize: deck.slideSize, textBoxes: deck.pages[pageIndex].textBoxes } : {}) } }));
       if (metrics.some((metric) => !metric?.ok || ![metric.pixelDiffRatio, metric.foregroundMissingRatio, metric.meanAbsoluteDelta].every(Number.isFinite))) throw new Error("quality comparison returned an invalid result");
       const maxima = {
@@ -142,6 +144,7 @@ function createRawImageRenderQualityVerifier({ renderPresentation, comparePageFi
         });
       }) : null;
       const textPair = deck ? textComparisonSession.compare({ referenceQuality, root, sources, deck, regions: componentRegions, renderedImages, metrics }) : null;
+      return { metrics, maxima, visualPassed, passed, componentQuality, componentWorst, componentLocalMetrics, textWeightEvidence, componentReferenceMetrics, textPair }; });
       if (await isCancellationRequested?.()) throw new Error("editable job was cancelled");
       const quality = Object.freeze({
         passed,

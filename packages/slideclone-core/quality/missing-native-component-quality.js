@@ -34,40 +34,41 @@ function detectMissingNativeComponentRegions(source, generated, regions = [], sl
     .map((item, index) => missingRegion(item, index, source, slideSize, textRegions));
 }
 
+const DX8 = [1, -1, 0, 0, 1, -1, 1, -1];
+const DY8 = [0, 0, 1, -1, 1, -1, -1, 1];
+
 function floodMissingComponent(source, generated, startX, startY, visited, mask, options) {
-  const queue = [[startX, startY]];
-  visited[startY * source.width + startX] = 1;
+  const sw = source.width, sh = source.height;
+  const startIdx = startY * sw + startX;
+  const queue = [startIdx];
+  visited[startIdx] = 1;
   let cursor = 0;
-  let minX = startX;
-  let maxX = startX;
-  let minY = startY;
-  let maxY = startY;
-  let pixelCount = 0;
-  let r = 0;
-  let g = 0;
-  let b = 0;
+  let minX = startX, maxX = startX, minY = startY, maxY = startY;
+  let pixelCount = 0, r = 0, g = 0, b = 0;
   while (cursor < queue.length) {
-    const [x, y] = queue[cursor];
-    cursor += 1;
-    const offset = (y * source.width + x) * 4;
+    const idx = queue[cursor++];
+    const x = idx % sw;
+    const y = (idx - x) / sw;
+    const offset = idx * 4;
     pixelCount += 1;
     r += source.rgba[offset];
     g += source.rgba[offset + 1];
     b += source.rgba[offset + 2];
-    minX = Math.min(minX, x);
-    maxX = Math.max(maxX, x);
-    minY = Math.min(minY, y);
-    maxY = Math.max(maxY, y);
-    for (const [nx, ny] of neighborPixels(x, y)) {
-      if (nx < 0 || ny < 0 || nx >= source.width || ny >= source.height) continue;
-      const nextIndex = ny * source.width + nx;
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+    for (let d = 0; d < 8; d += 1) {
+      const nx = x + DX8[d], ny = y + DY8[d];
+      if (nx < 0 || ny < 0 || nx >= sw || ny >= sh) continue;
+      const nextIndex = ny * sw + nx;
       if (visited[nextIndex] || mask[nextIndex]) continue;
       if (!isMissingForeground(source, generated, nx, ny, options)) {
         visited[nextIndex] = 1;
         continue;
       }
       visited[nextIndex] = 1;
-      queue.push([nx, ny]);
+      queue.push(nextIndex);
     }
   }
   const area = (maxX - minX + 1) * (maxY - minY + 1);
@@ -80,13 +81,6 @@ function floodMissingComponent(source, generated, startX, startY, visited, mask,
     color: rgbToHex(r / pixelCount, g / pixelCount, b / pixelCount),
     density: pixelCount / Math.max(1, area)
   };
-}
-
-function neighborPixels(x, y) {
-  return [
-    [x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1],
-    [x + 1, y + 1], [x - 1, y - 1], [x + 1, y - 1], [x - 1, y + 1]
-  ];
 }
 
 function isUsefulMissingComponent(component, source) {

@@ -58,6 +58,8 @@ function withPngReadCache(callback, options = {}) {
   if (typeof callback !== "function") throw new TypeError("PNG cache callback must be a function");
   const rawOptions = optionalRecord(options, "PNG read cache options");
   const maxBytes = boundedCacheBytes(rawOptions.maxBytes);
+  const existing = pngReadCacheStorage.getStore();
+  if (existing && rawOptions.maxBytes === undefined) return callback(existing);
   const state = {
     entries: new Map(),
     bytes: 0,
@@ -166,17 +168,17 @@ function readPngBuffer(buffer, options = {}) {
   if (!Number.isSafeInteger(expectedRawBytes) || expectedRawBytes > limits.maxInflatedBytes) {
     throw new Error(`PNG expanded data exceeds the processing boundary: ${file}`);
   }
-  const raw = zlib.inflateSync(Buffer.concat(idat), { maxOutputLength: expectedRawBytes });
+  const raw = zlib.inflateSync(idat.length === 1 ? /** @type {Buffer} */ (idat[0]) : Buffer.concat(idat), { maxOutputLength: expectedRawBytes });
   if (raw.length !== expectedRawBytes) throw new Error(`PNG expanded data length is invalid: ${file}`);
-  const rgba = Buffer.alloc(width * height * 4);
+  const rgba = Buffer.allocUnsafe(width * height * 4);
   let rawOffset = 0;
   let previous = Buffer.alloc(stride);
 
   for (let y = 0; y < height; y += 1) {
     const filter = /** @type {number} */ (raw[rawOffset++]);
-    const scanline = Buffer.from(raw.subarray(rawOffset, rawOffset + stride));
+    const scanline = raw.subarray(rawOffset, rawOffset + stride);
     rawOffset += stride;
-    unfilter(scanline, previous, filter, channels);
+    if (filter !== 0) unfilter(scanline, previous, filter, channels);
     writeRgba(scanline, rgba, y, width, channels, colorType, palette, paletteAlpha);
     previous = scanline;
   }
@@ -189,7 +191,7 @@ function writePng(file, image) {
   const colorType = 6;
   const bitDepth = 8;
   const scanlineLength = image.width * 4 + 1;
-  const raw = Buffer.alloc(scanlineLength * image.height);
+  const raw = Buffer.allocUnsafe(scanlineLength * image.height);
   for (let y = 0; y < image.height; y += 1) {
     const rowOffset = y * scanlineLength;
     raw[rowOffset] = 0;
@@ -198,7 +200,7 @@ function writePng(file, image) {
 
   const chunks = [
     makeChunk("IHDR", makeIhdr(image.width, image.height, bitDepth, colorType)),
-    makeChunk("IDAT", zlib.deflateSync(raw)),
+    makeChunk("IDAT", zlib.deflateSync(raw, { level: 1 })),
     makeChunk("IEND", Buffer.alloc(0))
   ];
   fs.writeFileSync(file, Buffer.concat([PNG_SIGNATURE, ...chunks]));
@@ -231,17 +233,32 @@ function channelsForColorType(colorType, file) {
 
 /** @param {Buffer} line @param {Buffer} previous @param {number} filter @param {number} bpp */
 function unfilter(line, previous, filter, bpp) {
-  for (let i = 0; i < line.length; i += 1) {
-    const left = i >= bpp ? /** @type {number} */ (line[i - bpp]) : 0;
-    const up = previous[i] || 0;
-    const upLeft = i >= bpp ? previous[i - bpp] || 0 : 0;
-    const current = /** @type {number} */ (line[i]);
-    if (filter === 1) line[i] = (current + left) & 0xFF;
-    else if (filter === 2) line[i] = (current + up) & 0xFF;
-    else if (filter === 3) line[i] = (current + Math.floor((left + up) / 2)) & 0xFF;
-    else if (filter === 4) line[i] = (current + paeth(left, up, upLeft)) & 0xFF;
-    else if (filter !== 0) throw new Error(`Unsupported PNG filter ${filter}`);
+  if (filter === 0) return;
+  if (filter === 1) {
+    for (let i = bpp; i < line.length; i += 1) line[i] = (/** @type {number} */ (line[i]) + /** @type {number} */ (line[i - bpp])) & 0xFF;
+    return;
   }
+  if (filter === 2) {
+    for (let i = 0; i < line.length; i += 1) line[i] = (/** @type {number} */ (line[i]) + (previous[i] || 0)) & 0xFF;
+    return;
+  }
+  if (filter === 3) {
+    for (let i = 0; i < line.length; i += 1) {
+      const left = i >= bpp ? /** @type {number} */ (line[i - bpp]) : 0;
+      line[i] = (/** @type {number} */ (line[i]) + ((left + (previous[i] || 0)) >>> 1)) & 0xFF;
+    }
+    return;
+  }
+  if (filter === 4) {
+    for (let i = 0; i < line.length; i += 1) {
+      const left = i >= bpp ? /** @type {number} */ (line[i - bpp]) : 0;
+      const up = previous[i] || 0;
+      const upLeft = i >= bpp ? previous[i - bpp] || 0 : 0;
+      line[i] = (/** @type {number} */ (line[i]) + paeth(left, up, upLeft)) & 0xFF;
+    }
+    return;
+  }
+  throw new Error(`Unsupported PNG filter ${filter}`);
 }
 
 /** @param {number} a @param {number} b @param {number} c @returns {number} */
@@ -257,6 +274,20 @@ function paeth(a, b, c) {
 
 /** @param {Buffer} line @param {Buffer} rgba @param {number} y @param {number} width @param {number} channels @param {number} colorType @param {Buffer | null} [palette] @param {Buffer | null} [paletteAlpha] */
 function writeRgba(line, rgba, y, width, channels, colorType, palette = null, paletteAlpha = null) {
+  if (colorType === 6) {
+    line.copy(rgba, y * width * 4, 0, width * 4);
+    return;
+  }
+  if (colorType === 2) {
+    let dst = y * width * 4;
+    for (let x = 0, src = 0; x < width; x += 1, src += 3, dst += 4) {
+      rgba[dst] = /** @type {number} */ (line[src]);
+      rgba[dst + 1] = /** @type {number} */ (line[src + 1]);
+      rgba[dst + 2] = /** @type {number} */ (line[src + 2]);
+      rgba[dst + 3] = 255;
+    }
+    return;
+  }
   for (let x = 0; x < width; x += 1) {
     const src = x * channels;
     const dst = (y * width + x) * 4;
@@ -275,21 +306,11 @@ function writeRgba(line, rgba, y, width, channels, colorType, palette = null, pa
       rgba[dst + 1] = /** @type {number} */ (palette[paletteOffset + 1]);
       rgba[dst + 2] = /** @type {number} */ (palette[paletteOffset + 2]);
       rgba[dst + 3] = paletteAlpha && index < paletteAlpha.length ? /** @type {number} */ (paletteAlpha[index]) : 255;
-    } else if (colorType === 2) {
-      rgba[dst] = /** @type {number} */ (line[src]);
-      rgba[dst + 1] = /** @type {number} */ (line[src + 1]);
-      rgba[dst + 2] = /** @type {number} */ (line[src + 2]);
-      rgba[dst + 3] = 255;
-    } else if (colorType === 4) {
+    } else {
       rgba[dst] = /** @type {number} */ (line[src]);
       rgba[dst + 1] = /** @type {number} */ (line[src]);
       rgba[dst + 2] = /** @type {number} */ (line[src]);
       rgba[dst + 3] = /** @type {number} */ (line[src + 1]);
-    } else {
-      rgba[dst] = /** @type {number} */ (line[src]);
-      rgba[dst + 1] = /** @type {number} */ (line[src + 1]);
-      rgba[dst + 2] = /** @type {number} */ (line[src + 2]);
-      rgba[dst + 3] = /** @type {number} */ (line[src + 3]);
     }
   }
 }

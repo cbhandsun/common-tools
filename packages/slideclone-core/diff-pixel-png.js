@@ -139,30 +139,34 @@ function resolveDiffConcurrency(pageCount, env = process.env) {
 
 function compareImages(pageIndex, source, generated, options, renderedImage, diffImage) {
   const threshold = options.threshold;
+  const threshold4 = threshold * 4;
   let changed = 0;
-  let totalDelta = 0;
+  let totalDeltaSum = 0;
   let foreground = 0;
   let foregroundMissing = 0;
   let foregroundMissingRaw = 0;
-  const total = source.width * source.height;
+  const sw = source.width, sh = source.height, gw = generated.width, gh = generated.height;
+  const sameSize = gw === sw && gh === sh;
+  const total = sw * sh;
   const diff = {
-    width: source.width,
-    height: source.height,
-    rgba: Buffer.alloc(total * 4)
+    width: sw,
+    height: sh,
+    rgba: Buffer.allocUnsafe(total * 4)
   };
-  for (let y = 0; y < source.height; y += 1) {
-    for (let x = 0; x < source.width; x += 1) {
-      const srcOffset = (y * source.width + x) * 4;
-      const gx = Math.min(generated.width - 1, Math.round(x * generated.width / source.width));
-      const gy = Math.min(generated.height - 1, Math.round(y * generated.height / source.height));
-      const genOffset = (gy * generated.width + gx) * 4;
-      const delta = Math.abs(source.rgba[srcOffset] - generated.rgba[genOffset])
-        + Math.abs(source.rgba[srcOffset + 1] - generated.rgba[genOffset + 1])
-        + Math.abs(source.rgba[srcOffset + 2] - generated.rgba[genOffset + 2])
-        + Math.abs(source.rgba[srcOffset + 3] - generated.rgba[genOffset + 3]);
-      totalDelta += delta / 4;
-      const sourceForeground = isForeground(source.rgba, srcOffset);
-      const isChanged = delta / 4 > threshold;
+  const srcRgba = source.rgba, genRgba = generated.rgba, diffRgba = diff.rgba;
+  for (let y = 0; y < sh; y += 1) {
+    const gy = sameSize ? y : Math.min(gh - 1, Math.round(y * gh / sh));
+    for (let x = 0; x < sw; x += 1) {
+      const srcOffset = (y * sw + x) * 4;
+      const gx = sameSize ? x : Math.min(gw - 1, Math.round(x * gw / sw));
+      const genOffset = sameSize ? srcOffset : (gy * gw + gx) * 4;
+      const delta = Math.abs(srcRgba[srcOffset] - genRgba[genOffset])
+        + Math.abs(srcRgba[srcOffset + 1] - genRgba[genOffset + 1])
+        + Math.abs(srcRgba[srcOffset + 2] - genRgba[genOffset + 2])
+        + Math.abs(srcRgba[srcOffset + 3] - genRgba[genOffset + 3]);
+      totalDeltaSum += delta;
+      const sourceForeground = isForeground(srcRgba, srcOffset);
+      const isChanged = delta > threshold4;
       if (sourceForeground) foreground += 1;
       if (isChanged) changed += 1;
       if (sourceForeground && isChanged) {
@@ -171,9 +175,10 @@ function compareImages(pageIndex, source, generated, options, renderedImage, dif
           foregroundMissing += 1;
         }
       }
-      writeDiffPixel(diff.rgba, srcOffset, source.rgba, srcOffset, generated.rgba, genOffset, isChanged);
+      writeDiffPixel(diffRgba, srcOffset, srcRgba, srcOffset, genRgba, genOffset, isChanged);
     }
   }
+  const totalDelta = totalDeltaSum / 4;
   fs.mkdirSync(path.dirname(diffImage), { recursive: true });
   writePng(diffImage, diff);
   const componentRegions = options.slideSize && Array.isArray(options.componentRegions)
@@ -229,10 +234,10 @@ function isForeground(rgba, offset) {
   const r = rgba[offset];
   const g = rgba[offset + 1];
   const b = rgba[offset + 2];
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const brightness = (r + g + b) / 3;
-  return brightness < 245 || max - min > 18;
+  if (r + g + b < 735) return true;
+  const max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+  const min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+  return max - min > 18;
 }
 
 function writeDiffPixel(out, offset, source, srcOffset, generated, genOffset, isChanged) {

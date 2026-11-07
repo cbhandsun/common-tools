@@ -222,13 +222,18 @@ function insideAssetRoot(assetRoot, value) {
   if (!info.isFile() || info.isSymbolicLink() || info.size < 8 || info.size > 20 * 1024 * 1024 || fs.realpathSync.native(file) !== file) throw new Error("image asset is not a bounded regular file");
   return file;
 }
+const IMAGE_DATA_URI_CACHE = new Map();
 function imageDataUri(assetRoot, value) {
-  const file = insideAssetRoot(assetRoot, value); const bytes = fs.readFileSync(file); const extension = path.extname(file).toLowerCase();
+  const file = insideAssetRoot(assetRoot, value); const stat = fs.statSync(file); const cacheKey = `${file}:${stat.size}:${Math.trunc(stat.mtimeMs)}`;
+  const cached = IMAGE_DATA_URI_CACHE.get(cacheKey); if (cached) return cached;
+  const bytes = fs.readFileSync(file); const extension = path.extname(file).toLowerCase();
   const png = extension === ".png" && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   const jpeg = [".jpg", ".jpeg"].includes(extension) && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9;
   const gif = extension === ".gif" && ["GIF87a", "GIF89a"].includes(bytes.subarray(0, 6).toString("ascii"));
   if (!png && !jpeg && !gif) throw new Error("image asset format is unsupported or invalid");
-  return `data:${png ? "image/png" : jpeg ? "image/jpeg" : "image/gif"};base64,${bytes.toString("base64")}`;
+  const uri = `data:${png ? "image/png" : jpeg ? "image/jpeg" : "image/gif"};base64,${bytes.toString("base64")}`;
+  if (IMAGE_DATA_URI_CACHE.size >= 128) IMAGE_DATA_URI_CACHE.delete(IMAGE_DATA_URI_CACHE.keys().next().value);
+  IMAGE_DATA_URI_CACHE.set(cacheKey, uri); return uri;
 }
 function isFullSlideBackgroundImage(item) {
   return item?.id === "full-slide-residual" || item?.source?.fullSlideResidual === true;
