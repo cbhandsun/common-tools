@@ -10,12 +10,22 @@ const {
   traceRasterIconToSvg
 } = require("../packages/slideclone-core/diagram-native-scene-extractor");
 const {
+  bindShapesToThemePalette,
+  detectAdaptiveCardHierarchy,
+  extractAdaptiveThemePalette,
+  extractGridTablesFromShapesAndText,
+  mergePolylineSegmentsToBentConnectors
+} = require("../packages/slideclone-core/diagram-native-scene-enhancer");
+const {
   renderPicXml,
   renderShapeXml,
-  renderTextBoxXml
+  renderTableXml,
+  renderTextBoxXml,
+  renderThemeXml
 } = require("../packages/slideclone-core/svg/deck-ir-to-pptx-buffer");
 const { correctContextualOcrLines } = require("../packages/slideclone-core/ocr/ocr-source-deck");
 const { createPrintableHtml } = require("../packages/ppt-create-core/export");
+const { createIrPreviewHtml } = require("../packages/ppt-create-core/ir-editor");
 
 test("1. traceRasterIconToSvg vectorizes opaque raster icons and renderPicXml emits <asvg:svgBlip>", () => {
   const width = 16;
@@ -166,4 +176,165 @@ test("5. correctContextualOcrLines calibrates low-confidence homoglyph confusion
   const calibrated = correctContextualOcrLines(rawLines);
   assert.equal(calibrated[1].text, "OpenXML Stage & AI Agent");
   assert.equal(calibrated[1].wordPositionHints, undefined);
+});
+
+test("6. detectAdaptiveCardHierarchy discovers nested containers and cards from unknown diagram rasters", () => {
+  const width = 320;
+  const height = 180;
+  const data = new Uint8Array(width * height * 4);
+  // Fill white background
+  data.fill(255);
+  // Paint outer container [20..280, 20..160] with light blue #E0F2FE (224, 242, 254)
+  for (let y = 20; y <= 160; y += 1) {
+    for (let x = 20; x <= 280; x += 1) {
+      const idx = (y * width + x) * 4;
+      data[idx] = 224;
+      data[idx + 1] = 242;
+      data[idx + 2] = 254;
+      data[idx + 3] = 255;
+    }
+  }
+  // Paint inner card [50..140, 50..120] with mint green #DCFCE7 (220, 252, 231) separated by white border
+  for (let y = 46; y <= 124; y += 1) {
+    for (let x = 46; x <= 144; x += 1) {
+      const idx = (y * width + x) * 4;
+      const isMargin = y < 50 || y > 120 || x < 50 || x > 140;
+      data[idx] = isMargin ? 255 : 220;
+      data[idx + 1] = isMargin ? 255 : 252;
+      data[idx + 2] = isMargin ? 255 : 231;
+      data[idx + 3] = 255;
+    }
+  }
+
+  const detected = detectAdaptiveCardHierarchy(
+    { width, height, data },
+    { widthPt: 960, heightPt: 540 },
+    [{ id: "tb-inner", box: { x: 200, y: 200, w: 60, h: 20 } }]
+  );
+  assert.ok(detected.length >= 2, "expected outer container and inner card to be detected");
+  const container = detected.find((s) => s.source.role === "container");
+  const innerCard = detected.find((s) => s.source.parentContainerId === container?.id);
+  assert.ok(container, "expected parent container role");
+  assert.ok(innerCard, "expected child card linked via parentContainerId");
+});
+
+test("7. mergePolylineSegmentsToBentConnectors merges orthogonal segment chains into bentConnector2 / bentConnector3", () => {
+  const segs = [
+    {
+      id: "conn-z-seg-1",
+      type: "line",
+      box: { x: 100, y: 100, w: 40, h: 0 },
+      style: { stroke: "#1E293B", strokeWidthPt: 1.5, dash: "dash" },
+      source: { startConnection: { shapeId: "card-a", side: "right", siteIndex: 3 } }
+    },
+    {
+      id: "conn-z-seg-2",
+      type: "line",
+      box: { x: 140, y: 100, w: 0, h: 80 },
+      style: { stroke: "#1E293B", strokeWidthPt: 1.5, dash: "dash" }
+    },
+    {
+      id: "conn-z-seg-3",
+      type: "line",
+      box: { x: 140, y: 180, w: 60, h: 0 },
+      style: { stroke: "#1E293B", strokeWidthPt: 1.5, dash: "dash", endArrow: "triangle" },
+      source: { endConnection: { shapeId: "card-b", side: "left", siteIndex: 1 } }
+    }
+  ];
+  const merged = mergePolylineSegmentsToBentConnectors(segs);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].id, "conn-z");
+  assert.equal(merged[0].style.connectorType, "bentConnector3");
+  assert.equal(merged[0].style.endArrow, "triangle");
+  assert.equal(merged[0].source.startConnection.shapeId, "card-a");
+  assert.equal(merged[0].source.endConnection.shapeId, "card-b");
+
+  const idMap = new Map([["card-a", 10], ["card-b", 11], ["conn-z", 12]]);
+  const xml = renderShapeXml(merged[0], 12, idMap);
+  assert.match(xml, /<a:prstGeom prst="bentConnector3"><a:avLst><a:gd name="adj1" fmla="val \d+"\/>/);
+  assert.match(xml, /<a:stCxn id="10" idx="3"\/>/);
+  assert.match(xml, /<a:endCxn id="11" idx="1"\/>/);
+});
+
+test("8. extractGridTablesFromShapesAndText reconstructs 2D cell grids into native <a:tbl> OpenXML tables", () => {
+  const shapes = [
+    { id: "c-0-0", type: "rect", box: { x: 100, y: 100, w: 120, h: 36 }, style: { fill: "#EFF6FF", stroke: "#94A3B8" } },
+    { id: "c-0-1", type: "rect", box: { x: 220, y: 100, w: 140, h: 36 }, style: { fill: "#EFF6FF", stroke: "#94A3B8" } },
+    { id: "c-1-0", type: "rect", box: { x: 100, y: 136, w: 120, h: 36 }, style: { fill: "#FFFFFF", stroke: "#94A3B8" } },
+    { id: "c-1-1", type: "rect", box: { x: 220, y: 136, w: 140, h: 36 }, style: { fill: "#FFFFFF", stroke: "#94A3B8" } }
+  ];
+  const textBoxes = [
+    { id: "t-0-0", text: "模块", box: { x: 110, y: 108, w: 80, h: 20 }, font: { weight: "bold", color: "#0F172A" } },
+    { id: "t-0-1", text: "职责", box: { x: 230, y: 108, w: 80, h: 20 }, font: { weight: "bold", color: "#0F172A" } },
+    { id: "t-1-0", text: "Router", box: { x: 110, y: 144, w: 80, h: 20 }, font: { weight: "normal", color: "#334155" } },
+    { id: "t-1-1", text: "会话路由", box: { x: 230, y: 144, w: 80, h: 20 }, font: { weight: "normal", color: "#334155" } }
+  ];
+  const { tables, remainingShapes, remainingTextBoxes } = extractGridTablesFromShapesAndText(shapes, textBoxes);
+  assert.equal(tables.length, 1);
+  assert.deepEqual(tables[0].rows, [["模块", "职责"], ["Router", "会话路由"]]);
+  assert.equal(remainingShapes.length, 0);
+  assert.equal(remainingTextBoxes.length, 0);
+
+  const tblXml = renderTableXml(tables[0], 55);
+  assert.match(tblXml, /<p:graphicFrame>/);
+  assert.match(tblXml, /<a:tbl>/);
+  assert.match(tblXml, /<a:t>会话路由<\/a:t>/);
+});
+
+test("9. extractAdaptiveThemePalette & bindShapesToThemePalette generate dynamic <a:clrScheme> and <a:schemeClr>", () => {
+  const ir = {
+    slideSize: { widthPt: 960, heightPt: 540 },
+    pages: [
+      {
+        pageIndex: 0,
+        background: { fill: "#FFFFFF" },
+        shapes: [
+          { id: "s1", type: "roundRect", box: { x: 20, y: 20, w: 100, h: 60 }, style: { fill: "#E1F3FD", stroke: "#2563EB" } },
+          { id: "s2", type: "roundRect", box: { x: 140, y: 20, w: 100, h: 60 }, style: { fill: "#DCFCE7", stroke: "#16A34A" } }
+        ],
+        textBoxes: [{ id: "t1", text: "标题", box: { x: 20, y: 20, w: 80, h: 24 }, font: { color: "#0F172A" } }]
+      }
+    ]
+  };
+  const palette = extractAdaptiveThemePalette(ir);
+  assert.equal(palette.lt1, "FFFFFF");
+  assert.equal(palette.dk1, "0F172A");
+  const themeXml = renderThemeXml(palette);
+  assert.match(themeXml, /<a:clrScheme name="CommonTools">/);
+  assert.match(themeXml, new RegExp(`<a:accent1><a:srgbClr val="${palette.accent1}"/></a:accent1>`));
+
+  const boundShapes = bindShapesToThemePalette(ir.pages[0].shapes, palette);
+  assert.ok(boundShapes[0].style.schemeColor.val);
+  const schemeShapeXml = renderShapeXml(
+    { ...boundShapes[0], style: { ...boundShapes[0].style, useSchemeColor: true } },
+    30
+  );
+  assert.match(schemeShapeXml, /<a:schemeClr val="/);
+});
+
+test("10. createIrPreviewHtml embeds smart alignment guides CSS and live connector-following logic", () => {
+  const html = createIrPreviewHtml({
+    version: "1.0",
+    slideSize: { widthPt: 960, heightPt: 540 },
+    pages: [
+      {
+        pageIndex: 0,
+        shapes: [
+          { id: "card-1", type: "roundRect", box: { x: 100, y: 100, w: 160, h: 80 }, style: { fill: "#E0F2FE", stroke: "#0284C7" } },
+          {
+            id: "conn-1",
+            type: "line",
+            box: { x: 260, y: 140, w: 100, h: 0 },
+            style: { stroke: "#0284C7" },
+            source: { startConnection: { shapeId: "card-1", side: "right", siteIndex: 3 } }
+          }
+        ],
+        textBoxes: []
+      }
+    ]
+  });
+  assert.match(html, /\.smart-guide-x\{/);
+  assert.match(html, /\.smart-guide-y\{/);
+  assert.match(html, /function snapWithGuides\(/);
+  assert.match(html, /function followConnectors\(/);
 });

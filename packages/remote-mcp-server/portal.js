@@ -7,7 +7,8 @@ const path = require("node:path");
 const { CAPABILITY_SCOPES } = require("./team-mcp");
 const { compileSvgToDeckIr } = require("../slideclone-core/svg/svg-to-deck-ir");
 const zlib = require("node:zlib");
-const { buildPptxBufferFromDeckIr, buildZipBuffer, renderPicXml, renderShapeXml, renderTextBoxXml } = require("../slideclone-core/svg/deck-ir-to-pptx-buffer");
+const { buildPptxBufferFromDeckIr, buildZipBuffer, renderPicXml, renderShapeXml, renderTableXml, renderTextBoxXml, renderThemeXml } = require("../slideclone-core/svg/deck-ir-to-pptx-buffer");
+const { extractAdaptiveThemePalette, mergePolylineSegmentsToBentConnectors } = require("../slideclone-core/diagram-native-scene-enhancer");
 const { readPngBuffer } = require("../slideclone-core/png");
 const { createDeckIrFromSvgSlides } = require("../ppt-create-core/svg-deck");
 const { createPrintableHtml, effectiveText, effectiveTextBox, effectiveTextRotation, effectiveTextSizePt } = require("../ppt-create-core/export");
@@ -825,7 +826,8 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
     let relsEntry = entries.find((e) => e.name === slideRelsPath);
     const page = ir.pages[pageIndex];
     const textBoxes = Array.isArray(page.textBoxes) ? page.textBoxes : [];
-    const shapes = Array.isArray(page.shapes) ? page.shapes : [];
+    const shapes = mergePolylineSegmentsToBentConnectors(Array.isArray(page.shapes) ? page.shapes : []);
+    const tables = Array.isArray(page.tables) ? page.tables : [];
     const images = Array.isArray(page.images) ? page.images : [];
     const movableImages = images.filter((img) => img && img.id && img.id !== "full-slide-residual");
     const tbById = new Map(textBoxes.map((tb) => [tb.id, tb]));
@@ -1017,8 +1019,9 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
         tbAdditions.push(renderTextBoxXml(tb, maxNumericId++));
       }
     }
-    if (shapeAdditions.length > 0) {
-      xml = xml.replace(/(<p:grpSpPr>[\s\S]*?<\/p:grpSpPr>)/, `$1${shapeAdditions.join("")}`);
+    const tblAdditions = tables.filter((t) => t && t.id).map((t) => renderTableXml(t, maxNumericId++));
+    if (shapeAdditions.length > 0 || tblAdditions.length > 0) {
+      xml = xml.replace(/(<p:grpSpPr>[\s\S]*?<\/p:grpSpPr>)/, `$1${shapeAdditions.join("")}${tblAdditions.join("")}`);
     }
     if (picAdditions.length > 0) {
       xml = xml.replace("</p:spTree>", `${picAdditions.join("")}</p:spTree>`);
@@ -1026,7 +1029,7 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
     if (tbAdditions.length > 0) {
       xml = xml.replace("</p:spTree>", `${tbAdditions.join("")}</p:spTree>`);
     }
-    // Ensure z-order inside <p:spTree>: nvGrpSpPr + grpSpPr -> shapes/connectors -> pics -> textBoxes
+    // Ensure z-order inside <p:spTree>: nvGrpSpPr + grpSpPr -> shapes/connectors/tables -> pics -> textBoxes
     const spTreeMatch = xml.match(/<p:spTree>([\s\S]*?)<\/p:spTree>/);
     if (spTreeMatch) {
       const inner = spTreeMatch[1];
@@ -1034,7 +1037,7 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
       if (headerMatch) {
         const header = headerMatch[1];
         const rest = inner.slice(header.length);
-        const elemRegex = /<p:(?:sp|cxnSp|pic|grpSp)\b[\s\S]*?<\/p:(?:sp|cxnSp|pic|grpSp)>/g;
+        const elemRegex = /<p:(?:sp|cxnSp|pic|grpSp|graphicFrame)\b[\s\S]*?<\/p:(?:sp|cxnSp|pic|grpSp|graphicFrame)>/g;
         const elems = rest.match(elemRegex) || [];
         const shapeElems = [];
         const picElems = [];
@@ -1042,7 +1045,7 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
         for (const el of elems) {
           if (el.startsWith("<p:pic")) {
             picElems.push(el);
-          } else if (el.startsWith("<p:cxnSp")) {
+          } else if (el.startsWith("<p:cxnSp") || el.startsWith("<p:graphicFrame")) {
             shapeElems.push(el);
           } else {
             const nameMatch = el.match(/<p:cNvPr\b[^>]*\bname="([^"]*)"/);
@@ -1056,6 +1059,8 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
     }
     entry.data = Buffer.from(xml, "utf8");
   }
+  const themeEntry = entries.find((e) => e.name === "ppt/theme/theme1.xml");
+  if (themeEntry) themeEntry.data = Buffer.from(renderThemeXml(ir.themePalette || extractAdaptiveThemePalette(ir)), "utf8");
   if (entries.some((e) => e.name.endsWith(".svg"))) {
     const ctEntry = entries.find((e) => e.name === "[Content_Types].xml");
     if (ctEntry && !/Extension="svg"/i.test(ctEntry.data.toString("utf8"))) {

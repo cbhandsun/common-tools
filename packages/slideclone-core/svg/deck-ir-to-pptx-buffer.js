@@ -1,6 +1,10 @@
 "use strict";
 
 const zlib = require("node:zlib");
+const {
+  extractAdaptiveThemePalette,
+  mergePolylineSegmentsToBentConnectors
+} = require("../diagram-native-scene-enhancer");
 
 const EMU_PER_PT = 12700;
 const LOCAL_FILE_SIGNATURE = 0x04034b50;
@@ -134,6 +138,15 @@ function renderFillXml(style = {}) {
   const fill = style.fill;
   if (!fill || fill === "none" || fill === "transparent") {
     return "<a:noFill/>";
+  }
+  if (style.useSchemeColor && style.schemeColor && style.schemeColor.val) {
+    const lumModXml = Number.isFinite(style.schemeColor.lumMod) && style.schemeColor.lumMod !== 100000
+      ? `<a:lumMod val="${Math.round(style.schemeColor.lumMod)}"/>`
+      : "";
+    const lumOffXml = Number.isFinite(style.schemeColor.lumOff) && style.schemeColor.lumOff !== 0
+      ? `<a:lumOff val="${Math.round(style.schemeColor.lumOff)}"/>`
+      : "";
+    return `<a:solidFill><a:schemeClr val="${escapeXml(style.schemeColor.val)}">${lumModXml}${lumOffXml}${alphaXml(opacity)}</a:schemeClr></a:solidFill>`;
   }
   return `<a:solidFill><a:srgbClr val="${hex6(fill, "FFFFFF")}">${alphaXml(opacity)}</a:srgbClr></a:solidFill>`;
 }
@@ -288,6 +301,11 @@ function renderShapeXml(shape, numericId, shapeNumericIdById = null) {
   if (isLine) {
     const lineW = (Number(box.w) <= 1 && Number(box.h) > 2) ? 0 : w;
     const lineH = (Number(box.h) <= 1 && Number(box.w) > 2) ? 0 : h;
+    const validConnTypes = new Set(["line", "bentConnector2", "bentConnector3", "bentConnector4", "curvedConnector3"]);
+    const connPrst = validConnTypes.has(style.connectorType) ? style.connectorType : "line";
+    const adj1Val = style.adjustments && Number.isFinite(style.adjustments.adj1)
+      ? `<a:gd name="adj1" fmla="val ${Math.round(style.adjustments.adj1)}"/>`
+      : "";
     return (
       `<p:cxnSp>` +
         `<p:nvCxnSpPr>` +
@@ -297,7 +315,7 @@ function renderShapeXml(shape, numericId, shapeNumericIdById = null) {
         `</p:nvCxnSpPr>` +
         `<p:spPr>` +
           `<a:xfrm${rotAttr}${flipHAttr}${flipVAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${lineW}" cy="${lineH}"/></a:xfrm>` +
-          `<a:prstGeom prst="line"><a:avLst/></a:prstGeom>` +
+          `<a:prstGeom prst="${connPrst}"><a:avLst>${adj1Val}</a:avLst></a:prstGeom>` +
           renderLineXml(style) +
         `</p:spPr>` +
       `</p:cxnSp>`
@@ -457,9 +475,126 @@ function renderPicXml(img, numericId, rId, svgRId = null) {
   );
 }
 
+function renderTableXml(table, numericId) {
+  const box = table.box || { x: 0, y: 0, w: 300, h: 120 };
+  const rows = Array.isArray(table.rows) ? table.rows : [];
+  const colCount = Math.max(1, rows[0]?.length || 1);
+  const rowCount = Math.max(1, rows.length);
+  const colWidths = Array.isArray(table.columnWidthsPt) && table.columnWidthsPt.length === colCount
+    ? table.columnWidthsPt.map((w) => Math.max(12700, emu(w)))
+    : Array.from({ length: colCount }, () => Math.max(12700, emu((Number(box.w) || 300) / colCount)));
+  const rowHeights = Array.isArray(table.rowHeightsPt) && table.rowHeightsPt.length === rowCount
+    ? table.rowHeightsPt.map((h) => Math.max(12700, emu(h)))
+    : Array.from({ length: rowCount }, () => Math.max(12700, emu((Number(box.h) || 120) / rowCount)));
+
+  const gridColsXml = colWidths.map((cw) => `<a:gridCol w="${cw}"/>`).join("");
+  const trsXml = rows
+    .map((row, rIdx) => {
+      const rh = rowHeights[rIdx] || emu(28);
+      const tcsXml = (Array.isArray(row) ? row : [])
+        .map((cellText, cIdx) => {
+          const cs = table.cellStyles?.[rIdx]?.[cIdx] || {};
+          const fillHex = hex6(cs.fill || (rIdx === 0 ? "#EFF6FF" : "#FFFFFF"), "FFFFFF");
+          const strokeHex = hex6(cs.stroke || table.style?.stroke || "#CBD5E1", "CBD5E1");
+          const textHex = hex6(cs.color || "#0F172A", "0F172A");
+          const sz = Math.max(600, Math.round((Number(cs.sizePt) || 11) * 100));
+          const bAttr = cs.weight === "bold" || rIdx === 0 ? ' b="1"' : "";
+          const algn = cs.align === "left" ? "l" : cs.align === "right" ? "r" : "ctr";
+          return (
+            `<a:tc>` +
+              `<a:txBody>` +
+                `<a:bodyPr/>` +
+                `<a:lstStyle/>` +
+                `<a:p><a:pPr algn="${algn}"/><a:r><a:rPr lang="zh-CN" sz="${sz}"${bAttr}><a:solidFill><a:srgbClr val="${textHex}"/></a:solidFill></a:rPr><a:t>${escapeXml(cellText ?? "")}</a:t></a:r></a:p>` +
+              `</a:txBody>` +
+              `<a:tcPr anchor="ctr">` +
+                `<a:lnL w="9525"><a:solidFill><a:srgbClr val="${strokeHex}"/></a:solidFill></a:lnL>` +
+                `<a:lnR w="9525"><a:solidFill><a:srgbClr val="${strokeHex}"/></a:solidFill></a:lnR>` +
+                `<a:lnT w="9525"><a:solidFill><a:srgbClr val="${strokeHex}"/></a:solidFill></a:lnT>` +
+                `<a:lnB w="9525"><a:solidFill><a:srgbClr val="${strokeHex}"/></a:solidFill></a:lnB>` +
+                `<a:solidFill><a:srgbClr val="${fillHex}"/></a:solidFill>` +
+              `</a:tcPr>` +
+            `</a:tc>`
+          );
+        })
+        .join("");
+      return `<a:tr h="${rh}">${tcsXml}</a:tr>`;
+    })
+    .join("");
+
+  return (
+    `<p:graphicFrame>` +
+      `<p:nvGraphicFramePr>` +
+        `<p:cNvPr id="${numericId}" name="${escapeXml(table.id || `table-${numericId}`)}"/>` +
+        `<p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>` +
+        `<p:nvPr/>` +
+      `</p:nvGraphicFramePr>` +
+      `<p:xfrm><a:off x="${emu(box.x)}" y="${emu(box.y)}"/><a:ext cx="${Math.max(12700, emu(box.w))}" cy="${Math.max(12700, emu(box.h))}"/></p:xfrm>` +
+      `<a:graphic>` +
+        `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table">` +
+          `<a:tbl>` +
+            `<a:tblPr firstRow="1" bandRow="1"/>` +
+            `<a:tblGrid>${gridColsXml}</a:tblGrid>` +
+            trsXml +
+          `</a:tbl>` +
+        `</a:graphicData>` +
+      `</a:graphic>` +
+    `</p:graphicFrame>`
+  );
+}
+
+function renderThemeXml(palette = {}) {
+  const p = {
+    dk1: hex6(palette.dk1, "0F172A"),
+    lt1: hex6(palette.lt1, "FFFFFF"),
+    dk2: hex6(palette.dk2, "1E293B"),
+    lt2: hex6(palette.lt2, "F8FAFC"),
+    accent1: hex6(palette.accent1, "3B82F6"),
+    accent2: hex6(palette.accent2, "10B981"),
+    accent3: hex6(palette.accent3, "8B5CF6"),
+    accent4: hex6(palette.accent4, "F59E0B"),
+    accent5: hex6(palette.accent5, "EC4899"),
+    accent6: hex6(palette.accent6, "06B6D4"),
+    hlink: hex6(palette.hlink, "2563EB"),
+    folHlink: hex6(palette.folHlink, "7C3AED")
+  };
+  return (
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="CommonToolsTheme">` +
+      `<a:themeElements>` +
+        `<a:clrScheme name="CommonTools">` +
+          `<a:dk1><a:srgbClr val="${p.dk1}"/></a:dk1>` +
+          `<a:lt1><a:srgbClr val="${p.lt1}"/></a:lt1>` +
+          `<a:dk2><a:srgbClr val="${p.dk2}"/></a:dk2>` +
+          `<a:lt2><a:srgbClr val="${p.lt2}"/></a:lt2>` +
+          `<a:accent1><a:srgbClr val="${p.accent1}"/></a:accent1>` +
+          `<a:accent2><a:srgbClr val="${p.accent2}"/></a:accent2>` +
+          `<a:accent3><a:srgbClr val="${p.accent3}"/></a:accent3>` +
+          `<a:accent4><a:srgbClr val="${p.accent4}"/></a:accent4>` +
+          `<a:accent5><a:srgbClr val="${p.accent5}"/></a:accent5>` +
+          `<a:accent6><a:srgbClr val="${p.accent6}"/></a:accent6>` +
+          `<a:hlink><a:srgbClr val="${p.hlink}"/></a:hlink>` +
+          `<a:folHlink><a:srgbClr val="${p.folHlink}"/></a:folHlink>` +
+        `</a:clrScheme>` +
+        `<a:fontScheme name="CommonToolsFonts">` +
+          `<a:majorFont><a:latin typeface="Segoe UI"/><a:ea typeface="Microsoft YaHei"/><a:cs typeface="Segoe UI"/></a:majorFont>` +
+          `<a:minorFont><a:latin typeface="Segoe UI"/><a:ea typeface="Microsoft YaHei"/><a:cs typeface="Segoe UI"/></a:minorFont>` +
+        `</a:fontScheme>` +
+        `<a:fmtScheme name="CommonToolsFmt">` +
+          `<a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst>` +
+          `<a:lnStyleLst><a:ln w="9525"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="19050"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="28575"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln></a:lnStyleLst>` +
+          `<a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst>` +
+          `<a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst>` +
+        `</a:fmtScheme>` +
+      `</a:themeElements>` +
+    `</a:theme>`
+  );
+}
+
 function renderSlideXml(page, imageRelMap = new Map(), svgRelMap = new Map()) {
   let nextId = 2;
-  const shapes = Array.isArray(page.shapes) ? page.shapes : [];
+  const shapes = mergePolylineSegmentsToBentConnectors(Array.isArray(page.shapes) ? page.shapes : []);
+  const tables = Array.isArray(page.tables) ? page.tables : [];
   const images = Array.isArray(page.images) ? page.images : [];
   const textBoxes = Array.isArray(page.textBoxes) ? page.textBoxes : [];
 
@@ -477,6 +612,12 @@ function renderSlideXml(page, imageRelMap = new Map(), svgRelMap = new Map()) {
       groups.get(gid).items.push({ kind: "shape", item: shape });
     } else {
       topLevelNodes.push({ kind: "shape", item: shape });
+    }
+  }
+
+  for (const table of tables) {
+    if (table && table.id) {
+      topLevelNodes.push({ kind: "table", item: table });
     }
   }
 
@@ -510,7 +651,7 @@ function renderSlideXml(page, imageRelMap = new Map(), svgRelMap = new Map()) {
       const id = nextId++;
       node.numericId = id;
       if (node.item?.id) shapeNumericIdById.set(node.item.id, id);
-    } else if (node.kind === "image" || node.kind === "text") {
+    } else if (node.kind === "table" || node.kind === "image" || node.kind === "text") {
       node.numericId = nextId++;
     } else if (node.kind === "group") {
       const g = node.group;
@@ -537,6 +678,8 @@ function renderSlideXml(page, imageRelMap = new Map(), svgRelMap = new Map()) {
   for (const node of topLevelNodes) {
     if (node.kind === "shape") {
       spTreeChildren.push(renderShapeXml(node.item, node.numericId, shapeNumericIdById));
+    } else if (node.kind === "table") {
+      spTreeChildren.push(renderTableXml(node.item, node.numericId));
     } else if (node.kind === "image") {
       spTreeChildren.push(renderPicXml(node.item, node.numericId, node.rId, node.svgRId));
     } else if (node.kind === "text") {
@@ -704,36 +847,7 @@ function buildPptxBufferFromDeckIr(ir) {
       `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>` +
     `</Relationships>`;
 
-  const themeXml =
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-    `<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="CommonToolsTheme">` +
-      `<a:themeElements>` +
-        `<a:clrScheme name="CommonTools">` +
-          `<a:dk1><a:srgbClr val="0F172A"/></a:dk1>` +
-          `<a:lt1><a:srgbClr val="FFFFFF"/></a:lt1>` +
-          `<a:dk2><a:srgbClr val="1E293B"/></a:dk2>` +
-          `<a:lt2><a:srgbClr val="F8FAFC"/></a:lt2>` +
-          `<a:accent1><a:srgbClr val="3B82F6"/></a:accent1>` +
-          `<a:accent2><a:srgbClr val="10B981"/></a:accent2>` +
-          `<a:accent3><a:srgbClr val="8B5CF6"/></a:accent3>` +
-          `<a:accent4><a:srgbClr val="F59E0B"/></a:accent4>` +
-          `<a:accent5><a:srgbClr val="EC4899"/></a:accent5>` +
-          `<a:accent6><a:srgbClr val="06B6D4"/></a:accent6>` +
-          `<a:hlink><a:srgbClr val="2563EB"/></a:hlink>` +
-          `<a:folHlink><a:srgbClr val="7C3AED"/></a:folHlink>` +
-        `</a:clrScheme>` +
-        `<a:fontScheme name="CommonToolsFonts">` +
-          `<a:majorFont><a:latin typeface="Segoe UI"/><a:ea typeface="Microsoft YaHei"/><a:cs typeface="Segoe UI"/></a:majorFont>` +
-          `<a:minorFont><a:latin typeface="Segoe UI"/><a:ea typeface="Microsoft YaHei"/><a:cs typeface="Segoe UI"/></a:minorFont>` +
-        `</a:fontScheme>` +
-        `<a:fmtScheme name="CommonToolsFmt">` +
-          `<a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst>` +
-          `<a:lnStyleLst><a:ln w="9525"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="19050"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="28575"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln></a:lnStyleLst>` +
-          `<a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst>` +
-          `<a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst>` +
-        `</a:fmtScheme>` +
-      `</a:themeElements>` +
-    `</a:theme>`;
+  const themeXml = renderThemeXml(ir.themePalette || extractAdaptiveThemePalette(ir));
 
   const coreXml =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -828,5 +942,7 @@ module.exports = {
   renderEffectsXml,
   renderPicXml,
   renderShapeXml,
-  renderTextBoxXml
+  renderTableXml,
+  renderTextBoxXml,
+  renderThemeXml
 };
