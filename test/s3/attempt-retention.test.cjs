@@ -4,26 +4,22 @@ const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 const { setTimeout: delay } = require("node:timers/promises");
-const { S3Client } = require("@aws-sdk/client-s3");
 const { Client } = require("pg");
 const { runMigrations } = require("../../packages/team-runtime/migrations");
-const { createObjectStore } = require("../../packages/remote-mcp-server/team-providers");
 const { createTeamJob, PostgresJobRepository, TeamWorker, runTeamRetention } = require("../../packages/team-runtime");
+const { startIsolatedS3 } = require("../helpers/isolated-s3.cjs");
 
-const IMAGE = "minio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e";
 const POSTGRES_IMAGE = "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297";
 function docker(args) {
   const result = spawnSync("docker", args, { encoding: "utf8", windowsHide: true, timeout: 60000, maxBuffer: 1024 * 1024 });
-  if (result.status !== 0) throw new Error("isolated S3 container command failed");
+  if (result.status !== 0) throw new Error("isolated database container command failed");
   return result.stdout.trim();
 }
 
 test("PostgreSQL and MinIO recover expired execution and retry partial retention without losing winner bytes", { timeout: 120000 }, async (t) => {
-  const secretAccessKey = crypto.randomBytes(24).toString("hex");
-  const accessKeyId = "isolated-retention";
-  const id = docker(["run", "--detach", "--rm", "--memory", "512m", "--cpus", "1", "--pids-limit", "128", "--tmpfs", "/data:rw,size=128m", "--publish", "127.0.0.1::9000", "--env", `MINIO_ROOT_USER=${accessKeyId}`, "--env", `MINIO_ROOT_PASSWORD=${secretAccessKey}`, IMAGE, "server", "/data", "--console-address", ":9001"]);
-  assert.match(id, /^[a-f0-9]{64}$/);
-  let client, databaseId;
+  const storage = await startIsolatedS3({ bucket: "attempt-fixture", accessKeyId: "isolated-retention" });
+  const { store } = storage;
+  let databaseId;
   const connections = [];
   const keepAlive = setInterval(() => {}, 1000);
   let cleanedUp = false;
@@ -31,29 +27,14 @@ test("PostgreSQL and MinIO recover expired execution and retry partial retention
     if (cleanedUp) return;
     cleanedUp = true;
     clearInterval(keepAlive);
-    if (client) client.destroy();
     try { await Promise.all(connections.map((connection) => connection.end())); }
     finally {
       try { if (databaseId) docker(["rm", "--force", databaseId]); }
-      finally { docker(["rm", "--force", id]); }
+      finally { storage.close(); }
     }
   }
   t.after(cleanup);
   try {
-    const binding = docker(["port", id, "9000/tcp"]);
-    assert.match(binding, /^127\.0\.0\.1:\d+$/);
-    const endpoint = `http://${binding}`;
-    const deadline = Date.now() + 30000;
-    let ready = false;
-    while (Date.now() < deadline) {
-      try { ready = (await fetch(`${endpoint}/minio/health/ready`, { signal: AbortSignal.timeout(1000) })).ok; } catch { ready = false; }
-      if (ready) break;
-      await delay(200);
-    }
-    assert.ok(ready, "isolated S3 did not become ready");
-    client = new S3Client({ endpoint, region: "us-east-1", forcePathStyle: true, credentials: { accessKeyId, secretAccessKey }, maxAttempts: 1, requestHandler: { requestTimeout: 3000, connectionTimeout: 1000 } });
-    const store = createObjectStore(client, "attempt-fixture", 900, { readinessRetryDelaysMs: [] });
-    await store.ensureBucket(true);
     const password = crypto.randomBytes(24).toString("hex");
     databaseId = docker(["run", "--detach", "--rm", "--memory", "256m", "--cpus", "1", "--pids-limit", "128", "--tmpfs", "/var/lib/postgresql/data:rw,size=128m", "--publish", "127.0.0.1::5432", "--env", `POSTGRES_PASSWORD=${password}`, "--env", "POSTGRES_DB=retention_test", POSTGRES_IMAGE]);
     assert.match(databaseId, /^[a-f0-9]{64}$/);
