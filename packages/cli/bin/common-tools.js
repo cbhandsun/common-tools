@@ -81,10 +81,12 @@ function requireEnabledCapability(ctx, capability) {
 }
 function newPipelineOutputRoot(workspaceRoot, output) {
   if (typeof output !== "string" || !output.trim()) throw new Error("ppt-improve pipeline requires --out");
-  const workspace = fs.realpathSync.native(workspaceRoot);
-  const root = path.resolve(workspace, output);
-  const relative = path.relative(workspace, root);
-  if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error("PPT improvement pipeline output must be a new child directory of the workspace");
+  let root;
+  try {
+    root = resolveWorkspaceChild(workspaceRoot, output, "PPT improvement pipeline output");
+  } catch {
+    throw new Error("PPT improvement pipeline output must be a new child directory of the workspace");
+  }
   if (fs.existsSync(root)) throw new Error("PPT improvement pipeline output already exists");
   return root;
 }

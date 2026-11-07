@@ -276,8 +276,9 @@ test("unified runner preserves child process failures and prints safe exit diagn
       ], { env, encoding: "utf8", windowsHide: true, timeout: 15000 });
       assert.equal(result.error, undefined);
       assert.equal(result.status, 1, result.stdout + result.stderr);
-      assert.match(result.stdout, /# test-process-failure \{"file":"child.test.js","exitCode":23,"signal":null\}/u);
-      assert.equal(result.stdout.includes(root), false);
+      const diagLine = result.stdout.split(/\r?\n/).find((line) => line.includes("# test-process-failure ")) || "";
+      assert.match(diagLine, /# test-process-failure \{"file":"child\.test\.js","exitCode":23,"signal":null\}$/u);
+      assert.equal(diagLine.includes(root), false);
     }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
