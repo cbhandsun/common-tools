@@ -245,7 +245,7 @@ function compileTextMask(sourceValue,boundsValue,inkValue,exclusionValue,maximum
     const fit=mixture(color,ink.color,mode.color);
     const measuredCore=distance(color,ink.color)<=coreRadius&&distance(color,mode.color)>=64;
     const blendSeed=fit.error<=16&&(witnessedCores<16||fit.span<=16)&&fit.alpha>=.65;
-    if(inside(x+.5,y+.5,ink)&&(measuredCore||blendSeed))coreSeed[i]=1;
+    if(measuredCore||blendSeed)coreSeed[i]=1;
   }
   const conflictingGraphic=conflictingForegroundComponents(foreground,coreSeed,bounds.w);
   /** @type {Map<string,{color:number[],count:number}>} */const pigments=new Map();
@@ -309,14 +309,6 @@ function compileTextMask(sourceValue,boundsValue,inkValue,exclusionValue,maximum
     if(touchesBoundary){rejectedBoundaryPixels+=tail;continue;}
     if(leavesTextSupport){rejectedSupportPixels+=tail;continue;}
     for(let q=0;q<tail;q++){owned[queue[q]??0]=1;ownedPixels++;}
-  }
-  if(ownedPixels>0&&(rejectedBoundaryPixels>0||rejectedSupportPixels>0)){
-    let ownedCorePixels=0;
-    for(let i=0;i<area;i++)if(seed[i]&&owned[i])ownedCorePixels++;
-    if(ownedCorePixels>=16){
-      for(let i=0;i<area;i++)if(seed[i]&&!owned[i])seed[i]=0;
-      corePixels=ownedCorePixels;
-    }
   }
   const fringe=residualInkFringe(candidates,solid,bounds.w,owned);
   for(let i=0;i<area;i++){
