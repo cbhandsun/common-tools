@@ -79,7 +79,7 @@ function versionAtLeast(value, minimum) {
 }
 function assertImageToEditableSkill(file) {
   const skill = fs.readFileSync(file, "utf8");
-  for (const marker of ["raw-image-batch-validated", "document-pages-normalized", "local-production-profile-aligned", "pixel-diff-ratio <= 0.08", "residual-native-duplicates-removed", "quality-rendered", "visual-fidelity"]) {
+  for (const marker of ["raw-image-batch-validated", "document-pages-normalized", "local-production-profile-aligned", "pixel-diff-ratio <= 0.08", "residual-native-duplicates-removed", "quality-rendered", "visual-fidelity", "common-tools team editable-source-archive --input <deck.json> --out <archive.tar.gz>", "page.source.pageImage", "deck-ir-validated", "complex-graphic-native-gate"]) {
     if (!skill.includes(marker)) throw new Error("image-to-editable Skill does not protect residual deduplication quality");
   }
   if (!file.includes(path.join("plugins", "common-tools"))) {

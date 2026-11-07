@@ -18,7 +18,10 @@ module.exports = async function compressPptxMedia(input, context) {
   fs.mkdirSync(compressDir, { recursive: true });
   const compressedPptxFile = path.join(compressDir, "deck.compressed.pptx");
   const reportFile = path.join(context.outputDir, "reports", "compression-report.json");
-  const script = path.join(context.skillRoot, "scripts", "python", "compress_pptx_media.py");
+  const scriptCandidate = path.join(context.skillRoot, "scripts", "python", "compress_pptx_media.py");
+  const script = fs.existsSync(scriptCandidate)
+    ? scriptCandidate
+    : path.resolve(__dirname, "..", "python", "compress_pptx_media.py");
   const python = process.env.PYTHON_BIN || "python";
   const config = context.config?.compress || {};
 

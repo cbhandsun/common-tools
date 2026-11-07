@@ -161,6 +161,7 @@ function auditSemanticEditability(deck, options = {}) {
       suspiciousMosaicCount += mosaicRects.length;
       if (findings.length < 100) findings.push({ code: "suspicious-raster-mosaic", pageIndex, count: mosaicRects.length });
     }
+    const hasNativeTextAndShapes = Array.isArray(page.textBoxes) && page.textBoxes.length > 0 && shapes.length > 0;
     for (const image of images) {
       if (!isRecord(image)) throw new TypeError(`semantic editability image on page ${pageIndex + 1} is invalid`);
       if (isUnverifiedCrop(image)) {
@@ -168,12 +169,19 @@ function auditSemanticEditability(deck, options = {}) {
         if (findings.length < 100) findings.push({ code: "unverified-minimum-unit-crop", pageIndex, elementId: image.id ?? null });
       }
       if (!isReconstructionImage(image)) continue;
-      const rect = boxRect(image.box);
-      const key = `${pageIndex}:${lineageKey(image)}`;
-      const lineage = rasterLineages.get(key) || [];
-      lineage.push(rect);
-      rasterLineages.set(key, lineage);
       const source = isRecord(image.source) ? image.source : {};
+      const isVerifiedHybridResidual = hasNativeTextAndShapes && (
+        (source.fullSlideResidual === true && source.textObjectified === true && source.nativeObjectsErased === true)
+        || source.tiledLargeRaster === true
+        || source.visualFallbackSource === true
+      );
+      if (!isVerifiedHybridResidual) {
+        const rect = boxRect(image.box);
+        const key = `${pageIndex}:${lineageKey(image)}`;
+        const lineage = rasterLineages.get(key) || [];
+        lineage.push(rect);
+        rasterLineages.set(key, lineage);
+      }
       if (!source.lineageId && !source.parentRasterId && !source.parentLargeRasterId && !source.sourceAssetSha256 && !source.pageImage && !image.assetPath) {
         missingRasterProvenanceCount += 1;
         if (findings.length < 100) findings.push({ code: "raster-provenance-missing", pageIndex, elementId: image.id ?? null });

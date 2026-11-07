@@ -101,6 +101,16 @@ test("remote plugin bundles use one HTTPS MCP origin for both client hosts", () 
          assert.match(capabilitySkill, new RegExp(`name: ${capability}`));
          const chineseGuide = fs.readFileSync(path.join(root, "docs", "zh-CN", `${capability}.md`), "utf8");
          assert.match(chineseGuide, /输入边界/);
+         if (capability === "image-to-editable") {
+           assert.match(capabilitySkill, /local-production-profile-aligned/);
+           assert.match(capabilitySkill, /pixel-diff-ratio <= 0\.08/);
+           assert.match(capabilitySkill, /common-tools team editable-source-archive --input <deck\.json> --out <archive\.tar\.gz>/);
+           assert.match(capabilitySkill, /deck-ir-validated/);
+           assert.match(capabilitySkill, /complex-graphic-native-gate/);
+           assert.match(chineseGuide, /common-tools team editable-source-archive --input <deck\.json> --out <archive\.tar\.gz>/);
+           assert.match(chineseGuide, /local-production-profile-aligned/);
+           assert.match(chineseGuide, /complex-graphic-native-gate/);
+         }
          if (capability === "project-audit") {
            assert.match(capabilitySkill, /Scope selection is host-neutral/);
            assert.match(capabilitySkill, /中文或英文名称/);
@@ -643,6 +653,11 @@ test("remote capability Skills are self-contained and use the team job protocol"
     } else {
       assert.doesNotMatch(skill, /\n.*common-tools plugin enable/);
       assert.doesNotMatch(skill, /\n.*common-tools (?:audit|editable|ppt-quality|ppt-improve)/);
+      if (capability === "image-to-editable") {
+        for (const marker of ["raw-image-batch-validated", "document-pages-normalized", "local-production-profile-aligned", "pixel-diff-ratio <= 0.08", "residual-native-duplicates-removed", "quality-rendered", "visual-fidelity", "common-tools team editable-source-archive --input <deck.json> --out <archive.tar.gz>", "page.source.pageImage", "deck-ir-validated", "complex-graphic-native-gate"]) {
+          assert.equal(skill.includes(marker), true, `missing image-to-editable marker: ${marker}`);
+        }
+      }
     }
   }
 });

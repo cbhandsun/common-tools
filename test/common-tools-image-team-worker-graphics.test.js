@@ -662,6 +662,13 @@ test("residual duplicate-removal gate fails closed when a residual lacks complet
   assert.deepEqual(residualDeduplicationStatus(residualDeck, { candidateObjects: 3, erasedObjects: 3 }), { required: true, passed: true, candidateObjects: 3, erasedObjects: 3 });
   assert.equal(residualDeduplicationStatus(residualDeck, { candidateObjects: 3, erasedObjects: 2 }).passed, false);
   assert.equal(residualDeduplicationStatus(residualDeck, { candidateObjects: Number.NaN, erasedObjects: 0 }).passed, false);
+  const localSelfErasedDeck = {
+    pages: [{ images: [{ id: "native-graphic-underlay-1", source: { residualCrop: true, primitiveErased: true, erasedPrimitiveCount: 22 } }] }]
+  };
+  assert.deepEqual(
+    residualDeduplicationStatus(localSelfErasedDeck, { candidateObjects: 101, erasedObjects: 0 }),
+    { required: true, passed: true, candidateObjects: 22, erasedObjects: 22 }
+  );
 });
 
 test("structured source image resolver rejects empty, malicious, missing, and ambiguous page evidence", t => {

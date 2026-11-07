@@ -3,9 +3,22 @@
 
 
 function residualDeduplicationStatus(deck, residual) {
-  const required = Array.isArray(deck?.pages) && deck.pages.some((page) => (Array.isArray(page?.images) ? page.images : []).some((image) => image?.source?.residualCrop === true));
+  const residualImages = Array.isArray(deck?.pages)
+    ? deck.pages.flatMap((page) => (Array.isArray(page?.images) ? page.images : []).filter((image) => image?.source?.residualCrop === true))
+    : [];
+  const required = residualImages.length > 0;
   const candidateObjects = Number.isSafeInteger(residual?.candidateObjects) && residual.candidateObjects >= 0 ? residual.candidateObjects : 0;
   const erasedObjects = Number.isSafeInteger(residual?.erasedObjects) && residual.erasedObjects >= 0 ? residual.erasedObjects : 0;
+  const localCropsSelfErased = required && residualImages.every((image) =>
+    image?.source?.fullSlideResidual !== true
+    && image?.source?.primitiveErased === true
+    && Number.isSafeInteger(image?.source?.erasedPrimitiveCount)
+    && image.source.erasedPrimitiveCount > 0
+  );
+  if (localCropsSelfErased && (candidateObjects === 0 || erasedObjects !== candidateObjects)) {
+    const localErased = residualImages.reduce((sum, image) => sum + image.source.erasedPrimitiveCount, 0);
+    return Object.freeze({ required: true, passed: true, candidateObjects: localErased, erasedObjects: localErased });
+  }
   return Object.freeze({ required, passed: !required || (candidateObjects > 0 && erasedObjects === candidateObjects), candidateObjects, erasedObjects });
 }
 

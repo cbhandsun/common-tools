@@ -111,17 +111,19 @@ function stableBackground(source,x,y,color) {
  * @param {readonly number[]|undefined} [requiredBackground] */
 function backgroundModes(source,bounds,ink,exclusion,requiredBackground) {
   /** @type {Map<string,Mode>} */ const buckets=new Map();
+  const isLightInk=Math.min(...ink.color)>=200;
   for(let y=bounds.y;y<bounds.y+bounds.h;y++)for(let x=bounds.x;x<bounds.x+bounds.w;x++) {
-    if(inside(x+.5,y+.5,ink))continue;
+    const inPoly=inside(x+.5,y+.5,ink);
+    if(inPoly&&!isLightInk)continue;
     // A stable patch inside a neighboring glyph is still foreground. Reject
     // witnesses whose 3x3 support intersects any admitted text polygon.
-    if(exclusion){let text=false;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(!inPoly&&exclusion){let text=false;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
       if(x+dx>=0&&x+dx<source.width&&y+dy>=0&&y+dy<source.height&&exclusion[(y+dy)*source.width+x+dx])text=true;
     }if(text)continue;}
     const o=(y*source.width+x)*4;
     if((source.rgba[o+3]??0)<64)continue;
     const color=[source.rgba[o]??0,source.rgba[o+1]??0,source.rgba[o+2]??0];
-    if(distance(color,ink.color)<64||!stableBackground(source,x,y,color))continue;
+    if(distance(color,ink.color)<(inPoly?80:64)||!stableBackground(source,x,y,color))continue;
     const key=color.map(v=>Math.round(v/16)).join(",");
     let mode=buckets.get(key);if(!mode){mode={color:[0,0,0],points:[],count:0};buckets.set(key,mode);}
     mode.count++;for(let c=0;c<3;c++)mode.color[c]=(mode.color[c]??0)+(color[c]??0);
@@ -307,6 +309,14 @@ function compileTextMask(sourceValue,boundsValue,inkValue,exclusionValue,maximum
     if(touchesBoundary){rejectedBoundaryPixels+=tail;continue;}
     if(leavesTextSupport){rejectedSupportPixels+=tail;continue;}
     for(let q=0;q<tail;q++){owned[queue[q]??0]=1;ownedPixels++;}
+  }
+  if(ownedPixels>0&&(rejectedBoundaryPixels>0||rejectedSupportPixels>0)){
+    let ownedCorePixels=0;
+    for(let i=0;i<area;i++)if(seed[i]&&owned[i])ownedCorePixels++;
+    if(ownedCorePixels>=4){
+      for(let i=0;i<area;i++)if(seed[i]&&!owned[i])seed[i]=0;
+      corePixels=ownedCorePixels;
+    }
   }
   const fringe=residualInkFringe(candidates,solid,bounds.w,owned);
   for(let i=0;i<area;i++){

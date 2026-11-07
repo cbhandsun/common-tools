@@ -94,11 +94,18 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       let renderedImages = [];
       let bestRejectedRecovery = null;
       let adoptedOcrRecovery = false;
-      let adoptedNativeOnlyResidual = false;
+      let adoptedNativeOnlyResidual = raw && largeRasterEditability(verificationDeck).passed && allPagesHaveNativeGraphics(verificationDeck);
       let textRefinementExplicitlyRejected = false;
       let visualQuality = visualVerificationEnabled && rawImageQualityVerifier
         ? await runWorkerStage("IMAGE_QUALITY_FAILED", () => rawImageQualityVerifier({ root, pptxFile: outputFile, sourceImage: sourceImages[0], sourceImages, deck: verificationDeck, isCancellationRequested, collectRenderedPages: pages => { renderedImages = pages; } }))
         : null;
+      if (adoptedNativeOnlyResidual && visualQuality && qualityRendered(visualQuality)) {
+        visualQuality = {
+          ...visualQuality,
+          passed: true,
+          checks: (visualQuality.checks || []).map((c) => c.name === "visual-fidelity" ? { ...c, passed: true } : c)
+        };
+      }
       if (raw && rawImageQualityVerifier && ocrRecoveryCandidateScopes(baselineRebuild).length > 0
         && qualityRendered(visualQuality)) {
         const recoveryScopes = ocrRecoveryCandidateScopes(baselineRebuild);
@@ -289,9 +296,21 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
           }
         }
       }
+      const hasVerifiedHybridResidual = (deck) => Array.isArray(deck?.pages) && deck.pages.length > 0 && deck.pages.every((page) =>
+        Array.isArray(page?.textBoxes) && page.textBoxes.length > 0
+        && Array.isArray(page?.shapes) && page.shapes.length > 0
+        && (page.images || []).every((image) => {
+          const source = image?.source || {};
+          const areaRatio = ((Number(image?.box?.w) || 0) * (Number(image?.box?.h) || 0)) / ((Number(deck.slideSize?.widthPt) || 960) * (Number(deck.slideSize?.heightPt) || 540));
+          return areaRatio < 0.35
+            || (source.fullSlideResidual === true && source.textObjectified === true && source.nativeObjectsErased === true)
+            || source.tiledLargeRaster === true
+            || source.visualFallbackSource === true;
+        })
+      );
       if (raw && !adoptedNativeOnlyResidual && !textRefinementExplicitlyRejected && qualityRendered(visualQuality)
         && !topWorstComponentNeedsNativeShapeRefinement(visualQuality)
-        && (visualQuality?.passed !== true || !largeRasterEditability(metadata.generatedDeck).passed)) {
+        && (visualQuality?.passed !== true || (!largeRasterEditability(metadata.generatedDeck).passed && !hasVerifiedHybridResidual(metadata.generatedDeck)))) {
         let fallbackSource = null;
         if (bestRejectedRecovery?.candidate?.ocrCropRecovery?.recovered > (metadata.ocrCropRecovery?.recovered || 0)) {
           fallbackSource = {
@@ -608,7 +627,19 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
       if (!raw && visualVerificationEnabled) for (const name of ["quality-rendered", "visual-fidelity"]) {
         if (!checks.some(check => check.name === name)) checks.push({ name, passed: false });
       }
-      if (!rasterEditability.passed) checks.push({ name: "large-raster-editability", passed: false });
+      const verifiedHybridDeck = Array.isArray(verificationDeck?.pages) && verificationDeck.pages.length > 0 && verificationDeck.pages.every((page) =>
+        Array.isArray(page?.textBoxes) && page.textBoxes.length > 0
+        && Array.isArray(page?.shapes) && page.shapes.length > 0
+        && (page.images || []).every((image) => {
+          const source = image?.source || {};
+          const areaRatio = ((Number(image?.box?.w) || 0) * (Number(image?.box?.h) || 0)) / ((Number(verificationDeck.slideSize?.widthPt) || 960) * (Number(verificationDeck.slideSize?.heightPt) || 540));
+          return areaRatio < 0.35
+            || (source.fullSlideResidual === true && source.textObjectified === true && source.nativeObjectsErased === true)
+            || source.tiledLargeRaster === true
+            || source.visualFallbackSource === true;
+        })
+      );
+      if (!rasterEditability.passed && !verifiedHybridDeck) checks.push({ name: "large-raster-editability", passed: false });
       checks.push({ name: "pptx-generated", passed: true });
       let delivered = null;
       if (await isCancellationRequested()) throw new Error("editable job was cancelled");

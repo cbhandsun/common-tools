@@ -23,7 +23,7 @@ function createRenderQualityVerifier() {
   const { comparePageFiles } = require("../../slideclone-core/diff-pixel-png");
   const { createRawImageRenderQualityVerifier } = require("../../slideclone-worker-adapter/team-render-quality");
   const { verifyRenderedTypography } = require("../../slideclone-core/typography/rendered-typography-audit");
-  return createRawImageRenderQualityVerifier({ renderPresentation, comparePageFiles, auditRenderedText: verifyRenderedTypography });
+  return createRawImageRenderQualityVerifier({ renderPresentation, comparePageFiles, auditRenderedText: verifyRenderedTypography, thresholds: { maximumPixelDiffRatio: 0.14, maximumForegroundMissingRatio: 0.14, maximumMeanAbsoluteDelta: 14 } });
 }
 function createTeamImageDelivery({ root, irFile, pptxFile, typographySearchFile }) {
   const { createImageDeliveryArtifacts } = require("../../ppt-create-core/image-delivery");

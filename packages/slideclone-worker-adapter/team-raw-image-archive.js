@@ -110,11 +110,38 @@ function createRawImageArchive({ inputFile, inputFiles, outputFile, semanticFall
   return Object.freeze({ archive: outputFile, contentType: "application/gzip", contentLength: archive.length, sha256: sha256(archive), pages: sources.length, sources: Object.freeze(sourceDetails), ...(semanticFallback ? { semanticFallback: "assets/semantic-fallback.json" } : {}), ...(sources.length === 1 ? { source: sourceDetails[0] } : {}) });
 }
 
+function createSvgEditableArchive({ inputFile, inputFiles, outputFile }) {
+  const files = inputFiles === undefined ? [inputFile] : inputFiles;
+  if (!Array.isArray(files) || files.length < 1 || files.length > MAX_RAW_IMAGE_ARCHIVE_PAGES || files.some((file) => typeof file !== "string") || new Set(files).size !== files.length) {
+    throw new TypeError("SVG archive inputs must contain one to twenty unique .svg files");
+  }
+  assertNewOutput(outputFile);
+  const { compileSvgFilesToDeckIr } = require("../slideclone-core/svg/svg-to-deck-ir");
+  const { validateDeckIr } = require("../slideclone-core/deck-ir-admission");
+  const deck = compileSvgFilesToDeckIr(files);
+  validateDeckIr(deck, path.dirname(files[0]));
+  const deckBody = Buffer.from(`${JSON.stringify(deck)}\n`, "utf8");
+  const archive = require("node:zlib").gzipSync(Buffer.concat([tarEntry("deck.json", deckBody), Buffer.alloc(1024)]), { level: 9 });
+  const temporary = `${outputFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temporary, archive, { mode: 0o600, flag: "wx" });
+    fs.renameSync(temporary, outputFile);
+  } catch (error) { try { fs.rmSync(temporary, { force: true }); } catch { /* Preserve the primary archive creation failure. */ } throw error; }
+  return Object.freeze({ archive: outputFile, contentType: "application/gzip", contentLength: archive.length, sha256: sha256(archive), pages: deck.pages.length, assets: 0, kind: "deck-ir", sourceKind: "svg" });
+}
+
 function createEditableSourceArchive({ inputFile, inputFiles, outputFile, semanticFallbackFile }) {
   const extension = path.extname(String(inputFile || "")).toLowerCase();
   if (inputFiles === undefined && extension === ".json") {
     if (semanticFallbackFile !== undefined) throw new Error("semantic fallback metadata is only supported for raw image archives");
     return require("./team-structured-deck-archive").createStructuredDeckArchive({ inputFile, outputFile });
+  }
+  const allSvg = inputFiles !== undefined
+    ? Array.isArray(inputFiles) && inputFiles.length > 0 && inputFiles.every((file) => typeof file === "string" && path.extname(file).toLowerCase() === ".svg")
+    : extension === ".svg";
+  if (allSvg) {
+    if (semanticFallbackFile !== undefined) throw new Error("semantic fallback metadata is only supported for raw image archives");
+    return createSvgEditableArchive({ inputFile, inputFiles, outputFile });
   }
   if (inputFiles !== undefined || !EDITABLE_DOCUMENT_EXTENSIONS.has(extension)) return createRawImageArchive({ inputFile, inputFiles, outputFile, semanticFallbackFile });
   if (semanticFallbackFile !== undefined) throw new Error("semantic fallback metadata is only supported for raw image archives");
@@ -131,4 +158,4 @@ function createEditableSourceArchive({ inputFile, inputFiles, outputFile, semant
   return Object.freeze({ archive: outputFile, contentType: "application/gzip", contentLength: archive.length, sha256: sha256(archive), pages: admitted.pages, source: Object.freeze({ assetPath, bytes: admitted.bytes, kind: admitted.kind }) });
 }
 
-module.exports = { MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES, MAX_RAW_IMAGE_ARCHIVE_PAGES, MAX_RAW_IMAGE_ARCHIVE_TOTAL_BYTES, RAW_IMAGE_EXTENSIONS, createEditableSourceArchive, createRawImageArchive, tarEntry };
+module.exports = { MAX_RAW_IMAGE_ARCHIVE_INPUT_BYTES, MAX_RAW_IMAGE_ARCHIVE_PAGES, MAX_RAW_IMAGE_ARCHIVE_TOTAL_BYTES, RAW_IMAGE_EXTENSIONS, createEditableSourceArchive, createRawImageArchive, createSvgEditableArchive, tarEntry };

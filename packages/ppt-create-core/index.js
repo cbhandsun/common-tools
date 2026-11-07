@@ -212,4 +212,6 @@ const CAPABILITY_MODULE = Object.freeze({
   uiContributions: Object.freeze([])
 });
 
-module.exports = { ARTIFACT_NAMES, CAPABILITY, CAPABILITY_MODULE, PDF_MEDIA_TYPE, PPTX_MEDIA_TYPE, REGISTRATION, createPptCreateJob, creationReport, pptCreateSummary, qualityFor, renderMarkdown, runPptCreateJob };
+const { createDeckIrFromSvgSlides, embedSvgIntoSlidePage } = require("./svg-deck");
+
+module.exports = { ARTIFACT_NAMES, CAPABILITY, CAPABILITY_MODULE, PDF_MEDIA_TYPE, PPTX_MEDIA_TYPE, REGISTRATION, createDeckIrFromSvgSlides, createPptCreateJob, creationReport, embedSvgIntoSlidePage, pptCreateSummary, qualityFor, renderMarkdown, runPptCreateJob };

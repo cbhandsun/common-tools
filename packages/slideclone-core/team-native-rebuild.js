@@ -315,10 +315,9 @@ function addSolidRegionNativeBackgrounds(page = {}, slideSize = {}, sourceFile) 
       source: {
         ...(shape.source || {}),
         detector: "solid-region-native-background",
-          componentQualityIgnore: true,
+        componentQualityIgnore: true,
         semanticNativeStructure: true,
-        preserveResidualInterior: true,
-        residualBackgroundFill: true
+        preserveResidualInterior: true
       }
     }));
   if (regions.length === 0) return 0;
@@ -623,11 +622,12 @@ function shouldOmitFullSlideResidual(semanticNative) {
 function shouldOmitFullSlideResidualAfterOcrRecovery(page = {}, slideSize = {}, ocrCropRecovery = {}) {
   const pageArea = Number(slideSize.widthPt || 0) * Number(slideSize.heightPt || 0);
   if (!Number.isFinite(pageArea) || pageArea <= 0) return false;
-  if (Number(ocrCropRecovery.recovered || 0) < 5 || Number(ocrCropRecovery.cropsErased || 0) < 1) return false;
   const localImages = Array.isArray(page.images)
     ? page.images.filter((image) => image?.source?.fullSlideResidual !== true && image?.box)
     : [];
   if (localImages.length === 0) return false;
+  const hasRecoveredCropText = Number(ocrCropRecovery.recovered || 0) >= 5 && Number(ocrCropRecovery.cropsErased || 0) >= 1;
+  if (!hasRecoveredCropText) return false;
   const areas = localImages.map((image) => Number(image.box.w || 0) * Number(image.box.h || 0) / pageArea)
     .filter((value) => Number.isFinite(value) && value > 0);
   if (areas.length === 0) return false;
@@ -1256,6 +1256,22 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
       }
       generatedDeck.meta = { ...generatedDeck.meta, sourceSceneCompilation: compilationEvidence };
     }
+    let diagramSceneExtracted = false;
+    if (!sceneReview?.plan) {
+      const { extractDiagramNativeScene } = require("./diagram-native-scene-extractor");
+      const extractedScene = extractDiagramNativeScene({
+        page: generatedDeck.pages[0],
+        slideSize: generatedDeck.slideSize,
+        sourceFile,
+        root
+      });
+      if (extractedScene && Array.isArray(extractedScene.shapes) && extractedScene.shapes.length > 0) {
+        generatedDeck.pages[0].shapes = extractedScene.shapes;
+        generatedDeck.pages[0].images = extractedScene.images;
+        generatedDeck.pages[0].textBoxes = extractedScene.textBoxes;
+        diagramSceneExtracted = true;
+      }
+    }
       if(sceneReview?.graphics?.length)generatedDeck.pages[0].images.push(...mapReviewedSceneGraphics(sceneReview.graphics,metadata.dimensions,generatedDeck.slideSize));
     if(sceneReview)generatedDeck.pages[0]=withReviewedGraphicEvidence(generatedDeck.pages[0],sceneReview.evidence);
     if (createFullSlideResidual) {
@@ -1263,16 +1279,37 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
       const page = generatedDeck?.pages?.[0];
       const slideSize = generatedDeck?.slideSize;
       if (!page || !Array.isArray(page.textBoxes) || !Number.isFinite(slideSize?.widthPt) || !Number.isFinite(slideSize?.heightPt)) throw new Error("native image rebuild produced an invalid page");
-      const localFidelityImages = preserveLocalFidelityImages ? [...(Array.isArray(page.images) ? page.images : [])] : [];
-      const omitFullSlideResidual = admittedSourceDeck.meta.ocrAdmission.rasterFallbackGlyphs === 0
+      const localFidelityImages = (preserveLocalFidelityImages || diagramSceneExtracted) ? [...(Array.isArray(page.images) ? page.images : [])] : [];
+      const omitFullSlideResidual = diagramSceneExtracted || (admittedSourceDeck.meta.ocrAdmission.rasterFallbackGlyphs === 0
         && (shouldOmitFullSlideResidual(semanticNative)
-          || shouldOmitFullSlideResidualAfterOcrRecovery(page, slideSize, ocrCropRecovery));
+          || shouldOmitFullSlideResidualAfterOcrRecovery(page, slideSize, ocrCropRecovery)));
       if (omitFullSlideResidual) {
         ungroupHybridOverlayObjects(page,sceneGroupReceipt,sceneOpenOwnerReceipt);
         page.images = localFidelityImages;
         generatedDeck.meta = { ...(generatedDeck.meta || {}), semanticNative, reconstructionProfile: PRODUCTION_PROFILE_NAME, preservedLocalFidelityImages: localFidelityImages.length, fullSlideResidualOmitted: true, residualDeduplication: { candidateObjects: 0, erasedObjects: 0 } };
       } else {
-      const eraseObjects = residualEraseObjects(page, { includeLocalFidelityImages: preserveLocalFidelityImages });
+      const droppedUnderlayIds = new Set(
+        localFidelityImages
+          .filter((img) => img?.source?.detector === "segmented-foreground-graphic-underlay-crop" && img?.id)
+          .map((img) => String(img.id))
+      );
+      if (droppedUnderlayIds.size > 0 && Array.isArray(page.shapes)) {
+        page.shapes = page.shapes.filter((s) => {
+          const sid = String(s?.id || "");
+          for (const uid of droppedUnderlayIds) {
+            if (sid.startsWith(`${uid}-visual-atom-`)) return false;
+          }
+          return true;
+        });
+      }
+      const residualLocalImages = localFidelityImages.filter((img) => img?.source?.detector !== "segmented-foreground-graphic-underlay-crop");
+      page.images = residualLocalImages;
+      page.textBoxes = filterBoundaryAttachedWatermarkTextBoxes(page.textBoxes, slideSize, sourceRaster);
+      const eraseObjects = calibrateSnappedTextColorsForResidual(
+        residualEraseObjects(page, { includeLocalFidelityImages: preserveLocalFidelityImages }),
+        slideSize,
+        sourceRaster
+      );
       const residualBranch = await attemptSourceResidual(() => createFullSlideResidual({
         sourceFile,
         outputFile: path.join(root, ...residualAssetPath.split("/")),
@@ -1317,8 +1354,8 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
           strategy: "full-slide-object-erased-residual",
           nonEditableReason: "Complex pictorial details are preserved after independently editable text and native objects are removed from the residual."
         }
-      }, ...localFidelityImages];
-      generatedDeck.meta = { ...(generatedDeck.meta || {}), semanticNative, reconstructionProfile: PRODUCTION_PROFILE_NAME, preservedLocalFidelityImages: localFidelityImages.length, residualDeduplication: { candidateObjects: eraseObjects.length, erasedObjects: residual.erasedObjects } };
+      }, ...residualLocalImages];
+      generatedDeck.meta = { ...(generatedDeck.meta || {}), semanticNative, reconstructionProfile: PRODUCTION_PROFILE_NAME, preservedLocalFidelityImages: residualLocalImages.length, residualDeduplication: { candidateObjects: eraseObjects.length, erasedObjects: residual.erasedObjects } };
       }
       }
     }
@@ -1387,6 +1424,99 @@ function createRawImageNativeRebuilder({ rebuildDeckFromWorkDir, normalizeImageF
   });
 }
 
+function filterBoundaryAttachedWatermarkTextBoxes(textBoxes = [], slideSize = {}, sourceRaster) {
+  if (!Array.isArray(textBoxes) || !sourceRaster || !Number.isFinite(slideSize?.widthPt) || !Number.isFinite(slideSize?.heightPt)) return textBoxes;
+  const { sourceTextEraseMask } = require("./typography/residual-source-text-evidence");
+  const { compileResidualTextMask } = require("./typography/residual-text-mask");
+  return textBoxes.filter((tb) => {
+    if (!tb || typeof tb !== "object" || typeof tb.text !== "string" || !isFiniteBox(tb.box)) return true;
+    if (tb.box.y + tb.box.h < slideSize.heightPt * 0.94 || tb.box.x + tb.box.w < slideSize.widthPt * 0.85) return true;
+    try {
+      const mask = sourceTextEraseMask(tb, sourceRaster, slideSize);
+      const plan = compileResidualTextMask(sourceRaster, mask, mask.textInk);
+      if (plan && plan.ownedPixels === 0 && plan.rejectedBoundaryPixels > 0) return false;
+    } catch {
+      return true;
+    }
+    return true;
+  });
+}
+
+function calibrateSnappedTextColorsForResidual(eraseObjects = [], slideSize = {}, sourceRaster) {
+  if (!Array.isArray(eraseObjects) || !sourceRaster || !Number.isFinite(slideSize?.widthPt) || !Number.isFinite(slideSize?.heightPt)) return eraseObjects;
+  const { sourceTextEraseMask } = require("./typography/residual-source-text-evidence");
+  const { compileResidualTextMask, insideTextPolygon } = require("./typography/residual-text-mask");
+  const chebyshev = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
+  return eraseObjects.map((textBox) => {
+    if (!textBox || typeof textBox !== "object" || typeof textBox.text !== "string") return textBox;
+    const rawColor = typeof textBox.font?.color === "string" ? textBox.font.color.toUpperCase() : "";
+    if (!/^#[0-9A-F]{6}$/u.test(rawColor)) return textBox;
+    let mask, plan;
+    try {
+      mask = sourceTextEraseMask(textBox, sourceRaster, slideSize);
+      plan = compileResidualTextMask(sourceRaster, mask, mask.textInk);
+    } catch {
+      return textBox;
+    }
+    const ink = mask.textInk;
+    const isLightInk = Math.min(...ink.color) >= 200;
+    if (!plan || plan.corePixels >= (isLightInk ? 160 : 16)) return textBox;
+    const bgBuckets = new Map();
+    for (let y = mask.y; y < mask.y + mask.h; y += 1) {
+      for (let x = mask.x; x < mask.x + mask.w; x += 1) {
+        const inPoly = insideTextPolygon(x + 0.5, y + 0.5, ink);
+        if (inPoly && !isLightInk) continue;
+        const o = (y * sourceRaster.width + x) * 4;
+        if ((sourceRaster.rgba[o + 3] ?? 0) < 64) continue;
+        const c = [sourceRaster.rgba[o] ?? 0, sourceRaster.rgba[o + 1] ?? 0, sourceRaster.rgba[o + 2] ?? 0];
+        if (chebyshev(c, ink.color) < (inPoly ? 80 : 64)) continue;
+        const k = c.map((v) => Math.round(v / 16)).join(",");
+        let b = bgBuckets.get(k);
+        if (!b) { b = { sum: [0, 0, 0], count: 0 }; bgBuckets.set(k, b); }
+        b.count += 1;
+        b.sum[0] += c[0]; b.sum[1] += c[1]; b.sum[2] += c[2];
+      }
+    }
+    const topBg = [...bgBuckets.values()].filter((b) => b.count >= 4).sort((a, b) => b.count - a.count)[0];
+    if (!topBg) return textBox;
+    const bgColor = topBg.sum.map((v) => Math.round(v / topBg.count));
+    const fgBuckets = new Map();
+    for (let y = mask.y; y < mask.y + mask.h; y += 1) {
+      for (let x = mask.x; x < mask.x + mask.w; x += 1) {
+        if (!insideTextPolygon(x + 0.5, y + 0.5, ink)) continue;
+        const o = (y * sourceRaster.width + x) * 4;
+        if ((sourceRaster.rgba[o + 3] ?? 0) < 64) continue;
+        const c = [sourceRaster.rgba[o] ?? 0, sourceRaster.rgba[o + 1] ?? 0, sourceRaster.rgba[o + 2] ?? 0];
+        const distBg = chebyshev(c, bgColor);
+        const distInk = chebyshev(c, ink.color);
+        if (distBg < 48 || distInk <= 18 || distInk > 165) continue;
+        const dot = (c[0] - bgColor[0]) * (ink.color[0] - bgColor[0]) + (c[1] - bgColor[1]) * (ink.color[1] - bgColor[1]) + (c[2] - bgColor[2]) * (ink.color[2] - bgColor[2]);
+        if (dot <= 0) continue;
+        const k = c.map((v) => v >> 4).join(",");
+        let b = fgBuckets.get(k);
+        if (!b) { b = { sum: [0, 0, 0], count: 0 }; fgBuckets.set(k, b); }
+        b.count += 1;
+        b.sum[0] += c[0]; b.sum[1] += c[1]; b.sum[2] += c[2];
+      }
+    }
+    const topFg = [...fgBuckets.values()].filter((b) => b.count >= 4).sort((a, b) => b.count - a.count)[0];
+    if (!topFg) return textBox;
+    const fgRgb = topFg.sum.map((v) => Math.max(0, Math.min(255, Math.round(v / topFg.count))));
+    const hex = `#${fgRgb.map((v) => v.toString(16).padStart(2, "0")).join("").toUpperCase()}`;
+    try {
+      const candidateTb = { ...textBox, font: { ...(textBox.font || {}), color: hex } };
+      const candidateMask = sourceTextEraseMask(candidateTb, sourceRaster, slideSize);
+      const candidatePlan = compileResidualTextMask(sourceRaster, candidateMask, candidateMask.textInk);
+      if (candidatePlan && candidatePlan.corePixels >= Math.max(4, (plan.corePixels || 0) * 2) && candidatePlan.rejectedBoundaryPixels === 0 && candidatePlan.rejectedSupportPixels === 0) {
+        return candidateTb;
+      }
+    } catch {
+      // Leave uncalibrated if validation fails.
+    }
+    return textBox;
+  });
+}
+
 function expandVisiblePositionedMixedColorTextSegments(page = {}) {
   if (!Array.isArray(page.textBoxes)) return 0;
   let changed = 0;
@@ -1416,4 +1546,4 @@ function expandVisiblePositionedMixedColorTextSegments(page = {}) {
   return changed;
 }
 
-module.exports = { assessOcrRecovery, addFinalTextGroupNativeComponents, addLowContrastFooterNativeMarks, addRecoveredLineTextNativeComponents, addSourceOcrLineTextNativeComponents, auditNativeComponentQuality, boundedOcrSourceDeck, correctContextualOcrLines, createRawImageNativeRebuilder, dropSolidRegionsCoveredByLineTextPanels, expandVisiblePositionedMixedColorTextSegments, largeRasterEditability, mayRecoverOcrCropText, nativeObjectMetrics, normalizeSourceAssetProvenance, ocrRecoveryCandidateScopes, promoteLineTextCropOcrText, promoteSourceOcrTextInNativeLineTextShapes, qualityRendered, rasterEditabilityDoesNotRegress, residualEraseObjects, selectNativeRebuildCandidate, selectOcrRecovery, shouldOmitFullSlideResidual, shouldOmitFullSlideResidualAfterOcrRecovery, shouldStopOcrRecoverySearch, shouldSuppressSolidRegionDueToLineTextPanel, tileLargeReconstructionRasters, ungroupHybridOverlayObjects, visualQualityDoesNotRegress, writeTextErasedVisualFallbackAsset };
+module.exports = { assessOcrRecovery, addFinalTextGroupNativeComponents, addLowContrastFooterNativeMarks, addRecoveredLineTextNativeComponents, addSourceOcrLineTextNativeComponents, auditNativeComponentQuality, boundedOcrSourceDeck, calibrateSnappedTextColorsForResidual, correctContextualOcrLines, createRawImageNativeRebuilder, dropSolidRegionsCoveredByLineTextPanels, expandVisiblePositionedMixedColorTextSegments, largeRasterEditability, mayRecoverOcrCropText, nativeObjectMetrics, normalizeSourceAssetProvenance, ocrRecoveryCandidateScopes, promoteLineTextCropOcrText, promoteSourceOcrTextInNativeLineTextShapes, qualityRendered, rasterEditabilityDoesNotRegress, residualEraseObjects, selectNativeRebuildCandidate, selectOcrRecovery, shouldOmitFullSlideResidual, shouldOmitFullSlideResidualAfterOcrRecovery, shouldStopOcrRecoverySearch, shouldSuppressSolidRegionDueToLineTextPanel, tileLargeReconstructionRasters, ungroupHybridOverlayObjects, visualQualityDoesNotRegress, writeTextErasedVisualFallbackAsset };

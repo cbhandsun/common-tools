@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { insideRoot } = require("../capability-runtime");
-const { createPrintableHtml, deckIrFingerprint, inspectHtml, inspectPdf, inspectPptx } = require("./export");
+const { createPrintableHtml, deckIrFingerprint, effectiveText, effectiveTextBox, effectiveTextRotation, effectiveTextSizePt, inspectHtml, inspectPdf, inspectPptx } = require("./export");
 const { createIrPreviewHtml, validateEditableIr } = require("./ir-editor");
 
 const MAX_PIPELINE_REPORT_BYTES = 2 * 1024 * 1024;
@@ -54,6 +54,14 @@ function rewriteDeliveredAssets(ir, irFile, outputRoot) {
       const relative = path.relative(root, candidate);
       if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error("Deck IR image asset must stay inside the output directory");
       image.assetPath = relative.split(path.sep).join("/");
+    }
+    for (const textBox of page.textBoxes || []) {
+      if (plainObject(textBox) && plainObject(textBox.font) && (Boolean(textBox.source?.ocrProvider) || Array.isArray(textBox.positionedRuns))) {
+        textBox.text = effectiveText(textBox);
+        textBox.box = effectiveTextBox(textBox);
+        textBox.rotation = effectiveTextRotation(textBox);
+        textBox.font.sizePt = effectiveTextSizePt(textBox);
+      }
     }
   }
   return validateEditableIr(draft);
@@ -126,14 +134,22 @@ function auditDeliveryPageSemantics(page, slideSize, policy) {
     if (isRasterDerivedPrimitive(shape)) rasterDerivedPrimitiveCount += 1;
     else if (isSuspiciousRasterMosaicRect(shape, slideArea)) suspiciousMosaicCount += 1;
   }
+  const hasNativeTextAndShapes = (page.textBoxes || []).length > 0 && (page.shapes || []).length > 0;
   for (const image of page.images || []) {
     const source = plainObject(image?.source) ? image.source : {};
     if (source.protectedMinimumUnit === true && source.cropEvidenceRequired !== true) unverifiedCropCount += 1;
     if (!isReconstructionImage(image)) continue;
-    const key = lineageKey(image);
-    const boxes = rasterLineages.get(key) || [];
-    boxes.push(image.box);
-    rasterLineages.set(key, boxes);
+    const isVerifiedHybridResidual = hasNativeTextAndShapes && (
+      (source.fullSlideResidual === true && source.textObjectified === true && source.nativeObjectsErased === true)
+      || source.tiledLargeRaster === true
+      || source.visualFallbackSource === true
+    );
+    if (!isVerifiedHybridResidual) {
+      const key = lineageKey(image);
+      const boxes = rasterLineages.get(key) || [];
+      boxes.push(image.box);
+      rasterLineages.set(key, boxes);
+    }
     if (!source.lineageId && !source.parentRasterId && !source.parentLargeRasterId && !source.sourceAssetSha256 && !source.pageImage && !image.assetPath) {
       missingRasterProvenanceCount += 1;
     }
@@ -179,16 +195,27 @@ function createPreservationPlan(ir, rawPolicy = {}) {
     const nativeConnectors = (page.shapes || []).filter((shape) => shape?.type === "line" || shape?.type === "connector" || shape?.source?.connector === true).length;
     const editabilityTier = nativeObjects === 0 ? "raster-only" : nativeCategories >= 2 || nativeObjects >= 6 ? "native-complex" : residualImages > 0 ? "native-hybrid" : "native-basic";
     const slideArea = ir.slideSize.widthPt * ir.slideSize.heightPt;
-    const nativeBoxes = ["textBoxes", "shapes", "tables", "charts", "icons"].flatMap((name) => (page[name] || []).filter((item) => item?.source?.preserveResidualInterior !== true).map((item) => item.box));
+    const nativeBoxes = ["textBoxes", "shapes", "tables", "charts", "icons"].flatMap((name) => (page[name] || []).filter((item) => item?.source?.preserveResidualInterior !== true || item?.source?.semanticNativeStructure === true).map((item) => item.box));
     const residualImagesForArea = (page.images || []);
     const residualBoxes = residualImagesForArea.map((item) => item.box); const nativeAreaRatio = unionArea(nativeBoxes, ir.slideSize) / slideArea; const residualAreaRatio = unionArea(residualBoxes, ir.slideSize) / slideArea;
     const largestResidualAreaRatio = residualBoxes.reduce((maximum, box) => { const clipped = clippedBox(box, ir.slideSize); return Math.max(maximum, clipped ? (clipped.right - clipped.left) * (clipped.bottom - clipped.top) / slideArea : 0); }, 0);
     const visualFallbackErasedTextBoxes = residualImagesForArea.reduce((sum, image) => sum + Number(image?.source?.erasedNativeTextBoxes || 0), 0);
-    const rasterBackgroundException = page.intent?.rasterBackgroundAllowed === true
+    const verifiedHybridResidualException = (page.textBoxes || []).length > 0
+      && (page.shapes || []).length > 0
+      && residualImagesForArea.length > 0
+      && residualImagesForArea.every((image) => {
+        const source = plainObject(image?.source) ? image.source : {};
+        return !isReconstructionImage(image)
+          || (source.fullSlideResidual === true && source.textObjectified === true && source.nativeObjectsErased === true)
+          || source.tiledLargeRaster === true
+          || source.visualFallbackSource === true
+          || ((Number(image?.box?.w) || 0) * (Number(image?.box?.h) || 0) / slideArea <= policy.maxLargestResidualAreaRatio);
+      });
+    const rasterBackgroundException = (page.intent?.rasterBackgroundAllowed === true
       && page.intent?.primarySemanticStructureNative === true
       && nativeObjects >= Math.max(policy.minNativeObjects, 12)
       && nativeConnectors >= 6
-      && nativeAreaRatio >= policy.minNativeAreaRatio;
+      && nativeAreaRatio >= policy.minNativeAreaRatio) || verifiedHybridResidualException;
     const visualFallbackEvidence = VERIFIED_VISUAL_FALLBACK_STRATEGIES.has(ir.meta?.visualFallback?.strategy)
       && page.intent?.visualFallbackVerified === true
       && VERIFIED_VISUAL_FALLBACK_STRATEGIES.has(page.intent?.visualFallbackStrategy)

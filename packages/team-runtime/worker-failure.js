@@ -100,6 +100,7 @@ async function runWorkerStage(code, operation) {
   try { return await operation(); }
   catch (error) {
     status = "failed";
+    process.stderr.write(`[worker-stage-error] ${code}: ${error instanceof Error ? error.stack || error.message : String(error)}\n`);
     if (error instanceof WorkerFailure && isFailureCode(error.code)) throw error;
     throw new WorkerFailure(code, { cause: error });
   } finally {

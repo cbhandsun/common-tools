@@ -157,6 +157,39 @@ function validateIr(ir, options = {}) {
   return { ok: errors.length === 0, errors, warnings };
 }
 
+function stageStructuredDeckPageSources(ir, { irDir } = {}) {
+  if (!ir || typeof ir !== "object" || !Array.isArray(ir.pages) || !irDir) return;
+  for (let pageIdx = 0; pageIdx < ir.pages.length; pageIdx += 1) {
+    const page = ir.pages[pageIdx];
+    if (!page || typeof page !== "object" || Array.isArray(page)) continue;
+    const candidate = (typeof page.source?.pageImage === "string" && page.source.pageImage.trim()) || page.sourceImage;
+    const resolved = resolveIrPath(irDir, candidate);
+    if (!resolved || !fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) continue;
+    const ext = path.extname(resolved).toLowerCase();
+    if (!/^\.(?:png|jpe?g|bmp|gif|tiff)$/i.test(ext)) continue;
+    const relPageAsset = `assets/source-${String(pageIdx + 1).padStart(3, "0")}${ext}`;
+    const destFile = path.join(irDir, ...relPageAsset.split("/"));
+    ensureDir(path.dirname(destFile));
+    if (path.resolve(resolved) !== path.resolve(destFile)) {
+      fs.copyFileSync(resolved, destFile);
+    }
+    page.source = {
+      ...(page.source && typeof page.source === "object" && !Array.isArray(page.source) ? page.source : {}),
+      pageImage: relPageAsset
+    };
+    for (const key of ["textBoxes", "shapes", "images", "tables", "charts", "icons"]) {
+      for (const item of Array.isArray(page[key]) ? page[key] : []) {
+        if (item?.source && typeof item.source === "object" && !Array.isArray(item.source)) {
+          const currentPageImage = item.source.pageImage;
+          if (typeof currentPageImage !== "string" || !currentPageImage.startsWith("assets/") || currentPageImage.includes("\\")) {
+            item.source.pageImage = relPageAsset;
+          }
+        }
+      }
+    }
+  }
+}
+
 function prepareReconstructionIrForBuild(ir, options = {}) {
   const irFile = path.resolve(options.irFile || path.join(process.cwd(), "deck.json"));
   const baseDir = path.dirname(irFile);
@@ -417,6 +450,7 @@ async function runCommand(args) {
   ir.pages = pagePipeline.pages;
 
   const irFile = path.join(outputDir, "ir", "deck.json");
+  stageStructuredDeckPageSources(ir, { irDir: path.dirname(irFile) });
   let prepared = prepareReconstructionIrForBuild(ir, { irFile, checkFiles: true });
   let enrichedIr = prepared.ir;
   writeJson(irFile, enrichedIr);
