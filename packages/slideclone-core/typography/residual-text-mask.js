@@ -313,7 +313,7 @@ function compileTextMask(sourceValue,boundsValue,inkValue,exclusionValue,maximum
   if(ownedPixels>0&&(rejectedBoundaryPixels>0||rejectedSupportPixels>0)){
     let ownedCorePixels=0;
     for(let i=0;i<area;i++)if(seed[i]&&owned[i])ownedCorePixels++;
-    if(ownedCorePixels>=4){
+    if(ownedCorePixels>=16){
       for(let i=0;i<area;i++)if(seed[i]&&!owned[i])seed[i]=0;
       corePixels=ownedCorePixels;
     }

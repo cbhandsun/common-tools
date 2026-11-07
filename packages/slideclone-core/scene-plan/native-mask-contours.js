@@ -18,7 +18,7 @@ function traceNativeMaskContours(points, box, { maxSegments = 120, tolerancePx =
     || typeof workState.exhausted !== "boolean")) throw new TypeError("Invalid native contour work state");
   if (typeof fastFail !== "boolean" || typeof connectDiagonal !== "boolean") throw new TypeError("Invalid native contour mode");
   if (!Array.isArray(points) || !points.length || !box || ![box.x, box.y, box.w, box.h].every(Number.isSafeInteger)
-    || box.x < 0 || box.y < 0 || box.w <= 0 || box.h <= 0 || box.w > 16384 || box.h > 16384 || box.w * box.h > 2_000_000
+    || box.x < 0 || box.y < 0 || box.w <= 0 || box.h <= 0 || ((box.w === 1 || box.h === 1) ? box.w * box.h > 1_000_000 : (box.w > 16384 || box.h > 16384 || box.w * box.h > 2_000_000))
     || !Number.isSafeInteger(box.x + box.w) || !Number.isSafeInteger(box.y + box.h)
     || points.length > 1_000_000 || !Number.isInteger(maxSegments) || maxSegments < 4 || maxSegments > 120
     || !Number.isFinite(tolerancePx) || tolerancePx < 0 || tolerancePx > 2 || typeof outerOnly !== "boolean"||typeof curveFallback!=="boolean"||typeof minimizeSegments!=="boolean") throw new TypeError("Invalid native contour input");

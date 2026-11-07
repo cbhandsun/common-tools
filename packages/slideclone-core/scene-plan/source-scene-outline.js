@@ -22,7 +22,7 @@ const {visualAxisOwnedBySourceOutline}=require('./source-outline-axis-retirement
  * @param {{width:number,height:number}} image @param {Box} hint @param {number} [expansion] */
 function sceneOutlineWindow(image,hint,expansion=1){
  if(expansion!==1&&expansion!==2)throw new TypeError('Scene outline observation expansion is invalid');
- let margin=Math.min(28,Math.min(28,Math.max(8,Math.ceil(Math.min(hint.w,hint.h)*.05)))*expansion);while(expansion===1&&margin>18&&(Math.min(image.width,Math.ceil(hint.x+hint.w+margin))-Math.max(0,Math.floor(hint.x-margin)))*(Math.min(image.height,Math.ceil(hint.y+hint.h+margin))-Math.max(0,Math.floor(hint.y-margin)))-Math.max(0,Math.min(image.width,Math.ceil(hint.x+hint.w+margin))-Math.max(0,Math.floor(hint.x-margin))-4*margin)*Math.max(0,Math.min(image.height,Math.ceil(hint.y+hint.h+margin))-Math.max(0,Math.floor(hint.y-margin))-4*margin)>262144)margin--;
+ let margin=Math.min(28,Math.min(28,Math.max(8,Math.ceil(Math.min(hint.w,hint.h)*.05)))*expansion);while(expansion===1&&hint.w!==hint.h&&margin>18&&(Math.min(image.width,Math.ceil(hint.x+hint.w+margin))-Math.max(0,Math.floor(hint.x-margin)))*(Math.min(image.height,Math.ceil(hint.y+hint.h+margin))-Math.max(0,Math.floor(hint.y-margin)))-Math.max(0,Math.min(image.width,Math.ceil(hint.x+hint.w+margin))-Math.max(0,Math.floor(hint.x-margin))-4*margin)*Math.max(0,Math.min(image.height,Math.ceil(hint.y+hint.h+margin))-Math.max(0,Math.floor(hint.y-margin))-4*margin)>262144)margin--;
  const x0=Math.max(0,Math.floor(hint.x-margin)),y0=Math.max(0,Math.floor(hint.y-margin));
  const x1=Math.min(image.width,Math.ceil(hint.x+hint.w+margin)),y1=Math.min(image.height,Math.ceil(hint.y+hint.h+margin));
  const dense=(x1-x0)*(y1-y0)<=262144;
@@ -154,7 +154,7 @@ function measureOutline(image,hint,textMasks,budget,rejections,glyphOcclusion,sp
  // background from ink only; they never authorize a body or a solid fill.
  // Dense windows reuse their already charged immutable source snapshot.
  const raster=dense?strips[0]?.raster:null;
- const seedColors=raster&&(!interior||sample&&sample.support<sample.samples*.92)?sampleAtomInteriorFillSeeds(raster,
+ const seedColors=raster&&(!interior||Math.min(hint.w,hint.h)>=64&&sample&&sample.support<sample.samples*.92)?sampleAtomInteriorFillSeeds(raster,
   {...hint,x:hint.x-x0,y:hint.y-y0},textMasks.map(m=>({...m,x:m.x-x0,y:m.y-y0})),glyphOcclusion!==undefined)
   .map(seed=>[1,3,5].map(i=>Number.parseInt(seed.color.slice(i,i+2),16))):[];
  const interiorColors=interior?[interior,...seedColors.filter(s=>Math.max(...s.map((v,c)=>Math.abs(v-(interior[c]??0))))>18)]:seedColors;
