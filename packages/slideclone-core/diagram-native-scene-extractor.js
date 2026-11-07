@@ -147,7 +147,7 @@ function buildPolylineSegments(prefix, points, stroke, strokeWidthPt = 1.5, { da
   return segs;
 }
 
-function buildRouterLayerNativeScene(page, slideSize) {
+function buildRouterLayerNativeScene(page, _slideSize) {
   const shapes = [
     // Row 1 cards
     makeRoundRect("scene-card-trigger", 16, 16.89, 192, 80, "#F8F9FB", "#B8BEC6", 1.5, "solid", 12),
@@ -194,7 +194,7 @@ function buildRouterLayerNativeScene(page, slideSize) {
   return { shapes, images, textBoxes: page.textBoxes || [] };
 }
 
-function buildAgentHarnessNativeScene(page, slideSize) {
+function buildAgentHarnessNativeScene(page, _slideSize) {
   const shapes = [
     // Outer Agent Harness container
     makeRoundRect("scene-container-outer-harness", 158.45, 223.38, 616.04, 854.88, "#F2FBFD", "#6496B4", 2.25, "solid", 18),
@@ -377,7 +377,7 @@ function extractDiagramNativeScene({ page, slideSize, sourceFile, root, outputRo
   if (!page || !slideSize) return null;
   const targetRoot = root || outputRoot;
   const allText = (page.textBoxes || []).map((t) => String(t?.text || "")).join(" ");
-  let scene = null;
+  let scene;
   if (allText.includes("Router") && allText.includes("Worker Session") && Number(slideSize.heightPt) < 600) {
     scene = buildRouterLayerNativeScene(page, slideSize);
   } else if (allText.includes("Agent") && (allText.includes("Harness") || allText.includes("任务编排器") || allText.includes("会话与上下文"))) {
