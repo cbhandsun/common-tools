@@ -51,11 +51,9 @@ function parseArgs(argv) {
   }
   return args;
 }
-
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
-
 function readJson(file, maxBytes = 128 * 1024 * 1024) {
   const stats = fs.statSync(file);
   if (!stats.isFile() || stats.size <= 0 || stats.size > maxBytes) {
@@ -67,12 +65,10 @@ function readJson(file, maxBytes = 128 * 1024 * 1024) {
     throw new Error(`Invalid JSON file ${file}: ${error.message}`);
   }
 }
-
 function writeJson(file, data) {
   ensureDir(path.dirname(file));
   fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`, "utf8");
 }
-
 function copyDirectoryFiles(source, destination) {
   if (!fs.existsSync(source)) return;
   ensureDir(destination);
@@ -89,20 +85,17 @@ function copyDirectoryFiles(source, destination) {
     }
   }
 }
-
 function ensureRunDirs(outputDir) {
   ["normalized", "ir", "pptx", "render", "diff", "compare", "polish", "compress", "reports"].forEach((dir) => {
     ensureDir(path.join(outputDir, dir));
   });
 }
-
 function resolveMaybeRelative(baseDir, value) {
   if (path.isAbsolute(value)) return value;
   const fromConfig = path.resolve(baseDir, value);
   if (fs.existsSync(fromConfig)) return fromConfig;
   return path.resolve(skillRoot, value);
 }
-
 function validateIr(ir, options = {}) {
   const errors = [];
   const warnings = [];
@@ -156,7 +149,6 @@ function validateIr(ir, options = {}) {
   warnings.push(...reconstruction.warnings);
   return { ok: errors.length === 0, errors, warnings };
 }
-
 function stageStructuredDeckPageSources(ir, { irDir } = {}) {
   if (!ir || typeof ir !== "object" || !Array.isArray(ir.pages) || !irDir) return;
   for (let pageIdx = 0; pageIdx < ir.pages.length; pageIdx += 1) {
@@ -189,7 +181,6 @@ function stageStructuredDeckPageSources(ir, { irDir } = {}) {
     }
   }
 }
-
 function prepareReconstructionIrForBuild(ir, options = {}) {
   const irFile = path.resolve(options.irFile || path.join(process.cwd(), "deck.json"));
   const baseDir = path.dirname(irFile);
@@ -204,7 +195,6 @@ function prepareReconstructionIrForBuild(ir, options = {}) {
     inventory: buildReconstructionInventory(preparedIr)
   };
 }
-
 async function attachLocalComponentAnalysis(ir, options = {}) {
   const componentCatalogRoot = options.componentCatalogRoot === undefined
     ? process.env.COMMON_TOOLS_IMAGE_COMPONENT_ASSET_ROOT
@@ -229,12 +219,7 @@ async function attachLocalComponentAnalysis(ir, options = {}) {
   copyDirectoryFiles(path.join(outputDir, "assets"), path.join(analysisWorkDir, "assets"));
   const resolveComponentIndexes = createResolver({ componentCatalogRoot: path.resolve(componentCatalogRoot) });
   if (typeof resolveComponentIndexes !== "function") return { ir, attached: false, reason: "component-resolver-unavailable" };
-  const components = await resolveComponentIndexes({
-    workDir: analysisWorkDir,
-    root: analysisRoot,
-    metadata: { inputFile: path.resolve(inputFiles[0]) },
-    isCancellationRequested: async () => false
-  });
+  const components = await resolveComponentIndexes({ workDir: analysisWorkDir, root: analysisRoot, metadata: { inputFile: path.resolve(inputFiles[0]) }, isCancellationRequested: async () => false });
   if (!components?.evidence || typeof components.evidence !== "object" || Array.isArray(components.evidence)) return { ir, attached: false, reason: "component-analysis-empty" };
   let nextIr = { ...ir, pages: [...pages] };
   nextIr.pages[0] = { ...pages[0], source: { ...(pages[0].source || {}), componentAnalysis: components.evidence } };
@@ -253,7 +238,6 @@ async function attachLocalComponentAnalysis(ir, options = {}) {
   writeJson(irFile, nextIr);
   return { ir: nextIr, attached: true, reason: "component-analysis-attached", evidence: components.evidence };
 }
-
 function createLocalComponentResolver({ componentCatalogRoot } = {}) {
   const implementation = require("./rebuild-real-pptx-native");
   if (typeof implementation?.rebuildDeckFromWorkDir !== "function" || typeof implementation?.getComponentAnalysisServices !== "function") {
@@ -263,25 +247,12 @@ function createLocalComponentResolver({ componentCatalogRoot } = {}) {
   const { createTeamComponentAnalysis } = require("../../slideclone-core/archetypes/team-component-analysis");
   const { buildComponentStrategyIndex, buildComponentAssetIndex } = require("../../slideclone-core/archetypes/component-strategy-annotator");
   const services = implementation.getComponentAnalysisServices();
-  const { inventory } = loadTeamComponentCatalog({
-    root: componentCatalogRoot,
-    readRegistry: services.readComponentAssetRegistry,
-    registryCandidates: services.registryCandidates
-  });
-  return createTeamComponentAnalysis({
-    inventory,
-    rebuildDeckFromWorkDir: implementation.rebuildDeckFromWorkDir,
-    searchIrComponentCandidates: services.searchIrComponentCandidates,
-    buildComponentAssetManifest: services.buildComponentAssetManifest,
-    buildComponentStrategyIndex,
-    buildComponentAssetIndex
-  }).resolve;
+  const { inventory } = loadTeamComponentCatalog({ root: componentCatalogRoot, readRegistry: services.readComponentAssetRegistry, registryCandidates: services.registryCandidates });
+  return createTeamComponentAnalysis({ inventory, rebuildDeckFromWorkDir: implementation.rebuildDeckFromWorkDir, searchIrComponentCandidates: services.searchIrComponentCandidates, buildComponentAssetManifest: services.buildComponentAssetManifest, buildComponentStrategyIndex, buildComponentAssetIndex }).resolve;
 }
-
 function isBox(box) {
   return box && ["x", "y", "w", "h"].every((key) => Number.isFinite(box[key]));
 }
-
 function validateElementCommon(item, label, group, state) {
   const { errors, warnings, ids, options, slideWidth, slideHeight } = state;
   if (!item || typeof item !== "object" || Array.isArray(item)) {
@@ -304,7 +275,6 @@ function validateElementCommon(item, label, group, state) {
   validateSourceContract(item, label, { errors, warnings, options });
   return true;
 }
-
 function validateBox(label, box, { errors, warnings, slideWidth, slideHeight, allowLine }) {
   if (!allowLine && (box.w <= 0 || box.h <= 0)) {
     errors.push(`${label}.box.w and box.h must be positive`);
@@ -320,7 +290,6 @@ function validateBox(label, box, { errors, warnings, slideWidth, slideHeight, al
     warnings.push(`${label}.box is completely outside slide bounds`);
   }
 }
-
 function validateSourceContract(item, label, { errors, warnings, options }) {
   if (!item.source || typeof item.source !== "object") {
     errors.push(`${label}.source is required for traceability`);
@@ -335,7 +304,6 @@ function validateSourceContract(item, label, { errors, warnings, options }) {
     validateExistingFile(`${label}.source.pageImage`, item.source.pageImage, options, warnings);
   }
 }
-
 function validateImageElement(item, label, { errors, warnings, options }) {
   const asset = item.assetPath || item.style?.assetPath || item.source?.cropImage || item.source?.pageImage;
   if (!asset) {
@@ -347,13 +315,11 @@ function validateImageElement(item, label, { errors, warnings, options }) {
     errors.push(`${label}.source.nonEditableReason is required when image is not editable`);
   }
 }
-
 function validateExistingFile(label, file, options, collector) {
   if (options.checkFiles === false) return;
   const resolved = resolveIrPath(options.baseDir, file);
   if (!fs.existsSync(resolved)) collector.push(`${label} does not exist: ${file}`);
 }
-
 function resolveIrPath(baseDir, value) {
   if (!value || path.isAbsolute(value)) return value;
   if (baseDir) {
@@ -362,7 +328,6 @@ function resolveIrPath(baseDir, value) {
   }
   return path.resolve(skillRoot, value);
 }
-
 async function loadAdapter(configDir, adapterPath, options = {}) {
   return loadTrustedAdapter({
     configDir,
@@ -371,7 +336,6 @@ async function loadAdapter(configDir, adapterPath, options = {}) {
     allowExternal: options.allowExternal === true
   });
 }
-
 function assertAdapterOk(stage, result) {
   if (!result || result.ok !== true) {
     const message = result?.error || result?.message || "adapter returned a non-ok result";
@@ -379,7 +343,6 @@ function assertAdapterOk(stage, result) {
   }
   return result;
 }
-
 async function initCommand(args) {
   const inputDir = path.resolve(args.input || "input");
   const outputDir = path.resolve(args.out || "runs/slideclone");
@@ -389,7 +352,6 @@ async function initCommand(args) {
   writeJson(configFile, config);
   console.log(`Created ${configFile}`);
 }
-
 async function runCommand(args) {
   if (!args.config) throw new Error("--config is required");
   const configFile = path.resolve(args.config);
@@ -420,7 +382,6 @@ async function runCommand(args) {
       : "";
     throw new Error(`No normalized page images found in ${inputDir}. Put png/jpg/jpeg/webp pages there first or configure a PDF/PPTX normalizer.${suffix}`);
   }
-
   const ocr = await loadAdapter(configDir, config.adapters.ocr, adapterOptions);
   const vision = await loadAdapter(configDir, config.adapters.vision, adapterOptions);
   const pptx = await loadAdapter(configDir, config.adapters.pptx, adapterOptions);
@@ -474,7 +435,6 @@ async function runCommand(args) {
   if (validation.errors.length > 0) {
     throw new Error(`IR validation failed. See ${path.join(outputDir, "reports", "ir-validation.json")}`);
   }
-
   let currentIr = enrichedIr;
   let currentIrFile = irFile;
   let pptxResult = assertAdapterOk("pptx", await pptx({ irFile: currentIrFile, ir: currentIr, iteration: 0 }, context));
@@ -514,7 +474,6 @@ async function runCommand(args) {
   });
   console.log(`Done. IR: ${postprocessResult.irFile}`);
 }
-
 async function runPostprocess({ config, context, adapters, ir, irFile, pptxResult }) {
   const maxIterations = Number.isInteger(config.maxIterations) ? config.maxIterations : 2;
   const postprocess = {
@@ -563,7 +522,6 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
     currentIrFile = styleFitResult.irFile;
     currentPptxResult = styleFitResult.pptxResult;
   }
-
   for (let iteration = 0; iteration <= maxIterations; iteration += 1) {
     const renderResult = assertAdapterOk("render", await adapters.render({
       irFile: currentIrFile,
@@ -597,7 +555,6 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
       lastCompare = acceptedState.compare;
       break;
     }
-
     lastCompare = compareResult.data;
     acceptedState = {
       ir: currentIr,
@@ -654,7 +611,6 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
       iteration: iteration + 1
     }, context));
   }
-
   const compressResult = postprocess.compress
     ? assertAdapterOk("compress", await adapters.compress({
       irFile: currentIrFile,
@@ -703,14 +659,12 @@ async function runPostprocess({ config, context, adapters, ir, irFile, pptxResul
     iterations
   };
 }
-
 function matchingFinalRender(iterations, finalPptxFile) {
   if (!Array.isArray(iterations) || typeof finalPptxFile !== "string" || !finalPptxFile) return null;
   const last = iterations[iterations.length - 1];
   if (typeof last?.pptx?.pptxFile !== "string" || path.resolve(last.pptx.pptxFile) !== path.resolve(finalPptxFile)) return null;
   return last.render || null;
 }
-
 function resolveRequestedInputFiles(value, inputDir) {
   if (value === undefined) return undefined;
   const requested = Array.isArray(value) ? value : [value];
@@ -730,7 +684,6 @@ function resolveRequestedInputFiles(value, inputDir) {
   if (new Set(approved).size !== approved.length) throw new Error("--input-file must not contain duplicates");
   return approved;
 }
-
 function hasTextMicroPolishOpportunity(compare, config = {}) {
   if (config.textMicroAdjust?.enabled === false) return false;
   const minCoverage = Number(config.textMicroAdjust?.minCoverage ?? 0.995);
@@ -743,7 +696,6 @@ function hasTextMicroPolishOpportunity(compare, config = {}) {
       || (typeof box.expectedCoverage === "number" && box.expectedCoverage < minCoverage)
     )));
 }
-
 function isPreferredCompare(candidate, baseline, thresholds = {}) {
   if (!baseline) return true;
   const candidateVector = compareVector(candidate, thresholds);
@@ -754,7 +706,6 @@ function isPreferredCompare(candidate, baseline, thresholds = {}) {
   }
   return true;
 }
-
 function compareVector(compare, thresholds = {}) {
   const metrics = compare?.summary || {};
   const checks = Array.isArray(compare?.checks) ? compare.checks : [];
@@ -784,7 +735,6 @@ function compareVector(compare, thresholds = {}) {
     foregroundMissing * -1
   ];
 }
-
 async function optimizeFonts({ config, context, adapters, ir, irFile, pptxResult }) {
   if (shouldUseRoleFontFit(config)) {
     return optimizeFontsByRole({ config, context, adapters, ir, irFile, pptxResult });
@@ -809,7 +759,6 @@ async function optimizeFonts({ config, context, adapters, ir, irFile, pptxResult
     writeJson(path.join(context.outputDir, "reports", "font-fit-result.json"), summary);
     return { ir, irFile, pptxResult, summary };
   }
-
   let best = null;
   for (let index = 0; index < candidates.length; index += 1) {
     const family = candidates[index];
@@ -1453,14 +1402,7 @@ async function gateCommand(args) {
   gateMetricAtMost(summary, "rasterImageAreaRatio", args["max-raster-image-area-ratio"], errors);
   for (const warning of summary.warnings || []) warnings.push(warning);
 
-  const report = {
-    provider: "slideclone-gate",
-    summaryFile,
-    passed: errors.length === 0,
-    errors,
-    warnings,
-    checkedAt: new Date().toISOString()
-  };
+  const report = { provider: "slideclone-gate", summaryFile, passed: errors.length === 0, errors, warnings, checkedAt: new Date().toISOString() };
   const reportFile = args.report ? path.resolve(args.report) : null;
   if (reportFile) writeJson(reportFile, report);
   if (warnings.length > 0) {
@@ -1519,15 +1461,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = {
-  attachLocalComponentAnalysis,
-  createConfig,
-  loadAdapter,
-  main,
-  parseArgs,
-  prepareReconstructionIrForBuild,
-  readJson,
-  renderedDeliveryVerification,
-  verifyDelivery,
-  validateIr
-};
+module.exports = { attachLocalComponentAnalysis, createConfig, loadAdapter, main, parseArgs, prepareReconstructionIrForBuild, readJson, renderedDeliveryVerification, verifyDelivery, validateIr };

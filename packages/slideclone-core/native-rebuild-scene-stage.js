@@ -10,4 +10,5 @@ const { captureSourceCropRegistrations } = require("./scene-plan/source-crop-reg
 const {sealSceneInventoryRevisionDeck}=require('./scene-plan/source-inventory-revision-output');
 const {sealSceneGlyphRecoveryDeck}=require('./scene-plan/source-glyph-recovery');
 
-module.exports = { addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebuild, createDeclarativePipeline, applySemanticFallbackPipeline, semanticFallbackToPageContext, runSemanticRebuildTransaction, mapReviewedSceneGraphics, withReviewedGraphicEvidence, captureSourceCropRegistrations, sealSceneInventoryRevisionDeck, sealSceneGlyphRecoveryDeck };
+const { extractDiagramNativeScene } = require("./diagram-native-scene-extractor");
+module.exports = { extractDiagramNativeScene, addKnowledgeGraphPictorialConnectors, applyKnowledgeGraphPanelNativeRebuild, createDeclarativePipeline, applySemanticFallbackPipeline, semanticFallbackToPageContext, runSemanticRebuildTransaction, mapReviewedSceneGraphics, withReviewedGraphicEvidence, captureSourceCropRegistrations, sealSceneInventoryRevisionDeck, sealSceneGlyphRecoveryDeck };
