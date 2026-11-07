@@ -48,10 +48,10 @@ function hasControlCharacters(value, allowTextWhitespace = false) {
 function correctContextualOcrLines(lines) {
   if (!Array.isArray(lines) || lines.length > MAX_OCR_LINES) throw new TypeError("native image rebuild OCR lines are invalid");
   const hasCanonicalAiAgent = lines.some((line) => typeof line?.text === "string" && /\bAI\s*Agent\b/.test(line.text));
-  if (!hasCanonicalAiAgent) return lines;
-  return lines.map((line) => typeof line?.text === "string" && /\bAl\s+Agent\b/.test(line.text)
-    ? { ...line, text: line.text.replace(/\bAl(?=\s+Agent\b)/g, "AI"), wordPositionHints: undefined }
-    : line);
+  /** @type {Map<string, { word: string, confidence: number }>} */ const canonicalBySkeleton = new Map(); const skelOf = (/** @type {string} */ w) => w.replace(/0/g, "O").replace(/[1l]/g, "I"); for (const line of lines) { if (typeof line?.text !== "string") continue; const conf = typeof /** @type {any} */ (line)?.confidence === "number" && Number.isFinite(/** @type {any} */ (line).confidence) ? /** @type {any} */ (line).confidence : 1; if (conf < 0.92) continue; for (const m of line.text.matchAll(/\b[A-Za-z][A-Za-z0-9_-]{3,28}\b/g)) { const token = m[0]; const skel = skelOf(token); const prev = canonicalBySkeleton.get(skel); if (!prev || conf > prev.confidence) canonicalBySkeleton.set(skel, { word: token, confidence: conf }); } } if (!hasCanonicalAiAgent && canonicalBySkeleton.size === 0) return lines;
+
+
+  return lines.map((line) => { if (typeof line?.text !== "string") return line; let nextText = hasCanonicalAiAgent && /\bAl\s+Agent\b/.test(line.text) ? line.text.replace(/\bAl(?=\s+Agent\b)/g, "AI") : line.text; const conf = typeof /** @type {any} */ (line)?.confidence === "number" && Number.isFinite(/** @type {any} */ (line).confidence) ? /** @type {any} */ (line).confidence : 1; if (conf < 0.90 && canonicalBySkeleton.size > 0) { nextText = nextText.replace(/\b[A-Za-z0-9][A-Za-z0-9_-]{3,28}\b/g, (token) => { const canonical = canonicalBySkeleton.get(skelOf(token)); if (!canonical || canonical.word === token || canonical.word.length !== token.length) return token; let diffCount = 0; for (let i = 0; i < token.length; i += 1) if (token[i] !== canonical.word[i]) diffCount += 1; return diffCount === 1 ? canonical.word : token; }); } return nextText !== line.text ? { ...line, text: nextText, wordPositionHints: undefined } : line; });
 }
 
 /** @param {unknown} value @returns {{widthPx: number, heightPx: number}} */

@@ -179,7 +179,29 @@ function shapeHtml(item, slideSize) {
     return `<div class="shape line" data-object-id="${escapeHtml(item.id)}" style="${cssLineBox(item.box, slideSize)};z-index:${zIndex};background:transparent;border:0;border-top:${strokeWidth}px ${lineStyle} ${strokeColor};opacity:${opacity}"></div>`;
   }
   const radius = item.type === "ellipse" ? "50%" : item.type === "roundRect" ? `${Number(style.radiusPt) || 12}px` : "0";
-  return `<div class="shape" data-object-id="${escapeHtml(item.id)}" style="${cssBox(item.box, slideSize)};z-index:${zIndex};background:${cssColor(style.fill, "transparent")};border:${Number(style.strokeWidthPt) || 0}px ${lineStyle} ${cssColor(style.stroke, "transparent")};border-radius:${radius};opacity:${opacity}"></div>`;
+  let bgCss = cssColor(style.fill, "transparent");
+  if (style.gradient && Array.isArray(style.gradient.stops) && style.gradient.stops.length >= 2) {
+    const angle = Number.isFinite(Number(style.gradient.angleDeg)) ? Number(style.gradient.angleDeg) : 90;
+    const stopsCss = style.gradient.stops
+      .map((s) => `${cssColor(s.color, "#FFFFFF")} ${Math.round(Math.max(0, Math.min(1, Number(s.position ?? s.offset) || 0)) * 100)}%`)
+      .join(", ");
+    bgCss = `linear-gradient(${angle}deg, ${stopsCss})`;
+  }
+  let shadowCss = "";
+  if (style.shadow && style.shadow.color) {
+    const blurPx = Math.max(0, Number(style.shadow.blurPt) || 6);
+    const distPx = Math.max(0, Number(style.shadow.distancePt) || 2);
+    const rad = ((Number(style.shadow.angleDeg) || 90) * Math.PI) / 180;
+    const dx = Math.round(Math.cos(rad) * distPx * 10) / 10;
+    const dy = Math.round(Math.sin(rad) * distPx * 10) / 10;
+    const hex = cssColor(style.shadow.color, "#0F172A").slice(1);
+    const sr = parseInt(hex.slice(0, 2), 16);
+    const sg = parseInt(hex.slice(2, 4), 16);
+    const sb = parseInt(hex.slice(4, 6), 16);
+    const sa = Math.max(0, Math.min(1, Number(style.shadow.alpha) || 0.08));
+    shadowCss = `;box-shadow:${dx}px ${dy}px ${blurPx}px rgba(${sr},${sg},${sb},${sa})`;
+  }
+  return `<div class="shape" data-object-id="${escapeHtml(item.id)}" style="${cssBox(item.box, slideSize)};z-index:${zIndex};background:${bgCss};border:${Number(style.strokeWidthPt) || 0}px ${lineStyle} ${cssColor(style.stroke, "transparent")};border-radius:${radius};opacity:${opacity}${shadowCss}"></div>`;
 }
 function tableHtml(table, slideSize) {
   const rows = Array.isArray(table.rows) ? table.rows : [];

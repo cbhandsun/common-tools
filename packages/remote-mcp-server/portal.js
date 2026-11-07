@@ -7,7 +7,7 @@ const path = require("node:path");
 const { CAPABILITY_SCOPES } = require("./team-mcp");
 const { compileSvgToDeckIr } = require("../slideclone-core/svg/svg-to-deck-ir");
 const zlib = require("node:zlib");
-const { buildPptxBufferFromDeckIr, buildZipBuffer, renderShapeXml, renderTextBoxXml } = require("../slideclone-core/svg/deck-ir-to-pptx-buffer");
+const { buildPptxBufferFromDeckIr, buildZipBuffer, renderPicXml, renderShapeXml, renderTextBoxXml } = require("../slideclone-core/svg/deck-ir-to-pptx-buffer");
 const { readPngBuffer } = require("../slideclone-core/png");
 const { createDeckIrFromSvgSlides } = require("../ppt-create-core/svg-deck");
 const { createPrintableHtml, effectiveText, effectiveTextBox, effectiveTextRotation, effectiveTextSizePt } = require("../ppt-create-core/export");
@@ -769,34 +769,6 @@ function extractIconsFromResidualPng(pngBuf, page, slideSize) {
   };
 }
 
-function renderPicXml(img, numericId, rId) {
-  const box = img?.box || { x: 0, y: 0, w: 24, h: 24 };
-  const x = Math.round((Number(box.x) || 0) * 12700);
-  const y = Math.round((Number(box.y) || 0) * 12700);
-  const w = Math.max(12700, Math.round((Number(box.w) || 24) * 12700));
-  const h = Math.max(12700, Math.round((Number(box.h) || 24) * 12700));
-  const rot = Number(img?.rotation) || 0;
-  const rotAttr = Number.isFinite(rot) && Math.abs(rot) > 0.001 ? ` rot="${Math.round(rot * 60000)}"` : "";
-  const safeName = String(img?.id || `pic-${numericId}`).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return (
-    `<p:pic>` +
-      `<p:nvPicPr>` +
-        `<p:cNvPr id="${numericId}" name="${safeName}"/>` +
-        `<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>` +
-        `<p:nvPr/>` +
-      `</p:nvPicPr>` +
-      `<p:blipFill>` +
-        `<a:blip r:embed="${rId}"/>` +
-        `<a:stretch><a:fillRect/></a:stretch>` +
-      `</p:blipFill>` +
-      `<p:spPr>` +
-        `<a:xfrm${rotAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm>` +
-        `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
-      `</p:spPr>` +
-    `</p:pic>`
-  );
-}
-
 function ensureOpenXmlRootNamespaces(xml, rootTag) {
   return xml.replace(new RegExp(`<${rootTag}\\b([^>]*)>`), (full, attrs) => {
     let next = attrs;
@@ -863,15 +835,36 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
     const emittedShapeIds = new Set();
     const emittedImgIds = new Set();
 
+    const upsertMedia = (name, data) => {
+      const existing = entries.find((e) => e.name === name);
+      if (existing) existing.data = data;
+      else entries.push({ name, data });
+    };
     const extracted = Array.isArray(extractedByPage) ? extractedByPage[pageIndex] : null;
     if (extracted && extracted.residualPngBuffer) {
       const mediaEntry = entries.find((e) => e.name === "ppt/media/image.png");
       if (mediaEntry) mediaEntry.data = extracted.residualPngBuffer;
       for (const icon of extracted.icons || []) {
-        const mediaName = `ppt/media/${icon.id}.png`;
-        const existingMedia = entries.find((e) => e.name === mediaName);
-        if (existingMedia) existingMedia.data = icon.pngBuffer;
-        else entries.push({ name: mediaName, data: icon.pngBuffer });
+        upsertMedia(`ppt/media/${icon.id}.png`, icon.pngBuffer);
+        if (icon.svgBuffer) upsertMedia(`ppt/media/${icon.id}.svg`, icon.svgBuffer);
+      }
+    }
+    const { traceRasterIconToSvg } = require("../slideclone-core/diagram-native-scene-extractor");
+    for (const img of movableImages) {
+      const baseIconId = String(img.id).replace(/\.copy\..*$/u, "");
+      const svgMediaName = `ppt/media/${baseIconId}.svg`;
+      if (!/^icon-\d+$/u.test(baseIconId) || entries.some((e) => e.name === svgMediaName)) continue;
+      const svgDataUri = img?.style?.svgDataUri;
+      if (typeof svgDataUri === "string" && svgDataUri.startsWith("data:image/svg+xml;base64,")) {
+        entries.push({ name: svgMediaName, data: Buffer.from(svgDataUri.slice(26), "base64") });
+      } else {
+        const pngEntry = entries.find((e) => e.name === `ppt/media/${baseIconId}.png`);
+        if (pngEntry) {
+          try {
+            const svgStr = traceRasterIconToSvg(readPngBuffer(pngEntry.data));
+            if (svgStr) entries.push({ name: svgMediaName, data: Buffer.from(svgStr, "utf8") });
+          } catch { /* ignore non-PNG icon fallback */ }
+        }
       }
     }
 
@@ -882,26 +875,29 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
     }
 
     const rIdByIconId = new Map();
+    const svgRIdByIconId = new Map();
     if (relsEntry) {
       let relsXml = relsEntry.data.toString("utf8").replace(/^\uFEFF/, "");
-      if (!hasResidualImage) {
-        relsXml = relsXml.replace(/<Relationship\b[^>]*\bTarget="[^"]*\/image\.png"[^>]*\/>/g, "");
+      if (!hasResidualImage) relsXml = relsXml.replace(/<Relationship\b[^>]*\bTarget="[^"]*\/image\.png"[^>]*\/>/g, "");
+      for (const m of relsXml.matchAll(/<Relationship\b[^>]*\bTarget="[^"]*\/(icon-\d+)\.(png|svg)"[^>]*\bId="([^"]+)"/g)) {
+        (m[2] === "svg" ? svgRIdByIconId : rIdByIconId).set(m[1], m[3]);
       }
-      for (const m of relsXml.matchAll(/<Relationship\b[^>]*\bTarget="[^"]*\/(icon-\d+)\.png"[^>]*\bId="([^"]+)"/g)) {
-        rIdByIconId.set(m[1], m[2]);
-      }
-      for (const m of relsXml.matchAll(/<Relationship\b[^>]*\bId="([^"]+)"[^>]*\bTarget="[^"]*\/(icon-\d+)\.png"/g)) {
-        rIdByIconId.set(m[2], m[1]);
+      for (const m of relsXml.matchAll(/<Relationship\b[^>]*\bId="([^"]+)"[^>]*\bTarget="[^"]*\/(icon-\d+)\.(png|svg)"/g)) {
+        (m[3] === "svg" ? svgRIdByIconId : rIdByIconId).set(m[2], m[1]);
       }
       for (const img of movableImages) {
         const baseIconId = String(img.id).replace(/\.copy\..*$/u, "");
-        if (!rIdByIconId.has(baseIconId) && /^icon-\d+$/u.test(baseIconId)) {
-          const rId = `rId_${baseIconId.replace(/[^A-Za-z0-9_]/g, "_")}`;
+        if (!/^icon-\d+$/u.test(baseIconId)) continue;
+        const safeId = baseIconId.replace(/[^A-Za-z0-9_]/g, "_");
+        if (!rIdByIconId.has(baseIconId)) {
+          const rId = `rId_${safeId}`;
           rIdByIconId.set(baseIconId, rId);
-          relsXml = relsXml.replace(
-            "</Relationships>",
-            `<Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${baseIconId}.png" Id="${rId}" /></Relationships>`
-          );
+          relsXml = relsXml.replace("</Relationships>", `<Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${baseIconId}.png" Id="${rId}" /></Relationships>`);
+        }
+        if (!svgRIdByIconId.has(baseIconId) && entries.some((e) => e.name === `ppt/media/${baseIconId}.svg`)) {
+          const svgRId = `rId_${safeId}_svg`;
+          svgRIdByIconId.set(baseIconId, svgRId);
+          relsXml = relsXml.replace("</Relationships>", `<Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${baseIconId}.svg" Id="${svgRId}" /></Relationships>`);
         }
       }
       relsEntry.data = Buffer.from(relsXml, "utf8");
@@ -912,6 +908,16 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
     for (const idMatch of xml.matchAll(/\bid="(\d+)"/g)) {
       const n = Number(idMatch[1]);
       if (Number.isFinite(n) && n >= maxNumericId) maxNumericId = n + 1;
+    }
+
+    const shapeNumericIdById = new Map();
+    for (const cNvMatch of xml.matchAll(/<p:cNvPr\b[^>]*\bid="(\d+)"[^>]*\bname="([^"]*)"/g)) {
+      const numId = Number(cNvMatch[1]);
+      const rawName = cNvMatch[2];
+      if (shapeById.has(rawName) && Number.isFinite(numId) && !shapeNumericIdById.has(rawName)) shapeNumericIdById.set(rawName, numId);
+    }
+    for (const sh of shapes) {
+      if (sh && sh.id && !shapeNumericIdById.has(sh.id)) shapeNumericIdById.set(sh.id, maxNumericId++);
     }
 
     xml = xml.replace(/<p:grpSp\b[\s\S]*?<\/p:grpSp>/g, (grpXml) => {
@@ -934,12 +940,12 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
     xml = xml.replace(/<p:cxnSp\b[\s\S]*?<\/p:cxnSp>/g, (cxnXml) => {
       const cNvMatch = cxnXml.match(/<p:cNvPr\b[^>]*\bid="(\d+)"[^>]*\bname="([^"]*)"/);
       if (!cNvMatch) return cxnXml;
-      const numId = Number(cNvMatch[1]) || (maxNumericId++);
       const rawName = cNvMatch[2];
+      const numId = shapeNumericIdById.get(rawName) || Number(cNvMatch[1]) || (maxNumericId++);
       if (shapeById.has(rawName)) {
         if (emittedShapeIds.has(rawName)) return "";
         emittedShapeIds.add(rawName);
-        return renderShapeXml(shapeById.get(rawName), numId);
+        return renderShapeXml(shapeById.get(rawName), numId, shapeNumericIdById);
       }
       return "";
     });
@@ -947,8 +953,8 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
     xml = xml.replace(/<p:sp\b[\s\S]*?<\/p:sp>/g, (spXml) => {
       const cNvMatch = spXml.match(/<p:cNvPr\b[^>]*\bid="(\d+)"[^>]*\bname="([^"]*)"/);
       if (!cNvMatch) return spXml;
-      const numId = Number(cNvMatch[1]) || (maxNumericId++);
       const rawName = cNvMatch[2];
+      const numId = shapeNumericIdById.get(rawName) || Number(cNvMatch[1]) || (maxNumericId++);
       const baseId = rawName.replace(/-position-\d+$/u, "");
       if (tbById.has(baseId)) {
         if (emittedTbIds.has(baseId)) return "";
@@ -958,7 +964,7 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
       if (shapeById.has(rawName)) {
         if (emittedShapeIds.has(rawName)) return "";
         emittedShapeIds.add(rawName);
-        return renderShapeXml(shapeById.get(rawName), numId);
+        return renderShapeXml(shapeById.get(rawName), numId, shapeNumericIdById);
       }
       return "";
     });
@@ -972,10 +978,11 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
       const rIdMatch = picXml.match(/\br:embed="([^"]+)"/);
       const baseIconId = rawName.replace(/\.copy\..*$/u, "");
       const rId = rIdMatch ? rIdMatch[1] : rIdByIconId.get(baseIconId);
+      const svgRId = svgRIdByIconId.get(baseIconId) || null;
       if (imgById.has(rawName) && rId) {
         if (emittedImgIds.has(rawName)) return "";
         emittedImgIds.add(rawName);
-        return renderPicXml(imgById.get(rawName), numId, rId);
+        return renderPicXml(imgById.get(rawName), numId, rId, svgRId);
       }
       if (/^icon-\d+/u.test(rawName)) {
         return "";
@@ -987,7 +994,8 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
     for (const sh of shapes) {
       if (sh && sh.id && !emittedShapeIds.has(sh.id)) {
         emittedShapeIds.add(sh.id);
-        shapeAdditions.push(renderShapeXml(sh, maxNumericId++));
+        const numId = shapeNumericIdById.get(sh.id) || (maxNumericId++);
+        shapeAdditions.push(renderShapeXml(sh, numId, shapeNumericIdById));
       }
     }
     const picAdditions = [];
@@ -995,9 +1003,10 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
       if (img && img.id && !emittedImgIds.has(img.id)) {
         const baseIconId = String(img.id).replace(/\.copy\..*$/u, "");
         const rId = rIdByIconId.get(baseIconId);
+        const svgRId = svgRIdByIconId.get(baseIconId) || null;
         if (rId) {
           emittedImgIds.add(img.id);
-          picAdditions.push(renderPicXml(img, maxNumericId++, rId));
+          picAdditions.push(renderPicXml(img, maxNumericId++, rId, svgRId));
         }
       }
     }
@@ -1047,6 +1056,12 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
     }
     entry.data = Buffer.from(xml, "utf8");
   }
+  if (entries.some((e) => e.name.endsWith(".svg"))) {
+    const ctEntry = entries.find((e) => e.name === "[Content_Types].xml");
+    if (ctEntry && !/Extension="svg"/i.test(ctEntry.data.toString("utf8"))) {
+      ctEntry.data = Buffer.from(ctEntry.data.toString("utf8").replace(/(<Default\b[^>]*>)/, '<Default Extension="svg" ContentType="image/svg+xml"/>$1'), "utf8");
+    }
+  }
   return buildZipBuffer(entries);
 }
 
@@ -1056,7 +1071,7 @@ async function ensureJobEditableIconsAndPptx(jobId, { teamServices, objectStore 
   const ir = normalizePortalEditableIr(JSON.parse(irBytes.toString("utf8")));
   if (!ir || !Array.isArray(ir.pages) || ir.pages.length === 0) return { ir, irTarget };
   const hasFullResidual = (ir.pages[0].images || []).some((img) => img?.id === "full-slide-residual" || img?.source?.fullSlideResidual === true);
-  if (ir.meta?.portalNativeSceneUpgraded === true && !hasFullResidual && (ir.pages[0].images || []).length > 0) return { ir, irTarget };
+  if (ir.meta?.portalNativeSceneVersion === 2 && !hasFullResidual && (ir.pages[0].images || []).length > 0) return { ir, irTarget };
 
   try {
     const pptxTarget = await teamServices.getArtifactTarget({ id: jobId, ownerId: PORTAL_OWNER_ID, name: "deck.pptx" });
@@ -1069,48 +1084,40 @@ async function ensureJobEditableIconsAndPptx(jobId, { teamServices, objectStore 
       if (job?.inputObjectKey) {
         const archiveBytes = await objectStore.readObject({ objectKey: job.inputObjectKey, maxBytes: 64 * 1024 * 1024 });
         const srcImg = extractSourceImageFromTarGz(archiveBytes);
-        if (srcImg && srcImg.contentType === "image/png") {
-          sourcePngBuffer = srcImg.bytes;
-        }
+        if (srcImg && srcImg.contentType === "image/png") sourcePngBuffer = srcImg.bytes;
       }
-    } catch {
-      // Fallback to mediaEntry if source archive is unavailable
-    }
+    } catch { /* fallback to mediaEntry */ }
 
     let extracted = null;
     if (sourcePngBuffer && (ir.pages[0].images || []).filter((img) => img?.id !== "full-slide-residual").length === 0) {
       extracted = extractIconsFromResidualPng(sourcePngBuffer, ir.pages[0], ir.slideSize);
       ir.pages[0].images = extracted.icons.map((ic) => ic.irItem);
     }
-    const { extractDiagramNativeScene, makeTransparentIconCrop } = require("../slideclone-core/diagram-native-scene-extractor");
-    const scene = extractDiagramNativeScene({ page: ir.pages[0], slideSize: ir.slideSize });
+    const { extractDiagramNativeScene, makeTransparentIconCrop, traceRasterIconToSvg } = require("../slideclone-core/diagram-native-scene-extractor");
+    let raster = null;
+    if (sourcePngBuffer) {
+      try { raster = readPngBuffer(sourcePngBuffer); } catch { raster = null; }
+    }
+    const scene = extractDiagramNativeScene({ page: ir.pages[0], slideSize: ir.slideSize, raster });
     if (scene && Array.isArray(scene.shapes) && scene.shapes.length > 0) {
       ir.pages[0].shapes = scene.shapes;
       ir.pages[0].images = scene.images;
       ir.pages[0].textBoxes = scene.textBoxes;
-      if (sourcePngBuffer) {
+      if (raster) {
         try {
-          const raster = readPngBuffer(sourcePngBuffer);
           const croppedIcons = [];
           for (const img of ir.pages[0].images) {
             if (!img?.id || !img?.box) continue;
-            const container = scene.shapes.find((s) =>
-              s.type === "roundRect"
-              && img.box.x >= s.box.x - 4
-              && img.box.y >= s.box.y - 4
-              && img.box.x + img.box.w <= s.box.x + s.box.w + 4
-              && img.box.y + img.box.h <= s.box.y + s.box.h + 4
-            );
+            const container = scene.shapes.find((s) => s.type === "roundRect" && img.box.x >= s.box.x - 4 && img.box.y >= s.box.y - 4 && img.box.x + img.box.w <= s.box.x + s.box.w + 4 && img.box.y + img.box.h <= s.box.y + s.box.h + 4);
             const cropped = makeTransparentIconCrop(raster, ir.slideSize, img.box, container?.style?.fill);
             const pngBuffer = encodeRgbaToPngBuffer(cropped.width, cropped.height, cropped.rgba);
-            croppedIcons.push({ id: String(img.id).replace(/\.copy\..*$/u, ""), pngBuffer });
+            const svgContent = traceRasterIconToSvg(cropped);
+            const svgBuffer = svgContent ? Buffer.from(svgContent, "utf8") : null;
+            if (svgBuffer) img.style = { ...(img.style || {}), svgDataUri: `data:image/svg+xml;base64,${svgBuffer.toString("base64")}` };
+            croppedIcons.push({ id: String(img.id).replace(/\.copy\..*$/u, ""), pngBuffer, svgBuffer });
           }
-          if (croppedIcons.length > 0) {
-            extracted = { residualPngBuffer: sourcePngBuffer, icons: croppedIcons };
-          }
-        } catch {
-          // Keep existing extracted icons if source crop fails
-        }
+          if (croppedIcons.length > 0) extracted = { residualPngBuffer: sourcePngBuffer, icons: croppedIcons };
+        } catch { /* keep existing icons */ }
       }
     } else {
       ir.pages[0].images = (ir.pages[0].images || []).filter((img) => img?.id !== "full-slide-residual" && img?.source?.fullSlideResidual !== true);
@@ -1119,6 +1126,7 @@ async function ensureJobEditableIconsAndPptx(jobId, { teamServices, objectStore 
       ...(ir.meta || {}),
       portalIconsExtracted: true,
       portalNativeSceneUpgraded: true,
+      portalNativeSceneVersion: 2,
       fullSlideResidualOmitted: true,
       extractedIconCount: (ir.pages[0].images || []).length
     };

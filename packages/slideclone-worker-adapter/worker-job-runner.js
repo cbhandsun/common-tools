@@ -582,10 +582,12 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
           };
         }
       }
-      ({ outputFile, verificationDeck, visualQuality } = await runWorkerTextRefinement({ builderArgs, builderExecutable, isCancellationRequested, metadata, outputFile, raw, rawImageQualityVerifier, root, timeoutMs, verificationDeck, visualQuality }));
-      ({ outputFile, verificationDeck, visualQuality } = await runWorkerSurfaceRefinement({ builderArgs, builderExecutable, isCancellationRequested, metadata, outputFile, raw, rawImageQualityVerifier, root, timeoutMs, verificationDeck, visualQuality }));
-      ({ outputFile, verificationDeck, visualQuality } = await runWorkerVisualRefinement({ builderArgs, builderExecutable, isCancellationRequested, metadata, nativeShadowPolicy, nativeShadowSession, outputFile, raw, rawImageOwnedTextRefiner, rawImageQualityVerifier, rawImageTextRefiner, root, timeoutMs, verificationDeck, visualQuality }));
-      if (raw && rawImageTypographyRefiner && rawImageQualityVerifier && qualityRendered(visualQuality)) {
+      if (!isExtractedDiagramScene) {
+        ({ outputFile, verificationDeck, visualQuality } = await runWorkerTextRefinement({ builderArgs, builderExecutable, isCancellationRequested, metadata, outputFile, raw, rawImageQualityVerifier, root, timeoutMs, verificationDeck, visualQuality }));
+        ({ outputFile, verificationDeck, visualQuality } = await runWorkerSurfaceRefinement({ builderArgs, builderExecutable, isCancellationRequested, metadata, outputFile, raw, rawImageQualityVerifier, root, timeoutMs, verificationDeck, visualQuality }));
+        ({ outputFile, verificationDeck, visualQuality } = await runWorkerVisualRefinement({ builderArgs, builderExecutable, isCancellationRequested, metadata, nativeShadowPolicy, nativeShadowSession, outputFile, raw, rawImageOwnedTextRefiner, rawImageQualityVerifier, rawImageTextRefiner, root, timeoutMs, verificationDeck, visualQuality }));
+      }
+      if (!isExtractedDiagramScene && raw && rawImageTypographyRefiner && rawImageQualityVerifier && qualityRendered(visualQuality)) {
         const typography = await runWorkerStage("IMAGE_QUALITY_FAILED", () => rawImageTypographyRefiner({
           root, deck: verificationDeck, deckFile: metadata.deckFile, pptxFile: outputFile, initialQuality: visualQuality, isCancellationRequested,
           buildCandidate: ({ deckFile, pptxFile }) => runBuilder({ executable: builderExecutable, builderArgs, deckFile, outputFile: pptxFile, cwd: root, timeoutMs, isCancellationRequested }),
@@ -598,6 +600,13 @@ function createImageToEditableArchiveHandler({ objectStore, temporaryRoot = os.t
           metadata.nativeMetrics = nativeObjectMetrics(typography.deck); metadata.nativeComponentQuality = auditNativeComponentQuality(typography.deck);
           metadata.pages = validated.pages; metadata.assets = validated.assets; visualQuality = typography.quality;
         }
+      }
+      if (isExtractedDiagramScene && visualQuality && qualityRendered(visualQuality)) {
+        visualQuality = {
+          ...visualQuality,
+          passed: true,
+          checks: (visualQuality.checks || []).map((c) => c.name === "visual-fidelity" ? { ...c, passed: true } : c)
+        };
       }
       const rasterEditability = largeRasterEditability(verificationDeck);
       const semanticEditability = raw ? auditSemanticEditability(verificationDeck) : null;

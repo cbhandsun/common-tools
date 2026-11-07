@@ -16,6 +16,21 @@ function px(raster, x, y) {
   return [raster.rgba[i], raster.rgba[i + 1], raster.rgba[i + 2], raster.rgba[i + 3]];
 }
 
+function rgbToHex(r, g, b) {
+  const clamp = (v) => Math.max(0, Math.min(255, Math.round(Number(v) || 0))).toString(16).padStart(2, "0");
+  return `#${clamp(r)}${clamp(g)}${clamp(b)}`.toUpperCase();
+}
+
+function hexToRgb(hex) {
+  if (typeof hex !== "string" || !/^#?[0-9A-Fa-f]{6}$/.test(hex.trim())) return null;
+  const clean = hex.trim().replace(/^#/, "");
+  return [
+    parseInt(clean.slice(0, 2), 16),
+    parseInt(clean.slice(2, 4), 16),
+    parseInt(clean.slice(4, 6), 16)
+  ];
+}
+
 function makeTransparentIconCrop(raster, slideSize, boxPt, bgHex) {
   const sx = raster.width / slideSize.widthPt;
   const sy = raster.height / slideSize.heightPt;
@@ -43,6 +58,116 @@ function makeTransparentIconCrop(raster, slideSize, boxPt, bgHex) {
   return { width: w, height: h, rgba };
 }
 
+/**
+ * Trace a cropped transparent RGBA icon into a clean multi-color vector SVG.
+ * Uses quantized pigment clustering and vertically merged scanline rectangles
+ * expressed as compact SVG <path> elements.
+ */
+function traceRasterIconToSvg(cropped) {
+  if (!cropped || !cropped.rgba || cropped.width < 1 || cropped.height < 1) return null;
+  const { width, height, rgba } = cropped;
+  const buckets = new Map();
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const idx = (y * width + x) * 4;
+      const a = rgba[idx + 3];
+      if (a < 80) continue;
+      const r = rgba[idx];
+      const g = rgba[idx + 1];
+      const b = rgba[idx + 2];
+      const key = `${r >> 5},${g >> 5},${b >> 5}`;
+      let entry = buckets.get(key);
+      if (!entry) {
+        entry = { rSum: 0, gSum: 0, bSum: 0, count: 0 };
+        buckets.set(key, entry);
+      }
+      entry.rSum += r;
+      entry.gSum += g;
+      entry.bSum += b;
+      entry.count += 1;
+    }
+  }
+  const palette = [...buckets.values()]
+    .filter((c) => c.count >= 2)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 4)
+    .map((c) => ({
+      r: Math.round(c.rSum / c.count),
+      g: Math.round(c.gSum / c.count),
+      b: Math.round(c.bSum / c.count),
+      hex: rgbToHex(c.rSum / c.count, c.gSum / c.count, c.bSum / c.count),
+      runsByRow: Array.from({ length: height }, () => [])
+    }));
+  if (palette.length === 0) return null;
+
+  for (let y = 0; y < height; y += 1) {
+    let activeCluster = -1;
+    let runStart = 0;
+    for (let x = 0; x <= width; x += 1) {
+      let clusterIdx = -1;
+      if (x < width) {
+        const idx = (y * width + x) * 4;
+        if (rgba[idx + 3] >= 80) {
+          const r = rgba[idx];
+          const g = rgba[idx + 1];
+          const b = rgba[idx + 2];
+          let bestDist = Infinity;
+          for (let c = 0; c < palette.length; c += 1) {
+            const p = palette[c];
+            const d = Math.abs(r - p.r) + Math.abs(g - p.g) + Math.abs(b - p.b);
+            if (d < bestDist) {
+              bestDist = d;
+              clusterIdx = c;
+            }
+          }
+        }
+      }
+      if (clusterIdx !== activeCluster) {
+        if (activeCluster >= 0 && x > runStart) {
+          palette[activeCluster].runsByRow[y].push({ x0: runStart, x1: x });
+        }
+        activeCluster = clusterIdx;
+        runStart = x;
+      }
+    }
+  }
+
+  const pathElements = [];
+  for (const cluster of palette) {
+    const rects = [];
+    let activeRects = new Map();
+    for (let y = 0; y < height; y += 1) {
+      const nextActive = new Map();
+      for (const run of cluster.runsByRow[y]) {
+        const key = `${run.x0}:${run.x1}`;
+        const prev = activeRects.get(key);
+        if (prev) {
+          prev.y1 = y + 1;
+          nextActive.set(key, prev);
+          activeRects.delete(key);
+        } else {
+          const rect = { x0: run.x0, y0: y, x1: run.x1, y1: y + 1 };
+          nextActive.set(key, rect);
+        }
+      }
+      for (const finished of activeRects.values()) {
+        rects.push(finished);
+      }
+      activeRects = nextActive;
+    }
+    for (const finished of activeRects.values()) {
+      rects.push(finished);
+    }
+    if (rects.length === 0) continue;
+    const d = rects
+      .map((r) => `M${r.x0} ${r.y0}H${r.x1}V${r.y1}H${r.x0}Z`)
+      .join("");
+    pathElements.push(`<path fill="${cluster.hex}" d="${d}"/>`);
+  }
+  if (pathElements.length === 0) return null;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" shape-rendering="geometricPrecision">${pathElements.join("")}</svg>`;
+}
+
 function makeIconItem(id, x, y, w, h) {
   const assetPath = `assets/${id}.png`;
   return {
@@ -56,7 +181,7 @@ function makeIconItem(id, x, y, w, h) {
   };
 }
 
-function makeRoundRect(id, x, y, w, h, fill, stroke, strokeWidthPt = 1.5, dash = "solid", radiusPt = 10) {
+function makeRoundRect(id, x, y, w, h, fill, stroke, strokeWidthPt = 1.5, dash = "solid", radiusPt = 10, extraStyle = {}) {
   return {
     id,
     type: "roundRect",
@@ -66,7 +191,8 @@ function makeRoundRect(id, x, y, w, h, fill, stroke, strokeWidthPt = 1.5, dash =
       stroke,
       strokeWidthPt,
       radiusPt,
-      ...(dash !== "solid" ? { dash } : {})
+      ...(dash !== "solid" ? { dash } : {}),
+      ...extraStyle
     },
     source: {
       editable: true,
@@ -147,8 +273,261 @@ function buildPolylineSegments(prefix, points, stroke, strokeWidthPt = 1.5, { da
   return segs;
 }
 
+/**
+ * Bind connector endpoints to the closest container/card/badge shape border anchor
+ * so PowerPoint <a:stCxn> and <a:endCxn> glue the connector to the shapes.
+ * DrawingML connection site indices on preset shapes: 0=top, 1=left, 2=bottom, 3=right.
+ */
+function bindConnectorsToShapeAnchors(shapes, tolerancePt = 8) {
+  if (!Array.isArray(shapes)) return shapes;
+  const targets = shapes.filter((s) => s && s.id && s.box && s.type !== "line" && s.type !== "connector");
+  if (targets.length === 0) return shapes;
+
+  const findNearestAnchor = (ptX, ptY) => {
+    let best = null;
+    let bestDist = tolerancePt;
+    for (const target of targets) {
+      const b = target.box;
+      const left = Number(b.x) || 0;
+      const top = Number(b.y) || 0;
+      const right = left + (Number(b.w) || 0);
+      const bottom = top + (Number(b.h) || 0);
+      const w = Math.max(1, right - left);
+      const h = Math.max(1, bottom - top);
+
+      // Check proximity to each of the 4 sides
+      if (ptX >= left - tolerancePt && ptX <= right + tolerancePt) {
+        const dTop = Math.abs(ptY - top);
+        if (dTop <= bestDist) {
+          bestDist = dTop;
+          best = {
+            shapeId: target.id,
+            siteIndex: 0,
+            side: "top",
+            position: round2(Math.max(0, Math.min(1, (ptX - left) / w)))
+          };
+        }
+        const dBot = Math.abs(ptY - bottom);
+        if (dBot <= bestDist) {
+          bestDist = dBot;
+          best = {
+            shapeId: target.id,
+            siteIndex: 2,
+            side: "bottom",
+            position: round2(Math.max(0, Math.min(1, (ptX - left) / w)))
+          };
+        }
+      }
+      if (ptY >= top - tolerancePt && ptY <= bottom + tolerancePt) {
+        const dLeft = Math.abs(ptX - left);
+        if (dLeft <= bestDist) {
+          bestDist = dLeft;
+          best = {
+            shapeId: target.id,
+            siteIndex: 1,
+            side: "left",
+            position: round2(Math.max(0, Math.min(1, (ptY - top) / h)))
+          };
+        }
+        const dRight = Math.abs(ptX - right);
+        if (dRight <= bestDist) {
+          bestDist = dRight;
+          best = {
+            shapeId: target.id,
+            siteIndex: 3,
+            side: "right",
+            position: round2(Math.max(0, Math.min(1, (ptY - top) / h)))
+          };
+        }
+      }
+    }
+    return best;
+  };
+
+  return shapes.map((shape) => {
+    if (!shape || (shape.type !== "line" && shape.type !== "connector") || !shape.box) return shape;
+    const style = shape.style || {};
+    const x = Number(shape.box.x) || 0;
+    const y = Number(shape.box.y) || 0;
+    const w = Number(shape.box.w) <= 1 && Number(shape.box.h) > 2 ? 0 : (Number(shape.box.w) || 0);
+    const h = Number(shape.box.h) <= 1 && Number(shape.box.w) > 2 ? 0 : (Number(shape.box.h) || 0);
+    const x1 = style.flipH ? x + w : x;
+    const y1 = style.flipV ? y + h : y;
+    const x2 = style.flipH ? x : x + w;
+    const y2 = style.flipV ? y : y + h;
+
+    const startConnection = findNearestAnchor(x1, y1);
+    const endConnection = findNearestAnchor(x2, y2);
+    if (!startConnection && !endConnection) return shape;
+
+    return {
+      ...shape,
+      source: {
+        ...(shape.source || {}),
+        ...(startConnection ? { startConnection } : {}),
+        ...(endConnection && (!startConnection || endConnection.shapeId !== startConnection.shapeId) ? { endConnection } : {})
+      }
+    };
+  });
+}
+
+/**
+ * Sample vertical or horizontal linear gradient and soft drop shadow for card shapes.
+ */
+function enrichShapesWithGradientsAndShadows(shapes, raster = null, slideSize = null) {
+  if (!Array.isArray(shapes)) return shapes;
+  return shapes.map((shape) => {
+    if (!shape || shape.type !== "roundRect" || !shape.box) return shape;
+    const style = { ...(shape.style || {}) };
+    const isCard = String(shape.id || "").includes("card");
+    const isHighlight = shape.id === "scene-card-router" || shape.id === "scene-card-8-trace";
+
+    // Sample pixel gradient if raster is available
+    if (raster && slideSize && !style.gradient) {
+      const sx = raster.width / slideSize.widthPt;
+      const sy = raster.height / slideSize.heightPt;
+      const xMid = Math.round((shape.box.x + shape.box.w * 0.88) * sx);
+      const yTop = Math.round((shape.box.y + Math.min(8, shape.box.h * 0.12)) * sy);
+      const yBot = Math.round((shape.box.y + shape.box.h - Math.min(8, shape.box.h * 0.12)) * sy);
+      const topPx = px(raster, xMid, yTop);
+      const botPx = px(raster, xMid, yBot);
+      const baseRgb = hexToRgb(style.fill);
+      if (baseRgb) {
+        const dTop = Math.max(Math.abs(topPx[0] - baseRgb[0]), Math.abs(topPx[1] - baseRgb[1]), Math.abs(topPx[2] - baseRgb[2]));
+        const dBot = Math.max(Math.abs(botPx[0] - baseRgb[0]), Math.abs(botPx[1] - baseRgb[1]), Math.abs(botPx[2] - baseRgb[2]));
+        const span = Math.hypot(topPx[0] - botPx[0], topPx[1] - botPx[1], topPx[2] - botPx[2]);
+        if (dTop <= 28 && dBot <= 28 && span >= 7) {
+          style.gradient = {
+            type: "linear",
+            angleDeg: 90,
+            stops: [
+              { position: 0, color: rgbToHex(topPx[0], topPx[1], topPx[2]) },
+              { position: 1, color: rgbToHex(botPx[0], botPx[1], botPx[2]) }
+            ]
+          };
+        }
+      }
+    }
+
+    if (isHighlight && !style.gradient) {
+      const rgb = hexToRgb(style.fill);
+      if (rgb) {
+        const lighter = rgbToHex(Math.min(255, rgb[0] + 8), Math.min(255, rgb[1] + 6), Math.min(255, rgb[2] + 4));
+        const darker = rgbToHex(Math.max(0, rgb[0] - 8), Math.max(0, rgb[1] - 6), Math.max(0, rgb[2] - 2));
+        style.gradient = {
+          type: "linear",
+          angleDeg: 90,
+          stops: [
+            { position: 0, color: lighter },
+            { position: 1, color: darker }
+          ]
+        };
+      }
+    }
+
+    if (isCard && !style.shadow) {
+      style.shadow = {
+        color: isHighlight ? "#1E3A8A" : "#0F172A",
+        alpha: isHighlight ? 0.10 : 0.06,
+        blurPt: isHighlight ? 6 : 4,
+        distancePt: 1.5,
+        angleDeg: 90
+      };
+    }
+
+    return { ...shape, style };
+  });
+}
+
+/**
+ * Merge consecutive single-line body textBoxes inside the same card container
+ * when they share identical typography and tight vertical line spacing, and
+ * structure bullet prefix lines.
+ */
+function mergeCardParagraphsAndBullets(textBoxes, shapes) {
+  if (!Array.isArray(textBoxes) || textBoxes.length < 2) return textBoxes || [];
+  const cards = (Array.isArray(shapes) ? shapes : []).filter(
+    (s) => s && s.type === "roundRect" && String(s.id || "").includes("card") && s.box
+  );
+  if (cards.length === 0) return textBoxes;
+
+  const findCardForText = (tb) => {
+    if (!tb?.box) return null;
+    const cx = tb.box.x + tb.box.w / 2;
+    const cy = tb.box.y + tb.box.h / 2;
+    return cards.find(
+      (c) => cx >= c.box.x && cx <= c.box.x + c.box.w && cy >= c.box.y && cy <= c.box.y + c.box.h
+    ) || null;
+  };
+
+  const byCard = new Map();
+  const ungrouped = [];
+  for (const tb of textBoxes) {
+    const card = findCardForText(tb);
+    if (!card || String(tb?.id || "").startsWith("scene-badge-label-")) {
+      ungrouped.push(tb);
+      continue;
+    }
+    let list = byCard.get(card.id);
+    if (!list) {
+      list = [];
+      byCard.set(card.id, list);
+    }
+    list.push(tb);
+  }
+
+  const mergedResult = [...ungrouped];
+  for (const group of byCard.values()) {
+    group.sort((a, b) => (a.box.y - b.box.y) || (a.box.x - b.box.x));
+    const emitted = [];
+    for (const tb of group) {
+      const prev = emitted[emitted.length - 1];
+      if (!prev) {
+        emitted.push(tb);
+        continue;
+      }
+      const prevFont = prev.font || {};
+      const currFont = tb.font || {};
+      const sameWeight = (prevFont.weight || "normal") === (currFont.weight || "normal");
+      const isBody = (currFont.weight || "normal") !== "bold" && (Number(currFont.sizePt) || 12) <= 13.5;
+      const sameSize = Math.abs((Number(prevFont.sizePt) || 12) - (Number(currFont.sizePt) || 12)) <= 1.2;
+      const sameColor = String(prevFont.color || "").toUpperCase() === String(currFont.color || "").toUpperCase();
+      const sameLeft = Math.abs(prev.box.x - tb.box.x) <= 6;
+      const gapY = tb.box.y - (prev.box.y + prev.box.h);
+      const maxGap = Math.max(prev.box.h, tb.box.h) * 0.55;
+
+      if (isBody && sameWeight && sameSize && sameColor && sameLeft && gapY >= -3 && gapY <= maxGap) {
+        const right = Math.max(prev.box.x + prev.box.w, tb.box.x + tb.box.w);
+        const bottom = Math.max(prev.box.y + prev.box.h, tb.box.y + tb.box.h);
+        const combinedText = `${prev.text}\n${tb.text}`;
+        const hasBullet = /^[•·\-*]\s+/m.test(combinedText);
+        emitted[emitted.length - 1] = {
+          ...prev,
+          text: combinedText,
+          wrap: true,
+          box: {
+            x: round2(Math.min(prev.box.x, tb.box.x)),
+            y: round2(prev.box.y),
+            w: round2(right - Math.min(prev.box.x, tb.box.x)),
+            h: round2(bottom - prev.box.y)
+          },
+          style: {
+            ...(prev.style || {}),
+            wrap: true,
+            ...(hasBullet ? { bullet: { type: "bullet", char: "•" } } : {})
+          }
+        };
+      } else {
+        emitted.push(tb);
+      }
+    }
+    mergedResult.push(...emitted);
+  }
+  return mergedResult;
+}
+
 function buildRouterLayerNativeScene(page, _slideSize) {
-  const shapes = [
+  const rawShapes = [
     // Row 1 cards
     makeRoundRect("scene-card-trigger", 16, 16.89, 192, 80, "#F8F9FB", "#B8BEC6", 1.5, "solid", 12),
     makeRoundRect("scene-card-filter", 238.22, 17.78, 151.11, 77.33, "#F6F9FC", "#B8BEC6", 1.5, "solid", 12),
@@ -175,6 +554,7 @@ function buildRouterLayerNativeScene(page, _slideSize) {
     makeLine("scene-conn-workerN-exec", 730.67, 204.44, 760, 204.44, "#646D7A", 1.5, { endArrow: "triangle" }),
     makeLine("scene-conn-watchdog-sessiondb", 216, 340.89, 292.44, 340.89, "#7A828E", 1.5, { dash: "dash", endArrow: "triangle" })
   ];
+  const shapes = bindConnectorsToShapeAnchors(enrichShapesWithGradientsAndShadows(rawShapes));
   const canonicalRouterIcons = [
     makeIconItem("icon-1", 483.56, 32.87, 30.22, 25.76),
     makeIconItem("icon-2", 26.67, 39.09, 28.44, 28.43),
@@ -192,11 +572,12 @@ function buildRouterLayerNativeScene(page, _slideSize) {
   } else {
     images = images.map((img) => img?.id === "icon-4" ? { ...img, box: { ...img.box, w: 25, h: 24.5 } } : img);
   }
-  return { shapes, images, textBoxes: page.textBoxes || [] };
+  const textBoxes = mergeCardParagraphsAndBullets(page.textBoxes || [], shapes);
+  return { shapes, images, textBoxes };
 }
 
 function buildAgentHarnessNativeScene(page, _slideSize) {
-  const shapes = [
+  const rawShapes = [
     // Outer Agent Harness container
     makeRoundRect("scene-container-outer-harness", 158.45, 223.38, 616.04, 854.88, "#F2FBFD", "#6496B4", 2.25, "solid", 18),
     // Left User / Client card
@@ -261,6 +642,7 @@ function buildAgentHarnessNativeScene(page, _slideSize) {
     ...buildPolylineSegments("scene-conn-collect-right", [[512, 1107.6], [803, 1107.6], [803, 1135.46]], "#34383E", 1.5, { dash: "dash" }),
     makeLine("scene-conn-collect-cfg", 587, 1107.6, 587, 1135.46, "#34383E", 1.5, { dash: "dash" })
   ];
+  const shapes = bindConnectorsToShapeAnchors(enrichShapesWithGradientsAndShadows(rawShapes));
 
   // Clean up false-positive icon-10 (which was on the dashed line) and keep the 18 real icons
   let images = (page.images || []).filter((img) => /^icon-\d+/u.test(String(img?.id || "")) && img?.id !== "icon-10");
@@ -340,7 +722,8 @@ function buildAgentHarnessNativeScene(page, _slideSize) {
     });
   }
 
-  return { shapes, images, textBoxes: filteredTextBoxes };
+  const textBoxes = mergeCardParagraphsAndBullets(filteredTextBoxes, shapes);
+  return { shapes, images, textBoxes };
 }
 
 function extractDiagramNativeScene({ page, slideSize, sourceFile, root, outputRoot }) {
@@ -357,10 +740,11 @@ function extractDiagramNativeScene({ page, slideSize, sourceFile, root, outputRo
   }
   if (!scene) return null;
 
-  // If sourceFile and targetRoot are available, refine icon crops to have transparent backgrounds
+  // If sourceFile and targetRoot are available, refine icon crops to have transparent backgrounds + SVG vector traces
   if (sourceFile && fs.existsSync(sourceFile) && targetRoot) {
     try {
       const raster = readPng(sourceFile);
+      scene.shapes = enrichShapesWithGradientsAndShadows(scene.shapes, raster, slideSize);
       for (const img of scene.images) {
         const assetRel = img.assetPath || img.src;
         if (!assetRel || !img.box) continue;
@@ -375,6 +759,17 @@ function extractDiagramNativeScene({ page, slideSize, sourceFile, root, outputRo
         const absAsset = path.join(targetRoot, ...assetRel.split("/"));
         fs.mkdirSync(path.dirname(absAsset), { recursive: true });
         writePng(absAsset, cropped);
+        const svgContent = traceRasterIconToSvg(cropped);
+        if (svgContent) {
+          const svgRel = assetRel.replace(/\.png$/i, ".svg");
+          const absSvg = path.join(targetRoot, ...svgRel.split("/"));
+          fs.writeFileSync(absSvg, svgContent, "utf8");
+          img.style = {
+            ...(img.style || {}),
+            svgContent,
+            svgDataUri: `data:image/svg+xml;base64,${Buffer.from(svgContent, "utf8").toString("base64")}`
+          };
+        }
         if (img.dataUri) {
           const buf = fs.readFileSync(absAsset);
           img.dataUri = `data:image/png;base64,${buf.toString("base64")}`;
@@ -389,6 +784,10 @@ function extractDiagramNativeScene({ page, slideSize, sourceFile, root, outputRo
 }
 
 module.exports = {
+  bindConnectorsToShapeAnchors,
+  enrichShapesWithGradientsAndShadows,
   extractDiagramNativeScene,
-  makeTransparentIconCrop
+  makeTransparentIconCrop,
+  mergeCardParagraphsAndBullets,
+  traceRasterIconToSvg
 };
