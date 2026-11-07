@@ -211,6 +211,9 @@ function imageDataUri(assetRoot, value) {
 function isFullSlideBackgroundImage(item) {
   return item?.id === "full-slide-residual" || item?.source?.fullSlideResidual === true;
 }
+function isForegroundIconImage(item) {
+  return item?.source?.role === "icon" || item?.source?.detector === "extracted-card-icon-crop" || /^icon-\d+/u.test(String(item?.id || ""));
+}
 function imageHtml(item, slideSize, assetRoot) {
   if (!assetRoot) return "";
   const source = imageDataUri(assetRoot, item.assetPath); const fit = item.style?.fit === "contain" ? "contain" : "cover"; const crop = item.style?.cropRect;
@@ -229,8 +232,8 @@ function createPrintableHtml(ir, options = {}) {
     const backgroundShapes = allShapes.filter((item) => isBackgroundUnderlayShape(item)).map((item) => shapeHtml(item, slideSize)).join("");
     const foregroundShapes = allShapes.filter((item) => !isBackgroundUnderlayShape(item)).map((item) => shapeHtml(item, slideSize)).join("");
     const allImages = page.images || [];
-    const backgroundImages = allImages.filter((item) => isFullSlideBackgroundImage(item)).map((item) => imageHtml(item, slideSize, options.assetRoot)).join("");
-    const foregroundImages = allImages.filter((item) => !isFullSlideBackgroundImage(item)).map((item) => imageHtml(item, slideSize, options.assetRoot)).join("");
+    const backgroundImages = allImages.filter((item) => !isForegroundIconImage(item)).map((item) => imageHtml(item, slideSize, options.assetRoot)).join("");
+    const foregroundImages = allImages.filter((item) => isForegroundIconImage(item)).map((item) => imageHtml(item, slideSize, options.assetRoot)).join("");
     const text = (page.textBoxes || []).map((item) => textHtml(item, slideSize)).join("");
     const tables = (page.tables || []).map((item) => tableHtml(item, slideSize)).join("");
     const charts = (page.charts || []).map((item) => chartHtml(item, slideSize)).join("");
