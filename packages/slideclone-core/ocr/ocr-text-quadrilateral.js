@@ -103,8 +103,7 @@ function projectOcrTextBox(value) {
   }
   if (!sameBox(envelope(points), bounds)) throw new TypeError("OCR text geometry is stale");
   const geometry = projectOcrPolygon(points);
-  const minRotationDeg = geometry && geometry.box.w <= geometry.box.h * 1.6 ? 6 : 2.5;
-  if (!geometry || Math.abs(geometry.rotation) < minRotationDeg) return value;
+  if (!geometry || Math.abs(geometry.rotation) < 0.25) return value;
   return { ...value, box: geometry.box, rotation: geometry.rotation,
     source: { ...value.source, ocrQuadrilateralProjected: true } };
 }

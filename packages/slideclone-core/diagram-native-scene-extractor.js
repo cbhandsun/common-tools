@@ -175,19 +175,20 @@ function buildRouterLayerNativeScene(page, _slideSize) {
     makeLine("scene-conn-workerN-exec", 730.67, 204.44, 760, 204.44, "#646D7A", 1.5, { endArrow: "triangle" }),
     makeLine("scene-conn-watchdog-sessiondb", 216, 340.89, 292.44, 340.89, "#7A828E", 1.5, { dash: "dash", endArrow: "triangle" })
   ];
-  let images = (page.images || []).filter((img) => img?.id !== "full-slide-residual" && img?.source?.fullSlideResidual !== true);
+  const canonicalRouterIcons = [
+    makeIconItem("icon-1", 483.56, 32.87, 30.22, 25.76),
+    makeIconItem("icon-2", 26.67, 39.09, 28.44, 28.43),
+    makeIconItem("icon-3", 759.11, 39.98, 29.33, 28.43),
+    makeIconItem("icon-4", 252.44, 40.87, 25, 24.5),
+    makeIconItem("icon-5", 353.78, 183.9, 24.89, 24.88),
+    makeIconItem("icon-6", 552, 183.9, 25.78, 24.88),
+    makeIconItem("icon-7", 776.89, 183.9, 26.67, 28.43),
+    makeIconItem("icon-8", 411.56, 315.38, 31.11, 36.42),
+    makeIconItem("icon-9", 37.33, 319.82, 28.44, 31.98)
+  ];
+  let images = (page.images || []).filter((img) => /^icon-\d+/u.test(String(img?.id || "")));
   if (images.length === 0) {
-    images = [
-      makeIconItem("icon-1", 483.56, 32.87, 30.22, 25.76),
-      makeIconItem("icon-2", 26.67, 39.09, 28.44, 28.43),
-      makeIconItem("icon-3", 759.11, 39.98, 29.33, 28.43),
-      makeIconItem("icon-4", 252.44, 40.87, 25, 24.5),
-      makeIconItem("icon-5", 353.78, 183.9, 24.89, 24.88),
-      makeIconItem("icon-6", 552, 183.9, 25.78, 24.88),
-      makeIconItem("icon-7", 776.89, 183.9, 26.67, 28.43),
-      makeIconItem("icon-8", 411.56, 315.38, 31.11, 36.42),
-      makeIconItem("icon-9", 37.33, 319.82, 28.44, 31.98)
-    ];
+    images = canonicalRouterIcons;
   } else {
     images = images.map((img) => img?.id === "icon-4" ? { ...img, box: { ...img.box, w: 25, h: 24.5 } } : img);
   }
@@ -262,7 +263,7 @@ function buildAgentHarnessNativeScene(page, _slideSize) {
   ];
 
   // Clean up false-positive icon-10 (which was on the dashed line) and keep the 18 real icons
-  let images = (page.images || []).filter((img) => img?.id !== "full-slide-residual" && img?.source?.fullSlideResidual !== true && img?.id !== "icon-10");
+  let images = (page.images || []).filter((img) => /^icon-\d+/u.test(String(img?.id || "")) && img?.id !== "icon-10");
   if (images.length === 0) {
     images = [
       makeIconItem("icon-1", 829.37, 284.44, 68.02, 57.2),

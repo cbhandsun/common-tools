@@ -228,12 +228,14 @@ function createPrintableHtml(ir, options = {}) {
     const allShapes = page.shapes || [];
     const backgroundShapes = allShapes.filter((item) => isBackgroundUnderlayShape(item)).map((item) => shapeHtml(item, slideSize)).join("");
     const foregroundShapes = allShapes.filter((item) => !isBackgroundUnderlayShape(item)).map((item) => shapeHtml(item, slideSize)).join("");
-    const images = (page.images || []).map((item) => imageHtml(item, slideSize, options.assetRoot)).join("");
+    const allImages = page.images || [];
+    const backgroundImages = allImages.filter((item) => isFullSlideBackgroundImage(item)).map((item) => imageHtml(item, slideSize, options.assetRoot)).join("");
+    const foregroundImages = allImages.filter((item) => !isFullSlideBackgroundImage(item)).map((item) => imageHtml(item, slideSize, options.assetRoot)).join("");
     const text = (page.textBoxes || []).map((item) => textHtml(item, slideSize)).join("");
     const tables = (page.tables || []).map((item) => tableHtml(item, slideSize)).join("");
     const charts = (page.charts || []).map((item) => chartHtml(item, slideSize)).join("");
     const notes = page.speakerNotes ? `<aside class="speaker-notes" data-page-index="${page.pageIndex}" hidden>${escapeHtml(page.speakerNotes)}</aside>` : "";
-    return `<section class="slide" data-page-index="${page.pageIndex}" style="background:${cssColor(page.background?.fill, "#FFFFFF")}">${backgroundShapes}${images}${foregroundShapes}${tables}${charts}${text}${notes}</section>`;
+    return `<section class="slide" data-page-index="${page.pageIndex}" style="background:${cssColor(page.background?.fill, "#FFFFFF")}">${backgroundShapes}${backgroundImages}${foregroundShapes}${foregroundImages}${tables}${charts}${text}${notes}</section>`;
   }).join("");
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="common-tools-deck-ir-sha256" content="${fingerprint}"><meta name="common-tools-page-count" content="${ir.pages.length}"><title>Presentation</title><style>*{box-sizing:border-box}body{margin:0;background:#d1d5db;font-family:Arial,sans-serif}.slide{position:relative;width:13.333in;height:7.5in;margin:20px auto;overflow:hidden;page-break-after:always}.shape,.image-clip,.image,.text,.native,.chart{position:absolute}.image-clip{overflow:hidden}.image{display:block}.text{white-space:pre-wrap;overflow:hidden;line-height:1.15}.native{border-collapse:collapse;font-size:14pt;background:#fff}.native td{border:1px solid #94a3b8;padding:6px}.chart{display:flex;flex-direction:column;gap:12px;padding:18px;border:1px solid #94a3b8;background:#fff;overflow:hidden}.chart span{font-size:13pt}@page{size:13.333in 7.5in;margin:0}@media print{body{background:#fff}.slide{margin:0}}</style></head><body data-source-fingerprint="${fingerprint}" data-page-count="${ir.pages.length}">${pages}</body></html>`;
 }

@@ -900,7 +900,7 @@ function syncPptxBufferWithDeckIr(pptxBuffer, rawIr, extractedByPage = null) {
           rIdByIconId.set(baseIconId, rId);
           relsXml = relsXml.replace(
             "</Relationships>",
-            `<Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="/ppt/media/${baseIconId}.png" Id="${rId}" /></Relationships>`
+            `<Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${baseIconId}.png" Id="${rId}" /></Relationships>`
           );
         }
       }
@@ -1056,24 +1056,62 @@ async function ensureJobEditableIconsAndPptx(jobId, { teamServices, objectStore 
   const ir = normalizePortalEditableIr(JSON.parse(irBytes.toString("utf8")));
   if (!ir || !Array.isArray(ir.pages) || ir.pages.length === 0) return { ir, irTarget };
   const hasFullResidual = (ir.pages[0].images || []).some((img) => img?.id === "full-slide-residual" || img?.source?.fullSlideResidual === true);
-  if (ir.meta?.portalNativeSceneUpgraded === true && !hasFullResidual) return { ir, irTarget };
+  if (ir.meta?.portalNativeSceneUpgraded === true && !hasFullResidual && (ir.pages[0].images || []).length > 0) return { ir, irTarget };
 
   try {
     const pptxTarget = await teamServices.getArtifactTarget({ id: jobId, ownerId: PORTAL_OWNER_ID, name: "deck.pptx" });
     const pptxBytes = await objectStore.readObject({ objectKey: pptxTarget.objectKey, maxBytes: 100 * 1024 * 1024 });
     const entries = readZipEntries(pptxBytes);
     const mediaEntry = entries.find((e) => e.name === "ppt/media/image.png");
+    let sourcePngBuffer = mediaEntry ? mediaEntry.data : null;
+    try {
+      const job = await teamServices.getJob(jobId, PORTAL_OWNER_ID);
+      if (job?.inputObjectKey) {
+        const archiveBytes = await objectStore.readObject({ objectKey: job.inputObjectKey, maxBytes: 64 * 1024 * 1024 });
+        const srcImg = extractSourceImageFromTarGz(archiveBytes);
+        if (srcImg && srcImg.contentType === "image/png") {
+          sourcePngBuffer = srcImg.bytes;
+        }
+      }
+    } catch {
+      // Fallback to mediaEntry if source archive is unavailable
+    }
+
     let extracted = null;
-    if (mediaEntry && (ir.pages[0].images || []).filter((img) => img?.id !== "full-slide-residual").length === 0) {
-      extracted = extractIconsFromResidualPng(mediaEntry.data, ir.pages[0], ir.slideSize);
+    if (sourcePngBuffer && (ir.pages[0].images || []).filter((img) => img?.id !== "full-slide-residual").length === 0) {
+      extracted = extractIconsFromResidualPng(sourcePngBuffer, ir.pages[0], ir.slideSize);
       ir.pages[0].images = extracted.icons.map((ic) => ic.irItem);
     }
-    const { extractDiagramNativeScene } = require("../slideclone-core/diagram-native-scene-extractor");
+    const { extractDiagramNativeScene, makeTransparentIconCrop } = require("../slideclone-core/diagram-native-scene-extractor");
     const scene = extractDiagramNativeScene({ page: ir.pages[0], slideSize: ir.slideSize });
     if (scene && Array.isArray(scene.shapes) && scene.shapes.length > 0) {
       ir.pages[0].shapes = scene.shapes;
       ir.pages[0].images = scene.images;
       ir.pages[0].textBoxes = scene.textBoxes;
+      if (sourcePngBuffer) {
+        try {
+          const raster = readPngBuffer(sourcePngBuffer);
+          const croppedIcons = [];
+          for (const img of ir.pages[0].images) {
+            if (!img?.id || !img?.box) continue;
+            const container = scene.shapes.find((s) =>
+              s.type === "roundRect"
+              && img.box.x >= s.box.x - 4
+              && img.box.y >= s.box.y - 4
+              && img.box.x + img.box.w <= s.box.x + s.box.w + 4
+              && img.box.y + img.box.h <= s.box.y + s.box.h + 4
+            );
+            const cropped = makeTransparentIconCrop(raster, ir.slideSize, img.box, container?.style?.fill);
+            const pngBuffer = encodeRgbaToPngBuffer(cropped.width, cropped.height, cropped.rgba);
+            croppedIcons.push({ id: String(img.id).replace(/\.copy\..*$/u, ""), pngBuffer });
+          }
+          if (croppedIcons.length > 0) {
+            extracted = { residualPngBuffer: sourcePngBuffer, icons: croppedIcons };
+          }
+        } catch {
+          // Keep existing extracted icons if source crop fails
+        }
+      }
     } else {
       ir.pages[0].images = (ir.pages[0].images || []).filter((img) => img?.id !== "full-slide-residual" && img?.source?.fullSlideResidual !== true);
     }
@@ -1258,17 +1296,36 @@ async function handlePortalEditableArtifact(requestUrl, { teamServices, objectSt
           for (const m of storedHtml.matchAll(/<img\b[^>]*\bsrc="([^"]+)"[^>]*\bdata-object-id="([^"]+)"/g)) {
             srcById.set(m[2], m[1]);
           }
+          const missingMediaIds = ir.pages.flatMap((page) => (page.images || []).map((img) => String(img?.id || "").replace(/\.copy\..*$/u, ""))).filter((id) => id && !srcById.has(id));
+          if (missingMediaIds.length > 0) {
+            try {
+              const pptxTarget = await teamServices.getArtifactTarget({ id: jobId, ownerId: PORTAL_OWNER_ID, name: "deck.pptx" });
+              const pptxBytes = await objectStore.readObject({ objectKey: pptxTarget.objectKey, maxBytes: 100 * 1024 * 1024 });
+              for (const entry of readZipEntries(pptxBytes)) {
+                const m = entry.name.match(/^ppt\/media\/(icon-\d+)\.png$/u);
+                if (m && !srcById.has(m[1])) {
+                  srcById.set(m[1], `data:image/png;base64,${entry.data.toString("base64")}`);
+                }
+              }
+            } catch {
+              // Ignore media fallback errors
+            }
+          }
           const slideW = Number(ir.slideSize?.widthPt) || 960;
           const slideH = Number(ir.slideSize?.heightPt) || 540;
-          const imageTagsByPage = ir.pages.map((page) => (page.images || []).map((img) => {
+          const bgImageTagsByPage = ir.pages.map((page) => (page.images || []).map((img) => {
             const id = String(img?.id || "");
-            if (!id) return "";
+            if (id !== "full-slide-residual") return "";
+            const src = srcById.get(id) || img.dataUri;
+            if (!src) return "";
+            return `<img class="image" data-object-id="full-slide-residual" alt="" src="${src}" style="pointer-events:none;z-index:1;left:0%;top:0%;width:100%;height:100%;object-fit:contain">`;
+          }).join(""));
+          const fgImageTagsByPage = ir.pages.map((page) => (page.images || []).map((img) => {
+            const id = String(img?.id || "");
+            if (!id || id === "full-slide-residual") return "";
             const baseId = id.replace(/\.copy\..*$/u, "");
             const src = srcById.get(id) || srcById.get(baseId) || img.dataUri;
             if (!src) return "";
-            if (id === "full-slide-residual") {
-              return `<img class="image" data-object-id="full-slide-residual" alt="" src="${src}" style="pointer-events:none;z-index:1;left:0%;top:0%;width:100%;height:100%;object-fit:contain">`;
-            }
             const box = img.box || { x: 0, y: 0, w: 24, h: 24 };
             const rot = Number(img.rotation) || 0;
             const rotCss = Number.isFinite(rot) && Math.abs(rot) > 0.01 ? `;transform:rotate(${rot}deg)` : "";
@@ -1289,11 +1346,12 @@ async function handlePortalEditableArtifact(requestUrl, { teamServices, objectSt
               })
             : createPrintableHtml(editableIr);
           for (let pageIndex = 0; pageIndex < ir.pages.length; pageIndex += 1) {
-            const tags = imageTagsByPage[pageIndex];
-            if (tags) {
+            const bgTags = bgImageTagsByPage[pageIndex];
+            const fgTags = fgImageTagsByPage[pageIndex];
+            if (bgTags || fgTags) {
               html = html.replace(
-                new RegExp(`(<section class="slide" data-page-index="${pageIndex}"[^>]*>)`),
-                `$1${tags}`
+                new RegExp(`(<section class="slide" data-page-index="${pageIndex}"[^>]*>)([\\s\\S]*?)(<\\/section>)`),
+                (_, openTag, innerHtml, closeTag) => `${openTag}${bgTags || ""}${innerHtml}${fgTags || ""}${closeTag}`
               );
             }
           }
