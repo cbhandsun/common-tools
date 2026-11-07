@@ -134,22 +134,14 @@ function auditDeliveryPageSemantics(page, slideSize, policy) {
     if (isRasterDerivedPrimitive(shape)) rasterDerivedPrimitiveCount += 1;
     else if (isSuspiciousRasterMosaicRect(shape, slideArea)) suspiciousMosaicCount += 1;
   }
-  const hasNativeTextAndShapes = (page.textBoxes || []).length > 0 && (page.shapes || []).length > 0;
   for (const image of page.images || []) {
     const source = plainObject(image?.source) ? image.source : {};
     if (source.protectedMinimumUnit === true && source.cropEvidenceRequired !== true) unverifiedCropCount += 1;
     if (!isReconstructionImage(image)) continue;
-    const isVerifiedHybridResidual = hasNativeTextAndShapes && (
-      (source.fullSlideResidual === true && source.textObjectified === true && source.nativeObjectsErased === true)
-      || source.tiledLargeRaster === true
-      || source.visualFallbackSource === true
-    );
-    if (!isVerifiedHybridResidual) {
-      const key = lineageKey(image);
-      const boxes = rasterLineages.get(key) || [];
-      boxes.push(image.box);
-      rasterLineages.set(key, boxes);
-    }
+    const key = lineageKey(image);
+    const boxes = rasterLineages.get(key) || [];
+    boxes.push(image.box);
+    rasterLineages.set(key, boxes);
     if (!source.lineageId && !source.parentRasterId && !source.parentLargeRasterId && !source.sourceAssetSha256 && !source.pageImage && !image.assetPath) {
       missingRasterProvenanceCount += 1;
     }
@@ -200,22 +192,11 @@ function createPreservationPlan(ir, rawPolicy = {}) {
     const residualBoxes = residualImagesForArea.map((item) => item.box); const nativeAreaRatio = unionArea(nativeBoxes, ir.slideSize) / slideArea; const residualAreaRatio = unionArea(residualBoxes, ir.slideSize) / slideArea;
     const largestResidualAreaRatio = residualBoxes.reduce((maximum, box) => { const clipped = clippedBox(box, ir.slideSize); return Math.max(maximum, clipped ? (clipped.right - clipped.left) * (clipped.bottom - clipped.top) / slideArea : 0); }, 0);
     const visualFallbackErasedTextBoxes = residualImagesForArea.reduce((sum, image) => sum + Number(image?.source?.erasedNativeTextBoxes || 0), 0);
-    const verifiedHybridResidualException = (page.textBoxes || []).length > 0
-      && (page.shapes || []).length > 0
-      && residualImagesForArea.length > 0
-      && residualImagesForArea.every((image) => {
-        const source = plainObject(image?.source) ? image.source : {};
-        return !isReconstructionImage(image)
-          || (source.fullSlideResidual === true && source.textObjectified === true && source.nativeObjectsErased === true)
-          || source.tiledLargeRaster === true
-          || source.visualFallbackSource === true
-          || ((Number(image?.box?.w) || 0) * (Number(image?.box?.h) || 0) / slideArea <= policy.maxLargestResidualAreaRatio);
-      });
-    const rasterBackgroundException = (page.intent?.rasterBackgroundAllowed === true
+    const rasterBackgroundException = page.intent?.rasterBackgroundAllowed === true
       && page.intent?.primarySemanticStructureNative === true
       && nativeObjects >= Math.max(policy.minNativeObjects, 12)
       && nativeConnectors >= 6
-      && nativeAreaRatio >= policy.minNativeAreaRatio) || verifiedHybridResidualException;
+      && nativeAreaRatio >= policy.minNativeAreaRatio;
     const visualFallbackEvidence = VERIFIED_VISUAL_FALLBACK_STRATEGIES.has(ir.meta?.visualFallback?.strategy)
       && page.intent?.visualFallbackVerified === true
       && VERIFIED_VISUAL_FALLBACK_STRATEGIES.has(page.intent?.visualFallbackStrategy)

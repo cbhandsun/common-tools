@@ -312,7 +312,7 @@ test("rebuild planning, pixel IO and residual generation run from package export
     lineEndpoints: { from: { x: 170, y: 103 }, to: { x: 230, y: 115 } }
   }, 1, { visualConnectors: [{ id: "stage-transition", atomId: "transition", fromAtomId: "stage", toAtomId: "result" }] });
   assert.deepEqual(arrowShape.box, { x: 170, y: 103, w: 60, h: 12 });
-  assert.deepEqual(arrowShape.style, { stroke: "#27ae60", strokeWidthPt: 4, connectorType: "straight", endArrow: "triangle" });
+  assert.deepEqual(arrowShape.style, { stroke: "#27ae60", strokeWidthPt: 4, connectorType: "straight", lineCap: "flat", endArrow: "triangle", endArrowWidth: "med", endArrowLength: "med" });
   assert.deepEqual({ detector: arrowShape.source.detector, axis: arrowShape.source.axis, from: arrowShape.source.fromAtomId, to: arrowShape.source.toAtomId, connector: arrowShape.source.visualConnectorId }, { detector: "visual-atom-native-connector", axis: "diagonal", from: "stage", to: "result", connector: "stage-transition" });
   const ringShape = atomNative.visualAtomNativeShape(atomLayer, {
     id: "ring-quarter", kind: "native-donut-segment-candidate", shapeHint: "donut-segment", donutParentBox: { x: 300, y: 100, w: 80, h: 80 }, box: { x: 300, y: 100, w: 80, h: 80 },

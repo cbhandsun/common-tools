@@ -342,37 +342,6 @@ function buildAgentHarnessNativeScene(page, _slideSize) {
   return { shapes, images, textBoxes: filteredTextBoxes };
 }
 
-function buildGenericDiagramNativeScene(page, slideSize, sourceFile) {
-  if (!sourceFile || !fs.existsSync(sourceFile)) return null;
-  let raster;
-  try {
-    raster = readPng(sourceFile);
-  } catch {
-    return null;
-  }
-  const shapes = [...(page.shapes || [])].map((s, idx) => {
-    if (s?.source?.detector === "solid-region-native-background" && s.box) {
-      return makeRoundRect(
-        s.id || `scene-card-generic-${idx + 1}`,
-        s.box.x,
-        s.box.y,
-        s.box.w,
-        s.box.h,
-        s.style?.fill || "#F8FAFC",
-        s.style?.stroke && s.style.stroke !== "none" ? s.style.stroke : "#CBD5E1",
-        1.5,
-        "solid",
-        10
-      );
-    }
-    return s;
-  });
-  const images = (page.images || []).filter((img) => img?.id !== "full-slide-residual" && img?.source?.fullSlideResidual !== true);
-  if (shapes.length === 0) return null;
-  void raster;
-  return { shapes, images, textBoxes: page.textBoxes || [] };
-}
-
 function extractDiagramNativeScene({ page, slideSize, sourceFile, root, outputRoot }) {
   if (!page || !slideSize) return null;
   const targetRoot = root || outputRoot;
@@ -383,7 +352,7 @@ function extractDiagramNativeScene({ page, slideSize, sourceFile, root, outputRo
   } else if (allText.includes("Agent") && (allText.includes("Harness") || allText.includes("任务编排器") || allText.includes("会话与上下文"))) {
     scene = buildAgentHarnessNativeScene(page, slideSize);
   } else {
-    scene = buildGenericDiagramNativeScene(page, slideSize, sourceFile);
+    scene = null;
   }
   if (!scene) return null;
 

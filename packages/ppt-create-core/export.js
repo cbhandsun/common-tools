@@ -150,8 +150,8 @@ function shapeHtml(item, slideSize) {
   if (item.type === "line" || item.type === "connector") {
     const wPt = Number(item.box?.w) || 0;
     const hPt = Number(item.box?.h) || 0;
-    const isVertical = hPt > wPt * 2 && wPt <= 2;
-    const isHorizontal = wPt >= hPt * 2 && hPt <= 2;
+    const isVertical = wPt >= 0 && hPt > 0 && hPt > wPt * 2 && wPt <= 2;
+    const isHorizontal = hPt >= 0 && wPt > 0 && wPt >= hPt * 2 && hPt <= 2;
     if (isVertical || isHorizontal) {
       const slideW = Number(slideSize?.widthPt) || 960;
       const slideH = Number(slideSize?.heightPt) || 540;
