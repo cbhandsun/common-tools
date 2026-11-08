@@ -1,6 +1,6 @@
 "use strict";
 
-const { colorDistance, expandPxBox, inAnyMask, luminance, rgbToHex, saturation } = require("./visual-atom-utils");
+const { expandPxBox, inAnyMask, rgbToHex } = require("./visual-atom-utils");
 const { looksLikeDiagonalLine } = require("./visual-atom-shape-recognition");
 
 function detectAxisLineComponents(image, region, bg, masks) {
@@ -134,29 +134,33 @@ function detectDiagonalLineComponents(components = [], region = {}) {
 
 function isForegroundPixel(image, x, y, bg) {
   const offset = (y * image.width + x) * 4;
-  const alpha = image.rgba[offset + 3];
-  if (alpha < 16) return false;
-  const rgb = [image.rgba[offset], image.rgba[offset + 1], image.rgba[offset + 2]];
-  const lum = luminance(rgb);
-  const sat = saturation(rgb);
-  const bgDistance = colorDistance(rgb, bg);
+  const rgba = image.rgba;
+  if (rgba[offset + 3] < 16) return false;
+  const r = rgba[offset], g = rgba[offset + 1], b = rgba[offset + 2];
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+  const min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+  const sat = max === 0 ? 0 : (max - min) / max;
   if (lum > 248 && sat < 0.06) return false;
-  return bgDistance > 26 || sat > 0.18 || lum < 210;
+  if (sat > 0.18 || lum < 210) return true;
+  const dr = r - (bg?.[0] || 0), dg = g - (bg?.[1] || 0), db = b - (bg?.[2] || 0);
+  return dr * dr + dg * dg + db * db > 676;
 }
 
 function isLowContrastContainerPixel(image, x, y, bg) {
   const offset = (y * image.width + x) * 4;
-  const alpha = image.rgba[offset + 3];
-  if (alpha < 16) return false;
-  const rgb = [image.rgba[offset], image.rgba[offset + 1], image.rgba[offset + 2]];
-  const lum = luminance(rgb);
-  const sat = saturation(rgb);
-  const bgDistance = colorDistance(rgb, bg);
-  return bgDistance >= 8
-    && bgDistance <= 32
-    && lum >= 210
-    && lum <= 248
-    && sat <= 0.18;
+  const rgba = image.rgba;
+  if (rgba[offset + 3] < 16) return false;
+  const r = rgba[offset], g = rgba[offset + 1], b = rgba[offset + 2];
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  if (lum < 210 || lum > 248) return false;
+  const max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+  const min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+  const sat = max === 0 ? 0 : (max - min) / max;
+  if (sat > 0.18) return false;
+  const dr = r - (bg?.[0] || 0), dg = g - (bg?.[1] || 0), db = b - (bg?.[2] || 0);
+  const bgDistSq = dr * dr + dg * dg + db * db;
+  return bgDistSq >= 64 && bgDistSq <= 1024;
 }
 
 module.exports = {

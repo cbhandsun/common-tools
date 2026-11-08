@@ -312,14 +312,13 @@ function compareRegion(source, generated, region, slideSize, options) {
   const top = Math.max(0, Math.floor(region.box.y * source.height / slideSize.heightPt));
   const right = Math.min(source.width, Math.ceil((region.box.x + region.box.w) * source.width / slideSize.widthPt));
   const bottom = Math.min(source.height, Math.ceil((region.box.y + region.box.h) * source.height / slideSize.heightPt));
+  const sameSize = generated.width === source.width && generated.height === source.height;
   let pixels = 0; let changed = 0; let foreground = 0; let missing = 0;
   for (let y = top; y < bottom; y += 1) for (let x = left; x < right; x += 1) {
-    const slideX = (x + 0.5) * slideSize.widthPt / source.width;
-    const slideY = (y + 0.5) * slideSize.heightPt / source.height;
-    if (region.geometry && !insideGeometry(slideX, slideY, region.geometry)) continue;
+    if (region.geometry && !insideGeometry((x + 0.5) * slideSize.widthPt / source.width, (y + 0.5) * slideSize.heightPt / source.height, region.geometry)) continue;
     const sourceOffset = (y * source.width + x) * 4;
-    const gx = Math.min(generated.width - 1, Math.round(x * generated.width / source.width));
-    const gy = Math.min(generated.height - 1, Math.round(y * generated.height / source.height));
+    const gx = sameSize ? x : Math.min(generated.width - 1, Math.round(x * generated.width / source.width));
+    const gy = sameSize ? y : Math.min(generated.height - 1, Math.round(y * generated.height / source.height));
     const delta = colorDelta(source.rgba, sourceOffset, generated.rgba, (gy * generated.width + gx) * 4);
     const sourceForeground = isRegionForeground(source.rgba, sourceOffset, region);
     pixels += 1;

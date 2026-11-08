@@ -227,6 +227,7 @@ function safeEntryName(value) {
 
 /** @param {Buffer} buffer */
 function crc32(buffer) {
+  if (typeof zlib.crc32 === "function") return zlib.crc32(buffer) >>> 0;
   let crc = 0xffffffff;
   for (const byte of buffer) {
     crc ^= byte;

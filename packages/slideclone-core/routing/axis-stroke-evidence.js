@@ -13,16 +13,14 @@ function record(value) {
     && Object.values(Object.getOwnPropertyDescriptors(value)).every(item => "value" in item);
 }
 
-/** @param {Raster} image @param {number} x @param {number} y @returns {Pixel|null} */
-function pixel(image, x, y) {
-  if (x < 0 || y < 0 || x >= image.width || y >= image.height) return null;
-  const offset = (y * image.width + x) * 4;
-  return [image.rgba[offset] ?? 0, image.rgba[offset + 1] ?? 0, image.rgba[offset + 2] ?? 0, image.rgba[offset + 3] ?? 0];
-}
-
-/** @param {Pixel} a @param {Pixel} b */
-function distance(a, b) {
-  return Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]), Math.abs(a[3] - b[3]));
+/** @param {Uint8Array} rgba @param {number} a @param {number} b */
+function distance(rgba, a, b) {
+  return Math.max(
+    Math.abs((rgba[a] ?? 0) - (rgba[b] ?? 0)),
+    Math.abs((rgba[a + 1] ?? 0) - (rgba[b + 1] ?? 0)),
+    Math.abs((rgba[a + 2] ?? 0) - (rgba[b + 2] ?? 0)),
+    Math.abs((rgba[a + 3] ?? 0) - (rgba[b + 3] ?? 0))
+  );
 }
 
 /**
@@ -43,25 +41,22 @@ function axisStrokeEvidenceMask(input) {
   const byteOffset = /** @type {unknown} */ (Reflect.get(typedArrayPrototype, "byteOffset", rgba));
   if (typeof length !== "number" || length !== width * height * 4 || !types.isArrayBuffer(buffer)
     || typeof byteOffset !== "number") return null;
-  const image = { width, height, rgba: new Uint8Array(buffer, byteOffset, length) }, horizontal = input.axis === "h";
+  const pixels = new Uint8Array(buffer, byteOffset, length), horizontal = input.axis === "h";
   const parallel = horizontal ? width : height, perpendicular = horizontal ? height : width;
+  const stride = (horizontal ? width : 1) * 4;
   const mask = new Uint8Array(width * height);
   for (let along = 0; along < parallel; along++) {
-    /** @param {number} across */
-    const at = across => pixel(image, horizontal ? along : across, horizontal ? across : along);
+    const baseOffset = (horizontal ? along : along * width) * 4;
     let start = 0;
     while (start < perpendicular) {
-      const first = at(start);
-      if (!first) return null;
-      let end = start + 1, last = first;
-      while (end < perpendicular) {
-        const next = at(end);
-        if (!next || distance(first, next) > 24) break;
-        last = next; end++;
+      const firstOffset = baseOffset + start * stride;
+      let end = start + 1;
+      while (end < perpendicular && distance(pixels, firstOffset, baseOffset + end * stride) <= 24) {
+        end++;
       }
-      const before = at(start - 1), after = at(end);
-      if (end - start <= 12 && first[3] >= 64 && before && after
-        && distance(first, before) >= 12 && distance(last, after) >= 12) {
+      if (end - start <= 12 && (pixels[firstOffset + 3] ?? 0) >= 64 && start > 0 && end < perpendicular
+        && distance(pixels, firstOffset, firstOffset - stride) >= 12
+        && distance(pixels, baseOffset + (end - 1) * stride, baseOffset + end * stride) >= 12) {
         for (let across = start; across < end; across++) {
           mask[(horizontal ? across * width + along : along * width + across)] = 1;
         }

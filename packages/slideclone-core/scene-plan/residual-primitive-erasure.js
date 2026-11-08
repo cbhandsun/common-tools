@@ -676,7 +676,7 @@ function eraseMasks(image, masks, options = {}) {
   // an independent owner matches that background, not the antialias color.
   eraseResidualTextPlans(image, next, textPlans, options.transparent === true);
   const textOwned = new Set();
-  for(const plan of textPlans)for(let i=0;i<plan.owned.length;i++)if(plan.owned[i]){
+  if (routeBackgrounds.length) for(const plan of textPlans)for(let i=0;i<plan.owned.length;i++)if(plan.owned[i]){
     textOwned.add((plan.bounds.y+Math.floor(i/plan.bounds.w))*image.width+plan.bounds.x+i%plan.bounds.w);
   }
   for(const row of routeBackgrounds){

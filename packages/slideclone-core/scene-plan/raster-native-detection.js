@@ -219,8 +219,8 @@ function detectAxisLines(image, slideSize, axis) {
     /** @type {RGBA[]} */
     let colors = [];
     for (let b = 0; b <= inner; b += 1) {
-      const color = b < inner ? (axis === "h" ? pixel(image, b, a) : pixel(image, a, b)) : null;
-      const on = color && isLinePixel(color) && strokeMask[axis === "h" ? a * image.width + b : b * image.width + a] === 1;
+      const color = b < inner && strokeMask[axis === "h" ? a * image.width + b : b * image.width + a] === 1 ? (axis === "h" ? pixel(image, b, a) : pixel(image, a, b)) : null;
+      const on = color && isLinePixel(color);
       if (on && start === null) {
         start = b;
         colors = [color];
