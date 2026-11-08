@@ -58,7 +58,7 @@ function createStructuredDeckArchive({ inputFile, outputFile }) {
     }));
   }
   const archivedDeck = rewrite(deck);
-  const { resolveStructuredSourceImages } = require("../slideclone-core/structured-source-images");
+  const { resolveStructuredSourceImages } = require("../slideclone-core/archetypes/structured-source-images");
   resolveStructuredSourceImages(deck, root);
   const { tarEntry } = require("./team-raw-image-archive");
   const deckBody = Buffer.from(JSON.stringify(archivedDeck));

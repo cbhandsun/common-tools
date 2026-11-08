@@ -1,4 +1,4 @@
-import { fitSourceHorizontalConnectors } from "../../packages/slideclone-core/source-horizontal-connector-fit";
+import { fitSourceHorizontalConnectors } from "../../packages/slideclone-core/routing/source-horizontal-connector-fit";
 
 const input: unknown = {};
 const result = fitSourceHorizontalConnectors(input);

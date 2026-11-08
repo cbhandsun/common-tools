@@ -1,0 +1,12 @@
+{
+  "kind": "bounded-source-fixture-no-acceptance-authority",
+  "originalPngSha256": "a6f77ffb75653f04a4ca47d43e9f692b838b3ea43eb15a53b91304c98d81d1b3",
+  "originalObservationWindow": { "x": 355, "y": 1375, "w": 370, "h": 58 },
+  "originalObjectId": "object-n136",
+  "originalOwnerId": "region-n0",
+  "originalOcrId": "p0-ocr-062",
+  "humanFact": "The three ascending bars are an independent icon. The body starts with 5.",
+  "anchorOrigin": "Source observation by the trusted adapter; coordinates were not supplied by the human.",
+  "originalTextStartBox": { "x": 413, "y": 1396, "w": 12, "h": 19 },
+  "scope": "Fixture is an exact crop of the complete prior observation window. Full-page raw replay uses the original PNG and original OCR. No metadata field grants source rights."
+}

@@ -11,7 +11,7 @@ const {
   componentAssetLayersForPage,
   componentAssetShapeLayersForPage,
   shouldDeferNativeRebuildForComponentStrategy
-} = require("../packages/slideclone-core/component-strategy-annotator");
+} = require("../packages/slideclone-core/archetypes/component-strategy-annotator");
 const {
   collectComponentTemplateFallbackDiagramTextBoxes,
   componentAssetLayerPseudoImages,
@@ -758,7 +758,7 @@ test("stable text box dedupe removes duplicate OCR ids after final merge", () =>
 });
 
 test("component strategy text cleanup preserves Unicode and strips every ASCII control", () => {
-  const api = require("../packages/slideclone-core/component-strategy-annotator");
+  const api = require("../packages/slideclone-core/archetypes/component-strategy-annotator");
   for (let code = 0; code <= 0xffff; code += 1) {
     const character = String.fromCharCode(code);
     const input = `A${character}B`;

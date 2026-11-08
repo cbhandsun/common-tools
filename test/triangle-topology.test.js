@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { createTriangleTopologyToolkit } = require("../packages/slideclone-core/triangle-topology");
+const { createTriangleTopologyToolkit } = require("../packages/slideclone-core/archetypes/triangle-topology");
 
 test("triangle topology plugin creates editable geometry and records residual ownership", () => {
   const toolkit = createTriangleTopologyToolkit(operations());

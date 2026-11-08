@@ -1,2 +1,2 @@
 "use strict";
-module.exports=require("../../../../packages/slideclone-core/graphic-crop-materializer");
+module.exports=require("../../../slideclone-core/scene-plan/graphic-crop-materializer");

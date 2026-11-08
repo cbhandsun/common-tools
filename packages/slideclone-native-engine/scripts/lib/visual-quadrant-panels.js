@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/visual-quadrant-panels.js");
+module.exports = require("../../../slideclone-core/archetypes/visual-quadrant-panels.js");

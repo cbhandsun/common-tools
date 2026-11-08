@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const {refineRenderedTextOnce} = require("../packages/slideclone-core/text-refinement-coordinator");
+const {refineRenderedTextOnce} = require("../packages/slideclone-core/typography/text-refinement-coordinator");
 
 function pngHeader(file, width, height) {
   const header = Buffer.alloc(24);

@@ -1,9 +1,10 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
-const { safeComponentToken } = require("@common-tools/slideclone-core/diagram-residual-crops");
-const { DEFAULT_SLIDE } = require("@common-tools/slideclone-core/page-text-rule-helpers");
-const { normalizeCjkText } = require("@common-tools/slideclone-core/prd-generation-shapes");
-const { lineBox } = require("@common-tools/slideclone-core/workflow-shape-primitives");
+const { safeComponentToken } = core("@common-tools/slideclone-core/archetypes/diagram-residual-crops");
+const { DEFAULT_SLIDE } = core("@common-tools/slideclone-core/typography/page-text-rule-helpers");
+const { normalizeCjkText } = core("@common-tools/slideclone-core/archetypes/prd-generation-shapes");
+const { lineBox } = core("@common-tools/slideclone-core/archetypes/workflow-shape-primitives");
 
 function createPortalPlatformDiagramFactory(dependencies = {}) {
   const {

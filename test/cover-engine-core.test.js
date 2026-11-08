@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { createCoverEngineCoreToolkit } = require("../packages/slideclone-core/cover-engine-core");
+const { createCoverEngineCoreToolkit } = require("../packages/slideclone-core/archetypes/cover-engine-core");
 
 test("cover engine core plugin creates editable semantic components and avatar chrome", () => {
   let normalized = 0;

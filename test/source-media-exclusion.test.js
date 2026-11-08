@@ -7,7 +7,7 @@ const path = require("node:path");
 const test = require("node:test");
 const { writePng } = require("../packages/slideclone-core/png");
 const { auditSourceMediaExclusion } = require("../packages/slideclone-native-engine/scripts/lib/source-media-exclusion");
-const { enrichReconstructionContracts } = require("../packages/slideclone-core/reconstruction-contract");
+const { enrichReconstructionContracts } = require("../packages/slideclone-core/quality/reconstruction-contract");
 
 function setup() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "slideclone-source-media-"));

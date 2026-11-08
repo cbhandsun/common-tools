@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectSemanticConcentricCircles } = require("../packages/slideclone-core/visual-concentric-circles");
+const { detectSemanticConcentricCircles } = require("../packages/slideclone-core/archetypes/visual-concentric-circles");
 
 test("detects ordered concentric color layers without retaining fragments", () => {
   const components = [

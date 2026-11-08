@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
-const { spawn } = require("node:child_process");
+const { syntaxCheck } = require("./lib/common-tools-syntax-check");
 const { isRuntimePayloadPath } = require("./native-engine-runtime-payload");
 
 const root = path.resolve(__dirname, "..");
@@ -22,23 +22,6 @@ function collectCommonToolFiles(workspaceRoot = root) {
   walkJavaScriptFiles(path.join(workspaceRoot, "packages"), files);
   files.push(path.join(workspaceRoot, "scripts", "generate-sbom.js"), path.join(workspaceRoot, "scripts", "release-evidence.js"), path.join(workspaceRoot, "scripts", "verify-capability-contracts.js"), path.join(workspaceRoot, "scripts", "verify-capability-catalogs.js"), path.join(workspaceRoot, "scripts", "verify-plugins.js"), path.join(workspaceRoot, "scripts", "verify-release-signature.js"), path.join(workspaceRoot, "scripts", "verify-runtime-package.js"), path.join(workspaceRoot, "scripts", "verify-observability-config.js"), path.join(workspaceRoot, "scripts", "verify-adrs.js"));
   return Object.freeze(files);
-}
-
-function syntaxCheck(file) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["--check", file], { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => { stdout += chunk; });
-    child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.on("error", reject);
-    child.on("close", (status) => {
-      if (status === 0) resolve();
-      else reject(new Error(stderr || stdout || `syntax check failed: ${file}`));
-    });
-  });
 }
 
 async function runLimited(items, limit, task) {

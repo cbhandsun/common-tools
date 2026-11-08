@@ -2,11 +2,11 @@
 "use strict";
 
 const fs = require("node:fs");
-const { createTemplateStore } = require("../slideclone-core/component-template-store");
-const { validateComponentTemplate } = require("../slideclone-core/component-template-catalog");
-const { harvestComponentTemplate } = require("../slideclone-core/component-template-harvester");
-const { assessHeadlessQuality } = require("../slideclone-core/headless-quality-assessor");
-const { applyBrandKitStyling } = require("../slideclone-core/brand-kit-styler");
+const { createTemplateStore } = require("../slideclone-core/archetypes/component-template-store");
+const { validateComponentTemplate } = require("../slideclone-core/archetypes/component-template-catalog");
+const { harvestComponentTemplate } = require("../slideclone-core/archetypes/component-template-harvester");
+const { assessHeadlessQuality } = require("../slideclone-core/quality/headless-quality-assessor");
+const { applyBrandKitStyling } = require("../slideclone-core/archetypes/brand-kit-styler");
 const { resolveWorkspaceChild } = require("./local-doctor");
 
 const MAX_DECLARATIVE_JSON_BYTES = 8 * 1024 * 1024;
@@ -114,7 +114,7 @@ function optionalCsv(value) {
 
 /**
  * @param {string} content
- * @returns {Array<import("../slideclone-core/component-template-harvester").ComponentTemplate>}
+ * @returns {Array<import("../slideclone-core/archetypes/component-template-harvester").ComponentTemplate>}
  */
 function parseTemplateBundle(content) {
   let parsed;

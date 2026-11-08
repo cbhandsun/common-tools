@@ -1,13 +1,13 @@
 "use strict";
 const { NATIVE_REBUILDER_POLICIES, classifyNativeRebuilderFamily, nativeOwnershipRules } = require("./native-rebuilder-policy");
 
-const { createDetectionResult } = require("./detection-result");
-const { createHorizontalStepChainToolkit } = require("./horizontal-step-chain");
-const { createHierarchyDiagramToolkit } = require("./hierarchy-diagram");
-const { createTriangleTopologyToolkit } = require("./triangle-topology");
-const { createCoverEngineCoreToolkit } = require("./cover-engine-core");
-const { createDenseRadialNetworkShapeToolkit } = require("./dense-radial-network-shapes");
-const { createNetworkNativeShapeToolkit } = require("./network-native-shapes");
+const { createDetectionResult } = require("./scene-plan/detection-result");
+const { createHorizontalStepChainToolkit } = require("./archetypes/horizontal-step-chain");
+const { createHierarchyDiagramToolkit } = require("./archetypes/hierarchy-diagram");
+const { createTriangleTopologyToolkit } = require("./archetypes/triangle-topology");
+const { createCoverEngineCoreToolkit } = require("./archetypes/cover-engine-core");
+const { createDenseRadialNetworkShapeToolkit } = require("./archetypes/dense-radial-network-shapes");
+const { createNetworkNativeShapeToolkit } = require("./archetypes/network-native-shapes");
 
 const IMPLEMENTATIONS = Object.freeze({
   "network-dense-component": implementation(createDenseRadialNetworkShapeToolkit, ["createDetailedShapes", "createSummaryShapes", "summarizeSectors"]),

@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { fixture } = require("./helpers/page-shape-fixture.cjs");
-const { createPageShapeFinalizer } = require("../packages/slideclone-core/page-shape-finalizer");
+const { createPageShapeFinalizer } = require("../packages/slideclone-core/scene-plan/page-shape-finalizer");
 
 test("shape production preserves source order and replaces semantic guesses in sequence", () => {
   const f = fixture();

@@ -353,7 +353,8 @@ test("local team deployment script preflights configuration and keeps the migrat
   assert.match(script, /Refusing to clean a container with Docker volume mounts/);
   assert.match(script, /docker rm --force @safeIds/);
   assert.match(script, /Remove-LocalStatelessComposeContainers @\(Resolve-LocalStatelessDeploymentServices \$deploymentPlan\)/);
-  assert.match(script, /Invoke-Compose @\('up', '--detach', '--build', '--remove-orphans', '--wait'/);
+  assert.match(script, /\$buildMode = if \(\$SkipRawImageOcrBuild\) \{ '--no-build' \} else \{ '--build' \}/);
+  assert.match(script, /Invoke-Compose @\('up', '--detach', \$buildMode, '--remove-orphans', '--wait'/);
   assert.match(script, /Invoke-Compose @\('up', '--detach', '--remove-orphans', '--wait', '--wait-timeout', \$WaitTimeoutSeconds, 'minio'\)/);
   assert.match(script, /A root-password mismatch must not trigger a costly partial rollout/);
   assert.match(script, /'deployment-plan'/);

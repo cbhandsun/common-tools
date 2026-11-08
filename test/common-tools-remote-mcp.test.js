@@ -418,3 +418,207 @@ test("team remote MCP negotiates Tasks and enforces task routing headers", async
     assert.equal(JSON.parse(resource.body).result.contents[0].mimeType, "text/html;profile=mcp-app");
   } finally { await close(server); }
 });
+
+test("remote MCP serves the plugin portal homepage and portal metadata", async () => {
+  const config = {
+    publicUrl: new URL("https://tools.example.test"),
+    issuer: "https://issuer.example.test",
+    allowedOrigins: new Set(),
+    enabledCapabilities: ["image-to-editable", "ppt-create"]
+  };
+  const storedObjects = new Map();
+  const mockJobs = new Map();
+  const testJobId = "11111111-2222-4333-8444-555555555555";
+  const mockTeamServices = {
+    async createUploadTarget({ ownerId, capability, contentType, contentLength }) {
+      const objectKey = `uploads/${ownerId}/${capability}/input.tar.gz`;
+      return {
+        objectKey,
+        contentType,
+        contentLength,
+        expiresAt: new Date(Date.now() + 600000).toISOString(),
+        putUrl: `http://minio.test/${objectKey}`,
+      };
+    },
+    async createJob({ capability, ownerId, inputObjectKey }) {
+      const job = {
+        id: testJobId,
+        ownerId,
+        capability,
+        inputObjectKey,
+        status: "succeeded",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        artifacts: [
+          {
+            name: "deck.pptx",
+            objectKey: `artifacts/${testJobId}/deck.pptx`,
+            contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            byteLength: 4,
+          },
+        ],
+      };
+      storedObjects.set(`artifacts/${testJobId}/deck.pptx`, Buffer.from("PK\x03\x04"));
+      mockJobs.set(job.id, job);
+      return job;
+    },
+    async getJob(jobId) {
+      return mockJobs.get(jobId) || null;
+    },
+    async listJobs({ ownerId, capability, limit = 20 } = {}) {
+      return [...mockJobs.values()]
+        .filter((j) => (!ownerId || j.ownerId === ownerId) && (!capability || j.capability === capability))
+        .slice(0, limit);
+    },
+    async retryJob(jobId, ownerId) {
+      const existing = mockJobs.get(jobId);
+      if (!existing || (ownerId && existing.ownerId !== ownerId)) return null;
+      const updated = {
+        ...existing,
+        status: "queued",
+        attempt: 0,
+        error: null,
+        artifacts: [],
+        updatedAt: new Date().toISOString()
+      };
+      mockJobs.set(jobId, updated);
+      return updated;
+    },
+    async getArtifactTarget({ id, name }) {
+      return {
+        objectKey: `artifacts/${id}/${name}`,
+        contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        byteLength: 4,
+      };
+    },
+  };
+  const mockObjectStore = {
+    async putObject({ objectKey, body }) {
+      storedObjects.set(objectKey, Buffer.from(body));
+    },
+    async readObject({ objectKey }) {
+      return storedObjects.get(objectKey);
+    },
+  };
+  const server = createRemoteMcpServer(
+    config,
+    async () => ({ subject: "user-1", capabilities: new Set() }),
+    { NODE_ENV: "production" },
+    { teamServices: mockTeamServices, objectStore: mockObjectStore },
+  );
+  try {
+    const port = await listen(server);
+    const get = (reqPath) => new Promise((resolve, reject) => {
+      const req = http.get({ hostname: "127.0.0.1", port, path: reqPath }, (incoming) => {
+        const chunks = [];
+        incoming.on("data", (chunk) => chunks.push(chunk));
+        incoming.on("end", () => resolve({ status: incoming.statusCode, headers: incoming.headers, body: Buffer.concat(chunks).toString("utf8") }));
+      });
+      req.on("error", reject);
+    });
+    const htmlRes = await get("/");
+    assert.equal(htmlRes.status, 200);
+    assert.match(htmlRes.headers["content-type"], /text\/html/);
+    assert.match(htmlRes.body, /企业级文档与演示文稿可编辑化插件中心/);
+    assert.match(htmlRes.body, /图片 \/ PDF \/ 多页图上传转可编辑 PPTX/);
+    assert.match(htmlRes.body, /从剪贴板粘贴图片 \(Ctrl\+V\)/);
+    assert.match(htmlRes.body, /已转换历史记录/);
+
+    const jsonRes = await get("/portal.json");
+    assert.equal(jsonRes.status, 200);
+    const body = JSON.parse(jsonRes.body);
+    assert.equal(body.endpoints.mcp, "https://tools.example.test/mcp");
+    assert.equal(body.features.svgToEditablePptx, true);
+    assert.equal(body.features.pdfToEditablePptx, true);
+    assert.equal(body.features.liveBrowserPptxExport, true);
+    assert.equal(body.features.imageAndPdfUploadToPptx, true);
+    assert.equal(body.features.clipboardImagePaste, true);
+    assert.equal(body.features.conversionHistory, true);
+    assert.equal(body.features.liveWorkbenchCloudSave, true);
+    assert.equal(body.features.sideBySideSourceCompare, true);
+    assert.equal(body.capabilities.find((c) => c.id === "image-to-editable").enabled, true);
+
+    const postJson = (reqPath, payload) => new Promise((resolve, reject) => {
+      const data = JSON.stringify(payload);
+      const req = http.request({
+        hostname: "127.0.0.1",
+        port,
+        method: "POST",
+        path: reqPath,
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) }
+      }, (incoming) => {
+        const chunks = [];
+        incoming.on("data", (chunk) => chunks.push(chunk));
+        incoming.on("end", () => resolve({ status: incoming.statusCode, body: Buffer.concat(chunks).toString("utf8") }));
+      });
+      req.on("error", reject);
+      req.end(data);
+    });
+
+    const sampleSvg = '<svg viewBox="0 0 960 540"><rect x="20" y="20" width="240" height="90" rx="12" fill="#DCEBFF"/><text x="50" y="70" font-size="20">Portal Live</text></svg>';
+    const irApiRes = await postJson("/portal/api/svg-to-ir", { svg: sampleSvg });
+    assert.equal(irApiRes.status, 200);
+    const irBody = JSON.parse(irApiRes.body);
+    assert.equal(irBody.ok, true);
+    assert.equal(irBody.stats.pageCount, 1);
+
+    const pptxApiRes = await postJson("/portal/api/svg-to-pptx", { filename: "portal-test.pptx", svg: sampleSvg });
+    assert.equal(pptxApiRes.status, 200);
+    const pptxBody = JSON.parse(pptxApiRes.body);
+    assert.equal(pptxBody.ok, true);
+    assert.equal(pptxBody.filename, "portal-test.pptx");
+    assert.equal(Buffer.from(pptxBody.pptxBase64, "base64").subarray(0, 2).toString("ascii"), "PK");
+
+    const samplePngBuffer = fs.readFileSync(path.join(__dirname, "..", "skills", "pd-hifi-slideclone", "examples", "ocr-text-smoke.source.png"));
+    const createJobRes = await postJson("/portal/api/editable-jobs", {
+      files: [
+        {
+          name: "page-01.png",
+          contentBase64: samplePngBuffer.toString("base64"),
+        },
+      ],
+    });
+    assert.equal(createJobRes.status, 200);
+    const createJobBody = JSON.parse(createJobRes.body);
+    assert.equal(createJobBody.ok, true);
+    assert.equal(createJobBody.job.id, testJobId);
+    assert.equal(createJobBody.sourceSummary.pages, 1);
+
+    const statusJobRes = await get(`/portal/api/editable-jobs?id=${testJobId}`);
+    assert.equal(statusJobRes.status, 200);
+    const statusJobBody = JSON.parse(statusJobRes.body);
+    assert.equal(statusJobBody.ok, true);
+    assert.equal(statusJobBody.job.status, "succeeded");
+
+    const historyRes = await get("/portal/api/editable-jobs?limit=10");
+    assert.equal(historyRes.status, 200);
+    const historyBody = JSON.parse(historyRes.body);
+    assert.equal(historyBody.ok, true);
+    assert.equal(Array.isArray(historyBody.jobs), true);
+    assert.equal(historyBody.jobs.length, 1);
+    assert.equal(historyBody.jobs[0].id, testJobId);
+
+    const artifactRes = await get(`/portal/api/editable-artifact?id=${testJobId}&name=deck.pptx`);
+    assert.equal(artifactRes.status, 200);
+    assert.equal(artifactRes.body.slice(0, 2), "PK");
+
+    const sourceImgRes = await get(`/portal/api/editable-artifact?id=${testJobId}&name=source.png&inline=1`);
+    assert.equal(sourceImgRes.status, 200);
+    assert.equal(sourceImgRes.headers["content-type"], "image/png");
+
+    mockJobs.set(testJobId, {
+      ...mockJobs.get(testJobId),
+      status: "failed",
+      error: { code: "WORKER_FAILED", message: "capability worker failed" }
+    });
+    const retryRes = await postJson(`/portal/api/editable-retry?id=${testJobId}`, { id: testJobId });
+    assert.equal(retryRes.status, 200);
+    const retryBody = JSON.parse(retryRes.body);
+    assert.equal(retryBody.ok, true);
+    assert.equal(retryBody.retried, true);
+    assert.equal(retryBody.job.id, testJobId);
+    assert.equal(retryBody.job.status, "queued");
+  } finally {
+    await close(server);
+  }
+});

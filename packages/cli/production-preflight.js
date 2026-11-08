@@ -9,7 +9,8 @@ const { TEAM_CAPABILITY_DEFINITIONS } = require("../capability-runtime");
 const { loadSiyuanConfig } = require("../siyuan-note-core");
 const { assertRevision, verifyReleaseEvidenceFile } = require("./verification/release-evidence");
 const { verifyReleaseSignature } = require("./verification/verify-release-signature");
-const { parsePinnedRawImageOcrProfile } = require("../slideclone-core/team-ocr-profile");
+const { parsePinnedRawImageOcrProfile } = require("../slideclone-core/ocr/team-ocr-profile");
+const { readImageReconstructionPolicy, assertResolvedImageReconstructionPolicy } = require("./image-reconstruction-policy");
 
 const REQUIRED_CREDENTIALS = Object.freeze([
   "COMMON_TOOLS_DATABASE_USER",
@@ -90,6 +91,7 @@ function productionEnvironment(environment) {
 }
 
 function inspectProductionRelease(environment = process.env) {
+  readImageReconstructionPolicy(environment);
   const mode = credentialSourceMode(environment);
   immutableImageReference(environment.COMMON_TOOLS_REMOTE_IMAGE, "COMMON_TOOLS_REMOTE_IMAGE");
   nonEmpty(environment.COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS, "COMMON_TOOLS_REMOTE_ALLOWED_ORIGINS");
@@ -175,7 +177,7 @@ function verifyProductionReleaseSignature(environment, releaseEvidence, { signat
   return Object.freeze({ required: true, verified: true, images: Object.freeze([...releaseEvidence.images]) });
 }
 
-function validateResolvedProductionCompose(configuration, { remoteImage, imageWorkerImage, enabledCapabilities = ["image-to-editable", "project-audit"] } = {}) {
+function validateResolvedProductionCompose(configuration, { remoteImage, imageWorkerImage, imageReconstruction, enabledCapabilities = ["image-to-editable", "project-audit"] } = {}) {
   if (!configuration || typeof configuration !== "object" || Array.isArray(configuration) || !configuration.services || typeof configuration.services !== "object" || Array.isArray(configuration.services)) {
     throw new Error("Docker Compose production configuration is invalid");
   }
@@ -200,6 +202,9 @@ function validateResolvedProductionCompose(configuration, { remoteImage, imageWo
     if (!service || typeof service !== "object" || Array.isArray(service) || service.image !== image || Object.hasOwn(service, "build") || !service.environment || typeof service.environment !== "object" || Array.isArray(service.environment) || service.environment.NODE_ENV !== "production" || service.environment.COMMON_TOOLS_TEAM_MODE !== "production") {
       throw new Error("Docker Compose production image configuration is invalid");
     }
+  }
+  if (workerCapabilities.includes("image-to-editable")) {
+    assertResolvedImageReconstructionPolicy(services["image-to-editable-worker"].environment, imageReconstruction);
   }
   const api = services["remote-mcp"];
   if ((Array.isArray(api.ports) && api.ports.length > 0) || (api.ports && !Array.isArray(api.ports))) throw new Error("Docker Compose production API must not publish ports");
@@ -254,6 +259,7 @@ function verifyProductionSchemaMigrations(repositoryRoot, { migrationLoader = mi
 }
 
 function runProductionPreflight(environment = process.env, { repositoryRoot, composeValidator = validateProductionCompose, evidenceVerifier = verifyReleaseEvidenceFile, signatureVerifier = verifyReleaseSignature, migrationLoader = migrationDirectory } = {}) {
+  const imageReconstruction = readImageReconstructionPolicy(environment);
   const report = inspectProductionRelease(environment);
   if (typeof composeValidator !== "function") throw new TypeError("production preflight Compose validator is invalid");
   const schemaMigrations = verifyProductionSchemaMigrations(repositoryRoot, { migrationLoader });
@@ -262,6 +268,7 @@ function runProductionPreflight(environment = process.env, { repositoryRoot, com
   composeValidator(repositoryRoot, report.composeFiles, {
     remoteImage: environment.COMMON_TOOLS_REMOTE_IMAGE.trim(),
     imageWorkerImage: environment.COMMON_TOOLS_IMAGE_WORKER_IMAGE?.trim(),
+    ...(report.enabledCapabilities.includes("image-to-editable") ? { imageReconstruction } : {}),
     enabledCapabilities: report.enabledCapabilities
   });
   return Object.freeze({ ...report, schemaMigrations, releaseEvidence, releaseSignature, composeValidated: true });

@@ -23,5 +23,6 @@ test("team worker passes the shared production profile into the local rebuild im
   const remoteSource = fs.readFileSync(path.join(root, "packages", "remote-mcp-server", "bin", "common-tools-team-image-worker.js"), "utf8");
   assert.match(nativeSource, /\.\.\.createProductionNativeRebuildOptions\(\)/);
   assert.match(remoteSource, /requiredReconstructionProfile:\s*PRODUCTION_PROFILE_NAME/);
-  assert.match(remoteSource, /preserveLocalFidelityImages:\s*true/);
+  const factorySource = fs.readFileSync(path.join(root, "packages", "remote-mcp-server", "image-native-rebuilder.js"), "utf8");
+  assert.match(factorySource, /preserveLocalFidelityImages:\s*true/);
 });

@@ -1,3 +1,4 @@
+const { copyCoreModuleClosure } = require('./helpers/isolated-core-package.cjs');
 "use strict";
 
 const assert = require("node:assert/strict");
@@ -13,10 +14,8 @@ test("source border fit package export executes without the historical engine", 
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const target = path.join(root, "node_modules/@common-tools/slideclone-core");
   fs.mkdirSync(target, { recursive: true });
-  for (const file of ["package.json", "source-border-fit.js"]) {
-    fs.copyFileSync(path.resolve("packages/slideclone-core", file), path.join(target, file));
-  }
-  const { fitSourceBorders } = createRequire(path.join(root, "probe.cjs"))("@common-tools/slideclone-core/source-border-fit");
+  copyCoreModuleClosure(target, ["source-border-fit"]);
+  const { fitSourceBorders } = createRequire(path.join(root, "probe.cjs"))("@common-tools/slideclone-core/scene-plan/source-border-fit");
   const rgba = Buffer.alloc(100 * 100 * 4, 255);
   for (let y = 20; y <= 80; y += 1) for (let x = 20; x <= 80; x += 1) {
     if (x === 20 || x === 80 || y === 20 || y === 80) rgba.set([20, 115, 230, 255], (y * 100 + x) * 4);

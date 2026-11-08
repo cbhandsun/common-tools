@@ -1,0 +1,383 @@
+[
+  {
+    "status": "fitted",
+    "version": 1,
+    "id": "region-n4",
+    "source": {
+      "width": 1086,
+      "height": 1448,
+      "sha256": "a6f77ffb75653f04a4ca47d43e9f692b838b3ea43eb15a53b91304c98d81d1b3"
+    },
+    "geometry": {
+      "boxPx": {
+        "x": 27.5,
+        "y": 379,
+        "w": 1034.5,
+        "h": 186.5
+      },
+      "radiusPx": 11.403,
+      "strokeWidthPx": 1,
+      "dashPx": {
+        "on": 4,
+        "off": 5,
+        "phase": null
+      },
+      "strokeColor": "#E9DED8",
+      "fill": "none"
+    },
+    "approximation": {
+      "approvalId": "user-20261023-approx-frame",
+      "kind": "visible-rail-native-roundrect",
+      "inferred": [
+        "unobserved-rail-gaps",
+        "dash-phase",
+        "antialias-color",
+        "common-radius-across-corners",
+        "missing-dash-phase-through-corners"
+      ],
+      "radiusIntervalPx": [
+        8.081,
+        14.725
+      ],
+      "corners": [
+        {
+          "corner": "tl",
+          "samples": 6,
+          "radiusPx": 8.081
+        },
+        {
+          "corner": "tr",
+          "samples": 10,
+          "radiusPx": 14.267
+        },
+        {
+          "corner": "bl",
+          "samples": 8,
+          "radiusPx": 11.403
+        },
+        {
+          "corner": "br",
+          "samples": 0,
+          "radiusPx": null
+        }
+      ],
+      "rails": [
+        {
+          "side": "top",
+          "trackPx": 379,
+          "acceptedMarks": 80,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            30,
+            1057
+          ],
+          "coverageSpan": 0.989
+        },
+        {
+          "side": "bottom",
+          "trackPx": 565.5,
+          "acceptedMarks": 23,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            60,
+            1021
+          ],
+          "coverageSpan": 0.926
+        },
+        {
+          "side": "left",
+          "trackPx": 27.5,
+          "acceptedMarks": 15,
+          "rejectedMarks": 1,
+          "observedSpanPx": [
+            383,
+            550
+          ],
+          "coverageSpan": 0.883
+        },
+        {
+          "side": "right",
+          "trackPx": 1062,
+          "acceptedMarks": 16,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            394,
+            551
+          ],
+          "coverageSpan": 0.83
+        }
+      ],
+      "colorSamples": 945,
+      "strictResult": {
+        "accepted": false,
+        "failureCodes": [
+          "historical-strict-replay-rejected"
+        ]
+      },
+      "authority": {
+        "strictMeasurement": false,
+        "sourceFootprint": false,
+        "sourceErasure": false
+      },
+      "limitations": [
+        "appearance-and-move-qa-required",
+        "original-source-residual-not-removed",
+        "fitted-frame-does-not-complete-strict-region"
+      ]
+    }
+  },
+  {
+    "status": "fitted",
+    "version": 1,
+    "id": "region-n6",
+    "source": {
+      "width": 1086,
+      "height": 1448,
+      "sha256": "a6f77ffb75653f04a4ca47d43e9f692b838b3ea43eb15a53b91304c98d81d1b3"
+    },
+    "geometry": {
+      "boxPx": {
+        "x": 27.5,
+        "y": 584.5,
+        "w": 1034.25,
+        "h": 183.5
+      },
+      "radiusPx": 12.54,
+      "strokeWidthPx": 2,
+      "dashPx": {
+        "on": 6,
+        "off": 2,
+        "phase": null
+      },
+      "strokeColor": "#E1EBE6",
+      "fill": "none"
+    },
+    "approximation": {
+      "approvalId": "user-20261023-approx-frame",
+      "kind": "visible-rail-native-roundrect",
+      "inferred": [
+        "unobserved-rail-gaps",
+        "dash-phase",
+        "antialias-color",
+        "common-radius-across-corners",
+        "missing-dash-phase-through-corners"
+      ],
+      "radiusIntervalPx": [
+        9.105,
+        15.975
+      ],
+      "corners": [
+        {
+          "corner": "tl",
+          "samples": 8,
+          "radiusPx": 9.105
+        },
+        {
+          "corner": "tr",
+          "samples": 15,
+          "radiusPx": 14.059
+        },
+        {
+          "corner": "bl",
+          "samples": 11,
+          "radiusPx": 14.399
+        },
+        {
+          "corner": "br",
+          "samples": 4,
+          "radiusPx": 11.021
+        }
+      ],
+      "rails": [
+        {
+          "side": "top",
+          "trackPx": 584.5,
+          "acceptedMarks": 65,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            37,
+            1049
+          ],
+          "coverageSpan": 0.975
+        },
+        {
+          "side": "bottom",
+          "trackPx": 768,
+          "acceptedMarks": 66,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            33,
+            1059
+          ],
+          "coverageSpan": 0.988
+        },
+        {
+          "side": "left",
+          "trackPx": 27.5,
+          "acceptedMarks": 15,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            594,
+            763
+          ],
+          "coverageSpan": 0.913
+        },
+        {
+          "side": "right",
+          "trackPx": 1061.75,
+          "acceptedMarks": 14,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            592,
+            764
+          ],
+          "coverageSpan": 0.929
+        }
+      ],
+      "colorSamples": 3483,
+      "strictResult": {
+        "accepted": false,
+        "failureCodes": [
+          "historical-strict-replay-rejected"
+        ]
+      },
+      "authority": {
+        "strictMeasurement": false,
+        "sourceFootprint": false,
+        "sourceErasure": false
+      },
+      "limitations": [
+        "appearance-and-move-qa-required",
+        "original-source-residual-not-removed",
+        "fitted-frame-does-not-complete-strict-region"
+      ]
+    }
+  },
+  {
+    "status": "fitted",
+    "version": 1,
+    "id": "region-n8",
+    "source": {
+      "width": 1086,
+      "height": 1448,
+      "sha256": "a6f77ffb75653f04a4ca47d43e9f692b838b3ea43eb15a53b91304c98d81d1b3"
+    },
+    "geometry": {
+      "boxPx": {
+        "x": 27.5,
+        "y": 789.5,
+        "w": 1034.5,
+        "h": 235
+      },
+      "radiusPx": 10.843,
+      "strokeWidthPx": 2,
+      "dashPx": {
+        "on": 5,
+        "off": 3,
+        "phase": null
+      },
+      "strokeColor": "#D8E4E6",
+      "fill": "none"
+    },
+    "approximation": {
+      "approvalId": "user-20261023-approx-frame",
+      "kind": "visible-rail-native-roundrect",
+      "inferred": [
+        "unobserved-rail-gaps",
+        "dash-phase",
+        "antialias-color",
+        "common-radius-across-corners",
+        "missing-dash-phase-through-corners"
+      ],
+      "radiusIntervalPx": [
+        7.286,
+        14.399
+      ],
+      "corners": [
+        {
+          "corner": "tl",
+          "samples": 6,
+          "radiusPx": 10.623
+        },
+        {
+          "corner": "tr",
+          "samples": 9,
+          "radiusPx": 14.399
+        },
+        {
+          "corner": "bl",
+          "samples": 7,
+          "radiusPx": 11.062
+        },
+        {
+          "corner": "br",
+          "samples": 4,
+          "radiusPx": 9.307
+        }
+      ],
+      "rails": [
+        {
+          "side": "top",
+          "trackPx": 789.5,
+          "acceptedMarks": 65,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            36,
+            1049
+          ],
+          "coverageSpan": 0.976
+        },
+        {
+          "side": "bottom",
+          "trackPx": 1024.5,
+          "acceptedMarks": 97,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            38,
+            1055
+          ],
+          "coverageSpan": 0.98
+        },
+        {
+          "side": "left",
+          "trackPx": 27.5,
+          "acceptedMarks": 26,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            794,
+            1021
+          ],
+          "coverageSpan": 0.952
+        },
+        {
+          "side": "right",
+          "trackPx": 1062,
+          "acceptedMarks": 22,
+          "rejectedMarks": 0,
+          "observedSpanPx": [
+            797,
+            1018
+          ],
+          "coverageSpan": 0.927
+        }
+      ],
+      "colorSamples": 2474,
+      "strictResult": {
+        "accepted": false,
+        "failureCodes": [
+          "historical-strict-replay-rejected"
+        ]
+      },
+      "authority": {
+        "strictMeasurement": false,
+        "sourceFootprint": false,
+        "sourceErasure": false
+      },
+      "limitations": [
+        "appearance-and-move-qa-required",
+        "original-source-residual-not-removed",
+        "fitted-frame-does-not-complete-strict-region"
+      ]
+    }
+  }
+]

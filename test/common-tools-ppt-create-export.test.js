@@ -6,7 +6,8 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { JSDOM } = require("jsdom");
-const { createPrintableHtml, deckIrFingerprint, inspectPdf, multiFormatQuality } = require("../packages/ppt-create-core/export");
+const { createPrintableHtml, deckIrFingerprint, effectiveText, effectiveTextBox, effectiveTextRotation, effectiveTextSizePt, inspectPdf, multiFormatQuality } = require("../packages/ppt-create-core/export");
+const { createIrPreviewHtml } = require("../packages/ppt-create-core/ir-editor");
 const { resolveLibreOffice } = require("../packages/ppt-create-core/libreoffice-pdf");
 
 function ir(text = "Safe") {
@@ -79,4 +80,45 @@ test("LibreOffice resolution validates configuration without exposing it", () =>
   assert.equal(resolveLibreOffice({ COMMON_TOOLS_LIBREOFFICE_BIN: "custom-soffice" }, "linux"), "custom-soffice");
   assert.equal(resolveLibreOffice({}, "linux"), "soffice");
   assert.throws(() => resolveLibreOffice({ LIBREOFFICE_BIN: "bad\ncommand" }, "linux"), /configuration is invalid/);
+});
+
+test("single-line OCR text boxes clamp oversized font sizes and use container-relative preview scaling", () => {
+  const routerBox = {
+    id: "p0-ocr-003",
+    text: "品 [2] Router 层",
+    wrap: false,
+    box: { x: 438.49, y: 74.09, w: 122.41, h: 23.12 },
+    font: { family: "Microsoft YaHei", sizePt: 17.91, weight: "bold", color: "#1F2334" },
+    style: { wrap: false },
+    source: { ocrProvider: "team-pinned-ocr" },
+    positionedRuns: [
+      { text: "品 ", box: { x: 438.49, y: 74.09, w: 23.89, h: 23.12 } },
+      { text: "[2] ", box: { x: 468.82, y: 78.36, w: 24.15, h: 15.72 } },
+      { text: "Router ", box: { x: 493.85, y: 78.73, w: 50.85, h: 14.96 } },
+      { text: "层", box: { x: 545.6, y: 77.73, w: 15.3, h: 16.47 } }
+    ]
+  };
+  const triggerBox = {
+    id: "p0-ocr-001",
+    text: "[3]环境事件(Trigger)",
+    wrap: false,
+    box: { x: 86.2, y: 80.28, w: 129.02, h: 16.59 },
+    font: { family: "Microsoft YaHei", sizePt: 14.37, weight: "bold", color: "#191E29" },
+    style: { wrap: false },
+    source: { ocrProvider: "team-pinned-ocr" }
+  };
+  assert.equal(effectiveText(routerBox), "[2] Router 层", "leading single-glyph icon noise run is stripped");
+  assert.ok(effectiveTextBox(routerBox).x >= 468, "effectiveTextBox starts at the actual text run");
+  assert.equal(effectiveTextRotation({ rotation: -1.11, source: { ocrQuadrilateralProjected: true } }), 0, "micro-skew polygon jitter is de-skewed");
+  assert.ok(effectiveTextSizePt(routerBox) <= 13.5, "icon-inflated OCR run height is clamped to text run height");
+  assert.ok(effectiveTextSizePt(triggerBox) <= 12.5, "single-line OCR text is bounded by box width capacity");
+  const model = {
+    version: "1.0",
+    slideSize: { widthPt: 960, heightPt: 299 },
+    pages: [{ pageIndex: 0, background: { fill: "#FFFFFF" }, shapes: [], tables: [], charts: [], textBoxes: [routerBox, triggerBox] }]
+  };
+  const previewHtml = createIrPreviewHtml(model);
+  assert.match(previewHtml, /container-type:inline-size/);
+  assert.match(previewHtml, /font-size:calc\(var\(--font-pt,16\) \/ 960 \* 100cqw\)!important/);
+  assert.match(previewHtml, /white-space:nowrap/);
 });

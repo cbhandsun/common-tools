@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/prototype-validation-screenshot-policy");
+module.exports = require("@common-tools/slideclone-core/quality/prototype-validation-screenshot-policy");

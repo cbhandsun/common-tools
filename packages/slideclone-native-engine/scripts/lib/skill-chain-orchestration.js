@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("../../../../packages/slideclone-core/skill-chain-orchestration");
+module.exports = require("../../../slideclone-core/archetypes/skill-chain-orchestration");

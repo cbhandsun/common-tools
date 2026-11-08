@@ -6,8 +6,8 @@ const {
   ComponentTemplateCatalog,
   createTemplateCatalog,
   validateComponentTemplate
-} = require("../packages/slideclone-core/component-template-catalog");
-const { instantiateComponentTemplate } = require("../packages/slideclone-core/component-template-harvester");
+} = require("../packages/slideclone-core/archetypes/component-template-catalog");
+const { instantiateComponentTemplate } = require("../packages/slideclone-core/archetypes/component-template-harvester");
 
 test("ComponentTemplateCatalog initializes with builtins and lists by category", () => {
   const catalog = createTemplateCatalog();

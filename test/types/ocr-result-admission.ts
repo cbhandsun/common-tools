@@ -1,4 +1,4 @@
-import { admitOcrResult } from "../../packages/slideclone-core/ocr-result-admission";
+import { admitOcrResult } from "../../packages/slideclone-core/ocr/ocr-result-admission";
 const result = admitOcrResult({} as unknown, {} as unknown);
 const confidence: number | undefined = result.lines[0]?.confidence;
 // @ts-expect-error canonical line collection is readonly

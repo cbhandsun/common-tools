@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/prototype-generation-loop");
+module.exports = require("@common-tools/slideclone-core/archetypes/prototype-generation-loop");

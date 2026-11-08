@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   createProcessWithScreenshotsFlowObjects
-} = require("../packages/slideclone-core/screenshot-flow-reconstruction");
+} = require("../packages/slideclone-core/archetypes/screenshot-flow-reconstruction");
 
 test("process-with-screenshots native styles omit absent options and preserve connector arrows", () => {
   const image = {

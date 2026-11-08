@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/visual-grid-cells.js");
+module.exports = require("../../../slideclone-core/archetypes/visual-grid-cells.js");

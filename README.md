@@ -70,6 +70,10 @@ common-tools editable run --workspace . --input .\source.png --out .\editable-ou
 
 项目不依赖商业幻灯片程序集。Open XML 负责跨平台生成可编辑 PPTX；LibreOffice 负责服务器或批处理渲染；Windows 桌面环境使用 PowerPoint COM 做最终保真、兼容性和真实编辑回写验证。生产组件回写仍由同一套跨平台 OpenXML 实现完成，不要求 Windows 或 PowerPoint。OCR 默认使用本地 PaddleOCR。
 
+## 图片重建调研与验证
+
+图片重建的行业调研、默认链路根因及后续改造安排见 [结构优先路线与项目源码对照](docs/image-to-editable-semantic-first-plan.md)，分场景证据和固定验收要求见 [分场景识别与验证](docs/image-to-editable-recognition-scenarios.md)。两份文档区分已实现修正、待验证方案和实图验收状态。
+
 ## 本地 .NET SDK
 
 Open XML 生成器使用项目本地 SDK：

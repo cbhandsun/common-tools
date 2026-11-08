@@ -1,2 +1,2 @@
 "use strict";
-module.exports=require("../../../../packages/slideclone-core/font-evidence");
+module.exports=require("../../../slideclone-core/typography/font-evidence");

@@ -1,5 +1,52 @@
 # 架构改进当前状态
 
+> 2026-10-21 最新边界修复：[共享线网源身份保护](image-to-editable-shared-source-identity-20261021.md)以不可变摘要绑定测量源，拒绝源缓冲区别名修改后的旧编译/擦除证明。共享回归 92/92，实际新 PPTX 的 41 个解压条目与上轮相同；关系仍为 **9/11**，整页组件与语义门禁仍失败。
+
+> 2026-10-21 最新真实回放：[独立虚线箭头与覆盖渐变修复](image-to-editable-detached-head-20261021.md)使关系从 **8/11 提升至 9/11**，并收窄整页残差擦除。实际 PowerPoint PDR **7.744%**（上轮 7.725%，三项像素门禁仍通过）；30 个图像对象、组件与两种语义门禁仍未通过。这是冻结输入的本地回放，不代表共享 Worker 或整页编辑验收通过。
+
+> 2026-10-21 后续修复：五项审计问题的当前实现及验收边界见 [架构修复记录](image-to-editable-architecture-fixes-20261021.md)。下文 `7.885%` 属于历史候选的视觉证据，不代表本次默认编译器、严格语义门禁或生产 Worker 已全面验收。
+
+## 2026-10-21 历史候选：原生圆角连线与词级排版校准（视觉 PDR 7.885%）
+
+针对复杂架构图/信息图转 100% 原生可编辑 PPT（Image-to-Editable-PPT）场景，本轮在分支 `codex/native-connectors-alignment`（提交 `699118b`）完成了从 OCR 词级色彩/字重证据提取、容器与背景色块修补，到 OpenXML 原生圆角贝塞尔连线引擎的全链路升级，首次在 **零背景底图、零区域残差截图（100% 原生形状 + 原生连线 + 原生文本 + 18 个透明小图标）** 的前提下全面通过三大严苛视觉质量门禁：
+
+- **权威视觉门禁指标（`output-latest/deck-native-connectors.pptx` vs `.codex-temp/claude-code-new-image-20261019/source.png`）**：
+  - **`PDR (Pixel Difference Ratio)`**：**`7.885%`**（门槛 `≤ 8.0%`，**PASS**，较上一阶段 `10.238%` 降低 **2.353 个百分点**）
+  - **`Missing`**：**`2.017%`**（门槛 `≤ 12.0%`，**PASS**）
+  - **`MAD (Mean Absolute Difference)`**：**`10.780`**（门槛 `≤ 12.0`，**PASS**）
+
+### 本轮核心架构与算法演进
+
+1. **OpenXML 原生圆角贝塞尔开放路径连线引擎（`NativeFreeformPath.cs`）**：
+   - 经 PowerPoint 桌面端 COM 实测验证，Office 拒绝包含 `<a:custGeom>` 的 `<p:cxnSp>`（触发 `HRESULT E_FAIL`），且内置 `bentConnector3` 硬编码为 90° 直角、无法通过 `<a:gd name="adj1"/>` 实现圆角拐点，旋转 90° 后还会引起 `<a:gradFill>` 渐变反相与底部分支 0.5px 阶梯错位。
+   - 在 `packages/slideclone-native-engine/dotnet/OpenXmlDeckBuilder/NativeFreeformPath.cs` 中扩展了开放路径连线能力：
+     - 支持 `cubicBezTo` 三次贝塞尔曲线段，将正交折线拐点精确拟合为半径 $r = 14\text{px} \approx 12.4\text{pt}$（$\kappa = 0.55228475$）的平滑圆弧；
+     - 支持在 `<p:sp>` 的 `<a:ln>` 上直接挂载 `<a:tailEnd type="triangle" w="med" len="med"/>` 原生箭头与未旋转的全局垂直 `<a:gradFill>` 渐变描边（`#30C793 -> #2088E2`）；
+     - 统一对齐上下两层水平分叉总线（上层 $y = 541.9\text{px}$、下层 $y = 748.3\text{px}$），消除多分支叠加处的重影与断层。
+2. **中英混排字宽加权分色与核心墨迹取色（`ocr-source-deck.js`、`ocr-color-clustering.js`、`ocr-light-ink-color.js`）**：
+   - 引入 `characterAdvanceRanges` 按 ASCII、窄标点与 CJK 真实字宽比例切分多色文本行，根治标点挤压导致的邻字串色；
+   - 采样笔画核心 70% 最深墨迹像素计算中位数颜色，并对浅色发光标题采用 92 分位高亮取色。
+3. **词级精确定位（`positionedRuns`）、句首符号过滤与同框墨迹密度字重校准（`source-word-layout-evidence.js`、`text-weight-evidence.js`、`NativeTextOutline.cs`）**：
+   - 句首存在未转录 bullet/小图标墨迹团块时自动右移首词起点（`leadingTrimPx`）；
+   - 通过同框渲染 Regular vs Bold 并比对原图墨迹覆盖率判定字重，为超粗标题附加原生 `<a:ln>` 文字描边（`textOutline`）。
+4. **实心色块证据修补（`solid-region-evidence.js`）**：
+   - 自动检测并补偿容器间隙与底部装饰条实心色块，消除边缘漏白。
+
+### 历史架构审计清单（修复前）
+
+以下保留当时的审计值与建议；五项问题现已完成代码修复，当前行为及生产验收限制见顶部链接的架构修复记录。
+
+1. **清理 `verify:architecture-budgets` 4 文件 / 7 项预算超限**：
+   - 拆分 `packages/slideclone-worker-adapter/team-worker.js`（当前 8,459 行 / 48 个相对导入，上限 1,500 行 / 15 个导入）；
+   - 为 `packages/slideclone-core/team-native-rebuild.js`（31 个导入）和 `source-scene-compiler.js`（21 个导入）建立阶段门面（Stage Facades）；
+   - 拆分 `test/common-tools-image-team-worker.test.js`（6,781 行）。
+2. **解耦共享路由源证明门禁（`source-shared-route-measurement.js` & `source-shared-gap-backdrop.js`）**：
+   - 将 T 型接点拓扑连通性证明与表面抗锯齿像素颜色解耦，放宽跨渐变带/虚线带的背景纯色假设，并将圆角自由曲线连线直接合入 `source-shared-route-compiler.js` 默认主链。
+3. **提供双模态连线生成策略（`connectorCornerMode`）**：
+   - 支持在“视觉保真圆角路径（`<p:sp>` + `<a:cubicBezTo>`）”与“拓扑拖拽自动重路由连接器（`<p:cxnSp>` + `bentConnector3`）”之间按需切换。
+4. **收敛 `packages/slideclone-core/` 450+ 平铺文件**：
+   - 按 `ocr/`、`typography/`、`scene-plan/`、`routing/`、`archetypes/`、`quality/` 六大子域归并模块。
+
 ## 2026-09-11 演进落地：统一仓储、弹性排版与组件模板化闭环
 
 基于《架构演进与行业增强方案（architecture-enhancement-roadmap.md）》，本轮完成了平台通用能力与版面排版核心基础设施的落地：

@@ -51,6 +51,48 @@ test("editability keeps allowed decorative backgrounds out of the actionable ras
   assert.equal(summary.actionableRasterImageAreaRatio, 0.02);
 });
 
+test("editability counts full-slide source underlays even with hidden OCR overlays", () => {
+  const summary = compareThresholds._private.summarizeEditability({
+    slideSize: { widthPt: 100, heightPt: 100 },
+    pages: [{
+      images: [{
+        type: "source-background",
+        box: { x: 0, y: 0, w: 100, h: 100 },
+        style: { strategy: "full-slide-underlay" },
+        source: {
+          editable: false,
+          nonEditableReason: "Full-slide underlay preserves visual fidelity while OCR text is rebuilt as hidden editable overlay text."
+        }
+      }],
+      textBoxes: [{ text: "Hidden OCR", style: { visibility: "hidden", opacity: 0 } }]
+    }]
+  });
+
+  assert.equal(summary.rasterImageAreaRatio, 1);
+  assert.equal(summary.actionableRasterImageAreaRatio, 1);
+  assert.equal(summary.nonEditableObjects, 1);
+});
+
+test("zero pixel diff cannot pass the raster gate when a full-slide source image remains", async () => {
+  const result = await compareThresholds({
+    ir: {
+      slideSize: { widthPt: 100, heightPt: 100 },
+      pages: [{ images: [{
+        type: "source-background",
+        box: { x: 0, y: 0, w: 100, h: 100 },
+        style: { strategy: "full-slide-underlay" }
+      }] }]
+    },
+    diff: { provider: "test", summary: { pixelDiffRatio: 0, foregroundMissingRatio: 0 } },
+    thresholds: { pixelDiffRatio: 0.08, maxRasterImageAreaRatio: 0.25 }
+  });
+
+  assert.equal(result.data.passed, false);
+  assert.deepEqual(result.data.checks.find((check) => check.name === "maxRasterImageAreaRatio"), {
+    name: "maxRasterImageAreaRatio", actual: 1, threshold: 0.25, required: true, passed: false
+  });
+});
+
 test("editability counts source-native passthrough objects without treating them as raster", () => {
   const summary = compareThresholds._private.summarizeEditability({
     slideSize: { widthPt: 100, heightPt: 100 },

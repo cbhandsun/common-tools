@@ -10,7 +10,7 @@ const {
   buildReconstructionInventory,
   enrichReconstructionContracts,
   validateReconstructionContracts
-} = require("../packages/slideclone-core/reconstruction-contract");
+} = require("../packages/slideclone-core/quality/reconstruction-contract");
 const { auditSourceMediaExclusion } = require("../packages/slideclone-native-engine/scripts/lib/source-media-exclusion");
 const { listZipEntries, readZipEntry } = require("../packages/ooxml-core/pptx-inventory");
 const { writePng } = require("../packages/slideclone-core/png");

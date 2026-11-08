@@ -1,3 +1,4 @@
+const { copyCoreModuleClosure } = require('./helpers/isolated-core-package.cjs');
 "use strict";
 
 const assert = require("node:assert/strict");
@@ -25,9 +26,7 @@ test("native rebuilder registry runs from the isolated core package", (t) => {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const installed = path.join(root, "node_modules", "@common-tools", "slideclone-core");
   fs.mkdirSync(installed, { recursive: true });
-  for (const file of ["package.json", ...coreModules.map((name) => `${name}.js`)]) {
-    fs.copyFileSync(path.join(coreRoot, file), path.join(installed, file));
-  }
+  copyCoreModuleClosure(installed, coreModules);
 
   const load = createRequire(path.join(root, "consumer.cjs"));
   const registry = load("@common-tools/slideclone-core/native-rebuilder-registry");

@@ -14,7 +14,7 @@ const {
 } = require("../packages/slideclone-native-engine/scripts/lib/component-template-native-shapes");
 const {
   evaluateComponentGroupsForLayer
-} = require("../packages/slideclone-core/component-template-group-matcher");
+} = require("../packages/slideclone-core/archetypes/component-template-group-matcher");
 
 function templateImage(overrides = {}) {
   const sourceOverrides = overrides.source || {};

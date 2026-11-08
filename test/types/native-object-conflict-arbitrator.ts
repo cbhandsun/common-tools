@@ -1,4 +1,4 @@
-import { arbitrateNativeObjectOwnership, DEFAULT_OWNER_RULES, intersectionCoverage, normalizeBox, unionBoxes } from "../../packages/slideclone-core/native-object-conflict-arbitrator";
+import { arbitrateNativeObjectOwnership, DEFAULT_OWNER_RULES, intersectionCoverage, normalizeBox, unionBoxes } from "../../packages/slideclone-core/scene-plan/native-object-conflict-arbitrator";
 
 const result = arbitrateNativeObjectOwnership([
   { id: "native", source: { detector: "title" }, payload: { count: 3 } }

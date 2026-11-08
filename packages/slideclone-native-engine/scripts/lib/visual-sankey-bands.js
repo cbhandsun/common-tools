@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/visual-sankey-bands.js");
+module.exports = require("../../../slideclone-core/archetypes/visual-sankey-bands.js");

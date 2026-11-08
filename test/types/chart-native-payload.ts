@@ -7,7 +7,7 @@ import {
   stableStringify,
   validateDeckNativeChartPayloads,
   validateNativeChartPayload
-} from "../../packages/slideclone-core/chart-native-payload";
+} from "../../packages/slideclone-core/archetypes/chart-native-payload";
 
 declare const input: unknown;
 

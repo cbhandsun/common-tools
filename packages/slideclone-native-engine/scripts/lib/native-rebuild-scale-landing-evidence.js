@@ -1,8 +1,9 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
-const { normalizeTextKey } = require("@common-tools/slideclone-core/diagram-label-matching");
-const { DEFAULT_SLIDE } = require("@common-tools/slideclone-core/page-text-rule-helpers");
-const { roundedBox } = require("@common-tools/slideclone-core/prd-generation-shapes");
+const { normalizeTextKey } = core("@common-tools/slideclone-core/archetypes/diagram-label-matching");
+const { DEFAULT_SLIDE } = core("@common-tools/slideclone-core/typography/page-text-rule-helpers");
+const { roundedBox } = core("@common-tools/slideclone-core/archetypes/prd-generation-shapes");
 
 function createScaleLandingEvidenceFactory({ materializeAssetHubSourceCrops }) {
   if (typeof materializeAssetHubSourceCrops !== "function") {

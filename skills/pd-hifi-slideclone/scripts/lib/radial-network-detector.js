@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/radial-network-detector");
+module.exports = require("@common-tools/slideclone-core/archetypes/radial-network-detector");

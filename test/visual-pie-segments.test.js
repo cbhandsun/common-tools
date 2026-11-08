@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectSemanticPieComponents } = require("../packages/slideclone-core/visual-pie-segments");
+const { detectSemanticPieComponents } = require("../packages/slideclone-core/archetypes/visual-pie-segments");
 
 test("detects bounded color-separated pie sectors and their measured sweeps", () => {
   const { image, components } = pieFixture();

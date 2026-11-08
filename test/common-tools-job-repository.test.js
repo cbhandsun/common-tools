@@ -1,10 +1,8 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
 const test = require("node:test");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require("./helpers/temporary-directory.cjs");
 const { assertJobRepository, validateJobListFilter } = require("../packages/capability-contracts");
 const { JobStore } = require("../packages/capability-runtime");
 
@@ -30,18 +28,18 @@ test("assertJobRepository validates repository contract", () => {
 });
 
 test("JobStore implements JobRepository interface via asJobRepository", () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "job-repo-test-"));
+  const tmpDir = createTemporaryTestDirectory("job-repo-test-");
   try {
     const store = new JobStore({ root: tmpDir, ownerId: "user-123" });
     assert.doesNotThrow(() => assertJobRepository(store));
     assert.equal(store.asJobRepository(), store);
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemporaryTestDirectory(tmpDir);
   }
 });
 
 test("JobStore.list filters, paginates, and validates input", () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "job-repo-test-"));
+  const tmpDir = createTemporaryTestDirectory("job-repo-test-");
   try {
     const store = new JobStore({ root: tmpDir, ownerId: "user-123" });
 
@@ -91,12 +89,12 @@ test("JobStore.list filters, paginates, and validates input", () => {
     assert.throws(() => store.list({ limit: 1001 }), /filter\.limit must be an integer between 1 and 1000/);
     assert.throws(() => store.list({ limit: 3.5 }), /filter\.limit must be an integer between 1 and 1000/);
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemporaryTestDirectory(tmpDir);
   }
 });
 
 test("JobStore isolates jobs by owner in reads, lists, idempotency, and writes", () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "job-repo-owner-test-"));
+  const tmpDir = createTemporaryTestDirectory("job-repo-owner-test-");
   try {
     const ownerA = new JobStore({ root: tmpDir, ownerId: "owner-a" });
     const ownerB = new JobStore({ root: tmpDir, ownerId: "owner-b" });
@@ -113,7 +111,7 @@ test("JobStore isolates jobs by owner in reads, lists, idempotency, and writes",
     assert.equal(ownerA.get("shared-id").ownerId, "owner-a");
     assert.deepEqual(ownerA.list().map((job) => job.id), ["shared-id"]);
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemporaryTestDirectory(tmpDir);
   }
 });
 

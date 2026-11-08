@@ -17,20 +17,24 @@ public sealed record PageIr(
     bool? PreserveTemplateSlide = null,
     string? SpeakerNotes = null,
     List<CitationIr>? Citations = null,
-    PageIntentIr? Intent = null
+    PageIntentIr? Intent = null,
+    List<OutputEditGroupIr>? OutputEditGroups = null
 )
 {
     public SlideSizeIr SlideSize { get; set; } = new(960, 540);
 }
+[System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
+public sealed record OutputEditGroupIr(string Id, List<string> Members);
 public sealed record PageIntentIr(string? TemplateLayoutId = null, string? TemplateLayoutName = null, int? TemplatePlaceholderCapacity = null, int? TemplateLayoutDemand = null, string? TemplateLayoutFit = null, string? TemplateLayoutMode = null, List<PlaceholderBindingIr>? TemplatePlaceholderBindings = null);
 public sealed record PlaceholderBindingIr(string ObjectId, string? Collection = null, string? Role = null, string? PlaceholderType = null, int? PlaceholderIndex = null);
 public sealed record CitationIr(string Id, string Title, string Locator, string? AccessedAt = null, string? License = null);
-public sealed record TextBoxIr(string Id, string Text, BoxIr Box, FontIr? Font, JsonElement? Style = null, double? Rotation = null, JsonElement? Source = null, bool? Wrap = null, List<TextRunIr>? Runs = null, string? Role = null);
+public sealed record TextBoxIr(string Id, string Text, BoxIr Box, FontIr? Font, JsonElement? Style = null, double? Rotation = null, JsonElement? Source = null, bool? Wrap = null, List<TextRunIr>? Runs = null, string? Role = null, List<PositionedTextRunIr>? PositionedRuns = null);
+public sealed record PositionedTextRunIr(string Text, BoxIr Box, JsonElement? FontOverride = null);
 public sealed record TextRunIr(string Text, FontIr? Font = null);
 public sealed record BoxIr(double X, double Y, double W, double H);
 public sealed record PointIr(double X, double Y);
 public sealed record FreeformSegmentIr(string Type, List<PointIr> Points);
-public sealed record FontIr(string? Family, double? SizePt, string? Weight, string? Color, string? Align, string? Valign, double? LineHeightMultiple, double? Opacity = null);
+public sealed record FontIr(string? Family, double? SizePt, string? Weight, string? Color, string? Align, string? Valign, double? LineHeightMultiple, double? Opacity = null, double? CharacterSpacingPt = null, string? LatinFamily = null, string? EastAsianFamily = null, string? ComplexScriptFamily = null);
 public sealed record VisualElementIr(
     string Id,
     string? Type,

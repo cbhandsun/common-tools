@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("../../../../packages/slideclone-core/cover-engine-core.js");
+module.exports = require("../../../../packages/slideclone-core/archetypes/cover-engine-core.js");

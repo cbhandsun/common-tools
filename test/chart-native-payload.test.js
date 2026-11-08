@@ -6,7 +6,7 @@ const {
   chartFallbackSignature,
   promoteNativeChartPayload,
   validateNativeChartPayload
-} = require("../packages/slideclone-core/chart-native-payload");
+} = require("../packages/slideclone-core/archetypes/chart-native-payload");
 
 function chart() {
   return {

@@ -2,8 +2,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { shouldObjectifyStructuredCaseFlowCardChain } = require("../packages/slideclone-core/structured-case-matrix-reconstruction");
-const { createVisualAtomNativeShapes } = require("../packages/slideclone-core/visual-atom-native-reconstruction");
+const { shouldObjectifyStructuredCaseFlowCardChain } = require("../packages/slideclone-core/archetypes/structured-case-matrix-reconstruction");
+const { createVisualAtomNativeShapes } = require("../packages/slideclone-core/scene-plan/visual-atom-native-reconstruction");
 
 function flowCardImage(nativeGeometryUnverified = false) {
   const visualAtoms = [

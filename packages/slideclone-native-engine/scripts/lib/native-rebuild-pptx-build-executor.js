@@ -1,4 +1,5 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
 const path = require("path");
 const {
@@ -7,7 +8,7 @@ const {
   shouldRunPowerPointOpenGate,
   resolvePython,
   isFlagDisabled
-} = require("@common-tools/slideclone-core/pptx-build-execution");
+} = core("@common-tools/slideclone-core/pptx-build-execution");
 
 function createNativeRebuildPptxBuildExecutor(options = {}) {
   const scriptDir = options.scriptDir || path.resolve(__dirname, "..");
@@ -15,7 +16,7 @@ function createNativeRebuildPptxBuildExecutor(options = {}) {
     skillRoot: path.resolve(scriptDir, ".."),
     projectRoot: path.resolve(scriptDir, "..", "..", ".."),
     openXmlBuilderRoot: path.resolve(scriptDir, "..", "dotnet", "OpenXmlDeckBuilder"),
-    buildOpenXmlDecksSync: (...args) => require("@common-tools/slideclone-core/pptx-openxml-dotnet").buildOpenXmlDecksSync(...args)
+    buildOpenXmlDecksSync: (...args) => core("@common-tools/slideclone-core/pptx-openxml-dotnet").buildOpenXmlDecksSync(...args)
   });
 }
 

@@ -2,11 +2,30 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require("./helpers/temporary-directory.cjs");
 const { recordRoundTripEvidence, summarizeRoundTripReport } = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-roundtrip-evidence");
 const { validatePowerPointEditableRoundTrip } = require("../packages/slideclone-native-engine/scripts/adapters/validate-powerpoint-editable-roundtrip");
+const { normalizeConnectorTarget } = require("../packages/slideclone-native-engine/scripts/lib/powerpoint-connector-roundtrip");
+
+test("named connector targets reject missing, duplicate, extreme and executable input without evaluating accessors", () => {
+  const valid = { name: "curve", fromName: "from", toName: "to" };
+  assert.deepEqual(normalizeConnectorTarget(valid), valid);
+  const grouped={...valid,fromChildName:'real-from',toChildName:'real-to'};
+  assert.deepEqual(normalizeConnectorTarget(grouped),grouped);
+  for(const value of [{...grouped,fromChildName:''},{...grouped,toChildName:'from'},
+    {...grouped,fromChildName:'x'.repeat(257)},{...grouped,toChildName:42},
+    {...grouped,fromChildName:'$(unsafe)'},{...grouped,fromChildName:'real-to'}])assert.throws(()=>normalizeConnectorTarget(value),TypeError);
+  for (const value of [null, [], {}, { ...valid, name: "" }, { ...valid, name: "x".repeat(257) },
+    { ...valid, fromName: "curve" }, { ...valid, name: '$(throw "unsafe")' }, { ...valid, extra: true },
+    new Proxy(valid, { get() { throw Error("must not read"); } })]) assert.throws(() => normalizeConnectorTarget(value), TypeError);
+  let reads = 0;
+  const accessor = { ...valid };
+  Object.defineProperty(accessor, "name", { get() { reads++; return "curve"; } });
+  assert.throws(() => normalizeConnectorTarget(accessor), TypeError);
+  assert.equal(reads, 0);
+});
 
 function report(verified = true) {
   return { provider: "powerpoint-editable-roundtrip-v1", passed: verified, failed: verified ? 0 : 1,
@@ -14,8 +33,8 @@ function report(verified = true) {
       stage: verified ? "complete" : "reopen", hresult: verified ? null : "0x80004005", error: "private-content-secret" }] };
 }
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ct-roundtrip-evidence-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = createTemporaryTestDirectory("ct-roundtrip-evidence-");
+  t.after(() => removeTemporaryTestDirectory(root));
   return { root, reportFile: path.join(root, "powerpoint-editable-roundtrip-report.json"), summaryFile: path.join(root, "powerpoint-editable-roundtrip-summary.json") };
 }
 

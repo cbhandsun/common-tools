@@ -153,7 +153,7 @@ internal static class NativeTableWriter
         if (style is not { ValueKind: JsonValueKind.Object } || rowIndex < 0 || columnIndex < 0 || !style.Value.TryGetProperty("cellStyles", out var rows) || rows.ValueKind != JsonValueKind.Array) return null;
         var row = rows.EnumerateArray().Skip(rowIndex).FirstOrDefault(); if (row.ValueKind != JsonValueKind.Array) return null; var cell = row.EnumerateArray().Skip(columnIndex).FirstOrDefault(); return cell.ValueKind == JsonValueKind.Object ? cell : null;
     }
-    private static void AppendTypeface(A.RunProperties properties, string? family) { if (string.IsNullOrWhiteSpace(family)) return; properties.Append(new A.LatinFont { Typeface = family }, new A.EastAsianFont { Typeface = family }, new A.ComplexScriptFont { Typeface = family }); }
+    private static void AppendTypeface(A.RunProperties properties, string? family) => NativeFontTypeface.Apply(properties, family);
     private static A.TextAlignmentTypeValues TextAlignment(string? value) => value?.ToLowerInvariant() switch { "center" or "middle" => A.TextAlignmentTypeValues.Center, "right" or "end" => A.TextAlignmentTypeValues.Right, "justify" => A.TextAlignmentTypeValues.Justified, _ => A.TextAlignmentTypeValues.Left };
     private static A.TextAnchoringTypeValues TextAnchor(string? value) => value?.ToLowerInvariant() switch { "bottom" => A.TextAnchoringTypeValues.Bottom, "middle" or "center" => A.TextAnchoringTypeValues.Center, _ => A.TextAnchoringTypeValues.Top };
     private static bool UsesOverlayText(JsonElement? style) { var mode = GetString(style, "textMode")?.ToLowerInvariant(); return mode is "overlay-textboxes" or "textboxes"; }

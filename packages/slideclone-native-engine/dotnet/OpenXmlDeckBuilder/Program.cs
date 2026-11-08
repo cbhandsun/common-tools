@@ -107,21 +107,24 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
     var componentTextBoxes = (page.TextBoxes ?? [])
         .Where(textBox => !IsTableOverlaySource(textBox.Source))
         .ToList();
-    var groupedComponentIds = AppendGroupedShapes(
-        shapeTree,
-        residualLayers.ForegroundShapes,
-        componentImages,
-        componentTextBoxes,
-        slidePart,
-        irDirectory,
-        ref shapeId,
-        boxIndex,
-        usesTemplateBindings
-    );
+    var componentGroups = NativeComponentGroupPlan.Create(residualLayers.ForegroundShapes, componentImages, componentTextBoxes, page.OutputEditGroups);
+    foreach (var shape in residualLayers.ForegroundShapes)
+    {
+        if (componentGroups.TryTake(shape, out var group))
+        {
+            AppendComponentGroup(shapeTree, group, slidePart, irDirectory, ref shapeId, boxIndex, usesTemplateBindings);
+            continue;
+        }
+        shapeTree.Append(CreateShape(shape, shapeId++, boxIndex));
+    }
 
     foreach (var image in componentImages)
     {
-        if (groupedComponentIds.ImageIds.Contains(image.Id)) continue;
+        if (componentGroups.TryTake(image, out var group))
+        {
+            AppendComponentGroup(shapeTree, group, slidePart, irDirectory, ref shapeId, boxIndex, usesTemplateBindings);
+            continue;
+        }
         if (TryCreatePicture(image, slidePart, shapeId, irDirectory, out var picture, TemplatePlaceholderWriter.Binding(placeholderBindings, "images", image.Id)))
         {
             shapeTree.Append(picture);
@@ -179,11 +182,22 @@ static P.Slide CreateSlide(PageIr page, SlidePart slidePart, string irDirectory)
 
     foreach (var textBox in page.TextBoxes ?? [])
     {
-        if (groupedComponentIds.TextBoxIds.Contains(textBox.Id)) continue;
+        if (!IsTableOverlaySource(textBox.Source) && componentGroups.TryTake(textBox, out var group))
+        {
+            AppendComponentGroup(shapeTree, group, slidePart, irDirectory, ref shapeId, boxIndex, usesTemplateBindings);
+            continue;
+        }
+        if (textBox.PositionedRuns is not null)
+        {
+            shapeTree.Append(NativePositionedText.Create(textBox, ref shapeId,
+                (child, id) => CreateTextBox(child, id, allowRolePlaceholder: false)));
+            continue;
+        }
         var allowRolePlaceholder = !usesTemplateBindings && !IsAbsoluteOcrTextBox(textBox);
         shapeTree.Append(CreateTextBox(textBox, shapeId++, TemplatePlaceholderWriter.Binding(placeholderBindings, "textBoxes", textBox.Id), allowRolePlaceholder));
     }
 
+    ConnectorAttachmentWriter.Apply(shapeTree, page);
     return new P.Slide(new P.CommonSlideData(shapeTree), new P.ColorMapOverride(new A.MasterColorMapping()));
 }
 
@@ -231,7 +245,7 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId, PlaceholderBinding
 {
     var effectiveFont = ResolveTextBoxFont(textBox);
     var opacity = TextOpacity(textBox);
-    A.RunProperties CreateRunProperties(FontIr? runFont)
+    A.RunProperties CreateRunProperties(FontIr? runFont, string? runText)
     {
         var sizePt = Math.Clamp(runFont?.SizePt ?? effectiveFont?.SizePt ?? 14, 1, 400);
         var color = NormalizeHex(runFont?.Color ?? effectiveFont?.Color ?? "#111111");
@@ -239,8 +253,11 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId, PlaceholderBinding
         var properties = new A.RunProperties
         {
             FontSize = (int)Math.Round(sizePt * 100),
+            Language = ContainsEastAsianText(runText) ? "zh-CN" : null,
             Bold = string.Equals(runFont?.Weight ?? effectiveFont?.Weight, "bold", StringComparison.OrdinalIgnoreCase)
         };
+        TextCharacterSpacing.Apply(properties, runFont?.CharacterSpacingPt ?? effectiveFont?.CharacterSpacingPt);
+        NativeTextOutline.Apply(properties, textBox.Style, runOpacity);
         var textGradient = runFont?.Color is null ? CreateGradientFill(GetObject(textBox.Style, "textGradient")) : null;
         if (textGradient is not null)
         {
@@ -254,7 +271,10 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId, PlaceholderBinding
         }
         var textReflection = GetObject(textBox.Style, "textReflection");
         if (textReflection is not null) properties.Append(new A.EffectList(CreateTextReflection(textReflection)));
-        AppendTypeface(properties, runFont?.Family ?? effectiveFont?.Family);
+        NativeFontTypeface.Apply(properties, runFont?.Family ?? effectiveFont?.Family,
+            runFont?.LatinFamily ?? effectiveFont?.LatinFamily,
+            runFont?.EastAsianFamily ?? effectiveFont?.EastAsianFamily,
+            runFont?.ComplexScriptFamily ?? effectiveFont?.ComplexScriptFamily);
         return properties;
     }
     var paragraphProperties = new A.ParagraphProperties
@@ -298,6 +318,11 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId, PlaceholderBinding
         TopInset = TextInset(textBox.Style, "marginTopPt"),
         BottomInset = TextInset(textBox.Style, "marginBottomPt")
     };
+    NativeTextWarp.Apply(bodyProperties, textBox);
+    if (TextAutoFitRequested(textBox))
+    {
+        bodyProperties.Append(new A.NormalAutoFit());
+    }
     var vertical = TextVertical(GetString(textBox.Style, "vertical"));
     if (vertical is not null) bodyProperties.Vertical = vertical.Value;
 
@@ -306,16 +331,20 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId, PlaceholderBinding
         .Where(run => !string.IsNullOrEmpty(run.Text))
         .Take(128)
         .ToList();
-    if (richRuns.Count > 0)
+    if (NativeParagraphText.Requested(textBox))
+    {
+        paragraph = NativeParagraphText.Create(textBox, paragraphProperties, CreateRunProperties);
+    }
+    else if (richRuns.Count > 0)
     {
         foreach (var run in richRuns)
         {
-            paragraph.Append(new A.Run(CreateRunProperties(run.Font), new A.Text(run.Text)));
+            paragraph.Append(new A.Run(CreateRunProperties(run.Font, run.Text), new A.Text(run.Text)));
         }
     }
     else
     {
-        paragraph.Append(new A.Run(CreateRunProperties(null), new A.Text(textBox.Text ?? string.Empty)));
+        paragraph.Append(new A.Run(CreateRunProperties(null, textBox.Text), new A.Text(textBox.Text ?? string.Empty)));
     }
 
     return new P.Shape(
@@ -336,6 +365,30 @@ static P.Shape CreateTextBox(TextBoxIr textBox, uint shapeId, PlaceholderBinding
             paragraph
         )
     );
+}
+
+static bool TextAutoFitRequested(TextBoxIr textBox)
+{
+    if (!string.Equals(GetString(textBox.Style, "fit"), "shrink", StringComparison.OrdinalIgnoreCase)) return false;
+    return GetObject(textBox.Source, "ocrEvidenceFit") is not null
+        || GetObject(textBox.Source, "finalWorstTextInkBoxFit") is not null
+        || GetObject(textBox.Source, "finalWorstTextCompositeFit") is not null
+        || GetObject(textBox.Source, "finalWorstTextScaleFit") is not null;
+}
+
+static bool ContainsEastAsianText(string? value)
+{
+    if (string.IsNullOrEmpty(value)) return false;
+    foreach (var rune in value.EnumerateRunes())
+    {
+        var codepoint = rune.Value;
+        if ((codepoint >= 0x3400 && codepoint <= 0x4DBF)
+            || (codepoint >= 0x4E00 && codepoint <= 0x9FFF)
+            || (codepoint >= 0xF900 && codepoint <= 0xFAFF)
+            || (codepoint >= 0x3040 && codepoint <= 0x30FF)
+            || (codepoint >= 0xAC00 && codepoint <= 0xD7AF)) return true;
+    }
+    return false;
 }
 
 static FontIr? ResolveTextBoxFont(TextBoxIr textBox)
@@ -380,83 +433,18 @@ static A.TextVerticalValues? TextVertical(string? value) => value?.Trim().ToLowe
     _ => null
 };
 
-static (HashSet<string> TextBoxIds, HashSet<string> ImageIds) AppendGroupedShapes(
+static void AppendComponentGroup(
     P.ShapeTree shapeTree,
-    IReadOnlyList<VisualElementIr> shapes,
-    IReadOnlyList<VisualElementIr> images,
-    IReadOnlyList<TextBoxIr> textBoxes,
+    NativeComponentGroup? group,
     SlidePart slidePart,
     string irDirectory,
     ref uint shapeId,
     IReadOnlyDictionary<string, BoxIr>? boxIndex,
     bool usesTemplateBindings)
 {
-    var nextShapeId = shapeId;
-    var groups = shapes
-        .Select((element, index) => new { element, index, groupId = NativeComponentGroupId(element) })
-        .Where(item => !string.IsNullOrWhiteSpace(item.groupId))
-        .GroupBy(item => item.groupId!, StringComparer.Ordinal)
-        .ToDictionary(group => group.Key, group => group.Select(item => item.element).ToList(), StringComparer.Ordinal);
-    var groupedTextBoxes = textBoxes
-        .Select((element, index) => new { element, index, groupId = NativeTextBoxComponentGroupId(element) })
-        .Where(item => !string.IsNullOrWhiteSpace(item.groupId))
-        .GroupBy(item => item.groupId!, StringComparer.Ordinal)
-        .ToDictionary(group => group.Key, group => group.Select(item => item.element).ToList(), StringComparer.Ordinal);
-    var groupedImages = images
-        .Select((element, index) => new { element, index, groupId = NativeComponentGroupId(element) })
-        .Where(item => !string.IsNullOrWhiteSpace(item.groupId))
-        .GroupBy(item => item.groupId!, StringComparer.Ordinal)
-        .ToDictionary(group => group.Key, group => group.Select(item => item.element).ToList(), StringComparer.Ordinal);
-    var allGroupIds = groups.Keys
-        .Concat(groupedImages.Keys)
-        .Concat(groupedTextBoxes.Keys)
-        .ToHashSet(StringComparer.Ordinal);
-    var groupIds = allGroupIds
-        .Where(groupId =>
-            (groups.TryGetValue(groupId, out var shapeMembers) ? shapeMembers.Count : 0)
-            + (groupedImages.TryGetValue(groupId, out var imageMembers) ? imageMembers.Count : 0)
-            + (groupedTextBoxes.TryGetValue(groupId, out var textMembers) ? textMembers.Count : 0) > 1)
-        .ToHashSet(StringComparer.Ordinal);
-    var emittedGroups = new HashSet<string>(StringComparer.Ordinal);
-    var groupedTextBoxIds = new HashSet<string>(StringComparer.Ordinal);
-    var groupedImageIds = new HashSet<string>(StringComparer.Ordinal);
-    void EmitGroup(string groupId)
-    {
-        if (!emittedGroups.Add(groupId)) return;
-        groups.TryGetValue(groupId, out var shapeMembers);
-        groupedImages.TryGetValue(groupId, out var imageMembers);
-        groupedTextBoxes.TryGetValue(groupId, out var textMembers);
-        shapeTree.Append(CreateComponentGroupShape(
-            groupId,
-            shapeMembers ?? [],
-            imageMembers ?? [],
-            textMembers ?? [],
-            slidePart,
-            irDirectory,
-            ref nextShapeId,
-            boxIndex,
-            usesTemplateBindings
-        ));
-        foreach (var textBox in textMembers ?? []) groupedTextBoxIds.Add(textBox.Id);
-        foreach (var image in imageMembers ?? []) groupedImageIds.Add(image.Id);
-    }
-    foreach (var shape in shapes)
-    {
-        var groupId = NativeComponentGroupId(shape);
-        if (!string.IsNullOrWhiteSpace(groupId) && groupIds.Contains(groupId))
-        {
-            EmitGroup(groupId);
-            continue;
-        }
-        shapeTree.Append(CreateShape(shape, nextShapeId++, boxIndex));
-    }
-    foreach (var image in images)
-    {
-        var groupId = NativeComponentGroupId(image);
-        if (!string.IsNullOrWhiteSpace(groupId) && groupIds.Contains(groupId)) EmitGroup(groupId);
-    }
-    shapeId = nextShapeId;
-    return (groupedTextBoxIds, groupedImageIds);
+    if (group is null) return;
+    shapeTree.Append(CreateComponentGroupShape(group.Id, group.Shapes, group.Images, group.TextBoxes,
+        slidePart, irDirectory, ref shapeId, boxIndex, usesTemplateBindings));
 }
 
 static P.GroupShape CreateComponentGroupShape(
@@ -502,20 +490,15 @@ static P.GroupShape CreateComponentGroupShape(
     }
     foreach (var textBox in textBoxes)
     {
-        group.Append(CreateTextBox(textBox, shapeId++, allowRolePlaceholder: !usesTemplateBindings));
+        if (textBox.PositionedRuns is not null)
+        {
+            group.Append(NativePositionedText.Create(textBox, ref shapeId,
+                (child, id) => CreateTextBox(child, id, allowRolePlaceholder: false)));
+            continue;
+        }
+        group.Append(CreateTextBox(textBox, shapeId++, allowRolePlaceholder: false));
     }
     return group;
-}
-
-static string? NativeComponentGroupId(VisualElementIr element)
-{
-    return GetString(element.Source, "nativeComponentGroupId");
-}
-
-static string? NativeTextBoxComponentGroupId(TextBoxIr textBox)
-{
-    return GetString(textBox.Source, "nativeComponentGroupId")
-        ?? GetString(textBox.Style, "nativeComponentGroupId");
 }
 
 static BoxIr UnionBounds(IEnumerable<BoxIr> boxes)
@@ -561,19 +544,36 @@ static P.ConnectionShape CreateConnectionShape(VisualElementIr element, uint sha
     var end = ResolveAnchor(GetObject(element.Style, "endAnchor"), boxIndex, element.Box.X + element.Box.W, element.Box.Y + element.Box.H);
     var x = Math.Min(start.X, end.X);
     var y = Math.Min(start.Y, end.Y);
-    var w = SafeConnectorExtent(Math.Abs(end.X - start.X));
-    var h = SafeConnectorExtent(Math.Abs(end.Y - start.Y));
+    var connectorType = GetString(element.Style, "connectorType");
+    var extents = NativeConnectorExtents.Resolve(Math.Abs(end.X - start.X), Math.Abs(end.Y - start.Y), connectorType);
+    var w = extents.Width;
+    var h = extents.Height;
+    var flipH = (start.X > end.X) != (GetBoolean(element.Style, "flipH") == true);
+    var flipV = (start.Y > end.Y) != (GetBoolean(element.Style, "flipV") == true);
+    int? rotation = null;
+    // A solved native elbow carries its exact Office frame: the unrotated box,
+    // quarter-turn rotation and flips that make the preset path pass through
+    // the measured route. Attachments still come from the anchors.
+    if (TryReadConnectorFrame(element.Style, out var frame))
+    {
+        var frameExtents = NativeConnectorExtents.Resolve(frame.W, frame.H, connectorType);
+        x = frame.X; y = frame.Y; w = frameExtents.Width; h = frameExtents.Height;
+        flipH = frame.FlipH; flipV = frame.FlipV;
+        if (frame.Rotation != 0) rotation = ToOpenXmlAngle(frame.Rotation);
+    }
+    var transform = new A.Transform2D(
+        new A.Offset { X = ToEmu(x), Y = ToEmu(y) },
+        new A.Extents { Cx = ToEmu(w), Cy = ToEmu(h) }
+    )
+    {
+        HorizontalFlip = flipH,
+        VerticalFlip = flipV
+    };
+    if (rotation is int angle) transform.Rotation = angle;
 
     var shapeProperties = new P.ShapeProperties(
-        new A.Transform2D(
-            new A.Offset { X = ToEmu(x), Y = ToEmu(y) },
-            new A.Extents { Cx = ToEmu(w), Cy = ToEmu(h) }
-        )
-        {
-            HorizontalFlip = (start.X > end.X) != (GetBoolean(element.Style, "flipH") == true),
-            VerticalFlip = (start.Y > end.Y) != (GetBoolean(element.Style, "flipV") == true)
-        },
-        new A.PresetGeometry { Preset = ConnectorGeometry(element.Style) },
+        transform,
+        NativeConnectorGeometry.Create(connectorType, element.Style),
         new A.NoFill(),
         CreateOutline(element.Style)
     );
@@ -589,7 +589,23 @@ static P.ConnectionShape CreateConnectionShape(VisualElementIr element, uint sha
     );
 }
 
-static double SafeConnectorExtent(double value) => Math.Max(0.1, value);
+static bool TryReadConnectorFrame(JsonElement? style, out (double X, double Y, double W, double H, double Rotation, bool FlipH, bool FlipV) frame)
+{
+    frame = default;
+    var value = GetObject(style, "connectorFrame");
+    if (value is not { ValueKind: JsonValueKind.Object } raw) return false;
+    double Read(string key) => raw.TryGetProperty(key, out var item) && item.ValueKind == JsonValueKind.Number
+        && item.TryGetDouble(out var number) && double.IsFinite(number) ? number : double.NaN;
+    bool Flag(string key) => raw.TryGetProperty(key, out var item) && item.ValueKind == JsonValueKind.True;
+    var x = Read("x"); var y = Read("y"); var w = Read("w"); var h = Read("h");
+    var rotation = raw.TryGetProperty("rotationDeg", out _) ? Read("rotationDeg") : 0;
+    if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(w) || !double.IsFinite(h) || w < 0 || h < 0
+        || Math.Abs(x) > 100000 || Math.Abs(y) > 100000 || w > 100000 || h > 100000
+        || rotation is not (0 or 90 or 180 or 270))
+        throw new InvalidDataException("Native connector frame is invalid.");
+    frame = (x, y, w, h, rotation, Flag("flipH"), Flag("flipV"));
+    return true;
+}
 
 static P.Shape CreateAutoShape(VisualElementIr element, uint shapeId)
 {
@@ -820,14 +836,6 @@ static double TextOpacity(TextBoxIr textBox)
     return Clamp(textBox.Font?.Opacity ?? 1, 0, 1);
 }
 
-static void AppendTypeface(A.RunProperties runProperties, string? family)
-{
-    if (string.IsNullOrWhiteSpace(family)) return;
-    runProperties.Append(new A.LatinFont { Typeface = family });
-    runProperties.Append(new A.EastAsianFont { Typeface = family });
-    runProperties.Append(new A.ComplexScriptFont { Typeface = family });
-}
-
 static Dictionary<string, BoxIr> BuildBoxIndex(PageIr page)
 {
     var result = new Dictionary<string, BoxIr>(StringComparer.OrdinalIgnoreCase);
@@ -873,20 +881,9 @@ static (double X, double Y) ResolveAnchor(JsonElement? anchor, IReadOnlyDictiona
 
 static double Clamp(double value, double min, double max) => Math.Max(min, Math.Min(max, value));
 
-static A.ShapeTypeValues ConnectorGeometry(JsonElement? style)
-{
-    return GetString(style, "connectorType")?.ToLowerInvariant() switch
-    {
-        "elbow" or "elbow-2" => A.ShapeTypeValues.BentConnector2,
-        "elbow-3" => A.ShapeTypeValues.BentConnector3,
-        "elbow-4" => A.ShapeTypeValues.BentConnector4,
-        "elbow-5" => A.ShapeTypeValues.BentConnector5,
-        _ => A.ShapeTypeValues.Line
-    };
-}
-
 static A.Outline CreateOutline(JsonElement? style)
 {
+    var lineCap = NativeLineCap.Resolve(style);
     var stroke = GetString(style, "stroke");
     var strokeWidth = GetNumber(style, "strokeWidthPt") ?? GetNumber(style, "strokeWidth") ?? 1;
     if (string.IsNullOrWhiteSpace(stroke) || IsNone(stroke) || strokeWidth <= 0)
@@ -903,6 +900,7 @@ static A.Outline CreateOutline(JsonElement? style)
     {
         Width = ToLineWidth(strokeWidth)
     };
+    if (lineCap is { } cap) outline.CapType = cap;
     var strokeGradient = CreateGradientFill(GetObject(style, "strokeGradient"));
     if (strokeGradient is not null)
     {
@@ -943,6 +941,10 @@ static A.GradientFill? CreateGradientFill(JsonElement? gradient)
     if (GetString(gradient, "type") is { Length: > 0 } type
         && !string.Equals(type, "linear", StringComparison.OrdinalIgnoreCase)) return null;
     if (!gradient.Value.TryGetProperty("stops", out var stopsElement) || stopsElement.ValueKind != JsonValueKind.Array) return null;
+    // Six fitted source stops may acquire two derived boundary colors when
+    // clipped into a whole path's drawing frame. Never truncate its tail.
+    if (stopsElement.GetArrayLength() > 8)
+        throw new InvalidDataException("Native gradient stop budget is invalid.");
     var stops = new List<A.GradientStop>();
     var index = 0;
     var total = Math.Max(1, stopsElement.GetArrayLength() - 1);
@@ -960,10 +962,9 @@ static A.GradientFill? CreateGradientFill(JsonElement? gradient)
         }
         stops.Add(new A.GradientStop(gradientColor) { Position = position });
         index++;
-        if (stops.Count >= 6) break;
     }
     if (stops.Count < 2) return null;
-    var angle = ToOpenXmlAngle(GetNumber(gradient, "angleDeg") ?? 0);
+    var angle = DrawingGradientAngle.Convert(GetNumber(gradient, "angleDeg") ?? 0);
     return new A.GradientFill(
         new A.GradientStopList(stops),
         new A.LinearGradientFill { Angle = angle, Scaled = false }
@@ -981,25 +982,10 @@ static int NormalizeGradientPosition(double value)
 
 static void AddLineDash(A.Outline outline, JsonElement? style)
 {
+    if (NativeSourceDash.Append(outline, style)) return;
     var dash = GetString(style, "dash")?.ToLowerInvariant();
     if (string.IsNullOrWhiteSpace(dash)) return;
-    outline.Append(new A.PresetDash
-    {
-        Val = dash switch
-        {
-            "dot" => A.PresetLineDashValues.Dot,
-            "dashdot" => A.PresetLineDashValues.DashDot,
-            // DrawingML has no short DashDotDot preset; DashDot is its closest native equivalent.
-            "dashdotdot" => A.PresetLineDashValues.DashDot,
-            "largedash" => A.PresetLineDashValues.LargeDash,
-            "largedashdot" => A.PresetLineDashValues.LargeDashDot,
-            "largedashdotdot" => A.PresetLineDashValues.LargeDashDotDot,
-            "systemdash" => A.PresetLineDashValues.SystemDash,
-            "systemdashdot" => A.PresetLineDashValues.SystemDashDot,
-            "systemdashdotdot" => A.PresetLineDashValues.SystemDashDotDot,
-            _ => A.PresetLineDashValues.Dash
-        }
-    });
+    outline.Append(new A.PresetDash { Val = NativeLineDash.Resolve(dash) });
 }
 
 static bool IsFreeformType(string? type)
@@ -1070,6 +1056,7 @@ static List<FreeformSegmentIr> ReadFreeformSegments(JsonElement? style)
 {
     var segments = new List<FreeformSegmentIr>();
     if (style is null || style.Value.ValueKind != JsonValueKind.Object) return segments;
+    if (style.Value.TryGetProperty("freeformPath", out _)) return NativeFreeformPath.Read(style.Value);
     if (!style.Value.TryGetProperty("freeformSegments", out var array) || array.ValueKind != JsonValueKind.Array) return segments;
     foreach (var item in array.EnumerateArray())
     {
@@ -1132,9 +1119,13 @@ static int ToGeometryCoordinate(double value)
 
 static void AppendEffectList(P.ShapeProperties shapeProperties, JsonElement? style)
 {
-    var shadow = GetObject(style, "shadow");
-    if (shadow is null) return;
-    shapeProperties.Append(new A.EffectList(CreateOuterShadow(shadow)));
+    var shadow = NativeShadowScale.ReadShadow(style);
+    var glow = NativeGlow.Read(style);
+    if (shadow is null && glow is null) return;
+    var effects = new A.EffectList();
+    if (glow is not null) effects.Append(glow);
+    if (shadow is not null) effects.Append(CreateOuterShadow(shadow));
+    shapeProperties.Append(effects);
 }
 
 static A.OuterShadow CreateOuterShadow(JsonElement? shadow)
@@ -1143,7 +1134,7 @@ static A.OuterShadow CreateOuterShadow(JsonElement? shadow)
     var alpha = ToAlpha(GetNumber(shadow, "alpha") ?? 0.18);
     var rgb = new A.RgbColorModelHex { Val = color };
     rgb.Append(new A.Alpha { Val = alpha });
-    return new A.OuterShadow(rgb)
+    var effect = new A.OuterShadow(rgb)
     {
         BlurRadius = ToEmu(GetNumber(shadow, "blurPt") ?? 4),
         Distance = ToEmu(GetNumber(shadow, "distancePt") ?? 1.5),
@@ -1151,6 +1142,8 @@ static A.OuterShadow CreateOuterShadow(JsonElement? shadow)
         Alignment = A.RectangleAlignmentValues.Center,
         RotateWithShape = false
     };
+    NativeShadowScale.Apply(effect, shadow);
+    return effect;
 }
 
 static A.Reflection CreateTextReflection(JsonElement? reflection)

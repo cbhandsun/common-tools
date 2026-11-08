@@ -6,8 +6,8 @@ const path = require("node:path");
 const { types } = require("node:util");
 const { validateDeckPageStructures } = require("./deck-ir-structure");
 const { validateDeckIrEnvelope } = require("./deck-ir-tree");
-const { validateDeckNativeChartPayloads } = require("./chart-native-payload");
-const { validateReconstructionContracts } = require("./reconstruction-contract-validation");
+const { validateDeckNativeChartPayloads } = require("./archetypes/chart-native-payload");
+const { validateReconstructionContracts } = require("./quality/reconstruction-contract-validation");
 
 /** @param {unknown} value */
 function safeAssetPath(value) {
@@ -18,6 +18,9 @@ function safeAssetPath(value) {
 }
 /** @param {unknown} ir @param {string} root */
 function validateDeckIr(ir, root) {
+  if (typeof root !== 'string' || !root || root.includes('\0')) throw new TypeError('editable deck asset root is invalid');
+  const assetRoot = path.resolve(root);
+  const assetPrefix = assetRoot.endsWith(path.sep) ? assetRoot : `${assetRoot}${path.sep}`;
   const { pages } = validateDeckIrEnvelope(ir);
   validateDeckPageStructures(pages);
   validateDeckNativeChartPayloads(pages);
@@ -35,8 +38,8 @@ function validateDeckIr(ir, root) {
   }
   visit(ir);
   for (const asset of referencedAssets) {
-    const file = path.resolve(root, ...asset.split("/"));
-    if (!file.startsWith(`${root}${path.sep}`) || !fs.existsSync(file) || !fs.statSync(file).isFile()) throw new Error("editable deck references a missing asset");
+    const file = path.resolve(assetRoot, ...asset.split("/"));
+    if (!file.startsWith(assetPrefix) || !fs.existsSync(file) || !fs.statSync(file).isFile()) throw new Error("editable deck references a missing asset");
   }
   return { pages: pages.length, assets: referencedAssets.size };
 }

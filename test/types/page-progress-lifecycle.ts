@@ -1,4 +1,4 @@
-import { createPageProgressLifecycle } from "../../packages/slideclone-core/page-progress-lifecycle";
+import { createPageProgressLifecycle } from "../../packages/slideclone-core/scene-plan/page-progress-lifecycle";
 
 declare const external: unknown;
 const lifecycle = createPageProgressLifecycle(external);

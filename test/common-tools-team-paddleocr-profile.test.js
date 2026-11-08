@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
-const { EXPECTED_VERSIONS, MIN_TEXT_CONFIDENCE, PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile } = require("../packages/slideclone-core/team-paddleocr-profile");
+const { EXPECTED_VERSIONS, MIN_TEXT_CONFIDENCE, PROFILE_NAME, createPinnedPaddleImageNormalizer, createPinnedPaddleRawImageOcr, normalizeLines, readPinnedPaddleOcrProfile, sha256File, verifyPinnedPaddleOcrProfile } = require("../packages/slideclone-core/ocr/team-paddleocr-profile");
 const { resolveNativeEngineRuntimeRoot } = require("../packages/slideclone-native-engine");
 
 function environment(overrides = {}) {
@@ -76,7 +76,7 @@ test("PaddleOCR deployment probe validates all six hashes and both pinned versio
 
 test("PaddleOCR result normalization rejects unsafe text and geometry", () => {
   const valid = [{ text: "你好", polygon: [[1, 2], [11, 2], [11, 8], [1, 8]], confidence: 0.99 }];
-  assert.deepEqual(normalizeLines(valid, { widthPx: 100, heightPx: 100 }), { lines: [{ text: "你好", confidence: 0.99, box: { x: 1, y: 2, w: 10, h: 6 } }] });
+  assert.deepEqual(normalizeLines(valid, { widthPx: 100, heightPx: 100 }), { lines: [{ text: "你好", confidence: 0.99, box: { x: 1, y: 2, w: 10, h: 6 }, polygon: valid[0].polygon }] });
   assert.deepEqual(normalizeLines([{ ...valid[0], confidence: MIN_TEXT_CONFIDENCE - 0.01 }], { widthPx: 100, heightPx: 100 }), { lines: [] });
   assert.throws(() => normalizeLines([{ ...valid[0], confidence: 2 }], { widthPx: 100, heightPx: 100 }), /confidence/);
   assert.throws(() => normalizeLines([{ ...valid[0], polygon: [[99, 2], [110, 2], [110, 8], [99, 8]] }], { widthPx: 100, heightPx: 100 }), /geometry/);

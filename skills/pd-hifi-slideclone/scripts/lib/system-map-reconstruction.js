@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/system-map-reconstruction");
+module.exports = require("@common-tools/slideclone-core/archetypes/system-map-reconstruction");

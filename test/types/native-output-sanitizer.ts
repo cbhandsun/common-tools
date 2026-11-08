@@ -1,4 +1,4 @@
-import { sanitizeNativeChart, sanitizeNativeCharts, sanitizeNativeShape, sanitizeNativeShapes } from "../../packages/slideclone-core/native-output-sanitizer";
+import { sanitizeNativeChart, sanitizeNativeCharts, sanitizeNativeShape, sanitizeNativeShapes } from "../../packages/slideclone-core/quality/native-output-sanitizer";
 
 const incoming: unknown = null;
 const shapes = sanitizeNativeShapes(incoming);

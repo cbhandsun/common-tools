@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const {validateDeckIr} = require("../packages/slideclone-worker-adapter/team-worker");
-const {promoteNativeChartPayload} = require("../packages/slideclone-core/chart-native-payload");
+const {promoteNativeChartPayload} = require("../packages/slideclone-core/archetypes/chart-native-payload");
 const {invokeBuilder, createMinimalDeckIr} = require("./helpers/openxml-contract-fixtures");
 const {readZipEntryText, readZipEntries, readZipEntry} = require("../packages/slideclone-core/pptx-zip");
 

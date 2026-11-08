@@ -5,7 +5,7 @@ const test = require("node:test");
 const {
   detectStaticTextOverflow,
   estimateSingleLineWidth
-} = require("../packages/slideclone-core/static-text-overflow-detector");
+} = require("../packages/slideclone-core/typography/static-text-overflow-detector");
 
 test("estimateSingleLineWidth handles CJK and Latin proportions", () => {
   // 4 CJK chars * 16pt * 1.0 = 64pt

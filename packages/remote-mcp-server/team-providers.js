@@ -309,14 +309,21 @@ function createMetricsProvider({ pool, redis, workerHeartbeats: heartbeatProvide
     return Object.freeze({ jobs, queues, oldestQueuedSeconds, leaseRecoveries, leaseRecoveryWindowSeconds: LEASE_RECOVERY_METRIC_WINDOW_SECONDS, workerHeartbeats, retention });
   };
 }
+function createObjectStoreClients(config, credentials) {
+  const options = { forcePathStyle: true, region: "us-east-1", credentials };
+  const s3 = new S3Client({ ...options, endpoint: config.objectStoreEndpoint });
+  // The presigner has no payload. SDK defaults otherwise sign the CRC32 of
+  // an empty body, which rejects every nonempty client upload (InvalidDigest).
+  // Keep automatic checksums on real server-side writes via the separate s3 client.
+  const presignClient = new S3Client({ ...options, endpoint: config.objectStorePublicEndpoint || config.objectStoreEndpoint, requestChecksumCalculation: "WHEN_REQUIRED" });
+  return { s3, presignClient };
+}
 async function createTeamProviderBundle({ config, secrets, allowCreateBucket = false, rateLimit } = {}) {
   const databaseUrl = new URL(config.databaseUrl);
   const pool = new Pool({ host: databaseUrl.hostname, port: Number(databaseUrl.port || 5432), database: databaseUrl.pathname.slice(1), user: secrets.databaseUser, password: secrets.databasePassword, ssl: databaseUrl.searchParams.get("sslmode") === "verify-full" ? { rejectUnauthorized: true } : undefined, max: 10, idleTimeoutMillis: 30000 });
   const redis = await connectTeamRedis({ url: config.redisUrl, username: secrets.redisUsername, password: secrets.redisPassword });
-  const s3Options = { forcePathStyle: true, region: "us-east-1", credentials: { accessKeyId: secrets.objectStoreAccessKeyId, secretAccessKey: secrets.objectStoreSecretAccessKey } };
-  const s3 = new S3Client({ ...s3Options, endpoint: config.objectStoreEndpoint });
-  const publicPresignClient = config.objectStorePublicEndpoint ? new S3Client({ ...s3Options, endpoint: config.objectStorePublicEndpoint }) : s3;
-  const objectStore = createObjectStore(s3, config.objectStoreBucket, 900, { presignClient: publicPresignClient });
+  const { s3, presignClient } = createObjectStoreClients(config, { accessKeyId: secrets.objectStoreAccessKeyId, secretAccessKey: secrets.objectStoreSecretAccessKey });
+  const objectStore = createObjectStore(s3, config.objectStoreBucket, 900, { presignClient });
   try { await objectStore.ensureBucket(allowCreateBucket); }
   catch (error) { await redis.quit(); await pool.end(); throw error; }
   const repository = new PostgresJobRepository({ query: (text, values) => pool.query(text, values) });
@@ -327,4 +334,4 @@ async function createTeamProviderBundle({ config, secrets, allowCreateBucket = f
   return Object.freeze({ services: createTeamServices({ repository, queue, objectStore, projectActiveJobLimit: config.projectActiveJobLimit }), repository, queue, objectStore, workerHeartbeats, maintenanceHeartbeat, readinessCheck: createReadinessCheck({ pool, redis, objectStore, workerHeartbeats, requiredCapabilities: workerCapabilities }), metricsProvider: createMetricsProvider({ pool, redis, workerHeartbeats, maintenanceHeartbeat, capabilities: workerCapabilities }), rateLimiter: createRedisRateLimiter(redis, rateLimit), createIdempotencyStore: (ownerId) => createRedisIdempotencyStore(redis, ownerId), async close() { await Promise.allSettled([redis.quit(), pool.end()]); } });
 }
 
-module.exports = { createMaintenanceHeartbeat, createMetricsProvider, createObjectStore, createReadinessCheck, createRedisIdempotencyStore, createRedisQueue, createRedisRateLimiter, createTeamProviderBundle, createWorkerHeartbeats, loadTeamSecrets, optionalSecretFromEnvironment, secretFromEnvironment, startWorkerHeartbeat };
+module.exports = { createMaintenanceHeartbeat, createMetricsProvider, createObjectStore, createObjectStoreClients, createReadinessCheck, createRedisIdempotencyStore, createRedisQueue, createRedisRateLimiter, createTeamProviderBundle, createWorkerHeartbeats, loadTeamSecrets, optionalSecretFromEnvironment, secretFromEnvironment, startWorkerHeartbeat };

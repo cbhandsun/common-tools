@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/reconstruction-quality-budget");
+module.exports = require("@common-tools/slideclone-core/quality/reconstruction-quality-budget");

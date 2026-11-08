@@ -2,12 +2,12 @@
 const path = require("node:path");
 const fs = require("node:fs");
 const { cropPng, writePng, readPng } = require("./png");
-const { ensureDir, eraseMasks } = require("./residual-primitive-erasure");
-const { ptToPxBox, luma, pixel, saturation, maskBounds, clamp, round } = require("./raster-native-detection");
-const { safeIdentifier } = require("./workflow-shape-primitives");
+const { ensureDir, eraseMasks } = require("./scene-plan/residual-primitive-erasure");
+const { ptToPxBox, luma, pixel, saturation, maskBounds, clamp, round } = require("./scene-plan/raster-native-detection");
+const { safeIdentifier } = require("./archetypes/workflow-shape-primitives");
 const { spawnSync } = require("node:child_process");
-const { DEFAULT_SLIDE } = require("./page-text-rule-helpers");
-const { normalizeWorkflowCoverTextBox } = require("./workflow-cover-text");
+const { DEFAULT_SLIDE } = require("./typography/page-text-rule-helpers");
+const { normalizeWorkflowCoverTextBox } = require("./typography/workflow-cover-text");
 let cachedInpaintPython;
 
 function createDecorativeCoverBackground(image, textBoxes, slideSize, options) {

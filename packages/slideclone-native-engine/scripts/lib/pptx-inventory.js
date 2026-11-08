@@ -1,2 +1,3 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/pptx-inventory");
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
+module.exports = core("@common-tools/slideclone-core/pptx-inventory");

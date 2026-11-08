@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { validateDeckIrTree } = require("../packages/slideclone-core/deck-ir-tree");
-const { compactTeamComponentEvidence } = require("../packages/slideclone-core/team-component-evidence");
+const { compactTeamComponentEvidence } = require("../packages/slideclone-core/archetypes/team-component-evidence");
 
 function nested(depth) {
   let value = { terminal: "private-learning-data" };

@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/asset-closure-funnel");
+module.exports = require("@common-tools/slideclone-core/archetypes/asset-closure-funnel");

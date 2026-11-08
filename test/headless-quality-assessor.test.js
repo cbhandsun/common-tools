@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { assertQualityReport } = require("../packages/capability-contracts");
-const { assessHeadlessQuality } = require("../packages/slideclone-core/headless-quality-assessor");
+const { assessHeadlessQuality } = require("../packages/slideclone-core/quality/headless-quality-assessor");
 
 function makeSolidImage(width, height, color) {
   const rgba = Buffer.alloc(width * height * 4);

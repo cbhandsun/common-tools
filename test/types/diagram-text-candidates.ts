@@ -1,4 +1,4 @@
-import { collectDiagramTextCandidates, PRODUCER_FIELDS } from "../../packages/slideclone-core/diagram-text-candidates";
+import { collectDiagramTextCandidates, PRODUCER_FIELDS } from "../../packages/slideclone-core/typography/diagram-text-candidates";
 
 const incoming: unknown = [{ source: {} }];
 const candidates = collectDiagramTextCandidates(incoming);

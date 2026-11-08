@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/pixel-venn-detector.js");
+module.exports = require("../../../../packages/slideclone-core/archetypes/pixel-venn-detector.js");

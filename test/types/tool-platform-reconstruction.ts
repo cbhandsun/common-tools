@@ -1,4 +1,4 @@
-import {createToolGapPlatformDiagramObjects, shouldObjectifyToolGapPlatformDiagram} from "../../packages/slideclone-core/tool-platform-reconstruction";
+import {createToolGapPlatformDiagramObjects, shouldObjectifyToolGapPlatformDiagram} from "../../packages/slideclone-core/archetypes/tool-platform-reconstruction";
 const external: unknown = undefined;
 const result = createToolGapPlatformDiagramObjects(external, external, external, external);
 const count: number = result.shapes.length;

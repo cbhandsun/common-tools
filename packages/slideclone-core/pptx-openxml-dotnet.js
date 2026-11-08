@@ -6,8 +6,8 @@ const crypto = require("crypto");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { promoteNativeChartPayload, validateNativeChartPayload } = require("./chart-native-payload");
-const { expandRestrictedSvgGraphics } = require("./restricted-svg");
+const { promoteNativeChartPayload, validateNativeChartPayload } = require("./archetypes/chart-native-payload");
+const { expandRestrictedSvgGraphics } = require("./archetypes/restricted-svg");
 const { createOpenXmlBuildCacheIdentity, readOpenXmlBuildCache, writeOpenXmlBuildCache } = require("./openxml-build-cache");
 
 function run(command, args, cwd) {

@@ -9,7 +9,7 @@ const {
   createOcrGridTableModel,
   materializeOcrGridIcon,
   normalizeCellText
-} = require("../packages/slideclone-core/ocr-grid-table");
+} = require("../packages/slideclone-core/ocr/ocr-grid-table");
 
 function image() {
   return { width: 96, height: 54, rgba: Buffer.alloc(96 * 54 * 4, 240) };

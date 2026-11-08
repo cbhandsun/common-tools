@@ -7,6 +7,16 @@ const { handle, settings } = require("../mcp-server/core");
 const { CAPABILITY_SCOPES, handleTeamMcp } = require("./team-mcp");
 const { LATEST_MCP_PROTOCOL_VERSION, TASKS_PROTOCOL_VERSIONS, supportsTasksProtocol } = require("./team-tasks");
 const { OIDC_REQUEST_TIMEOUT_MS, assertNonEmpty, loadRemoteConfig, parseTeamCapabilities } = require("./remote-config");
+const {
+  handlePortalApi,
+  handlePortalEditableArtifact,
+  handlePortalEditableJobCreate,
+  handlePortalEditableJobRetry,
+  handlePortalEditableJobStatus,
+  handlePortalEditableSave,
+  portalMetadata,
+  renderPortalHtml,
+} = require("./portal");
 
 // 2025-06-18 remains in use by current Codex Streamable HTTP clients.  It
 // has the same request routing contract as the other pre-Tasks versions.
@@ -127,6 +137,10 @@ function json(response, status, body, headers = {}) {
 }
 function text(response, status, body, headers = {}) {
   response.writeHead(status, { "Cache-Control": "no-store", "Content-Type": "text/plain; version=0.0.4; charset=utf-8", ...headers });
+  response.end(body);
+}
+function html(response, status, body, headers = {}) {
+  response.writeHead(status, { "Cache-Control": "no-store", "Content-Type": "text/html; charset=utf-8", ...headers });
   response.end(body);
 }
 function metadata(config) {
@@ -341,6 +355,83 @@ function createRemoteMcpServer(config, verifyAuthorization, environment = proces
         try { return text(response, 200, prometheusMetrics(await options.metricsProvider(), httpMetrics.snapshot())); }
         catch { return text(response, 503, "# metrics unavailable\n"); }
       }
+      if (request.method === "GET" && (requestUrl.pathname === "/" || requestUrl.pathname === "/portal")) return html(response, 200, renderPortalHtml(config, environment));
+      if (request.method === "GET" && requestUrl.pathname === "/portal.json") return json(response, 200, portalMetadata(config, environment));
+      if (request.method === "POST" && (requestUrl.pathname === "/portal/api/svg-to-ir" || requestUrl.pathname === "/portal/api/svg-to-pptx")) {
+        if (!jsonContentType(request.headers["content-type"])) return json(response, 415, { error: "Content-Type must be application/json" });
+        const rawPortalBody = await requestBody(request, 8 * 1024 * 1024);
+        try {
+          const result = handlePortalApi(requestUrl.pathname, rawPortalBody);
+          return json(response, result.status, result.body);
+        } catch (err) {
+          return json(response, err?.statusCode || 400, { ok: false, error: err instanceof Error ? err.message : "invalid request" });
+        }
+      }
+      if (request.method === "POST" && requestUrl.pathname === "/portal/api/editable-jobs") {
+        if (!jsonContentType(request.headers["content-type"])) return json(response, 415, { error: "Content-Type must be application/json" });
+        const rawPortalBody = await requestBody(request, 64 * 1024 * 1024);
+        try {
+          const result = await handlePortalEditableJobCreate(rawPortalBody, {
+            teamServices: options.teamServices,
+            objectStore: options.objectStore,
+          });
+          return json(response, result.status, result.body);
+        } catch (err) {
+          return json(response, err?.statusCode || 400, { ok: false, error: err instanceof Error ? err.message : "invalid request" });
+        }
+      }
+      if (request.method === "GET" && requestUrl.pathname === "/portal/api/editable-jobs") {
+        try {
+          const result = await handlePortalEditableJobStatus(requestUrl, {
+            teamServices: options.teamServices,
+          });
+          return json(response, result.status, result.body);
+        } catch (err) {
+          return json(response, err?.statusCode || 400, { ok: false, error: err instanceof Error ? err.message : "invalid request" });
+        }
+      }
+      if (request.method === "POST" && requestUrl.pathname === "/portal/api/editable-retry") {
+        const rawPortalBody = await requestBody(request, 64 * 1024);
+        try {
+          const result = await handlePortalEditableJobRetry(requestUrl, rawPortalBody, {
+            teamServices: options.teamServices,
+          });
+          return json(response, result.status, result.body);
+        } catch (err) {
+          return json(response, err?.statusCode || 400, { ok: false, error: err instanceof Error ? err.message : "retry failed" });
+        }
+      }
+      if (request.method === "POST" && requestUrl.pathname === "/portal/api/editable-save") {
+        if (!jsonContentType(request.headers["content-type"])) return json(response, 415, { error: "Content-Type must be application/json" });
+        const rawPortalBody = await requestBody(request, 2 * 1024 * 1024);
+        try {
+          const result = await handlePortalEditableSave(requestUrl, rawPortalBody, {
+            teamServices: options.teamServices,
+            objectStore: options.objectStore,
+            sessionToken: request.headers["x-common-tools-session"]
+          });
+          return json(response, result.status, result.body);
+        } catch (err) {
+          return json(response, err?.statusCode || 400, { ok: false, message: err instanceof Error ? err.message : "save failed" });
+        }
+      }
+      if (request.method === "GET" && requestUrl.pathname === "/portal/api/editable-artifact") {
+        try {
+          const result = await handlePortalEditableArtifact(requestUrl, {
+            teamServices: options.teamServices,
+            objectStore: options.objectStore,
+          });
+          response.writeHead(result.status, {
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            ...result.headers,
+          });
+          response.end(result.bodyBuffer);
+          return;
+        } catch (err) {
+          return json(response, err?.statusCode || 400, { ok: false, error: err instanceof Error ? err.message : "invalid request" });
+        }
+      }
       if (request.method === "GET" && requestUrl.pathname === "/.well-known/oauth-protected-resource/mcp") return json(response, 200, metadata(config));
       if (requestUrl.pathname !== "/mcp") return json(response, 404, { error: "not found" });
       if (request.method === "GET") return json(response, 405, { error: "SSE is not enabled" }, { Allow: "POST" });
@@ -382,4 +473,4 @@ function createRemoteMcpServer(config, verifyAuthorization, environment = proces
   });
 }
 
-module.exports = { CAPABILITY_SCOPES, LATEST_MCP_PROTOCOL_VERSION, OIDC_REQUEST_TIMEOUT_MS, cacheableResult, createHttpMetrics, createOidcVerifier, createRemoteMcpServer, emitTrace, expectedMcpName, fetchOidcResponse, jsonContentType, latestResultContract, loadRemoteConfig, metadata, metricsTokenMatches, oidcDiscoveryUrl, parseTeamCapabilities, readinessStatus, prometheusMetrics, routingHeadersMatch, traceParentFromHeader, traceParentFromMeta, validLatestRequestMeta, verifyOidcDiscovery };
+module.exports = { CAPABILITY_SCOPES, LATEST_MCP_PROTOCOL_VERSION, OIDC_REQUEST_TIMEOUT_MS, cacheableResult, createHttpMetrics, createOidcVerifier, createRemoteMcpServer, emitTrace, expectedMcpName, fetchOidcResponse, jsonContentType, latestResultContract, loadRemoteConfig, metadata, metricsTokenMatches, oidcDiscoveryUrl, parseTeamCapabilities, portalMetadata, readinessStatus, prometheusMetrics, renderPortalHtml, routingHeadersMatch, traceParentFromHeader, traceParentFromMeta, validLatestRequestMeta, verifyOidcDiscovery };

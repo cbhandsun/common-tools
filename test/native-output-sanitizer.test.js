@@ -7,10 +7,10 @@ const {
   sanitizeNativeCharts,
   sanitizeNativeShape,
   sanitizeNativeShapes
-} = require("../packages/slideclone-core/native-output-sanitizer");
+} = require("../packages/slideclone-core/quality/native-output-sanitizer");
 
 test("legacy output sanitizer forwards to the core boundary", () => {
-  assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/native-output-sanitizer"), require("../packages/slideclone-core/native-output-sanitizer"));
+  assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/native-output-sanitizer"), require("../packages/slideclone-core/quality/native-output-sanitizer"));
 });
 
 test("native output sanitizer preserves safe shapes and bounds absolute freeforms", () => {

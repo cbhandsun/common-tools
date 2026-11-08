@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { createTeamComponentAnalysis, _private } = require("../packages/slideclone-core/team-component-analysis");
+const { createTeamComponentAnalysis, _private } = require("../packages/slideclone-core/archetypes/team-component-analysis");
 
 function fixture(t, overrides = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "team-component-analysis-")); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -205,7 +205,7 @@ test("component analysis accepts real offline search image and semantic shape la
   const f = fixture(t);
   const { searchIrComponentCandidates } = require("../packages/slideclone-native-engine/scripts/component-candidate-search");
   const { buildComponentAssetManifest } = require("../packages/slideclone-native-engine/scripts/lib/component-asset-matcher");
-  const { buildComponentAssetIndex, buildComponentStrategyIndex } = require("../packages/slideclone-core/component-strategy-annotator");
+  const { buildComponentAssetIndex, buildComponentStrategyIndex } = require("../packages/slideclone-core/archetypes/component-strategy-annotator");
   f.dependencies.rebuildDeckFromWorkDir = () => ({ pages: [{
     images: [{ id: "layer", box: { x: 10, y: 10, w: 300, h: 200 }, source: { layer: { areaRatio: 0.2, layerType: "diagram", detector: "fixture" } } }],
     shapes: [{ id: "cycle", type: "arc", box: { x: 0, y: 0, w: 100, h: 100 } }], textBoxes: []

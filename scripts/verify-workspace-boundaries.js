@@ -8,6 +8,27 @@ const { Linter } = require("eslint");
 const DEFAULT_POLICY_FILE = path.resolve(__dirname, "..", "config", "layer-policy.json");
 const DEFAULT_PACKAGE_POLICY_FILE = path.resolve(__dirname, "..", "config", "workspace-package-policy.json");
 
+// A createRequire rooted at an embedded sibling preserves that package's
+// public exports without installing aliases. Keep its calls visible to the
+// same dependency/literal checks; do not classify unrelated shadowed names.
+function isScopedPackageRequire(node, context) {
+  if (node.callee.type !== "Identifier") return false;
+  let scope = context.sourceCode.getScope(node);
+  while (scope && !scope.set.has(node.callee.name)) scope = scope.upper;
+  const definitions = scope?.set.get(node.callee.name)?.defs;
+  if (definitions?.length !== 1) return false;
+  const declaration = definitions[0].node;
+  if (declaration.type !== "VariableDeclarator" || declaration.parent?.kind !== "const") return false;
+  const initial = declaration.init;
+  if (initial?.type !== "CallExpression" || initial.arguments.length !== 1 || initial.callee.type !== "MemberExpression" || initial.callee.computed || initial.callee.property.name !== "createRequire") return false;
+  const module = initial.callee.object;
+  if (module.type !== "CallExpression" || module.callee.type !== "Identifier" || module.callee.name !== "require" || module.arguments.length !== 1 || !["node:module", "module"].includes(module.arguments[0]?.value)) return false;
+  const manifest = initial.arguments[0];
+  return manifest.type === "CallExpression" && manifest.callee.type === "MemberExpression" && !manifest.callee.computed
+    && manifest.callee.object.type === "Identifier" && manifest.callee.object.name === "require" && manifest.callee.property.name === "resolve"
+    && manifest.arguments.length === 1 && manifest.arguments[0]?.type === "Literal" && typeof manifest.arguments[0].value === "string";
+}
+
 // Parse imports without loading or executing repository modules. ESLint is a
 // declared build dependency; this verifier is never part of the host Runtime.
 function collectImports(source, filename = "source.js") {
@@ -19,14 +40,14 @@ function collectImports(source, filename = "source.js") {
   });
   const verify = (sourceType) => new Linter().verify(source, {
     languageOptions: { ecmaVersion: 2022, sourceType },
-    plugins: { boundary: { rules: { imports: { create() {
+    plugins: { boundary: { rules: { imports: { create(context) {
       return {
         ImportDeclaration(node) { record(node, node.source); },
         ExportNamedDeclaration(node) { if (node.source) record(node, node.source); },
         ExportAllDeclaration(node) { record(node, node.source); },
         ImportExpression(node) { record(node, node.source); },
         CallExpression(node) {
-          if (node.callee.type === "Identifier" && node.callee.name === "require") record(node, node.arguments.length === 1 ? node.arguments[0] : null);
+          if (node.callee.type === "Identifier" && (node.callee.name === "require" || isScopedPackageRequire(node, context))) record(node, node.arguments.length === 1 ? node.arguments[0] : null);
         }
       };
     } } } } },

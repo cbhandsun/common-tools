@@ -6,6 +6,9 @@ const path = require("path");
 const { run } = require("./renderer-process");
 const { readImageSize } = require("./image-size");
 const { resolveLibreOffice, resolvePdfToPpm, fileUrl } = require("./libreoffice-tools");
+const { readPresentationRasterFrame } = require("./archetypes/presentation-frame");
+const { stageGroupedTextConnections } = require("./libreoffice-grouped-text-connections");
+const { renderNativeTracks } = require("./libreoffice-native-tracks");
 
 module.exports = async function renderLibreOffice(input, context) {
   const pptxFile = input.pptx?.pptxFile;
@@ -20,12 +23,24 @@ module.exports = async function renderLibreOffice(input, context) {
   const renderDir = createRenderDirectory(context.outputDir, input.iteration === undefined ? 0 : input.iteration);
   const soffice = resolveLibreOffice();
   const pdftoppm = resolvePdfToPpm();
-  const dpi = String(context.config?.render?.dpi || process.env.SLIDECLONE_DPI || "144");
+  const dpi = context.config?.render?.dpi ?? process.env.SLIDECLONE_DPI ?? "144";
   const maxPages = Number(context.config?.render?.maxPages || 0);
   const pdf = path.join(renderDir, `${path.basename(pptxFile, path.extname(pptxFile))}.pdf`);
   const conversion = stageLibreOfficeConversion(pptxFile, renderDir);
+  let rasterFrame;
   await withStagedResource(conversion, async () => {
-    await run(soffice, [
+    rasterFrame = readPresentationRasterFrame(conversion.pptxFile, dpi, input.ir?.slideSize);
+    const processOptions = { timeout: context.config?.render?.convertTimeoutMs || 120000, isCancellationRequested: context.isCancellationRequested };
+    const evidence = conversion.compatibility.nativeConnectorRoutingEvidence;
+    if (evidence.fiveLegPresets > 0) {
+      const restored = await renderNativeTracks(conversion, soffice, processOptions);
+      if (restored.restoredTracks + restored.skippedNativeConnectors !== evidence.nativeConnectors) {
+        throw new Error("LibreOffice native connector inventory changed during conversion");
+      }
+      conversion.compatibility.nativeConnectorRoutingEvidence = {
+        ...evidence, ...restored, status: "native-tracks-restored", importedGeometryRestored: true
+      };
+    } else await run(soffice, [
       "--headless",
       "--nologo",
       "--nodefault",
@@ -37,19 +52,19 @@ module.exports = async function renderLibreOffice(input, context) {
       "--outdir",
       conversion.renderDir,
       conversion.pptxFile
-    ], { timeout: context.config?.render?.convertTimeoutMs || 120000, isCancellationRequested: context.isCancellationRequested });
+    ], processOptions);
     const convertedPdf = path.join(conversion.renderDir, `${path.basename(conversion.pptxFile, path.extname(conversion.pptxFile))}.pdf`);
     if (!fs.existsSync(convertedPdf)) throw new Error(`LibreOffice did not create expected PDF: ${convertedPdf}`);
+    await waitForStableFile(convertedPdf, {
+      isCancellationRequested: context.isCancellationRequested,
+      timeoutMs: context.config?.render?.pdfReadyTimeoutMs || 10_000,
+      intervalMs: context.config?.render?.pdfReadyPollMs || 25
+    });
     if (path.resolve(convertedPdf) !== path.resolve(pdf)) fs.copyFileSync(convertedPdf, pdf);
-  });
-  await waitForStableFile(pdf, {
-    isCancellationRequested: context.isCancellationRequested,
-    timeoutMs: context.config?.render?.pdfReadyTimeoutMs || 10_000,
-    intervalMs: context.config?.render?.pdfReadyPollMs || 250
   });
 
   const prefix = path.join(renderDir, "page");
-  const renderArgs = ["-png", "-r", dpi];
+  const renderArgs = ["-png", "-scale-to-x", String(rasterFrame.widthPx), "-scale-to-y", String(rasterFrame.heightPx)];
   if (Number.isFinite(maxPages) && maxPages > 0) renderArgs.push("-f", "1", "-l", String(Math.floor(maxPages)));
   const renderPdfInput = stagePdfForRenderer(pdf);
   renderArgs.push(renderPdfInput.file, prefix);
@@ -60,16 +75,21 @@ module.exports = async function renderLibreOffice(input, context) {
     retryDelayMs: context.config?.render?.pdfRenderRetryDelayMs || 500
   }));
   const renderedPages = collectRenderedPages(renderDir);
+  if (!renderedPages.length || renderedPages.some(page => page.widthPx !== rasterFrame.widthPx || page.heightPx !== rasterFrame.heightPx)) {
+    throw new Error("Rendered raster dimensions do not match the presentation frame");
+  }
 
   return {
     ok: true,
     provider: "render-libreoffice",
+    compatibility: conversion.compatibility,
     renderDir,
     pdf,
     renderedPageCount: renderedPages.length,
     pages: renderedPages,
     data: {
       provider: "render-libreoffice",
+      compatibility: conversion.compatibility,
       renderDir,
       pdf,
       renderedPages
@@ -116,15 +136,17 @@ function stageLibreOfficeConversion(pptxFile, _renderDir) {
   const stagedRenderDir = path.join(cleanupDir, "out");
   const profileDir = path.join(cleanupDir, "profile");
   const stagedPptx = path.join(cleanupDir, `input${path.extname(resolvedPptx) || ".pptx"}`);
+  let compatibility;
   try {
     fs.mkdirSync(stagedRenderDir, { recursive: true });
     fs.mkdirSync(profileDir, { recursive: true });
     fs.copyFileSync(resolvedPptx, stagedPptx);
+    compatibility = stageGroupedTextConnections(resolvedPptx, stagedPptx);
   } catch (error) {
     cleanupStagedResource({ cleanupDir }, [error]);
     throw error;
   }
-  return { pptxFile: stagedPptx, renderDir: stagedRenderDir, profileDir, cleanupDir };
+  return { pptxFile: stagedPptx, renderDir: stagedRenderDir, profileDir, cleanupDir, compatibility };
 }
 
 function cleanupStagedConversion(conversion) {
@@ -177,7 +199,7 @@ function isRetryablePdfReadError(error) {
 
 async function waitForStableFile(file, options = {}) {
   const timeoutMs = Math.max(1, Number(options.timeoutMs || 10_000));
-  const intervalMs = Math.max(20, Number(options.intervalMs || 250));
+  const intervalMs = Math.max(20, Number(options.intervalMs || 25));
   const startedAt = Date.now();
   let previousSize = -1;
   let stableCount = 0;

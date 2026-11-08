@@ -1,4 +1,4 @@
-import { createArcResidualMasks } from "../../packages/slideclone-core/arc-residual-masks";
+import { createArcResidualMasks } from "../../packages/slideclone-core/archetypes/arc-residual-masks";
 
 const masks = createArcResidualMasks({ x: 0, y: 0, w: 10, h: 5 }, [], { width: 100, height: 100 }, 4);
 const first = masks[0];

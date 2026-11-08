@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { cleanGrayBorderPixels } = require("../packages/slideclone-core/gray-border-pixels");
+const { cleanGrayBorderPixels } = require("../packages/slideclone-core/archetypes/gray-border-pixels");
 
 function image(width = 80, height = 60, color = [255, 255, 255, 255]) {
   const rgba = new Uint8Array(width * height * 4);

@@ -2,21 +2,21 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
 const { dependencyCacheKey, lockedPackagesMatch, parseCacheHit, prepareNodeDependencies, restoreCachedWorkspaceLinks, workspaceLinksMatch } = require("../scripts/lib/office-node-dependencies");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require("./helpers/temporary-directory.cjs");
 
 const identity = Object.freeze({ node: "v22.18.0", npm: "10.9.3", platform: "win32", arch: "x64" });
 
-function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "office-node-deps-test-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.mkdirSync(path.join(root, "packages", "demo"), { recursive: true });
+function fixture(t, sourceParent = "packages") {
+  const root = createTemporaryTestDirectory("office-node-deps-test-");
+  t.after(() => removeTemporaryTestDirectory(root));
+  fs.mkdirSync(path.join(root, sourceParent, "demo"), { recursive: true });
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ workspaces: ["packages/*"] }));
   fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ lockfileVersion: 3, packages: {} }));
-  fs.writeFileSync(path.join(root, "packages", "demo", "package.json"), JSON.stringify({ name: "demo", version: "1.0.0" }));
+  fs.writeFileSync(path.join(root, sourceParent, "demo", "package.json"), JSON.stringify({ name: "demo", version: "1.0.0" }));
   return root;
 }
 
@@ -94,14 +94,14 @@ test("Office Node CLI fails safely for invalid commands without exposing argumen
   assert.equal(result.status, 1); assert.doesNotMatch(result.stdout + result.stderr, /secret-value/u);
 });
 
-function cachedWorkspace(t, name = "demo") {
-  const root = fixture(t);
+function cachedWorkspace(t, name = "demo", { sourceParent = "packages", targetRelative } = {}) {
+  const root = fixture(t, sourceParent);
   const relative = `node_modules/${name}`;
   fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ packages: { [relative]: { link: true, resolved: "packages/demo" } } }));
-  const target = path.join(root, relative);
+  const target = path.join(root, targetRelative ?? relative);
   fs.mkdirSync(target, { recursive: true });
   fs.writeFileSync(path.join(target, "stale-source.txt"), "cached workspace content must not be executed");
-  return { root, target, source: path.join(root, "packages", "demo") };
+  return { root, target, source: path.join(root, sourceParent, "demo") };
 }
 
 test("Office Node cache recreates tar-expanded workspace junctions before reuse", (t) => {
@@ -151,15 +151,25 @@ test("Office Node cache inspects all workspace boundaries before replacing any d
 
 test("Office Node cache refuses linked source or target parents without installing", (t) => {
   for (const parent of ["packages", "node_modules", "node_modules/@scope"]) {
-    const { root } = cachedWorkspace(t, "@scope/demo");
+    // Build the link target in place: renaming a freshly populated directory
+    // on Windows can fail while another process still holds its handle.
+    const { root, source, target } = cachedWorkspace(t, "@scope/demo", {
+      sourceParent: parent === "packages" ? "packages-original" : "packages",
+      targetRelative: parent === "node_modules" ? "node_modules-original/@scope/demo"
+        : parent === "node_modules/@scope" ? "node_modules/@scope-original/demo" : undefined
+    });
     const original = path.join(root, parent);
-    const moved = `${original}-original`;
-    fs.renameSync(original, moved);
-    fs.symlinkSync(moved, original, "junction");
+    const stored = `${original}-original`;
+    const sourceManifest = fs.readFileSync(path.join(source, "package.json"));
+    const staleSource = fs.readFileSync(path.join(target, "stale-source.txt"), "utf8");
+    fs.symlinkSync(stored, original, "junction");
+    assert.equal(fs.lstatSync(original).isSymbolicLink(), true);
+    assert.equal(fs.realpathSync(original), fs.realpathSync(stored));
     let commands = 0;
     assert.throws(() => prepareNodeDependencies(root, "true", () => { commands += 1; return { status: 0 }; }), /inspection failed/u);
     assert.equal(commands, 0);
-    assert.equal(fs.existsSync(path.join(root, "node_modules/@scope/demo/stale-source.txt")), true);
+    assert.equal(fs.readFileSync(path.join(root, "node_modules/@scope/demo/stale-source.txt"), "utf8"), staleSource);
+    assert.deepEqual(fs.readFileSync(path.join(source, "package.json")), sourceManifest);
   }
 });
 

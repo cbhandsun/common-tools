@@ -17,7 +17,9 @@ const FAILURE_DEFINITIONS = Object.freeze({
   IMAGE_INPUT_READ_FAILED: Object.freeze({ message: "image input read failed", retryable: false }),
   IMAGE_NORMALIZATION_FAILED: Object.freeze({ message: "image document normalization failed", retryable: false }),
   IMAGE_OCR_FAILED: Object.freeze({ message: "image OCR failed", retryable: false }),
+  IMAGE_OCR_NOT_CONFIGURED: Object.freeze({ message: "raw image OCR is not enabled for this worker", retryable: false }),
   IMAGE_REBUILD_FAILED: Object.freeze({ message: "image native reconstruction failed", retryable: false }),
+  IMAGE_SCENE_CAPACITY_CONFLICT: Object.freeze({ message: "observed image relationships exceed reconstruction capacity", retryable: false }),
   IMAGE_BUILD_FAILED: Object.freeze({ message: "image presentation build failed", retryable: false }),
   IMAGE_QUALITY_FAILED: Object.freeze({ message: "image quality verification failed", retryable: false }),
   IMAGE_UPLOAD_FAILED: Object.freeze({ message: "image artifact upload failed", retryable: false }),
@@ -98,6 +100,7 @@ async function runWorkerStage(code, operation) {
   try { return await operation(); }
   catch (error) {
     status = "failed";
+    process.stderr.write(`[worker-stage-error] ${code}: ${error instanceof Error ? error.stack || error.message : String(error)}\n`);
     if (error instanceof WorkerFailure && isFailureCode(error.code)) throw error;
     throw new WorkerFailure(code, { cause: error });
   } finally {

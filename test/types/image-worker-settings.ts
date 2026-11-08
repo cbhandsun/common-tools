@@ -12,9 +12,12 @@ const settings = read({} as unknown);
 const executable: string = settings.builderExecutable;
 const enabled: boolean = settings.rawImageOcrProfile.enabled;
 const fingerprint: string | undefined = settings.ocrCheckpointFingerprint;
+const outputPolicy: "source-fidelity" | "semantic-native" = settings.outputPolicy;
+// @ts-expect-error validated output policy is immutable
+settings.outputPolicy = "semantic-native";
 // @ts-expect-error settings are immutable
 settings.builderExecutable = "changed";
 // @ts-expect-error profile readers must return a checked enabled flag
 createImageWorkerSettings({ paddleProfileName: "paddle", readPaddleProfile: () => ({}), readRawProfile: () => ({}) });
 pathIsFile({} as unknown);
-void [executable, enabled, fingerprint];
+void [executable, enabled, fingerprint, outputPolicy];

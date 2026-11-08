@@ -2,10 +2,10 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
+const {createTemporaryTestDirectory:createTemp,removeTemporaryTestDirectory:removeTemp}=require('./helpers/temporary-directory.cjs');
 const path = require("node:path");
 const test = require("node:test");
-const { createTemplateStore, sanitizeIndex } = require("../packages/slideclone-core/component-template-store");
+const { createTemplateStore, sanitizeIndex } = require("../packages/slideclone-core/archetypes/component-template-store");
 
 function sampleTemplate(id = "store-kpi-01") {
   return {
@@ -25,7 +25,7 @@ function sampleTemplate(id = "store-kpi-01") {
 }
 
 test("ComponentTemplateStore saves, loads, lists, and deletes templates", () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tpl-store-test-"));
+  const tmpDir = createTemp("tpl-store-test-");
   try {
     const store = createTemplateStore({ root: tmpDir });
 
@@ -60,12 +60,12 @@ test("ComponentTemplateStore saves, loads, lists, and deletes templates", () => 
     assert.equal(store.load("store-kpi-01"), null);
     assert.equal(store.list().length, 0);
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemp(tmpDir);
   }
 });
 
 test("ComponentTemplateStore verifies file checksum before loading indexed templates", () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tpl-store-integrity-"));
+  const tmpDir = createTemp("tpl-store-integrity-");
   try {
     const store = createTemplateStore({ root: tmpDir });
     store.save(sampleTemplate("integrity-kpi"));
@@ -77,12 +77,12 @@ test("ComponentTemplateStore verifies file checksum before loading indexed templ
     assert.throws(() => store.load("integrity-kpi"), /checksum mismatch/);
     assert.equal(store.loadCatalog({ includeBuiltins: false }).get("integrity-kpi"), null);
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemp(tmpDir);
   }
 });
 
 test("ComponentTemplateStore filters malformed index entries and removes stale records", () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tpl-store-index-"));
+  const tmpDir = createTemp("tpl-store-index-");
   try {
     const store = createTemplateStore({ root: tmpDir });
     const saved = store.save(sampleTemplate("valid-index"));
@@ -103,12 +103,12 @@ test("ComponentTemplateStore filters malformed index entries and removes stale r
     assert.equal(store.delete("valid-index"), false);
     assert.deepEqual(store.list(), []);
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemp(tmpDir);
   }
 });
 
 test("ComponentTemplateStore list removes checksum mismatches from the index", () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tpl-store-index-integrity-"));
+  const tmpDir = createTemp("tpl-store-index-integrity-");
   try {
     const store = createTemplateStore({ root: tmpDir });
     store.save(sampleTemplate("tampered-index"));
@@ -121,7 +121,7 @@ test("ComponentTemplateStore list removes checksum mismatches from the index", (
     assert.deepEqual(store.list(), []);
     assert.deepEqual(JSON.parse(fs.readFileSync(indexFile, "utf8")), []);
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemp(tmpDir);
   }
 });
 
@@ -139,7 +139,7 @@ test("sanitizeIndex keeps only bounded, unique, well-formed records", () => {
 });
 
 test("ComponentTemplateStore prevents path traversal and enforces ID characters", () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tpl-store-test-"));
+  const tmpDir = createTemp("tpl-store-test-");
   try {
     const store = createTemplateStore({ root: tmpDir });
 
@@ -147,6 +147,6 @@ test("ComponentTemplateStore prevents path traversal and enforces ID characters"
     assert.throws(() => store.templatePath("bad/id"), /invalid filename characters/);
     assert.throws(() => store.templatePath("bad\\id"), /invalid filename characters/);
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemp(tmpDir);
   }
 });

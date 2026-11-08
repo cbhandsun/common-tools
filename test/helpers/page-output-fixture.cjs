@@ -1,5 +1,5 @@
 "use strict";
-const {createPageOutputFinalizer}=require("../../packages/slideclone-core/page-output-finalizer");
+const {createPageOutputFinalizer}=require("../../packages/slideclone-core/scene-plan/page-output-finalizer");
 const names=[
   "sanitizeNativeShapes",
   "dropResidualsCoveredByNativeTableText",

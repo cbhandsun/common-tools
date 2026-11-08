@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/fishbone-visual-atoms.js");
+module.exports = require("../../../slideclone-core/archetypes/fishbone-visual-atoms.js");

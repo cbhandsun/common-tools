@@ -103,6 +103,14 @@ class PostgresJobRepository {
     const result = await this.query(query, params);
     return result.rows.length ? fromRow(result.rows[0]) : null;
   }
+  async retry(id, ownerId) {
+    const jobId = assertNonEmptyString(id, "job id");
+    const owner = assertNonEmptyString(ownerId, "ownerId");
+    const result = await this.query("UPDATE capability_jobs SET status = 'queued', attempt = 0, artifacts = '[]'::jsonb, quality = NULL, error = NULL, lease_owner = NULL, lease_expires_at = NULL, expires_at = GREATEST(expires_at, NOW() + INTERVAL '24 hours'), updated_at = NOW() WHERE id = $1 AND owner_id = $2 AND status IN ('failed','cancelled','expired') RETURNING *", [jobId, owner]);
+    if (!result.rows.length) return this.get(jobId, owner);
+    await this.event(jobId, "retried", owner, {});
+    return fromRow(result.rows[0]);
+  }
   async getInProject(id, projectId) {
     const result = await this.query("SELECT * FROM capability_jobs WHERE id = $1 AND project_id = $2", [assertNonEmptyString(id, "job id"), assertProjectId(projectId)]);
     return result.rows.length ? fromRow(result.rows[0]) : null;
@@ -335,7 +343,26 @@ function createTeamServices({ repository, queue, objectStore, projectActiveJobLi
       return created;
     },
     getJob: (id, ownerId) => repository.get(id, ownerId),
+    async listJobs({ ownerId, capability, status, limit = 20 } = {}) {
+      if (typeof repository.list !== "function") return Object.freeze([]);
+      const safeLimit = Number.isSafeInteger(limit) && limit >= 1 && limit <= 100 ? limit : 20;
+      const rows = await repository.list({
+        ...(capability ? { capability } : {}),
+        ...(status ? { status } : {}),
+        limit: Math.min(200, safeLimit * 4)
+      });
+      const filtered = ownerId != null ? rows.filter((item) => item && item.ownerId === ownerId) : rows;
+      return Object.freeze(filtered.slice(0, safeLimit));
+    },
     cancelJob: (id, ownerId) => repository.requestCancel(id, ownerId),
+    async retryJob(id, ownerId) {
+      if (typeof repository.retry !== "function") throw new TypeError("repository does not support job retry");
+      const updated = await repository.retry(id, ownerId);
+      if (updated && updated.status === "queued") {
+        await queue.enqueue({ id: updated.id, capability: updated.capability });
+      }
+      return updated;
+    },
     getProjectJob: (id, projectId) => {
       if (typeof repository.getInProject !== "function") throw new TypeError("repository does not support project jobs");
       return repository.getInProject(id, projectId);

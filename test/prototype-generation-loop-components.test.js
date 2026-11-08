@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   annotatePrototypeGenerationLoopTextBoxes,
   createPrototypeGenerationLoopModel
-} = require("../packages/slideclone-core/prototype-generation-loop");
+} = require("../packages/slideclone-core/archetypes/prototype-generation-loop");
 
 test("prototype generation loop emits five semantic component groups", () => {
   const textBoxes = ["原型生成闭环", "标准PRD", "原型生成", "可点击原型", "门户展示", "Skill"]

@@ -1,0 +1,28 @@
+{
+  "sourceSha256": "a6f77ffb75653f04a4ca47d43e9f692b838b3ea43eb15a53b91304c98d81d1b3",
+  "box": {
+    "x": 472,
+    "y": 392,
+    "w": 16,
+    "h": 128
+  },
+  "shape": {
+    "type": "line",
+    "box": {
+      "x": 7.000040312500062,
+      "y": 4.999970000000076,
+      "w": 0,
+      "h": 116.99998375
+    },
+    "style": {
+      "stroke": "#c86950",
+      "strokeWidthPt": 4.525,
+      "connectorType": "straight"
+    }
+  },
+  "slideSize": {
+    "widthPt": 16,
+    "heightPt": 128
+  },
+  "fixtureSha256": "77436e14a12d310604300ad20ec4073221b2c6bf3d0a77457035d7fd7bfc4acd"
+}

@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { parseSlideSize, MAX_SLIDE_DIMENSION_PT } = require("../packages/slideclone-core/slide-size");
-const { createNativeRebuildPlan } = require("../packages/slideclone-core/native-rebuild-deck-pipeline");
+const { createNativeRebuildPlan } = require("../packages/slideclone-core/scene-plan/native-rebuild-deck-pipeline");
 
 test("slide sizes normalize decimal strings without retaining unrelated input fields", () => {
   const input = { widthPt: " 9.6e2 ", heightPt: "+540.0", private: "content" };

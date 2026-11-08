@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/diagram-understanding.js");
+module.exports = require("../../../../packages/slideclone-core/archetypes/diagram-understanding.js");

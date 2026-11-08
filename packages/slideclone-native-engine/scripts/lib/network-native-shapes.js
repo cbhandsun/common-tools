@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("../../../../packages/slideclone-core/network-native-shapes.js");
+module.exports = require("../../../slideclone-core/archetypes/network-native-shapes.js");

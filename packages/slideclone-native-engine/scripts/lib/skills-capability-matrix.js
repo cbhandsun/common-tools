@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("../../../../packages/slideclone-core/skills-capability-matrix");
+module.exports = require("../../../slideclone-core/archetypes/skills-capability-matrix");

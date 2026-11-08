@@ -1,3 +1,3 @@
 "use strict";
 
-module.exports = require("../../../../packages/slideclone-core/knowledge-graph-icon-crops");
+module.exports = require("../../../slideclone-core/archetypes/knowledge-graph-icon-crops");

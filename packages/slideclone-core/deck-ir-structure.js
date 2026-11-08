@@ -1,5 +1,11 @@
 // @ts-check
 "use strict";
+const { validatePositionedTextLayout } = require("./typography/positioned-text-layout");
+const {readNativeFreeformSegments}=require("./scene-plan/native-freeform-path");
+const {parseNativeTextOutline}=require("./typography/native-text-outline");
+const {validateScriptFontFamily}=require("./typography/positioned-text-font-override");
+const {parseNativeShadowScale}=require("./scene-plan/native-shadow-scale");
+const {validateOutputEditGroups}=require("./scene-plan/output-edit-groups");
 
 /** @param {unknown} value @returns {Record<string, unknown>} */
 function object(value) {
@@ -28,19 +34,35 @@ function stringFields(value, names) {
 function font(value) {
   if (value == null) return;
   const entry = object(value);
-  const strings = ["family", "weight", "color", "align", "valign"];
-  const numbers = ["sizePt", "lineHeightMultiple", "opacity"];
+  const strings = ["family", "latinFamily", "eastAsianFamily", "complexScriptFamily", "weight", "color", "align", "valign"];
+  const numbers = ["sizePt", "lineHeightMultiple", "opacity", "characterSpacingPt"];
   canonicalFields(entry, [...strings, ...numbers]);
   stringFields(entry, strings);
+  for(const name of ["latinFamily","eastAsianFamily","complexScriptFamily"])validateScriptFontFamily(entry[name]);
   for (const name of numbers) {
     const number = entry[name];
     if (number != null && (typeof number !== "number" || !Number.isFinite(number))) throw new TypeError("editable deck font number is invalid");
   }
+  if (typeof entry.characterSpacingPt === "number" && Math.abs(entry.characterSpacingPt) > 12)
+    throw new RangeError("editable deck character spacing is invalid");
 }
 
 /** @param {Record<string, unknown>} entry */
 function textData(entry) {
+  validatePositionedTextLayout(entry);
   font(entry.font);
+  if (entry.style != null) {
+    const style = object(entry.style);
+    parseNativeTextOutline(style);
+    canonicalFields(style, ["textWarp"]);
+    if (style.textWarp !== undefined) {
+      if (style.textWarp !== "textPlain") throw new TypeError("editable deck native text warp is invalid");
+      if (entry.runs != null || (typeof entry.text === "string" && /[\r\n]/u.test(entry.text)))
+        throw new TypeError("editable deck native text warp requires plain single-line text");
+      if (entry.wrap === true || (style.wrap !== undefined && style.wrap !== false) || String(style.fit || "").toLowerCase() === "shrink")
+        throw new TypeError("editable deck native text warp cannot wrap or autofit");
+    }
+  }
   stringFields(entry, ["role"]);
   if (entry.wrap != null && typeof entry.wrap !== "boolean") throw new TypeError("editable deck text wrap is invalid");
   if (entry.rotation != null && (typeof entry.rotation !== "number" || !Number.isFinite(entry.rotation))) throw new TypeError("editable deck text rotation is invalid");
@@ -168,7 +190,8 @@ function validateDeckPageStructures(pages) {
   const pageIndices = new Set();
   for (const value of pages) {
     const page = object(value);
-    canonicalFields(page, ["pageIndex", "slideSize", "sourceImage", "textBoxes", "shapes", "images", "tables", "charts", "icons", "background", "reconstruction", "intent", "citations", "speakerNotes", "preserveTemplateSlide"]);
+    canonicalFields(page, ["pageIndex", "slideSize", "sourceImage", "textBoxes", "shapes", "images", "tables", "charts", "icons", "background", "reconstruction", "intent", "citations", "speakerNotes", "preserveTemplateSlide", "outputEditGroups"]);
+    if(page.outputEditGroups!==undefined)validateOutputEditGroups(page);
     pageMetadata(page);
     if (page.reconstruction != null) object(page.reconstruction);
     const pageIndex = page.pageIndex === undefined ? 0 : page.pageIndex;
@@ -180,9 +203,12 @@ function validateDeckPageStructures(pages) {
       if (!Array.isArray(items)) throw new TypeError("editable deck object collection is invalid");
       for (const item of items) {
         const entry = object(item);
-        canonicalFields(entry, ["id", "type", "text", "box", "font", "style", "rotation", "source", "wrap", "runs", "role", "assetPath", "rows", "categories", "values", "series", "nativePayload", "points"]);
+        canonicalFields(entry, ["id", "type", "text", "box", "font", "style", "rotation", "source", "wrap", "runs", "positionedRuns", "role", "assetPath", "rows", "categories", "values", "series", "nativePayload", "points"]);
         stringFields(entry, ["id", "type"]);
         if (key === "textBoxes") textData(entry);
+        if (key === "shapes" || key === "images") parseNativeShadowScale(entry.style);
+        if(key==="shapes"&&entry.style!=null){const style=object(entry.style);canonicalFields(style,["freeformPath","freeformSegments"]);
+          if(style.freeformPath!==undefined){if(entry.type!=="freeform")throw new TypeError("editable deck compact path requires freeform shape");readNativeFreeformSegments(style);}}
         if (["shapes", "images", "tables"].includes(key)) points(entry.points);
         // OpenXML's rendered element models dereference Box; unlike page
         // collections, it has no absent-value fallback. Icons are legacy metadata.

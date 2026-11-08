@@ -7,6 +7,7 @@ const path = require("node:path");
 const { createRequire } = require("node:module");
 const test = require("node:test");
 const { IMAGE_EDITABLE_RELEASE_FILES } = require("../scripts/verify-runtime-package");
+const {coreModulePath,copyCoreModuleClosure}=require('./helpers/isolated-core-package.cjs');
 
 const root = path.resolve(__dirname, "..");
 const modules = ["page-hybrid-graphics-stage", "page-native-graphics-stage", "demand-understanding-shapes", "workflow-shape-primitives", "prd-generation-shapes", "prototype-validation-shapes", "prd-auto-generation-narrative", "color-component-bounds", "diagram-residual-crops", "residual-splitting", "structured-residual-splitting", "residual-component-analysis", "residual-primitive-erasure", "image-layer-metadata", "graphic-expression-policy", "raster-native-detection", "page-semantic-claims", "skills-capability-matrix", "demand-intake-funnel", "smart-review-branch-gate", "skill-chain-orchestration", "asset-landing-triad", "edge-background-alpha", "icon-crop-refiner", "knowledge-graph-icon-crops", "residual-publication", "png", "arc-residual-masks", "full-slide-native-residual", "diagram-text-candidates", "page-reuse", "page-selection", "progress-reporter", "native-rebuild-deck-pipeline", "ocr-source-deck", "graphic-crop-policy", "page-image-finalizer", "page-progress-lifecycle", "page-graphics-stage", "slide-size"];
@@ -14,7 +15,7 @@ const ooxmlModules = ["pptx-inventory", "pptx-zip"];
 
 modules.push("native-output-sanitizer");
 modules.push("source-horizontal-connector-fit");
-modules.push("source-border-fit", "knowledge-graph-gray-node-fit", "gray-border-pixels", "gray-border-residual");
+modules.push("semantic-rebuild-transaction", "source-border-fit", "source-native-edge-refinement", "source-node-connectors", "knowledge-graph-gray-node-fit", "gray-border-pixels", "gray-border-residual");
 modules.push("text-ink-geometry", "measured-text-fit");
 modules.push("text-refinement-coordinator");
 modules.push("deck-ir-tree");
@@ -38,14 +39,16 @@ modules.push("page-output-rules");
 modules.push("semantic-matrix-grid", "detection-result");
 modules.push("asset-closure-funnel", "cli-scaffold-generator", "component-rebuild-precedence", "component-template-group-matcher", "component-template-style", "connector-component-library", "dense-radial-network-policy", "dense-topology-line-compactor", "embedded-expert-screenshot", "fidelity-crop-materializer", "fragmented-asset-chain", "network-rebuild-orchestrator", "ocr-grid-table", "orthogonal-connector-promotion", "paradigm-shift-matrix", "pptx-inventory", "prd-segmented-flow-components", "product-collaboration-protection", "product-manager-friction-network", "prototype-generation-loop", "prototype-loop-measurement", "prototype-validation-screenshot-policy", "radial-network-detector", "residual-overlap-policy", "residual-ownership", "runtime-engine-hybrid", "smart-review-hybrid", "stacked-layer-color-sampling", "system-map-pixel-evidence", "system-map-reconstruction", "system-map-semantics", "text-anchored-process-network", "text-box-micro-adjust", "triangle-topology-measurement", "value-transformation-table", "visual-feature-context", "visual-operation-sync", "workflow-collaboration-multiplier-scope");
 modules.push("registry-graphic-rules", "cover-graphic-rules", "cover-engine-core");
-modules.push("decorative-cover-graphics", "graphic-crop-analysis", "graphic-crop-generation", "entropy-challenge-crops", "graphic-underlay-crops", "kpi-title-graphics", "graphic-crop-materializer", "workflow-cover-text");
+modules.push("decorative-cover-graphics", "graphic-crop-analysis", "graphic-crop-generation", "entropy-challenge-crops", "graphic-underlay-crops", "kpi-title-graphics", "line-text-native-components", "ocr-status-native-components", "graphic-crop-materializer", "workflow-cover-text");
 
 test("rebuild planning, pixel IO and residual generation run from package exports without Skill sources", async (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "engine-core-package-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const installed = path.join(directory, "node_modules", "@common-tools", "slideclone-core");
   fs.mkdirSync(installed, { recursive: true });
-  for (const name of ["package.json", "screenshot-texture-evidence.js", ...modules.map((module) => `${module}.js`)]) fs.copyFileSync(path.join(root, "packages", "slideclone-core", name), path.join(installed, name));
+  // Reproduce the package layout, including private relative dependencies.
+  const coreDirectory = path.join(root, "packages", "slideclone-core");
+  fs.cpSync(coreDirectory, installed, {recursive:true});
   const installedOoxml = path.join(directory, "node_modules", "@common-tools", "ooxml-core");
   fs.mkdirSync(installedOoxml, { recursive: true });
   for (const name of ["package.json", ...ooxmlModules.map((module) => `${module}.js`)]) fs.copyFileSync(path.join(root, "packages", "ooxml-core", name), path.join(installedOoxml, name));
@@ -309,7 +312,7 @@ test("rebuild planning, pixel IO and residual generation run from package export
     lineEndpoints: { from: { x: 170, y: 103 }, to: { x: 230, y: 115 } }
   }, 1, { visualConnectors: [{ id: "stage-transition", atomId: "transition", fromAtomId: "stage", toAtomId: "result" }] });
   assert.deepEqual(arrowShape.box, { x: 170, y: 103, w: 60, h: 12 });
-  assert.deepEqual(arrowShape.style, { stroke: "#27ae60", strokeWidthPt: 4, connectorType: "straight", endArrow: "triangle" });
+  assert.deepEqual(arrowShape.style, { stroke: "#27ae60", strokeWidthPt: 4, connectorType: "straight", lineCap: "flat", endArrow: "triangle", endArrowWidth: "med", endArrowLength: "med" });
   assert.deepEqual({ detector: arrowShape.source.detector, axis: arrowShape.source.axis, from: arrowShape.source.fromAtomId, to: arrowShape.source.toAtomId, connector: arrowShape.source.visualConnectorId }, { detector: "visual-atom-native-connector", axis: "diagonal", from: "stage", to: "result", connector: "stage-transition" });
   const ringShape = atomNative.visualAtomNativeShape(atomLayer, {
     id: "ring-quarter", kind: "native-donut-segment-candidate", shapeHint: "donut-segment", donutParentBox: { x: 300, y: 100, w: 80, h: 80 }, box: { x: 300, y: 100, w: 80, h: 80 },
@@ -390,22 +393,22 @@ test("rebuild planning, pixel IO and residual generation run from package export
   assert.equal(nonMatrixImage.source.comparisonMatrixSkeletonObjectified, undefined);
   assert.equal(nonMatrixImage.source.comparisonMatrixNativeTextBoxes, undefined);
 
-  fs.copyFileSync(path.join(root, "packages/slideclone-core/page-text-finalizer.js"), path.join(installed, "page-text-finalizer.js"));
+  fs.copyFileSync(path.join(root, "packages/slideclone-core/typography/page-text-finalizer.js"), path.join(installed, "page-text-finalizer.js"));
   const { fixture } = require("./helpers/page-text-fixture.cjs");
   const textStage = fixture();
   const retained = { id: "isolated-text" };
   textStage.inputs.retainedComponentBackfillFilteredNativeTextBoxes = [retained];
-  load("@common-tools/slideclone-core/page-text-finalizer").createPageTextFinalizer(textStage.operations)(textStage.page, textStage.inputs);
+  load("@common-tools/slideclone-core/typography/page-text-finalizer").createPageTextFinalizer(textStage.operations)(textStage.page, textStage.inputs);
   assert.equal(textStage.page.textBoxes[0], retained);
-  fs.copyFileSync(path.join(root, "packages/slideclone-core/page-shape-finalizer.js"), path.join(installed, "page-shape-finalizer.js"));
+  fs.copyFileSync(path.join(root, "packages/slideclone-core/scene-plan/page-shape-finalizer.js"), path.join(installed, "page-shape-finalizer.js"));
   const shapeStage = require("./helpers/page-shape-fixture.cjs").fixture();
   const retainedShape = { id: "isolated-shape" };
   shapeStage.inputs.titleChromeShapes = [retainedShape];
-  load("@common-tools/slideclone-core/page-shape-finalizer").createPageShapeFinalizer(shapeStage.operations)(shapeStage.page, shapeStage.inputs);
+  load("@common-tools/slideclone-core/scene-plan/page-shape-finalizer").createPageShapeFinalizer(shapeStage.operations)(shapeStage.page, shapeStage.inputs);
   assert.equal(shapeStage.page.shapes[0], retainedShape);
-  fs.copyFileSync(path.join(root, "packages/slideclone-core/page-output-finalizer.js"), path.join(installed, "page-output-finalizer.js"));
+  fs.copyFileSync(path.join(root, "packages/slideclone-core/scene-plan/page-output-finalizer.js"), path.join(installed, "page-output-finalizer.js"));
   const outputStage = require("./helpers/page-output-fixture.cjs").fixture();
-  load("@common-tools/slideclone-core/page-output-finalizer").createPageOutputFinalizer(outputStage.operations)(outputStage.page, outputStage.inputs);
+  load("@common-tools/slideclone-core/scene-plan/page-output-finalizer").createPageOutputFinalizer(outputStage.operations)(outputStage.page, outputStage.inputs);
   assert.equal(outputStage.calls.filter(call => call.name === "applyPrototypeValidationScreenshotPolicy").length, 2);
   const semantic = api["page-semantic-claims"].createPageSemanticClaims({
     createSkillsCapabilityMatrixObjects: api["skills-capability-matrix"].createSkillsCapabilityMatrixObjects,
@@ -491,39 +494,38 @@ test("pixel compatibility entries load from the bundled Runtime without workspac
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pixel-runtime-layout-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   fs.mkdirSync(path.join(directory, "packages/slideclone-core"), { recursive: true });
-  fs.copyFileSync(path.join(root, "packages/slideclone-core/residual-publication.js"), path.join(directory, "packages/slideclone-core/residual-publication.js"));
-  fs.copyFileSync(path.join(root, "packages/slideclone-core/arc-residual-masks.js"), path.join(directory, "packages/slideclone-core/arc-residual-masks.js"));
+  copyCoreModuleClosure(path.join(directory,'packages/slideclone-core'),['png','full-slide-native-residual'],IMAGE_EDITABLE_RELEASE_FILES);
   for (const name of ["png", "full-slide-native-residual"]) {
-    for (const folder of ["packages/slideclone-core", "skills/pd-hifi-slideclone/scripts/lib"]) {
+    for (const folder of ["skills/pd-hifi-slideclone/scripts/lib"]) {
       const target = path.join(directory, folder, `${name}.js`);
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.copyFileSync(path.join(root, folder, `${name}.js`), target);
     }
-    assert.equal(require(path.join(directory, "skills/pd-hifi-slideclone/scripts/lib", `${name}.js`)), require(path.join(directory, "packages/slideclone-core", `${name}.js`)));
+    assert.equal(require(path.join(directory, "skills/pd-hifi-slideclone/scripts/lib", `${name}.js`)), require(path.join(directory, "packages/slideclone-core", coreModulePath(name))));
   }
   assert.equal(fs.existsSync(path.join(directory, "node_modules")), false);
 });
 
 test("release admission requires every migrated core file", () => {
-  for (const name of modules) assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/slideclone-core/${name}.js`), name);
+  for (const name of modules) assert.ok(IMAGE_EDITABLE_RELEASE_FILES.includes(`packages/slideclone-core/${coreModulePath(name)}`), name);
 });
 
 test("legacy consumers share the core implementation rather than a second code path", () => {
   for (const name of ["edge-background-alpha", "icon-crop-refiner", "knowledge-graph-icon-crops", "png", "full-slide-native-residual", "page-selection", "progress-reporter", "native-rebuild-deck-pipeline"]) {
-    assert.equal(require(`../skills/pd-hifi-slideclone/scripts/lib/${name}`), require(`../packages/slideclone-core/${name}`));
+    assert.equal(require(`../skills/pd-hifi-slideclone/scripts/lib/${name}`), require(path.join(root,'packages/slideclone-core',coreModulePath(name))));
   }
-  assert.equal(require("../packages/slideclone-core/team-native-rebuild").boundedOcrSourceDeck, require("../packages/slideclone-core/ocr-source-deck").boundedOcrSourceDeck);
-  assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/minimum-unit-crop-evidence").buildMinimumUnitCropEvidence, require("../packages/slideclone-core/graphic-crop-policy").buildMinimumUnitCropEvidence);
+  assert.equal(require("../packages/slideclone-core/team-native-rebuild").boundedOcrSourceDeck, require("../packages/slideclone-core/ocr/ocr-source-deck").boundedOcrSourceDeck);
+  assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/minimum-unit-crop-evidence").buildMinimumUnitCropEvidence, require("../packages/slideclone-core/quality/graphic-crop-policy").buildMinimumUnitCropEvidence);
 });
 
 
 test("graphic expression policy removes all ASCII controls without changing Unicode text", () => {
-  const { classifyGraphicExpressionPolicy } = require("../packages/slideclone-core/graphic-expression-policy");
+  const { classifyGraphicExpressionPolicy } = require("../packages/slideclone-core/quality/graphic-expression-policy");
   const input = { expressionForm: "icon-or-illustration", expressionSubtype: "图标😀", recommendedAction: "keep-local-crop" };
   const expected = classifyGraphicExpressionPolicy(input);
   for (const code of [...Array(32).keys(), 127]) {
     const control = String.fromCharCode(code);
     assert.deepEqual(classifyGraphicExpressionPolicy(Object.fromEntries(Object.entries(input).map(([key,value]) => [key, control + value + control]))), expected);
   }
-  assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/graphic-expression-policy"), require("../packages/slideclone-core/graphic-expression-policy"));
+  assert.equal(require("../skills/pd-hifi-slideclone/scripts/lib/graphic-expression-policy"), require("../packages/slideclone-core/quality/graphic-expression-policy"));
 });

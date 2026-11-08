@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { buildPageNativeGraphicsStage } = require("../packages/slideclone-core/page-native-graphics-stage");
+const { buildPageNativeGraphicsStage } = require("../packages/slideclone-core/scene-plan/page-native-graphics-stage");
 
 function baseDependencies(overrides = {}) {
   return {

@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("@common-tools/slideclone-core/connector-component-library");
+module.exports = require("@common-tools/slideclone-core/routing/connector-component-library");

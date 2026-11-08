@@ -47,14 +47,56 @@ def noise():
 
 
 class Pipeline:
-    def predict(self, paths):
+    def predict(self, paths, *, return_word_box):
+        assert return_word_box is True
         noise()
         if mode == "inference-failure":
             raise RuntimeError("PRIVATE_FIXTURE_INFERENCE_ERROR")
         for _ in paths:
             noise()  # Also exercise output from lazy prediction iteration.
+            words = ["中", "文", " 🌍"]
+            boxes = [[0, 0, 6, 10], [6, 0, 12, 10], [12, 0, 20, 10]]
+            polygon = [[0, 0], [20, 0], [20, 10], [0, 10]]
+            orientation = None
+            if mode.startswith("word-quad-"):
+                polygon = [[10, 10], [30, 12], [32, 22], [12, 20]]
+                boxes = [[10, 10, 16, 22], [16, 10, 22, 22], [22, 10, 30, 22]]
+                if mode == "word-quad-partial":
+                    boxes[0][1] = 11
+                elif mode == "word-quad-crossed":
+                    polygon[2], polygon[3] = polygon[3], polygon[2]
+                elif mode == "word-quad-vertical":
+                    polygon = [[10, 10], [14, 11], [16, 40], [12, 39]]
+                elif mode == "word-quad-rotated":
+                    orientation = 180
+                elif mode == "word-quad-boolean":
+                    polygon[0][0] = True
+                elif mode == "word-quad-overflow":
+                    polygon[0][0] = 1e308
+                elif mode == "word-quad-reversed":
+                    boxes.reverse()
+                elif mode == "word-quad-empty":
+                    words, boxes = [], []
+                elif mode == "word-quad-nonfinite":
+                    polygon[0][0] = float("inf")
+                elif mode == "word-quad-invalid-region":
+                    boxes[1][0] = float("nan")
+                elif mode == "word-quad-descending":
+                    polygon = [[10, 12], [30, 10], [32, 20], [12, 22]]
+                    boxes = [[10, 12, 16, 20], [16, 12, 22, 20], [22, 12, 30, 20]]
+                elif mode == "word-quad-count-limit":
+                    words, boxes = ["x"] * 513, [[10, 10, 30, 22]] * 513
+            if mode == "word-sequence-mismatch":
+                words[0] = "PRIVATE_FIXTURE_WORD"
+            elif mode == "word-invalid-coordinate":
+                boxes[0][0] = float("nan")
+            elif mode == "word-outside-line":
+                boxes[0][0] = -1
+            elif mode == "word-invalid-count":
+                boxes.pop()
             yield {"rec_texts": [] if mode == "empty" else ["中文 🌍"],
-                   "rec_scores": [0.99], "rec_polys": [[[0, 0], [20, 0], [20, 10], [0, 10]]]}
+                   "rec_scores": [0.99], "rec_polys": [polygon], "textline_orientation_angles": [orientation],
+                   "text_word": [words], "text_word_boxes": [boxes]}
 
 
 def build_pipeline(_args):

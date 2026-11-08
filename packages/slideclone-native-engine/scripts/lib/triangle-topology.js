@@ -1,2 +1,2 @@
 "use strict";
-module.exports = require("../../../../packages/slideclone-core/triangle-topology.js");
+module.exports = require("../../../slideclone-core/archetypes/triangle-topology.js");

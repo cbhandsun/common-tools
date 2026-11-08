@@ -1,4 +1,4 @@
-import { resolvePageReuse } from "../../packages/slideclone-core/page-reuse";
+import { resolvePageReuse } from "../../packages/slideclone-core/scene-plan/page-reuse";
 const result = resolvePageReuse({ preserveNative: false, cacheEnabled: false, reuseCache: false, services: {
   preserve: () => ({ images: [] }), cacheKey: () => "", read: () => null,
   normalize: (page: { images: unknown[] }) => page, write: () => false

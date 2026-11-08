@@ -5,7 +5,7 @@ const test = require("node:test");
 const {
   buildHorizontalStepsLayout,
   buildMetricCardsLayout
-} = require("../packages/slideclone-core/declarative-layout-rebuilder");
+} = require("../packages/slideclone-core/archetypes/declarative-layout-rebuilder");
 
 test("buildHorizontalStepsLayout generates cards, badges, connectors, and text", () => {
   const steps = [

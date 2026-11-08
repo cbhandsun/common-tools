@@ -22,3 +22,4 @@ obj/
 __pycache__/
 *.py[cod]
 /output/
+/scratch/

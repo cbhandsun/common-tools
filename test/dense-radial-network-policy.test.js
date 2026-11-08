@@ -7,7 +7,7 @@ const test = require("node:test");
 const {
   DENSE_RADIAL_NETWORK_MODES,
   createDenseRadialNetworkPolicy
-} = require("../packages/slideclone-core/dense-radial-network-policy");
+} = require("../packages/slideclone-core/archetypes/dense-radial-network-policy");
 
 test("dense radial policy preserves a semantic hero before detailed or summary rebuild", () => {
   const policy = createDenseRadialNetworkPolicy(operations());

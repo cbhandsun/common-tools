@@ -1,7 +1,8 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
-const { DEFAULT_SLIDE } = require("@common-tools/slideclone-core/page-text-rule-helpers");
-const { round } = require("@common-tools/slideclone-core/raster-native-detection");
+const { DEFAULT_SLIDE } = core("@common-tools/slideclone-core/typography/page-text-rule-helpers");
+const { round } = core("@common-tools/slideclone-core/scene-plan/raster-native-detection");
 const {
   systemMapAssetGridTileSegments,
   systemMapBottomLabelTextBoxes,

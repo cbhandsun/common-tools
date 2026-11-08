@@ -13,7 +13,7 @@ const {
   createRuntimeEngineHybridModel,
   materializeRuntimeEngineHybridImages,
   normalizeRuntimeEngineHybridTextBoxes
-} = require("../packages/slideclone-core/runtime-engine-hybrid");
+} = require("../packages/slideclone-core/archetypes/runtime-engine-hybrid");
 
 function text(value, x, y, w, h) {
   return { text: value, box: { x, y, w, h }, font: {}, style: {}, source: {} };

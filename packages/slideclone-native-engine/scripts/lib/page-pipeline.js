@@ -37,6 +37,9 @@ async function processPages(options) {
     return {
       pageIndex: index,
       sourceImage,
+      ...(visionResult.data.source && typeof visionResult.data.source === "object" && !Array.isArray(visionResult.data.source)
+        ? { source: visionResult.data.source }
+        : {}),
       background: visionResult.data.background || {},
       textBoxes: visionResult.data.textBoxes || [],
       shapes: visionResult.data.shapes || [],

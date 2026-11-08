@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { collectDiagramTextCandidates: collect, PRODUCER_FIELDS } = require("../packages/slideclone-core/diagram-text-candidates");
+const { collectDiagramTextCandidates: collect, PRODUCER_FIELDS } = require("../packages/slideclone-core/typography/diagram-text-candidates");
 
 const image = (items) => ({ source: { demandUnderstandingNativeTextBoxes: items } });
 test("diagram candidates preserve producer order, identity and rounded geometry deduplication", () => {

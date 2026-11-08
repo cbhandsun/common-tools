@@ -1,10 +1,8 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
 const test = require("node:test");
+const { createTemporaryTestDirectory, removeTemporaryTestDirectory } = require("./helpers/temporary-directory.cjs");
 const {
   SqliteJobRepository,
   assertJobRepository,
@@ -14,7 +12,7 @@ const {
 const sqliteAvailable = isSqliteJobRepositoryAvailable();
 
 test("SqliteJobRepository satisfies JobRepository and persists jobs", { skip: sqliteAvailable ? false : "node:sqlite unavailable" }, () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sqlite-job-repo-"));
+  const tmpDir = createTemporaryTestDirectory("sqlite-job-repo-");
   try {
     const repo = new SqliteJobRepository({ root: tmpDir, ownerId: "user-123" });
     assert.doesNotThrow(() => assertJobRepository(repo));
@@ -39,12 +37,12 @@ test("SqliteJobRepository satisfies JobRepository and persists jobs", { skip: sq
     assert.equal(loaded.progress, 0.5);
     reopened.close();
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemporaryTestDirectory(tmpDir);
   }
 });
 
 test("SqliteJobRepository filters, limits, and isolates owners", { skip: sqliteAvailable ? false : "node:sqlite unavailable" }, () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sqlite-job-repo-"));
+  const tmpDir = createTemporaryTestDirectory("sqlite-job-repo-");
   try {
     const repoA = new SqliteJobRepository({ root: tmpDir, ownerId: "owner-a" });
     const repoB = new SqliteJobRepository({ root: tmpDir, ownerId: "owner-b" });
@@ -67,16 +65,16 @@ test("SqliteJobRepository filters, limits, and isolates owners", { skip: sqliteA
     repoA.close();
     repoB.close();
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemporaryTestDirectory(tmpDir);
   }
 });
 
 test("SqliteJobRepository constrains database filenames to the runtime root", { skip: sqliteAvailable ? false : "node:sqlite unavailable" }, () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sqlite-job-repo-"));
+  const tmpDir = createTemporaryTestDirectory("sqlite-job-repo-");
   try {
     assert.throws(() => new SqliteJobRepository({ root: tmpDir, ownerId: "user", filename: "../jobs.sqlite" }), /simple \.sqlite filename/);
     assert.throws(() => new SqliteJobRepository({ root: tmpDir, ownerId: "user", filename: "jobs.db" }), /simple \.sqlite filename/);
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeTemporaryTestDirectory(tmpDir);
   }
 });

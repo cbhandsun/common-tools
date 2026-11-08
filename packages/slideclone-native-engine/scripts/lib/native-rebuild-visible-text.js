@@ -1,5 +1,7 @@
 "use strict";
+const core = require("node:module").createRequire(require.resolve("../../../slideclone-core/package.json"));
 
+const { normalizeCjkText } = core("@common-tools/slideclone-core/archetypes/prd-generation-shapes");
 const fs = require("fs");
 const path = require("path");
 const {
@@ -11,15 +13,16 @@ const {
   saturation,
   sampleInkColor,
   sampleMaskBackgroundColor
-} = require("@common-tools/slideclone-core/raster-native-detection");
+} = core("@common-tools/slideclone-core/scene-plan/raster-native-detection");
 const {
   inferWeight,
   refineFontSize,
   shouldDisableTextWrap,
   shouldNativeTextBox
-} = require("@common-tools/slideclone-core/native-text-style");
+} = core("@common-tools/slideclone-core/typography/native-text-style");
 
 const DEFAULT_SLIDE = { widthPt: 960, heightPt: 540 };
+const { projectOcrTextBox } = core("@common-tools/slideclone-core/ocr/ocr-text-quadrilateral");
 
 function pageImageFile(workDir, page, pageIndex) {
   const candidates = [
@@ -40,7 +43,7 @@ function visibleTextBoxes(textBoxes, image, slideSize) {
     .filter((item) => item && item.box && typeof item.text === "string" && item.text.trim())
     .filter((item) => shouldNativeTextBox(item))
     .map((item) => {
-      const next = JSON.parse(JSON.stringify(item));
+      const next = projectOcrTextBox(JSON.parse(JSON.stringify(item)));
       next.font = next.font || {};
       next.font.opacity = 1;
       next.font.color = image ? sampleInkColor(image, next.box, slideSize, next.font.color) : normalizeHex(next.font.color, "#111111");
@@ -111,7 +114,35 @@ function isUsefulTextBackplateColor(color) {
   return color && luma(color) < 210 && saturation(color) > 0.18;
 }
 
+function buildPageSemanticText(textBoxes = []) {
+  return (Array.isArray(textBoxes) ? textBoxes : [])
+    .map((item) => String(item?.text || "").trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+function enrichImagesWithPageSemanticText(images = [], pageSemanticText = "") {
+  const semanticText = String(pageSemanticText || "").trim();
+  if (!semanticText) return images;
+  return (Array.isArray(images) ? images : []).map((image) => ({
+    ...image,
+    source: {
+      ...(image?.source || {}),
+      pageText: image?.source?.pageText || semanticText,
+      allText: image?.source?.allText || semanticText
+    }
+  }));
+}
+
+function findTextBoxByNormalizedText(textBoxes = [], text = "") {
+  const target = normalizeCjkText(text);
+  return (textBoxes || []).find((item) => normalizeCjkText(item.text) === target) || null;
+}
+
 module.exports = {
+  findTextBoxByNormalizedText,
+  buildPageSemanticText,
+  enrichImagesWithPageSemanticText,
   createTextBackplateShapes,
   isUsefulTextBackplateColor,
   pageImageFile,

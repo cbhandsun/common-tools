@@ -33,7 +33,7 @@ async function main() {
     });
   }
   const metricsToken = optionalSecretFromEnvironment(process.env, "COMMON_TOOLS_METRICS_TOKEN");
-  const serverOptions = bundle ? { teamServices: { ...bundle.services, ...(siyuan ? { siyuan } : {}) }, readinessCheck: async () => { await bundle.readinessCheck(); await siyuan?.check(); }, rateLimiter: bundle.rateLimiter } : {};
+  const serverOptions = bundle ? { teamServices: { ...bundle.services, ...(siyuan ? { siyuan } : {}) }, objectStore: bundle.objectStore, readinessCheck: async () => { await bundle.readinessCheck(); await siyuan?.check(); }, rateLimiter: bundle.rateLimiter } : {};
   const telemetryConfig = loadOtlpTraceConfig();
   if (telemetryConfig) serverOptions.traceExporter = createOtlpTraceExporter(telemetryConfig);
   if (metricsToken !== undefined) {

@@ -2,15 +2,15 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { classifyVisualLayer } = require("../packages/slideclone-core/layer-classifier");
+const { classifyVisualLayer } = require("../packages/slideclone-core/scene-plan/layer-classifier");
 const {
   understandDiagramLayer,
   _private: { inferArchetype }
-} = require("../packages/slideclone-core/diagram-understanding");
+} = require("../packages/slideclone-core/archetypes/diagram-understanding");
 const {
   createRelationshipNativeShell,
   _private: { dominantFlowNodes, validBox }
-} = require("../packages/slideclone-core/relationship-native-shell");
+} = require("../packages/slideclone-core/archetypes/relationship-native-shell");
 const { createVisualAtomNativeShapes } = require("../packages/slideclone-native-engine").loadNativeImageEngine();
 
 const SLIDE = { widthPt: 640, heightPt: 240 };

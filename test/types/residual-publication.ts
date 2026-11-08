@@ -1,4 +1,4 @@
-import { publishResidual } from "../../packages/slideclone-core/residual-publication";
+import { publishResidual } from "../../packages/slideclone-core/scene-plan/residual-publication";
 const source: unknown = "/source.png";
 void publishResidual({ sourceFile: source, outputFile: "/output.png", write: (file: string) => { void file; } });
 // @ts-expect-error Publication requires a writer function.

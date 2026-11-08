@@ -4,9 +4,13 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { types } = require("node:util");
 const { readWorkerSettings, readOcrCheckpointRevision } = require("./worker-settings");
+const { parseConnectorCornerMode } = require('../slideclone-core/routing/source-route-corner-mode');
+const { parseNativeOutputPolicy } = require('../slideclone-core/quality/native-output-policy');
 
 const ENVIRONMENT_KEYS = Object.freeze([
   "OPENXML_BUILDER_EXE", "COMMON_TOOLS_WORKER_CAPABILITIES",
+  "COMMON_TOOLS_IMAGE_CONNECTOR_CORNER_MODE",
+  "COMMON_TOOLS_IMAGE_OUTPUT_POLICY",
   "COMMON_TOOLS_WORKER_POLL_SECONDS", "COMMON_TOOLS_WORKER_ID",
   "COMMON_TOOLS_IMAGE_OCR_CHECKPOINT_REVISION", "COMMON_TOOLS_IMAGE_RAW_OCR_PROFILE",
   "COMMON_TOOLS_IMAGE_RAW_OCR_EXECUTABLE", "COMMON_TOOLS_IMAGE_RAW_OCR_SHA256",
@@ -57,6 +61,8 @@ function createImageWorkerSettings(readers) {
   /** @param {unknown} [input] */
   return function workerSettings(input = process.env) {
     const environment = readImageWorkerEnvironment(input);
+    const connectorCornerMode = parseConnectorCornerMode(environment.COMMON_TOOLS_IMAGE_CONNECTOR_CORNER_MODE ?? 'reroutable-elbow');
+    const outputPolicy = parseNativeOutputPolicy(environment.COMMON_TOOLS_IMAGE_OUTPUT_POLICY);
     const { pollSeconds, workerId } = readWorkerSettings(environment, {
       capability: "image-to-editable",
       capabilityError: "image worker supports only image-to-editable",
@@ -68,7 +74,7 @@ function createImageWorkerSettings(readers) {
       ? readers.readPaddleProfile(environment) : readers.readRawProfile(environment);
     const ocrCheckpointFingerprint = readOcrCheckpointRevision(environment);
     if (ocrCheckpointFingerprint && !rawImageOcrProfile.enabled) throw new Error("OCR checkpoints require an enabled OCR profile");
-    return Object.freeze({ pollSeconds, workerId, builderExecutable, rawImageOcrProfile, ocrCheckpointFingerprint });
+    return Object.freeze({ pollSeconds, workerId, builderExecutable, rawImageOcrProfile, ocrCheckpointFingerprint, connectorCornerMode, outputPolicy });
   };
 }
 

@@ -10,7 +10,7 @@ const {
   buildReconstructionInventory,
   enrichReconstructionContracts,
   validateReconstructionContracts
-} = require("../packages/slideclone-core/reconstruction-contract");
+} = require("../packages/slideclone-core/quality/reconstruction-contract");
 
 function fixture(root) {
   const image = path.join(root, "page.png");

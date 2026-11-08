@@ -16,9 +16,12 @@ function legacySkillScript(relativePath) {
 
 const eslintTargets = [
   "packages/*/*.js",
+  "packages/slideclone-core/**/*.js",
   "packages/*/bin/**/*.js",
   "packages/*/verification/**/*.js",
   "scripts/*.js",
+  "scripts/lib/direct-scene-contract.js",
+  "scripts/lib/common-tools-syntax-check.js",
   legacySkillScript("lib/render-cache-metadata.js"),
   "packages/slideclone-native-engine/scripts/batch-native-audit-summary.js",
   "packages/slideclone-native-engine/scripts/component-asset-manifest.js",
@@ -175,6 +178,7 @@ const eslintTargets = [
   "scripts/lib/office-node*.js",
   legacySkillScript("lib/graphic-crop-materializer.js"),
   "packages/slideclone-native-engine/scripts/lib/powerpoint-roundtrip-evidence.js",
+  "packages/slideclone-native-engine/scripts/lib/powerpoint-shape-targets.js",
   "packages/slideclone-native-engine/scripts/lib/powerpoint-open-evidence.js",
   "packages/slideclone-native-engine/scripts/lib/powerpoint-session-client.js",
   "packages/slideclone-native-engine/scripts/lib/powerpoint-session-broker.js",
