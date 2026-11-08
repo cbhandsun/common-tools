@@ -191,23 +191,16 @@ function connectorNearBox(connector, atom) {
 function detectLowContrastContainerComponents(image, region, bg, masks) {
   const visited = new Uint8Array(region.w * region.h);
   const stack = new Int32Array(region.w * region.h);
+  const predicate = (cx, cy) => isLowContrastContainerPixel(image, cx, cy, bg);
   const components = [];
   for (let ry = 0; ry < region.h; ry += 1) {
     for (let rx = 0; rx < region.w; rx += 1) {
       const localIndex = ry * region.w + rx;
-      const x = region.x + rx;
-      const y = region.y + ry;
-      if (visited[localIndex] || inAnyMask(x, y, masks) || !isLowContrastContainerPixel(image, x, y, bg)) continue;
-      const component = floodFillComponent(image, region, visited, x, y, masks, (candidateX, candidateY) =>
-        isLowContrastContainerPixel(image, candidateX, candidateY, bg), stack
-      );
+      const x = region.x + rx, y = region.y + ry;
+      if (visited[localIndex] || !isLowContrastContainerPixel(image, x, y, bg) || inAnyMask(x, y, masks)) continue;
+      const component = floodFillComponent(image, region, visited, x, y, masks, predicate, stack);
       if (looksLikeLowContrastContainer(component, region)) {
-        components.push({
-          ...component,
-          kind: "native-rect-candidate",
-          shapeHint: "container-card",
-          lowContrastContainer: true
-        });
+        components.push({ ...component, kind: "native-rect-candidate", shapeHint: "container-card", lowContrastContainer: true });
       }
     }
   }
@@ -217,89 +210,81 @@ function detectLowContrastContainerComponents(image, region, bg, masks) {
 function foregroundComponents(image, region, bg, masks) {
   const visited = new Uint8Array(region.w * region.h);
   const stack = new Int32Array(region.w * region.h);
+  const predicate = (cx, cy) => isForegroundPixel(image, cx, cy, bg);
   const components = [];
   for (let ry = 0; ry < region.h; ry += 1) {
     for (let rx = 0; rx < region.w; rx += 1) {
       const localIndex = ry * region.w + rx;
-      const x = region.x + rx;
-      const y = region.y + ry;
-      if (visited[localIndex] || inAnyMask(x, y, masks) || !isForegroundPixel(image, x, y, bg)) continue;
-      components.push(floodFillComponent(image, region, visited, x, y, masks, (candidateX, candidateY) =>
-        isForegroundPixel(image, candidateX, candidateY, bg), stack
-      ));
+      const x = region.x + rx, y = region.y + ry;
+      if (visited[localIndex] || !isForegroundPixel(image, x, y, bg) || inAnyMask(x, y, masks)) continue;
+      components.push(floodFillComponent(image, region, visited, x, y, masks, predicate, stack));
     }
   }
   return components;
 }
 
+function buildProfilesFromStack(stack, pixelCount, region, minX, maxX, minY, maxY) {
+  const rows = new Array(maxY - minY + 1);
+  const cols = new Array(maxX - minX + 1);
+  for (let i = 0; i < pixelCount; i += 1) {
+    const localIndex = stack[i];
+    const cx = region.x + (localIndex % region.w);
+    const cy = region.y + Math.floor(localIndex / region.w);
+    const rIdx = cy - minY;
+    let rStat = rows[rIdx];
+    if (!rStat) { rStat = { y: cy, count: 1, minX: cx, maxX: cx }; rows[rIdx] = rStat; }
+    else { rStat.count += 1; if (cx < rStat.minX) rStat.minX = cx; if (cx > rStat.maxX) rStat.maxX = cx; }
+    const cIdx = cx - minX;
+    let cStat = cols[cIdx];
+    if (!cStat) { cStat = { x: cx, count: 1, minY: cy, maxY: cy }; cols[cIdx] = cStat; }
+    else { cStat.count += 1; if (cy < cStat.minY) cStat.minY = cy; if (cy > cStat.maxY) cStat.maxY = cy; }
+  }
+  return { rowProfile: rows.filter(Boolean), colProfile: cols.filter(Boolean) };
+}
+
 function floodFillComponent(image, region, visited, startX, startY, masks, predicate, stack = new Int32Array(region.w * region.h)) {
   const hasMasks = Array.isArray(masks) && masks.length > 0;
   const startLocalIndex = (startY - region.y) * region.w + (startX - region.x);
-  let stackSize = 1;
+  let head = 0, tail = 1;
   stack[0] = startLocalIndex;
   visited[startLocalIndex] = 1;
-  let minX = startX;
-  let maxX = startX;
-  let minY = startY;
-  let maxY = startY;
-  let pixelCount = 0;
+  let minX = startX, maxX = startX, minY = startY, maxY = startY;
   let sourceForegroundClippedByTextMask = false;
-  let sumR = 0;
-  let sumG = 0;
-  let sumB = 0;
-  const rowStats = new Map();
-  const colStats = new Map();
-  while (stackSize > 0) {
-    const currentLocalIndex = stack[--stackSize];
+  let sumR = 0, sumG = 0, sumB = 0;
+  while (head < tail) {
+    const currentLocalIndex = stack[head++];
     const currentRx = currentLocalIndex % region.w;
     const currentRy = Math.floor(currentLocalIndex / region.w);
-    const cx = region.x + currentRx;
-    const cy = region.y + currentRy;
+    const cx = region.x + currentRx, cy = region.y + currentRy;
     const offset = (cy * image.width + cx) * 4;
-    pixelCount += 1;
-    const stats = rowStats.get(cy) || { count: 0, minX: cx, maxX: cx };
-    stats.count += 1;
-    stats.minX = Math.min(stats.minX, cx);
-    stats.maxX = Math.max(stats.maxX, cx);
-    rowStats.set(cy, stats);
-    const col = colStats.get(cx) || { count: 0, minY: cy, maxY: cy };
-    col.count += 1;
-    col.minY = Math.min(col.minY, cy);
-    col.maxY = Math.max(col.maxY, cy);
-    colStats.set(cx, col);
     sumR += image.rgba[offset];
     sumG += image.rgba[offset + 1];
     sumB += image.rgba[offset + 2];
-    minX = Math.min(minX, cx);
-    maxX = Math.max(maxX, cx);
-    minY = Math.min(minY, cy);
-    maxY = Math.max(maxY, cy);
+    if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
+    if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
     for (let direction = 0; direction < 4; direction += 1) {
       const nextRx = currentRx + (direction === 0 ? 1 : direction === 1 ? -1 : 0);
       const nextRy = currentRy + (direction === 2 ? 1 : direction === 3 ? -1 : 0);
       if (nextRx < 0 || nextRy < 0 || nextRx >= region.w || nextRy >= region.h) continue;
       const nextLocalIndex = nextRy * region.w + nextRx;
-      const nx = region.x + nextRx;
-      const ny = region.y + nextRy;
+      const nx = region.x + nextRx, ny = region.y + nextRy;
+      if (visited[nextLocalIndex] || !predicate(nx, ny)) continue;
       if (hasMasks && inAnyMask(nx, ny, masks)) {
-        sourceForegroundClippedByTextMask ||= predicate(nx, ny);
+        sourceForegroundClippedByTextMask = true;
         continue;
       }
-      if (visited[nextLocalIndex] || !predicate(nx, ny)) continue;
       visited[nextLocalIndex] = 1;
-      stack[stackSize++] = nextLocalIndex;
+      stack[tail++] = nextLocalIndex;
     }
   }
+  const pixelCount = tail;
+  const { rowProfile, colProfile } = buildProfilesFromStack(stack, pixelCount, region, minX, maxX, minY, maxY);
   return {
     box: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 },
     pixelCount,
     ...(sourceForegroundClippedByTextMask ? { sourceForegroundClippedByTextMask: true } : {}),
-    rowProfile: [...rowStats.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([y, stats]) => ({ y, count: stats.count, minX: stats.minX, maxX: stats.maxX })),
-    colProfile: [...colStats.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([x, stats]) => ({ x, count: stats.count, minY: stats.minY, maxY: stats.maxY })),
+    rowProfile,
+    colProfile,
     color: rgbToHex([
       Math.round(sumR / Math.max(1, pixelCount)),
       Math.round(sumG / Math.max(1, pixelCount)),
@@ -320,7 +305,7 @@ function foregroundComponentsBySeedColor(image, region, bg, masks, tolerance = 4
       const localIndex = ry * region.w + rx;
       const x = region.x + rx;
       const y = region.y + ry;
-      if (visited[localIndex] || (hasMasks && inAnyMask(x, y, masks)) || !isForegroundPixel(image, x, y, bg)) continue;
+      if (visited[localIndex] || !isForegroundPixel(image, x, y, bg) || (hasMasks && inAnyMask(x, y, masks))) continue;
       const seedOffset = (y * image.width + x) * 4;
       const seedR = image.rgba[seedOffset];
       const seedG = image.rgba[seedOffset + 1];
@@ -352,11 +337,11 @@ function foregroundComponentsBySeedColor(image, region, bg, masks, tolerance = 4
           const nextLocalIndex = nextRy * region.w + nextRx;
           const nx = region.x + nextRx;
           const ny = region.y + nextRy;
+          if (visited[nextLocalIndex] || !isForegroundPixel(image, nx, ny, bg)) continue;
           if (hasMasks && inAnyMask(nx, ny, masks)) {
-            sourceForegroundClippedByTextMask ||= isForegroundPixel(image, nx, ny, bg);
+            sourceForegroundClippedByTextMask = true;
             continue;
           }
-          if (visited[nextLocalIndex] || !isForegroundPixel(image, nx, ny, bg)) continue;
           const nextOffset = (ny * image.width + nx) * 4;
           const deltaR = image.rgba[nextOffset] - seedR;
           const deltaG = image.rgba[nextOffset + 1] - seedG;
@@ -368,30 +353,14 @@ function foregroundComponentsBySeedColor(image, region, bg, masks, tolerance = 4
       }
       const pixelCount = tail;
       if (pixelCount < 18) continue;
-      const rowStats = new Map();
-      const colStats = new Map();
-      for (let i = 0; i < pixelCount; i += 1) {
-        const currentLocalIndex = stack[i];
-        const cx = region.x + (currentLocalIndex % region.w);
-        const cy = region.y + Math.floor(currentLocalIndex / region.w);
-        const stats = rowStats.get(cy) || { count: 0, minX: cx, maxX: cx };
-        stats.count += 1; stats.minX = Math.min(stats.minX, cx); stats.maxX = Math.max(stats.maxX, cx);
-        rowStats.set(cy, stats);
-        const col = colStats.get(cx) || { count: 0, minY: cy, maxY: cy };
-        col.count += 1; col.minY = Math.min(col.minY, cy); col.maxY = Math.max(col.maxY, cy);
-        colStats.set(cx, col);
-      }
+      const { rowProfile, colProfile } = buildProfilesFromStack(stack, pixelCount, region, minX, maxX, minY, maxY);
       components.push({
         box: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 },
         pixelCount,
         colorSeparated: true,
         ...(sourceForegroundClippedByTextMask ? { sourceForegroundClippedByTextMask: true } : {}),
-        rowProfile: [...rowStats.entries()]
-          .sort((a, b) => a[0] - b[0])
-          .map(([yy, stats]) => ({ y: yy, count: stats.count, minX: stats.minX, maxX: stats.maxX })),
-        colProfile: [...colStats.entries()]
-          .sort((a, b) => a[0] - b[0])
-          .map(([xx, stats]) => ({ x: xx, count: stats.count, minY: stats.minY, maxY: stats.maxY })),
+        rowProfile,
+        colProfile,
         color: rgbToHex([
           Math.round(sumR / Math.max(1, pixelCount)),
           Math.round(sumG / Math.max(1, pixelCount)),

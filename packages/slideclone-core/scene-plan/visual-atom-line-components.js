@@ -20,7 +20,7 @@ function detectHorizontalLineComponents(image, region, bg, masks) {
     let sumG = 0;
     let sumB = 0;
     for (let x = region.x; x < region.x + region.w; x += 1) {
-      if (inAnyMask(x, y, masks) || !isForegroundPixel(image, x, y, bg)) continue;
+      if (!isForegroundPixel(image, x, y, bg) || inAnyMask(x, y, masks)) continue;
       const offset = (y * image.width + x) * 4;
       count += 1;
       minX = minX === null ? x : Math.min(minX, x);
@@ -47,7 +47,7 @@ function detectVerticalLineComponents(image, region, bg, masks) {
     let sumG = 0;
     let sumB = 0;
     for (let y = region.y; y < region.y + region.h; y += 1) {
-      if (inAnyMask(x, y, masks) || !isForegroundPixel(image, x, y, bg)) continue;
+      if (!isForegroundPixel(image, x, y, bg) || inAnyMask(x, y, masks)) continue;
       const offset = (y * image.width + x) * 4;
       count += 1;
       minY = minY === null ? y : Math.min(minY, y);

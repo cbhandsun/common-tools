@@ -94,7 +94,11 @@ function overlapRatio(a = {}, b = {}) {
 }
 
 function inAnyMask(x, y, masks = []) {
-  return masks.some((mask) => x >= mask.x && x < mask.x + mask.w && y >= mask.y && y < mask.y + mask.h);
+  for (let i = 0; i < masks.length; i += 1) {
+    const mask = masks[i];
+    if (x >= mask.x && x < mask.x + mask.w && y >= mask.y && y < mask.y + mask.h) return true;
+  }
+  return false;
 }
 
 function boxesNear(a, b, gap) {

@@ -23,7 +23,7 @@ function restoreResidualNativeFillBackground(source,plans,remainingPixels){
   /** @type {Map<string,Paint>} */const paints=new Map();
   for(const owner of plan.overlaps){
    const fill=owner.fill;
-   if(!fill||Math.max(...fill.map((v,c)=>Math.abs(v-(plan.ink.color[c]??0))))<64)continue;
+   if(!fill||Math.max(Math.abs((fill[0]??0)-(plan.ink.color[0]??0)),Math.abs((fill[1]??0)-(plan.ink.color[1]??0)),Math.abs((fill[2]??0)-(plan.ink.color[2]??0)))<64)continue;
    const key=fill.join(',');let paint=paints.get(key);
    if(!paint){paint={fill,members:new Uint8Array(area),witnessed:false};paints.set(key,paint);}
    if(paints.size>8)break;
@@ -46,7 +46,7 @@ function restoreResidualNativeFillBackground(source,plans,remainingPixels){
      const local=i+dy*bounds.w+dx,pixel=(y+dy)*source.width+x+dx;
      if(!paint.members[local]||glyphs[pixel]){stable=false;break;}
      const offset=pixel*4;samples++;
-     if((source.rgba[offset+3]??0)<240||paint.fill.some((v,c)=>Math.abs(v-(source.rgba[offset+c]??0))>16)){
+     if((source.rgba[offset+3]??0)<240||Math.abs((paint.fill[0]??0)-(source.rgba[offset]??0))>16||Math.abs((paint.fill[1]??0)-(source.rgba[offset+1]??0))>16||Math.abs((paint.fill[2]??0)-(source.rgba[offset+2]??0))>16){
       stable=false;break;
      }
     }
