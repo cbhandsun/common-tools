@@ -567,15 +567,15 @@ function isLinePixel(color) {
 /** @param {RGBA} color */
 function isIconSeed(color) {
   if (color.a < 64) return false;
-  const hsl = rgbToHsl(color);
-  if (hsl.l > 0.82 || hsl.l < 0.18) return false;
-  return hsl.s > 0.22 || hsl.l < 0.58;
+  const max = Math.max(color.r, color.g, color.b) / 255, min = Math.min(color.r, color.g, color.b) / 255, l = (max + min) / 2;
+  if (l > 0.82 || l < 0.18) return false;
+  return l < 0.58 || (max !== min && (l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min)) > 0.22);
 }
 
 /** @param {RGBA} seed @param {RGBA} next */
 function isSimilarIconPixel(seed, next) {
   if (!isIconSeed(next)) return false;
-  return colorDistance(seed, next) <= 55;
+  return (seed.r - next.r) ** 2 + (seed.g - next.g) ** 2 + (seed.b - next.b) ** 2 <= 3025;
 }
 
 /** @param {Box} box @param {Raster} image @param {Slide} slideSize @param {number} paddingPt */

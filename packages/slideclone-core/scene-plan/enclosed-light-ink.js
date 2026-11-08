@@ -71,22 +71,28 @@ function enclosedLightInkColor(input) {
   /** @param {number} i */ const color = i => [rgba[i * 4] ?? 0, rgba[i * 4 + 1] ?? 0, rgba[i * 4 + 2] ?? 0];
   /** @param {number} i */
   const neighbors = i => { const x = i % width, y = Math.floor(i / width); return [x ? i - 1 : -1, x < width - 1 ? i + 1 : -1, y ? i - width : -1, y < height - 1 ? i + width : -1]; };
-  for (let i = 0; i < count; i++) if ((rgba[i * 4 + 3] ?? 0) >= 240 && luminance(color(i)) >= 220) mask[i] = 1;
-  const strokeDistances = squaredSourceStrokeDistances({ width, height, mask });
+  for (let i = 0; i < count; i++) {
+    const o = i * 4;
+    if ((rgba[o + 3] ?? 0) >= 240 && (rgba[o] ?? 0) * .2126 + (rgba[o + 1] ?? 0) * .7152 + (rgba[o + 2] ?? 0) * .0722 >= 220) mask[i] = 1;
+  }
+  /** @type {Float64Array|null} */ let strokeDistances = null;
   /** @type {number[][]} */ const candidates = [];
   for (let seed = 0; seed < count; seed++) {
     if (!mask[seed] || seen[seed]) continue;
     let head = 0, tail = 1, clipped = false, left = width, top = height, right = -1, bottom = -1, maxRadiusSquared = 0;
     queue[0] = seed; seen[seed] = 1;
-    /** @type {number[][]} */ const inkSamples = [];
     while (head < tail) {
       const i = queue[head++] ?? 0, x = i % width, y = Math.floor(i / width);
       clipped ||= x === 0 || y === 0 || x === width - 1 || y === height - 1;
       left = Math.min(left, x); top = Math.min(top, y); right = Math.max(right, x); bottom = Math.max(bottom, y);
-      maxRadiusSquared = Math.max(maxRadiusSquared, strokeDistances[i] ?? 0); inkSamples.push(color(i));
       for (const n of neighbors(i)) if (n >= 0 && mask[n] && !seen[n]) { seen[n] = 1; queue[tail++] = n; }
     }
-    if (clipped || tail < 12 || maxRadiusSquared > (Math.min(right - left + 1, bottom - top + 1) / 4) ** 2) continue;
+    if (clipped || tail < 12) continue;
+    strokeDistances ??= squaredSourceStrokeDistances({ width, height, mask });
+    for (let j = 0; j < tail; j++) maxRadiusSquared = Math.max(maxRadiusSquared, strokeDistances[queue[j] ?? 0] ?? 0);
+    if (maxRadiusSquared > (Math.min(right - left + 1, bottom - top + 1) / 4) ** 2) continue;
+    /** @type {number[][]} */ const inkSamples = [];
+    for (let j = 0; j < tail; j++) inkSamples.push(color(queue[j] ?? 0));
     const ink = coreColor(inkSamples); if (!ink) continue;
     const distance = new Int16Array(count).fill(-1); head = 0; let end = tail;
     for (let j = 0; j < tail; j++) distance[queue[j] ?? 0] = 0;

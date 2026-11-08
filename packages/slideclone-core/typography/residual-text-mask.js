@@ -95,13 +95,14 @@ function supported(x,y,ink,margin) {
   return false;
 }
 /** @param {readonly number[]} a @param {readonly number[]} b */
-function distance(a,b){return Math.max(...a.map((v,i)=>Math.abs(v-(b[i]??0))));}
+function distance(a,b){return Math.max(Math.abs((a[0]??0)-(b[0]??0)),Math.abs((a[1]??0)-(b[1]??0)),Math.abs((a[2]??0)-(b[2]??0)));}
 /** @param {Raster} source @param {number} x @param {number} y @param {readonly number[]} color */
 function stableBackground(source,x,y,color) {
   if(x<1||y<1||x>=source.width-1||y>=source.height-1)return false;
+  const r=color[0]??0,g=color[1]??0,b=color[2]??0,rgba=source.rgba;
   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
-    const offset=((y+dy)*source.width+x+dx)*4;
-    if((source.rgba[offset+3]??0)<64||color.some((v,c)=>Math.abs(v-(source.rgba[offset+c]??0))>16))return false;
+    const o=((y+dy)*source.width+x+dx)*4;
+    if((rgba[o+3]??0)<64||Math.abs(r-(rgba[o]??0))>16||Math.abs(g-(rgba[o+1]??0))>16||Math.abs(b-(rgba[o+2]??0))>16)return false;
   }
   return true;
 }
@@ -110,7 +111,7 @@ function stableBackground(source,x,y,color) {
  * @param {Raster} source @param {Box} bounds @param {TextInk} ink @param {Uint8Array|undefined} exclusion
  * @param {readonly number[]|undefined} [requiredBackground] */
 function backgroundModes(source,bounds,ink,exclusion,requiredBackground) {
-  /** @type {Map<string,Mode>} */ const buckets=new Map();
+  /** @type {Map<number,Mode>} */ const buckets=new Map();
   const isLightInk=Math.min(...ink.color)>=200;
   for(let y=bounds.y;y<bounds.y+bounds.h;y++)for(let x=bounds.x;x<bounds.x+bounds.w;x++) {
     const inPoly=inside(x+.5,y+.5,ink);
@@ -124,7 +125,7 @@ function backgroundModes(source,bounds,ink,exclusion,requiredBackground) {
     if((source.rgba[o+3]??0)<64)continue;
     const color=[source.rgba[o]??0,source.rgba[o+1]??0,source.rgba[o+2]??0];
     if(distance(color,ink.color)<(inPoly?80:64)||!stableBackground(source,x,y,color))continue;
-    const key=color.map(v=>Math.round(v/16)).join(",");
+    const key=(Math.round((color[0]??0)/16)<<10)|(Math.round((color[1]??0)/16)<<5)|Math.round((color[2]??0)/16);
     let mode=buckets.get(key);if(!mode){mode={color:[0,0,0],points:[],count:0};buckets.set(key,mode);}
     mode.count++;for(let c=0;c<3;c++)mode.color[c]=(mode.color[c]??0)+(color[c]??0);
     // Every witness retains its position; the number is bounded by the ROI.
@@ -149,12 +150,13 @@ function backgroundModes(source,bounds,ink,exclusion,requiredBackground) {
 }
 /** @param {readonly number[]} color @param {readonly number[]} foreground @param {readonly number[]} background */
 function mixture(color,foreground,background) {
-  let dot=0,norm=0;
-  for(let c=0;c<3;c++){const delta=(foreground[c]??0)-(background[c]??0);dot+=((color[c]??0)-(background[c]??0))*delta;norm+=delta*delta;}
-  const alpha=norm>0?dot/norm:0;
-  const diffs=color.map((v,c)=>v-((background[c]??0)+alpha*((foreground[c]??0)-(background[c]??0))));
-  const error=Math.max(...diffs.map(Math.abs));
-  const span=Math.max(...diffs)-Math.min(...diffs);
+  const b0=background[0]??0,b1=background[1]??0,b2=background[2]??0;
+  const f0=(foreground[0]??0)-b0,f1=(foreground[1]??0)-b1,f2=(foreground[2]??0)-b2;
+  const c0=(color[0]??0)-b0,c1=(color[1]??0)-b1,c2=(color[2]??0)-b2;
+  const norm=f0*f0+f1*f1+f2*f2,alpha=norm>0?(c0*f0+c1*f1+c2*f2)/norm:0;
+  const d0=c0-alpha*f0,d1=c1-alpha*f1,d2=c2-alpha*f2;
+  const error=Math.max(Math.abs(d0),Math.abs(d1),Math.abs(d2));
+  const span=Math.max(d0,d1,d2)-Math.min(d0,d1,d2);
   return {alpha,error,span};
 }
 /** Produce a source-backed per-pixel plan, never a rectangle owner. Background
@@ -248,7 +250,7 @@ function compileTextMask(sourceValue,boundsValue,inkValue,exclusionValue,maximum
     if(measuredCore||blendSeed)coreSeed[i]=1;
   }
   const conflictingGraphic=conflictingForegroundComponents(foreground,coreSeed,bounds.w);
-  /** @type {Map<string,{color:number[],count:number}>} */const pigments=new Map();
+  /** @type {Map<number,{color:number[],count:number}>} */const pigments=new Map();
   for(let i=0;i<area;i++) {
     const x=bounds.x+i%bounds.w,y=bounds.y+Math.floor(i/bounds.w),o=(y*source.width+x)*4;
     const mode=modes[labels[i]??-1];
@@ -256,7 +258,7 @@ function compileTextMask(sourceValue,boundsValue,inkValue,exclusionValue,maximum
     if(requiredBackground&&distance(mode.color,requiredBackground)>18)continue;
     const color=[source.rgba[o]??0,source.rgba[o+1]??0,source.rgba[o+2]??0];
     if(distance(color,ink.color)>65||distance(color,mode.color)<64)continue;
-    const key=color.map(v=>v>>4).join(',');
+    const key=((color[0]??0)>>4)<<8|((color[1]??0)>>4)<<4|((color[2]??0)>>4);
     let pigment=pigments.get(key);
     if(!pigment){pigment={color:[0,0,0],count:0};pigments.set(key,pigment);}
     pigment.count++;for(let c=0;c<3;c++)pigment.color[c]=(pigment.color[c]??0)+(color[c]??0);

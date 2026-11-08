@@ -325,38 +325,19 @@ function foregroundComponentsBySeedColor(image, region, bg, masks, tolerance = 4
       const seedR = image.rgba[seedOffset];
       const seedG = image.rgba[seedOffset + 1];
       const seedB = image.rgba[seedOffset + 2];
-      let stackSize = 1;
+      let head = 0, tail = 1;
       stack[0] = localIndex;
       visited[localIndex] = 1;
-      let minX = x;
-      let maxX = x;
-      let minY = y;
-      let maxY = y;
-      let pixelCount = 0;
+      let minX = x, maxX = x, minY = y, maxY = y;
       let sourceForegroundClippedByTextMask = false;
-      let sumR = 0;
-      let sumG = 0;
-      let sumB = 0;
-      const rowStats = new Map();
-      const colStats = new Map();
-      while (stackSize > 0) {
-        const currentLocalIndex = stack[--stackSize];
+      let sumR = 0, sumG = 0, sumB = 0;
+      while (head < tail) {
+        const currentLocalIndex = stack[head++];
         const currentRx = currentLocalIndex % region.w;
         const currentRy = Math.floor(currentLocalIndex / region.w);
         const cx = region.x + currentRx;
         const cy = region.y + currentRy;
         const offset = (cy * image.width + cx) * 4;
-        pixelCount += 1;
-        const stats = rowStats.get(cy) || { count: 0, minX: cx, maxX: cx };
-        stats.count += 1;
-        stats.minX = Math.min(stats.minX, cx);
-        stats.maxX = Math.max(stats.maxX, cx);
-        rowStats.set(cy, stats);
-        const col = colStats.get(cx) || { count: 0, minY: cy, maxY: cy };
-        col.count += 1;
-        col.minY = Math.min(col.minY, cy);
-        col.maxY = Math.max(col.maxY, cy);
-        colStats.set(cx, col);
         sumR += image.rgba[offset];
         sumG += image.rgba[offset + 1];
         sumB += image.rgba[offset + 2];
@@ -382,10 +363,24 @@ function foregroundComponentsBySeedColor(image, region, bg, masks, tolerance = 4
           const deltaB = image.rgba[nextOffset + 2] - seedB;
           if (deltaR * deltaR + deltaG * deltaG + deltaB * deltaB > toleranceSquared) continue;
           visited[nextLocalIndex] = 1;
-          stack[stackSize++] = nextLocalIndex;
+          stack[tail++] = nextLocalIndex;
         }
       }
+      const pixelCount = tail;
       if (pixelCount < 18) continue;
+      const rowStats = new Map();
+      const colStats = new Map();
+      for (let i = 0; i < pixelCount; i += 1) {
+        const currentLocalIndex = stack[i];
+        const cx = region.x + (currentLocalIndex % region.w);
+        const cy = region.y + Math.floor(currentLocalIndex / region.w);
+        const stats = rowStats.get(cy) || { count: 0, minX: cx, maxX: cx };
+        stats.count += 1; stats.minX = Math.min(stats.minX, cx); stats.maxX = Math.max(stats.maxX, cx);
+        rowStats.set(cy, stats);
+        const col = colStats.get(cx) || { count: 0, minY: cy, maxY: cy };
+        col.count += 1; col.minY = Math.min(col.minY, cy); col.maxY = Math.max(col.maxY, cy);
+        colStats.set(cx, col);
+      }
       components.push({
         box: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 },
         pixelCount,
